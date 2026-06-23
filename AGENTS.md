@@ -5,7 +5,23 @@ Root source of truth for agent-facing repo instructions. Agent-specific files su
 
 ---
 
-## 1. Project Overview
+## 1. Contract Routing (Read Before Writing Any Code)
+
+Every task maps to binding contracts in `/contracts/`. Read the relevant contract(s) first.
+
+| Task type | Contract |
+|-----------|----------|
+| Compose UI, theme families, `Stratum*` components, colors, typography, previews | `UI_DESIGN.md` |
+| Module structure, navigation, Scaffold, dependency graph, layer rules | `ARCHITECTURE.md` |
+| Kotlin style, Compose conventions, testing | `CODE_STYLE_RULES.md` (when added) |
+| Unit tests, fakes, Robolectric, golden examples | `UNIT_TESTING.md` |
+| Room, repositories, schema | `DATA_LAYER_RULES.md` (when added) |
+
+Never modify files in `/contracts/` without an explicit **"Contract Waiver"** from the user.
+
+---
+
+## 2. Project Overview
 
 **Stratum** is an Android lifting companion: a quietly intelligent training partner that
 handles progression, volume accounting, and long-horizon pattern recognition so lifters
@@ -22,32 +38,35 @@ harness supports them so exploration does not flood the main context.
 
 ---
 
-## 2. Repository Map
+## 3. Repository Map
 
-Stratum is expected to be a modular Android app. Paths will evolve as Android Studio
-scaffolding lands; treat this as the target shape:
+Stratum is a modular Android app. Module layout is defined in `contracts/ARCHITECTURE.md`.
 
 - `app/`: application shell, DI wiring, navigation entrypoints, app resources, signing
-- `core/domain/`: domain models, ports, use cases, and test fixtures
-- `core/data/`: Room, repositories, entity/domain mapping, schemas, background sync if any
+- `core/domain/`: domain models, ports, use cases (JVM module)
+- `core/data/`: Room, repositories, entity/domain mapping, schemas, background work
 - `core/ui/`: shared Compose UI components and themes
-- `feature/*/`: feature modules (workout logging, program, history, settings, insights, etc.)
-- `config/detekt/`: Detekt static analysis config (when added)
+- `core/testing/`: shared fakes, `MainDispatcherRule`, test fixtures (JVM module)
+- `feature/*/`: feature modules (add per journey — see ARCHITECTURE.md §1.2)
+- `config/detekt/`: Detekt config + custom `stratum` rule set wiring
+- `detekt-rules/`: Custom Detekt rules enforcing `UI_DESIGN.md`
 
 Main toolchain: Gradle Kotlin DSL, Kotlin, Jetpack Compose, Room, coroutines/Flow.
 
 ---
 
-## 3. Hard Rules (Non-Negotiable)
+## 4. Hard Rules (Non-Negotiable)
 
-### 3.1 Clean Architecture — Zero Tolerance
+### 4.1 Clean Architecture — Zero Tolerance
+
+See `contracts/ARCHITECTURE.md` for the full module graph and violation response. Summary:
 
 - `:core:domain` contains domain models, ports, use cases, and test fixtures. Keep framework dependencies out of domain APIs.
 - Dependency direction is inward toward `:core:domain`. Data, UI, app, and feature modules may depend on domain; domain must not depend on app, feature, data, or UI modules.
 - Domain models are **never** passed directly to composables. ViewModels map domain → presentation.
 - No `NavController` passed into composables. Navigation via pure callbacks hoisted to the route level.
 
-### 3.2 Android Code — AndroJack Level 3 Protocol
+### 4.2 Android Code — AndroJack Level 3 Protocol
 
 For every Kotlin, XML, or Gradle code block generated:
 
@@ -62,28 +81,42 @@ For every Kotlin, XML, or Gradle code block generated:
 
 3. **FAIL verdict:** Fix internally and re-run validator. Never output code that fails validation.
 
-### 3.3 Test Coverage — Mandatory
+### 4.3 UI Design — Stratum Theme Contract
+
+- Read `contracts/UI_DESIGN.md` before any Compose UI work.
+- Feature modules use `StratumTheme` and `Stratum*` components only — never raw Material chrome.
+- `./gradlew detekt` must pass with `maxIssues: 0` (custom rule set `stratum` in `:detekt-rules`).
+
+**Violation response:** Reply with exactly: `"Contract violation detected in [file]. Request explicit 'Contract Waiver' from user."` Then stop. Do not generate code.
+
+### 4.4 Test Coverage — Mandatory
+
+Read `contracts/UNIT_TESTING.md` before writing any test. Sync golden examples with
+`./scripts/golden-test-examples-download.sh` after clone (reference patterns from Now in Android).
 
 Whenever production code is added or modified (new classes, public functions, logic in
 `:core:domain`, `:core:data`, ViewModels, repositories, mappers, or use cases):
 
-- Write or extend unit tests in the matching `src/test/kotlin` source set using JUnit 5 + Turbine (for Flow) + MockK.
+- Write or extend tests in the matching `src/test/kotlin` source set using **JUnit 5 + Turbine + fakes**.
+- Use fakes from `:core:testing` for Stratum-owned ports — **not MockK** (Detekt enforced).
+- MockK is allowed only for third-party SDK boundaries with an explicit suppress and comment.
+- Copy structure from the relevant file in `golden-test-examples/` (see `UNIT_TESTING.md` §4).
 - Tests must pass before declaring work complete.
 - Trivial styling-only or preview-only changes are exempt.
 
-### 3.4 Schema Lock
+### 4.5 Schema Lock
 
 **Never** invent new database tables or columns for transient UI state (e.g., `is_loading`,
 `is_editing`). Database schema changes require explicit developer authorization.
 
-### 3.5 Intelligence — On-Device First
+### 4.6 Intelligence — On-Device First
 
 Prioritize on-device deterministic engines for progression, volume accounting, and session
 construction. Use on-device LLM only for high-judgment, long-horizon, or natural-language
 moments described in the product vision. Keep deterministic and LLM responsibilities clearly
 separated.
 
-### 3.6 Privacy And Identity
+### 4.7 Privacy And Identity
 
 - Do not commit real names, personal emails, or Brown Town / LiftLab identifiers.
 - Use `com.stratum` package namespace consistently.
@@ -91,17 +124,19 @@ separated.
 
 ---
 
-## 4. Scoped Commands
+## 5. Scoped Commands
 
 Prefer the narrowest command that covers the changed area (adjust module names once the
 Gradle project exists):
 
 - App compile: `./gradlew :app:assembleDebug`
 - Single module compile: `./gradlew :core:data:assembleDebug`
-- Single module tests: `./gradlew :core:domain:testDebugUnitTest`
-- Full unit tests: `./gradlew testDebugUnitTest`
+- Single module tests (domain): `./gradlew :core:domain:test`
+- Single module tests (Android libs): `./gradlew :core:data:testDebugUnitTest`
+- Full unit tests: `./gradlew testDebugUnitTest` and `./gradlew :core:domain:test`
+- Golden examples sync: `./scripts/golden-test-examples-download.sh`
 - Style: `./gradlew ktlintCheck`
-- Static analysis: `./gradlew detekt`
+- Static analysis: `./gradlew detekt` (required — `maxIssues: 0`; includes `stratum` UI import rules)
 - Room/KSP smoke: `./gradlew :app:kspDebugKotlin`
 
 Before merge or a large cross-module change, run the CI-aligned checks for touched areas:
@@ -110,7 +145,7 @@ Before merge or a large cross-module change, run the CI-aligned checks for touch
 
 ---
 
-## 5. Context Noise And Generated Code
+## 6. Context Noise And Generated Code
 
 Do not inspect or edit these during normal tasks unless the task explicitly targets them:
 
@@ -120,7 +155,7 @@ Do not inspect or edit these during normal tasks unless the task explicitly targ
 
 ---
 
-## 6. Code Intelligence Setup
+## 7. Code Intelligence Setup
 
 - Android/Kotlin: import the root Gradle project in **Android Studio**. Keep Studio open
   during agent sessions so `android studio` bridge commands work when available.
@@ -130,7 +165,7 @@ Do not inspect or edit these during normal tasks unless the task explicitly targ
 
 ---
 
-## 7. Tool Priority (MCP and Android CLI)
+## 8. Tool Priority (MCP and Android CLI)
 
 Before any Android/Kotlin task, check MCP tools **and** whether Android Studio bridge
 commands are available.
@@ -158,7 +193,7 @@ commands are available.
 
 **Project identifier:** `--project="Stratum"` when multiple projects could be open.
 
-**AndroJack vs Android CLI:** AndroJack validates **generated** code (§3.2). Android CLI
+**AndroJack vs Android CLI:** AndroJack validates **generated** code (§4.2). Android CLI
 queries the **running IDE** and devices. Use both; neither replaces the other.
 
 If `android studio check` reports no running Studio, continue with Gradle/tests and note
@@ -166,23 +201,23 @@ that bridge commands were skipped.
 
 ---
 
-## 8. Executable Validation Before Completion
+## 9. Executable Validation Before Completion
 
 Before declaring work complete, run the narrowest relevant validations:
 
-- **Architecture / Domain:** `./gradlew :core:domain:assembleDebug`
+- **Architecture / Domain:** `./gradlew :core:domain:test`
 - **App compilation:** `./gradlew :app:assembleDebug`
 - **Data layer:** `./gradlew :core:data:assembleDebug` + `./gradlew :app:kspDebugKotlin`
 - **Tests:** `./gradlew testDebugUnitTest`
 - **Style:** `./gradlew ktlintCheck`
-- **Static analysis:** `./gradlew detekt` (required when Detekt is configured — must pass before completion)
+- **Static analysis:** `./gradlew detekt` (required — `maxIssues: 0`; must pass before completion)
 
 Only run checks relevant to what changed during iteration, but run the full affected unit
 test set for logic changes.
 
 ---
 
-## 9. Maintenance
+## 10. Maintenance
 
 Repo maintainers own this file. Review every 3–6 months:
 
