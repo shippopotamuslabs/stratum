@@ -1,22 +1,27 @@
 # Gradle / Android
 .gradle/
+**/.gradle/
 build/
 **/build/
 .kotlin/
+**/.kotlin/
 .cxx/
+**/.cxx/
 .externalNativeBuild/
+**/.externalNativeBuild/
 local.properties
-*.iml
-.idea/caches/
-.idea/libraries/
-.idea/modules.xml
-.idea/navEditor.xml
-.idea/assetWizardSettings.xml
 captures/
 *.apk
 *.aab
 *.ap_
 *.dex
+
+# IDE
+*.iml
+.idea/
+
+# Golden test references (Now in Android — sync via scripts/golden-test-examples-download.sh)
+golden-test-examples/
 
 # Secrets
 *.jks
