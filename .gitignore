@@ -1,0 +1,34 @@
+# Gradle / Android
+.gradle/
+build/
+**/build/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+local.properties
+*.iml
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Secrets
+*.jks
+*.keystore
+google-services.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / scratch
+*.log
+test_output.txt
+build_output.txt
+lint_output.txt
