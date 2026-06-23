@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
     alias(libs.plugins.apter.robolectric.junit5)
 }
 
@@ -36,8 +38,10 @@ android {
     }
 }
 
-// Room + KSP: add `kotlin.ksp` plugin and room deps when the first @Database lands.
-// Match KSP version to Kotlin per https://github.com/google/ksp/releases
+// Room schema export config — export schemas under core/data/schemas/ for golden migrations.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
 
 dependencies {
     implementation(project(":core:domain"))
@@ -45,6 +49,12 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    ksp(libs.kotlin.metadata.jvm)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test.junit5)
