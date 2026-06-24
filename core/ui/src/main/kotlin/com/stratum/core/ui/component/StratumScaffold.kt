@@ -9,12 +9,14 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 @Composable
 fun StratumScaffold(
     modifier: Modifier = Modifier,
+    topBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
         modifier = modifier,
         containerColor = StratumThemeAccessor.colors.surfaceBase,
         contentColor = StratumThemeAccessor.colors.textPrimary,
+        topBar = topBar,
         content = content,
     )
 }

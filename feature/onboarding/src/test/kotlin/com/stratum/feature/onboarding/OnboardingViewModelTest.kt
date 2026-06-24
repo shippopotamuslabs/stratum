@@ -230,6 +230,19 @@ class OnboardingViewModelTest {
         }
 
         @Test
+        @DisplayName("Given a weekday toggled ON, then OFF, then ON again then it is selected")
+        fun weekdayToggleCycleWorks() = runTest {
+            subject.onWeekdayToggled("Mon")
+            subject.onWeekdayToggled("Mon")
+            subject.onWeekdayToggled("Mon")
+
+            subject.uiState.test {
+                assertTrue(awaitItem().scheduleDraft.selectedWeekdays.contains("Mon"))
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
         @DisplayName("Given a complete schedule when next() then step advances and persists")
         fun completeScheduleNextAdvancesAndPersists() = runTest {
             subject.onWeekdayToggled("Mon")
@@ -321,6 +334,19 @@ class OnboardingViewModelTest {
 
             subject.uiState.test {
                 assertFalse(awaitItem().specializationDraft.selectedMuscleLabels.contains("Chest"))
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a muscle toggled ON, then OFF, then ON again then it is selected")
+        fun muscleToggleCycleWorks() = runTest {
+            subject.onMuscleToggled("Chest")
+            subject.onMuscleToggled("Chest")
+            subject.onMuscleToggled("Chest")
+
+            subject.uiState.test {
+                assertTrue(awaitItem().specializationDraft.selectedMuscleLabels.contains("Chest"))
                 cancelAndIgnoreRemainingEvents()
             }
         }

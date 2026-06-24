@@ -130,10 +130,32 @@ class OnboardingViewModel @Inject constructor(
     fun onWeekdayToggled(shortLabel: String) {
         val day = Weekday.entries.firstOrNull { it.toShortLabel() == shortLabel } ?: return
         val current = effectiveProfile.value.weekdays
-        edits.value = if (day in current) {
-            edits.value.copy(weekdaysRemoved = edits.value.weekdaysRemoved + day)
+        val isCurrentlySelected = day in current
+        val persisted = state.value.profile?.weekdays ?: emptySet()
+        val isPersisted = day in persisted
+
+        edits.value = if (isCurrentlySelected) {
+            if (isPersisted) {
+                edits.value.copy(
+                    weekdaysRemoved = edits.value.weekdaysRemoved + day,
+                    weekdaysAdded = edits.value.weekdaysAdded - day
+                )
+            } else {
+                edits.value.copy(
+                    weekdaysAdded = edits.value.weekdaysAdded - day
+                )
+            }
         } else {
-            edits.value.copy(weekdaysAdded = edits.value.weekdaysAdded + day)
+            if (isPersisted) {
+                edits.value.copy(
+                    weekdaysRemoved = edits.value.weekdaysRemoved - day
+                )
+            } else {
+                edits.value.copy(
+                    weekdaysAdded = edits.value.weekdaysAdded + day,
+                    weekdaysRemoved = edits.value.weekdaysRemoved - day
+                )
+            }
         }
     }
 
@@ -155,12 +177,33 @@ class OnboardingViewModel @Inject constructor(
     fun onMuscleToggled(label: String) {
         val muscle = muscleGroupFromLabel(label) ?: return
         val current = effectiveSpecialization.value
-        specializationEdits.value =
-            if (muscle in current.specializedMuscles) {
-                specializationEdits.value.copy(removed = specializationEdits.value.removed + muscle)
+        val isCurrentlySelected = muscle in current.specializedMuscles
+        val persisted = specializationState.value
+        val isPersisted = muscle in persisted.specializedMuscles
+
+        specializationEdits.value = if (isCurrentlySelected) {
+            if (isPersisted) {
+                specializationEdits.value.copy(
+                    removed = specializationEdits.value.removed + muscle,
+                    added = specializationEdits.value.added - muscle
+                )
             } else {
-                specializationEdits.value.copy(added = specializationEdits.value.added + muscle)
+                specializationEdits.value.copy(
+                    added = specializationEdits.value.added - muscle
+                )
             }
+        } else {
+            if (isPersisted) {
+                specializationEdits.value.copy(
+                    removed = specializationEdits.value.removed - muscle
+                )
+            } else {
+                specializationEdits.value.copy(
+                    added = specializationEdits.value.added + muscle,
+                    removed = specializationEdits.value.removed - muscle
+                )
+            }
+        }
     }
 
     // --- Navigation -------------------------------------------------------------

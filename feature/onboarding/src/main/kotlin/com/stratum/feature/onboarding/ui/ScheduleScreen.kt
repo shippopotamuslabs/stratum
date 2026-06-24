@@ -41,8 +41,6 @@ fun ScheduleScreen(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        StratumText(text = "Desired Weekly Schedule", style = StratumThemeAccessor.typography.titleLarge)
-
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             StratumText(text = "Training days", style = StratumThemeAccessor.typography.bodyLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

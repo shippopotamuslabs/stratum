@@ -7,8 +7,7 @@ import com.stratum.domain.onboarding.SpecializationPreference
 /**
  * Maps the domain [SpecializationPreference] to the UI-shaped [SpecializationDraftUi] and
  * back. Composables only ever see [SpecializationDraftUi] (ARCHITECTURE.md §4.3). Also owns
- * the muscle display labels, the screen section grouping, and the static antagonist-pair
- * advisory hints.
+ * the muscle display labels, and the screen section grouping.
  */
 internal fun SpecializationPreference.toSpecializationDraft(): SpecializationDraftUi =
     SpecializationDraftUi(
@@ -66,26 +65,3 @@ internal val SPECIALIZATION_SECTIONS: List<SpecializationSection> = listOf(
         listOf(MuscleGroup.Quad, MuscleGroup.Hamstring, MuscleGroup.Glute, MuscleGroup.Calf, MuscleGroup.LowerBack),
     ),
 )
-
-/** Antagonist pairs used for advisory coaching (never blocks). */
-private val ANTAGONIST_PAIRS: List<Pair<MuscleGroup, MuscleGroup>> = listOf(
-    MuscleGroup.Chest to MuscleGroup.Back,
-    MuscleGroup.Quad to MuscleGroup.Hamstring,
-    MuscleGroup.Bicep to MuscleGroup.Tricep,
-    MuscleGroup.AnteriorDeltoid to MuscleGroup.PosteriorDeltoid,
-)
-
-/**
- * The first antagonist hint that applies when exactly one side of a pair is selected, or
- * `null`. Advisory only — OS-3 never blocks on push/pull balance (that is an OS-6
- * volume-distribution concern).
- */
-internal fun antagonistHintFor(selected: Set<MuscleGroup>): String? {
-    for ((a, b) in ANTAGONIST_PAIRS) {
-        val hasA = a in selected
-        val hasB = b in selected
-        if (hasA && !hasB) return "Pairing ${a.toDisplayLabel()} with ${b.toDisplayLabel()} helps keep joints balanced."
-        if (hasB && !hasA) return "Pairing ${b.toDisplayLabel()} with ${a.toDisplayLabel()} helps keep joints balanced."
-    }
-    return null
-}
