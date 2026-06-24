@@ -105,9 +105,7 @@ Do **not** block OS-1–OS-6 on LLM. Define **ports** (`ProgramGeneratorPort`, `
   muscle, so the qualifier is redundant.
 - **No push/pull hard-block at selection time.** Push/pull (antagonist) balance is a
   *volume-distribution* concern handled at program generation (OS-6), where per-muscle
-  weekly-set targets live. OS-3 shows **advisory** antagonist hints (chest/back, quads/hams,
-  biceps/triceps, front/rear delts) when one side of a pair is selected — it never blocks
-  Next.
+  weekly-set targets live.
 - The muscle enum is named **`MuscleGroup`** (not the LiftLab `VolumeType` nor the earlier
   `VolumeMuscle` draft). See §10.
 
@@ -241,7 +239,7 @@ you (maintainer) confirm in the PR or issue, then agent implements.
 
 - Skip → empty specialization stored (valid)
 - Over-cap → blocked (chip-disable + inline coaching; cap enforced in domain too)
-- Advisory antagonist hints visible (UI_DESIGN compliant); never blocks
+- Cap of 3 enforced; selection doesn't block Next (skip is valid)
 
 ---
 

@@ -5,6 +5,7 @@ import android.graphics.Path as AndroidPath
 import android.graphics.RectF
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,11 +26,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.PathParser
 import com.stratum.core.ui.component.musclepicker.BODY_PATHS_BACK
 import com.stratum.core.ui.component.musclepicker.BODY_PATHS_FRONT
@@ -100,7 +104,16 @@ fun StratumMusclePicker(
 
     val regions = remember(view) { if (view == BodyView.Front) BODY_PATHS_FRONT else BODY_PATHS_BACK }
 
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val configuration = LocalConfiguration.current
+    val diagramMaxHeight = remember(configuration) {
+        (configuration.screenHeightDp * 0.45f).dp
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         BodyCanvas(
             regions = regions,
             selectedMuscleLabels = selectedMuscleLabels,
@@ -112,7 +125,8 @@ fun StratumMusclePicker(
                 }
             },
             modifier = Modifier
-                .fillMaxWidth()
+                // Set explicit height and aspect ratio constraints to prevent layout conflicts.
+                .height(diagramMaxHeight)
                 .aspectRatio(BODY_ASPECT_RATIO)
                 .semantics { contentDescription = "Body map, ${view.name.lowercase()} view" },
         )
@@ -120,11 +134,11 @@ fun StratumMusclePicker(
         FlipControl(view = view, onFlip = { deltoidPickerOpen = false; view = it })
 
         if (deltoidPickerOpen) {
-            DeltoidSubPicker(
+            DeltoidSubPickerDialog(
                 selectedLabels = selectedMuscleLabels,
                 enabled = enabled,
                 onToggle = onMuscleToggled,
-                onDone = { deltoidPickerOpen = false },
+                onDismiss = { deltoidPickerOpen = false },
             )
         }
     }
@@ -138,6 +152,8 @@ fun StratumMusclePicker(
  */
 private const val BODY_ASPECT_RATIO = 0.50f
 
+
+
 @Composable
 private fun BodyCanvas(
     regions: List<BodyRegion>,
@@ -148,7 +164,6 @@ private fun BodyCanvas(
 ) {
     val density = LocalDensity.current
     val accent = StratumThemeAccessor.colors.accent
-    val accentMuted = StratumThemeAccessor.colors.accentMuted
     val surfaceRaised = StratumThemeAccessor.colors.surfaceRaised
     val surfaceSunken = StratumThemeAccessor.colors.surfaceSunken
     val borderSubtle = StratumThemeAccessor.colors.borderSubtle
@@ -206,12 +221,13 @@ private fun BodyCanvas(
         val canvas = drawContext.canvas.nativeCanvas
         for (region in parsedRegions) {
             val isSelected = isRegionSelected(region.target, selectedMuscleLabels)
-            val isPartial = region.target is BodyTarget.DeltoidRegion &&
-                selectedDeltoidCount(selectedMuscleLabels) in 1..2
+            val deltoidCount = if (region.target is BodyTarget.DeltoidRegion) {
+                selectedDeltoidCount(selectedMuscleLabels)
+            } else 0
             val fill = when {
                 isSelected -> accent
-                isPartial -> accentMuted
-                !enabled -> surfaceSunken
+                deltoidCount == 1 -> accent.copy(alpha = 0.35f)
+                deltoidCount == 2 -> accent.copy(alpha = 0.70f)
                 else -> surfaceRaised
             }.toArgb()
             fillPaint.color = fill
@@ -235,44 +251,83 @@ private fun isRegionSelected(target: BodyTarget, selected: Set<String>): Boolean
 private fun selectedDeltoidCount(selected: Set<String>): Int =
     DELTOID_LABELS.count { (_, label) -> label in selected }
 
+/**
+ * Segmented front/back view toggle. Renders one [StratumFilterChip] per view; the active view is
+ * shown selected. A segmented control is more discoverable than a single "Show other" button
+ * because it communicates *both* that a second view exists and which one is currently shown.
+ */
 @Composable
 private fun FlipControl(view: BodyView, onFlip: (BodyView) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        val other = if (view == BodyView.Front) BodyView.Back else BodyView.Front
-        StratumButton(text = "Show ${other.name.lowercase()}", onClick = { onFlip(other) })
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+    ) {
+        BodyView.entries.forEach { option ->
+            val isSelected = option == view
+            StratumFilterChip(
+                label = option.name,
+                selected = isSelected,
+                onSelectedChange = { onFlip(option) },
+                modifier = Modifier.semantics {
+                    contentDescription = "Show ${option.name.lowercase()} view" +
+                        if (isSelected) ", current view" else ""
+                },
+            )
+        }
     }
 }
 
 @Composable
-private fun DeltoidSubPicker(
+private fun DeltoidSubPickerDialog(
     selectedLabels: Set<String>,
     enabled: Boolean,
     onToggle: (String) -> Unit,
-    onDone: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth().background(StratumThemeAccessor.colors.surfaceBase).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            DELTOID_LABELS.forEach { (_, label) ->
-                val isSelected = label in selectedLabels
-                StratumFilterChip(
-                    label = label,
-                    selected = isSelected,
-                    enabled = enabled || isSelected,
-                    onSelectedChange = { onToggle(label) },
-                    modifier = Modifier.semantics {
-                        contentDescription = "$label, ${if (isSelected) "selected" else "not selected"}"
-                    },
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .background(
+                    color = StratumThemeAccessor.colors.surfaceRaised,
+                    shape = StratumThemeAccessor.shapes.panel,
                 )
+                .border(
+                    width = StratumThemeAccessor.shapes.borderWidth,
+                    color = StratumThemeAccessor.colors.borderSubtle,
+                    shape = StratumThemeAccessor.shapes.panel,
+                )
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            StratumText(
+                text = "Select Shoulder Focus",
+                style = StratumThemeAccessor.typography.titleLarge,
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                DELTOID_LABELS.forEach { (_, label) ->
+                    val isSelected = label in selectedLabels
+                    StratumFilterChip(
+                        label = label,
+                        selected = isSelected,
+                        enabled = enabled || isSelected,
+                        onSelectedChange = { onToggle(label) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics {
+                                contentDescription = "$label, ${if (isSelected) "selected" else "not selected"}"
+                            },
+                    )
+                }
             }
-        }
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-            StratumButton(text = "Done", onClick = onDone)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                StratumButton(text = "Done", onClick = onDismiss)
+            }
         }
     }
 }

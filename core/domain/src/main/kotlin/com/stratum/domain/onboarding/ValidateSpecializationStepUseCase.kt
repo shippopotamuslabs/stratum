@@ -12,8 +12,7 @@ import javax.inject.Inject
  * specialization blocks target 1–3 muscles while the rest sit at maintenance.
  *
  * Hard push/pull balance is **not** enforced here — that is a volume-distribution concern
- * handled at program generation (OS-6), where per-muscle weekly-set targets live. OS-3 shows
- * advisory antagonist hints in the UI but never blocks on them.
+ * handled at program generation (OS-6), where per-muscle weekly-set targets live.
  */
 class ValidateSpecializationStepUseCase @Inject constructor() {
     operator fun invoke(preference: SpecializationPreference): SpecializationValidationResult {
