@@ -2,9 +2,19 @@ package com.stratum.feature.onboarding
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
+import com.stratum.domain.lift.ApplyGymPresetUseCase
+import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.ObserveSelectedPresetUseCase
+import com.stratum.domain.lift.SetSelectedPresetUseCase
+import com.stratum.domain.lift.ValidateGymLiftsStepUseCase
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetOnboardingStateUseCase
 import com.stratum.domain.onboarding.LastTrainedBucket
@@ -26,6 +36,7 @@ import com.stratum.domain.onboarding.Weekday
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -39,6 +50,7 @@ class OnboardingViewModelTest {
     private val fakeRepository = FakeOnboardingRepository()
     private val fakeProfileRepository = FakeUserTrainingProfileRepository()
     private val fakeSpecializationRepository = FakeSpecializationPreferenceRepository()
+    private val fakeLiftRepository = FakeLiftRepository()
     private lateinit var subject: OnboardingViewModel
 
     @BeforeEach
@@ -48,6 +60,8 @@ class OnboardingViewModelTest {
         )
         fakeProfileRepository.seed(null)
         fakeSpecializationRepository.seed(SpecializationPreference.Empty)
+        fakeLiftRepository.seedLifts(emptyList())
+        fakeLiftRepository.seedPreset(null)
         subject = buildViewModel()
     }
 
@@ -60,10 +74,15 @@ class OnboardingViewModelTest {
         updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
         observeSpecialization = ObserveSpecializationUseCase(fakeSpecializationRepository),
         updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
+        observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
+        observeSelectedPreset = ObserveSelectedPresetUseCase(fakeLiftRepository),
+        applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),
+        setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository),
         completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
         validateProfileStep = ValidateProfileStepUseCase(),
         validateScheduleStep = ValidateScheduleStepUseCase(),
         validateSpecializationStep = ValidateSpecializationStepUseCase(),
+        validateGymLiftsStep = ValidateGymLiftsStepUseCase(),
     )
 
     @Nested
@@ -425,4 +444,168 @@ class OnboardingViewModelTest {
             assertEquals(OnboardingStep.Schedule, fakeRepository.current.currentStep)
         }
     }
+
+    @Nested
+    @DisplayName("OS-4 gym & lifts step")
+    inner class GymLiftsStep {
+
+        @BeforeEach
+        fun seedGymLiftsStep() {
+            fakeRepository.seed(
+                OnboardingProgress(OnboardingStep.GymAndLifts, startedAt = 0L, completedAt = null),
+            )
+            subject = buildViewModel()
+        }
+
+        @Test
+        @DisplayName("Given a preset when selected then it is reflected in the draft")
+        fun presetSelectionReflectedInDraft() = runTest {
+            fakeLiftRepository.seedLifts(
+                listOf(
+                    aLift("bench-press", tags = setOf(GymPreset.CommercialGym), enabled = false),
+                    aLift("pull-up", tags = setOf(GymPreset.GarageGym), enabled = false),
+                ),
+            )
+            subject = buildViewModel()
+
+            subject.onPresetSelected(GymPreset.CommercialGym.displayName)
+
+            subject.uiState.test {
+                val draft = awaitItem().gymLiftsDraft
+                assertEquals(GymPreset.CommercialGym.displayName, draft.selectedPresetLabel)
+                assertTrue(draft.isValid)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a preset selected when a different preset is selected then the draft switches")
+        fun switchingPresetsUpdatesDraft() = runTest {
+            fakeLiftRepository.seedLifts(
+                listOf(
+                    aLift("bench-press", tags = setOf(GymPreset.CommercialGym), enabled = false),
+                    aLift("pull-up", tags = setOf(GymPreset.GarageGym), enabled = false),
+                ),
+            )
+            subject = buildViewModel()
+
+            subject.onPresetSelected(GymPreset.CommercialGym.displayName)
+            subject.onPresetSelected(GymPreset.GarageGym.displayName)
+
+            subject.uiState.test {
+                val draft = awaitItem().gymLiftsDraft
+                assertEquals(GymPreset.GarageGym.displayName, draft.selectedPresetLabel)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a preset selected when deselected then the draft becomes invalid")
+        fun deselectingPresetMakesDraftInvalid() = runTest {
+            fakeLiftRepository.seedLifts(
+                listOf(aLift("squat", tags = setOf(GymPreset.CommercialGym), enabled = false)),
+            )
+            subject = buildViewModel()
+            subject.onPresetSelected(GymPreset.CommercialGym.displayName)
+            subject.onPresetSelected(null)
+
+            subject.uiState.test {
+                val draft = awaitItem().gymLiftsDraft
+                assertNull(draft.selectedPresetLabel)
+                assertFalse(draft.isValid)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a preset when selected then its tagged lifts are enabled in the repository")
+        fun presetSelectionEnablesTaggedLifts() = runTest {
+            fakeLiftRepository.seedLifts(
+                listOf(
+                    aLift("bench-press", tags = setOf(GymPreset.CommercialGym), enabled = false),
+                    aLift("pull-up", tags = setOf(GymPreset.GarageGym), enabled = false),
+                ),
+            )
+            subject = buildViewModel()
+
+            subject.onPresetSelected(GymPreset.CommercialGym.displayName)
+
+            val lifts = fakeLiftRepository.currentLifts
+            assertTrue(lifts.first { it.id.value == "bench-press" }.enabled)
+            assertFalse(lifts.first { it.id.value == "pull-up" }.enabled)
+        }
+
+        @Test
+        @DisplayName("Given errors shown when a preset is selected then the error clears")
+        fun presetSelectionClearsError() = runTest {
+            fakeLiftRepository.seedLifts(
+                listOf(aLift("squat", tags = setOf(GymPreset.CommercialGym), enabled = false)),
+            )
+            subject = buildViewModel()
+            subject.next() // triggers error state
+
+            subject.uiState.test {
+                assertTrue(awaitItem().gymLiftsDraft.noPresetError != null)
+                subject.onPresetSelected(GymPreset.CommercialGym.displayName)
+                // After selecting a preset, the error clears because isValid becomes true.
+                // Note: showErrors is only reset on successful next(), but the error condition
+                // itself is gated on isValid, which is now true.
+                val draft = awaitItem().gymLiftsDraft
+                assertNull(draft.noPresetError)
+                assertTrue(draft.isValid)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given no preset selected when next() then it is blocked and errors show")
+        fun nextBlockedWhenNoPresetSelected() = runTest {
+            fakeLiftRepository.seedLifts(listOf(aLift("squat", enabled = false)))
+            subject = buildViewModel()
+
+            subject.next()
+
+            subject.uiState.test {
+                val state = awaitItem()
+                assertEquals(OnboardingStep.GymAndLifts, state.step)
+                assertTrue(state.gymLiftsDraft.noPresetError != null)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a preset with enabled lifts when next() then it advances to Review")
+        fun nextAdvancesAfterPresetSelection() = runTest {
+            fakeLiftRepository.seedLifts(
+                listOf(aLift("squat", tags = setOf(GymPreset.CommercialGym), enabled = false)),
+            )
+            subject = buildViewModel()
+            subject.onPresetSelected(GymPreset.CommercialGym.displayName)
+
+            subject.uiState.test {
+                assertEquals(OnboardingStep.GymAndLifts, awaitItem().step)
+                subject.next()
+                assertEquals(OnboardingStep.Review, awaitItem().step)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(OnboardingStep.Review, fakeRepository.current.currentStep)
+        }
+    }
+
+    /** Builds a minimal domain [Lift] for GymLiftsStep tests. */
+    private fun aLift(
+        slug: String,
+        tags: Set<GymPreset> = emptySet(),
+        enabled: Boolean = false,
+    ): Lift = Lift(
+        id = LiftId(slug),
+        name = slug.replace('-', ' ').replaceFirstChar { it.uppercase() },
+        movementPattern = MovementPattern.LegPush,
+        primaryMuscles = setOf(MuscleGroup.Quad),
+        secondaryMuscles = emptySet(),
+        allowWeightChangeBetweenSets = false,
+        incrementTiers = emptyList(),
+        presetTags = tags,
+        enabled = enabled,
+    )
 }

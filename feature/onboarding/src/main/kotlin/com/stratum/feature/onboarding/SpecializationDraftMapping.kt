@@ -30,6 +30,10 @@ internal fun MuscleGroup.toDisplayLabel(): String = when (this) {
     MuscleGroup.Forearm -> "Forearms"
     MuscleGroup.Ab -> "Abs"
     MuscleGroup.LowerBack -> "Lower Back"
+    // Volume-only muscles (OS-4b): labels exist so lift muscle summaries round-trip, but these
+    // are intentionally absent from SPECIALIZATION_SECTIONS — not offered for specialization.
+    MuscleGroup.Abductor -> "Abductors"
+    MuscleGroup.Adductor -> "Adductors"
 }
 
 internal fun muscleGroupFromLabel(label: String): MuscleGroup? =
