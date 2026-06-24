@@ -30,6 +30,10 @@ style:
   excludes:
     - '**/test/**'
     - '**/androidTest/**'
+  UnusedPrivateMember:
+    # @Composable @Preview functions are consumed by tooling, not called directly.
+    excludes:
+      - '**/*Preview.kt'
   MaxLineLength:
     maxLineLength: 140
     excludeCommentStatements: true
