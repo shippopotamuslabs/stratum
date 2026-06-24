@@ -23,6 +23,8 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingStep
+import com.stratum.feature.onboarding.ui.ProfileScreen
+import com.stratum.feature.onboarding.ui.ScheduleScreen
 import com.stratum.feature.onboarding.ui.WelcomeScreen
 
 /**
@@ -47,6 +49,11 @@ fun OnboardingRoute(
         onNext = viewModel::next,
         onBack = viewModel::back,
         onComplete = viewModel::complete,
+        onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
+        onLastTrainedSelected = viewModel::onLastTrainedSelected,
+        onWeekdayToggled = viewModel::onWeekdayToggled,
+        onSessionPresetSelected = viewModel::onSessionPresetSelected,
+        onCustomSessionChange = viewModel::onCustomSessionChange,
         modifier = modifier,
     )
 }
@@ -57,6 +64,11 @@ private fun OnboardingWizard(
     onNext: () -> Unit,
     onBack: () -> Unit,
     onComplete: () -> Unit,
+    onTrainingAgeSelected: (String?) -> Unit,
+    onLastTrainedSelected: (String?) -> Unit,
+    onWeekdayToggled: (String) -> Unit,
+    onSessionPresetSelected: (String?) -> Unit,
+    onCustomSessionChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(modifier = modifier.fillMaxSize()) { padding ->
@@ -66,8 +78,17 @@ private fun OnboardingWizard(
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (state.step) {
                     OnboardingStep.Welcome -> WelcomeScreen()
-                    OnboardingStep.Profile,
-                    OnboardingStep.Schedule,
+                    OnboardingStep.Profile -> ProfileScreen(
+                        draft = state.profileDraft,
+                        onTrainingAgeSelected = onTrainingAgeSelected,
+                        onLastTrainedSelected = onLastTrainedSelected,
+                    )
+                    OnboardingStep.Schedule -> ScheduleScreen(
+                        draft = state.scheduleDraft,
+                        onWeekdayToggled = onWeekdayToggled,
+                        onSessionPresetSelected = onSessionPresetSelected,
+                        onCustomSessionChange = onCustomSessionChange,
+                    )
                     OnboardingStep.Specialization,
                     OnboardingStep.GymAndLifts,
                     OnboardingStep.Review -> ComingSoonScreen(state.step)

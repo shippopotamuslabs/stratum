@@ -171,12 +171,33 @@ wired in `:app` via callbacks and shared routes.
 - ViewModels map **domain → presentation** before Composables render
 - No repository or use-case calls inside Composables
 
-### 4.4 Navigation
+### 4.4 ViewModel dependencies & Flow composition
+
+- **ViewModels depend on use cases, not repository ports.** A ViewModel constructor
+  injects `*UseCase` classes from `:core:domain`; it must not inject a `*Repository`
+  interface directly. Repository ports are consumed by use cases, not by presentation.
+- **Use cases own multi-source `Flow` composition.** When a screen needs data from more
+  than one repository, add an interactor (e.g. `Get*StateUseCase`) in `:core:domain`
+  that combines the repository streams into a single domain read model (e.g. an
+  `*State` aggregate). The ViewModel then observes that one use case — it must not
+  write its own multi-source `combine` over repositories.
+- **Only transient/presentation state lives in the ViewModel.** Unsaved drafts (what the
+  user is typing before persisting), "reveal errors" flags, and one-shot UI events are
+  ViewModel-owned `MutableStateFlow`s overlaid on the domain read model. Anything that
+  represents a durable fact about the world belongs in the domain layer and is read
+  through a use case.
+- **Write paths go through use cases too.** A ViewModel persists state by calling a
+  use case (e.g. `Update*UseCase`), never by calling `repository.save(...)` directly.
+- Rationale: this keeps repository wiring out of presentation, prevents `combine` chains
+  from ballooning inside ViewModels, and gives every screen a single, testable domain
+  entry point.
+
+### 4.5 Navigation
 
 - Each feature exposes `@Composable fun FeatureRoute(onNavigate…: () -> Unit, …)`
 - `:app` owns `NavHost` and passes lambdas — no `NavController` in feature composables
 
-### 4.5 Scaffold ownership
+### 4.6 Scaffold ownership
 
 - Each screen owns its own `StratumScaffold` / top bar (via `:core:ui` primitives)
 - Do not thread root `Scaffold` `paddingValues` down the tree
