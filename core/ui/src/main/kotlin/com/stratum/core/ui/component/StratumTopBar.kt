@@ -9,6 +9,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+
 /**
  * Stratum's centered top bar. Wraps Material 3 [CenterAlignedTopAppBar] using
  * `StratumTheme` semantic roles so feature code never imports raw M3 app bar APIs.
@@ -20,6 +24,7 @@ fun StratumTopBar(
     modifier: Modifier = Modifier,
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
+    bottom: @Composable (() -> Unit)? = null,
 ) {
     val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
         containerColor = StratumThemeAccessor.colors.surfaceBase,
@@ -29,19 +34,25 @@ fun StratumTopBar(
     )
     val emptyNav: @Composable () -> Unit = {}
     val emptyActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
-    CenterAlignedTopAppBar(
-        title = {
-            Text(
-                text = title,
-                style = StratumThemeAccessor.typography.titleLarge,
-                color = StratumThemeAccessor.colors.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        modifier = modifier,
-        navigationIcon = navigationIcon ?: emptyNav,
-        actions = actions ?: emptyActions,
-        colors = colors,
-    )
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(StratumThemeAccessor.colors.surfaceBase)
+    ) {
+        CenterAlignedTopAppBar(
+            title = {
+                Text(
+                    text = title,
+                    style = StratumThemeAccessor.typography.titleLarge,
+                    color = StratumThemeAccessor.colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            navigationIcon = navigationIcon ?: emptyNav,
+            actions = actions ?: emptyActions,
+            colors = colors,
+        )
+        bottom?.invoke()
+    }
 }

@@ -25,6 +25,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
+import com.stratum.feature.onboarding.ui.SpecializationScreen
 import com.stratum.feature.onboarding.ui.WelcomeScreen
 
 /**
@@ -54,6 +55,7 @@ fun OnboardingRoute(
         onWeekdayToggled = viewModel::onWeekdayToggled,
         onSessionPresetSelected = viewModel::onSessionPresetSelected,
         onCustomSessionChange = viewModel::onCustomSessionChange,
+        onMuscleToggled = viewModel::onMuscleToggled,
         modifier = modifier,
     )
 }
@@ -69,12 +71,19 @@ private fun OnboardingWizard(
     onWeekdayToggled: (String) -> Unit,
     onSessionPresetSelected: (String?) -> Unit,
     onCustomSessionChange: (String) -> Unit,
+    onMuscleToggled: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    StratumScaffold(modifier = modifier.fillMaxSize()) { padding ->
+    StratumScaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            StratumTopBar(
+                title = state.step.toDisplayName(),
+                bottom = { Stepper(step = state.step) }
+            )
+        }
+    ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            StratumTopBar(title = "Onboarding")
-            Stepper(step = state.step)
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (state.step) {
                     OnboardingStep.Welcome -> WelcomeScreen()
@@ -89,7 +98,10 @@ private fun OnboardingWizard(
                         onSessionPresetSelected = onSessionPresetSelected,
                         onCustomSessionChange = onCustomSessionChange,
                     )
-                    OnboardingStep.Specialization,
+                    OnboardingStep.Specialization -> SpecializationScreen(
+                        draft = state.specializationDraft,
+                        onMuscleToggled = onMuscleToggled,
+                    )
                     OnboardingStep.GymAndLifts,
                     OnboardingStep.Review -> ComingSoonScreen(state.step)
                     OnboardingStep.Generate -> GenerateScreen(onComplete = onComplete)
@@ -181,4 +193,14 @@ private fun WizardControls(
             StratumButton(text = "Next", onClick = onNext)
         }
     }
+}
+
+fun OnboardingStep.toDisplayName(): String = when (this) {
+    OnboardingStep.Welcome -> "Welcome"
+    OnboardingStep.Profile -> "Profile"
+    OnboardingStep.Schedule -> "Schedule"
+    OnboardingStep.Specialization -> "Specialization"
+    OnboardingStep.GymAndLifts -> "Gym & Lifts"
+    OnboardingStep.Review -> "Review"
+    OnboardingStep.Generate -> "Generate"
 }

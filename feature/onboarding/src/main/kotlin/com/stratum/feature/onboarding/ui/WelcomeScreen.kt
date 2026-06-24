@@ -21,11 +21,6 @@ fun WelcomeScreen(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StratumText(
-            text = "Welcome to Stratum",
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        StratumText(
             text = "A quietly competent training partner. Let's build your starting program.",
             muted = true,
         )

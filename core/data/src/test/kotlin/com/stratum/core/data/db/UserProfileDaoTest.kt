@@ -2,6 +2,9 @@ package com.stratum.core.data.db
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.domain.onboarding.LastTrainedBucket
+import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.onboarding.Weekday
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -47,9 +50,9 @@ class UserProfileDaoTest {
     @DisplayName("Given a profile row when upserted then observe emits the row")
     fun upsertPersistsRowAndObserveEmitsIt() = runTest {
         val row = UserProfileEntity(
-            trainingAge = "Intermediate",
-            lastTrained = "WithinLastMonth",
-            weekdays = "Monday,Wednesday,Friday",
+            trainingAge = TrainingAge.Intermediate,
+            lastTrained = LastTrainedBucket.WithinLastMonth,
+            weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
             sessionLengthMinutes = 60,
         )
 
@@ -58,8 +61,11 @@ class UserProfileDaoTest {
         subject.observe().test {
             val emitted = awaitItem()
             assertNotNull(emitted)
-            assertEquals("Intermediate", emitted?.trainingAge)
-            assertEquals("Monday,Wednesday,Friday", emitted?.weekdays)
+            assertEquals(TrainingAge.Intermediate, emitted?.trainingAge)
+            assertEquals(
+                setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
+                emitted?.weekdays,
+            )
             assertEquals(60, emitted?.sessionLengthMinutes)
             cancelAndIgnoreRemainingEvents()
         }
@@ -70,24 +76,24 @@ class UserProfileDaoTest {
     fun upsertOverwritesExistingRow() = runTest {
         subject.upsert(
             UserProfileEntity(
-                trainingAge = "Beginner",
-                lastTrained = "Never",
-                weekdays = "Tuesday",
+                trainingAge = TrainingAge.Beginner,
+                lastTrained = LastTrainedBucket.Never,
+                weekdays = setOf(Weekday.Tuesday),
                 sessionLengthMinutes = 45,
             ),
         )
         subject.upsert(
             UserProfileEntity(
-                trainingAge = "Advanced",
-                lastTrained = "MoreThanAYearAgo",
-                weekdays = "Saturday,Sunday",
+                trainingAge = TrainingAge.Advanced,
+                lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+                weekdays = setOf(Weekday.Saturday, Weekday.Sunday),
                 sessionLengthMinutes = 75,
             ),
         )
 
         val current = subject.getOrNull()
-        assertEquals("Advanced", current?.trainingAge)
-        assertEquals("Saturday,Sunday", current?.weekdays)
+        assertEquals(TrainingAge.Advanced, current?.trainingAge)
+        assertEquals(setOf(Weekday.Saturday, Weekday.Sunday), current?.weekdays)
         assertEquals(75, current?.sessionLengthMinutes)
     }
 
@@ -98,7 +104,7 @@ class UserProfileDaoTest {
             UserProfileEntity(
                 trainingAge = null,
                 lastTrained = null,
-                weekdays = "",
+                weekdays = emptySet(),
                 sessionLengthMinutes = 60,
             ),
         )
@@ -106,6 +112,6 @@ class UserProfileDaoTest {
         val current = subject.getOrNull()
         assertNull(current?.trainingAge)
         assertNull(current?.lastTrained)
-        assertEquals("", current?.weekdays)
+        assertEquals(emptySet<Weekday>(), current?.weekdays)
     }
 }
