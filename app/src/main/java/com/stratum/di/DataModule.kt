@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import com.stratum.core.data.db.OnboardingProgressDao
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.db.UserProfileDao
 import com.stratum.core.data.repository.RoomOnboardingRepository
+import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
 import com.stratum.domain.onboarding.OnboardingRepository
+import com.stratum.domain.onboarding.UserTrainingProfileRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -26,6 +29,10 @@ object DatabaseModule {
     @Provides
     fun provideOnboardingProgressDao(database: StratumDatabase): OnboardingProgressDao =
         database.onboardingProgressDao()
+
+    @Provides
+    fun provideUserProfileDao(database: StratumDatabase): UserProfileDao =
+        database.userProfileDao()
 }
 
 @Module
@@ -34,4 +41,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindOnboardingRepository(impl: RoomOnboardingRepository): OnboardingRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUserTrainingProfileRepository(
+        impl: RoomUserTrainingProfileRepository,
+    ): UserTrainingProfileRepository
 }
