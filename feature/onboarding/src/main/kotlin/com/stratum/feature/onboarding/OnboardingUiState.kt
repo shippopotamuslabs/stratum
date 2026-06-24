@@ -1,6 +1,7 @@
 package com.stratum.feature.onboarding
 
 import com.stratum.domain.onboarding.OnboardingStep
+import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
 
 /**
  * Presentation model for the onboarding wizard. Domain `OnboardingStep` is mapped
@@ -8,14 +9,16 @@ import com.stratum.domain.onboarding.OnboardingStep
  * (ARCHITECTURE.md §4.1).
  *
  * OS-2 adds per-step presentation drafts ([profileDraft], [scheduleDraft]) that the
- * Profile and Schedule screens render and mutate. These are UI-shaped (strings,
- * boolean flags) — the ViewModel translates them to/from the domain `UserTrainingProfile`.
+ * Profile and Schedule screens render and mutate. OS-3 adds [specializationDraft].
+ * These are UI-shaped (strings, boolean flags) — the ViewModel translates them to/from
+ * the domain `UserTrainingProfile` / `SpecializationPreference`.
  */
 data class OnboardingUiState(
     val step: OnboardingStep,
     val isComplete: Boolean = false,
     val profileDraft: ProfileDraftUi = ProfileDraftUi.Empty,
     val scheduleDraft: ScheduleDraftUi = ScheduleDraftUi.Empty,
+    val specializationDraft: SpecializationDraftUi = SpecializationDraftUi.Empty,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast
@@ -28,6 +31,7 @@ data class OnboardingUiState(
         get() = when (step) {
             OnboardingStep.Profile -> profileDraft.isValid
             OnboardingStep.Schedule -> scheduleDraft.isValid
+            OnboardingStep.Specialization -> specializationDraft.isValid
             else -> step.next() != null
         }
 
@@ -100,5 +104,43 @@ data class ScheduleDraftUi(
         const val MIN_SESSION_MINUTES = 15
         const val MAX_SESSION_MINUTES = 240
         val Empty = ScheduleDraftUi()
+    }
+}
+
+/**
+ * UI-shaped snapshot of the Specialization step (OS-3). [selectedMuscleLabels] are the chip
+ * labels the user has toggled to Specialize. The step is optional — an empty selection (skip)
+ * is valid. The cap is sourced from the domain use case so UI and validation agree.
+ */
+data class SpecializationDraftUi(
+    val selectedMuscleLabels: Set<String> = emptySet(),
+    val showErrors: Boolean = false,
+) {
+    val specializedCount: Int get() = selectedMuscleLabels.size
+
+    /** True when the cap is reached — the screen disables further selection. */
+    val atCap: Boolean get() = specializedCount >= MAX_SPECIALIZE
+
+    /** Coaching shown once the cap is reached. */
+    val capError: String?
+        get() = if (atCap) "Up to $MAX_SPECIALIZE muscle groups — that's a full specialization block." else null
+
+    /**
+     * Inline error shown after a failed Next. With the cap enforced via chip disabling this is
+     * defensive — kept so a future raise of the cap (e.g. via [SpecializationLevel.Omit]
+     * editing in OS-6) surfaces a message instead of silently blocking.
+     */
+    val overCapError: String?
+        get() = if (showErrors && specializedCount > MAX_SPECIALIZE) {
+            "Pick at most $MAX_SPECIALIZE muscle groups."
+        } else {
+            null
+        }
+
+    val isValid: Boolean get() = specializedCount <= MAX_SPECIALIZE
+
+    companion object {
+        val MAX_SPECIALIZE: Int = ValidateSpecializationStepUseCase.MAX_SPECIALIZE
+        val Empty = SpecializationDraftUi()
     }
 }

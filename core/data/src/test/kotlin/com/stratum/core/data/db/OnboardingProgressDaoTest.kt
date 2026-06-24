@@ -2,6 +2,7 @@ package com.stratum.core.data.db
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.domain.onboarding.OnboardingStep
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -47,7 +48,7 @@ class OnboardingProgressDaoTest {
     @DisplayName("Given a progress row when upserted then observe emits the row")
     fun upsertPersistsRowAndObserveEmitsIt() = runTest {
         val row = OnboardingProgressEntity(
-            currentStep = "Profile",
+            currentStep = OnboardingStep.Profile,
             startedAt = 1L,
             completedAt = null,
         )
@@ -57,7 +58,7 @@ class OnboardingProgressDaoTest {
         subject.observe().test {
             val emitted = awaitItem()
             assertNotNull(emitted)
-            assertEquals("Profile", emitted?.currentStep)
+            assertEquals(OnboardingStep.Profile, emitted?.currentStep)
             assertEquals(1L, emitted?.startedAt)
             assertNull(emitted?.completedAt)
             cancelAndIgnoreRemainingEvents()
@@ -67,11 +68,11 @@ class OnboardingProgressDaoTest {
     @Test
     @DisplayName("Given an existing row when upserted again then it overwrites the single row")
     fun upsertOverwritesExistingRow() = runTest {
-        subject.upsert(OnboardingProgressEntity(currentStep = "Welcome", startedAt = 1L, completedAt = null))
-        subject.upsert(OnboardingProgressEntity(currentStep = "Generate", startedAt = 1L, completedAt = 99L))
+        subject.upsert(OnboardingProgressEntity(currentStep = OnboardingStep.Welcome, startedAt = 1L, completedAt = null))
+        subject.upsert(OnboardingProgressEntity(currentStep = OnboardingStep.Generate, startedAt = 1L, completedAt = 99L))
 
         val current = subject.getOrNull()
-        assertEquals("Generate", current?.currentStep)
+        assertEquals(OnboardingStep.Generate, current?.currentStep)
         assertEquals(99L, current?.completedAt)
     }
 }

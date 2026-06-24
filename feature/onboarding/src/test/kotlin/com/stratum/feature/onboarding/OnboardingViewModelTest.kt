@@ -3,18 +3,25 @@ package com.stratum.feature.onboarding
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
+import com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetOnboardingStateUseCase
 import com.stratum.domain.onboarding.LastTrainedBucket
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.ObserveSpecializationUseCase
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SaveOnboardingProgressUseCase
+import com.stratum.domain.onboarding.SpecializationLevel
+import com.stratum.domain.onboarding.SpecializationPreference
 import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.onboarding.UpdateSpecializationUseCase
 import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.onboarding.ValidateProfileStepUseCase
 import com.stratum.domain.onboarding.ValidateScheduleStepUseCase
+import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
 import com.stratum.domain.onboarding.Weekday
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -31,6 +38,7 @@ class OnboardingViewModelTest {
 
     private val fakeRepository = FakeOnboardingRepository()
     private val fakeProfileRepository = FakeUserTrainingProfileRepository()
+    private val fakeSpecializationRepository = FakeSpecializationPreferenceRepository()
     private lateinit var subject: OnboardingViewModel
 
     @BeforeEach
@@ -39,6 +47,7 @@ class OnboardingViewModelTest {
             OnboardingProgress(OnboardingStep.Welcome, startedAt = 0L, completedAt = null),
         )
         fakeProfileRepository.seed(null)
+        fakeSpecializationRepository.seed(SpecializationPreference.Empty)
         subject = buildViewModel()
     }
 
@@ -49,9 +58,12 @@ class OnboardingViewModelTest {
         getOnboardingState = GetOnboardingStateUseCase(fakeRepository, fakeProfileRepository),
         saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeRepository),
         updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
+        observeSpecialization = ObserveSpecializationUseCase(fakeSpecializationRepository),
+        updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
         completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
         validateProfileStep = ValidateProfileStepUseCase(),
         validateScheduleStep = ValidateScheduleStepUseCase(),
+        validateSpecializationStep = ValidateSpecializationStepUseCase(),
     )
 
     @Nested
@@ -266,6 +278,125 @@ class OnboardingViewModelTest {
 
             val saved = fakeProfileRepository.current
             assertEquals(TrainingAge.Beginner, saved?.trainingAge)
+        }
+    }
+
+    @Nested
+    @DisplayName("OS-3 specialization step")
+    inner class SpecializationStep {
+        @BeforeEach
+        fun seedSpecializationStep() {
+            fakeRepository.seed(
+                OnboardingProgress(OnboardingStep.Specialization, startedAt = 0L, completedAt = null),
+            )
+            fakeSpecializationRepository.seed(SpecializationPreference.Empty)
+            subject = buildViewModel()
+        }
+
+        @Test
+        @DisplayName("Given an empty specialization when on Specialization step then canAdvance is true (skip is valid)")
+        fun emptySpecializationCanAdvance() = runTest {
+            subject.uiState.test {
+                assertTrue(awaitItem().canAdvance)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a muscle toggle when onMuscleToggled then the selection updates")
+        fun muscleToggleUpdatesSelection() = runTest {
+            subject.onMuscleToggled("Chest")
+
+            subject.uiState.test {
+                assertTrue(awaitItem().specializationDraft.selectedMuscleLabels.contains("Chest"))
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a selected muscle when toggled again then it is removed")
+        fun muscleToggleRemovesWhenAlreadySelected() = runTest {
+            subject.onMuscleToggled("Chest")
+            subject.onMuscleToggled("Chest")
+
+            subject.uiState.test {
+                assertFalse(awaitItem().specializationDraft.selectedMuscleLabels.contains("Chest"))
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given three muscles selected when checked then the draft is at cap")
+        fun threeMusclesIsAtCap() = runTest {
+            subject.onMuscleToggled("Chest")
+            subject.onMuscleToggled("Back")
+            subject.onMuscleToggled("Quads")
+
+            subject.uiState.test {
+                val draft = awaitItem().specializationDraft
+                assertEquals(3, draft.specializedCount)
+                assertTrue(draft.atCap)
+                assertTrue(draft.isValid)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a skipped specialization when next() then step advances and Empty is persisted")
+        fun skippedSpecializationAdvancesAndPersistsEmpty() = runTest {
+            subject.uiState.test {
+                awaitItem()
+                subject.next()
+                assertEquals(OnboardingStep.GymAndLifts, awaitItem().step)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(SpecializationPreference.Empty, fakeSpecializationRepository.current)
+        }
+
+        @Test
+        @DisplayName("Given a specialization selection when next() then it is persisted and step advances")
+        fun selectionAdvancesAndPersists() = runTest {
+            subject.onMuscleToggled("Chest")
+            subject.onMuscleToggled("Back")
+
+            subject.uiState.test {
+                awaitItem()
+                subject.next()
+                assertEquals(OnboardingStep.GymAndLifts, awaitItem().step)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            val saved = fakeSpecializationRepository.current
+            assertEquals(setOf(MuscleGroup.Chest, MuscleGroup.Back), saved.specializedMuscles)
+        }
+
+        @Test
+        @DisplayName("Given a persisted specialization when VM created then it seeds the UI")
+        fun persistedSpecializationSeedsUi() = runTest {
+            fakeSpecializationRepository.seed(
+                SpecializationPreference(
+                    levels = mapOf(MuscleGroup.Quad to SpecializationLevel.Specialize),
+                ),
+            )
+            subject = buildViewModel()
+
+            subject.uiState.test {
+                assertTrue(awaitItem().specializationDraft.selectedMuscleLabels.contains("Quads"))
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given a specialization edit when back() then it is persisted before leaving")
+        fun backPersistsSpecialization() = runTest {
+            subject.onMuscleToggled("Chest")
+
+            subject.back()
+
+            val saved = fakeSpecializationRepository.current
+            assertEquals(setOf(MuscleGroup.Chest), saved.specializedMuscles)
+            assertEquals(OnboardingStep.Schedule, fakeRepository.current.currentStep)
         }
     }
 }
