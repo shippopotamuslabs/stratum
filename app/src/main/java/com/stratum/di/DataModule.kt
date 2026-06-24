@@ -3,11 +3,14 @@ package com.stratum.di
 import android.content.Context
 import androidx.room.Room
 import com.stratum.core.data.db.OnboardingProgressDao
+import com.stratum.core.data.db.SpecializationPreferenceDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.UserProfileDao
 import com.stratum.core.data.repository.RoomOnboardingRepository
+import com.stratum.core.data.repository.RoomSpecializationPreferenceRepository
 import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
 import com.stratum.domain.onboarding.OnboardingRepository
+import com.stratum.domain.onboarding.SpecializationPreferenceRepository
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
 import dagger.Binds
 import dagger.Module
@@ -33,6 +36,10 @@ object DatabaseModule {
     @Provides
     fun provideUserProfileDao(database: StratumDatabase): UserProfileDao =
         database.userProfileDao()
+
+    @Provides
+    fun provideSpecializationPreferenceDao(database: StratumDatabase): SpecializationPreferenceDao =
+        database.specializationPreferenceDao()
 }
 
 @Module
@@ -47,4 +54,10 @@ abstract class RepositoryModule {
     abstract fun bindUserTrainingProfileRepository(
         impl: RoomUserTrainingProfileRepository,
     ): UserTrainingProfileRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSpecializationPreferenceRepository(
+        impl: RoomSpecializationPreferenceRepository,
+    ): SpecializationPreferenceRepository
 }

@@ -29,7 +29,15 @@ fun StratumFilterChip(
         modifier = modifier,
         enabled = enabled,
         shape = StratumThemeAccessor.shapes.chip,
-        border = null,
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = enabled,
+            selected = selected,
+            borderColor = StratumThemeAccessor.colors.borderSubtle,
+            selectedBorderColor = StratumThemeAccessor.colors.accent,
+            disabledBorderColor = StratumThemeAccessor.colors.borderSubtle,
+            borderWidth = StratumThemeAccessor.shapes.borderWidth,
+            selectedBorderWidth = StratumThemeAccessor.shapes.borderWidth,
+        ),
         colors = FilterChipDefaults.filterChipColors(
             containerColor = StratumThemeAccessor.colors.surfaceRaised,
             labelColor = StratumThemeAccessor.colors.textMuted,

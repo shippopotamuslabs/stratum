@@ -38,8 +38,6 @@ fun ProfileScreen(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        StratumText(text = "Your training profile", style = StratumThemeAccessor.typography.titleLarge)
-
         Section(label = "How many years of solid training have you done?") {
             StratumText(
                 text = "Count only consistent, quality training.",
