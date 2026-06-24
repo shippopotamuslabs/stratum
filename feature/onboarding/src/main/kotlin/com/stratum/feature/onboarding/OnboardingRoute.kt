@@ -23,6 +23,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingStep
+import com.stratum.feature.onboarding.ui.GymAndLiftsScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
 import com.stratum.feature.onboarding.ui.SpecializationScreen
@@ -56,6 +57,9 @@ fun OnboardingRoute(
         onSessionPresetSelected = viewModel::onSessionPresetSelected,
         onCustomSessionChange = viewModel::onCustomSessionChange,
         onMuscleToggled = viewModel::onMuscleToggled,
+        gymLifts = GymLiftsHandlers(
+            onPresetSelected = viewModel::onPresetSelected,
+        ),
         modifier = modifier,
     )
 }
@@ -72,6 +76,7 @@ private fun OnboardingWizard(
     onSessionPresetSelected: (String?) -> Unit,
     onCustomSessionChange: (String) -> Unit,
     onMuscleToggled: (String) -> Unit,
+    gymLifts: GymLiftsHandlers,
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -102,7 +107,10 @@ private fun OnboardingWizard(
                         draft = state.specializationDraft,
                         onMuscleToggled = onMuscleToggled,
                     )
-                    OnboardingStep.GymAndLifts,
+                    OnboardingStep.GymAndLifts -> GymAndLiftsScreen(
+                        selectedPresetLabel = state.gymLiftsDraft.selectedPresetLabel,
+                        onPresetSelected = gymLifts.onPresetSelected,
+                    )
                     OnboardingStep.Review -> ComingSoonScreen(state.step)
                     OnboardingStep.Generate -> GenerateScreen(onComplete = onComplete)
                 }

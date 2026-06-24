@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "483741e08cefa2a991c6f7c28caa0a1a",
+    "identityHash": "79dc38a9308fac576618ff7ba62f9e42",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -101,11 +101,165 @@
             "muscle"
           ]
         }
+      },
+      {
+        "tableName": "lifts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPattern` TEXT NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `allowWeightChangeBetweenSets` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "movementPattern",
+            "columnName": "movementPattern",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "primaryMusclesBitmask",
+            "columnName": "primaryMusclesBitmask",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "secondaryMusclesBitmask",
+            "columnName": "secondaryMusclesBitmask",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allowWeightChangeBetweenSets",
+            "columnName": "allowWeightChangeBetweenSets",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "presetTags",
+            "columnName": "presetTags",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "equipment",
+            "columnName": "equipment",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isCustom",
+            "columnName": "isCustom",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabled",
+            "columnName": "enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "increment_tiers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`liftId` TEXT NOT NULL, `lowerBound` REAL NOT NULL, `upperBound` REAL, `increment` REAL NOT NULL, PRIMARY KEY(`liftId`, `lowerBound`), FOREIGN KEY(`liftId`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "liftId",
+            "columnName": "liftId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lowerBound",
+            "columnName": "lowerBound",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "upperBound",
+            "columnName": "upperBound",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "increment",
+            "columnName": "increment",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "liftId",
+            "lowerBound"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_increment_tiers_liftId",
+            "unique": false,
+            "columnNames": [
+              "liftId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_increment_tiers_liftId` ON `${TABLE_NAME}` (`liftId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "lifts",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "liftId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "gym_preference",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `selectedPreset` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "selectedPreset",
+            "columnName": "selectedPreset",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '483741e08cefa2a991c6f7c28caa0a1a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '79dc38a9308fac576618ff7ba62f9e42')"
     ]
   }
 }
