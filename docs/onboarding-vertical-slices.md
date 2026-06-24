@@ -94,10 +94,22 @@ Do **not** block OS-1–OS-6 on LLM. Define **ports** (`ProgramGeneratorPort`, `
 
 ### 2.5 Specialization rules (v1)
 
-- User may **skip** entirely (maintenance-balanced default).
-- Max **2** full specializations, or **3** with at least one at maintenance level.
-- Block obviously invalid combos (e.g. all push, no pull) with inline coaching.
-- Optional hint copy: antagonist pairs (chest/back, quads/hams).
+- User may **skip** entirely (maintenance-balanced default — non-selected muscles are
+  implicitly `Maintenance`, so an empty selection is a valid, complete answer).
+- Max **3** specializations per mesocycle. This aligns with the research consensus
+  (Renaissance Periodization volume landmarks; Alpha Progression 2–3; Born Fitness 1–3):
+  specialization blocks push 1–3 focus muscles toward MRV while the rest sit at
+  MEV/MV. (Updated from an earlier "max 2" draft — 2 is too tight for an
+  intermediate/advanced user with three lagging groups.)
+- No "≥1 maintenance" sub-rule: maintenance is already the default for every non-selected
+  muscle, so the qualifier is redundant.
+- **No push/pull hard-block at selection time.** Push/pull (antagonist) balance is a
+  *volume-distribution* concern handled at program generation (OS-6), where per-muscle
+  weekly-set targets live. OS-3 shows **advisory** antagonist hints (chest/back, quads/hams,
+  biceps/triceps, front/rear delts) when one side of a pair is selected — it never blocks
+  Next.
+- The muscle enum is named **`MuscleGroup`** (not the LiftLab `VolumeType` nor the earlier
+  `VolumeMuscle` draft). See §10.
 
 ---
 
@@ -202,22 +214,34 @@ you (maintainer) confirm in the PR or issue, then agent implements.
 
 **Schema (authorize first):**
 
-- `specialization_preference` — muscle id, level (specialize / maintenance / omit), or JSON blob on profile
+- `specialization_preference` — `muscle` PK (TEXT), `level` (TEXT). **Authorized for OS-3.**
+  One row per explicitly-set muscle; absence == `Maintenance`. No `program_id` FK yet —
+  deferred to OS-6 (becomes a composite-PK concern once programs exist). DB v2 → v3 with an
+  additive migration. Enum↔String persistence standardized via a single `EnumConverters`
+  `@TypeConverter` class (retrofitted across all onboarding enums; entity columns are now
+  typed enums, not raw Strings).
 
 **Domain:**
 
-- `VolumeMuscle` enum (port from LiftLab `VolumeType` naming to Stratum)
-- `ValidateSpecializationUseCase`
+- `MuscleGroup` enum (15 values, LiftLab `VolumeType` name parity; **named `MuscleGroup`**,
+  not `VolumeMuscle` — resolves §10).
+- `SpecializationLevel` enum (`Specialize` / `Maintenance` / `Omit`); `Omit` reserved for OS-6.
+- `SpecializationPreference` value type (`Map<MuscleGroup, SpecializationLevel>`,
+  absence == Maintenance).
+- `ValidateSpecializationStepUseCase` (cap of 3; empty == valid).
 
 **Tests:**
 
-- Validation: max 2 specialize, skip path, invalid all-push rejected
+- Validation: empty → Valid, 1–3 → Valid, 4 → Invalid(TooManySpecialized); maintenance/Omit
+  levels don't consume the cap.
+- ViewModel: skip path, selection round-trip, cap gating, next() persists + advances,
+  back() preserves.
 
 **Acceptance:**
 
-- Skip → empty specialization stored
-- Invalid selection → inline error, cannot proceed
-- Static coaching strings visible (UI_DESIGN compliant)
+- Skip → empty specialization stored (valid)
+- Over-cap → blocked (chip-disable + inline coaching; cap enforced in domain too)
+- Advisory antagonist hints visible (UI_DESIGN compliant); never blocks
 
 ---
 
@@ -444,6 +468,8 @@ Next vertical slice after OS-6/9:
 | LiftLab | Stratum onboarding |
 |---------|-------------------|
 | `Lift` + bitmasks | `Lift` + contributions + boolean + tiers |
+| `VolumeType` (muscle enum) | `MuscleGroup` (renamed for readability; 15 values, OS-3) |
+| `ProgramGenerationRequest.specializationMuscles` | `SpecializationPreference` (OS-3) |
 | `ProgramGenerationRequest` | Profile + schedule + specialization + enabled lifts |
 | `LiftLabDatabaseWorker` seed | OS-4 asset seed + Room |
 | No onboarding | OS-1 – OS-9 |
@@ -453,7 +479,10 @@ Next vertical slice after OS-6/9:
 
 ## 10. Open questions (resolve during OS-4 / OS-6)
 
-- [ ] Canonical muscle enum naming (`VolumeMuscle` vs reuse LiftLab names)
+- [x] Canonical muscle enum naming → **`MuscleGroup`** (resolved in OS-3). Named for
+  fitness-app readability ("which muscle groups do you want to specialize?"), not the LiftLab
+  `VolumeType` nor the earlier `VolumeMuscle` draft. 15 values; plain enum, no bitmask
+  (bitmask/contributions added in OS-4).
 - [ ] v1 generation: normalized program tables vs single JSON blob (prefer normalized for workout logging next)
 - [ ] Home destination after onboarding: program overview vs “start first workout” CTA
 - [ ] Units default: lb vs kg from locale vs explicit onboarding ask

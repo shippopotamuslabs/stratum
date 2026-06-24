@@ -4,15 +4,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetOnboardingStateUseCase
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.ObserveSpecializationUseCase
 import com.stratum.domain.onboarding.OnboardingState
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.ProfileValidationResult
 import com.stratum.domain.onboarding.SaveOnboardingProgressUseCase
 import com.stratum.domain.onboarding.ScheduleValidationResult
+import com.stratum.domain.onboarding.SpecializationPreference
+import com.stratum.domain.onboarding.SpecializationValidationResult
+import com.stratum.domain.onboarding.UpdateSpecializationUseCase
 import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.onboarding.ValidateProfileStepUseCase
 import com.stratum.domain.onboarding.ValidateScheduleStepUseCase
+import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
 import com.stratum.domain.onboarding.Weekday
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -28,13 +34,19 @@ class OnboardingViewModel @Inject constructor(
     private val getOnboardingState: GetOnboardingStateUseCase,
     private val saveOnboardingProgress: SaveOnboardingProgressUseCase,
     private val updateUserTrainingProfile: UpdateUserTrainingProfileUseCase,
+    private val observeSpecialization: ObserveSpecializationUseCase,
+    private val updateSpecialization: UpdateSpecializationUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val validateProfileStep: ValidateProfileStepUseCase,
     private val validateScheduleStep: ValidateScheduleStepUseCase,
+    private val validateSpecializationStep: ValidateSpecializationStepUseCase,
 ) : ViewModel() {
 
-    /** Uncommitted field edits not yet persisted. */
+    /** Uncommitted profile field edits not yet persisted. */
     private val edits = MutableStateFlow(ProfileEdit())
+
+    /** Uncommitted specialization edits not yet persisted. */
+    private val specializationEdits = MutableStateFlow(SpecializationEdit())
 
     /** Whether field errors should be shown (after first Next attempt). */
     private val showErrors = MutableStateFlow(false)
@@ -65,13 +77,37 @@ class OnboardingViewModel @Inject constructor(
             initialValue = UserTrainingProfile.Empty,
         )
 
+    /**
+     * Persisted specialization preference — eagerly collected for navigation write paths.
+     */
+    private val specializationState: StateFlow<SpecializationPreference> =
+        observeSpecialization().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = SpecializationPreference.Empty,
+        )
+
+    /**
+     * Effective specialization = persisted preference + uncommitted edits. Mirrors
+     * [effectiveProfile]: the single authoritative source for rendering and navigation.
+     */
+    private val effectiveSpecialization: StateFlow<SpecializationPreference> =
+        combine(specializationState, specializationEdits) { current, edit ->
+            current.applyEdit(edit)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = SpecializationPreference.Empty,
+        )
+
     val uiState: StateFlow<OnboardingUiState> =
-        combine(state, effectiveProfile, showErrors) { current, profile, errs ->
+        combine(state, effectiveProfile, effectiveSpecialization, showErrors) { current, profile, spec, errs ->
             OnboardingUiState(
                 step = current.currentStep,
                 isComplete = current.isComplete,
                 profileDraft = profile.toProfileDraft().copy(showErrors = errs),
                 scheduleDraft = profile.toScheduleDraft().copy(showErrors = errs),
+                specializationDraft = spec.toSpecializationDraft().copy(showErrors = errs),
             )
         }.stateIn(
             scope = viewModelScope,
@@ -110,14 +146,34 @@ class OnboardingViewModel @Inject constructor(
         edits.value = edits.value.copy(sessionLengthMinutes = input.filter { it.isDigit() }.toIntOrNull())
     }
 
+    // --- Specialization step mutations -----------------------------------------
+
+    /**
+     * Toggle a muscle's Specialize state by its display label. Toggling a selected muscle
+     * removes it from the specialization set.
+     */
+    fun onMuscleToggled(label: String) {
+        val muscle = muscleGroupFromLabel(label) ?: return
+        val current = effectiveSpecialization.value
+        specializationEdits.value =
+            if (muscle in current.specializedMuscles) {
+                specializationEdits.value.copy(removed = specializationEdits.value.removed + muscle)
+            } else {
+                specializationEdits.value.copy(added = specializationEdits.value.added + muscle)
+            }
+    }
+
     // --- Navigation -------------------------------------------------------------
 
     fun next() {
         val step = state.value.currentStep
         val profile = effectiveProfile.value
+        val specialization = effectiveSpecialization.value
         val stepValid = when (step) {
             OnboardingStep.Profile -> validateProfileStep(profile) is ProfileValidationResult.Valid
             OnboardingStep.Schedule -> validateScheduleStep(profile) is ScheduleValidationResult.Valid
+            OnboardingStep.Specialization ->
+                validateSpecializationStep(specialization) is SpecializationValidationResult.Valid
             else -> true
         }
         if (!stepValid) {
@@ -127,8 +183,10 @@ class OnboardingViewModel @Inject constructor(
         val nextStep = step.next() ?: return
         viewModelScope.launch {
             updateUserTrainingProfile(profile)
+            updateSpecialization(specialization)
             saveOnboardingProgress(nextStep)
             edits.value = ProfileEdit()
+            specializationEdits.value = SpecializationEdit()
             showErrors.value = false
         }
     }
@@ -137,8 +195,10 @@ class OnboardingViewModel @Inject constructor(
         val previousStep = state.value.currentStep.previous() ?: return
         viewModelScope.launch {
             updateUserTrainingProfile(effectiveProfile.value)
+            updateSpecialization(effectiveSpecialization.value)
             saveOnboardingProgress(previousStep)
             edits.value = ProfileEdit()
+            specializationEdits.value = SpecializationEdit()
         }
     }
 
@@ -165,6 +225,22 @@ class OnboardingViewModel @Inject constructor(
         weekdays = (weekdays + edit.weekdaysAdded) - edit.weekdaysRemoved,
         sessionLengthMinutes = edit.sessionLengthMinutes ?: sessionLengthMinutes,
     )
+
+    /**
+     * Uncommitted specialization edits, tracked additively against the persisted base so a
+     * toggle composes correctly when the user backs out and returns.
+     */
+    private data class SpecializationEdit(
+        val added: Set<MuscleGroup> = emptySet(),
+        val removed: Set<MuscleGroup> = emptySet(),
+    )
+
+    private fun SpecializationPreference.applyEdit(edit: SpecializationEdit): SpecializationPreference {
+        val base = levels.toMutableMap()
+        edit.added.forEach { base[it] = com.stratum.domain.onboarding.SpecializationLevel.Specialize }
+        edit.removed.forEach { base.remove(it) }
+        return copy(levels = base)
+    }
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L

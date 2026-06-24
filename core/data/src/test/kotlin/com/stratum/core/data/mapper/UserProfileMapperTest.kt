@@ -61,19 +61,19 @@ class UserProfileMapperTest {
     }
 
     @Test
-    @DisplayName("Given an entity with an unknown enum name when mapped then the field is null")
-    fun unknownEnumNamesBecomeNull() {
+    @DisplayName("Given an entity with null training age when mapped then the domain field is null")
+    fun nullTrainingAgeRoundTripsToNull() {
         val entity = UserProfileEntity(
-            trainingAge = "AlsoFake",
-            lastTrained = "Nope",
-            weekdays = "Monday,BogusDay,Friday",
+            trainingAge = null,
+            lastTrained = LastTrainedBucket.WithinLastMonth,
+            weekdays = setOf(Weekday.Monday, Weekday.Friday),
             sessionLengthMinutes = 60,
         )
 
         val domain = entity.toDomain()
 
         assertNull(domain.trainingAge)
-        assertNull(domain.lastTrained)
+        assertEquals(LastTrainedBucket.WithinLastMonth, domain.lastTrained)
         assertEquals(setOf(Weekday.Monday, Weekday.Friday), domain.weekdays)
     }
 }

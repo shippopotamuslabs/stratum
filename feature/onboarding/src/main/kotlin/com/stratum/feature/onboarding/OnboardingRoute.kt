@@ -25,6 +25,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
+import com.stratum.feature.onboarding.ui.SpecializationScreen
 import com.stratum.feature.onboarding.ui.WelcomeScreen
 
 /**
@@ -54,6 +55,7 @@ fun OnboardingRoute(
         onWeekdayToggled = viewModel::onWeekdayToggled,
         onSessionPresetSelected = viewModel::onSessionPresetSelected,
         onCustomSessionChange = viewModel::onCustomSessionChange,
+        onMuscleToggled = viewModel::onMuscleToggled,
         modifier = modifier,
     )
 }
@@ -69,6 +71,7 @@ private fun OnboardingWizard(
     onWeekdayToggled: (String) -> Unit,
     onSessionPresetSelected: (String?) -> Unit,
     onCustomSessionChange: (String) -> Unit,
+    onMuscleToggled: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(modifier = modifier.fillMaxSize()) { padding ->
@@ -89,7 +92,10 @@ private fun OnboardingWizard(
                         onSessionPresetSelected = onSessionPresetSelected,
                         onCustomSessionChange = onCustomSessionChange,
                     )
-                    OnboardingStep.Specialization,
+                    OnboardingStep.Specialization -> SpecializationScreen(
+                        draft = state.specializationDraft,
+                        onMuscleToggled = onMuscleToggled,
+                    )
                     OnboardingStep.GymAndLifts,
                     OnboardingStep.Review -> ComingSoonScreen(state.step)
                     OnboardingStep.Generate -> GenerateScreen(onComplete = onComplete)

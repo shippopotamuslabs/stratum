@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "9907d943241eef500d20a0bc5605634f",
+    "identityHash": "483741e08cefa2a991c6f7c28caa0a1a",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -41,7 +41,7 @@
       },
       {
         "tableName": "user_training_profile",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `birthYear` INTEGER, `gender` TEXT, `experience` TEXT, `lastTrained` TEXT, `weekdays` TEXT NOT NULL, `sessionLengthMinutes` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `trainingAge` TEXT, `lastTrained` TEXT, `weekdays` TEXT NOT NULL, `sessionLengthMinutes` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -50,18 +50,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "birthYear",
-            "columnName": "birthYear",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "gender",
-            "columnName": "gender",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "experience",
-            "columnName": "experience",
+            "fieldPath": "trainingAge",
+            "columnName": "trainingAge",
             "affinity": "TEXT"
           },
           {
@@ -87,11 +77,35 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "specialization_preference",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `level` TEXT NOT NULL, PRIMARY KEY(`muscle`))",
+        "fields": [
+          {
+            "fieldPath": "muscle",
+            "columnName": "muscle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "level",
+            "columnName": "level",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "muscle"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9907d943241eef500d20a0bc5605634f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '483741e08cefa2a991c6f7c28caa0a1a')"
     ]
   }
 }
