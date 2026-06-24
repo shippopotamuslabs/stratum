@@ -25,6 +25,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.feature.onboarding.ui.GymAndLiftsScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
+import com.stratum.feature.onboarding.ui.ReviewScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
 import com.stratum.feature.onboarding.ui.SpecializationScreen
 import com.stratum.feature.onboarding.ui.WelcomeScreen
@@ -111,7 +112,7 @@ private fun OnboardingWizard(
                         selectedPresetLabel = state.gymLiftsDraft.selectedPresetLabel,
                         onPresetSelected = gymLifts.onPresetSelected,
                     )
-                    OnboardingStep.Review -> ComingSoonScreen(state.step)
+                    OnboardingStep.Review -> ReviewScreen(draft = state.reviewDraft)
                     OnboardingStep.Generate -> GenerateScreen(onComplete = onComplete)
                 }
             }
@@ -147,19 +148,6 @@ private fun Stepper(step: OnboardingStep) {
                     ),
             )
         }
-    }
-}
-
-@Composable
-private fun ComingSoonScreen(step: OnboardingStep) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        StratumText(text = step.name, style = StratumThemeAccessor.typography.titleLarge)
-        Spacer(modifier = Modifier.height(8.dp))
-        StratumText(text = "Coming in a later slice.", muted = true)
     }
 }
 
