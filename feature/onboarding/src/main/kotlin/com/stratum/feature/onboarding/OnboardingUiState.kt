@@ -11,9 +11,10 @@ import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
  *
  * OS-2 adds per-step presentation drafts ([profileDraft], [scheduleDraft]) that the
  * Profile and Schedule screens render and mutate. OS-3 adds [specializationDraft].
- * OS-4 adds [gymLiftsDraft]. These are UI-shaped (strings, boolean flags) — the ViewModel
- * translates them to/from the domain `UserTrainingProfile` / `SpecializationPreference` /
- * lift catalog.
+ * OS-4 adds [gymLiftsDraft]. OS-5 adds [reviewDraft], a read-only aggregate of the prior
+ * four inputs. These are UI-shaped (strings, boolean flags) — the ViewModel translates
+ * them to/from the domain `UserTrainingProfile` / `SpecializationPreference` / lift
+ * catalog.
  */
 data class OnboardingUiState(
     val step: OnboardingStep,
@@ -22,6 +23,7 @@ data class OnboardingUiState(
     val scheduleDraft: ScheduleDraftUi = ScheduleDraftUi.Empty,
     val specializationDraft: SpecializationDraftUi = SpecializationDraftUi.Empty,
     val gymLiftsDraft: GymLiftsDraftUi = GymLiftsDraftUi.Empty,
+    val reviewDraft: ReviewDraftUi = ReviewDraftUi.Empty,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast
@@ -176,5 +178,38 @@ data class GymLiftsDraftUi(
     companion object {
         val MIN_ENABLED: Int = ValidateGymLiftsStepUseCase.MIN_ENABLED
         val Empty = GymLiftsDraftUi()
+    }
+}
+
+/**
+ * Read-only aggregate of every onboarding input, for the Review step (OS-5). The ViewModel
+ * derives this from the same domain streams that feed the editable drafts; nothing here is
+ * mutable from the screen. All values are pre-rendered presentation strings/counts — no
+ * domain types reach the composable (ARCHITECTURE.md §4.3).
+ *
+ * Nullable / empty fields mean "not yet answered". The Review screen renders a friendly
+ * placeholder for those (e.g. an empty [specialization] reads as "Balanced"), so the summary
+ * is never blank even mid-flow.
+ *
+ * @property trainingAge Training-age chip label (e.g. "4–7 years"), or null.
+ * @property lastTrained Last-trained bucket label (e.g. "Within the last month"), or null.
+ * @property weekdays Short weekday labels in calendar order (e.g. ["Mon", "Wed", "Fri"]).
+ * @property sessionMinutes Resolved session length in minutes, or null.
+ * @property specialization Specialized muscle display labels (e.g. ["Quads", "Chest"]); empty
+ *   means the user skipped — the program stays maintenance-balanced.
+ * @property presetLabel Selected gym preset display name, or null.
+ * @property enabledLiftCount How many catalog lifts are currently enabled for generation.
+ */
+data class ReviewDraftUi(
+    val trainingAge: String? = null,
+    val lastTrained: String? = null,
+    val weekdays: List<String> = emptyList(),
+    val sessionMinutes: Int? = null,
+    val specialization: List<String> = emptyList(),
+    val presetLabel: String? = null,
+    val enabledLiftCount: Int = 0,
+) {
+    companion object {
+        val Empty = ReviewDraftUi()
     }
 }

@@ -592,6 +592,95 @@ class OnboardingViewModelTest {
         }
     }
 
+    @Nested
+    @DisplayName("OS-5 review step")
+    inner class ReviewStep {
+
+        @BeforeEach
+        fun seedReviewStep() {
+            fakeRepository.seed(
+                OnboardingProgress(OnboardingStep.Review, startedAt = 0L, completedAt = null),
+            )
+            subject = buildViewModel()
+        }
+
+        @Test
+        @DisplayName("Given all inputs when on Review step then reviewDraft aggregates them")
+        fun reviewDraftAggregatesAllInputs() = runTest {
+            fakeProfileRepository.seed(
+                UserTrainingProfile(
+                    trainingAge = TrainingAge.Intermediate,
+                    lastTrained = LastTrainedBucket.WithinLastMonth,
+                    weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
+                    sessionLengthMinutes = 60,
+                ),
+            )
+            fakeSpecializationRepository.seed(
+                SpecializationPreference(
+                    levels = mapOf(
+                        MuscleGroup.Quad to SpecializationLevel.Specialize,
+                        MuscleGroup.Chest to SpecializationLevel.Specialize,
+                    ),
+                ),
+            )
+            fakeLiftRepository.seedLifts(
+                listOf(
+                    aLift("squat", tags = setOf(GymPreset.CommercialGym), enabled = true),
+                    aLift("bench", tags = setOf(GymPreset.CommercialGym), enabled = true),
+                    aLift("curl", enabled = false),
+                ),
+            )
+            fakeLiftRepository.seedPreset(GymPreset.CommercialGym)
+            subject = buildViewModel()
+
+            subject.uiState.test {
+                val draft = awaitItem().reviewDraft
+                assertEquals("4–7 years", draft.trainingAge)
+                assertEquals("Within the last month", draft.lastTrained)
+                assertEquals(listOf("Mon", "Wed", "Fri"), draft.weekdays)
+                assertEquals(60, draft.sessionMinutes)
+                assertEquals(listOf("Chest", "Quads"), draft.specialization)
+                assertEquals("Commercial gym", draft.presetLabel)
+                assertEquals(2, draft.enabledLiftCount)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given no specialization when on Review step then reviewDraft reports a balanced program")
+        fun reviewDraftShowsBalancedWhenSpecializationEmpty() = runTest {
+            fakeProfileRepository.seed(
+                UserTrainingProfile(
+                    trainingAge = TrainingAge.Beginner,
+                    lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+                    weekdays = setOf(Weekday.Tuesday),
+                    sessionLengthMinutes = 45,
+                ),
+            )
+            subject = buildViewModel()
+
+            subject.uiState.test {
+                val draft = awaitItem().reviewDraft
+                assertTrue(draft.specialization.isEmpty())
+                assertEquals("0–2 years", draft.trainingAge)
+                assertEquals(listOf("Tue"), draft.weekdays)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given the Review step when next() then it advances to Generate with no validation")
+        fun nextAdvancesFromReviewToGenerate() = runTest {
+            subject.uiState.test {
+                assertEquals(OnboardingStep.Review, awaitItem().step)
+                subject.next()
+                assertEquals(OnboardingStep.Generate, awaitItem().step)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(OnboardingStep.Generate, fakeRepository.current.currentStep)
+        }
+    }
+
     /** Builds a minimal domain [Lift] for GymLiftsStep tests. */
     private fun aLift(
         slug: String,
