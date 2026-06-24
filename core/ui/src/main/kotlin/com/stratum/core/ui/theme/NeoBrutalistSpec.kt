@@ -23,7 +23,7 @@ object NeoBrutalistSpec {
                     surfaceBase = Color(0xFF1A1A1A),
                     surfaceRaised = Color(0xFF242424),
                     surfaceSunken = Color(0xFF121212),
-                    borderStrong = Color(0xFFF2F2F2),
+                    borderStrong = Color(0xFFA3A3A3),
                     borderSubtle = Color(0xFF3D3D3D),
                     textPrimary = Color(0xFFF5F5F5),
                     textMuted = Color(0xFFA3A3A3),

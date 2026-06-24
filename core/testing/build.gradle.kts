@@ -16,6 +16,7 @@ tasks.withType<Test>().configureEach {
 }
 
 dependencies {
+    implementation(project(":core:domain"))
     api(libs.junit.jupiter)
     api(libs.kotlinx.coroutines.test)
 

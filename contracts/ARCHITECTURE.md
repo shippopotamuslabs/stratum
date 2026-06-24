@@ -41,6 +41,7 @@ toward `:core:domain`. Outer modules implement ports defined in domain.
 
 | Module | When to add |
 |--------|-------------|
+| `:feature:onboarding` | Onboarding wizard — added in OS-1 (see `docs/onboarding-vertical-slices.md`) |
 | `:feature:workout` | Active session logging (sets, timers, in-workout flow) |
 | `:feature:program` | Program view, exercise selection, substitutions |
 | `:feature:history` | Session history, trends, personal records |

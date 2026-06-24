@@ -3,7 +3,6 @@ package com.stratum.core.ui.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val IronAccent = Color(0xFFB87333)
 private val SteelAccent = Color(0xFF5B7C99)
 
 object StratumTonalSpec {
@@ -20,14 +19,14 @@ object StratumTonalSpec {
             dark = true,
             colors =
                 StratumColors(
-                    accent = IronAccent,
-                    onAccent = Color(0xFF1A1A1A),
-                    accentMuted = Color(0xFF8A5A2B),
+                    accent = SteelAccent,
+                    onAccent = Color(0xFFFFFFFF),
+                    accentMuted = Color(0xFF3D5A72),
                     surfaceBase = Color(0xFF121212),
                     surfaceRaised = Color(0xFF1E1E1E),
                     surfaceSunken = Color(0xFF0E0E0E),
-                    borderStrong = Color(0xFF3A3A3A),
-                    borderSubtle = Color(0xFF2A2A2A),
+                    borderStrong = Color(0xFF4A4A4A),
+                    borderSubtle = Color(0xFF3A3A3A),
                     textPrimary = Color(0xFFF2F2F2),
                     textMuted = Color(0xFF9CA3AF),
                     textData = Color(0xFFE5E7EB),
@@ -59,7 +58,7 @@ object StratumTonalSpec {
                     borderStrong = Color(0xFFCBD5E1),
                     borderSubtle = Color(0xFFE2E8F0),
                     textPrimary = Color(0xFF111827),
-                    textMuted = Color(0xFF64748B),
+                    textMuted = Color(0xFF475569),
                     textData = Color(0xFF1F2937),
                     error = Color(0xFFDC2626),
                     onError = Color(0xFFFFFFFF),
