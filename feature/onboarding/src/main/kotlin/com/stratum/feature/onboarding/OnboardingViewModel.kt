@@ -152,6 +152,9 @@ class OnboardingViewModel @Inject constructor(
                     selectedPreset = preset,
                     showErrors = errs,
                 ),
+                // Read-only aggregate for the Review step — pure derivation over the same
+                // streams, no extra reads. showErrors is irrelevant to a read-only summary.
+                reviewDraft = profile.toReviewProfileSection(spec, lifts, preset),
             )
         }.stateIn(
             scope = viewModelScope,
