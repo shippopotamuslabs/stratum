@@ -18,6 +18,10 @@ stratum:
     active: true
   ForbiddenVerifyInViewModelTests:
     active: true
+  ForbiddenRepositoryInViewModel:
+    active: true
+  ForbiddenDomainTypeInComposable:
+    active: true
 
 potential-bugs:
   active: true
