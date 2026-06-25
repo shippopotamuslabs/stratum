@@ -14,8 +14,8 @@ import com.stratum.domain.lift.identity.LiftId
  * Schema authorized for OS-4 (docs/onboarding-vertical-slices.md §OS-4). The composite
  * primary key `(liftId, lowerBound)` prevents duplicate bands for one lift; the FK cascades
  * deletes so removing a lift clears its tiers. [upperBound] is `null` for the final
- * ("and above") band. All amounts are stored in the lift's unit (lb for the seed catalog);
- * the mapper wraps them back into the domain `Weight`/`IncrementTier` types.
+ * ("and above") band. Tier amounts are stored as plain `Double` in lb (v1); the mapper
+ * re-wraps them into domain [Weight] with [Weight.WeightUnit.Lb].
  *
  * [liftId] is the typed [LiftId] FK, so the compiler refuses a wrong-type id here.
  */
