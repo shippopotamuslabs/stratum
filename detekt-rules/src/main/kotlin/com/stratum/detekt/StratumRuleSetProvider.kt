@@ -15,6 +15,8 @@ class StratumRuleSetProvider : RuleSetProvider {
                 ForbiddenRawColorLiteralInFeatures(config),
                 ForbiddenMockKInTests(config),
                 ForbiddenVerifyInViewModelTests(config),
+                ForbiddenRepositoryInViewModel(config),
+                ForbiddenDomainTypeInComposable(config),
             ),
         )
 

@@ -1,11 +1,13 @@
 package com.stratum.core.data.db
 
+import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
-import com.stratum.domain.onboarding.Weekday
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
@@ -23,7 +25,9 @@ class EnumConvertersTest {
         assertEquals(OnboardingStep.Specialization, converters.toOnboardingStep(converters.fromOnboardingStep(OnboardingStep.Specialization)))
         assertEquals(TrainingAge.LateIntermediate, converters.toTrainingAge(converters.fromTrainingAge(TrainingAge.LateIntermediate)))
         assertEquals(LastTrainedBucket.OneToSixMonthsAgo, converters.toLastTrainedBucket(converters.fromLastTrainedBucket(LastTrainedBucket.OneToSixMonthsAgo)))
-        assertEquals(Weekday.Thursday, converters.toWeekday(converters.fromWeekday(Weekday.Thursday)))
+        assertEquals(MovementPattern.HorizontalPush, converters.toMovementPattern(converters.fromMovementPattern(MovementPattern.HorizontalPush)))
+        assertEquals(GymPreset.CommercialGym, converters.toGymPreset(converters.fromGymPreset(GymPreset.CommercialGym)))
+        assertEquals(LiftId("bench-press"), converters.toLiftId(converters.fromLiftId(LiftId("bench-press"))))
     }
 
     @Test
@@ -34,7 +38,9 @@ class EnumConvertersTest {
         assertNull(converters.toOnboardingStep(converters.fromOnboardingStep(null)))
         assertNull(converters.toTrainingAge(converters.fromTrainingAge(null)))
         assertNull(converters.toLastTrainedBucket(converters.fromLastTrainedBucket(null)))
-        assertNull(converters.toWeekday(converters.fromWeekday(null)))
+        assertNull(converters.toMovementPattern(converters.fromMovementPattern(null)))
+        assertNull(converters.toGymPreset(converters.fromGymPreset(null)))
+        assertNull(converters.toLiftId(converters.fromLiftId(null)))
     }
 
     @Test
@@ -45,7 +51,8 @@ class EnumConvertersTest {
         assertNull(converters.toOnboardingStep("FutureStep"))
         assertNull(converters.toTrainingAge("AlsoFake"))
         assertNull(converters.toLastTrainedBucket("Nope"))
-        assertNull(converters.toWeekday("Funday"))
+        assertNull(converters.toMovementPattern("DiagonalPush"))
+        assertNull(converters.toGymPreset("PlanetFitness"))
     }
 
     @Test
@@ -53,5 +60,12 @@ class EnumConvertersTest {
     fun renamedEnumYieldsNull() {
         // Simulates a value written by a newer schema version that no longer exists.
         assertNull(converters.toMuscleGroup("Obliques"))
+    }
+
+    @Test
+    @DisplayName("Given a blank LiftId value when decoded then it yields null")
+    fun blankLiftIdYieldsNull() {
+        assertNull(converters.toLiftId(""))
+        assertNull(converters.toLiftId("   "))
     }
 }

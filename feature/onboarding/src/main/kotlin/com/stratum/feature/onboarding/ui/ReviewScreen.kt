@@ -17,11 +17,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.feature.onboarding.R
 import com.stratum.feature.onboarding.ReviewDraftUi
 
 /**
@@ -46,44 +48,52 @@ fun ReviewScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         StratumText(
-            text = "Here's everything we'll use to build your program. " +
-                "Tap Next to generate.",
+            text = stringResource(R.string.review_intro),
             muted = true,
         )
 
-        // 1 — Profile
-        ReviewCard(order = 1, title = "Profile") {
-            SummaryRow(label = "Training age", value = draft.trainingAge)
-            SummaryRow(label = "Last trained", value = draft.lastTrained)
-        }
-
-        // 2 — Schedule
-        ReviewCard(order = 2, title = "Schedule") {
-            SummaryRow(label = "Days", value = draft.weekdays.joinToString(", "))
+        ReviewCard(order = 1, title = stringResource(R.string.review_section_profile)) {
             SummaryRow(
-                label = "Session length",
-                value = draft.sessionMinutes?.let { "$it min" },
+                label = stringResource(R.string.review_label_training_age),
+                value = draft.trainingAge,
+            )
+            SummaryRow(
+                label = stringResource(R.string.review_label_last_trained),
+                value = draft.lastTrained,
             )
         }
 
-        // 3 — Specialization
-        ReviewCard(order = 3, title = "Specialization") {
-            // Empty specialization is a deliberate, valid choice — the program stays balanced.
-            val focus = draft.specialization.joinToString(", ").ifEmpty { "Balanced" }
-            SummaryRow(label = "Focus", value = focus)
+        ReviewCard(order = 2, title = stringResource(R.string.review_section_schedule)) {
+            SummaryRow(
+                label = stringResource(R.string.review_label_days),
+                value = draft.weekdays.joinToString(", "),
+            )
+            SummaryRow(
+                label = stringResource(R.string.review_label_session_length),
+                value = draft.sessionMinutes?.let {
+                    stringResource(R.string.review_session_minutes, it)
+                },
+            )
         }
 
-        // 4 — Gym & lifts. The lift count is the one piece of real "data" in the summary, so
-        // it gets the tabular monospace treatment via StratumNumber for an S-tier finish.
-        ReviewCard(order = 4, title = "Gym & lifts") {
-            SummaryRow(label = "Gym preset", value = draft.presetLabel)
+        ReviewCard(order = 3, title = stringResource(R.string.review_section_specialization)) {
+            val balanced = stringResource(R.string.review_focus_balanced)
+            val focus = draft.specialization.joinToString(", ").ifEmpty { balanced }
+            SummaryRow(label = stringResource(R.string.review_label_focus), value = focus)
+        }
+
+        ReviewCard(order = 4, title = stringResource(R.string.review_section_gym_lifts)) {
+            SummaryRow(
+                label = stringResource(R.string.review_label_gym_preset),
+                value = draft.presetLabel,
+            )
             val countText = draft.enabledLiftCount.takeIf { it > 0 }?.let { it.toString() }
             if (countText != null) {
-                DataColumnRow(label = "Lifts enabled") {
+                DataColumnRow(label = stringResource(R.string.review_label_lifts_enabled)) {
                     StratumNumber(text = countText)
                 }
             } else {
-                SummaryRow(label = "Lifts enabled", value = null)
+                SummaryRow(label = stringResource(R.string.review_label_lifts_enabled), value = null)
             }
         }
     }
@@ -161,10 +171,11 @@ private fun OrderBadge(order: Int) {
  */
 @Composable
 private fun SummaryRow(label: String, value: String?) {
+    val notSet = stringResource(R.string.review_not_set)
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         StratumText(text = label, muted = true)
         StratumText(
-            text = value ?: "Not set yet",
+            text = value ?: notSet,
             muted = value == null,
         )
     }

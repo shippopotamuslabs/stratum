@@ -53,4 +53,8 @@ interface LiftDao {
     /** Count of currently-enabled lifts (validation uses this implicitly via the stream). */
     @Query("SELECT COUNT(*) FROM lifts WHERE enabled = 1")
     suspend fun enabledCount(): Int
+
+    /** Total catalog rows (seed + custom). Used to detect an empty DB that needs seeding. */
+    @Query("SELECT COUNT(*) FROM lifts")
+    suspend fun countAll(): Int
 }

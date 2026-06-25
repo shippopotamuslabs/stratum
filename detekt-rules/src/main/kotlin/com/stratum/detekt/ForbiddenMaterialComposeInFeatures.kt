@@ -73,6 +73,7 @@ class ForbiddenMaterialComposeInFeatures(config: Config) : Rule(config) {
                 "androidx.compose.material3.SmallTopAppBar",
                 "androidx.compose.material3.MediumTopAppBar",
                 "androidx.compose.material3.LargeTopAppBar",
+                "androidx.compose.material3.Scaffold",
                 "androidx.compose.material3.FilterChip",
                 "androidx.compose.material3.InputChip",
                 "androidx.compose.material3.SuggestionChip",

@@ -11,22 +11,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumFilterChip
 import com.stratum.core.ui.component.StratumMusclePicker
 import com.stratum.core.ui.component.StratumText
+import com.stratum.feature.onboarding.OnboardingValidationConstants
+import com.stratum.feature.onboarding.R
 import com.stratum.feature.onboarding.SpecializationDraftUi
 
 /**
- * Step 4 of the wizard. Optional muscle emphasis with a cap. The user
- * taps regions on a front/back body illustration to Specialize up to
- * [SpecializationDraftUi.MAX_SPECIALIZE] muscles; the picker disables further selection at
- * the cap. Selecting none (skip) is valid — non-selected muscles default to maintenance.
- *
- * The picker emits the same display-label strings the chip grid did, so the ViewModel,
- * mapping, and domain layer are unchanged. A selection summary above the diagram lists the
- * currently chosen groups (tap a chip to deselect) so the user sees explicitly what they
- * picked even after flipping away from a region.
+ * Step 4 of the wizard. Optional muscle emphasis with a cap.
  */
 @Composable
 fun SpecializationScreen(
@@ -39,8 +34,10 @@ fun SpecializationScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         StratumText(
-            text = "Tap up to ${SpecializationDraftUi.MAX_SPECIALIZE} muscle groups on the body to prioritize. " +
-                "Skip to keep a balanced program.",
+            text = stringResource(
+                R.string.specialization_intro,
+                OnboardingValidationConstants.MAX_SPECIALIZE,
+            ),
             muted = true,
         )
 
@@ -52,21 +49,12 @@ fun SpecializationScreen(
         StratumMusclePicker(
             selectedMuscleLabels = draft.selectedMuscleLabels,
             onMuscleToggled = onMuscleToggled,
-            // Once the cap is reached, the picker disables unselected regions; selected
-            // regions remain tappable to deselect (mirrors the prior chip behavior).
             enabled = !draft.atCap,
             modifier = Modifier.fillMaxWidth(),
         )
     }
 }
 
-/**
- * Lists the currently-specialized muscle groups with a count. Sits above the body map so the
- * selection stays visible regardless of which view (front/back) is showing — useful once the
- * user flips to the back to pick posterior muscles. Each chip is selected (accent) and tappable
- * to deselect, round-tripping through the same [onMuscleToggled] the picker uses. Empty when
- * nothing is selected.
- */
 @Composable
 private fun SelectionSummary(
     selectedLabels: Set<String>,

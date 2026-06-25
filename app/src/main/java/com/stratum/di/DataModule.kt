@@ -2,8 +2,6 @@ package com.stratum.di
 
 import android.content.Context
 import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.sqlite.db.SupportSQLiteDatabase
 import com.stratum.core.data.db.GymPreferenceDao
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
@@ -36,8 +34,8 @@ import kotlinx.coroutines.launch
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
-    // Application-scoped scope for one-shot DB callbacks (catalog seeding). Detached from any
-    // ViewModel so the seed completes even if the UI that triggered first-run leaves.
+    // Application-scoped scope for one-shot catalog seeding. Detached from any ViewModel so the
+    // seed completes even if the UI that triggered first-run leaves.
     private val seedScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Provides
@@ -45,27 +43,21 @@ object DatabaseModule {
     fun provideStratumDatabase(
         @ApplicationContext context: Context,
     ): StratumDatabase {
-        // The catalog is seeded once, the first time the DB file is created, so first-run
-        // users start with a full lift list — deterministic, one-shot, no WorkManager job.
-        // The seeder is built from the just-opened DB's DAOs (not Hilt-injected) to avoid a
-        // DB→DAO→seeder→DB dependency cycle. `seedDb` is set after build() so onCreate can
-        // reach the DAOs; onCreate only fires on the first DB access (post-build).
-        var seedDb: StratumDatabase? = null
-        val seedCallback = object : RoomDatabase.Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                val database = seedDb ?: return
-                val seeder = LiftCatalogSeeder(
-                    liftDao = database.liftDao(),
+        val database = Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
+            .build()
+        // Never call DAOs from RoomDatabase.Callback.onCreate — Room holds the DB lock during
+        // init and DAO work there deadlocks (white screen on startup). Seed asynchronously once
+        // the database is fully open; idempotent upserts make re-runs safe.
+        seedScope.launch {
+            val liftDao = database.liftDao()
+            if (liftDao.countAll() == 0) {
+                LiftCatalogSeeder(
+                    liftDao = liftDao,
                     incrementTierDao = database.incrementTierDao(),
-                )
-                seedScope.launch { seeder.seed(context) }
+                ).seed(context)
             }
         }
-        return Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
-            .addCallback(seedCallback)
-            .build()
-            .also { seedDb = it }
+        return database
     }
 
     @Provides

@@ -62,7 +62,11 @@ class WorkoutViewModelTest {
 
     @BeforeEach
     fun setup() {
-        viewModel = WorkoutViewModel(fakeRepository)
+        fakeRepository.seed(emptyList())
+        viewModel = WorkoutViewModel(
+            observeSessions = ObserveSessionsUseCase(fakeRepository),
+            logSession = LogSessionUseCase(fakeRepository),
+        )
     }
 
     @Test
