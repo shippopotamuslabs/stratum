@@ -13,7 +13,7 @@ import com.stratum.domain.lift.identity.LiftId
  *
  * Schema authorized for OS-4 (docs/onboarding-vertical-slices.md §OS-4; AGENTS.md §4.5
  * Schema Lock). [id] is a typed [LiftId] value class — stored as its String `.value` via
- * `EnumConverters`/`IdConverters`, but kept typed at the Kotlin/DAO level so a `LiftId`
+ * `EnumConverters`, but kept typed at the Kotlin/DAO level so a `LiftId`
  * can't be assigned to another aggregate's id (the pocket-crew identity pattern).
  *
  * Availability lives on this row as [enabled] (no separate flag table — AGENTS.md §4.5: no
@@ -22,7 +22,9 @@ import com.stratum.domain.lift.identity.LiftId
  * entity review). [primaryMusclesBitmask]/[secondaryMusclesBitmask] are `1 shl MuscleGroup.ordinal`;
  * [presetTags] is a CSV of `GymPreset.name`. Muscle set + preset decoding happens in the mapper.
  * [equipment] is a nullable display string (e.g. "Hammer Strength") — display copy only, not
- * an equipment entity graph (§2.1 lift-first catalog).
+ * an equipment entity graph (§2.1 lift-first catalog). Increment tier amounts are stored in lb
+ * (v1 schema); the mapper re-wraps them with [Weight.WeightUnit.Lb] until a post-release
+ * schema adds per-lift unit persistence.
  */
 @Entity(tableName = "lifts")
 data class LiftEntity(

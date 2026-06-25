@@ -1,6 +1,8 @@
 package com.stratum.feature.onboarding
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,7 +26,6 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.feature.onboarding.ui.GymAndLiftsScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
@@ -42,10 +45,13 @@ fun OnboardingRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    if (state.isComplete) {
-        onComplete()
-        return
+    LaunchedEffect(state.isComplete) {
+        if (state.isComplete) onComplete()
     }
+
+    if (state.isComplete) return
+
+    BackHandler(enabled = state.canGoBack) { viewModel.back() }
 
     OnboardingWizard(
         state = state,
@@ -56,7 +62,7 @@ fun OnboardingRoute(
         onLastTrainedSelected = viewModel::onLastTrainedSelected,
         onWeekdayToggled = viewModel::onWeekdayToggled,
         onSessionPresetSelected = viewModel::onSessionPresetSelected,
-        onCustomSessionChange = viewModel::onCustomSessionChange,
+        onCustomSessionMinutesChange = viewModel::onCustomSessionMinutesChange,
         onMuscleToggled = viewModel::onMuscleToggled,
         gymLifts = GymLiftsHandlers(
             onPresetSelected = viewModel::onPresetSelected,
@@ -75,7 +81,7 @@ private fun OnboardingWizard(
     onLastTrainedSelected: (String?) -> Unit,
     onWeekdayToggled: (String) -> Unit,
     onSessionPresetSelected: (String?) -> Unit,
-    onCustomSessionChange: (String) -> Unit,
+    onCustomSessionMinutesChange: (Int) -> Unit,
     onMuscleToggled: (String) -> Unit,
     gymLifts: GymLiftsHandlers,
     modifier: Modifier = Modifier,
@@ -84,36 +90,50 @@ private fun OnboardingWizard(
         modifier = modifier.fillMaxSize(),
         topBar = {
             StratumTopBar(
-                title = state.step.toDisplayName(),
-                bottom = { Stepper(step = state.step) }
+                title = state.step.displayName,
+                navigationIcon = if (!state.isFirst) {
+                    {
+                        StratumText(
+                            text = stringResource(R.string.onboarding_button_back),
+                            modifier = Modifier
+                                .clickable(onClick = onBack)
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = StratumThemeAccessor.typography.bodyLarge,
+                        )
+                    }
+                } else {
+                    null
+                },
+                bottom = { Stepper(steps = state.steps, currentStepId = state.step.id) },
             )
-        }
+        },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when (state.step) {
-                    OnboardingStep.Welcome -> WelcomeScreen()
-                    OnboardingStep.Profile -> ProfileScreen(
+                when (state.step.id) {
+                    WIZARD_STEP_WELCOME -> WelcomeScreen()
+                    WIZARD_STEP_PROFILE -> ProfileScreen(
                         draft = state.profileDraft,
                         onTrainingAgeSelected = onTrainingAgeSelected,
                         onLastTrainedSelected = onLastTrainedSelected,
                     )
-                    OnboardingStep.Schedule -> ScheduleScreen(
+                    WIZARD_STEP_SCHEDULE -> ScheduleScreen(
                         draft = state.scheduleDraft,
                         onWeekdayToggled = onWeekdayToggled,
                         onSessionPresetSelected = onSessionPresetSelected,
-                        onCustomSessionChange = onCustomSessionChange,
+                        onCustomSessionMinutesChange = onCustomSessionMinutesChange,
                     )
-                    OnboardingStep.Specialization -> SpecializationScreen(
+                    WIZARD_STEP_SPECIALIZATION -> SpecializationScreen(
                         draft = state.specializationDraft,
                         onMuscleToggled = onMuscleToggled,
                     )
-                    OnboardingStep.GymAndLifts -> GymAndLiftsScreen(
-                        selectedPresetLabel = state.gymLiftsDraft.selectedPresetLabel,
+                    WIZARD_STEP_GYM_AND_LIFTS -> GymAndLiftsScreen(
+                        draft = state.gymLiftsDraft,
+                        presetOptions = state.presetOptions,
                         onPresetSelected = gymLifts.onPresetSelected,
                     )
-                    OnboardingStep.Review -> ReviewScreen(draft = state.reviewDraft)
-                    OnboardingStep.Generate -> GenerateScreen(onComplete = onComplete)
+                    WIZARD_STEP_REVIEW -> ReviewScreen(draft = state.reviewDraft)
+                    WIZARD_STEP_GENERATE -> GenerateScreen(onComplete = onComplete)
                 }
             }
             WizardControls(
@@ -128,13 +148,13 @@ private fun OnboardingWizard(
 }
 
 @Composable
-private fun Stepper(step: OnboardingStep) {
+private fun Stepper(steps: List<WizardStepUi>, currentStepId: String) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        OnboardingStep.entries.forEach { entry ->
-            val active = entry == step
+        steps.forEach { entry ->
+            val active = entry.id == currentStepId
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -159,11 +179,14 @@ private fun GenerateScreen(onComplete: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StratumText(
-            text = "Ready to build your program?",
+            text = stringResource(R.string.onboarding_generate_title),
             style = StratumThemeAccessor.typography.titleLarge,
         )
         Spacer(modifier = Modifier.height(16.dp))
-        StratumButton(text = "Generate", onClick = onComplete)
+        StratumButton(
+            text = stringResource(R.string.onboarding_button_generate),
+            onClick = onComplete,
+        )
     }
 }
 
@@ -181,22 +204,26 @@ private fun WizardControls(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (!isFirst) {
-            StratumButton(text = "Back", onClick = onBack)
+            StratumButton(
+                text = stringResource(R.string.onboarding_button_back),
+                onClick = onBack,
+            )
         } else {
             Spacer(modifier = Modifier.height(48.dp))
         }
         if (!isLast && canAdvance) {
-            StratumButton(text = "Next", onClick = onNext)
+            StratumButton(
+                text = stringResource(R.string.onboarding_button_next),
+                onClick = onNext,
+            )
         }
     }
 }
 
-fun OnboardingStep.toDisplayName(): String = when (this) {
-    OnboardingStep.Welcome -> "Welcome"
-    OnboardingStep.Profile -> "Profile"
-    OnboardingStep.Schedule -> "Schedule"
-    OnboardingStep.Specialization -> "Specialization"
-    OnboardingStep.GymAndLifts -> "Gym & Lifts"
-    OnboardingStep.Review -> "Review"
-    OnboardingStep.Generate -> "Generate"
-}
+private const val WIZARD_STEP_WELCOME = "Welcome"
+private const val WIZARD_STEP_PROFILE = "Profile"
+private const val WIZARD_STEP_SCHEDULE = "Schedule"
+private const val WIZARD_STEP_SPECIALIZATION = "Specialization"
+private const val WIZARD_STEP_GYM_AND_LIFTS = "GymAndLifts"
+private const val WIZARD_STEP_REVIEW = "Review"
+private const val WIZARD_STEP_GENERATE = "Generate"

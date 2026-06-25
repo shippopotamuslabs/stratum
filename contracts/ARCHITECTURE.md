@@ -31,7 +31,7 @@ toward `:core:domain`. Outer modules implement ports defined in domain.
 | Module | Type | Namespace | Purpose |
 |--------|------|-----------|---------|
 | `:app` | Application | `com.stratum` | Shell: `Application`, `MainActivity`, NavHost, DI composition |
-| `:core:domain` | JVM library | `com.stratum.core.domain` | Models, ports, use cases — no Android framework |
+| `:core:domain` | JVM library | `com.stratum.domain` | Models, ports, use cases — no Android framework |
 | `:core:data` | Android library | `com.stratum.core.data` | Room, repositories, DataStore, WorkManager, mappers |
 | `:core:ui` | Android library | `com.stratum.core.ui` | `StratumTheme`, theme specs, shared `Stratum*` components |
 | `:core:testing` | JVM library | `com.stratum.core.testing` | Shared fakes, `MainDispatcherRule`, test fixtures |
@@ -219,6 +219,10 @@ wired in `:app` via callbacks and shared routes.
 ## 6. Data & Background Work (Guidance)
 
 - **Schema lock:** no new Room tables/columns without explicit authorization (see `AGENTS.md`)
+- **Pre-release schema policy:** keep `StratumDatabase` at **version 1** with **no Room migrations**
+  until the first store release. During development, apply entity changes by bumping the version
+  and **uninstalling/reinstalling** the app (or clearing app data) rather than accumulating
+  migration files. Add proper migrations only when shipping to users with existing databases.
 - **Local-first:** persistence and intelligence default to on-device; sync is opt-in later
 - **WorkManager** for periodic analysis (phase detection, insight generation) lives in `:core:data`
 - **On-device LLM** in a dedicated inference module with no Compose — deterministic core stays in domain/data
@@ -229,11 +233,28 @@ wired in `:app` via callbacks and shared routes.
 
 ```text
 com.stratum                          → :app
-com.stratum.core.domain.*            → :core:domain
+com.stratum.domain.*                 → :core:domain
 com.stratum.core.data.*              → :core:data
 com.stratum.core.ui.*                → :core:ui
 com.stratum.feature.<name>.*         → :feature:<name> (when added)
 ```
+
+### 7.1 Namespace convention
+
+Packages name **architectural layers**, not Gradle folder paths verbatim. The `:core:`
+prefix in module names groups shared libraries in the build; only some of that grouping
+is mirrored in Kotlin package names.
+
+| Layer | Module | Package | Rationale |
+|-------|--------|---------|-----------|
+| Domain (innermost) | `:core:domain` | `com.stratum.domain.*` | Short imports at the center of the graph; domain is the layer name, not a Gradle bucket |
+| Data | `:core:data` | `com.stratum.core.data.*` | Disambiguates persistence/mappers from domain ports |
+| Shared UI | `:core:ui` | `com.stratum.core.ui.*` | Disambiguates Compose components from feature screens |
+| Features | `:feature:<name>` | `com.stratum.feature.<name>.*` | One package subtree per vertical slice |
+
+**Do not rename** `com.stratum.domain` to `com.stratum.core.domain` for module-path
+symmetry — the omission of `core` in the domain package is intentional. New code in
+`:core:domain` uses `com.stratum.domain.<subpackage>` (e.g. `onboarding`, `lift`).
 
 ---
 

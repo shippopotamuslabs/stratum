@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding.ui
 
+import com.stratum.feature.onboarding.OnboardingValidationConstants
 import com.stratum.feature.onboarding.SpecializationDraftUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -32,7 +33,7 @@ class SpecializationScreenTest {
     @DisplayName("Given selections at MAX when checking atCap then it returns true")
     fun selectionsAtMaxIsAtCap() {
         val draft = SpecializationDraftUi(
-            selectedMuscleLabels = List(SpecializationDraftUi.MAX_SPECIALIZE) { "Muscle$it" }.toSet()
+            selectedMuscleLabels = List(OnboardingValidationConstants.MAX_SPECIALIZE) { "Muscle$it" }.toSet()
         )
         assertTrue(draft.atCap)
     }
@@ -41,7 +42,7 @@ class SpecializationScreenTest {
     @DisplayName("Given selections above MAX when checking atCap then it returns true")
     fun selectionsAboveMaxIsAtCap() {
         val draft = SpecializationDraftUi(
-            selectedMuscleLabels = List(SpecializationDraftUi.MAX_SPECIALIZE + 1) { "Muscle$it" }.toSet()
+            selectedMuscleLabels = List(OnboardingValidationConstants.MAX_SPECIALIZE + 1) { "Muscle$it" }.toSet()
         )
         assertTrue(draft.atCap)
     }
@@ -57,7 +58,7 @@ class SpecializationScreenTest {
     @DisplayName("Given selections at MAX when validating draft then it is valid")
     fun selectionsAtMaxIsValid() {
         val draft = SpecializationDraftUi(
-            selectedMuscleLabels = List(SpecializationDraftUi.MAX_SPECIALIZE) { "Muscle$it" }.toSet()
+            selectedMuscleLabels = List(OnboardingValidationConstants.MAX_SPECIALIZE) { "Muscle$it" }.toSet()
         )
         assertTrue(draft.isValid)
     }
@@ -66,7 +67,7 @@ class SpecializationScreenTest {
     @DisplayName("Given selections above MAX when validating draft then it is invalid")
     fun selectionsAboveMaxIsInvalid() {
         val draft = SpecializationDraftUi(
-            selectedMuscleLabels = List(SpecializationDraftUi.MAX_SPECIALIZE + 1) { "Muscle$it" }.toSet()
+            selectedMuscleLabels = List(OnboardingValidationConstants.MAX_SPECIALIZE + 1) { "Muscle$it" }.toSet()
         )
         assertFalse(draft.isValid)
     }
@@ -74,6 +75,6 @@ class SpecializationScreenTest {
     @Test
     @DisplayName("Verify MAX_SPECIALIZE matches the domain validation rules constraint")
     fun maxSpecializeLimitConstraint() {
-        assertEquals(3, SpecializationDraftUi.MAX_SPECIALIZE)
+        assertEquals(3, OnboardingValidationConstants.MAX_SPECIALIZE)
     }
 }

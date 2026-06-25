@@ -16,7 +16,7 @@ package com.stratum.domain.onboarding
  * [Abductor] and [Adductor] (OS-4b) are volume-only contributors: lifts can target them for
  * volume tracking and they appear in the Gym & Lifts muscle summary, but they are **not** on
  * the body-diagram picker (`BodyPathData` has no SVG region for them) and are not offered for
- * specialization in `SPECIALIZATION_SECTIONS`. Practically nobody wants to specialize them, so
+ * specialization in the body-diagram picker (`BodyPathData` has no SVG region for them). Practically nobody wants to specialize them, so
  * excluding them from the picker is intentional, not a gap. Appended at the end so the
  * bitmask↔ordinal encoding in `LiftMapper` stays stable for existing values.
  */
@@ -39,4 +39,26 @@ enum class MuscleGroup {
     Abductor,
     Adductor,
     ;
+
+    /** Human-readable label — single source of truth for UI and lift summaries. */
+    val displayLabel: String
+        get() = when (this) {
+            Chest -> "Chest"
+            Back -> "Back"
+            Quad -> "Quads"
+            Hamstring -> "Hamstrings"
+            Glute -> "Glutes"
+            PosteriorDeltoid -> "Rear Delts"
+            LateralDeltoid -> "Side Delts"
+            AnteriorDeltoid -> "Front Delts"
+            Tricep -> "Triceps"
+            Bicep -> "Biceps"
+            Trap -> "Traps"
+            Calf -> "Calves"
+            Forearm -> "Forearms"
+            Ab -> "Abs"
+            LowerBack -> "Lower Back"
+            Abductor -> "Abductors"
+            Adductor -> "Adductors"
+        }
 }

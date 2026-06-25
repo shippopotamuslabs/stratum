@@ -11,13 +11,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object OnboardingKey : NavKey
 
-/** Nav3 key for the home placeholder (owned here as the post-onboarding target). */
-@Serializable
-data object HomeKey : NavKey
-
 /**
- * Registers the onboarding entry in a Nav3 [EntryProviderScope]. Completion navigates by
- * appending [HomeKey] to the back stack via [onComplete].
+ * Registers the onboarding entry in a Nav3 [EntryProviderScope]. Completion is handled by
+ * the app shell via [onComplete] (typically navigating to [com.stratum.navigation.HomeKey]).
  */
 fun EntryProviderScope<NavKey>.onboardingEntry(
     onComplete: () -> Unit,

@@ -25,4 +25,11 @@ internal object StratumPathFilters {
         }
         return ENFORCED_PATH_MARKERS.any { marker -> path.contains(marker, ignoreCase = true) }
     }
+
+    fun isFeatureModule(path: String): Boolean {
+        if (isExempt(path)) {
+            return false
+        }
+        return path.contains("/feature/", ignoreCase = true)
+    }
 }
