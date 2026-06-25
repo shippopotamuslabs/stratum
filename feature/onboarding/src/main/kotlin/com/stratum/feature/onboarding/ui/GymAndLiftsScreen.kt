@@ -12,28 +12,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.domain.lift.GymPreset
-
-private val PRESET_OPTIONS = GymPreset.entries
+import com.stratum.feature.onboarding.GymLiftsDraftUi
+import com.stratum.feature.onboarding.GymPresetOptionUi
+import com.stratum.feature.onboarding.R
 
 /**
- * Step 5 of the wizard. The user picks a gym preset (Commercial gym or Garage gym) which
- * bulk-enables a bundled lift set for generation. Two large tappable cards with accent border
- * highlighting when selected.
- *
- * No lift list, search, or custom-lift form — full catalog management is deferred to a
- * post-onboarding settings screen (OS-4b design decision: 619 lifts is too many to audit
- * mid-onboarding; the edit loop in OS-7/OS-8 handles gym-specific substitutions).
- *
- * The step is valid once a preset is selected. The preset is applied immediately through the
- * ViewModel, so navigation back/forward composes correctly.
+ * Step 5 of the wizard. The user picks a gym preset which bulk-enables a bundled lift set.
  */
 @Composable
 fun GymAndLiftsScreen(
-    selectedPresetLabel: String?,
+    draft: GymLiftsDraftUi,
+    presetOptions: List<GymPresetOptionUi>,
     onPresetSelected: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -42,28 +35,30 @@ fun GymAndLiftsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         StratumText(
-            text = "Pick your gym type. You can fine-tune lifts later.",
+            text = stringResource(R.string.gym_lifts_intro),
             muted = true,
         )
 
-        PRESET_OPTIONS.forEach { preset ->
+        presetOptions.forEach { preset ->
             GymPresetCard(
-                preset = preset,
-                selected = selectedPresetLabel == preset.displayName,
-                onClick = { onPresetSelected(preset.displayName) },
+                option = preset,
+                selected = draft.selectedPresetLabel == preset.label,
+                onClick = { onPresetSelected(preset.label) },
+            )
+        }
+
+        if (draft.showNoPresetError) {
+            StratumText(
+                text = stringResource(R.string.gym_lifts_error_no_preset),
+                muted = true,
             )
         }
     }
 }
 
-/**
- * A large tappable card for one gym preset. When selected, the border switches to the accent
- * color at 2dp to clearly indicate the active choice; unselected cards use the subtle border at
- * the theme's default border width.
- */
 @Composable
 private fun GymPresetCard(
-    preset: GymPreset,
+    option: GymPresetOptionUi,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -92,19 +87,14 @@ private fun GymPresetCard(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         StratumText(
-            text = preset.displayName,
+            text = option.label,
             style = StratumThemeAccessor.typography.titleLarge,
         )
         StratumText(
-            text = presetDescription(preset),
+            text = option.description,
             muted = true,
         )
     }
-}
-
-private fun presetDescription(preset: GymPreset): String = when (preset) {
-    GymPreset.CommercialGym -> "Full equipment: barbells, dumbbells, cables, and machines."
-    GymPreset.GarageGym -> "Home setup: barbells, dumbbells, and bodyweight. No cables or machines."
 }
 
 private val SELECTED_BORDER_WIDTH = 2.dp

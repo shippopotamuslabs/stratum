@@ -9,9 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
-import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.feature.onboarding.R
 
 @Composable
 fun WelcomeScreen(modifier: Modifier = Modifier) {
@@ -21,7 +22,7 @@ fun WelcomeScreen(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StratumText(
-            text = "A quietly competent training partner. Let's build your starting program.",
+            text = stringResource(R.string.welcome_message),
             muted = true,
         )
     }

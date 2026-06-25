@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Wizard chrome -->
+    <string name="onboarding_step_welcome">Welcome</string>
+    <string name="onboarding_step_profile">Profile</string>
+    <string name="onboarding_step_schedule">Schedule</string>
+    <string name="onboarding_step_specialization">Specialization</string>
+    <string name="onboarding_step_gym_and_lifts">Gym &amp; Lifts</string>
+    <string name="onboarding_step_review">Review</string>
+    <string name="onboarding_step_generate">Generate</string>
+    <string name="onboarding_button_back">Back</string>
+    <string name="onboarding_button_next">Next</string>
+    <string name="onboarding_button_generate">Generate</string>
+    <string name="onboarding_generate_title">Ready to build your program?</string>
+    <string name="onboarding_content_description_back">Go back</string>
+
+    <!-- Welcome -->
+    <string name="welcome_message">A quietly competent training partner. Let\'s build your starting program.</string>
+
+    <!-- Profile -->
+    <string name="profile_training_age_heading">How many years of solid training have you done?</string>
+    <string name="profile_training_age_hint">Count only consistent, quality training.</string>
+    <string name="profile_last_trained_heading">When did you last train seriously?</string>
+    <string name="profile_error_training_age">Select your training age.</string>
+    <string name="profile_error_last_trained">Select when you last trained.</string>
+
+    <!-- Schedule -->
+    <string name="schedule_weekdays_heading">Training days</string>
+    <string name="schedule_session_length_heading">Desired Session Length</string>
+    <string name="schedule_session_preset_45">45 min</string>
+    <string name="schedule_session_preset_60">60 min</string>
+    <string name="schedule_session_preset_75">75 min</string>
+    <string name="schedule_session_custom">Custom</string>
+    <string name="schedule_session_hours_label">Hours</string>
+    <string name="schedule_session_minutes_label">Min</string>
+    <string name="schedule_session_step_up">Increase</string>
+    <string name="schedule_session_step_down">Decrease</string>
+    <string name="schedule_session_hours_field">Hours field</string>
+    <string name="schedule_session_minutes_field">Minutes field</string>
+    <string name="schedule_error_weekdays">Pick at least one day.</string>
+    <string name="schedule_error_session_required">Choose a session length.</string>
+    <string name="schedule_error_session_custom_blank">Enter minutes.</string>
+    <string name="schedule_error_session_not_number">Session length must be a number.</string>
+    <string name="schedule_error_session_too_short">Must be at least %1$d minutes.</string>
+    <string name="schedule_error_session_too_long">Must be %1$d minutes or below.</string>
+
+    <!-- Specialization -->
+    <string name="specialization_intro">Tap up to %1$d muscle groups on the body to prioritize. Skip to keep a balanced program.</string>
+
+    <!-- Gym & Lifts -->
+    <string name="gym_lifts_intro">Pick your gym type. You can fine-tune lifts later.</string>
+    <string name="gym_lifts_error_no_preset">Pick your gym to continue.</string>
+    <string name="gym_preset_commercial_label">Commercial gym</string>
+    <string name="gym_preset_commercial_description">Full equipment: barbells, dumbbells, cables, and machines.</string>
+    <string name="gym_preset_garage_label">Garage gym</string>
+    <string name="gym_preset_garage_description">Home setup: barbells, dumbbells, and bodyweight. No cables or machines.</string>
+
+    <!-- Review -->
+    <string name="review_intro">Here\'s everything we\'ll use to build your program. Tap Next to generate.</string>
+    <string name="review_section_profile">Profile</string>
+    <string name="review_section_schedule">Schedule</string>
+    <string name="review_section_specialization">Specialization</string>
+    <string name="review_section_gym_lifts">Gym &amp; lifts</string>
+    <string name="review_label_training_age">Training age</string>
+    <string name="review_label_last_trained">Last trained</string>
+    <string name="review_label_days">Days</string>
+    <string name="review_label_session_length">Session length</string>
+    <string name="review_label_focus">Focus</string>
+    <string name="review_label_gym_preset">Gym preset</string>
+    <string name="review_label_lifts_enabled">Lifts enabled</string>
+    <string name="review_focus_balanced">Balanced</string>
+    <string name="review_not_set">Not set yet</string>
+    <string name="review_session_minutes">%1$d min</string>
+</resources>
