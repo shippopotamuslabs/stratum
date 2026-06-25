@@ -5,6 +5,10 @@ import android.graphics.RectF
 import androidx.compose.ui.geometry.Size
 import com.stratum.core.ui.component.musclepicker.BODY_PATHS_BACK
 import com.stratum.core.ui.component.musclepicker.BODY_PATHS_FRONT
+import com.stratum.core.ui.component.musclepicker.DEFAULT_CONTENT_PADDING_FRACTION
+import com.stratum.core.ui.component.musclepicker.parseBodyPaths
+import com.stratum.core.ui.component.musclepicker.transformMatrix
+import com.stratum.core.ui.component.musclepicker.unionBounds
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
