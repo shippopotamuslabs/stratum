@@ -126,4 +126,24 @@ class RoomSpecializationPreferenceRepositoryTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    @DisplayName("Given Maintenance levels when saved then they are not persisted")
+    fun maintenanceLevelsNotPersisted() = runTest {
+        subject.save(
+            SpecializationPreference(
+                levels = mapOf(
+                    MuscleGroup.Chest to SpecializationLevel.Specialize,
+                    MuscleGroup.Back to SpecializationLevel.Maintenance,
+                ),
+            ),
+        )
+
+        subject.observe().test {
+            val emitted = awaitItem()
+            assertEquals(SpecializationLevel.Specialize, emitted.levelFor(MuscleGroup.Chest))
+            assertEquals(SpecializationLevel.Maintenance, emitted.levelFor(MuscleGroup.Back))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

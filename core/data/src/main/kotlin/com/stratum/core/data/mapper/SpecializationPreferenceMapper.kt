@@ -10,8 +10,8 @@ import com.stratum.domain.onboarding.SpecializationPreference
  *
  * Each row is one explicitly-set muscle. Absence means
  * [SpecializationLevel.Maintenance], so a persisted empty preference (skip) round-trips to
- * [SpecializationPreference.Empty] with zero rows. Enum columns are decoded by
- * [com.stratum.core.data.db.EnumConverters], not here.
+ * [SpecializationPreference.Empty] with zero rows. [SpecializationLevel.Maintenance] entries
+ * are filtered out on persist — they are implied by absence, not stored.
  */
 fun List<SpecializationPreferenceEntity>.toDomain(): SpecializationPreference {
     if (isEmpty()) return SpecializationPreference.Empty
@@ -20,6 +20,8 @@ fun List<SpecializationPreferenceEntity>.toDomain(): SpecializationPreference {
 }
 
 fun SpecializationPreference.toEntities(): List<SpecializationPreferenceEntity> =
-    levels.entries.map { (muscle, level) ->
-        SpecializationPreferenceEntity(muscle = muscle, level = level)
-    }
+    levels.entries
+        .filter { (_, level) -> level != SpecializationLevel.Maintenance }
+        .map { (muscle, level) ->
+            SpecializationPreferenceEntity(muscle = muscle, level = level)
+        }

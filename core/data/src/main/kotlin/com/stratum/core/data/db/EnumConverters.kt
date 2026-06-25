@@ -9,7 +9,6 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
-import com.stratum.domain.onboarding.Weekday
 
 /**
  * Single source of truth for enum ↔ String and typed-id ↔ String persistence across the
@@ -64,13 +63,6 @@ class EnumConverters {
     @TypeConverter
     fun toLastTrainedBucket(value: String?): LastTrainedBucket? =
         value?.let { runCatching { LastTrainedBucket.valueOf(it) }.getOrNull() }
-
-    @TypeConverter
-    fun fromWeekday(weekday: Weekday?): String? = weekday?.name
-
-    @TypeConverter
-    fun toWeekday(value: String?): Weekday? =
-        value?.let { runCatching { Weekday.valueOf(it) }.getOrNull() }
 
     // --- OS-4: lift catalog enums + typed id -------------------------------------------
 

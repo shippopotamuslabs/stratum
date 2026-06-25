@@ -28,14 +28,14 @@ import com.stratum.domain.onboarding.MuscleGroup
  * The typed [LiftId] passes straight through (`id = id`) — the converter is the only String
  * boundary, so this mapper never touches `.value`.
  */
-fun LiftWithTiers.toDomain(unit: Weight.WeightUnit = DEFAULT_LIFT_UNIT): Lift = Lift(
+fun LiftWithTiers.toDomain(): Lift = Lift(
     id = lift.id,
     name = lift.name,
     movementPattern = lift.movementPattern,
     primaryMuscles = lift.primaryMusclesBitmask.toMuscleSet(),
     secondaryMuscles = lift.secondaryMusclesBitmask.toMuscleSet(),
     allowWeightChangeBetweenSets = lift.allowWeightChangeBetweenSets,
-    incrementTiers = tiers.toDomainTiers(unit),
+    incrementTiers = tiers.toDomainTiers(),
     presetTags = lift.presetTags.toPresetSet(),
     equipment = lift.equipment,
     enabled = lift.enabled,
@@ -64,12 +64,12 @@ fun Lift.toTierEntities(): List<IncrementTierEntity> = incrementTiers.map { tier
     )
 }
 
-fun List<IncrementTierEntity>.toDomainTiers(unit: Weight.WeightUnit): List<IncrementTier> =
+fun List<IncrementTierEntity>.toDomainTiers(): List<IncrementTier> =
     sortedBy { it.lowerBound }.map { entity ->
         IncrementTier(
-            lowerBound = Weight(entity.lowerBound, unit),
-            upperBound = entity.upperBound?.let { Weight(it, unit) },
-            increment = Weight(entity.increment, unit),
+            lowerBound = Weight(entity.lowerBound, DEFAULT_LIFT_UNIT),
+            upperBound = entity.upperBound?.let { Weight(it, DEFAULT_LIFT_UNIT) },
+            increment = Weight(entity.increment, DEFAULT_LIFT_UNIT),
         )
     }
 
