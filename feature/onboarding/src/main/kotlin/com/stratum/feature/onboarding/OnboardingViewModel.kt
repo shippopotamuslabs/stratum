@@ -3,31 +3,22 @@ package com.stratum.feature.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.ApplyGymPresetUseCase
-import com.stratum.domain.lift.GymLiftsValidationResult
-import com.stratum.domain.lift.GymPreset
-import com.stratum.domain.lift.Lift
-import com.stratum.domain.lift.ObserveLiftCatalogUseCase
-import com.stratum.domain.lift.ObserveSelectedPresetUseCase
 import com.stratum.domain.lift.SetSelectedPresetUseCase
-import com.stratum.domain.lift.ValidateGymLiftsStepUseCase
+import com.stratum.domain.onboarding.AdditiveSetEdit
+import com.stratum.domain.onboarding.AdvanceOnboardingStepResult
+import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
-import com.stratum.domain.onboarding.GetOnboardingStateUseCase
+import com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.onboarding.ObserveSpecializationUseCase
-import com.stratum.domain.onboarding.OnboardingState
 import com.stratum.domain.onboarding.OnboardingStep
-import com.stratum.domain.onboarding.ProfileValidationResult
-import com.stratum.domain.onboarding.SaveOnboardingProgressUseCase
-import com.stratum.domain.onboarding.ScheduleValidationResult
+import com.stratum.domain.onboarding.OnboardingStepDirection
+import com.stratum.domain.onboarding.OnboardingWizardState
 import com.stratum.domain.onboarding.SpecializationPreference
-import com.stratum.domain.onboarding.SpecializationValidationResult
-import com.stratum.domain.onboarding.UpdateSpecializationUseCase
-import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
-import com.stratum.domain.onboarding.ValidateProfileStepUseCase
-import com.stratum.domain.onboarding.ValidateScheduleStepUseCase
-import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
+import com.stratum.domain.onboarding.ValidateCurrentOnboardingStepUseCase
 import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.onboarding.applyAdditiveSetEdit
+import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,50 +30,28 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
-    private val getOnboardingState: GetOnboardingStateUseCase,
-    private val saveOnboardingProgress: SaveOnboardingProgressUseCase,
-    private val updateUserTrainingProfile: UpdateUserTrainingProfileUseCase,
-    private val observeSpecialization: ObserveSpecializationUseCase,
-    private val updateSpecialization: UpdateSpecializationUseCase,
-    private val observeLiftCatalog: ObserveLiftCatalogUseCase,
-    private val observeSelectedPreset: ObserveSelectedPresetUseCase,
+    private val getOnboardingWizardState: GetOnboardingWizardStateUseCase,
+    private val advanceOnboardingStep: AdvanceOnboardingStepUseCase,
+    private val validateCurrentStep: ValidateCurrentOnboardingStepUseCase,
     private val applyGymPreset: ApplyGymPresetUseCase,
     private val setSelectedPreset: SetSelectedPresetUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
-    private val validateProfileStep: ValidateProfileStepUseCase,
-    private val validateScheduleStep: ValidateScheduleStepUseCase,
-    private val validateSpecializationStep: ValidateSpecializationStepUseCase,
-    private val validateGymLiftsStep: ValidateGymLiftsStepUseCase,
 ) : ViewModel() {
 
-    /** Uncommitted profile field edits not yet persisted. */
     private val edits = MutableStateFlow(ProfileEdit())
-
-    /** Uncommitted specialization edits not yet persisted. */
     private val specializationEdits = MutableStateFlow(SpecializationEdit())
-
-    /** Whether field errors should be shown (after first Next attempt). */
     private val showErrors = MutableStateFlow(false)
+    private val applyingPreset = MutableStateFlow(false)
 
-    /**
-     * Persisted onboarding state — eagerly collected so [.value] is always current for
-     * navigation write paths, regardless of whether a UI collector is active.
-     */
-    private val state: StateFlow<OnboardingState> =
-        getOnboardingState().stateIn(
+    private val wizardState: StateFlow<OnboardingWizardState> =
+        getOnboardingWizardState().stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = OnboardingState.Initial,
+            initialValue = OnboardingWizardState.Initial,
         )
 
-    /**
-     * The effective profile draft = persisted profile + uncommitted edits. Eagerly collected
-     * so [.value] is the single authoritative source for both rendering and navigation. The
-     * first real emission carries the persisted profile, so a reopened onboarding shows
-     * last-saved values with no seed race or blocking read.
-     */
     private val effectiveProfile: StateFlow<UserTrainingProfile> =
-        combine(state, edits) { current, edit ->
+        combine(wizardState, edits) { current, edit ->
             (current.profile ?: UserTrainingProfile.Empty).applyEdit(edit)
         }.stateIn(
             scope = viewModelScope,
@@ -90,79 +59,64 @@ class OnboardingViewModel @Inject constructor(
             initialValue = UserTrainingProfile.Empty,
         )
 
-    /**
-     * Persisted specialization preference — eagerly collected for navigation write paths.
-     */
-    private val specializationState: StateFlow<SpecializationPreference> =
-        observeSpecialization().stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = SpecializationPreference.Empty,
-        )
-
-    /**
-     * Effective specialization = persisted preference + uncommitted edits. Mirrors
-     * [effectiveProfile]: the single authoritative source for rendering and navigation.
-     */
     private val effectiveSpecialization: StateFlow<SpecializationPreference> =
-        combine(specializationState, specializationEdits) { current, edit ->
-            current.applyEdit(edit)
+        combine(wizardState, specializationEdits) { current, edit ->
+            current.specialization.applyEdit(edit)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
             initialValue = SpecializationPreference.Empty,
         )
 
-    /**
-     * Persisted catalog + preset choice — eagerly collected so [.value] is current for the
-     * navigation write paths. The catalog stream comes from the use case (not the repository
-     * directly — ARCHITECTURE.md §4.4). The catalog is used for validation (at least
-     * [ValidateGymLiftsStepUseCase.MIN_ENABLED] enabled lifts); the UI only shows the preset
-     * card selection, not the full lift list (OS-4b design decision).
-     */
-    private val liftsState: StateFlow<List<Lift>> =
-        observeLiftCatalog().stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = emptyList(),
-        )
-
-    private val selectedPresetState: StateFlow<GymPreset?> =
-        observeSelectedPreset().stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = null,
-        )
-
     val uiState: StateFlow<OnboardingUiState> =
         combine(
-            state,
-            effectiveProfile,
+            wizardState,
+            combine(effectiveProfile, edits) { profile, edit -> profile to edit },
             effectiveSpecialization,
-            combine(liftsState, selectedPresetState) { lifts, preset -> lifts to preset },
             showErrors,
-        ) { current, profile, spec, (lifts, preset), errs ->
-            OnboardingUiState(
+            applyingPreset,
+        ) { current, profileAndEdit, spec, errs, presetApplying ->
+            val (profile, edit) = profileAndEdit
+            val step = current.currentStep.toWizardStepUi()
+            val lifts = current.lifts
+            val preset = current.selectedPreset
+            val stepValid = validateCurrentStep(
                 step = current.currentStep,
+                profile = profile,
+                specialization = spec,
+                lifts = lifts,
+                selectedPreset = preset,
+            ).isValid
+            val canAdvance = !presetApplying && stepValid
+            val gymLiftsValid = validateCurrentStep(
+                step = OnboardingStep.GymAndLifts,
+                profile = profile,
+                specialization = spec,
+                lifts = lifts,
+                selectedPreset = preset,
+            ).isValid
+
+            OnboardingUiState(
+                step = step,
                 isComplete = current.isComplete,
+                canAdvance = canAdvance,
+                canGoBack = current.currentStep.previous() != null,
                 profileDraft = profile.toProfileDraft().copy(showErrors = errs),
-                scheduleDraft = profile.toScheduleDraft().copy(showErrors = errs),
+                scheduleDraft = profile.toScheduleDraft(edit.sessionLength).copy(showErrors = errs),
                 specializationDraft = spec.toSpecializationDraft().copy(showErrors = errs),
                 gymLiftsDraft = lifts.toGymLiftsDraft(
                     selectedPreset = preset,
+                    liftsValid = gymLiftsValid,
                     showErrors = errs,
                 ),
-                // Read-only aggregate for the Review step — pure derivation over the same
-                // streams, no extra reads. showErrors is irrelevant to a read-only summary.
                 reviewDraft = profile.toReviewProfileSection(spec, lifts, preset),
+                presetOptions = allGymPresetOptions(),
             )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
             initialValue = OnboardingUiState.Initial,
         )
-
-    // --- Profile step mutations -------------------------------------------------
 
     fun onTrainingAgeSelected(label: String?) {
         edits.value = edits.value.copy(trainingAge = label?.let(::trainingAgeFromLabel))
@@ -172,139 +126,117 @@ class OnboardingViewModel @Inject constructor(
         edits.value = edits.value.copy(lastTrained = label?.let(::lastTrainedFromLabel))
     }
 
-    // --- Schedule step mutations ------------------------------------------------
-
     fun onWeekdayToggled(shortLabel: String) {
         val day = Weekday.entries.firstOrNull { it.toShortLabel() == shortLabel } ?: return
         val current = effectiveProfile.value.weekdays
-        val isCurrentlySelected = day in current
-        val persisted = state.value.profile?.weekdays ?: emptySet()
-        val isPersisted = day in persisted
-
-        edits.value = if (isCurrentlySelected) {
-            if (isPersisted) {
-                edits.value.copy(
-                    weekdaysRemoved = edits.value.weekdaysRemoved + day,
-                    weekdaysAdded = edits.value.weekdaysAdded - day
-                )
-            } else {
-                edits.value.copy(
-                    weekdaysAdded = edits.value.weekdaysAdded - day
-                )
-            }
-        } else {
-            if (isPersisted) {
-                edits.value.copy(
-                    weekdaysRemoved = edits.value.weekdaysRemoved - day
-                )
-            } else {
-                edits.value.copy(
-                    weekdaysAdded = edits.value.weekdaysAdded + day,
-                    weekdaysRemoved = edits.value.weekdaysRemoved - day
-                )
-            }
-        }
+        val persisted = wizardState.value.profile?.weekdays ?: emptySet()
+        edits.value = edits.value.copy(
+            weekdaysEdit = toggleInAdditiveSetEdit(
+                item = day,
+                currentEffective = current,
+                persistedBase = persisted,
+                currentEdit = edits.value.weekdaysEdit,
+            ),
+        )
     }
 
     fun onSessionPresetSelected(value: String?) {
-        val minutes = value?.let { if (it == ScheduleDraftUi.CUSTOM_KEY) null else it.toIntOrNull() }
-        edits.value = edits.value.copy(sessionLengthMinutes = minutes)
+        edits.value = edits.value.copy(
+            sessionLength = when (value) {
+                null -> SessionLengthEdit.Active(minutes = null, customMode = false)
+                ScheduleDraftUi.CUSTOM_KEY -> SessionLengthEdit.Active(
+                    minutes = resolveCustomSessionMinutes(),
+                    customMode = true,
+                )
+                else -> SessionLengthEdit.Active(minutes = value.toIntOrNull(), customMode = false)
+            },
+        )
     }
 
-    fun onCustomSessionChange(input: String) {
-        edits.value = edits.value.copy(sessionLengthMinutes = input.filter { it.isDigit() }.toIntOrNull())
+    fun onCustomSessionMinutesChange(minutes: Int) {
+        edits.value = edits.value.copy(
+            sessionLength = SessionLengthEdit.Active(minutes = minutes, customMode = true),
+        )
     }
 
-    // --- Specialization step mutations -----------------------------------------
+    private fun resolveCustomSessionMinutes(): Int {
+        val currentEdit = edits.value.sessionLength
+        if (currentEdit is SessionLengthEdit.Active && currentEdit.customMode && currentEdit.minutes != null) {
+            return currentEdit.minutes
+        }
+        val persisted = effectiveProfile.value.sessionLengthMinutes
+        if (persisted != null && persisted !in SESSION_PRESET_MINUTES) return persisted
+        return DEFAULT_CUSTOM_SESSION_MINUTES
+    }
 
-    /**
-     * Toggle a muscle's Specialize state by its display label. Toggling a selected muscle
-     * removes it from the specialization set.
-     */
     fun onMuscleToggled(label: String) {
         val muscle = muscleGroupFromLabel(label) ?: return
-        val current = effectiveSpecialization.value
-        val isCurrentlySelected = muscle in current.specializedMuscles
-        val persisted = specializationState.value
-        val isPersisted = muscle in persisted.specializedMuscles
-
-        specializationEdits.value = if (isCurrentlySelected) {
-            if (isPersisted) {
-                specializationEdits.value.copy(
-                    removed = specializationEdits.value.removed + muscle,
-                    added = specializationEdits.value.added - muscle
-                )
-            } else {
-                specializationEdits.value.copy(
-                    added = specializationEdits.value.added - muscle
-                )
-            }
-        } else {
-            if (isPersisted) {
-                specializationEdits.value.copy(
-                    removed = specializationEdits.value.removed - muscle
-                )
-            } else {
-                specializationEdits.value.copy(
-                    added = specializationEdits.value.added + muscle,
-                    removed = specializationEdits.value.removed - muscle
-                )
-            }
-        }
+        val current = effectiveSpecialization.value.specializedMuscles
+        val persisted = wizardState.value.specialization.specializedMuscles
+        specializationEdits.value = specializationEdits.value.copy(
+            musclesEdit = toggleInAdditiveSetEdit(
+                item = muscle,
+                currentEffective = current,
+                persistedBase = persisted,
+                currentEdit = specializationEdits.value.musclesEdit,
+            ),
+        )
     }
 
-    // --- Gym & Lifts step mutations --------------------------------------------
-
-    /**
-     * Apply a gym preset. The preset bulk-enables its tagged lifts through the use case; the
-     * selection is read back from [selectedPresetState] (it persists immediately).
-     */
     fun onPresetSelected(label: String?) {
         val preset = gymPresetFromLabel(label)
         viewModelScope.launch {
-            if (preset != null) applyGymPreset(preset) else setSelectedPreset(null)
+            applyingPreset.value = true
+            try {
+                if (preset != null) {
+                    applyGymPreset(preset)
+                } else {
+                    setSelectedPreset(null)
+                }
+            } finally {
+                applyingPreset.value = false
+            }
         }
     }
 
-    // --- Navigation -------------------------------------------------------------
-
     fun next() {
-        val step = state.value.currentStep
-        val profile = effectiveProfile.value
-        val specialization = effectiveSpecialization.value
-        val lifts = liftsState.value
-        val stepValid = when (step) {
-            OnboardingStep.Profile -> validateProfileStep(profile) is ProfileValidationResult.Valid
-            OnboardingStep.Schedule -> validateScheduleStep(profile) is ScheduleValidationResult.Valid
-            OnboardingStep.Specialization ->
-                validateSpecializationStep(specialization) is SpecializationValidationResult.Valid
-            OnboardingStep.GymAndLifts ->
-                validateGymLiftsStep(lifts) is GymLiftsValidationResult.Valid
-            else -> true
-        }
-        if (!stepValid) {
-            showErrors.value = true
-            return
-        }
-        val nextStep = step.next() ?: return
+        val current = wizardState.value
         viewModelScope.launch {
-            updateUserTrainingProfile(profile)
-            updateSpecialization(specialization)
-            saveOnboardingProgress(nextStep)
-            edits.value = ProfileEdit()
-            specializationEdits.value = SpecializationEdit()
-            showErrors.value = false
+            val result = advanceOnboardingStep(
+                currentStep = current.currentStep,
+                direction = OnboardingStepDirection.Forward,
+                profile = effectiveProfile.value,
+                specialization = effectiveSpecialization.value,
+                lifts = current.lifts,
+                selectedPreset = current.selectedPreset,
+            )
+            when (result) {
+                AdvanceOnboardingStepResult.ValidationFailed -> showErrors.value = true
+                is AdvanceOnboardingStepResult.Success -> {
+                    edits.value = ProfileEdit()
+                    specializationEdits.value = SpecializationEdit()
+                    showErrors.value = false
+                }
+                AdvanceOnboardingStepResult.NoOp -> Unit
+            }
         }
     }
 
     fun back() {
-        val previousStep = state.value.currentStep.previous() ?: return
+        val current = wizardState.value
         viewModelScope.launch {
-            updateUserTrainingProfile(effectiveProfile.value)
-            updateSpecialization(effectiveSpecialization.value)
-            saveOnboardingProgress(previousStep)
-            edits.value = ProfileEdit()
-            specializationEdits.value = SpecializationEdit()
+            val result = advanceOnboardingStep(
+                currentStep = current.currentStep,
+                direction = OnboardingStepDirection.Backward,
+                profile = effectiveProfile.value,
+                specialization = effectiveSpecialization.value,
+                lifts = current.lifts,
+                selectedPreset = current.selectedPreset,
+            )
+            if (result is AdvanceOnboardingStepResult.Success) {
+                edits.value = ProfileEdit()
+                specializationEdits.value = SpecializationEdit()
+            }
         }
     }
 
@@ -312,39 +244,33 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch { completeOnboarding(effectiveProfile.value) }
     }
 
-    /**
-     * Uncommitted profile edits. Scalar fields use null = "untouched, defer to persisted".
-     * Weekdays are tracked additively (added/removed sets) so toggling composes correctly
-     * against the persisted base.
-     */
     private data class ProfileEdit(
         val trainingAge: com.stratum.domain.onboarding.TrainingAge? = null,
         val lastTrained: com.stratum.domain.onboarding.LastTrainedBucket? = null,
-        val weekdaysAdded: Set<Weekday> = emptySet(),
-        val weekdaysRemoved: Set<Weekday> = emptySet(),
-        val sessionLengthMinutes: Int? = null,
+        val weekdaysEdit: AdditiveSetEdit<Weekday> = AdditiveSetEdit(),
+        val sessionLength: SessionLengthEdit = SessionLengthEdit.Unchanged,
     )
 
     private fun UserTrainingProfile.applyEdit(edit: ProfileEdit): UserTrainingProfile = copy(
         trainingAge = edit.trainingAge ?: trainingAge,
         lastTrained = edit.lastTrained ?: lastTrained,
-        weekdays = (weekdays + edit.weekdaysAdded) - edit.weekdaysRemoved,
-        sessionLengthMinutes = edit.sessionLengthMinutes ?: sessionLengthMinutes,
+        weekdays = weekdays.applyAdditiveSetEdit(edit.weekdaysEdit),
+        sessionLengthMinutes = when (val sessionLength = edit.sessionLength) {
+            SessionLengthEdit.Unchanged -> sessionLengthMinutes
+            is SessionLengthEdit.Active -> sessionLength.minutes
+        },
     )
 
-    /**
-     * Uncommitted specialization edits, tracked additively against the persisted base so a
-     * toggle composes correctly when the user backs out and returns.
-     */
     private data class SpecializationEdit(
-        val added: Set<MuscleGroup> = emptySet(),
-        val removed: Set<MuscleGroup> = emptySet(),
+        val musclesEdit: AdditiveSetEdit<MuscleGroup> = AdditiveSetEdit(),
     )
 
     private fun SpecializationPreference.applyEdit(edit: SpecializationEdit): SpecializationPreference {
         val base = levels.toMutableMap()
-        edit.added.forEach { base[it] = com.stratum.domain.onboarding.SpecializationLevel.Specialize }
-        edit.removed.forEach { base.remove(it) }
+        edit.musclesEdit.added.forEach {
+            base[it] = com.stratum.domain.onboarding.SpecializationLevel.Specialize
+        }
+        edit.musclesEdit.removed.forEach { base.remove(it) }
         return copy(levels = base)
     }
 

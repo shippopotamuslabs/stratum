@@ -15,28 +15,58 @@ internal fun UserTrainingProfile.toProfileDraft(): ProfileDraftUi =
         lastTrainedSelection = lastTrained?.toDisplayLabel(),
     )
 
-internal fun UserTrainingProfile.toScheduleDraft(): ScheduleDraftUi {
-    val isPreset = sessionLengthMinutes != null && sessionLengthMinutes in SESSION_PRESET_VALUES.keys
+internal sealed interface SessionLengthEdit {
+    data object Unchanged : SessionLengthEdit
+
+    data class Active(
+        val minutes: Int?,
+        val customMode: Boolean,
+    ) : SessionLengthEdit
+}
+
+internal fun UserTrainingProfile.toScheduleDraft(
+    sessionLengthEdit: SessionLengthEdit = SessionLengthEdit.Unchanged,
+): ScheduleDraftUi {
+    val persistedPreset = sessionLengthMinutes != null && sessionLengthMinutes in SESSION_PRESET_VALUES.keys
+    val selection = when (sessionLengthEdit) {
+        is SessionLengthEdit.Active -> when {
+            sessionLengthEdit.customMode -> ScheduleDraftUi.CUSTOM_KEY
+            sessionLengthEdit.minutes == null -> null
+            sessionLengthEdit.minutes in SESSION_PRESET_VALUES.keys ->
+                SESSION_PRESET_VALUES.getValue(sessionLengthEdit.minutes)
+            else -> ScheduleDraftUi.CUSTOM_KEY
+        }
+        SessionLengthEdit.Unchanged ->
+            sessionLengthMinutes?.let {
+                if (persistedPreset) SESSION_PRESET_VALUES.getValue(it) else ScheduleDraftUi.CUSTOM_KEY
+            }
+    }
+    val customMinutes = when {
+        selection != ScheduleDraftUi.CUSTOM_KEY -> DEFAULT_CUSTOM_SESSION_MINUTES
+        sessionLengthEdit is SessionLengthEdit.Active && sessionLengthEdit.customMode ->
+            sessionLengthEdit.minutes ?: DEFAULT_CUSTOM_SESSION_MINUTES
+        sessionLengthMinutes != null && !persistedPreset -> checkNotNull(sessionLengthMinutes)
+        else -> DEFAULT_CUSTOM_SESSION_MINUTES
+    }
     return ScheduleDraftUi(
         selectedWeekdays = weekdays.map { it.toShortLabel() }.toSet(),
-        sessionLengthSelection = sessionLengthMinutes?.let {
-            if (isPreset) SESSION_PRESET_VALUES[it] else ScheduleDraftUi.CUSTOM_KEY
-        },
-        customSessionInput = if (sessionLengthMinutes != null && !isPreset) {
-            sessionLengthMinutes.toString()
-        } else {
-            ""
-        },
+        sessionLengthSelection = selection,
+        customSessionMinutes = customMinutes,
     )
 }
 
+internal val SESSION_PRESET_MINUTES: Set<Int> = setOf(45, 60, 75)
+
+internal const val DEFAULT_CUSTOM_SESSION_MINUTES: Int = 90
+
 private val SESSION_PRESET_VALUES: Map<Int, String> = mapOf(45 to "45", 60 to "60", 75 to "75")
 
-/**
- * Training-age chip labels. Year ranges are UI guidance grounded in empirical training-age
- * frameworks (see the [com.stratum.domain.onboarding.TrainingAge] KDoc) — the enum itself
- * is crisp and is what the ViewModel round-trips.
- */
+/** Training-age chip labels exposed for [ProfileScreen]. */
+val TRAINING_AGE_OPTIONS: List<String> = TrainingAge.entries.map { it.toDisplayLabel() }
+
+/** Last-trained chip labels exposed for [ProfileScreen]. */
+val LAST_TRAINED_OPTIONS: List<String> = LastTrainedBucket.entries.map { it.toDisplayLabel() }
+
 internal fun TrainingAge.toDisplayLabel(): String = when (this) {
     TrainingAge.Beginner -> "0–2 years"
     TrainingAge.EarlyIntermediate -> "2–4 years"

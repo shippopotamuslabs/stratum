@@ -12,20 +12,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumFilterChip
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.feature.onboarding.LAST_TRAINED_OPTIONS
 import com.stratum.feature.onboarding.ProfileDraftUi
-
-private val TRAINING_AGE_OPTIONS =
-    listOf("0–2 years", "2–4 years", "4–7 years", "7–10 years", "10+ years")
-private val LAST_TRAINED_OPTIONS =
-    listOf("Never", "Within the last month", "1–6 months ago", "6–12 months ago", "Over a year ago")
+import com.stratum.feature.onboarding.R
+import com.stratum.feature.onboarding.TRAINING_AGE_OPTIONS
 
 /**
  * Step 2 of the wizard. Captures training age (required) and last-trained bucket (required).
- * All inputs are presentation strings; the ViewModel owns the mapping to the domain draft.
  */
 @Composable
 fun ProfileScreen(
@@ -38,9 +36,9 @@ fun ProfileScreen(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Section(label = "How many years of solid training have you done?") {
+        Section(label = stringResource(R.string.profile_training_age_heading)) {
             StratumText(
-                text = "Count only consistent, quality training.",
+                text = stringResource(R.string.profile_training_age_hint),
                 muted = true,
             )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -54,12 +52,15 @@ fun ProfileScreen(
                     )
                 }
             }
-            draft.trainingAgeError?.let { error ->
-                StratumText(text = error, muted = true)
+            if (draft.hasTrainingAgeError) {
+                StratumText(
+                    text = stringResource(R.string.profile_error_training_age),
+                    muted = true,
+                )
             }
         }
 
-        Section(label = "When did you last train seriously?") {
+        Section(label = stringResource(R.string.profile_last_trained_heading)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LAST_TRAINED_OPTIONS.forEach { option ->
                     StratumFilterChip(
@@ -71,8 +72,11 @@ fun ProfileScreen(
                     )
                 }
             }
-            draft.lastTrainedError?.let { error ->
-                StratumText(text = error, muted = true)
+            if (draft.hasLastTrainedError) {
+                StratumText(
+                    text = stringResource(R.string.profile_error_last_trained),
+                    muted = true,
+                )
             }
         }
 
