@@ -2,7 +2,6 @@ package com.stratum.core.ui.component.musclepicker
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,7 +16,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.stratum.core.ui.component.StratumFilterChip
+import com.stratum.core.ui.component.StratumSegmentedControl
 
 /**
  * A tappable front/back body illustration for selecting muscle groups. Tap a region to
@@ -73,7 +72,13 @@ fun StratumMusclePicker(
                 .semantics { contentDescription = "Body map, ${view.name.lowercase()} view" },
         )
 
-        FlipControl(view = view, onFlip = { deltoidPickerOpen = false; view = it })
+        FlipControl(
+            view = view,
+            onFlip = {
+                deltoidPickerOpen = false
+                view = it
+            },
+        )
 
         if (deltoidPickerOpen) {
             DeltoidSubPickerDialog(
@@ -96,27 +101,18 @@ fun StratumMusclePicker(
 private const val BODY_ASPECT_RATIO = 0.50f
 
 /**
- * Segmented front/back view toggle. Renders one [StratumFilterChip] per view; the active view is
- * shown selected. A segmented control is more discoverable than a single "Show other" button
- * because it communicates *both* that a second view exists and which one is currently shown.
+ * Segmented front/back view toggle. Segments share an outer border with rounded end caps and
+ * a flat inner edge; the active view fills with accent.
  */
 @Composable
 private fun FlipControl(view: BodyView, onFlip: (BodyView) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-    ) {
-        BodyView.entries.forEach { option ->
-            val isSelected = option == view
-            StratumFilterChip(
-                label = option.name,
-                selected = isSelected,
-                onSelectedChange = { onFlip(option) },
-                modifier = Modifier.semantics {
-                    contentDescription = "Show ${option.name.lowercase()} view" +
-                        if (isSelected) ", current view" else ""
-                },
-            )
-        }
-    }
+    val options = BodyView.entries
+    StratumSegmentedControl(
+        segments = options.map { it.name },
+        selectedIndex = options.indexOf(view),
+        onSelectedIndexChange = { index -> onFlip(options[index]) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "Body view selector" },
+    )
 }

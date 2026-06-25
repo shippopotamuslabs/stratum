@@ -2,7 +2,6 @@ package com.stratum.feature.onboarding.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,8 +19,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.InvalidDurationInput
 import com.stratum.core.ui.component.StratumDurationStepper
-import com.stratum.core.ui.component.StratumFilterChip
+import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.component.StratumToggleGroup
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.OnboardingValidationConstants
 import com.stratum.feature.onboarding.R
@@ -29,7 +29,8 @@ import com.stratum.feature.onboarding.ScheduleDraftUi
 import com.stratum.feature.onboarding.SessionLengthErrorKind
 
 private val WEEKDAY_OPTIONS = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-private val SESSION_PRESETS = listOf("45" to "45", "60" to "60", "75" to "75")
+private val SESSION_LENGTH_KEYS =
+    listOf("45", "60", "75", ScheduleDraftUi.CUSTOM_KEY)
 
 /**
  * Step 3 of the wizard. Captures training weekdays and session length.
@@ -51,15 +52,11 @@ fun ScheduleScreen(
                 text = stringResource(R.string.schedule_weekdays_heading),
                 style = StratumThemeAccessor.typography.bodyLarge,
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                WEEKDAY_OPTIONS.forEach { option ->
-                    StratumFilterChip(
-                        label = option,
-                        selected = option in draft.selectedWeekdays,
-                        onSelectedChange = { onWeekdayToggled(option) },
-                    )
-                }
-            }
+            StratumToggleGroup(
+                options = WEEKDAY_OPTIONS,
+                selectedOptions = draft.selectedWeekdays,
+                onOptionToggle = onWeekdayToggled,
+            )
             if (draft.hasWeekdaysError) {
                 StratumText(
                     text = stringResource(R.string.schedule_error_weekdays),
@@ -68,34 +65,27 @@ fun ScheduleScreen(
             }
         }
 
-        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(top = 20.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             StratumText(
                 text = stringResource(R.string.schedule_session_length_heading),
                 style = StratumThemeAccessor.typography.bodyLarge,
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SESSION_PRESETS.forEach { (value, labelKey) ->
-                    val label = when (labelKey) {
-                        "45" -> stringResource(R.string.schedule_session_preset_45)
-                        "60" -> stringResource(R.string.schedule_session_preset_60)
-                        else -> stringResource(R.string.schedule_session_preset_75)
-                    }
-                    StratumFilterChip(
-                        label = label,
-                        selected = draft.sessionLengthSelection == value,
-                        onSelectedChange = { selected ->
-                            onSessionPresetSelected(if (selected) value else null)
-                        },
-                    )
-                }
-                StratumFilterChip(
-                    label = stringResource(R.string.schedule_session_custom),
-                    selected = draft.sessionLengthSelection == ScheduleDraftUi.CUSTOM_KEY,
-                    onSelectedChange = { selected ->
-                        onSessionPresetSelected(if (selected) ScheduleDraftUi.CUSTOM_KEY else null)
-                    },
-                )
+            val sessionLengthLabels = listOf(
+                stringResource(R.string.schedule_session_preset_45),
+                stringResource(R.string.schedule_session_preset_60),
+                stringResource(R.string.schedule_session_preset_75),
+                stringResource(R.string.schedule_session_custom),
+            )
+            val selectedSessionIndex = draft.sessionLengthSelection?.let { selection ->
+                SESSION_LENGTH_KEYS.indexOf(selection).takeIf { it >= 0 }
             }
+            StratumSegmentedControl(
+                segments = sessionLengthLabels,
+                selectedIndex = selectedSessionIndex,
+                onSelectedIndexChange = { index ->
+                    onSessionPresetSelected(SESSION_LENGTH_KEYS[index])
+                },
+            )
             val sessionError = draft.sessionLengthErrorKind
             if (draft.sessionLengthSelection == ScheduleDraftUi.CUSTOM_KEY) {
                 // Latest rejection reported by the stepper for a typed value that was
