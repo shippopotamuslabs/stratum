@@ -2,7 +2,6 @@ package com.stratum.feature.onboarding.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.stratum.core.ui.component.StratumFilterChip
+import com.stratum.core.ui.component.StratumChoiceGroup
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.LAST_TRAINED_OPTIONS
@@ -41,17 +40,11 @@ fun ProfileScreen(
                 text = stringResource(R.string.profile_training_age_hint),
                 muted = true,
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TRAINING_AGE_OPTIONS.forEach { option ->
-                    StratumFilterChip(
-                        label = option,
-                        selected = draft.trainingAgeSelection == option,
-                        onSelectedChange = { selected ->
-                            onTrainingAgeSelected(if (selected) option else null)
-                        },
-                    )
-                }
-            }
+            StratumChoiceGroup(
+                options = TRAINING_AGE_OPTIONS,
+                selectedOption = draft.trainingAgeSelection,
+                onOptionSelected = onTrainingAgeSelected,
+            )
             if (draft.hasTrainingAgeError) {
                 StratumText(
                     text = stringResource(R.string.profile_error_training_age),
@@ -61,17 +54,11 @@ fun ProfileScreen(
         }
 
         Section(label = stringResource(R.string.profile_last_trained_heading)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LAST_TRAINED_OPTIONS.forEach { option ->
-                    StratumFilterChip(
-                        label = option,
-                        selected = draft.lastTrainedSelection == option,
-                        onSelectedChange = { selected ->
-                            onLastTrainedSelected(if (selected) option else null)
-                        },
-                    )
-                }
-            }
+            StratumChoiceGroup(
+                options = LAST_TRAINED_OPTIONS,
+                selectedOption = draft.lastTrainedSelection,
+                onOptionSelected = onLastTrainedSelected,
+            )
             if (draft.hasLastTrainedError) {
                 StratumText(
                     text = stringResource(R.string.profile_error_last_trained),
