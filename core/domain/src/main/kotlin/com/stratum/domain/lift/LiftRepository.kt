@@ -30,8 +30,16 @@ interface LiftRepository {
     /** Flip a single lift's availability (the manual on/off toggle). */
     suspend fun setLiftEnabled(id: LiftId, enabled: Boolean)
 
+    /** Enable many lifts in one persistence operation (historical import batch enablement). */
+    suspend fun enableLifts(ids: Set<LiftId>)
+
     /** Record (or clear, with `null`) the user's preset choice for OS-5 Review. */
     suspend fun setSelectedPreset(preset: GymPreset?)
+
+    /** True when the user imported historical data instead of picking a preset (OS-6). */
+    suspend fun setUsedHistoricalImport(used: Boolean)
+
+    fun observeUsedHistoricalImport(): Flow<Boolean>
 
     /**
      * Create a user-defined lift (`isCustom = true`, `enabled = true`) and return its id. A
@@ -43,4 +51,7 @@ interface LiftRepository {
         allowWeightChangeBetweenSets: Boolean,
         increment: Weight?,
     ): LiftId
+
+    /** Create a user-defined lift with full catalog metadata (import LLM enrichment path). */
+    suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId
 }

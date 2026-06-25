@@ -1,8 +1,10 @@
 package com.stratum.core.testing.onboarding
 
+import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import java.util.UUID
@@ -25,10 +27,13 @@ class FakeLiftRepository(
 ) : LiftRepository {
     private val lifts = MutableStateFlow(initialLifts)
     private val selectedPreset = MutableStateFlow(initialPreset)
+    private val usedHistoricalImport = MutableStateFlow(false)
 
     override fun observeLifts(): Flow<List<Lift>> = lifts
 
     override fun observeSelectedPreset(): Flow<GymPreset?> = selectedPreset
+
+    override fun observeUsedHistoricalImport(): Flow<Boolean> = usedHistoricalImport
 
     override suspend fun applyPreset(preset: GymPreset) {
         lifts.value = lifts.value.map { lift ->
@@ -42,36 +47,79 @@ class FakeLiftRepository(
         }
     }
 
+    override suspend fun enableLifts(ids: Set<LiftId>) {
+        if (ids.isEmpty()) return
+        enableLiftsInvocations += ids
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id in ids) lift.copy(enabled = true) else lift
+        }
+    }
+
+    /** Test hook: batches passed to [enableLifts]. */
+    val enableLiftsInvocations = mutableListOf<Set<LiftId>>()
+
     override suspend fun setSelectedPreset(preset: GymPreset?) {
         selectedPreset.value = preset
+        if (preset != null) usedHistoricalImport.value = false
+    }
+
+    override suspend fun setUsedHistoricalImport(used: Boolean) {
+        usedHistoricalImport.value = used
+        if (used) selectedPreset.value = null
     }
 
     override suspend fun addCustomLift(
         name: String,
         allowWeightChangeBetweenSets: Boolean,
         increment: Weight?,
+    ): LiftId =
+        createCustomLift(
+            definition =
+                CustomLiftDefinition(
+                    name = name,
+                    movementPattern = MovementPattern.LegPush,
+                    primaryMuscles = emptySet(),
+                    secondaryMuscles = emptySet(),
+                    equipment = null,
+                    increment = increment,
+                ),
+            allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
+        )
+
+    override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId =
+        createCustomLift(
+            definition = definition,
+            allowWeightChangeBetweenSets = false,
+        )
+
+    private fun createCustomLift(
+        definition: CustomLiftDefinition,
+        allowWeightChangeBetweenSets: Boolean,
     ): LiftId {
         val id = LiftId(UUID.randomUUID().toString())
-        val lift = Lift(
-            id = id,
-            name = name,
-            movementPattern = com.stratum.domain.lift.MovementPattern.LegPush,
-            primaryMuscles = emptySet(),
-            secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
-            incrementTiers = increment?.let {
-                listOf(
-                    com.stratum.domain.lift.IncrementTier(
-                        Weight(0.0, it.unit),
-                        null,
-                        it,
-                    ),
-                )
-            } ?: emptyList(),
-            presetTags = emptySet(),
-            enabled = true,
-            isCustom = true,
-        )
+        val lift =
+            Lift(
+                id = id,
+                name = definition.name,
+                movementPattern = definition.movementPattern,
+                primaryMuscles = definition.primaryMuscles,
+                secondaryMuscles = definition.secondaryMuscles,
+                allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
+                incrementTiers =
+                    definition.increment?.let {
+                        listOf(
+                            com.stratum.domain.lift.IncrementTier(
+                                Weight(0.0, it.unit),
+                                null,
+                                it,
+                            ),
+                        )
+                    } ?: emptyList(),
+                presetTags = emptySet(),
+                equipment = definition.equipment,
+                enabled = true,
+                isCustom = true,
+            )
         lifts.value = lifts.value + lift
         return id
     }
@@ -91,4 +139,12 @@ class FakeLiftRepository(
     fun seedPreset(preset: GymPreset?) {
         selectedPreset.value = preset
     }
+
+    /** Test hook: seed historical-import flag. */
+    fun seedUsedHistoricalImport(used: Boolean) {
+        usedHistoricalImport.value = used
+    }
+
+    /** Test hook: current historical-import flag. */
+    val currentUsedHistoricalImport: Boolean get() = usedHistoricalImport.value
 }
