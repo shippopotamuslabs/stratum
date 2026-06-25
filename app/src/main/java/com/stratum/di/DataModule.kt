@@ -8,6 +8,7 @@ import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.OnboardingProgressDao
 import com.stratum.core.data.db.SpecializationPreferenceDao
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.domain.onboarding.UserTrainingProfileRepository
 import com.stratum.core.data.db.UserProfileDao
 import com.stratum.core.data.repository.RoomLiftRepository
 import com.stratum.core.data.repository.RoomOnboardingRepository
@@ -17,7 +18,29 @@ import com.stratum.core.data.seed.LiftCatalogSeeder
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
-import com.stratum.domain.onboarding.UserTrainingProfileRepository
+import com.stratum.core.data.db.HistoricalSessionDao
+import com.stratum.core.data.db.ImportAnalysisMetadataDao
+import com.stratum.core.data.db.ImportJobDao
+import com.stratum.core.data.db.LiftTrainingInsightsDao
+import com.stratum.core.data.db.LoggedSetDao
+import com.stratum.core.data.db.MuscleVolumeBaselineDao
+import com.stratum.core.data.db.SupersetAffinityDao
+import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
+import com.stratum.core.data.repository.RoomImportJobRepository
+import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
+import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
+import com.stratum.core.data.repository.RoomSupersetAffinityRepository
+import com.stratum.core.data.repository.RoomTrainingHistoryRepository
+import com.stratum.domain.importing.Bm25LiftNameResolver
+import com.stratum.domain.importing.ImportAnalysisMetadataRepository
+import com.stratum.domain.importing.ImportJobRepository
+import com.stratum.domain.importing.LiftEquipmentCatalogPort
+import com.stratum.domain.importing.LiftNameResolverPort
+import com.stratum.domain.importing.LiftTrainingInsightsRepository
+import com.stratum.domain.importing.MuscleVolumeBaselineRepository
+import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.domain.importing.TrainingHistoryRepository
+import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -50,7 +73,10 @@ object DatabaseModule {
         // the database is fully open; idempotent upserts make re-runs safe.
         seedScope.launch {
             val liftDao = database.liftDao()
-            if (liftDao.countAll() == 0) {
+            // Seed when no bundled catalog exists. Import may create custom lifts before seed
+            // finishes; countAll() would then block seeding forever and BM25 would have nothing
+            // to match against.
+            if (liftDao.countSeedLifts() == 0) {
                 LiftCatalogSeeder(
                     liftDao = liftDao,
                     incrementTierDao = database.incrementTierDao(),
@@ -82,6 +108,42 @@ object DatabaseModule {
     @Provides
     fun provideGymPreferenceDao(database: StratumDatabase): GymPreferenceDao =
         database.gymPreferenceDao()
+
+    @Provides
+    fun provideImportJobDao(database: StratumDatabase): ImportJobDao = database.importJobDao()
+
+    @Provides
+    fun provideHistoricalSessionDao(database: StratumDatabase): HistoricalSessionDao =
+        database.historicalSessionDao()
+
+    @Provides
+    fun provideLoggedSetDao(database: StratumDatabase): LoggedSetDao = database.loggedSetDao()
+
+    @Provides
+    fun provideLiftTrainingInsightsDao(database: StratumDatabase): LiftTrainingInsightsDao =
+        database.liftTrainingInsightsDao()
+
+    @Provides
+    fun provideSupersetAffinityDao(database: StratumDatabase): SupersetAffinityDao =
+        database.supersetAffinityDao()
+
+    @Provides
+    fun provideMuscleVolumeBaselineDao(database: StratumDatabase): MuscleVolumeBaselineDao =
+        database.muscleVolumeBaselineDao()
+
+    @Provides
+    fun provideImportAnalysisMetadataDao(database: StratumDatabase): ImportAnalysisMetadataDao =
+        database.importAnalysisMetadataDao()
+
+    @Provides
+    @Singleton
+    fun provideLiftNameResolver(): LiftNameResolverPort = Bm25LiftNameResolver()
+
+    @Provides
+    @Singleton
+    fun provideLiftEquipmentCatalog(
+        @ApplicationContext context: Context,
+    ): LiftEquipmentCatalogPort = AssetLiftEquipmentCatalog(context)
 }
 
 @Module
@@ -106,4 +168,38 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLiftRepository(impl: RoomLiftRepository): LiftRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindImportJobRepository(impl: RoomImportJobRepository): ImportJobRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTrainingHistoryRepository(
+        impl: RoomTrainingHistoryRepository,
+    ): TrainingHistoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLiftTrainingInsightsRepository(
+        impl: RoomLiftTrainingInsightsRepository,
+    ): LiftTrainingInsightsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSupersetAffinityRepository(
+        impl: RoomSupersetAffinityRepository,
+    ): SupersetAffinityRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMuscleVolumeBaselineRepository(
+        impl: RoomMuscleVolumeBaselineRepository,
+    ): MuscleVolumeBaselineRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindImportAnalysisMetadataRepository(
+        impl: RoomImportAnalysisMetadataRepository,
+    ): ImportAnalysisMetadataRepository
 }

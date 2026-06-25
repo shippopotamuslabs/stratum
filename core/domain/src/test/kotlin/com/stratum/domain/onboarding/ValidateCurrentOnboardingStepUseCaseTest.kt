@@ -68,14 +68,15 @@ class ValidateCurrentOnboardingStepUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given enabled lifts on GymAndLifts step then validation passes without preset")
-    fun gymLiftsValidWithEnabledLifts() {
+    @DisplayName("Given historical import path on GymAndLifts step then validation passes without preset")
+    fun gymLiftsValidWithHistoricalImport() {
         val result = subject(
             step = OnboardingStep.GymAndLifts,
             profile = UserTrainingProfile.Empty,
             specialization = SpecializationPreference.Empty,
             lifts = listOf(enabledLift()),
             selectedPreset = null,
+            usedHistoricalImport = true,
         )
         assertTrue(result is OnboardingStepValidationResult.Valid)
     }

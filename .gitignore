@@ -37,3 +37,39 @@ Thumbs.db
 test_output.txt
 build_output.txt
 lint_output.txt
+
+# Node / Firebase Functions
+node_modules/
+**/node_modules/
+functions/lib/
+.npm/
+**/.npm/
+
+# Firebase CLI
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+.runtimeconfig.json
+
+# Functions local env (use Secret Manager in deploy)
+functions/.env
+functions/.env.*
+.env
+.env.*
+!.env.example
+
+# Python / Firebase Functions (python codebase)
+functions-python/venv/
+functions-python/**/__pycache__/
+functions-python/.pytest_cache/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+pip-wheel-metadata/

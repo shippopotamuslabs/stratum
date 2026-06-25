@@ -1,9 +1,11 @@
 package com.stratum.core.data.db
 
 import androidx.room.TypeConverter
+import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.importing.identity.ImportJobId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
@@ -92,4 +94,18 @@ class EnumConverters {
     @TypeConverter
     fun toLiftId(value: String?): LiftId? =
         value?.let { runCatching { LiftId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromImportJobStatus(status: ImportJobStatus?): String? = status?.name
+
+    @TypeConverter
+    fun toImportJobStatus(value: String?): ImportJobStatus? =
+        value?.let { runCatching { ImportJobStatus.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromImportJobId(id: ImportJobId?): String? = id?.value
+
+    @TypeConverter
+    fun toImportJobId(value: String?): ImportJobId? =
+        value?.let { runCatching { ImportJobId(it) }.getOrNull() }
 }

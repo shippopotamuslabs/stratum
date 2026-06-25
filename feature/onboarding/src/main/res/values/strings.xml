@@ -48,8 +48,34 @@
     <string name="specialization_intro">Tap up to %1$d muscle groups on the body to prioritize. Skip to keep a balanced program.</string>
 
     <!-- Gym & Lifts -->
-    <string name="gym_lifts_intro">Pick your gym type. You can fine-tune lifts later.</string>
-    <string name="gym_lifts_error_no_preset">Pick your gym to continue.</string>
+    <string name="gym_lifts_intro">Choose a gym preset, or import past logs instead. Import lets us mine your history for a sharper first program.</string>
+    <string name="gym_lifts_error_no_preset">Choose a gym preset or import your training data to continue.</string>
+    <string name="gym_lifts_import_title">Import training data</string>
+    <string name="gym_lifts_import_description">Upload a workout export. AI maps it into Stratum, then we derive insights from it to help build your program.</string>
+    <string name="gym_lifts_import_learn_more">How import works</string>
+    <string name="gym_lifts_import_details_title">How import works</string>
+    <string name="gym_lifts_import_details_ai">Every app exports differently. AI reads your file and builds a one-time mapper that converts your exercises, sets, and weights into Stratum\'s format — no manual spreadsheet work.</string>
+    <string name="gym_lifts_import_details_intro">After conversion, we analyze how you actually train to shape your program.</string>
+    <string name="gym_lifts_import_benefits">From your history we estimate working 1RMs, how fatigue builds across sets, lifts you often superset, and which movements you rely on so program generation starts from real data.</string>
+    <string name="gym_lifts_import_format_hint">Upload a JSON or CSV export from your current workout app.</string>
+    <string name="gym_lifts_import_in_progress">Importing your training data…</string>
+    <string name="gym_lifts_import_complete">Import complete</string>
+    <string name="gym_lifts_import_phase_uploading">Uploading your data…</string>
+    <string name="gym_lifts_import_phase_reading">Reading your data…</string>
+    <string name="gym_lifts_import_phase_creating">Creating conversion tool…</string>
+    <string name="gym_lifts_import_phase_validating">Testing conversion…</string>
+    <string name="gym_lifts_import_phase_converting">Converting your data…</string>
+    <string name="gym_lifts_import_phase_enriching">Building your lift catalog…</string>
+    <string name="gym_lifts_import_phase_extracting">Analyzing training patterns…</string>
+    <string name="gym_lifts_import_phase_failed">Import failed</string>
+    <string name="gym_lifts_import_retry_hint">Tap to try again with a corrected export.</string>
+    <string name="gym_lifts_import_subtitle_loading_converted">Loading converted data…</string>
+    <string name="gym_lifts_import_subtitle_matching">Matching %1$d exercise names to our catalog…</string>
+    <string name="gym_lifts_import_subtitle_custom_lifts">Identifying %1$d custom exercises…</string>
+    <string name="gym_lifts_import_subtitle_equipment">Inferring equipment from %1$d exercise names…</string>
+    <string name="gym_lifts_import_subtitle_enabling">Enabling lifts for your gym setup…</string>
+    <string name="gym_lifts_import_subtitle_saving">Saving your training history…</string>
+    <string name="gym_lifts_import_subtitle_analyzing">Estimating working weights and training patterns…</string>
     <string name="gym_preset_commercial_label">Commercial gym</string>
     <string name="gym_preset_commercial_description">Full equipment: barbells, dumbbells, cables, and machines.</string>
     <string name="gym_preset_garage_label">Garage gym</string>

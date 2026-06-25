@@ -9,6 +9,7 @@ import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.mapper.toTierEntities
+import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
@@ -54,28 +55,77 @@ class RoomLiftRepository @Inject constructor(
         liftDao.setEnabled(id, enabled)
     }
 
-    override suspend fun setSelectedPreset(preset: GymPreset?) {
-        gymPreferenceDao.upsert(GymPreferenceEntity(selectedPreset = preset))
+    override suspend fun enableLifts(ids: Set<LiftId>) {
+        if (ids.isEmpty()) return
+        liftDao.enableAll(ids.toList())
     }
+
+    override suspend fun setSelectedPreset(preset: GymPreset?) {
+        val current = gymPreferenceDao.getOrNull()
+        gymPreferenceDao.upsert(
+            GymPreferenceEntity(
+                selectedPreset = preset,
+                usedHistoricalImport = current?.usedHistoricalImport ?: false,
+            ),
+        )
+    }
+
+    override suspend fun setUsedHistoricalImport(used: Boolean) {
+        val current = gymPreferenceDao.getOrNull()
+        gymPreferenceDao.upsert(
+            GymPreferenceEntity(
+                selectedPreset = current?.selectedPreset,
+                usedHistoricalImport = used,
+            ),
+        )
+    }
+
+    override fun observeUsedHistoricalImport(): Flow<Boolean> =
+        gymPreferenceDao.observe().map { it?.usedHistoricalImport ?: false }
 
     override suspend fun addCustomLift(
         name: String,
         allowWeightChangeBetweenSets: Boolean,
         increment: Weight?,
+    ): LiftId =
+        createCustomLift(
+            definition =
+                CustomLiftDefinition(
+                    name = name,
+                    movementPattern = MovementPattern.LegPush,
+                    primaryMuscles = emptySet(),
+                    secondaryMuscles = emptySet(),
+                    equipment = null,
+                    increment = increment,
+                ),
+            allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
+        )
+
+    override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId =
+        createCustomLift(
+            definition = definition,
+            allowWeightChangeBetweenSets = false,
+        )
+
+    private suspend fun createCustomLift(
+        definition: CustomLiftDefinition,
+        allowWeightChangeBetweenSets: Boolean,
     ): LiftId {
         val id = LiftId(UUID.randomUUID().toString())
-        val lift = Lift(
-            id = id,
-            name = name,
-            movementPattern = MovementPattern.LegPush, // v1 custom lifts default to a compound slot
-            primaryMuscles = emptySet(), // unknown for a free-form lift; OS-6 voice edits fill this in
-            secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
-            incrementTiers = increment?.let { listOf(singleOpenTier(it)) } ?: defaultDomainTiers(),
-            presetTags = emptySet(),
-            enabled = true,
-            isCustom = true,
-        )
+        val lift =
+            Lift(
+                id = id,
+                name = definition.name,
+                movementPattern = definition.movementPattern,
+                primaryMuscles = definition.primaryMuscles,
+                secondaryMuscles = definition.secondaryMuscles,
+                allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
+                incrementTiers = definition.increment?.let { listOf(singleOpenTier(it)) } ?: defaultDomainTiers(),
+                presetTags = emptySet(),
+                equipment = definition.equipment,
+                enabled = true,
+                isCustom = true,
+            )
         database.withTransaction {
             liftDao.upsert(lift.toEntity())
             incrementTierDao.deleteForLift(id)

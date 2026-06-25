@@ -13,5 +13,27 @@ data class Weight(
     val amount: Double,
     val unit: WeightUnit,
 ) {
-    enum class WeightUnit { Lb, Kg }
+    enum class WeightUnit {
+        Lb,
+        Kg,
+        ;
+
+        companion object {
+            fun parse(raw: String): WeightUnit {
+                val trimmed = raw.trim()
+                val normalized =
+                    trimmed
+                        .lowercase()
+                        .removeSuffix(".")
+                        .removeSuffix("s")
+                return when (normalized) {
+                    "lb", "pound", "pounds" -> Lb
+                    "kg", "kilogram", "kilograms", "kilo" -> Kg
+                    else ->
+                        entries.find { it.name.equals(trimmed, ignoreCase = true) }
+                            ?: throw IllegalArgumentException("Unsupported weight unit: $raw")
+                }
+            }
+        }
+    }
 }

@@ -1,9 +1,9 @@
 package com.stratum.domain.onboarding
 
-import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveSelectedPresetUseCase
+import com.stratum.domain.lift.ObserveUsedHistoricalImportUseCase
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -18,6 +18,7 @@ class GetOnboardingWizardStateUseCase @Inject constructor(
     private val observeSpecialization: ObserveSpecializationUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val observeSelectedPreset: ObserveSelectedPresetUseCase,
+    private val observeUsedHistoricalImport: ObserveUsedHistoricalImportUseCase,
 ) {
     operator fun invoke(): Flow<OnboardingWizardState> =
         combine(
@@ -25,13 +26,15 @@ class GetOnboardingWizardStateUseCase @Inject constructor(
             observeSpecialization(),
             observeLiftCatalog(),
             observeSelectedPreset(),
-        ) { onboardingState, specialization, lifts, preset ->
+            observeUsedHistoricalImport(),
+        ) { onboardingState, specialization, lifts, preset, usedImport ->
             OnboardingWizardState(
                 progress = onboardingState.progress,
                 profile = onboardingState.profile,
                 specialization = specialization,
                 lifts = lifts,
                 selectedPreset = preset,
+                usedHistoricalImport = usedImport,
             )
         }
 }
