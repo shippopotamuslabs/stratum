@@ -15,6 +15,7 @@ data class StratumShapes(
     val panel: Shape,
     val button: Shape,
     val chip: Shape,
+    val chipCorner: Dp,
     val borderWidth: Dp,
 )
 
@@ -72,6 +73,7 @@ internal fun tonalShapes(): StratumShapes =
         panel = RoundedCornerShape(12.dp),
         button = RoundedCornerShape(12.dp),
         chip = RoundedCornerShape(8.dp),
+        chipCorner = 8.dp,
         borderWidth = 1.dp,
     )
 
@@ -80,5 +82,6 @@ internal fun neoBrutalistShapes(): StratumShapes =
         panel = RoundedCornerShape(4.dp),
         button = RoundedCornerShape(4.dp),
         chip = RoundedCornerShape(4.dp),
+        chipCorner = 4.dp,
         borderWidth = 2.dp,
     )
