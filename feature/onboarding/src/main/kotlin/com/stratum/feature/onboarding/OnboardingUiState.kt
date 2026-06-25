@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.domain.lift.ValidateGymLiftsStepUseCase
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
 
@@ -10,8 +11,9 @@ import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
  *
  * OS-2 adds per-step presentation drafts ([profileDraft], [scheduleDraft]) that the
  * Profile and Schedule screens render and mutate. OS-3 adds [specializationDraft].
- * These are UI-shaped (strings, boolean flags) — the ViewModel translates them to/from
- * the domain `UserTrainingProfile` / `SpecializationPreference`.
+ * OS-4 adds [gymLiftsDraft]. These are UI-shaped (strings, boolean flags) — the ViewModel
+ * translates them to/from the domain `UserTrainingProfile` / `SpecializationPreference` /
+ * lift catalog.
  */
 data class OnboardingUiState(
     val step: OnboardingStep,
@@ -19,6 +21,7 @@ data class OnboardingUiState(
     val profileDraft: ProfileDraftUi = ProfileDraftUi.Empty,
     val scheduleDraft: ScheduleDraftUi = ScheduleDraftUi.Empty,
     val specializationDraft: SpecializationDraftUi = SpecializationDraftUi.Empty,
+    val gymLiftsDraft: GymLiftsDraftUi = GymLiftsDraftUi.Empty,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast
@@ -32,6 +35,7 @@ data class OnboardingUiState(
             OnboardingStep.Profile -> profileDraft.isValid
             OnboardingStep.Schedule -> scheduleDraft.isValid
             OnboardingStep.Specialization -> specializationDraft.isValid
+            OnboardingStep.GymAndLifts -> gymLiftsDraft.isValid
             else -> step.next() != null
         }
 
@@ -126,5 +130,51 @@ data class SpecializationDraftUi(
     companion object {
         val MAX_SPECIALIZE: Int = ValidateSpecializationStepUseCase.MAX_SPECIALIZE
         val Empty = SpecializationDraftUi()
+    }
+}
+
+/**
+ * UI-shaped snapshot of one catalog lift for the toggle list. The [id] is the lift's slug/UUID
+ * as a plain String (composables never see the domain `LiftId` value class). [patternLabel]
+ * and [muscleSummary] are pre-rendered strings so the composable does no domain formatting.
+ */
+data class LiftSummaryUi(
+    val id: String,
+    val name: String,
+    val patternLabel: String,
+    val muscleSummary: String,
+    val enabled: Boolean,
+)
+
+/**
+ * Bundle of the Gym & Lifts step's event callbacks, passed as one parameter to the wizard shell
+ * so [OnboardingWizard] stays under the parameter-count threshold as more steps land.
+ */
+data class GymLiftsHandlers(
+    val onPresetSelected: (String?) -> Unit,
+)
+
+/**
+ * UI-shaped snapshot of the Gym & Lifts step (OS-4b). Simplified to preset-only selection —
+ * the full lift catalog management (search, toggle list, custom-lift form) is deferred to a
+ * post-onboarding settings screen. [selectedPresetLabel] is the chip label of the chosen gym
+ * preset, or null if the user hasn't picked one yet.
+ *
+ * The step requires a preset to be selected to advance; the preset bulk-enables its tagged
+ * lifts so the catalog has at least [MIN_ENABLED] enabled lifts for generation.
+ */
+data class GymLiftsDraftUi(
+    val selectedPresetLabel: String? = null,
+    val showErrors: Boolean = false,
+) {
+    val isValid: Boolean get() = selectedPresetLabel != null
+
+    /** Inline error surfaced when the user tries to advance without picking a preset. */
+    val noPresetError: String?
+        get() = if (showErrors && selectedPresetLabel == null) "Pick your gym to continue." else null
+
+    companion object {
+        val MIN_ENABLED: Int = ValidateGymLiftsStepUseCase.MIN_ENABLED
+        val Empty = GymLiftsDraftUi()
     }
 }

@@ -75,6 +75,8 @@ internal fun MuscleGroup.toDisplayLabel(): String = when (this) {
     MuscleGroup.Forearm -> "Forearms"
     MuscleGroup.Ab -> "Abs"
     MuscleGroup.LowerBack -> "Lower Back"
+    MuscleGroup.Abductor -> "Abductors"
+    MuscleGroup.Adductor -> "Adductors"
 }
 
 /**

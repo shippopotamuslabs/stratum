@@ -2,6 +2,14 @@ package com.stratum.feature.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.domain.lift.ApplyGymPresetUseCase
+import com.stratum.domain.lift.GymLiftsValidationResult
+import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.ObserveSelectedPresetUseCase
+import com.stratum.domain.lift.SetSelectedPresetUseCase
+import com.stratum.domain.lift.ValidateGymLiftsStepUseCase
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetOnboardingStateUseCase
 import com.stratum.domain.onboarding.MuscleGroup
@@ -36,10 +44,15 @@ class OnboardingViewModel @Inject constructor(
     private val updateUserTrainingProfile: UpdateUserTrainingProfileUseCase,
     private val observeSpecialization: ObserveSpecializationUseCase,
     private val updateSpecialization: UpdateSpecializationUseCase,
+    private val observeLiftCatalog: ObserveLiftCatalogUseCase,
+    private val observeSelectedPreset: ObserveSelectedPresetUseCase,
+    private val applyGymPreset: ApplyGymPresetUseCase,
+    private val setSelectedPreset: SetSelectedPresetUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val validateProfileStep: ValidateProfileStepUseCase,
     private val validateScheduleStep: ValidateScheduleStepUseCase,
     private val validateSpecializationStep: ValidateSpecializationStepUseCase,
+    private val validateGymLiftsStep: ValidateGymLiftsStepUseCase,
 ) : ViewModel() {
 
     /** Uncommitted profile field edits not yet persisted. */
@@ -100,14 +113,45 @@ class OnboardingViewModel @Inject constructor(
             initialValue = SpecializationPreference.Empty,
         )
 
+    /**
+     * Persisted catalog + preset choice — eagerly collected so [.value] is current for the
+     * navigation write paths. The catalog stream comes from the use case (not the repository
+     * directly — ARCHITECTURE.md §4.4). The catalog is used for validation (at least
+     * [ValidateGymLiftsStepUseCase.MIN_ENABLED] enabled lifts); the UI only shows the preset
+     * card selection, not the full lift list (OS-4b design decision).
+     */
+    private val liftsState: StateFlow<List<Lift>> =
+        observeLiftCatalog().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList(),
+        )
+
+    private val selectedPresetState: StateFlow<GymPreset?> =
+        observeSelectedPreset().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null,
+        )
+
     val uiState: StateFlow<OnboardingUiState> =
-        combine(state, effectiveProfile, effectiveSpecialization, showErrors) { current, profile, spec, errs ->
+        combine(
+            state,
+            effectiveProfile,
+            effectiveSpecialization,
+            combine(liftsState, selectedPresetState) { lifts, preset -> lifts to preset },
+            showErrors,
+        ) { current, profile, spec, (lifts, preset), errs ->
             OnboardingUiState(
                 step = current.currentStep,
                 isComplete = current.isComplete,
                 profileDraft = profile.toProfileDraft().copy(showErrors = errs),
                 scheduleDraft = profile.toScheduleDraft().copy(showErrors = errs),
                 specializationDraft = spec.toSpecializationDraft().copy(showErrors = errs),
+                gymLiftsDraft = lifts.toGymLiftsDraft(
+                    selectedPreset = preset,
+                    showErrors = errs,
+                ),
             )
         }.stateIn(
             scope = viewModelScope,
@@ -206,17 +250,33 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
+    // --- Gym & Lifts step mutations --------------------------------------------
+
+    /**
+     * Apply a gym preset. The preset bulk-enables its tagged lifts through the use case; the
+     * selection is read back from [selectedPresetState] (it persists immediately).
+     */
+    fun onPresetSelected(label: String?) {
+        val preset = gymPresetFromLabel(label)
+        viewModelScope.launch {
+            if (preset != null) applyGymPreset(preset) else setSelectedPreset(null)
+        }
+    }
+
     // --- Navigation -------------------------------------------------------------
 
     fun next() {
         val step = state.value.currentStep
         val profile = effectiveProfile.value
         val specialization = effectiveSpecialization.value
+        val lifts = liftsState.value
         val stepValid = when (step) {
             OnboardingStep.Profile -> validateProfileStep(profile) is ProfileValidationResult.Valid
             OnboardingStep.Schedule -> validateScheduleStep(profile) is ScheduleValidationResult.Valid
             OnboardingStep.Specialization ->
                 validateSpecializationStep(specialization) is SpecializationValidationResult.Valid
+            OnboardingStep.GymAndLifts ->
+                validateGymLiftsStep(lifts) is GymLiftsValidationResult.Valid
             else -> true
         }
         if (!stepValid) {

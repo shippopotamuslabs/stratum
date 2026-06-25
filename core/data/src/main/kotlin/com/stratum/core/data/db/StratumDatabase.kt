@@ -9,6 +9,9 @@ import androidx.room.TypeConverters
         OnboardingProgressEntity::class,
         UserProfileEntity::class,
         SpecializationPreferenceEntity::class,
+        LiftEntity::class,
+        IncrementTierEntity::class,
+        GymPreferenceEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -20,6 +23,12 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao
 
     abstract fun specializationPreferenceDao(): SpecializationPreferenceDao
+
+    abstract fun liftDao(): LiftDao
+
+    abstract fun incrementTierDao(): IncrementTierDao
+
+    abstract fun gymPreferenceDao(): GymPreferenceDao
 
     companion object {
         const val DATABASE_NAME = "stratum.db"
