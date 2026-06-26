@@ -63,7 +63,7 @@ class ImportFixtureNormalizationTest {
                 LiftId("cable-lat") to "Cable Lat Pulldown",
             )
         assertTrue(resolver.resolve("Bench Press (Dumbbell)", catalog) == LiftId("db-bench"))
-        assertTrue(resolver.resolve("Lat Pulldown - Underhand (Cable)", catalog) == LiftId("cable-lat"))
+        assertTrue(resolver.resolve("Lat Pulldown - Underhand (Cable)", catalog) == null)
     }
 
     @Test

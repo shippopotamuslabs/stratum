@@ -2,7 +2,9 @@ package com.stratum.domain.importing
 
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
+import com.stratum.core.testing.importing.FakeLiftEmbeddingCatalog
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
+import com.stratum.core.testing.importing.FakeLiftNameEmbeddingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
@@ -61,6 +63,32 @@ class ResolveImportLiftsUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given inferred horizontal pull when creating custom lift then bicep secondary is added")
+    fun inferredHorizontalPullAddsBicepSecondary() = runTest {
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val inference =
+            FakeCustomLiftInferencePort(
+                results =
+                    listOf(
+                        InferredCustomLiftMetadata(
+                            exerciseNameRaw = "Neutral Wide Grip Cable Row",
+                            movementPattern = MovementPattern.HorizontalPull,
+                            primaryMuscles = setOf(MuscleGroup.Back),
+                            secondaryMuscles = emptySet(),
+                            equipment = "cable",
+                        ),
+                    ),
+            )
+        val subject = buildSubject(liftRepo, customInference = inference)
+
+        subject(listOf(loggedSet(exerciseNameRaw = "Neutral Wide Grip Cable Row")))
+
+        val custom = liftRepo.currentLifts.single { it.isCustom }
+        assertEquals(MovementPattern.HorizontalPull, custom.movementPattern)
+        assertEquals(setOf(MuscleGroup.Bicep), custom.secondaryMuscles)
+    }
+
+    @Test
     @DisplayName("Given inference failure when names are unmatched then stub custom lifts are created")
     fun fallsBackToStubCustomLiftsWhenInferenceFails() = runTest {
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
@@ -70,8 +98,8 @@ class ResolveImportLiftsUseCaseTest {
 
         val custom = liftRepo.currentLifts.single { it.isCustom }
         assertEquals("Katana Triceps Extension", custom.name)
-        assertEquals(MovementPattern.LegPush, custom.movementPattern)
-        assertTrue(custom.primaryMuscles.isEmpty())
+        assertEquals(MovementPattern.TricepIso, custom.movementPattern)
+        assertEquals(setOf(MuscleGroup.Tricep), custom.primaryMuscles)
     }
 
     @Test
@@ -329,6 +357,38 @@ class ResolveImportLiftsUseCaseTest {
         assertEquals(setOf(squatId), liftRepo.enableLiftsInvocations.single())
     }
 
+    @Test
+    fun `prepareBatch is called once with distinct exercise names`() = runTest {
+        val embeddingPort = FakeLiftNameEmbeddingPort()
+        val liftRepo =
+            FakeLiftRepository(
+                initialLifts = minimalSeedCatalog(catalogLift(id = LiftId("squat"), name = "Back Squat")),
+            )
+        val subject =
+            ResolveImportLiftsUseCase(
+                liftRepository = liftRepo,
+                liftNameResolver =
+                    HybridLiftNameResolver(
+                        bm25 = Bm25LiftNameResolver(),
+                        catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                        nameEmbedding = embeddingPort,
+                    ),
+                enrichCustomLifts = EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
+                equipmentCatalogPort = FakeLiftEquipmentCatalog(),
+                equipmentInferencePort = FakeImportEquipmentInferencePort(),
+            )
+
+        subject(
+            listOf(
+                loggedSet(exerciseNameRaw = "Back Squat"),
+                loggedSet(exerciseNameRaw = "Back Squat"),
+                loggedSet(exerciseNameRaw = "Front Squat"),
+            ),
+        )
+
+        assertEquals(listOf("Back Squat", "Front Squat"), embeddingPort.lastRequestedNames)
+    }
+
     private class CountingLiftNameResolver(
         private val delegate: LiftNameResolverPort,
     ) : LiftNameResolverPort {
@@ -344,6 +404,10 @@ class ResolveImportLiftsUseCaseTest {
             exerciseNameRaw: String,
             catalogNames: Map<LiftId, String>,
         ): LiftNameMatchEvaluation = delegate.evaluate(exerciseNameRaw, catalogNames)
+
+        override suspend fun prepareBatch(exerciseNames: List<String>) {
+            delegate.prepareBatch(exerciseNames)
+        }
     }
 
     private fun buildSubject(
@@ -351,14 +415,21 @@ class ResolveImportLiftsUseCaseTest {
         customInference: FakeCustomLiftInferencePort = FakeCustomLiftInferencePort(),
         equipmentCatalog: FakeLiftEquipmentCatalog = FakeLiftEquipmentCatalog(),
         equipmentInference: FakeImportEquipmentInferencePort = FakeImportEquipmentInferencePort(),
-    ): ResolveImportLiftsUseCase =
-        ResolveImportLiftsUseCase(
+    ): ResolveImportLiftsUseCase {
+        val bm25 = Bm25LiftNameResolver()
+        return ResolveImportLiftsUseCase(
             liftRepository = liftRepo,
-            liftNameResolver = Bm25LiftNameResolver(),
+            liftNameResolver =
+                HybridLiftNameResolver(
+                    bm25 = bm25,
+                    catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                    nameEmbedding = FakeLiftNameEmbeddingPort(),
+                ),
             enrichCustomLifts = EnrichCustomLiftsUseCase(customInference),
             equipmentCatalogPort = equipmentCatalog,
             equipmentInferencePort = equipmentInference,
         )
+    }
 
     private fun minimalSeedCatalog(vararg lifts: Lift): List<Lift> {
         val required = 50

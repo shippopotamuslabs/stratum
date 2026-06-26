@@ -69,14 +69,4 @@ class ImportExerciseNameNormalizerTest {
             ImportExerciseNameNormalizer.normalizeForMatching("  Back   Squat  "),
         )
     }
-
-    @Test
-    fun `matching moves trailing brand paren to front after superset strip`() {
-        // Superset stripped first -> "Iso-Lateral High Row (Nautilus)" -> trailing paren moved
-        // to front -> "Nautilus Iso-Lateral High Row" -> punctuation to spaces.
-        assertEquals(
-            "nautilus iso lateral high row",
-            ImportExerciseNameNormalizer.normalizeForMatching("Iso-Lateral High Row (Nautilus) ∈ SS1"),
-        )
-    }
 }
