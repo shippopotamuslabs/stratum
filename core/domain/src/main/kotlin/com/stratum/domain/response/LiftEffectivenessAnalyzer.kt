@@ -3,7 +3,6 @@ package com.stratum.domain.response
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 object LiftEffectivenessAnalyzer {
     fun analyze(
@@ -58,6 +57,15 @@ object LiftEffectivenessAnalyzer {
         val confidenceScore: Double,
     )
 
+    /**
+     * Scores a lift by regressing its weekly e1RM outcome on its weekly hard-set volume (the
+     * stimulus). The slope — e1RM gain per weekly hard set — is the effectiveness score, so a
+     * lift whose strength rises with its own volume scores higher than one whose strength is
+     * flat or regresses as volume climbs. When volume is collinear across weeks (e.g. a fixed
+     * program), x falls back to week ordinal so the slope still captures progression over time.
+     * This replaces the earlier endpoint-ratio (first/last delta ÷ mean volume), which
+     * discarded intermediate weeks and could not detect volume↔progress correlation.
+     */
     private fun scoreLift(
         liftId: LiftId,
         epoch: Epoch,
@@ -74,22 +82,24 @@ object LiftEffectivenessAnalyzer {
             OutcomeSeriesBuilder.weeklyAnchorOutcomes(epoch, liftId, cleanSets)
                 .filter { it.weekStart !in deloadWeeks }
                 .sortedBy { it.weekStart }
-        if (weeklyOutcomes.size < 2) return null
+        if (weeklyOutcomes.size < MIN_WEEKLY_POINTS_FOR_OLS) return null
 
-        val firstOutcome = weeklyOutcomes.first().smoothedEstimatedOneRm ?: weeklyOutcomes.first().peakEstimatedOneRm
-        val lastOutcome = weeklyOutcomes.last().smoothedEstimatedOneRm ?: weeklyOutcomes.last().peakEstimatedOneRm
-        if (firstOutcome == null || lastOutcome == null) return null
+        val ys = weeklyOutcomes.map { it.smoothedEstimatedOneRm ?: it.peakEstimatedOneRm ?: return null }
+        val hardSets = weeklyOutcomes.map { it.hardSets }
+        val xs =
+            if (hardSets.distinct().size <= 1) {
+                weeklyOutcomes.indices.map { it + 1.0 }
+            } else {
+                hardSets
+            }
+        val regression = ResponseRegressionSupport.linearRegression(xs, ys) ?: return null
 
-        val weekSpan =
-            (ChronoUnit.DAYS.between(weeklyOutcomes.first().weekStart, weeklyOutcomes.last().weekStart) / 7)
-                .coerceAtLeast(1)
-                .toDouble()
-        val deltaPerWeek = (lastOutcome - firstOutcome) / weekSpan
-        val meanWeeklyHardSets =
-            WeeklySignalSupport.groupByWeek(working).values.map { it.size.toDouble() }.average()
-                .coerceAtLeast(1.0)
-        val effectivenessScore = deltaPerWeek / meanWeeklyHardSets
-        val confidenceScore = (sessionCount.toDouble() / MIN_LIFT_SESSIONS_FOR_EFFECTIVENESS.toDouble()).coerceAtMost(1.0)
+        val effectivenessScore = regression.slope.coerceAtLeast(0.0)
+        val sessionCoverage =
+            (sessionCount.toDouble() / MIN_LIFT_SESSIONS_FOR_EFFECTIVENESS.toDouble()).coerceAtMost(1.0)
+        val confidenceScore =
+            (regression.rSquared * EFFECTIVENESS_R2_WEIGHT) +
+                (sessionCoverage * EFFECTIVENESS_SESSION_WEIGHT)
         return LiftScore(
             liftId = liftId,
             effectivenessScore = effectivenessScore,
@@ -97,3 +107,4 @@ object LiftEffectivenessAnalyzer {
         )
     }
 }
+
