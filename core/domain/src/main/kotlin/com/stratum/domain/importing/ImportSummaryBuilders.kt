@@ -173,7 +173,13 @@ object VolumeLandmarkSummaryBuilder {
                 MuscleVolumeHighlight(
                     muscle = muscle,
                     estimatedMev = estimate.estimatedMev,
+                    estimatedMav = estimate.estimatedMav,
                     estimatedMrv = estimate.estimatedMrv,
+                    estimatedPv = estimate.estimatedPv,
+                    mevInterval = estimate.mevInterval,
+                    mavInterval = estimate.mavInterval,
+                    mrvInterval = estimate.mrvInterval,
+                    pvInterval = estimate.pvInterval,
                     confidenceTier = estimate.confidenceTier,
                 )
             }

@@ -4,9 +4,17 @@ import com.stratum.domain.onboarding.MuscleGroup
 
 /**
  * Literature-informed weekly hard-set bands (primary-muscle counting) used to sanity-check
- * observational MEV/MRV estimates. Observational stimulus includes secondary muscles at
- * [com.stratum.domain.response.MuscleVolumeCredit.SECONDARY_SET_CREDIT] per set; priors
+ * observational MEV/MRV/MAV/PV estimates. Observational stimulus includes secondary muscles at
+ * [com.stratum.domain.response.MuscleVolumeCredit.SECONDARY_SET_CREDIT] and tertiary muscles at
+ * [com.stratum.domain.response.MuscleVolumeCredit.TERTIARY_SET_CREDIT] per set; priors
  * remain primary-only population ranges.
+ *
+ * MAV and PV have no separate literature low/high bands: MAV (Maximum Adaptive Volume) sits
+ * between MEV and MRV — the volume of peak progress — and we derive [mavMid] as the midpoint of
+ * the MEV-high and MRV-low bands (the "productive range" midpoint). PV (Pareto Volume) is the
+ * ascending-limb volume reaching 80% of peak progress, so it sits between MEV and MAV; we derive
+ * [pvMid] as MEV-mid + 0.6·(MAV-mid − MEV-mid). These derived mids feed the fallback path and
+ * plausibility checks when the quadratic fit cannot run.
  */
 data class VolumeLandmarkPrior(
     val mevLow: Double,
@@ -16,6 +24,8 @@ data class VolumeLandmarkPrior(
 ) {
     val mevMid: Double get() = (mevLow + mevHigh) / 2.0
     val mrvMid: Double get() = (mrvLow + mrvHigh) / 2.0
+    val mavMid: Double get() = (mevHigh + mrvLow) / 2.0
+    val pvMid: Double get() = mevMid + 0.6 * (mavMid - mevMid)
 }
 
 object VolumeLandmarkPriors {

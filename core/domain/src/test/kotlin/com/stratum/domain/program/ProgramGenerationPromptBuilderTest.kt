@@ -138,7 +138,7 @@ class ProgramGenerationPromptBuilderTest {
     }
 
     @Test
-    fun `volume landmarks serialize mev mrv and confidence tier`() {
+    fun `volume landmarks serialize mev mav mrv pv confidence tier and intervals`() {
         val responseProfile =
             ResponseProfilePayload(
                 volumeResponses = emptyList(),
@@ -148,7 +148,23 @@ class ProgramGenerationPromptBuilderTest {
                         com.stratum.domain.importing.MuscleVolumeHighlight(
                             muscle = MuscleGroup.Quad,
                             estimatedMev = 6.0,
+                            estimatedMav = 12.0,
                             estimatedMrv = 18.0,
+                            estimatedPv = 9.0,
+                            mevInterval =
+                                com.stratum.domain.importing.LandmarkConfidenceInterval(
+                                    4.0,
+                                    8.0,
+                                    com.stratum.domain.importing.IntervalMethod.DeltaMethod,
+                                ),
+                            mavInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                            mrvInterval =
+                                com.stratum.domain.importing.LandmarkConfidenceInterval(
+                                    15.0,
+                                    21.0,
+                                    com.stratum.domain.importing.IntervalMethod.ResidualBootstrap,
+                                ),
+                            pvInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
                             confidenceTier = com.stratum.domain.importing.LandmarkConfidenceTier.Medium,
                         ),
                     ),
@@ -169,8 +185,14 @@ class ProgramGenerationPromptBuilderTest {
         )
         assertTrue(payload.contains("\"volumeLandmarks\":["))
         assertTrue(payload.contains("\"estimatedMev\":6.0"))
+        assertTrue(payload.contains("\"estimatedMav\":12.0"))
         assertTrue(payload.contains("\"estimatedMrv\":18.0"))
+        assertTrue(payload.contains("\"estimatedPv\":9.0"))
         assertTrue(payload.contains("\"confidenceTier\":\"Medium\""))
+        assertTrue(payload.contains("\"mevInterval\":{\"low\":4.0,\"high\":8.0,\"method\":\"DeltaMethod\"}"))
+        assertTrue(payload.contains("\"mrvInterval\":{\"low\":15.0,\"high\":21.0,\"method\":\"ResidualBootstrap\"}"))
+        assertFalse(payload.contains("\"mavInterval\""))
+        assertFalse(payload.contains("\"pvInterval\""))
     }
 
     private fun catalogLift(id: LiftId, name: String): Lift =

@@ -6,7 +6,8 @@ import com.stratum.domain.onboarding.MuscleGroup
 /**
  * Deterministic secondary-muscle defaults from [MovementPattern]. Used when persisting import
  * custom lifts and when crediting weekly volume so MEV/MRV stay accurate even if tags were
- * omitted or stale (pulls credit biceps, compound pushes credit triceps).
+ * omitted or stale (pulls credit biceps, compound pushes credit triceps). Up to 4 secondary
+ * muscles are supported so compound lifts can credit multiple co-movers.
  */
 object CustomLiftMusclePolicy {
     fun withPatternSecondaryDefaults(metadata: InferredCustomLiftMetadata): InferredCustomLiftMetadata =

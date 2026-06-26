@@ -29,7 +29,14 @@ data class ImportInsightsSummaryUi(
 data class MuscleVolumeLandmarkUi(
     val muscleLabel: String,
     val mevWeeklyHardSets: String,
+    val mavWeeklyHardSets: String,
     val mrvWeeklyHardSets: String,
+    val pvWeeklyHardSets: String,
+    /** Confidence-interval range label (e.g. "6–10 sets"), or "" when no interval is available. */
+    val mevIntervalLabel: String,
+    val mavIntervalLabel: String,
+    val mrvIntervalLabel: String,
+    val pvIntervalLabel: String,
     val confidenceTier: LandmarkConfidenceTier,
 )
 
