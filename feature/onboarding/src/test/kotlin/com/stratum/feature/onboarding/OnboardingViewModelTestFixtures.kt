@@ -2,6 +2,7 @@ package com.stratum.feature.onboarding
 
 import com.stratum.core.testing.importing.FakeHistoricalImportRunnerPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
@@ -14,7 +15,10 @@ import com.stratum.domain.lift.ObserveSelectedPresetUseCase
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
+import com.stratum.domain.importing.LoadHistoricalImportSummaryUseCase
 import com.stratum.domain.importing.ReconcileHistoricalImportUseCase
+import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
+import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.domain.lift.ObserveUsedHistoricalImportUseCase
@@ -65,6 +69,8 @@ internal object OnboardingViewModelTestFixtures {
     private val fakeLiftInsightsRepository = FakeLiftInsightsRepository()
     private val fakeSupersetRepository = FakeSupersetRepository()
     private val fakeVolumeRepository = FakeVolumeRepository()
+    private val fakeVolumeResponseRepository = FakeVolumeResponseObservationRepository()
+    private val fakeEffectivenessRepository = FakeLiftEffectivenessObservationRepository()
 
     fun resetDefaults() {
         fakeRepository.seed(
@@ -77,6 +83,9 @@ internal object OnboardingViewModelTestFixtures {
         fakeLiftRepository.seedUsedHistoricalImport(false)
         fakeTrainingHistoryRepository.clear()
         fakeMetadataRepository.reset()
+        fakeVolumeRepository.reset()
+        fakeVolumeResponseRepository.seed(emptyList())
+        fakeEffectivenessRepository.seed(emptyList())
         fakeHistoricalImport.setEvents(
             listOf(
                 com.stratum.domain.importing.HistoricalImportEvent.Progress(
@@ -91,6 +100,7 @@ internal object OnboardingViewModelTestFixtures {
                 ),
             ),
         )
+        fakeHistoricalImport.resetInvocations()
     }
 
     fun seedOrphanImportHistory() {
@@ -125,27 +135,34 @@ internal object OnboardingViewModelTestFixtures {
         applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),
         setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository),
         runFullHistoricalImport = fakeHistoricalImport,
-        rollbackHistoricalImport = RollbackHistoricalImportUseCase(
+        rollbackHistoricalImport = buildRollbackHistoricalImport(),
+        reconcileHistoricalImport = ReconcileHistoricalImportUseCase(
+            fakeMetadataRepository,
+            buildRollbackHistoricalImport(),
+        ),
+        loadHistoricalImportSummary = LoadHistoricalImportSummaryUseCase(
+            fakeMetadataRepository,
+            fakeVolumeRepository,
+            fakeLiftInsightsRepository,
+            fakeSupersetRepository,
+            fakeVolumeResponseRepository,
+            fakeEffectivenessRepository,
+            com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
+            fakeLiftRepository,
+        ),
+        completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
+    )
+
+    private fun buildRollbackHistoricalImport(): RollbackHistoricalImportUseCase =
+        RollbackHistoricalImportUseCase(
             fakeTrainingHistoryRepository,
             fakeLiftInsightsRepository,
             fakeSupersetRepository,
             fakeVolumeRepository,
             fakeMetadataRepository,
+            FakeResponseProfilePersistencePort(),
             fakeLiftRepository,
-        ),
-        reconcileHistoricalImport = ReconcileHistoricalImportUseCase(
-            fakeMetadataRepository,
-            RollbackHistoricalImportUseCase(
-                fakeTrainingHistoryRepository,
-                fakeLiftInsightsRepository,
-                fakeSupersetRepository,
-                fakeVolumeRepository,
-                fakeMetadataRepository,
-                fakeLiftRepository,
-            ),
-        ),
-        completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
-    )
+        )
 
     private class FakeTrainingHistoryRepository : TrainingHistoryRepository {
         private var sessions: List<HistoricalSession> = emptyList()
@@ -231,9 +248,21 @@ internal object OnboardingViewModelTestFixtures {
     }
 
     private class FakeVolumeRepository : MuscleVolumeBaselineRepository {
-        override suspend fun replaceAll(baselines: List<MuscleVolumeBaseline>) = Unit
+        private var baselines: List<MuscleVolumeBaseline> = emptyList()
 
-        override suspend fun getAll(): List<MuscleVolumeBaseline> = emptyList()
+        fun reset() {
+            baselines = emptyList()
+        }
+
+        fun seed(baselines: List<MuscleVolumeBaseline>) {
+            this.baselines = baselines
+        }
+
+        override suspend fun replaceAll(baselines: List<MuscleVolumeBaseline>) {
+            this.baselines = baselines
+        }
+
+        override suspend fun getAll(): List<MuscleVolumeBaseline> = baselines
     }
 
     fun aLift(

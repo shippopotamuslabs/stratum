@@ -64,4 +64,85 @@ describe("parseInferredCustomLifts", () => {
   it("caps batch size constant matches domain", () => {
     assert.equal(CUSTOM_LIFT_INFERENCE_MAX_BATCH, 75);
   });
+
+  it("adds bicep secondary for pull patterns when the LLM omits it", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Neutral Wide Grip Cable Row",
+            movementPattern: "HorizontalPull",
+            primaryMuscles: ["Back"],
+            secondaryMuscles: [],
+            equipment: "cable",
+          },
+        ],
+      },
+      new Set(["Neutral Wide Grip Cable Row"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.secondaryMuscles, ["Bicep"]);
+  });
+
+  it("adds tricep secondary for compound push patterns when the LLM omits it", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Machine Chest Press",
+            movementPattern: "HorizontalPush",
+            primaryMuscles: ["Chest"],
+            secondaryMuscles: [],
+            equipment: "machine",
+          },
+        ],
+      },
+      new Set(["Machine Chest Press"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.secondaryMuscles, ["Tricep"]);
+  });
+
+  it("keeps up to 4 secondary muscles for compound lifts", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Close-Grip Bench Press",
+            movementPattern: "HorizontalPush",
+            primaryMuscles: ["Chest"],
+            secondaryMuscles: ["Tricep", "AnteriorDeltoid", "Bicep", "Back"],
+            equipment: "barbell",
+          },
+        ],
+      },
+      new Set(["Close-Grip Bench Press"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.secondaryMuscles.length, 4);
+    assert.deepEqual(rows[0]?.secondaryMuscles, ["Tricep", "AnteriorDeltoid", "Bicep", "Back"]);
+  });
+
+  it("dedupes a secondary muscle already listed as primary", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Hip Thrust",
+            movementPattern: "GluteIso",
+            primaryMuscles: ["Glute"],
+            secondaryMuscles: ["Glute", "Hamstring"],
+            equipment: "barbell",
+          },
+        ],
+      },
+      new Set(["Hip Thrust"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.secondaryMuscles, ["Hamstring"]);
+  });
 });

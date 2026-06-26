@@ -2,7 +2,11 @@ package com.stratum.feature.onboarding
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.HistoricalImportEvent
+import com.stratum.domain.importing.HistoricalImportLimits
+import com.stratum.domain.importing.ImportFileInput
+import com.stratum.domain.importing.ImportedHistoryChunk
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.lift.GymPreset
@@ -12,6 +16,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -215,7 +220,7 @@ class OnboardingGymLiftsStepViewModelTest {
         )
         subject = OnboardingViewModelTestFixtures.buildViewModel()
 
-        subject.onImportFileSelected("bad".toByteArray(), "export.csv")
+        subject.onImportFilesSelected(listOf(ImportFileInput("bad".toByteArray(), "export.csv")))
         advanceUntilIdle()
 
         subject.uiState.test {
@@ -226,5 +231,124 @@ class OnboardingGymLiftsStepViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertFalse(OnboardingViewModelTestFixtures.fakeLiftRepository.currentUsedHistoricalImport)
+    }
+
+    @Test
+    @DisplayName("Given multiple files when import starts then runner receives all files")
+    fun multiFileImportInvokesRunnerWithAllFiles() = runTest {
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        val files =
+            listOf(
+                ImportFileInput("a".toByteArray(), "a.csv"),
+                ImportFileInput("b".toByteArray(), "b.csv"),
+            )
+
+        subject.onImportFilesSelected(files)
+        advanceUntilIdle()
+
+        assertEquals(1, OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.size)
+        assertEquals(files, OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.single().files)
+        assertNull(OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.single().resume)
+    }
+
+    @Test
+    @DisplayName("Given resumable multi-file failure when retry tapped then runner resumes with cached files")
+    fun retryFromFailedFileUsesCachedFilesWithoutNewSelection() = runTest {
+        val resume =
+            HistoricalImportResumeState(
+                files =
+                    listOf(
+                        ImportFileInput("a".toByteArray(), "a.csv"),
+                        ImportFileInput("bad".toByteArray(), "b.csv"),
+                    ),
+                completedChunks =
+                    listOf(
+                        ImportedHistoryChunk(
+                            sourceLabel = "a.csv",
+                            sessions = emptyList(),
+                            sets = emptyList(),
+                        ),
+                    ),
+            )
+        OnboardingViewModelTestFixtures.fakeHistoricalImport.setEvents(
+            listOf(HistoricalImportEvent.Failed("first failure", resume = resume)),
+        )
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        subject.onImportFilesSelected(
+            listOf(
+                ImportFileInput("a".toByteArray(), "a.csv"),
+                ImportFileInput("bad".toByteArray(), "b.csv"),
+            ),
+        )
+        advanceUntilIdle()
+
+        OnboardingViewModelTestFixtures.fakeHistoricalImport.resetInvocations()
+        OnboardingViewModelTestFixtures.fakeHistoricalImport.setEvents(
+            listOf(
+                HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)),
+                HistoricalImportEvent.Completed(
+                    com.stratum.domain.importing.ExtractTrainingInsightsSummary(
+                        liftsWithInsights = 1,
+                        supersetPairs = 0,
+                        musclesWithBaselines = 1,
+                    ),
+                ),
+            ),
+        )
+
+        subject.onRetryImportFromFailedFile()
+        advanceUntilIdle()
+
+        assertEquals(1, OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.size)
+        val invocation = OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.single()
+        assertNotNull(invocation.resume)
+        assertEquals(1, invocation.resume?.completedChunks?.size)
+        assertEquals("bad".toByteArray().toList(), invocation.files[1].bytes.toList())
+    }
+
+    @Test
+    @DisplayName("Given failed import when cancel tapped then import UI resets")
+    fun cancelImportClearsFailedState() = runTest {
+        OnboardingViewModelTestFixtures.fakeHistoricalImport.setEvents(
+            listOf(HistoricalImportEvent.Failed("Conversion failed.")),
+        )
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        subject.onImportFilesSelected(listOf(ImportFileInput("bad".toByteArray(), "export.csv")))
+        advanceUntilIdle()
+
+        subject.onCancelImport()
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val draft = awaitItem().gymLiftsDraft
+            assertNull(draft.importProgress)
+            assertNull(draft.importError)
+            assertFalse(draft.importFailed)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given more than max files when import starts then it fails without invoking runner")
+    fun tooManyFilesRejected() = runTest {
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        val files =
+            List(HistoricalImportLimits.MAX_FILES + 1) { index ->
+                ImportFileInput("x".toByteArray(), "export-$index.csv")
+            }
+
+        subject.onImportFilesSelected(files)
+        advanceUntilIdle()
+
+        assertTrue(OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.isEmpty())
+        subject.uiState.test {
+            val draft = awaitItem().gymLiftsDraft
+            assertTrue(draft.importFailed)
+            assertEquals(
+                "Select at most ${HistoricalImportLimits.MAX_FILES} files.",
+                draft.importError,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

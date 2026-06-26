@@ -5,6 +5,8 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.response.ExtractResponseProfileUseCase
+import com.stratum.domain.response.ResponseProfilePersistencePort
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
@@ -54,6 +56,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
         val seedCatalogNames = seedLifts.associate { it.id to it.name }
         val seedCatalogIds = seedCatalogNames.keys
         val preexistingCustomLiftCount = catalog.count { it.isCustom }
+        val enablementCutoff = ImportWindowPolicy.liftEnablementCutoff(sets)
+
+        fun isRecentForEnablement(set: LoggedSet): Boolean =
+            enablementCutoff != null && ImportWindowPolicy.isInLiftEnablementWindow(set, enablementCutoff)
 
         val distinctInputExerciseNames = sets.map { it.exerciseNameRaw }.toSet().size
         val distinctInputExerciseNamesNormalized =
@@ -75,6 +81,8 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     ),
             ),
         )
+        val distinctExerciseNames = sets.map { it.exerciseNameRaw }.distinct()
+        liftNameResolver.prepareBatch(distinctExerciseNames)
         val firstPassByExerciseName =
             resolveDistinctExerciseNames(
                 sets = sets,
@@ -86,14 +94,20 @@ class ResolveImportLiftsUseCase @Inject constructor(
             sets.map { set ->
                 val resolved = applyResolvedLiftId(set, seedCatalogIds, firstPassByExerciseName)
                 if (resolved != null) {
-                    catalogLiftsToEnable += resolved
-                    firstPassCatalogMatches += 1
-                    firstPassCatalogMatchIds += resolved
-                    firstPassMatchedExerciseNames +=
-                        ImportExerciseNameNormalizer.normalizeForMatching(set.exerciseNameRaw)
+                    if (isRecentForEnablement(set)) {
+                        catalogLiftsToEnable += resolved
+                        firstPassCatalogMatches += 1
+                        firstPassCatalogMatchIds += resolved
+                        firstPassMatchedExerciseNames +=
+                            ImportExerciseNameNormalizer.normalizeForMatching(set.exerciseNameRaw)
+                    }
                     set.copy(liftId = resolved)
                 } else {
-                    recordUnmatchedSet(unmatchedCounts, set.exerciseNameRaw)
+                    recordUnmatchedSet(
+                        unmatchedCounts = unmatchedCounts,
+                        exerciseNameRaw = set.exerciseNameRaw,
+                        isRecent = isRecentForEnablement(set),
+                    )
                     set.copy(liftId = null)
                 }
             }
@@ -101,6 +115,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
         var customLiftsCreated = 0
         val customLiftIds = mutableSetOf<LiftId>()
         var secondPassAdditionalMatches = 0
+        var customLiftInferenceBatchesAttempted = 0
+        var customLiftInferenceBatchesFailed = 0
+        var customLiftLlmInferredCount = 0
+        var customLiftInferenceLastError: String? = null
         val finalResolvedSets =
             if (unmatchedCounts.isEmpty()) {
                 resolvedSets
@@ -121,18 +139,32 @@ class ResolveImportLiftsUseCase @Inject constructor(
                             ),
                     ),
                 )
-                val inferredByName = enrichCustomLifts(candidates)
+                val enrichment = enrichCustomLifts(candidates)
+                val inferredByName = enrichment.inferredByName
+                customLiftInferenceBatchesAttempted = enrichment.batchesAttempted
+                customLiftInferenceBatchesFailed = enrichment.batchesFailed
+                customLiftInferenceLastError = enrichment.lastFailureMessage
                 val defaultIncrement = Weight(DEFAULT_CUSTOM_INCREMENT_LB, Weight.WeightUnit.Lb)
 
                 unmatchedCounts.values.forEach { aggregate ->
                     val inferred = inferredByName[aggregate.displayName]
                     val createdId =
                         if (inferred != null) {
+                            customLiftLlmInferredCount += 1
                             liftRepository.addCustomLift(inferred.toCustomLiftDefinition(defaultIncrement))
                         } else {
-                            liftRepository.addCustomLift(aggregate.displayName, false, defaultIncrement)
+                            liftRepository.addCustomLift(
+                                ImportStubLiftGuesser.definitionFromName(
+                                    aggregate.displayName,
+                                    defaultIncrement,
+                                ),
+                            )
                         }
-                    customLiftIds += createdId
+                    if (aggregate.isRecent) {
+                        customLiftIds += createdId
+                    } else {
+                        liftRepository.setLiftEnabled(createdId, false)
+                    }
                     customLiftsCreated += 1
                 }
 
@@ -152,9 +184,11 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     } else {
                         val resolved = applyResolvedLiftId(set, updatedIds, secondPassByExerciseName)
                         if (resolved != null) {
-                            catalogLiftsToEnable += resolved
-                            if (resolved !in firstPassCatalogMatchIds) {
-                                secondPassAdditionalMatches += 1
+                            if (isRecentForEnablement(set)) {
+                                catalogLiftsToEnable += resolved
+                                if (resolved !in firstPassCatalogMatchIds) {
+                                    secondPassAdditionalMatches += 1
+                                }
                             }
                             set.copy(liftId = resolved)
                         } else {
@@ -172,7 +206,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
         // Transient equipment inference: map the user's distinct import names to equipment, then
         // union with equipment required by the Tier A catalog matches (looked up in the asset).
         val confirmedEquipment: Set<GymEquipment> = run {
-            val distinctNames = sets.map { it.exerciseNameRaw }.distinct()
+            val distinctNames =
+                ImportWindowPolicy.recentSetsForLiftEnablement(sets)
+                    .map { it.exerciseNameRaw }
+                    .distinct()
             onProgress(
                 ImportProgress(
                     phase = ImportProgressPhase.EnrichingCustomLifts,
@@ -277,6 +314,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     confirmedEquipment = confirmedEquipment,
                     tierBLiftsEnabled = tierBIds.size,
                     derivedGymFallback = derivedGymFallback,
+                    customLiftInferenceBatchesAttempted = customLiftInferenceBatchesAttempted,
+                    customLiftInferenceBatchesFailed = customLiftInferenceBatchesFailed,
+                    customLiftLlmInferredCount = customLiftLlmInferredCount,
+                    customLiftInferenceLastError = customLiftInferenceLastError,
                 ),
         )
     }
@@ -328,6 +369,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
     private fun recordUnmatchedSet(
         unmatchedCounts: MutableMap<String, UnmatchedExerciseAggregate>,
         exerciseNameRaw: String,
+        isRecent: Boolean,
     ) {
         val normalizedKey = ImportExerciseNameNormalizer.normalizeForMatching(exerciseNameRaw)
         val existing = unmatchedCounts[normalizedKey]
@@ -336,15 +378,20 @@ class ResolveImportLiftsUseCase @Inject constructor(
                 UnmatchedExerciseAggregate(
                     displayName = ImportExerciseNameNormalizer.displayName(exerciseNameRaw),
                     loggedSetCount = 1,
+                    isRecent = isRecent,
                 )
         } else {
             existing.loggedSetCount += 1
+            if (isRecent) {
+                existing.isRecent = true
+            }
         }
     }
 
     private data class UnmatchedExerciseAggregate(
         val displayName: String,
         var loggedSetCount: Int,
+        var isRecent: Boolean,
     )
 
     private companion object {
@@ -375,6 +422,8 @@ class PersistImportedHistoryUseCase @Inject constructor(
     private val trainingHistoryRepository: TrainingHistoryRepository,
     private val resolveImportLifts: ResolveImportLiftsUseCase,
     private val extractTrainingInsights: ExtractTrainingInsightsUseCase,
+    private val extractResponseProfile: ExtractResponseProfileUseCase,
+    private val responseProfilePersistence: ResponseProfilePersistencePort,
     private val liftRepository: LiftRepository,
 ) {
     suspend operator fun invoke(
@@ -409,6 +458,13 @@ class PersistImportedHistoryUseCase @Inject constructor(
                 trainingHistoryRepository.replaceAll(emptyList(), emptyList())
                 throw error
             }
+        try {
+            extractResponseProfile(outcome.provenLiftIds).getOrThrow()
+        } catch (error: Throwable) {
+            trainingHistoryRepository.replaceAll(emptyList(), emptyList())
+            responseProfilePersistence.clearAll()
+            throw error
+        }
         liftRepository.setUsedHistoricalImport(true)
         liftRepository.setSelectedPreset(null)
         summary
@@ -421,6 +477,7 @@ class RollbackHistoricalImportUseCase @Inject constructor(
     private val supersetAffinityRepository: SupersetAffinityRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
     private val importAnalysisMetadataRepository: ImportAnalysisMetadataRepository,
+    private val responseProfilePersistence: ResponseProfilePersistencePort,
     private val liftRepository: LiftRepository,
 ) {
     suspend operator fun invoke() {
@@ -429,6 +486,7 @@ class RollbackHistoricalImportUseCase @Inject constructor(
         supersetAffinityRepository.replaceAll(emptyList())
         muscleVolumeBaselineRepository.replaceAll(emptyList())
         importAnalysisMetadataRepository.clear()
+        responseProfilePersistence.clearAll()
         liftRepository.setUsedHistoricalImport(false)
     }
 }
