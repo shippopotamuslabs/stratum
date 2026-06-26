@@ -2,6 +2,8 @@ package com.stratum.feature.onboarding
 
 import com.stratum.domain.importing.EffectiveLiftHighlight
 import com.stratum.domain.importing.HistoricalImportSummary
+import com.stratum.domain.importing.IntervalMethod
+import com.stratum.domain.importing.LandmarkConfidenceInterval
 import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.importing.MuscleVolumeHighlight
 import com.stratum.domain.importing.UserEffectivenessTier
@@ -32,7 +34,13 @@ class ImportInsightsSummaryMappingTest {
                         MuscleVolumeHighlight(
                             muscle = MuscleGroup.Chest,
                             estimatedMev = 10.0,
+                            estimatedMav = 15.0,
                             estimatedMrv = 18.0,
+                            estimatedPv = 13.0,
+                            mevInterval = LandmarkConfidenceInterval(8.0, 12.0, IntervalMethod.DeltaMethod),
+                            mavInterval = LandmarkConfidenceInterval(13.0, 17.0, IntervalMethod.DeltaMethod),
+                            mrvInterval = LandmarkConfidenceInterval(16.0, 21.0, IntervalMethod.ResidualBootstrap),
+                            pvInterval = LandmarkConfidenceInterval.Unavailable,
                             confidenceTier = LandmarkConfidenceTier.Medium,
                         ),
                     ),
@@ -62,7 +70,13 @@ class ImportInsightsSummaryMappingTest {
 
         assertEquals("Chest", ui.volumeLandmarks.first().muscleLabel)
         assertEquals("10", ui.volumeLandmarks.first().mevWeeklyHardSets)
+        assertEquals("15", ui.volumeLandmarks.first().mavWeeklyHardSets)
         assertEquals("18", ui.volumeLandmarks.first().mrvWeeklyHardSets)
+        assertEquals("13", ui.volumeLandmarks.first().pvWeeklyHardSets)
+        assertEquals("8–12", ui.volumeLandmarks.first().mevIntervalLabel)
+        assertEquals("13–17", ui.volumeLandmarks.first().mavIntervalLabel)
+        assertEquals("16–21", ui.volumeLandmarks.first().mrvIntervalLabel)
+        assertEquals("", ui.volumeLandmarks.first().pvIntervalLabel)
         assertEquals("Chest", ui.effectiveLifts.first().muscleLabel)
         assertEquals("Bench Press", ui.effectiveLifts.first().liftName)
         assertEquals(UserEffectivenessTier.VeryEffective, ui.effectiveLifts.first().effectivenessTier)

@@ -9,7 +9,8 @@ import java.time.Instant
 /**
  * Effective weekly hard-set credits per muscle. Primary movers count fully; secondary
  * contributors count at [SECONDARY_SET_CREDIT] so landmark and volume-response analytics
- * reflect compound-lift stimulus (e.g. triceps from pressing).
+ * reflect compound-lift stimulus (e.g. triceps from pressing, biceps from pulling). Up to 4
+ * secondary muscles may be credited per set for compound lifts with multiple co-movers.
  */
 object MuscleVolumeCredit {
     const val PRIMARY_SET_CREDIT = 1.0

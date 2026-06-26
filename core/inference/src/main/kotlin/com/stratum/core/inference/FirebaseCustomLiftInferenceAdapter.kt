@@ -56,7 +56,7 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor() : CustomLiftInfer
             return null
         }
         val secondary =
-            parseMuscleGroups(entry["secondaryMuscles"], maxItems = 2)
+            parseMuscleGroups(entry["secondaryMuscles"], maxItems = 4)
                 .filterNot { it in primary }
                 .toSet()
         val equipment = (entry["equipment"] as? String)?.takeIf { it.isNotBlank() }

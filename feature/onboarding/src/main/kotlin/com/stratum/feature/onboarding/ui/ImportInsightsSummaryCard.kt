@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.stratum.core.ui.R as CoreUiR
@@ -50,7 +51,9 @@ import com.stratum.feature.onboarding.VolumeResponseHighlightUi
 
 private enum class LandmarkHeaderTooltip {
     Mev,
+    Mav,
     Mrv,
+    Pv,
 }
 
 private enum class ImportInsightsTab {
@@ -349,11 +352,29 @@ private fun LandmarksTableHeader() {
             modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
         )
         LandmarkHeaderWithTooltip(
+            label = stringResource(R.string.gym_lifts_import_summary_mav_header),
+            tooltipText = stringResource(R.string.gym_lifts_import_summary_mav_tooltip),
+            expanded = activeTooltip == LandmarkHeaderTooltip.Mav,
+            onExpandedChange = { expanded ->
+                activeTooltip = if (expanded) LandmarkHeaderTooltip.Mav else null
+            },
+            modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+        )
+        LandmarkHeaderWithTooltip(
             label = stringResource(R.string.gym_lifts_import_summary_mrv_header),
             tooltipText = stringResource(R.string.gym_lifts_import_summary_mrv_tooltip),
             expanded = activeTooltip == LandmarkHeaderTooltip.Mrv,
             onExpandedChange = { expanded ->
                 activeTooltip = if (expanded) LandmarkHeaderTooltip.Mrv else null
+            },
+            modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+        )
+        LandmarkHeaderWithTooltip(
+            label = stringResource(R.string.gym_lifts_import_summary_pv_header),
+            tooltipText = stringResource(R.string.gym_lifts_import_summary_pv_tooltip),
+            expanded = activeTooltip == LandmarkHeaderTooltip.Pv,
+            onExpandedChange = { expanded ->
+                activeTooltip = if (expanded) LandmarkHeaderTooltip.Pv else null
             },
             modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
         )
@@ -443,6 +464,10 @@ private fun LandmarkTooltipPopup(
 private fun LandmarkTableRow(
     landmark: MuscleVolumeLandmarkUi,
 ) {
+    val mevA11y = landmark.mevIntervalLabel.intervalA11y("MEV")
+    val mavA11y = landmark.mavIntervalLabel.intervalA11y("MAV")
+    val mrvA11y = landmark.mrvIntervalLabel.intervalA11y("MRV")
+    val pvA11y = landmark.pvIntervalLabel.intervalA11y("PV")
     Column(
         modifier =
             Modifier
@@ -458,18 +483,30 @@ private fun LandmarkTableRow(
                 text = landmark.muscleLabel,
                 modifier = Modifier.weight(LANDMARK_MUSCLE_WEIGHT),
             )
-            Box(
+            LandmarkValueCell(
+                value = landmark.mevWeeklyHardSets,
+                intervalLabel = landmark.mevIntervalLabel,
+                intervalA11y = mevA11y,
                 modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                StratumNumber(text = landmark.mevWeeklyHardSets)
-            }
-            Box(
+            )
+            LandmarkValueCell(
+                value = landmark.mavWeeklyHardSets,
+                intervalLabel = landmark.mavIntervalLabel,
+                intervalA11y = mavA11y,
                 modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                StratumNumber(text = landmark.mrvWeeklyHardSets)
-            }
+            )
+            LandmarkValueCell(
+                value = landmark.mrvWeeklyHardSets,
+                intervalLabel = landmark.mrvIntervalLabel,
+                intervalA11y = mrvA11y,
+                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            )
+            LandmarkValueCell(
+                value = landmark.pvWeeklyHardSets,
+                intervalLabel = landmark.pvIntervalLabel,
+                intervalA11y = pvA11y,
+                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            )
         }
         StratumText(
             text = stringResource(
@@ -480,6 +517,47 @@ private fun LandmarkTableRow(
         )
     }
 }
+
+/**
+ * One landmark value column: the point estimate (e.g. "10") with a tiny muted confidence-interval
+ * subheader beneath it (e.g. "6–10"). The subheader is omitted when [intervalLabel] is blank
+ * (prior-only fallback with no statistical bound). The cell is right-aligned to match the header.
+ */
+@Composable
+private fun LandmarkValueCell(
+    value: String,
+    intervalLabel: String,
+    intervalA11y: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.End,
+    ) {
+        StratumNumber(text = value)
+        if (intervalLabel.isNotEmpty()) {
+            StratumText(
+                text = intervalLabel,
+                muted = true,
+                style = StratumThemeAccessor.typography.bodyLarge.copy(
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    textAlign = TextAlign.End,
+                ),
+                modifier =
+                    Modifier.semantics {
+                        if (intervalA11y.isNotEmpty()) {
+                            contentDescription = intervalA11y
+                        }
+                    },
+            )
+        }
+    }
+}
+
+/** Build an a11y content description for a CI label, or "" when there is no interval. */
+private fun String.intervalA11y(landmarkName: String): String =
+    if (isEmpty()) "" else "$landmarkName confidence interval: $this sets"
 
 @Composable
 private fun confidenceLabel(tier: LandmarkConfidenceTier): String =

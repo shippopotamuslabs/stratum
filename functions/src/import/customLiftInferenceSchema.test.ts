@@ -104,4 +104,45 @@ describe("parseInferredCustomLifts", () => {
     assert.equal(rows.length, 1);
     assert.deepEqual(rows[0]?.secondaryMuscles, ["Tricep"]);
   });
+
+  it("keeps up to 4 secondary muscles for compound lifts", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Close-Grip Bench Press",
+            movementPattern: "HorizontalPush",
+            primaryMuscles: ["Chest"],
+            secondaryMuscles: ["Tricep", "AnteriorDeltoid", "Bicep", "Back"],
+            equipment: "barbell",
+          },
+        ],
+      },
+      new Set(["Close-Grip Bench Press"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.secondaryMuscles.length, 4);
+    assert.deepEqual(rows[0]?.secondaryMuscles, ["Tricep", "AnteriorDeltoid", "Bicep", "Back"]);
+  });
+
+  it("dedupes a secondary muscle already listed as primary", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Hip Thrust",
+            movementPattern: "GluteIso",
+            primaryMuscles: ["Glute"],
+            secondaryMuscles: ["Glute", "Hamstring"],
+            equipment: "barbell",
+          },
+        ],
+      },
+      new Set(["Hip Thrust"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.secondaryMuscles, ["Hamstring"]);
+  });
 });

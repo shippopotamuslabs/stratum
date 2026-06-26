@@ -21,7 +21,13 @@ data class HistoricalImportSummary(
 data class MuscleVolumeHighlight(
     val muscle: MuscleGroup,
     val estimatedMev: Double,
+    val estimatedMav: Double,
     val estimatedMrv: Double,
+    val estimatedPv: Double,
+    val mevInterval: LandmarkConfidenceInterval,
+    val mavInterval: LandmarkConfidenceInterval,
+    val mrvInterval: LandmarkConfidenceInterval,
+    val pvInterval: LandmarkConfidenceInterval,
     val confidenceTier: LandmarkConfidenceTier,
 )
 

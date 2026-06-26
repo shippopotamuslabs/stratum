@@ -12,6 +12,7 @@ import com.stratum.domain.response.identity.EpochId
 import com.stratum.domain.lift.identity.LiftId
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -125,6 +126,101 @@ class VolumeLandmarkEstimatorTest {
             estimate.estimatedMrv > 11.0,
             "MRV should exceed curl-only ceiling when row-only weeks carry higher effective volume",
         )
+    }
+
+    @Test
+    @DisplayName("Given fractional blends with the prior when estimating then MEV and MRV round up to whole sets")
+    fun fractionalBlendsRoundUpToWholeSets() {
+        // buildWeeklyPoints produces fractional observed MEV/MRV; blending with the prior and
+        // then rounding up should yield integer hard-set counts, with MRV >= MEV preserved.
+        val points = buildWeeklyPoints(weekCount = 12)
+        val estimate =
+            VolumeLandmarkEstimator.estimate(
+                VolumeLandmarkEstimator.Input(
+                    muscle = MuscleGroup.Chest,
+                    weeklyPoints = points,
+                    volumeResponse = positiveVolumeResponse(),
+                    rirCoverage = 0.85,
+                ),
+            )
+
+        assertEquals(estimate.estimatedMev, kotlin.math.ceil(estimate.estimatedMev))
+        assertEquals(estimate.estimatedMrv, kotlin.math.ceil(estimate.estimatedMrv))
+        assertTrue(estimate.estimatedMev % 1.0 == 0.0, "MEV should be a whole number of sets")
+        assertTrue(estimate.estimatedMrv % 1.0 == 0.0, "MRV should be a whole number of sets")
+        assertTrue(estimate.estimatedMrv >= estimate.estimatedMev)
+    }
+
+    @Test
+    @DisplayName("Given an inverted-U dose-response when estimating then produces MAV PV and Delta Method CIs")
+    fun invertedUProducesMavPvAndIntervals() {
+        // progress rises then falls across 12 weeks with 6 distinct volume levels — enough for
+        // the quadratic OLS fit. Peak progress at week 7 (v=14), declines after.
+        val points = buildInvertedUPoints(weekCount = 12)
+        val estimate =
+            VolumeLandmarkEstimator.estimate(
+                VolumeLandmarkEstimator.Input(
+                    muscle = MuscleGroup.Chest,
+                    weeklyPoints = points,
+                    volumeResponse = null,
+                    rirCoverage = 0.8,
+                ),
+            )
+
+        assertTrue(estimate.estimatedMev <= estimate.estimatedMav, "MEV should be <= MAV")
+        assertTrue(estimate.estimatedMav <= estimate.estimatedMrv, "MAV should be <= MRV")
+        assertTrue(estimate.estimatedPv <= estimate.estimatedMav, "PV should be <= MAV")
+        assertTrue(estimate.estimatedPv >= estimate.estimatedMev, "PV should be >= MEV")
+        // At least one interval should carry a statistical method on a clean inverted-U.
+        val hasStatisticalInterval =
+            listOf(
+                estimate.mevInterval,
+                estimate.mavInterval,
+                estimate.mrvInterval,
+                estimate.pvInterval,
+            ).any { it.isAvailable && it.method != IntervalMethod.Pragmatic }
+        assertTrue(hasStatisticalInterval, "at least one CI should be statistically derived, not pragmatic")
+    }
+
+    @Test
+    @DisplayName("Given sparse weeks when estimating then intervals fall back to unavailable or pragmatic")
+    fun sparseWeeksUseUnavailableIntervals() {
+        val estimate =
+            VolumeLandmarkEstimator.estimate(
+                VolumeLandmarkEstimator.Input(
+                    muscle = MuscleGroup.Chest,
+                    weeklyPoints = emptyList(),
+                    volumeResponse = null,
+                    rirCoverage = 0.0,
+                ),
+            )
+
+        assertEquals(IntervalMethod.Prior, estimate.mevInterval.method)
+        assertEquals(IntervalMethod.Prior, estimate.mavInterval.method)
+        assertEquals(IntervalMethod.Prior, estimate.mrvInterval.method)
+        assertEquals(IntervalMethod.Prior, estimate.pvInterval.method)
+        assertFalse(estimate.mevInterval.isAvailable, "prior-only fallback should be unavailable")
+    }
+
+    private fun buildInvertedUPoints(weekCount: Int): List<MuscleWeeklyVolumePoint> {
+        val start = Instant.parse("2025-01-06T00:00:00Z")
+        // 6 distinct volume levels cycling to give the quadratic fit spread on x.
+        val volumes = listOf(6.0, 8.0, 10.0, 14.0, 16.0, 18.0)
+        var previousPeak = 200.0
+        return (0 until weekCount).map { index ->
+            val v = volumes[index % volumes.size]
+            // Peak progress at v=14 (index 3), declining on either side.
+            val peakDelta = 1.0 - kotlin.math.abs(v - 14.0) * 0.12
+            val peak = previousPeak + peakDelta
+            val delta = if (index == 0) null else peakDelta
+            previousPeak = peak
+            MuscleWeeklyVolumePoint(
+                weekStart = start.plusSeconds(index * 7L * 24L * 3600L),
+                hardSets = v,
+                anchorPeakE1rm = peak,
+                weekOverWeekE1rmDelta = delta,
+            )
+        }
     }
 
     private fun buildClimbingAtCeilingPoints(weekCount: Int, maxHardSets: Double): List<MuscleWeeklyVolumePoint> {

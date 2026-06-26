@@ -87,7 +87,7 @@ export const CUSTOM_LIFT_SYSTEM_PROMPT = `You classify strength-training exercis
 For each exercise name, infer:
 - movementPattern: one enum value describing how the lift moves
 - primaryMuscles: 1-2 muscle groups that receive most training stress
-- secondaryMuscles: 0-2 optional supporting muscle groups
+- secondaryMuscles: 0-4 supporting / co-mover muscle groups (e.g. triceps and front delts on a press, biceps on a row)
 - equipment: short optional label (e.g. "barbell", "dumbbell", "cable", "machine", "bodyweight")
 
 Use only the provided enum values. Prefer isolation patterns (TricepIso, BicepIso, etc.) for single-joint accessories.
@@ -125,7 +125,7 @@ export function customLiftInferenceJsonSchema() {
               secondaryMuscles: {
                 type: "array",
                 items: { type: "string", enum: [...MUSCLE_GROUPS] },
-                maxItems: 2,
+                maxItems: 4,
               },
               equipment: { type: ["string", "null"] },
             },
@@ -176,7 +176,7 @@ export function parseInferredCustomLifts(
     if (primaryMuscles.length === 0) {
       continue;
     }
-    const secondaryMuscles = normalizeMuscleList(row.secondaryMuscles, muscleSet, 2).filter(
+    const secondaryMuscles = normalizeMuscleList(row.secondaryMuscles, muscleSet, 4).filter(
       (muscle) => !primaryMuscles.includes(muscle),
     );
     const equipment =

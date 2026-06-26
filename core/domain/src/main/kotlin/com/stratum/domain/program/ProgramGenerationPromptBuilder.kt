@@ -3,6 +3,7 @@ package com.stratum.domain.program
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.domain.importing.MuscleVolumeBaseline
+import com.stratum.domain.importing.LandmarkConfidenceInterval
 import com.stratum.domain.importing.MuscleVolumeHighlight
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.lift.Lift
@@ -114,9 +115,24 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
     private fun MuscleVolumeHighlight.toJson(): String {
         val muscle = muscle.name.quoteJson()
         val confidence = ""","confidenceTier":${confidenceTier.name.quoteJson()}"""
+        val mevCi = mevInterval.toJsonField("mevInterval")
+        val mavCi = mavInterval.toJsonField("mavInterval")
+        val mrvCi = mrvInterval.toJsonField("mrvInterval")
+        val pvCi = pvInterval.toJsonField("pvInterval")
         return """{"muscle":$muscle,"estimatedMev":${estimatedMev.toJsonNumberOrZero()},""" +
-            """"estimatedMrv":${estimatedMrv.toJsonNumberOrZero()}$confidence}"""
+            """"estimatedMav":${estimatedMav.toJsonNumberOrZero()},""" +
+            """"estimatedMrv":${estimatedMrv.toJsonNumberOrZero()},""" +
+            """"estimatedPv":${estimatedPv.toJsonNumberOrZero()}""" +
+            mevCi + mavCi + mrvCi + pvCi + confidence + "}"
     }
+
+    private fun LandmarkConfidenceInterval.toJsonField(name: String): String =
+        if (!isAvailable) {
+            ""
+        } else {
+            ""","$name":{"low":${low.toJsonNumberOrZero()},"high":${high.toJsonNumberOrZero()},""" +
+                """"method":"${method.name}"}"""
+        }
 
     internal fun ResponseProfilePayload.toJson(): String {
         val windowStartJson = analysisWindowStart.toString().quoteJson()

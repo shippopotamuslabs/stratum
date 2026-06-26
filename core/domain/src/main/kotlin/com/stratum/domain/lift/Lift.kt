@@ -9,6 +9,9 @@ import com.stratum.domain.onboarding.MuscleGroup
  *
  * - [primaryMuscles] / [secondaryMuscles]: which [MuscleGroup]s a set contributes volume to
  *   (v1 is presence/absence, not fractional contribution — fractional is deferred per §2.3).
+ *   Up to 4 secondary muscles are supported so compound lifts can credit multiple co-movers
+ *   (e.g. triceps + front delts on a press); [CustomLiftMusclePolicy] derives sensible
+ *   pattern-based secondary defaults so credit stays accurate even if tags were omitted.
  * - [allowWeightChangeBetweenSets]: the deterministic progression seed. §2.2 maps it to a
  *   default scheme (`true → dynamic double progression`, `false → double progression`); OS-6
  *   applies that mapping when building `WorkoutLift`s.
