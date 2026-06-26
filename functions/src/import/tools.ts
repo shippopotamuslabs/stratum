@@ -146,23 +146,18 @@ async function executeOnFull(
   }
 
   const storage = resolveStorage(ctx);
-  let slicePath = jobData.fullSliceStoragePath as string | undefined;
-  if (!slicePath) {
-    const rawBytes = await storage.download(ctx.rawStoragePath);
-    const rawText = rawBytes.toString("utf8");
-    const ext = ctx.rawStoragePath.split(".").pop() ?? "csv";
-    slicePath = `imports/${ctx.uid}/${ctx.jobId}/slice/full.${ext}`;
-    const { buildFullSlice } = await import("./sliceExport");
-    await buildFullSlice(rawText, slicePath, storage.bucket());
-    await ctx.jobRef.update({ fullSliceStoragePath: slicePath });
-  }
+  const inputPath = ctx.rawStoragePath;
+  await ctx.jobRef.update({
+    fullSliceStoragePath: inputPath,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
 
-  const result = await invokeSandbox(ctx, scriptPath, slicePath);
-  validateNormalizedHistory(JSON.parse(result.outputJson));
+  const result = await invokeSandbox(ctx, scriptPath, inputPath);
+  const normalized = validateNormalizedHistory(JSON.parse(result.outputJson));
 
   const ts = Date.now();
   const conversionPath = `imports/${ctx.uid}/${ctx.jobId}/conversions/${ts}/normalized.json`;
-  const outputBytes = Buffer.from(result.outputJson, "utf8");
+  const outputBytes = Buffer.from(JSON.stringify(normalized), "utf8");
   await storage.save(conversionPath, outputBytes, "application/json");
 
   const latestConversion = {

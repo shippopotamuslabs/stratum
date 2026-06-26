@@ -2,6 +2,7 @@ package com.stratum.domain.importing
 
 import com.stratum.domain.lift.identity.LiftId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -29,8 +30,14 @@ class Bm25LiftNameResolverTest {
                 "Single Arm Cable Overhead Triceps Extension ∈ SS3",
                 catalog,
             )
-        assertTrue(evaluation.matched)
-        assertEquals(LiftId("overhead"), evaluation.matchedLiftId)
+        assertFalse(evaluation.matched)
+    }
+
+    @Test
+    fun `subset query does not strongly align with longer catalog name`() {
+        val catalog = mapOf(LiftId("bench") to "Barbell Bench Press")
+        assertFalse(resolver.isStrongTokenAlignment("bench press", catalog.getValue(LiftId("bench"))))
+        assertFalse(resolver.evaluate("bench press", catalog).matched)
     }
 
     @Test
@@ -62,9 +69,31 @@ class Bm25LiftNameResolverTest {
                 LiftId("lat-pulldown") to "Lat Pulldown",
             )
         val evaluation = resolver.evaluate("Lat Pulldown - Underhand (Cable)", catalog)
-        // Dash variant moved front + paren moved front: "underhand cable lat pulldown" still
-        // contains "lat pulldown" tokens, so it scores well against the bare catalog name.
+        assertFalse(evaluation.matched)
+    }
+
+    @Test
+    fun `matches seated hamstring curl to seated leg curl not band variant`() {
+        val catalog =
+            mapOf(
+                LiftId("seated-band") to "Seated Band Hamstring Curl",
+                LiftId("seated-leg") to "Seated Leg Curl",
+            )
+        val evaluation = resolver.evaluate("Seated Hamstring Curl ∈ SS1", catalog)
         assertTrue(evaluation.matched)
-        assertEquals(LiftId("lat-pulldown"), evaluation.matchedLiftId)
+        assertEquals(LiftId("seated-leg"), evaluation.matchedLiftId)
+        assertEquals("Seated Leg Curl", evaluation.bestCatalogName)
+    }
+
+    @Test
+    fun `matches lying hamstring curl to lying leg curls`() {
+        val catalog =
+            mapOf(
+                LiftId("lying-leg") to "Lying Leg Curls",
+                LiftId("seated-band") to "Seated Band Hamstring Curl",
+            )
+        val evaluation = resolver.evaluate("Lying Hamstring Curl ∈ SS1", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("lying-leg"), evaluation.matchedLiftId)
     }
 }

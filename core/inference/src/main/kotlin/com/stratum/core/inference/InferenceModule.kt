@@ -4,6 +4,7 @@ import com.stratum.domain.importing.CustomLiftInferencePort
 import com.stratum.domain.importing.HistoricalImportPort
 import com.stratum.domain.importing.HistoricalImportRunnerPort
 import com.stratum.domain.importing.ImportEquipmentInferencePort
+import com.stratum.domain.importing.LiftNameEmbeddingPort
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -32,4 +33,10 @@ abstract class InferenceModule {
     abstract fun bindImportEquipmentInferencePort(
         impl: FirebaseImportEquipmentInferenceAdapter,
     ): ImportEquipmentInferencePort
+
+    @Binds
+    @Singleton
+    abstract fun bindLiftNameEmbeddingPort(
+        impl: FirebaseLiftNameEmbeddingAdapter,
+    ): LiftNameEmbeddingPort
 }

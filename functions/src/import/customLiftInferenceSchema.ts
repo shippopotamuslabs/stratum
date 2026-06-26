@@ -57,15 +57,43 @@ export interface InferredCustomLiftRow {
 
 export const CUSTOM_LIFT_INFERENCE_MAX_BATCH = 75;
 
+const PULL_PATTERNS = new Set<MovementPattern>(["HorizontalPull", "VerticalPull"]);
+const PUSH_PATTERNS = new Set<MovementPattern>([
+  "HorizontalPush",
+  "VerticalPush",
+  "InclinePush",
+]);
+
+function applyPatternSecondaryDefaults(row: InferredCustomLiftRow): InferredCustomLiftRow {
+  const secondary = [...row.secondaryMuscles];
+  if (PULL_PATTERNS.has(row.movementPattern) && !row.primaryMuscles.includes("Bicep")) {
+    if (!secondary.includes("Bicep")) {
+      secondary.push("Bicep");
+    }
+  }
+  if (PUSH_PATTERNS.has(row.movementPattern) && !row.primaryMuscles.includes("Tricep")) {
+    if (!secondary.includes("Tricep")) {
+      secondary.push("Tricep");
+    }
+  }
+  return {
+    ...row,
+    secondaryMuscles: secondary.filter((muscle) => !row.primaryMuscles.includes(muscle)),
+  };
+}
+
 export const CUSTOM_LIFT_SYSTEM_PROMPT = `You classify strength-training exercise names for a workout app catalog.
 
 For each exercise name, infer:
 - movementPattern: one enum value describing how the lift moves
 - primaryMuscles: 1-2 muscle groups that receive most training stress
-- secondaryMuscles: 0-2 optional supporting muscle groups
+- secondaryMuscles: 0-4 supporting / co-mover muscle groups (e.g. triceps and front delts on a press, biceps on a row)
 - equipment: short optional label (e.g. "barbell", "dumbbell", "cable", "machine", "bodyweight")
 
 Use only the provided enum values. Prefer isolation patterns (TricepIso, BicepIso, etc.) for single-joint accessories.
+Lateral raises, side raises, and Y-raises: movementPattern DeltIso, primaryMuscles ["LateralDeltoid"].
+Rear delt fly, reverse fly, and face pulls: movementPattern DeltIso, primaryMuscles ["PosteriorDeltoid"].
+Front raises: movementPattern DeltIso, primaryMuscles ["AnteriorDeltoid"].
 If the name mentions a brand or variant (e.g. "Katana Triceps Extension"), classify by the underlying movement.
 Return one row per input exercise; keep the name exactly as provided.`;
 
@@ -100,7 +128,7 @@ export function customLiftInferenceJsonSchema() {
               secondaryMuscles: {
                 type: "array",
                 items: { type: "string", enum: [...MUSCLE_GROUPS] },
-                maxItems: 2,
+                maxItems: 4,
               },
               equipment: { type: ["string", "null"] },
             },
@@ -151,20 +179,22 @@ export function parseInferredCustomLifts(
     if (primaryMuscles.length === 0) {
       continue;
     }
-    const secondaryMuscles = normalizeMuscleList(row.secondaryMuscles, muscleSet, 2).filter(
+    const secondaryMuscles = normalizeMuscleList(row.secondaryMuscles, muscleSet, 4).filter(
       (muscle) => !primaryMuscles.includes(muscle),
     );
     const equipment =
       typeof row.equipment === "string" && row.equipment.trim().length > 0
         ? row.equipment.trim()
         : null;
-    rows.push({
-      name,
-      movementPattern: movementPattern as MovementPattern,
-      primaryMuscles: primaryMuscles as MuscleGroup[],
-      secondaryMuscles: secondaryMuscles as MuscleGroup[],
-      equipment,
-    });
+    rows.push(
+      applyPatternSecondaryDefaults({
+        name,
+        movementPattern: movementPattern as MovementPattern,
+        primaryMuscles: primaryMuscles as MuscleGroup[],
+        secondaryMuscles: secondaryMuscles as MuscleGroup[],
+        equipment,
+      }),
+    );
     seen.add(name);
   }
   return rows;

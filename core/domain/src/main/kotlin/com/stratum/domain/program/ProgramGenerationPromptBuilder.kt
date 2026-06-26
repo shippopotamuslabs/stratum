@@ -3,6 +3,8 @@ package com.stratum.domain.program
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.domain.importing.MuscleVolumeBaseline
+import com.stratum.domain.importing.LandmarkConfidenceInterval
+import com.stratum.domain.importing.MuscleVolumeHighlight
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.onboarding.SpecializationPreference
@@ -27,6 +29,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
         supersetAffinities: List<SupersetAffinity>,
         volumeBaselines: List<MuscleVolumeBaseline>,
         analysisMetadata: ImportAnalysisMetadata?,
+        responseProfile: ResponseProfilePayload? = null,
     ): String {
         val provenJson = provenLifts.joinToString(",") { it.toJson(proven = true) }
         val availableJson = availableLifts.joinToString(",") { it.toJson(proven = false) }
@@ -66,6 +69,10 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
                 append(volumeJson)
                 append(']')
             }
+            if (responseProfile != null && shouldIncludeResponseProfile(responseProfile)) {
+                append(""","responseProfile":""")
+                append(responseProfile.toJson())
+            }
             append(importJson)
             append('}')
         }
@@ -80,9 +87,9 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             buildString {
                 append(""","trainingInsights":{""")
                 append(""""sessionCount":${insights.sessionCount}""")
-                e1rm?.let { append(""","estimatedOneRm":$it""") }
-                slope?.let { append(""","fatigueDecaySlope":$it""") }
-                intercept?.let { append(""","fatigueDecayIntercept":$it""") }
+                append(e1rm.toJsonField("estimatedOneRm"))
+                append(slope.toJsonField("fatigueDecaySlope"))
+                append(intercept.toJsonField("fatigueDecayIntercept"))
                 trend?.let { append(""","progressTrend":${it.quoteJson()}""") }
                 append('}')
             }
@@ -100,9 +107,88 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
     }
 
     private fun MuscleVolumeBaseline.toJson(): String {
-        val trend = trendSlope?.let { ""","trendSlope":$it""" } ?: ""
+        val trend = trendSlope.toJsonField("trendSlope")
         val muscle = muscle.name.quoteJson()
         return """{"muscle":$muscle,"meanWeeklyHardSets":$meanWeeklyHardSets,"p90WeeklyHardSets":$p90WeeklyHardSets$trend}"""
+    }
+
+    private fun MuscleVolumeHighlight.toJson(): String {
+        val muscle = muscle.name.quoteJson()
+        val confidence = ""","confidenceTier":${confidenceTier.name.quoteJson()}"""
+        val mevCi = mevInterval.toJsonField("mevInterval")
+        val mavCi = mavInterval.toJsonField("mavInterval")
+        val mrvCi = mrvInterval.toJsonField("mrvInterval")
+        val pvCi = pvInterval.toJsonField("pvInterval")
+        return """{"muscle":$muscle,"estimatedMev":${estimatedMev.toJsonNumberOrZero()},""" +
+            """"estimatedMav":${estimatedMav.toJsonNumberOrZero()},""" +
+            """"estimatedMrv":${estimatedMrv.toJsonNumberOrZero()},""" +
+            """"estimatedPv":${estimatedPv.toJsonNumberOrZero()}""" +
+            mevCi + mavCi + mrvCi + pvCi + confidence + "}"
+    }
+
+    private fun LandmarkConfidenceInterval.toJsonField(name: String): String =
+        if (!isAvailable) {
+            ""
+        } else {
+            ""","$name":{"low":${low.toJsonNumberOrZero()},"high":${high.toJsonNumberOrZero()},""" +
+                """"method":"${method.name}"}"""
+        }
+
+    internal fun ResponseProfilePayload.toJson(): String {
+        val windowStartJson = analysisWindowStart.toString().quoteJson()
+        val windowEndJson = analysisWindowEnd.toString().quoteJson()
+        val volumeInfluenceJson =
+            volumeResponses.joinToString(",") { influence ->
+                buildString {
+                    append("""{"muscle":${influence.muscle.name.quoteJson()},""")
+                    append(""""anchorLiftId":${influence.anchorLiftId.value.quoteJson()},""")
+                    append(influence.correlationSlope.toJsonField("correlationSlope"))
+                    append(influence.confidenceScore.toJsonField("confidenceScore"))
+                    append(""""evidence":${influence.evidence.name.quoteJson()}}""")
+                }
+            }
+        val liftInfluenceJson =
+            liftEffectiveness.joinToString(",") { influence ->
+                buildString {
+                    append("""{"pattern":${influence.pattern.name.quoteJson()},""")
+                    append(""""liftId":${influence.liftId.value.quoteJson()},""")
+                    append(influence.effectivenessScore.toJsonField("effectivenessScore"))
+                    append(""""rank":${influence.rank},""")
+                    append(""""evidence":${influence.evidence.name.quoteJson()}}""")
+                }
+            }
+        val informationalVolumeJson =
+            informational.volumeResponses.joinToString(",") { observation ->
+                buildString {
+                    append("""{"muscle":${observation.muscle.name.quoteJson()},""")
+                    append(observation.confidenceScore.toJsonField("confidenceScore"))
+                    append(""""evidence":${observation.evidence.name.quoteJson()}}""")
+                }
+            }
+        val informationalEffectivenessJson =
+            informational.liftEffectiveness.joinToString(",") { observation ->
+                buildString {
+                    append("""{"pattern":${observation.pattern.name.quoteJson()},""")
+                    append(""""liftId":${observation.liftId.value.quoteJson()},""")
+                    append(observation.confidenceScore.toJsonField("confidenceScore"))
+                    append(""""evidence":${observation.evidence.name.quoteJson()}}""")
+                }
+            }
+        val volumeLandmarksJson =
+            volumeLandmarks.joinToString(",") { it.toJson() }
+        return buildString {
+            append('{')
+            append(""""epochsAnalyzed":$epochsAnalyzed,""")
+            append(""""analysisWindowStart":$windowStartJson,""")
+            append(""""analysisWindowEnd":$windowEndJson,""")
+            append(""""volumeResponses":[$volumeInfluenceJson],""")
+            append(""""liftEffectiveness":[$liftInfluenceJson],""")
+            append(""""volumeLandmarks":[$volumeLandmarksJson],""")
+            append(""""informational":{""")
+            append(""""volumeResponses":[$informationalVolumeJson],""")
+            append(""""liftEffectiveness":[$informationalEffectivenessJson]""")
+            append("}}")
+        }
     }
 
     private fun ImportAnalysisMetadata.toJsonSnippet(): String {

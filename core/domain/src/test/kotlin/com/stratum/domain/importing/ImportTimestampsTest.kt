@@ -31,9 +31,26 @@ class ImportTimestampsTest {
     }
 
     @Test
+    fun `parse accepts space separated local datetime`() {
+        assertEquals(
+            Instant.parse("2018-01-31T20:21:08Z"),
+            ImportTimestamps.parse("2018-01-31 20:21:08"),
+        )
+    }
+
+    @Test
+    fun `parse accepts space separated local datetime with fractional seconds`() {
+        assertEquals(
+            Instant.parse("2018-01-31T20:21:08.123Z"),
+            ImportTimestamps.parse("2018-01-31 20:21:08.123"),
+        )
+    }
+
+    @Test
     fun `parse rejects garbage`() {
         assertThrows<IllegalArgumentException> {
             ImportTimestamps.parse("not-a-date")
         }
     }
 }
+

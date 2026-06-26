@@ -3,6 +3,8 @@ package com.stratum.core.testing.importing
 import com.stratum.domain.importing.ExtractTrainingInsightsSummary
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.HistoricalImportRunnerPort
+import com.stratum.domain.importing.HistoricalImportResumeState
+import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import kotlinx.coroutines.flow.Flow
@@ -20,14 +22,26 @@ class FakeHistoricalImportRunnerPort(
         ),
     ),
 ) : HistoricalImportRunnerPort {
-    val invocations = mutableListOf<Pair<ByteArray, String>>()
+    val invocations = mutableListOf<ImportInvocation>()
+
+    data class ImportInvocation(
+        val files: List<ImportFileInput>,
+        val resume: HistoricalImportResumeState?,
+    )
 
     fun setEvents(newEvents: List<HistoricalImportEvent>) {
         events = newEvents
     }
 
-    override fun run(fileBytes: ByteArray, fileName: String): Flow<HistoricalImportEvent> = flow {
-        invocations += fileBytes to fileName
+    fun resetInvocations() {
+        invocations.clear()
+    }
+
+    override fun run(
+        files: List<ImportFileInput>,
+        resume: HistoricalImportResumeState?,
+    ): Flow<HistoricalImportEvent> = flow {
+        invocations += ImportInvocation(files, resume)
         events.forEach { emit(it) }
     }
 }

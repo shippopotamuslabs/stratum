@@ -4,6 +4,11 @@ import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.domain.response.LiftEffectivenessObservationRepository
+import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
+import com.stratum.domain.response.ResponseProfileMetadataRepository
+import com.stratum.domain.response.VolumeResponseObservationRepository
+import com.stratum.domain.response.modeling.toHighlights
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.ObserveSpecializationUseCase
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
@@ -19,6 +24,10 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
     private val supersetAffinityRepository: SupersetAffinityRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
     private val importAnalysisMetadataRepository: ImportAnalysisMetadataRepository,
+    private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
+    private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
+    private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
+    private val muscleVolumeLandmarkEstimateRepository: MuscleVolumeLandmarkEstimateRepository,
     private val promptBuilder: ProgramGenerationPromptBuilder,
 ) {
     suspend operator fun invoke(): String {
@@ -27,13 +36,15 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
         val insightsByLift = liftTrainingInsightsRepository.getAll().associateBy { it.liftId }
         val metadata = importAnalysisMetadataRepository.get()
         val provenIds = metadata?.provenLiftIds?.toSet() ?: emptySet()
-        val (proven, available) = liftRepository.observeLifts().first()
+        val lifts = liftRepository.observeLifts().first()
+        val (proven, available) = lifts
             .filter { it.enabled }
             .partition { lift -> lift.id in provenIds && insightsByLift[lift.id] != null }
             .let { (proven, available) ->
                 proven.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) } to
                     available.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) }
             }
+        val responseProfile = assembleResponseProfilePayload()
         return promptBuilder.buildPayload(
             profile = profile,
             specialization = specialization,
@@ -42,6 +53,26 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
             supersetAffinities = supersetAffinityRepository.getAll(),
             volumeBaselines = muscleVolumeBaselineRepository.getAll(),
             analysisMetadata = metadata,
+            responseProfile = responseProfile,
+        )
+    }
+
+    private suspend fun assembleResponseProfilePayload(): ResponseProfilePayload? {
+        val responseMetadata = responseProfileMetadataRepository.get() ?: return null
+        val baselines = muscleVolumeBaselineRepository.getAll()
+        val volumeResponses = volumeResponseObservationRepository.getAll()
+        val persistedLandmarks = muscleVolumeLandmarkEstimateRepository.getAll()
+        val volumeLandmarks =
+            persistedLandmarks
+                .filter { estimate -> baselines.any { it.muscle == estimate.muscle } }
+                .toHighlights()
+        return ResponseProfilePayload.fromObservations(
+            volumeObservations = volumeResponses,
+            effectivenessObservations = liftEffectivenessObservationRepository.getAll(),
+            volumeLandmarks = volumeLandmarks,
+            epochsAnalyzed = responseMetadata.epochsAnalyzed,
+            analysisWindowStart = responseMetadata.analysisWindowStart,
+            analysisWindowEnd = responseMetadata.analysisWindowEnd,
         )
     }
 }

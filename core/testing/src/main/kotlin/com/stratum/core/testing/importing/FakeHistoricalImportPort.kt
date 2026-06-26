@@ -18,15 +18,23 @@ class FakeHistoricalImportPort(
         ),
     ),
     var conversionJson: String = """{"sessions":[],"sets":[]}""",
+    /** When set, selects snapshot sequence per upload (1-based upload index). */
+    var snapshotSequenceByUpload: List<List<ImportJobSnapshot>>? = null,
 ) : HistoricalImportPort {
     val uploads = mutableListOf<Triple<ImportJobId, ByteArray, String>>()
     private var pollIndex = 0
+    private var uploadCount = 0
 
     override suspend fun uploadRawAndSample(
         jobId: ImportJobId,
         bytes: ByteArray,
         fileName: String,
     ): Result<UploadRefs> {
+        pollIndex = 0
+        uploadCount += 1
+        snapshotSequenceByUpload?.getOrNull(uploadCount - 1)?.let { perUpload ->
+            snapshotSequence = perUpload
+        }
         uploads += Triple(jobId, bytes, fileName)
         return Result.success(
             UploadRefs(

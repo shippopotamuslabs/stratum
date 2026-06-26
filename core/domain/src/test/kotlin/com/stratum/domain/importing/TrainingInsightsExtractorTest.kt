@@ -72,6 +72,67 @@ class TrainingInsightsExtractorTest {
         assertTrue(output.volumeBaselines.any { it.muscle == MuscleGroup.Quad })
     }
 
+    @Test
+    fun `analysis window spans full imported history`() {
+        val squatId = LiftId("hack-squat")
+        val lifts =
+            listOf(
+                lift(squatId, "Hack Squat", MovementPattern.LegPush, MuscleGroup.Quad),
+            )
+        val oldSession =
+            HistoricalSession(
+                id = HistoricalSessionId("old"),
+                startedAt = Instant.parse("2020-01-01T10:00:00Z"),
+                endedAt = null,
+                sourceApp = "test",
+            )
+        val recentSession =
+            HistoricalSession(
+                id = HistoricalSessionId("recent"),
+                startedAt = Instant.parse("2025-06-01T10:00:00Z"),
+                endedAt = null,
+                sourceApp = "test",
+            )
+        val sets =
+            listOf(
+                LoggedSet(
+                    id = LoggedSetId("old-set"),
+                    sessionId = oldSession.id,
+                    exerciseNameRaw = "Hack Squat",
+                    liftId = squatId,
+                    setIndex = 0,
+                    weight = Weight(100.0, Weight.WeightUnit.Lb),
+                    reps = 5,
+                    rir = null,
+                    completedAt = Instant.parse("2020-01-01T11:00:00Z"),
+                ),
+                LoggedSet(
+                    id = LoggedSetId("recent-set"),
+                    sessionId = recentSession.id,
+                    exerciseNameRaw = "Hack Squat",
+                    liftId = squatId,
+                    setIndex = 0,
+                    weight = Weight(200.0, Weight.WeightUnit.Lb),
+                    reps = 5,
+                    rir = null,
+                    completedAt = Instant.parse("2025-06-01T11:00:00Z"),
+                ),
+            )
+
+        val output =
+            TrainingInsightsExtractor.analyze(
+                TrainingInsightsExtractor.AnalysisInput(
+                    sessions = listOf(oldSession, recentSession),
+                    sets = sets,
+                    lifts = lifts,
+                ),
+            )
+
+        assertEquals(Instant.parse("2020-01-01T10:00:00Z"), output.metadata.windowStart)
+        assertEquals(Instant.parse("2025-06-01T11:00:00Z"), output.metadata.windowEnd)
+        assertEquals(2, output.metadata.totalSets)
+    }
+
     private fun lift(
         id: LiftId,
         name: String,

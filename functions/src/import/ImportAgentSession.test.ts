@@ -2,10 +2,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type OpenAI from "openai";
 import {
+  buildBlobGateFailureMessage,
+  buildBlobGateNudgeMessage,
   handleBlobGate,
   MAX_BLOB_NUDGES,
   MAX_TURNS,
   runImportAgentSessionWithDeps,
+  summarizeToolError,
   truncateToolOutput,
   type ChatMessage,
   type ImportAgentSessionDeps,
@@ -268,9 +271,14 @@ describe("runImportAgentSessionWithDeps", () => {
     const result = await runImportAgentSessionWithDeps(deps);
 
     assert.equal(result.status, "failed");
-    assert.equal(result.errorMessage, "Conversion produced no output after multiple attempts.");
+    assert.match(
+      result.errorMessage ?? "",
+      /Conversion failed after 5 attempts\. Last error from execute_on_full: script not found/,
+    );
     assert.equal(jobRef.data.status, "failed");
     assert.equal(jobRef.data.progressPhase, "failed");
+    assert.equal(jobRef.data.lastToolError, "script not found");
+    assert.equal(jobRef.data.lastToolName, "execute_on_full");
   });
 
   it("fails when model returns empty choice", async () => {
@@ -380,6 +388,10 @@ describe("handleBlobGate", () => {
     const messages: ChatMessage[] = [];
     const updates: Record<string, unknown>[] = [];
     let nudges = 0;
+    const lastToolFailure = {
+      toolName: "execute_on_full",
+      errorSummary: "validationErrors: reps must be positive",
+    };
 
     for (let i = 0; i < MAX_BLOB_NUDGES; i++) {
       const step = await handleBlobGate(
@@ -390,9 +402,12 @@ describe("handleBlobGate", () => {
         nudges,
         undefined,
         true,
+        lastToolFailure,
       );
       nudges = step.blobNudges;
       assert.equal(step.done, false);
+      assert.match(messages.at(-1)?.content ?? "", /execute_on_full did not produce conversion output/);
+      assert.match(messages.at(-1)?.content ?? "", /validationErrors/);
     }
 
     const final = await handleBlobGate(
@@ -403,12 +418,41 @@ describe("handleBlobGate", () => {
       nudges,
       undefined,
       true,
+      lastToolFailure,
     );
 
     assert.equal(final.done, true);
     assert.equal(final.result?.status, "failed");
-    assert.equal(messages.filter((m) => m.content === "Nothing was produced. Continue.").length, MAX_BLOB_NUDGES);
-    assert.ok(updates.some((u) => u.status === "failed"));
+    assert.match(
+      final.result?.errorMessage ?? "",
+      /Conversion failed after 5 attempts\. Last error from execute_on_full/,
+    );
+    assert.equal(messages.filter((m) => m.content?.includes("execute_on_full did not produce")).length, MAX_BLOB_NUDGES);
+    assert.ok(updates.some((u) => u.status === "failed" && u.lastToolError === lastToolFailure.errorSummary));
+  });
+});
+
+describe("blob gate messaging helpers", () => {
+  it("summarizeToolError collapses whitespace and strips ERROR prefix", () => {
+    assert.equal(
+      summarizeToolError("ERROR: KeyError: exercise\nline 2"),
+      "KeyError: exercise line 2",
+    );
+  });
+
+  it("buildBlobGateFailureMessage includes last tool context", () => {
+    const message = buildBlobGateFailureMessage({
+      toolName: "execute_on_sample",
+      errorSummary: "No script saved yet.",
+    });
+    assert.match(message, /execute_on_sample/);
+    assert.match(message, /No script saved yet/);
+  });
+
+  it("buildBlobGateNudgeMessage guides the model when no prior tool error exists", () => {
+    const message = buildBlobGateNudgeMessage();
+    assert.match(message, /execute_on_sample/);
+    assert.match(message, /execute_on_full/);
   });
 });
 
