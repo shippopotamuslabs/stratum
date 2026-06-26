@@ -153,11 +153,11 @@ async function executeOnFull(
   });
 
   const result = await invokeSandbox(ctx, scriptPath, inputPath);
-  validateNormalizedHistory(JSON.parse(result.outputJson));
+  const normalized = validateNormalizedHistory(JSON.parse(result.outputJson));
 
   const ts = Date.now();
   const conversionPath = `imports/${ctx.uid}/${ctx.jobId}/conversions/${ts}/normalized.json`;
-  const outputBytes = Buffer.from(result.outputJson, "utf8");
+  const outputBytes = Buffer.from(JSON.stringify(normalized), "utf8");
   await storage.save(conversionPath, outputBytes, "application/json");
 
   const latestConversion = {

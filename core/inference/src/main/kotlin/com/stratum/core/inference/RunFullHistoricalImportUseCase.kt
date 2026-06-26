@@ -12,6 +12,7 @@ import com.stratum.domain.importing.ImportJobRepository
 import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
+import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.ImportedHistoryChunk
 import com.stratum.domain.importing.MergeImportedHistoryUseCase
 import com.stratum.domain.importing.PersistImportedHistoryUseCase
@@ -33,16 +34,22 @@ class RunFullHistoricalImportUseCase @Inject constructor(
     private val importJobRepository: ImportJobRepository,
     private val mergeImportedHistory: MergeImportedHistoryUseCase,
 ) : HistoricalImportRunnerPort {
-    override fun run(files: List<ImportFileInput>): Flow<HistoricalImportEvent> = flow {
-        if (files.isEmpty()) {
+    override fun run(
+        files: List<ImportFileInput>,
+        resume: HistoricalImportResumeState?,
+    ): Flow<HistoricalImportEvent> = flow {
+        val allFiles = resume?.files ?: files
+        if (allFiles.isEmpty()) {
             emit(HistoricalImportEvent.Failed("No files selected."))
             return@flow
         }
-        val totalFiles = files.size
-        val chunks = mutableListOf<ImportedHistoryChunk>()
+        val totalFiles = allFiles.size
+        val chunks = (resume?.completedChunks ?: emptyList()).toMutableList()
+        val pendingFiles = allFiles.drop(chunks.size)
+        val startIndex = chunks.size
         try {
-            files.forEachIndexed { index, file ->
-                val fileIndex = index + 1
+            pendingFiles.forEachIndexed { offset, file ->
+                val fileIndex = startIndex + offset + 1
                 convertSingleFile(
                     file = file,
                     fileIndex = fileIndex,
@@ -84,7 +91,12 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             rollbackHistoricalImport()
             val message = error.message ?: "Import failed."
             runCatching { Log.e(TAG, "Historical import failed: $message", error) }
-            emit(HistoricalImportEvent.Failed(message))
+            val resumeState =
+                HistoricalImportResumeState(
+                    files = allFiles,
+                    completedChunks = chunks.toList(),
+                ).takeIf { it.isResumable() }
+            emit(HistoricalImportEvent.Failed(message = message, resume = resumeState))
         }
     }
 

@@ -81,22 +81,29 @@ export function normalizeWeightUnit(raw: string): "Lb" | "Kg" {
   throw new Error(`Unsupported weight unit: ${raw}`);
 }
 
+const DATE_ONLY_TIMESTAMP = /^\d{4}-\d{2}-\d{2}$/;
+const LOCAL_DATETIME_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?$/;
+const UTC_DATETIME_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$/;
+const OFFSET_DATETIME_TIMESTAMP =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?[+-]\d{2}:\d{2}$/;
+
 export function normalizeImportTimestamp(raw: string): string {
   const trimmed = raw.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+  if (DATE_ONLY_TIMESTAMP.test(trimmed)) {
     return `${trimmed}T00:00:00Z`;
   }
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(trimmed)) {
-    return trimmed.endsWith("Z") ? trimmed : `${trimmed}Z`;
-  }
-  const parsed = Date.parse(trimmed);
-  if (Number.isNaN(parsed)) {
-    throw new Error(`Invalid timestamp: ${raw}`);
-  }
-  if (trimmed.includes("T") && (trimmed.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(trimmed))) {
+  if (UTC_DATETIME_TIMESTAMP.test(trimmed)) {
     return trimmed;
   }
-  return new Date(parsed).toISOString();
+  if (LOCAL_DATETIME_TIMESTAMP.test(trimmed)) {
+    return `${trimmed}Z`;
+  }
+  if (OFFSET_DATETIME_TIMESTAMP.test(trimmed)) {
+    return new Date(trimmed).toISOString();
+  }
+  throw new Error(
+    `Invalid timestamp: ${raw}. Use YYYY-MM-DD or ISO-8601 with a "T" separator (e.g. 2018-01-31T20:21:08Z).`,
+  );
 }
 
 export function validateNormalizedHistory(data: unknown): NormalizedHistory {

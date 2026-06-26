@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.importing.ImportProgress
@@ -50,6 +51,7 @@ fun GymAndLiftsScreen(
     presetOptions: List<GymPresetOptionUi>,
     onPresetSelected: (String?) -> Unit,
     onImportClick: () -> Unit,
+    onImportCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val importActive = draft.importInProgress
@@ -91,8 +93,11 @@ fun GymAndLiftsScreen(
             highlighted = importActive || importComplete,
             showCompleteBadge = importComplete,
             importFailed = importFailed,
+            importResumeFileIndex = draft.importResumeFileIndex,
+            importResumeFileCount = draft.importResumeFileCount,
             progress = draft.importProgress,
             onClick = onImportClick,
+            onCancel = onImportCancel,
             onLearnMoreClick = { showImportDetails = true },
         )
 
@@ -146,8 +151,11 @@ private fun GymImportCard(
     highlighted: Boolean,
     showCompleteBadge: Boolean,
     importFailed: Boolean,
+    importResumeFileIndex: Int?,
+    importResumeFileCount: Int?,
     progress: ImportProgress?,
     onClick: () -> Unit,
+    onCancel: () -> Unit,
     onLearnMoreClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -174,12 +182,12 @@ private fun GymImportCard(
             else -> stringResource(FeatureR.string.gym_lifts_import_title)
         }
     val learnMoreLabel = stringResource(FeatureR.string.gym_lifts_import_learn_more)
+    val cancelLabel = stringResource(FeatureR.string.gym_lifts_import_cancel)
 
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clickable(enabled = !importActive && !showCompleteBadge, onClick = onClick)
                 .background(
                     color = StratumThemeAccessor.colors.surfaceRaised,
                     shape = StratumThemeAccessor.shapes.panel,
@@ -194,7 +202,10 @@ private fun GymImportCard(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
-            modifier = Modifier.weight(1f),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .clickable(enabled = !importActive && !showCompleteBadge, onClick = onClick),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             StratumText(
@@ -233,14 +244,35 @@ private fun GymImportCard(
                     )
                 }
             } else if (importFailed) {
+                val retryHint =
+                    if (importResumeFileIndex != null && importResumeFileCount != null && importResumeFileCount > 1) {
+                        stringResource(
+                            FeatureR.string.gym_lifts_import_resume_hint,
+                            importResumeFileIndex,
+                            importResumeFileCount,
+                        )
+                    } else {
+                        stringResource(FeatureR.string.gym_lifts_import_retry_hint)
+                    }
                 StratumText(
-                    text = stringResource(FeatureR.string.gym_lifts_import_retry_hint),
+                    text = retryHint,
                     muted = true,
                 )
             }
         }
-        if (showCompleteBadge) {
-            ImportCompleteBadge()
+        when {
+            showCompleteBadge -> ImportCompleteBadge()
+            importActive || importFailed ->
+                StratumIconButton(
+                    onClick = onCancel,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_stop),
+                        contentDescription = cancelLabel,
+                        modifier = Modifier.size(20.dp),
+                        tint = StratumThemeAccessor.colors.textPrimary,
+                    )
+                }
         }
     }
 }

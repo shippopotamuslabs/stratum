@@ -11,7 +11,7 @@ export const IMPORT_DOMAIN_RULES_CHECKLIST = `- sessions[]: each needs unique st
 - weightUnit: exactly "Lb" or "Kg".
 - setIndex: integer >= 0, increasing per exercise within a session (0-based is fine).
 - rir: optional integer >= 0 when present.
-- completedAt / startedAt / endedAt: ISO-8601 UTC preferred (YYYY-MM-DD accepted).
+- completedAt / startedAt / endedAt: YYYY-MM-DD or ISO-8601 with "T" (e.g. 2018-01-31T20:21:08Z). Never use a space between date and time.
 - set id: unique across the entire export.
 - liftId: omit unless you have a stable Stratum catalog id (usually omit).`;
 

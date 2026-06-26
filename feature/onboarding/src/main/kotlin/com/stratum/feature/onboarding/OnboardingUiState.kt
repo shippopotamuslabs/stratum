@@ -146,6 +146,10 @@ data class GymLiftsDraftUi(
     val importProgress: ImportProgress? = null,
     val importError: String? = null,
     val importInsightsSummary: ImportInsightsSummaryUi? = null,
+    /** 1-based index of the file that failed during a multi-file import; enables resume UX. */
+    val importResumeFileIndex: Int? = null,
+    val importResumeFileCount: Int? = null,
+    val importResumeFailedFileName: String? = null,
     val isValid: Boolean = false,
     val showErrors: Boolean = false,
 ) {
@@ -163,6 +167,12 @@ data class GymLiftsDraftUi(
 
     val importFailed: Boolean
         get() = importProgress?.phase == ImportProgressPhase.Failed
+
+    val importResumable: Boolean
+        get() = importFailed &&
+            importResumeFileIndex != null &&
+            importResumeFileCount != null &&
+            importResumeFileCount > 1
 
     val importInProgress: Boolean
         get() = importProgress != null &&

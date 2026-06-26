@@ -68,7 +68,9 @@
     <string name="gym_lifts_import_phase_enriching">Building your lift catalog…</string>
     <string name="gym_lifts_import_phase_extracting">Analyzing training patterns…</string>
     <string name="gym_lifts_import_phase_failed">Import failed</string>
-    <string name="gym_lifts_import_retry_hint">Tap to try again with a corrected export.</string>
+    <string name="gym_lifts_import_retry_hint">Tap to try again.</string>
+    <string name="gym_lifts_import_resume_hint">File %1$d of %2$d failed. Tap to retry from the failed file — earlier files are already converted.</string>
+    <string name="gym_lifts_import_cancel">Cancel import</string>
     <string name="gym_lifts_import_subtitle_loading_converted">Loading converted data…</string>
     <string name="gym_lifts_import_subtitle_merging">Merging %1$d files…</string>
     <string name="gym_lifts_import_subtitle_file_of">File %1$d of %2$d</string>
