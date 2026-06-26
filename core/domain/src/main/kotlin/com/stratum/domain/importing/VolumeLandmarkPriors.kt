@@ -4,8 +4,9 @@ import com.stratum.domain.onboarding.MuscleGroup
 
 /**
  * Literature-informed weekly hard-set bands (primary-muscle counting) used to sanity-check
- * observational MEV/MRV estimates. Values are approximate population ranges — personal
- * estimates outside these bands lower confidence rather than being rejected outright.
+ * observational MEV/MRV estimates. Observational stimulus includes secondary muscles at
+ * [com.stratum.domain.response.MuscleVolumeCredit.SECONDARY_SET_CREDIT] per set; priors
+ * remain primary-only population ranges.
  */
 data class VolumeLandmarkPrior(
     val mevLow: Double,

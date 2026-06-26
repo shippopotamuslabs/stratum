@@ -57,6 +57,31 @@ export interface InferredCustomLiftRow {
 
 export const CUSTOM_LIFT_INFERENCE_MAX_BATCH = 75;
 
+const PULL_PATTERNS = new Set<MovementPattern>(["HorizontalPull", "VerticalPull"]);
+const PUSH_PATTERNS = new Set<MovementPattern>([
+  "HorizontalPush",
+  "VerticalPush",
+  "InclinePush",
+]);
+
+function applyPatternSecondaryDefaults(row: InferredCustomLiftRow): InferredCustomLiftRow {
+  const secondary = [...row.secondaryMuscles];
+  if (PULL_PATTERNS.has(row.movementPattern) && !row.primaryMuscles.includes("Bicep")) {
+    if (!secondary.includes("Bicep")) {
+      secondary.push("Bicep");
+    }
+  }
+  if (PUSH_PATTERNS.has(row.movementPattern) && !row.primaryMuscles.includes("Tricep")) {
+    if (!secondary.includes("Tricep")) {
+      secondary.push("Tricep");
+    }
+  }
+  return {
+    ...row,
+    secondaryMuscles: secondary.filter((muscle) => !row.primaryMuscles.includes(muscle)),
+  };
+}
+
 export const CUSTOM_LIFT_SYSTEM_PROMPT = `You classify strength-training exercise names for a workout app catalog.
 
 For each exercise name, infer:
@@ -158,13 +183,15 @@ export function parseInferredCustomLifts(
       typeof row.equipment === "string" && row.equipment.trim().length > 0
         ? row.equipment.trim()
         : null;
-    rows.push({
-      name,
-      movementPattern: movementPattern as MovementPattern,
-      primaryMuscles: primaryMuscles as MuscleGroup[],
-      secondaryMuscles: secondaryMuscles as MuscleGroup[],
-      equipment,
-    });
+    rows.push(
+      applyPatternSecondaryDefaults({
+        name,
+        movementPattern: movementPattern as MovementPattern,
+        primaryMuscles: primaryMuscles as MuscleGroup[],
+        secondaryMuscles: secondaryMuscles as MuscleGroup[],
+        equipment,
+      }),
+    );
     seen.add(name);
   }
   return rows;

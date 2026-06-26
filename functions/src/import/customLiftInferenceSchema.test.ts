@@ -64,4 +64,44 @@ describe("parseInferredCustomLifts", () => {
   it("caps batch size constant matches domain", () => {
     assert.equal(CUSTOM_LIFT_INFERENCE_MAX_BATCH, 75);
   });
+
+  it("adds bicep secondary for pull patterns when the LLM omits it", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Neutral Wide Grip Cable Row",
+            movementPattern: "HorizontalPull",
+            primaryMuscles: ["Back"],
+            secondaryMuscles: [],
+            equipment: "cable",
+          },
+        ],
+      },
+      new Set(["Neutral Wide Grip Cable Row"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.secondaryMuscles, ["Bicep"]);
+  });
+
+  it("adds tricep secondary for compound push patterns when the LLM omits it", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Machine Chest Press",
+            movementPattern: "HorizontalPush",
+            primaryMuscles: ["Chest"],
+            secondaryMuscles: [],
+            equipment: "machine",
+          },
+        ],
+      },
+      new Set(["Machine Chest Press"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.secondaryMuscles, ["Tricep"]);
+  });
 });

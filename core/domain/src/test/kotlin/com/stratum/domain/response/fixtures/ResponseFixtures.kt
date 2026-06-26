@@ -779,7 +779,7 @@ object ResponseFixtures {
         weekStart: Instant,
         liftId: LiftId? = null,
         muscle: MuscleGroup? = null,
-        hardSets: Int = 1,
+        hardSets: Double = 1.0,
         peakEstimatedOneRm: Double? = null,
         smoothedEstimatedOneRm: Double? = null,
         qualityFlags: Set<TrainingSignalQualityFlag> = emptySet(),

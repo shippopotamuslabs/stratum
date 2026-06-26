@@ -13,19 +13,16 @@ object StimulusSeriesBuilder {
         val liftById = lifts.associateBy { it.id }
         val working = WeeklySignalSupport.workingSetsInEpoch(epoch, cleanSets)
         val byWeek = WeeklySignalSupport.groupByWeek(working)
-        val muscleWeekCounts = mutableMapOf<MuscleGroup, MutableMap<java.time.Instant, Int>>()
+        val muscleWeekCredits = mutableMapOf<MuscleGroup, MutableMap<java.time.Instant, Double>>()
 
         byWeek.forEach { (weekStart, weekSets) ->
             weekSets.forEach { row ->
                 val lift = liftById[row.sourceSet.liftId] ?: return@forEach
-                lift.primaryMuscles.forEach { muscle ->
-                    val weeks = muscleWeekCounts.getOrPut(muscle) { mutableMapOf() }
-                    weeks[weekStart] = weeks.getOrDefault(weekStart, 0) + 1
-                }
+                MuscleVolumeCredit.accumulateSetCredits(lift, weekStart, muscleWeekCredits)
             }
         }
 
-        return muscleWeekCounts.mapValues { (_, weekCounts) ->
+        return muscleWeekCredits.mapValues { (_, weekCounts) ->
             weekCounts.map { (weekStart, hardSets) ->
                 WeeklyTrainingSignal(
                     weekStart = weekStart,
@@ -54,7 +51,7 @@ object StimulusSeriesBuilder {
                 weekStart = weekStart,
                 liftId = liftId,
                 muscle = null,
-                hardSets = weekSets.size,
+                hardSets = weekSets.size.toDouble(),
                 sessions = weekSets.map { it.sourceSet.sessionId }.distinct().size,
                 meanRir = weekSets.mapNotNull { it.sourceSet.rir }.average().takeIf { weekSets.any { s -> s.sourceSet.rir != null } },
                 intensityProxy = IntensityProxyCalculator.forWeek(weekSets, liftId),

@@ -11,7 +11,7 @@ object ChangePointDetector {
             sorted.map { signal ->
                 signal.peakEstimatedOneRm
                     ?: signal.smoothedEstimatedOneRm
-                    ?: signal.hardSets.toDouble()
+                    ?: signal.hardSets
             }
         val penalty = BINSEG_PENALTY_MULTIPLIER * ln(values.size.toDouble())
         val totalSse = sse(values)
