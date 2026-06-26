@@ -37,5 +37,7 @@ export const getImportJobStatus = onCall(async (request) => {
         }
       : null,
     errorMessage: job.errorMessage ?? null,
+    lastToolError: job.lastToolError ?? null,
+    lastToolName: job.lastToolName ?? null,
   };
 });

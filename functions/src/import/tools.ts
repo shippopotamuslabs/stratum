@@ -146,18 +146,13 @@ async function executeOnFull(
   }
 
   const storage = resolveStorage(ctx);
-  let slicePath = jobData.fullSliceStoragePath as string | undefined;
-  if (!slicePath) {
-    const rawBytes = await storage.download(ctx.rawStoragePath);
-    const rawText = rawBytes.toString("utf8");
-    const ext = ctx.rawStoragePath.split(".").pop() ?? "csv";
-    slicePath = `imports/${ctx.uid}/${ctx.jobId}/slice/full.${ext}`;
-    const { buildFullSlice } = await import("./sliceExport");
-    await buildFullSlice(rawText, slicePath, storage.bucket());
-    await ctx.jobRef.update({ fullSliceStoragePath: slicePath });
-  }
+  const inputPath = ctx.rawStoragePath;
+  await ctx.jobRef.update({
+    fullSliceStoragePath: inputPath,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
 
-  const result = await invokeSandbox(ctx, scriptPath, slicePath);
+  const result = await invokeSandbox(ctx, scriptPath, inputPath);
   validateNormalizedHistory(JSON.parse(result.outputJson));
 
   const ts = Date.now();

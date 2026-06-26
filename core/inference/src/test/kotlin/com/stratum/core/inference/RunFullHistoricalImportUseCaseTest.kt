@@ -6,6 +6,8 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.importing.Bm25LiftNameResolver
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.HistoricalImportEvent
+import com.stratum.domain.importing.ImportFileInput
+import com.stratum.domain.importing.MergeImportedHistoryUseCase
 import com.stratum.domain.importing.HistoricalSession
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
@@ -66,34 +68,161 @@ class RunFullHistoricalImportUseCaseTest {
                     errorMessage = null,
                 ),
             ),
-            conversionJson =
-                """
-                {
-                  "sessions": [
-                    {
-                      "id": "s1",
-                      "startedAt": "2025-01-01T00:00:00Z",
-                      "endedAt": null,
-                      "sourceApp": null
-                    }
-                  ],
-                  "sets": [
-                    {
-                      "id": "set1",
-                      "sessionId": "s1",
-                      "exerciseNameRaw": "Squat",
-                      "liftId": null,
-                      "setIndex": 0,
-                      "weightAmount": 100,
-                      "weightUnit": "Lb",
-                      "reps": 5,
-                      "rir": null,
-                      "completedAt": "2025-01-01T01:00:00Z"
-                    }
-                  ]
-                }
-                """.trimIndent(),
+            conversionJson = sampleConversionJson(),
         )
+        val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
+        val useCase = RunFullHistoricalImportUseCase(
+            startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+            historicalImportPort = port,
+            persistImportedHistory = persist,
+            rollbackHistoricalImport = rollback,
+            importJobRepository = jobRepo,
+            mergeImportedHistory = MergeImportedHistoryUseCase(),
+        )
+
+        val events =
+            useCase.run(
+                listOf(ImportFileInput("id,exercise_name\n1,Squat".toByteArray(), "export.csv")),
+            ).toList()
+
+        assertTrue(events.filterIsInstance<HistoricalImportEvent.Progress>().isNotEmpty())
+        assertTrue(events.last() is HistoricalImportEvent.Completed)
+        assertTrue(port.uploads.isNotEmpty())
+        assertEquals(1, jobRepo.allJobs().size)
+        assertEquals(ImportJobStatus.Completed, jobRepo.allJobs().first().status)
+    }
+
+    @Test
+    fun `merges multiple files before persisting once`() = runTest {
+        val jobRepo = FakeImportJobRepository()
+        val historyRepo = InMemoryTrainingHistoryRepository()
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val readySnapshot =
+            listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Ready,
+                    progressPhase = ImportProgressPhase.ConvertingFull,
+                    progressMessage = "Done",
+                    conversionStoragePath = "imports/test/job/conversions/1/normalized.json",
+                    errorMessage = null,
+                ),
+            )
+        val port =
+            FakeHistoricalImportPort(
+                snapshotSequenceByUpload = listOf(readySnapshot, readySnapshot),
+                conversionJson = sampleConversionJson(),
+            )
+        val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
+        val useCase =
+            RunFullHistoricalImportUseCase(
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+                historicalImportPort = port,
+                persistImportedHistory = persist,
+                rollbackHistoricalImport = rollback,
+                importJobRepository = jobRepo,
+                mergeImportedHistory = MergeImportedHistoryUseCase(),
+            )
+
+        val events =
+            useCase.run(
+                listOf(
+                    ImportFileInput("a".toByteArray(), "a.csv"),
+                    ImportFileInput("b".toByteArray(), "b.csv"),
+                ),
+            ).toList()
+
+        assertTrue(events.last() is HistoricalImportEvent.Completed)
+        assertEquals(2, port.uploads.size)
+        assertEquals(2, jobRepo.allJobs().count { it.status == ImportJobStatus.Completed })
+        assertEquals(2, historyRepo.getAllSessions().size)
+        assertEquals(2, historyRepo.getAllSets().size)
+    }
+
+    @Test
+    fun `rolls back when second file conversion fails`() = runTest {
+        val jobRepo = FakeImportJobRepository()
+        val historyRepo = InMemoryTrainingHistoryRepository()
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val readySnapshot =
+            listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Ready,
+                    progressPhase = ImportProgressPhase.ConvertingFull,
+                    progressMessage = "Done",
+                    conversionStoragePath = "imports/test/job/conversions/1/normalized.json",
+                    errorMessage = null,
+                ),
+            )
+        val failedSnapshot =
+            listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Failed,
+                    progressPhase = ImportProgressPhase.Failed,
+                    progressMessage = null,
+                    conversionStoragePath = null,
+                    errorMessage = "Conversion failed.",
+                ),
+            )
+        val port =
+            FakeHistoricalImportPort(
+                snapshotSequenceByUpload = listOf(readySnapshot, failedSnapshot),
+                conversionJson = sampleConversionJson(),
+            )
+        val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
+        val useCase =
+            RunFullHistoricalImportUseCase(
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+                historicalImportPort = port,
+                persistImportedHistory = persist,
+                rollbackHistoricalImport = rollback,
+                importJobRepository = jobRepo,
+                mergeImportedHistory = MergeImportedHistoryUseCase(),
+            )
+
+        val events =
+            useCase.run(
+                listOf(
+                    ImportFileInput("a".toByteArray(), "a.csv"),
+                    ImportFileInput("b".toByteArray(), "b.csv"),
+                ),
+            ).toList()
+
+        assertTrue(events.last() is HistoricalImportEvent.Failed)
+        assertTrue(historyRepo.getAllSets().isEmpty())
+    }
+
+    private fun sampleConversionJson(): String =
+        """
+        {
+          "sessions": [
+            {
+              "id": "s1",
+              "startedAt": "2025-01-01T00:00:00Z",
+              "endedAt": null,
+              "sourceApp": null
+            }
+          ],
+          "sets": [
+            {
+              "id": "set1",
+              "sessionId": "s1",
+              "exerciseNameRaw": "Squat",
+              "liftId": null,
+              "setIndex": 0,
+              "weightAmount": 100,
+              "weightUnit": "Lb",
+              "reps": 5,
+              "rir": null,
+              "completedAt": "2025-01-01T01:00:00Z"
+            }
+          ]
+        }
+        """.trimIndent()
+
+    private fun buildPersistAndRollback(
+        historyRepo: InMemoryTrainingHistoryRepository,
+        liftRepo: FakeLiftRepository,
+    ): Pair<PersistImportedHistoryUseCase, RollbackHistoricalImportUseCase> {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
@@ -106,28 +235,30 @@ class RunFullHistoricalImportUseCaseTest {
                 extractor = DefaultResponseObservationExtractor(),
                 experimentRegistry = EmptyExperimentRegistry(),
             )
-        val persist = PersistImportedHistoryUseCase(
-            trainingHistoryRepository = historyRepo,
-            resolveImportLifts =
-                ResolveImportLiftsUseCase(
-                    liftRepo,
-                    Bm25LiftNameResolver(),
-                    EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
-                    FakeLiftEquipmentCatalog(),
-                    FakeImportEquipmentInferencePort(),
-                ),
-            extractTrainingInsights = ExtractTrainingInsightsUseCase(
+        val persist =
+            PersistImportedHistoryUseCase(
                 trainingHistoryRepository = historyRepo,
-                liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
-                supersetAffinityRepository = InMemorySupersetRepository(),
-                muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
-                importAnalysisMetadataRepository = InMemoryMetadataRepository(),
+                resolveImportLifts =
+                    ResolveImportLiftsUseCase(
+                        liftRepo,
+                        Bm25LiftNameResolver(),
+                        EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
+                        FakeLiftEquipmentCatalog(),
+                        FakeImportEquipmentInferencePort(),
+                    ),
+                extractTrainingInsights =
+                    ExtractTrainingInsightsUseCase(
+                        trainingHistoryRepository = historyRepo,
+                        liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
+                        supersetAffinityRepository = InMemorySupersetRepository(),
+                        muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
+                        importAnalysisMetadataRepository = InMemoryMetadataRepository(),
+                        liftRepository = liftRepo,
+                    ),
+                extractResponseProfile = extractResponseProfile,
+                responseProfilePersistence = persistence,
                 liftRepository = liftRepo,
-            ),
-            extractResponseProfile = extractResponseProfile,
-            responseProfilePersistence = persistence,
-            liftRepository = liftRepo,
-        )
+            )
         val rollback =
             RollbackHistoricalImportUseCase(
                 historyRepo,
@@ -138,21 +269,7 @@ class RunFullHistoricalImportUseCaseTest {
                 persistence,
                 liftRepo,
             )
-        val useCase = RunFullHistoricalImportUseCase(
-            startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
-            historicalImportPort = port,
-            persistImportedHistory = persist,
-            rollbackHistoricalImport = rollback,
-            importJobRepository = jobRepo,
-        )
-
-        val events = useCase.run("id,exercise_name\n1,Squat".toByteArray(), "export.csv").toList()
-
-        assertTrue(events.filterIsInstance<HistoricalImportEvent.Progress>().isNotEmpty())
-        assertTrue(events.last() is HistoricalImportEvent.Completed)
-        assertTrue(port.uploads.isNotEmpty())
-        assertEquals(1, jobRepo.allJobs().size)
-        assertEquals(ImportJobStatus.Completed, jobRepo.allJobs().first().status)
+        return persist to rollback
     }
 
     private class InMemoryTrainingHistoryRepository : TrainingHistoryRepository {

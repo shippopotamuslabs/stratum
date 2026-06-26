@@ -3,7 +3,9 @@ package com.stratum.feature.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.importing.HistoricalImportEvent
+import com.stratum.domain.importing.HistoricalImportLimits
 import com.stratum.domain.importing.HistoricalImportRunnerPort
+import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.LoadHistoricalImportSummaryUseCase
@@ -256,11 +258,17 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    fun onImportFileSelected(bytes: ByteArray, fileName: String) {
+    fun onImportFilesSelected(files: List<ImportFileInput>) {
         viewModelScope.launch {
+            val validationError = validateImportFiles(files)
+            if (validationError != null) {
+                importError.value = validationError
+                importProgress.value = ImportProgress(ImportProgressPhase.Failed)
+                return@launch
+            }
             importProgress.value = ImportProgress(ImportProgressPhase.Uploading)
             importError.value = null
-            runFullHistoricalImport.run(bytes, fileName).collect { event ->
+            runFullHistoricalImport.run(files).collect { event ->
                 when (event) {
                     is HistoricalImportEvent.Progress -> importProgress.value = event.progress
                     is HistoricalImportEvent.Completed -> {
@@ -277,6 +285,20 @@ class OnboardingViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun validateImportFiles(files: List<ImportFileInput>): String? {
+        if (files.isEmpty()) {
+            return "No files selected."
+        }
+        if (files.size > HistoricalImportLimits.MAX_FILES) {
+            return "Select at most ${HistoricalImportLimits.MAX_FILES} files."
+        }
+        val oversized = files.firstOrNull { it.bytes.size > HistoricalImportLimits.MAX_FILE_BYTES }
+        if (oversized != null) {
+            return "${oversized.fileName} exceeds the ${HistoricalImportLimits.MAX_FILE_SIZE_MB} MB limit."
+        }
+        return null
     }
 
     private suspend fun refreshPersistedImportState() {

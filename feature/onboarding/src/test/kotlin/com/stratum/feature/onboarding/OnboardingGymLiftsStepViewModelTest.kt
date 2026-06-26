@@ -3,6 +3,8 @@ package com.stratum.feature.onboarding
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.domain.importing.HistoricalImportEvent
+import com.stratum.domain.importing.HistoricalImportLimits
+import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.lift.GymPreset
@@ -215,7 +217,7 @@ class OnboardingGymLiftsStepViewModelTest {
         )
         subject = OnboardingViewModelTestFixtures.buildViewModel()
 
-        subject.onImportFileSelected("bad".toByteArray(), "export.csv")
+        subject.onImportFilesSelected(listOf(ImportFileInput("bad".toByteArray(), "export.csv")))
         advanceUntilIdle()
 
         subject.uiState.test {
@@ -226,5 +228,46 @@ class OnboardingGymLiftsStepViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertFalse(OnboardingViewModelTestFixtures.fakeLiftRepository.currentUsedHistoricalImport)
+    }
+
+    @Test
+    @DisplayName("Given multiple files when import starts then runner receives all files")
+    fun multiFileImportInvokesRunnerWithAllFiles() = runTest {
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        val files =
+            listOf(
+                ImportFileInput("a".toByteArray(), "a.csv"),
+                ImportFileInput("b".toByteArray(), "b.csv"),
+            )
+
+        subject.onImportFilesSelected(files)
+        advanceUntilIdle()
+
+        assertEquals(1, OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.size)
+        assertEquals(files, OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.single())
+    }
+
+    @Test
+    @DisplayName("Given more than max files when import starts then it fails without invoking runner")
+    fun tooManyFilesRejected() = runTest {
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        val files =
+            List(HistoricalImportLimits.MAX_FILES + 1) { index ->
+                ImportFileInput("x".toByteArray(), "export-$index.csv")
+            }
+
+        subject.onImportFilesSelected(files)
+        advanceUntilIdle()
+
+        assertTrue(OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.isEmpty())
+        subject.uiState.test {
+            val draft = awaitItem().gymLiftsDraft
+            assertTrue(draft.importFailed)
+            assertEquals(
+                "Select at most ${HistoricalImportLimits.MAX_FILES} files.",
+                draft.importError,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

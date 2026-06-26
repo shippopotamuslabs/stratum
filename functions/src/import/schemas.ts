@@ -31,6 +31,8 @@ export interface ImportJobDoc {
   scriptStoragePath?: string;
   latestConversion?: LatestConversion;
   errorMessage?: string;
+  lastToolError?: string;
+  lastToolName?: string;
   agentTurnCount?: number;
   progressPhase?: ImportProgressPhase;
   progressMessage?: string;

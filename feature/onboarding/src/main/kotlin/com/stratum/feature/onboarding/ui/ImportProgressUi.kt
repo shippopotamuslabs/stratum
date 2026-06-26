@@ -29,6 +29,7 @@ internal fun userFacingImportDetail(detail: String): String? =
 internal fun catalogProgressStepStringRes(step: ImportCatalogProgressStep): Int =
     when (step) {
         ImportCatalogProgressStep.LoadingConvertedData -> FeatureR.string.gym_lifts_import_subtitle_loading_converted
+        is ImportCatalogProgressStep.MergingImportedFiles -> FeatureR.string.gym_lifts_import_subtitle_merging
         is ImportCatalogProgressStep.MatchingCatalog -> FeatureR.string.gym_lifts_import_subtitle_matching
         is ImportCatalogProgressStep.IdentifyingCustomLifts -> FeatureR.string.gym_lifts_import_subtitle_custom_lifts
         is ImportCatalogProgressStep.InferringEquipment -> FeatureR.string.gym_lifts_import_subtitle_equipment
@@ -47,6 +48,11 @@ internal fun importProgressSubtitle(progress: ImportProgress): String? {
             ImportCatalogProgressStep.AnalyzingPatterns,
             ->
                 stringResource(catalogProgressStepStringRes(step))
+            is ImportCatalogProgressStep.MergingImportedFiles ->
+                stringResource(
+                    catalogProgressStepStringRes(step),
+                    step.fileCount,
+                )
             is ImportCatalogProgressStep.MatchingCatalog ->
                 stringResource(
                     catalogProgressStepStringRes(step),
@@ -64,5 +70,22 @@ internal fun importProgressSubtitle(progress: ImportProgress): String? {
                 )
         }
     }
-    return progress.detail?.let(::userFacingImportDetail)
+    val fileIndex = progress.fileIndex
+    val fileCount = progress.fileCount
+    val filePrefix =
+        if (fileIndex != null && fileCount != null && fileCount > 1) {
+            stringResource(
+                FeatureR.string.gym_lifts_import_subtitle_file_of,
+                fileIndex,
+                fileCount,
+            )
+        } else {
+            null
+        }
+    val detail = progress.detail?.let(::userFacingImportDetail)
+    return when {
+        filePrefix != null && detail != null -> "$filePrefix: $detail"
+        filePrefix != null -> filePrefix
+        else -> detail
+    }
 }

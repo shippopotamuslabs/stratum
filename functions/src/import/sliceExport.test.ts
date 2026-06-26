@@ -19,7 +19,7 @@ describe("limitSamplePreview", () => {
 });
 
 describe("buildFullSlice", () => {
-  it("persists sliced CSV to storage", async () => {
+  it("persists full CSV without trimming rows", async () => {
     const storage = new FakeToolStorage();
     const csv = [
       "exercise_name,weight,reps,timestamp",
@@ -28,26 +28,16 @@ describe("buildFullSlice", () => {
     ].join("\n");
     const path = "imports/user/job/slice/full.csv";
     await buildFullSlice(csv, path, storage.bucket());
-    assert.ok(storage.files.has(path));
-    const saved = storage.files.get(path)!.toString("utf8");
-    assert.ok(saved.includes("exercise_name"));
-  });
-
-  it("passes through CSV without date column unchanged", async () => {
-    const storage = new FakeToolStorage();
-    const csv = "name,value\nSquat,100";
-    const path = "imports/user/job/slice/full.csv";
-    await buildFullSlice(csv, path, storage.bucket());
     assert.equal(storage.files.get(path)!.toString("utf8"), csv);
   });
 
-  it("truncates large JSON arrays", async () => {
+  it("persists full JSON without trimming items", async () => {
     const storage = new FakeToolStorage();
     const items = Array.from({ length: 600 }, (_, i) => ({ id: i }));
     const json = JSON.stringify(items);
     const path = "imports/user/job/slice/full.json";
     await buildFullSlice(json, path, storage.bucket());
     const saved = JSON.parse(storage.files.get(path)!.toString("utf8")) as unknown[];
-    assert.equal(saved.length, 500);
+    assert.equal(saved.length, 600);
   });
 });
