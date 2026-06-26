@@ -98,6 +98,7 @@ class ProgramGenerationPromptBuilderTest {
                         ),
                     ),
                 liftEffectiveness = emptyList(),
+                volumeLandmarks = emptyList(),
                 informational = ResponseProfileInformational(emptyList(), emptyList()),
                 epochsAnalyzed = 1,
                 analysisWindowStart = Instant.parse("2025-01-01T00:00:00Z"),
@@ -134,6 +135,42 @@ class ProgramGenerationPromptBuilderTest {
         assertFalse(payload.contains("Infinity"))
         assertTrue(payload.contains("\"sessionCount\":14"))
         assertTrue(payload.contains("\"responseProfile\""))
+    }
+
+    @Test
+    fun `volume landmarks serialize mev mrv and confidence tier`() {
+        val responseProfile =
+            ResponseProfilePayload(
+                volumeResponses = emptyList(),
+                liftEffectiveness = emptyList(),
+                volumeLandmarks =
+                    listOf(
+                        com.stratum.domain.importing.MuscleVolumeHighlight(
+                            muscle = MuscleGroup.Quad,
+                            estimatedMev = 6.0,
+                            estimatedMrv = 18.0,
+                            confidenceTier = com.stratum.domain.importing.LandmarkConfidenceTier.Medium,
+                        ),
+                    ),
+                informational = ResponseProfileInformational(emptyList(), emptyList()),
+                epochsAnalyzed = 1,
+                analysisWindowStart = Instant.parse("2025-01-01T00:00:00Z"),
+                analysisWindowEnd = Instant.parse("2025-06-01T00:00:00Z"),
+            )
+        val payload = builder.buildPayload(
+            profile = UserTrainingProfile.Empty,
+            specialization = SpecializationPreference.Empty,
+            provenLifts = emptyList(),
+            availableLifts = emptyList(),
+            supersetAffinities = emptyList(),
+            volumeBaselines = emptyList(),
+            analysisMetadata = null,
+            responseProfile = responseProfile,
+        )
+        assertTrue(payload.contains("\"volumeLandmarks\":["))
+        assertTrue(payload.contains("\"estimatedMev\":6.0"))
+        assertTrue(payload.contains("\"estimatedMrv\":18.0"))
+        assertTrue(payload.contains("\"confidenceTier\":\"Medium\""))
     }
 
     private fun catalogLift(id: LiftId, name: String): Lift =

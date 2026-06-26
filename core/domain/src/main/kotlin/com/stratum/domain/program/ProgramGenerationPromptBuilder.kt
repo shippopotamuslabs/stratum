@@ -3,6 +3,7 @@ package com.stratum.domain.program
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.domain.importing.MuscleVolumeBaseline
+import com.stratum.domain.importing.MuscleVolumeHighlight
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.onboarding.SpecializationPreference
@@ -110,6 +111,13 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
         return """{"muscle":$muscle,"meanWeeklyHardSets":$meanWeeklyHardSets,"p90WeeklyHardSets":$p90WeeklyHardSets$trend}"""
     }
 
+    private fun MuscleVolumeHighlight.toJson(): String {
+        val muscle = muscle.name.quoteJson()
+        val confidence = ""","confidenceTier":${confidenceTier.name.quoteJson()}"""
+        return """{"muscle":$muscle,"estimatedMev":${estimatedMev.toJsonNumberOrZero()},""" +
+            """"estimatedMrv":${estimatedMrv.toJsonNumberOrZero()}$confidence}"""
+    }
+
     internal fun ResponseProfilePayload.toJson(): String {
         val windowStartJson = analysisWindowStart.toString().quoteJson()
         val windowEndJson = analysisWindowEnd.toString().quoteJson()
@@ -150,6 +158,8 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
                     append(""""evidence":${observation.evidence.name.quoteJson()}}""")
                 }
             }
+        val volumeLandmarksJson =
+            volumeLandmarks.joinToString(",") { it.toJson() }
         return buildString {
             append('{')
             append(""""epochsAnalyzed":$epochsAnalyzed,""")
@@ -157,6 +167,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             append(""""analysisWindowEnd":$windowEndJson,""")
             append(""""volumeResponses":[$volumeInfluenceJson],""")
             append(""""liftEffectiveness":[$liftInfluenceJson],""")
+            append(""""volumeLandmarks":[$volumeLandmarksJson],""")
             append(""""informational":{""")
             append(""""volumeResponses":[$informationalVolumeJson],""")
             append(""""liftEffectiveness":[$informationalEffectivenessJson]""")

@@ -4,6 +4,8 @@ import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.domain.importing.TrainingHistoryRepository
+import com.stratum.domain.importing.VolumeLandmarkSummaryBuilder
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.VolumeResponseObservationRepository
@@ -25,6 +27,7 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
     private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
     private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
     private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
+    private val trainingHistoryRepository: TrainingHistoryRepository,
     private val promptBuilder: ProgramGenerationPromptBuilder,
 ) {
     suspend operator fun invoke(): String {
@@ -33,14 +36,15 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
         val insightsByLift = liftTrainingInsightsRepository.getAll().associateBy { it.liftId }
         val metadata = importAnalysisMetadataRepository.get()
         val provenIds = metadata?.provenLiftIds?.toSet() ?: emptySet()
-        val (proven, available) = liftRepository.observeLifts().first()
+        val lifts = liftRepository.observeLifts().first()
+        val (proven, available) = lifts
             .filter { it.enabled }
             .partition { lift -> lift.id in provenIds && insightsByLift[lift.id] != null }
             .let { (proven, available) ->
                 proven.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) } to
                     available.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) }
             }
-        val responseProfile = assembleResponseProfilePayload()
+        val responseProfile = assembleResponseProfilePayload(metadata, lifts)
         return promptBuilder.buildPayload(
             profile = profile,
             specialization = specialization,
@@ -53,14 +57,35 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
         )
     }
 
-    private suspend fun assembleResponseProfilePayload(): ResponseProfilePayload? {
-        val metadata = responseProfileMetadataRepository.get() ?: return null
+    private suspend fun assembleResponseProfilePayload(
+        importMetadata: com.stratum.domain.importing.ImportAnalysisMetadata?,
+        lifts: List<com.stratum.domain.lift.Lift>,
+    ): ResponseProfilePayload? {
+        val responseMetadata = responseProfileMetadataRepository.get() ?: return null
+        val baselines = muscleVolumeBaselineRepository.getAll()
+        val volumeResponses = volumeResponseObservationRepository.getAll()
+        val volumeLandmarks =
+            if (importMetadata != null && baselines.isNotEmpty()) {
+                val sessions = trainingHistoryRepository.getAllSessions()
+                val sets = trainingHistoryRepository.getAllSets()
+                VolumeLandmarkSummaryBuilder.build(
+                    metadata = importMetadata,
+                    sessions = sessions,
+                    sets = sets,
+                    lifts = lifts,
+                    baselines = baselines,
+                    volumeResponses = volumeResponses,
+                )
+            } else {
+                emptyList()
+            }
         return ResponseProfilePayload.fromObservations(
-            volumeObservations = volumeResponseObservationRepository.getAll(),
+            volumeObservations = volumeResponses,
             effectivenessObservations = liftEffectivenessObservationRepository.getAll(),
-            epochsAnalyzed = metadata.epochsAnalyzed,
-            analysisWindowStart = metadata.analysisWindowStart,
-            analysisWindowEnd = metadata.analysisWindowEnd,
+            volumeLandmarks = volumeLandmarks,
+            epochsAnalyzed = responseMetadata.epochsAnalyzed,
+            analysisWindowStart = responseMetadata.analysisWindowStart,
+            analysisWindowEnd = responseMetadata.analysisWindowEnd,
         )
     }
 }
