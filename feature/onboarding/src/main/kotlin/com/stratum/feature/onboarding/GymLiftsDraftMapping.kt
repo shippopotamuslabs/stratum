@@ -1,5 +1,7 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.domain.importing.ImportProgress
+import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.onboarding.MuscleGroup
@@ -19,13 +21,22 @@ internal fun GymPreset.toPresetDescription(): String = when (this) {
 
 internal fun List<Lift>.toGymLiftsDraft(
     selectedPreset: GymPreset?,
+    usedHistoricalImport: Boolean,
+    hasCompletedHistoricalImport: Boolean,
+    importProgress: ImportProgress?,
+    importError: String?,
     liftsValid: Boolean,
     showErrors: Boolean,
 ): GymLiftsDraftUi = GymLiftsDraftUi(
     selectedPresetLabel = selectedPreset?.displayName,
+    usedHistoricalImport = usedHistoricalImport,
+    hasCompletedHistoricalImport = hasCompletedHistoricalImport,
+    importProgress = importProgress,
+    importError = importError,
     isValid = liftsValid,
     showErrors = showErrors,
 )
+
 internal fun Lift.toSummary(): LiftSummaryUi = LiftSummaryUi(
     id = id.value,
     name = name,

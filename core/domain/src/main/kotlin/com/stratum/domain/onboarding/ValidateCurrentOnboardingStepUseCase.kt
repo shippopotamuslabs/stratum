@@ -22,6 +22,7 @@ class ValidateCurrentOnboardingStepUseCase @Inject constructor(
         specialization: SpecializationPreference,
         lifts: List<Lift>,
         selectedPreset: GymPreset? = null,
+        usedHistoricalImport: Boolean = false,
     ): OnboardingStepValidationResult {
         val valid = when (step) {
             OnboardingStep.Profile ->
@@ -30,7 +31,8 @@ class ValidateCurrentOnboardingStepUseCase @Inject constructor(
                 validateScheduleStep(profile) is ScheduleValidationResult.Valid
             OnboardingStep.Specialization ->
                 validateSpecializationStep(specialization) is SpecializationValidationResult.Valid
-            OnboardingStep.GymAndLifts -> isGymLiftsStepValid(lifts, selectedPreset)
+            OnboardingStep.GymAndLifts ->
+                isGymLiftsStepValid(lifts, selectedPreset, usedHistoricalImport)
             else -> true
         }
         return if (valid) {
@@ -40,10 +42,13 @@ class ValidateCurrentOnboardingStepUseCase @Inject constructor(
         }
     }
 
-    private fun isGymLiftsStepValid(lifts: List<Lift>, selectedPreset: GymPreset?): Boolean {
+    private fun isGymLiftsStepValid(
+        lifts: List<Lift>,
+        selectedPreset: GymPreset?,
+        usedHistoricalImport: Boolean,
+    ): Boolean {
         val liftsValid = validateGymLiftsStep(lifts) is GymLiftsValidationResult.Valid
-        val enabledCount = lifts.count { it.enabled }
-        return enabledCount >= ValidateGymLiftsStepUseCase.MIN_ENABLED ||
-            (selectedPreset != null && liftsValid)
+        val hasPath = selectedPreset != null || usedHistoricalImport
+        return hasPath && liftsValid
     }
 }

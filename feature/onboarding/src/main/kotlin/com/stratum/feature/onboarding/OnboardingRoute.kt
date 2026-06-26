@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -53,6 +57,16 @@ fun OnboardingRoute(
 
     BackHandler(enabled = state.canGoBack) { viewModel.back() }
 
+    val context = LocalContext.current
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@rememberLauncherForActivityResult
+        val name = uri.lastPathSegment ?: "import.csv"
+        viewModel.onImportFileSelected(bytes, name)
+    }
+
     OnboardingWizard(
         state = state,
         onNext = viewModel::next,
@@ -67,6 +81,7 @@ fun OnboardingRoute(
         gymLifts = GymLiftsHandlers(
             onPresetSelected = viewModel::onPresetSelected,
         ),
+        onImportClick = { importLauncher.launch(arrayOf("text/*", "application/json", "text/csv")) },
         modifier = modifier,
     )
 }
@@ -84,6 +99,7 @@ private fun OnboardingWizard(
     onCustomSessionMinutesChange: (Int) -> Unit,
     onMuscleToggled: (String) -> Unit,
     gymLifts: GymLiftsHandlers,
+    onImportClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -131,6 +147,7 @@ private fun OnboardingWizard(
                         draft = state.gymLiftsDraft,
                         presetOptions = state.presetOptions,
                         onPresetSelected = gymLifts.onPresetSelected,
+                        onImportClick = onImportClick,
                     )
                     WIZARD_STEP_REVIEW -> ReviewScreen(draft = state.reviewDraft)
                     WIZARD_STEP_GENERATE -> GenerateScreen(onComplete = onComplete)

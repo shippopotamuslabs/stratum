@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.apter.robolectric.junit5) apply false
+    alias(libs.plugins.hilt) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.google.services) apply false
 }
 
 subprojects {

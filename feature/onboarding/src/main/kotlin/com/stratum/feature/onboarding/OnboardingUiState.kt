@@ -1,5 +1,8 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.domain.importing.ImportProgress
+import com.stratum.domain.importing.ImportProgressPhase
+
 /**
  * Presentation model for the onboarding wizard. Domain types are mapped here; composables
  * never receive domain enums (ARCHITECTURE.md §4.3).
@@ -138,11 +141,35 @@ data class GymLiftsHandlers(
  */
 data class GymLiftsDraftUi(
     val selectedPresetLabel: String? = null,
+    val usedHistoricalImport: Boolean = false,
+    val hasCompletedHistoricalImport: Boolean = false,
+    val importProgress: ImportProgress? = null,
+    val importError: String? = null,
     val isValid: Boolean = false,
     val showErrors: Boolean = false,
 ) {
+    val importComplete: Boolean
+        get() =
+            when (importProgress?.phase) {
+                ImportProgressPhase.Complete -> true
+                ImportProgressPhase.Failed -> false
+                null ->
+                    usedHistoricalImport &&
+                        hasCompletedHistoricalImport &&
+                        importError == null
+                else -> false
+            }
+
+    val importFailed: Boolean
+        get() = importProgress?.phase == ImportProgressPhase.Failed
+
+    val importInProgress: Boolean
+        get() = importProgress != null &&
+            importProgress.phase != ImportProgressPhase.Complete &&
+            importProgress.phase != ImportProgressPhase.Failed
+
     val showNoPresetError: Boolean
-        get() = showErrors && !isValid && selectedPresetLabel == null
+        get() = showErrors && !isValid && selectedPresetLabel == null && !usedHistoricalImport
 
     companion object {
         val Empty = GymLiftsDraftUi()

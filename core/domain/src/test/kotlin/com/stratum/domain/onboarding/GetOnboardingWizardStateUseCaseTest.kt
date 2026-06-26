@@ -9,6 +9,7 @@ import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveSelectedPresetUseCase
+import com.stratum.domain.lift.ObserveUsedHistoricalImportUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -38,6 +39,7 @@ class GetOnboardingWizardStateUseCaseTest {
             observeSpecialization = ObserveSpecializationUseCase(fakeSpecialization),
             observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLift),
             observeSelectedPreset = ObserveSelectedPresetUseCase(fakeLift),
+            observeUsedHistoricalImport = ObserveUsedHistoricalImportUseCase(fakeLift),
         )
     }
 
