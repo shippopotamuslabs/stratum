@@ -65,7 +65,7 @@ private fun Double.formatWeeklySets(): String {
  * Format a [LandmarkConfidenceInterval] as a compact range label like "6–10". The bounds are
  * weekly hard-set counts; we round each to the nearest whole set (intervals are approximate by
  * construction, so fractional precision adds noise rather than information). Returns "" when
- * the interval is unavailable (prior-only fallback) so the UI omits the subheader cleanly.
+ * the interval is unavailable so the UI omits the subheader cleanly.
  */
 private fun LandmarkConfidenceInterval.formatInterval(): String {
     if (!isAvailable) return ""

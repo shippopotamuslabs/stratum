@@ -1,8 +1,11 @@
 package com.stratum.feature.onboarding.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,10 +13,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,18 +28,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumConfidenceBars
 import com.stratum.core.ui.component.StratumEffectivenessBars
 import com.stratum.core.ui.component.StratumNumber
@@ -48,13 +50,6 @@ import com.stratum.feature.onboarding.ImportInsightsSummaryUi
 import com.stratum.feature.onboarding.MuscleVolumeLandmarkUi
 import com.stratum.feature.onboarding.R
 import com.stratum.feature.onboarding.VolumeResponseHighlightUi
-
-private enum class LandmarkHeaderTooltip {
-    Mev,
-    Mav,
-    Mrv,
-    Pv,
-}
 
 private enum class ImportInsightsTab {
     Summary,
@@ -186,11 +181,54 @@ private fun ImportSummaryTabContent(
 private fun ImportLandmarksTabContent(
     summary: ImportInsightsSummaryUi,
 ) {
+    var expandedMuscleLabel by remember { mutableStateOf<String?>(null) }
+    var showGlossary by remember { mutableStateOf(false) }
+
+    if (showGlossary) {
+        LandmarksGlossaryBottomSheet(onDismiss = { showGlossary = false })
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (summary.hasVolumeLandmarks) {
+            val learnMoreLabel = stringResource(R.string.gym_lifts_import_summary_landmarks_learn_more)
+            StratumText(
+                text = stringResource(R.string.gym_lifts_import_summary_landmarks_intro),
+                muted = true,
+            )
+            Row(
+                modifier =
+                    Modifier
+                        .clickable(onClick = { showGlossary = true })
+                        .semantics { contentDescription = learnMoreLabel },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_info),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = StratumThemeAccessor.colors.accent,
+                )
+                StratumText(
+                    text = learnMoreLabel,
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
             LandmarksTableHeader()
             summary.volumeLandmarks.forEach { landmark ->
-                LandmarkTableRow(landmark = landmark)
+                LandmarkAccordionRow(
+                    landmark = landmark,
+                    expanded = expandedMuscleLabel == landmark.muscleLabel,
+                    onToggle = {
+                        expandedMuscleLabel =
+                            if (expandedMuscleLabel == landmark.muscleLabel) {
+                                null
+                            } else {
+                                landmark.muscleLabel
+                            }
+                    },
+                )
             }
         } else {
             StratumText(
@@ -230,6 +268,7 @@ private fun EfficacyTableHeader() {
             text = stringResource(R.string.gym_lifts_import_summary_efficacy_muscle_header),
             modifier = Modifier.weight(EFFICACY_MUSCLE_WEIGHT),
             muted = true,
+            style = StratumThemeAccessor.typography.sectionLabel,
         )
         Box(
             modifier = Modifier.weight(EFFICACY_SIGNAL_WEIGHT),
@@ -238,6 +277,7 @@ private fun EfficacyTableHeader() {
             StratumText(
                 text = stringResource(R.string.gym_lifts_import_summary_efficacy_level_header),
                 muted = true,
+                style = StratumThemeAccessor.typography.sectionLabel,
             )
         }
         Box(
@@ -247,6 +287,7 @@ private fun EfficacyTableHeader() {
             StratumText(
                 text = stringResource(R.string.gym_lifts_import_summary_efficacy_confidence_header),
                 muted = true,
+                style = StratumThemeAccessor.typography.sectionLabel,
             )
         }
     }
@@ -331,8 +372,6 @@ private fun SummaryBullet(text: String) {
 
 @Composable
 private fun LandmarksTableHeader() {
-    var activeTooltip by remember { mutableStateOf<LandmarkHeaderTooltip?>(null) }
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Bottom,
@@ -341,230 +380,330 @@ private fun LandmarksTableHeader() {
             text = stringResource(R.string.gym_lifts_import_summary_landmarks_muscle_header),
             modifier = Modifier.weight(LANDMARK_MUSCLE_WEIGHT),
             muted = true,
+            style = StratumThemeAccessor.typography.sectionLabel,
         )
-        LandmarkHeaderWithTooltip(
+        LandmarkHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_mev_header),
-            tooltipText = stringResource(R.string.gym_lifts_import_summary_mev_tooltip),
-            expanded = activeTooltip == LandmarkHeaderTooltip.Mev,
-            onExpandedChange = { expanded ->
-                activeTooltip = if (expanded) LandmarkHeaderTooltip.Mev else null
-            },
             modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
         )
-        LandmarkHeaderWithTooltip(
+        LandmarkHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_mav_header),
-            tooltipText = stringResource(R.string.gym_lifts_import_summary_mav_tooltip),
-            expanded = activeTooltip == LandmarkHeaderTooltip.Mav,
-            onExpandedChange = { expanded ->
-                activeTooltip = if (expanded) LandmarkHeaderTooltip.Mav else null
-            },
             modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            emphasized = true,
         )
-        LandmarkHeaderWithTooltip(
+        LandmarkHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_mrv_header),
-            tooltipText = stringResource(R.string.gym_lifts_import_summary_mrv_tooltip),
-            expanded = activeTooltip == LandmarkHeaderTooltip.Mrv,
-            onExpandedChange = { expanded ->
-                activeTooltip = if (expanded) LandmarkHeaderTooltip.Mrv else null
-            },
             modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
         )
-        LandmarkHeaderWithTooltip(
+        LandmarkHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_pv_header),
-            tooltipText = stringResource(R.string.gym_lifts_import_summary_pv_tooltip),
-            expanded = activeTooltip == LandmarkHeaderTooltip.Pv,
-            onExpandedChange = { expanded ->
-                activeTooltip = if (expanded) LandmarkHeaderTooltip.Pv else null
-            },
             modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
         )
     }
 }
 
 @Composable
-private fun LandmarkHeaderWithTooltip(
+private fun LandmarkHeaderLabel(
     label: String,
-    tooltipText: String,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    emphasized: Boolean = false,
 ) {
-    val density = LocalDensity.current
-    val tooltipOffsetY = with(density) { TOOLTIP_OFFSET_BELOW.dp.roundToPx() }
-    val learnAboutLabel = stringResource(R.string.gym_lifts_import_summary_header_tooltip_a11y, label)
-
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.CenterEnd,
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .clickable { onExpandedChange(!expanded) }
-                    .semantics { contentDescription = learnAboutLabel },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            StratumText(
-                text = label,
-                muted = true,
-                style = StratumThemeAccessor.typography.bodyLarge.copy(textAlign = TextAlign.End),
+        StratumText(
+            text = label,
+            muted = !emphasized,
+            style = StratumThemeAccessor.typography.sectionLabel.copy(textAlign = TextAlign.End),
+        )
+    }
+}
+
+@Composable
+private fun LandmarksGlossaryBottomSheet(
+    onDismiss: () -> Unit,
+) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.gym_lifts_import_summary_landmarks_glossary_title),
+    ) {
+        StratumText(
+            text = stringResource(R.string.gym_lifts_import_summary_mev_tooltip),
+            muted = true,
+        )
+        StratumText(
+            text = stringResource(R.string.gym_lifts_import_summary_mav_tooltip),
+            muted = true,
+        )
+        StratumText(
+            text = stringResource(R.string.gym_lifts_import_summary_mrv_tooltip),
+            muted = true,
+        )
+        StratumText(
+            text = stringResource(R.string.gym_lifts_import_summary_pv_tooltip),
+            muted = true,
+        )
+    }
+}
+
+@Composable
+private fun LandmarkAccordionRow(
+    landmark: MuscleVolumeLandmarkUi,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) CHEVRON_ROTATION_EXPANDED else CHEVRON_ROTATION_COLLAPSED,
+        label = "landmarkChevronRotation",
+    )
+    val rowA11y =
+        if (expanded) {
+            stringResource(
+                R.string.gym_lifts_import_summary_landmarks_collapse_a11y,
+                landmark.muscleLabel,
             )
-            Icon(
-                painter = painterResource(CoreUiR.drawable.ic_info),
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = StratumThemeAccessor.colors.accent,
+        } else {
+            stringResource(
+                R.string.gym_lifts_import_summary_landmarks_expand_a11y,
+                landmark.muscleLabel,
             )
         }
 
-        if (expanded) {
-            Popup(
-                alignment = Alignment.TopCenter,
-                offset = IntOffset(x = 0, y = tooltipOffsetY),
-                onDismissRequest = { onExpandedChange(false) },
-                properties =
-                    PopupProperties(
-                        focusable = true,
-                        dismissOnClickOutside = true,
-                        dismissOnBackPress = true,
-                    ),
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = LANDMARK_ROW_MIN_HEIGHT.dp)
+                    .clickable(onClick = onToggle)
+                    .semantics { contentDescription = rowA11y }
+                    .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier.weight(LANDMARK_MUSCLE_WEIGHT),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                LandmarkTooltipPopup(text = tooltipText)
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .size(16.dp)
+                            .rotate(chevronRotation),
+                    tint = StratumThemeAccessor.colors.textMuted,
+                )
+                StratumText(text = landmark.muscleLabel)
+            }
+            LandmarkCollapsedValue(
+                value = landmark.mevWeeklyHardSets,
+                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            )
+            LandmarkCollapsedValue(
+                value = landmark.mavWeeklyHardSets,
+                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+                emphasized = true,
+            )
+            LandmarkCollapsedValue(
+                value = landmark.mrvWeeklyHardSets,
+                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            )
+            LandmarkCollapsedValue(
+                value = landmark.pvWeeklyHardSets,
+                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            )
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            LandmarkExpandedDetail(landmark = landmark)
+        }
+    }
+}
+
+@Composable
+private fun LandmarkCollapsedValue(
+    value: String,
+    modifier: Modifier = Modifier,
+    emphasized: Boolean = false,
+) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        if (emphasized) {
+            StratumText(
+                text = value,
+                style = StratumThemeAccessor.typography.dataLarge,
+            )
+        } else {
+            StratumNumber(text = value)
+        }
+    }
+}
+
+@Composable
+private fun LandmarkExpandedDetail(
+    landmark: MuscleVolumeLandmarkUi,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+                .background(
+                    color = StratumThemeAccessor.colors.surfaceSunken,
+                    shape = StratumThemeAccessor.shapes.panel,
+                )
+                .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        LandmarkDetailHeaderRow()
+        LandmarkDetailMetricRow(
+            metricLabel = stringResource(R.string.gym_lifts_import_summary_mev_header),
+            target = landmark.mevWeeklyHardSets,
+            rangeLabel = landmark.mevIntervalLabel,
+        )
+        LandmarkDetailMetricRow(
+            metricLabel = stringResource(R.string.gym_lifts_import_summary_mav_header),
+            target = landmark.mavWeeklyHardSets,
+            rangeLabel = landmark.mavIntervalLabel,
+        )
+        LandmarkDetailMetricRow(
+            metricLabel = stringResource(R.string.gym_lifts_import_summary_mrv_header),
+            target = landmark.mrvWeeklyHardSets,
+            rangeLabel = landmark.mrvIntervalLabel,
+        )
+        LandmarkDetailMetricRow(
+            metricLabel = stringResource(R.string.gym_lifts_import_summary_pv_header),
+            target = landmark.pvWeeklyHardSets,
+            rangeLabel = landmark.pvIntervalLabel,
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            StratumText(
+                text = stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_header),
+                muted = true,
+                style = StratumThemeAccessor.typography.sectionLabel,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StratumConfidenceBars(
+                    tier = landmark.confidenceTier,
+                    contentDescription = confidenceBarsContentDescription(landmark.confidenceTier),
+                )
+                StratumText(
+                    text = landmarkConfidenceExplanation(landmark.confidenceTier),
+                    muted = true,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun LandmarkTooltipPopup(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .widthIn(max = TOOLTIP_MAX_WIDTH.dp)
-                .background(
-                    color = StratumThemeAccessor.colors.surfaceRaised,
-                    shape = StratumThemeAccessor.shapes.panel,
-                )
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderSubtle,
-                    shape = StratumThemeAccessor.shapes.panel,
-                )
-                .padding(12.dp),
+private fun LandmarkDetailHeaderRow() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Bottom,
     ) {
-        StratumText(text = text, muted = true)
-    }
-}
-
-@Composable
-private fun LandmarkTableRow(
-    landmark: MuscleVolumeLandmarkUi,
-) {
-    val mevA11y = landmark.mevIntervalLabel.intervalA11y("MEV")
-    val mavA11y = landmark.mavIntervalLabel.intervalA11y("MAV")
-    val mrvA11y = landmark.mrvIntervalLabel.intervalA11y("MRV")
-    val pvA11y = landmark.pvIntervalLabel.intervalA11y("PV")
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StratumText(
-                text = landmark.muscleLabel,
-                modifier = Modifier.weight(LANDMARK_MUSCLE_WEIGHT),
-            )
-            LandmarkValueCell(
-                value = landmark.mevWeeklyHardSets,
-                intervalLabel = landmark.mevIntervalLabel,
-                intervalA11y = mevA11y,
-                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-            )
-            LandmarkValueCell(
-                value = landmark.mavWeeklyHardSets,
-                intervalLabel = landmark.mavIntervalLabel,
-                intervalA11y = mavA11y,
-                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-            )
-            LandmarkValueCell(
-                value = landmark.mrvWeeklyHardSets,
-                intervalLabel = landmark.mrvIntervalLabel,
-                intervalA11y = mrvA11y,
-                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-            )
-            LandmarkValueCell(
-                value = landmark.pvWeeklyHardSets,
-                intervalLabel = landmark.pvIntervalLabel,
-                intervalA11y = pvA11y,
-                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-            )
-        }
         StratumText(
-            text = stringResource(
-                R.string.gym_lifts_import_summary_landmark_confidence,
-                confidenceLabel(landmark.confidenceTier),
-            ),
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_detail_metric_header),
+            modifier = Modifier.weight(LANDMARK_DETAIL_METRIC_WEIGHT),
             muted = true,
+            style = StratumThemeAccessor.typography.sectionLabel,
+        )
+        StratumText(
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_detail_target_header),
+            modifier = Modifier.weight(LANDMARK_DETAIL_VALUE_WEIGHT),
+            muted = true,
+            style = StratumThemeAccessor.typography.sectionLabel.copy(textAlign = TextAlign.End),
+        )
+        StratumText(
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_detail_range_header),
+            modifier = Modifier.weight(LANDMARK_DETAIL_RANGE_WEIGHT),
+            muted = true,
+            style = StratumThemeAccessor.typography.sectionLabel.copy(textAlign = TextAlign.End),
         )
     }
 }
 
-/**
- * One landmark value column: the point estimate (e.g. "10") with a tiny muted confidence-interval
- * subheader beneath it (e.g. "6–10"). The subheader is omitted when [intervalLabel] is blank
- * (prior-only fallback with no statistical bound). The cell is right-aligned to match the header.
- */
 @Composable
-private fun LandmarkValueCell(
-    value: String,
-    intervalLabel: String,
-    intervalA11y: String,
-    modifier: Modifier = Modifier,
+private fun LandmarkDetailMetricRow(
+    metricLabel: String,
+    target: String,
+    rangeLabel: String,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.End,
+    val rangeA11y = landmarkIntervalA11y(rangeLabel, metricLabel)
+    val displayRange =
+        rangeLabel.ifEmpty {
+            stringResource(R.string.gym_lifts_import_summary_landmarks_detail_range_unavailable)
+        }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        StratumNumber(text = value)
-        if (intervalLabel.isNotEmpty()) {
-            StratumText(
-                text = intervalLabel,
-                muted = true,
-                style = StratumThemeAccessor.typography.bodyLarge.copy(
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    textAlign = TextAlign.End,
-                ),
-                modifier =
-                    Modifier.semantics {
-                        if (intervalA11y.isNotEmpty()) {
-                            contentDescription = intervalA11y
+        StratumText(
+            text = metricLabel,
+            modifier = Modifier.weight(LANDMARK_DETAIL_METRIC_WEIGHT),
+        )
+        Box(
+            modifier = Modifier.weight(LANDMARK_DETAIL_VALUE_WEIGHT),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            StratumNumber(text = target)
+        }
+        Box(
+            modifier =
+                Modifier
+                    .weight(LANDMARK_DETAIL_RANGE_WEIGHT)
+                    .semantics {
+                        if (rangeA11y.isNotEmpty()) {
+                            contentDescription = rangeA11y
                         }
                     },
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            StratumText(
+                text = displayRange,
+                muted = true,
+                style = StratumThemeAccessor.typography.bodyLarge.copy(textAlign = TextAlign.End),
             )
         }
     }
 }
 
-/** Build an a11y content description for a CI label, or "" when there is no interval. */
-private fun String.intervalA11y(landmarkName: String): String =
-    if (isEmpty()) "" else "$landmarkName confidence interval: $this sets"
-
 @Composable
-private fun confidenceLabel(tier: LandmarkConfidenceTier): String =
+private fun landmarkConfidenceExplanation(tier: LandmarkConfidenceTier): String =
     when (tier) {
-        LandmarkConfidenceTier.High -> stringResource(R.string.gym_lifts_import_summary_confidence_high)
-        LandmarkConfidenceTier.Medium -> stringResource(R.string.gym_lifts_import_summary_confidence_medium)
-        LandmarkConfidenceTier.Low -> stringResource(R.string.gym_lifts_import_summary_confidence_low)
+        LandmarkConfidenceTier.High ->
+            stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_high)
+        LandmarkConfidenceTier.Medium ->
+            stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_medium)
+        LandmarkConfidenceTier.Low ->
+            stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_low)
+    }
+
+/** Build an a11y content description for an estimated-range label, or "" when there is no range. */
+@Composable
+private fun landmarkIntervalA11y(
+    intervalLabel: String,
+    landmarkName: String,
+): String =
+    if (intervalLabel.isEmpty()) {
+        ""
+    } else {
+        stringResource(R.string.gym_lifts_import_summary_landmark_interval_a11y, landmarkName, intervalLabel)
     }
 
 @Composable
@@ -582,9 +721,13 @@ fun AnimatedImportInsightsSummary(
     }
 }
 
-private const val LANDMARK_MUSCLE_WEIGHT = 1.4f
+private const val LANDMARK_MUSCLE_WEIGHT = 2f
 private const val LANDMARK_VALUE_WEIGHT = 1f
+private const val LANDMARK_DETAIL_METRIC_WEIGHT = 0.8f
+private const val LANDMARK_DETAIL_VALUE_WEIGHT = 1f
+private const val LANDMARK_DETAIL_RANGE_WEIGHT = 1.8f
 private const val EFFICACY_MUSCLE_WEIGHT = 1.4f
 private const val EFFICACY_SIGNAL_WEIGHT = 1f
-private const val TOOLTIP_MAX_WIDTH = 280
-private const val TOOLTIP_OFFSET_BELOW = 8
+private const val LANDMARK_ROW_MIN_HEIGHT = 40
+private const val CHEVRON_ROTATION_COLLAPSED = 0f
+private const val CHEVRON_ROTATION_EXPANDED = 180f

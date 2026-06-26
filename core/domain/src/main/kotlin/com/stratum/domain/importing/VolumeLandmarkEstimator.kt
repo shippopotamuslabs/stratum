@@ -181,10 +181,10 @@ object VolumeLandmarkEstimator {
             estimatedMav = mav,
             estimatedMrv = mrv,
             estimatedPv = pv,
-            mevInterval = LandmarkConfidenceInterval.Unavailable,
-            mavInterval = LandmarkConfidenceInterval.Unavailable,
-            mrvInterval = LandmarkConfidenceInterval.Unavailable,
-            pvInterval = LandmarkConfidenceInterval.Unavailable,
+            mevInterval = pragmaticInterval(mev.toDouble(), prior, tier),
+            mavInterval = pragmaticInterval(mav.toDouble(), prior, tier),
+            mrvInterval = pragmaticInterval(mrv.toDouble(), prior, tier),
+            pvInterval = pragmaticInterval(pv.toDouble(), prior, tier),
             confidenceTier = tier,
         )
     }
