@@ -32,7 +32,7 @@ data class MuscleVolumeLandmarkUi(
     val mavWeeklyHardSets: String,
     val mrvWeeklyHardSets: String,
     val pvWeeklyHardSets: String,
-    /** Confidence-interval range label (e.g. "6–10 sets"), or "" when no interval is available. */
+    /** Confidence-interval range label (e.g. "6–10 sets"), or "" when no range is available. */
     val mevIntervalLabel: String,
     val mavIntervalLabel: String,
     val mrvIntervalLabel: String,

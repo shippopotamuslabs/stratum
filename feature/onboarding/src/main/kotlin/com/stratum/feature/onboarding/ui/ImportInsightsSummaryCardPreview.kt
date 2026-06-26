@@ -31,16 +31,16 @@ private fun ImportInsightsSummaryCardPreview() {
                     volumeLandmarks =
                         listOf(
                             MuscleVolumeLandmarkUi(
-                                muscleLabel = "Calves",
-                                mevWeeklyHardSets = "8",
-                                mavWeeklyHardSets = "16",
-                                mrvWeeklyHardSets = "22",
-                                pvWeeklyHardSets = "12",
-                                mevIntervalLabel = "",
-                                mavIntervalLabel = "",
-                                mrvIntervalLabel = "",
-                                pvIntervalLabel = "",
-                                confidenceTier = LandmarkConfidenceTier.Medium,
+                                muscleLabel = "Hamstrings",
+                                mevWeeklyHardSets = "6",
+                                mavWeeklyHardSets = "10",
+                                mrvWeeklyHardSets = "16",
+                                pvWeeklyHardSets = "9",
+                                mevIntervalLabel = "1–11",
+                                mavIntervalLabel = "6–16",
+                                mrvIntervalLabel = "14–24",
+                                pvIntervalLabel = "4–14",
+                                confidenceTier = LandmarkConfidenceTier.Low,
                             ),
                             MuscleVolumeLandmarkUi(
                                 muscleLabel = "Chest",

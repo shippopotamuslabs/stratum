@@ -183,8 +183,8 @@ class VolumeLandmarkEstimatorTest {
     }
 
     @Test
-    @DisplayName("Given sparse weeks when estimating then intervals fall back to unavailable or pragmatic")
-    fun sparseWeeksUseUnavailableIntervals() {
+    @DisplayName("Given sparse weeks when estimating then intervals fall back to pragmatic spread")
+    fun sparseWeeksUsePragmaticIntervals() {
         val estimate =
             VolumeLandmarkEstimator.estimate(
                 VolumeLandmarkEstimator.Input(
@@ -195,11 +195,13 @@ class VolumeLandmarkEstimatorTest {
                 ),
             )
 
-        assertEquals(IntervalMethod.Prior, estimate.mevInterval.method)
-        assertEquals(IntervalMethod.Prior, estimate.mavInterval.method)
-        assertEquals(IntervalMethod.Prior, estimate.mrvInterval.method)
-        assertEquals(IntervalMethod.Prior, estimate.pvInterval.method)
-        assertFalse(estimate.mevInterval.isAvailable, "prior-only fallback should be unavailable")
+        assertEquals(IntervalMethod.Pragmatic, estimate.mevInterval.method)
+        assertEquals(IntervalMethod.Pragmatic, estimate.mavInterval.method)
+        assertEquals(IntervalMethod.Pragmatic, estimate.mrvInterval.method)
+        assertEquals(IntervalMethod.Pragmatic, estimate.pvInterval.method)
+        assertTrue(estimate.mevInterval.isAvailable, "prior-only fallback should still show a pragmatic range")
+        assertTrue(estimate.mevInterval.low < estimate.estimatedMev)
+        assertTrue(estimate.mevInterval.high > estimate.estimatedMev)
     }
 
     private fun buildInvertedUPoints(weekCount: Int): List<MuscleWeeklyVolumePoint> {

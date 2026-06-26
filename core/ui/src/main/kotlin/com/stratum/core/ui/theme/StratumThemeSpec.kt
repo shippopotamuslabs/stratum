@@ -24,6 +24,7 @@ data class StratumTypography(
     val bodyLarge: TextStyle,
     val titleLarge: TextStyle,
     val dataLarge: TextStyle,
+    val sectionLabel: TextStyle,
 )
 
 @Immutable
@@ -65,6 +66,14 @@ internal val DefaultStratumTypography =
                 fontWeight = FontWeight.Medium,
                 fontSize = 20.sp,
                 lineHeight = 24.sp,
+            ),
+        sectionLabel =
+            TextStyle(
+                fontFamily = FontFamily.Default,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                letterSpacing = 0.5.sp,
             ),
     )
 
