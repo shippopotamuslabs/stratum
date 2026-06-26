@@ -56,6 +56,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
         val seedCatalogNames = seedLifts.associate { it.id to it.name }
         val seedCatalogIds = seedCatalogNames.keys
         val preexistingCustomLiftCount = catalog.count { it.isCustom }
+        val enablementCutoff = ImportWindowPolicy.liftEnablementCutoff(sets)
+
+        fun isRecentForEnablement(set: LoggedSet): Boolean =
+            enablementCutoff != null && ImportWindowPolicy.isInLiftEnablementWindow(set, enablementCutoff)
 
         val distinctInputExerciseNames = sets.map { it.exerciseNameRaw }.toSet().size
         val distinctInputExerciseNamesNormalized =
@@ -77,6 +81,8 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     ),
             ),
         )
+        val distinctExerciseNames = sets.map { it.exerciseNameRaw }.distinct()
+        liftNameResolver.prepareBatch(distinctExerciseNames)
         val firstPassByExerciseName =
             resolveDistinctExerciseNames(
                 sets = sets,
@@ -88,14 +94,18 @@ class ResolveImportLiftsUseCase @Inject constructor(
             sets.map { set ->
                 val resolved = applyResolvedLiftId(set, seedCatalogIds, firstPassByExerciseName)
                 if (resolved != null) {
-                    catalogLiftsToEnable += resolved
-                    firstPassCatalogMatches += 1
-                    firstPassCatalogMatchIds += resolved
-                    firstPassMatchedExerciseNames +=
-                        ImportExerciseNameNormalizer.normalizeForMatching(set.exerciseNameRaw)
+                    if (isRecentForEnablement(set)) {
+                        catalogLiftsToEnable += resolved
+                        firstPassCatalogMatches += 1
+                        firstPassCatalogMatchIds += resolved
+                        firstPassMatchedExerciseNames +=
+                            ImportExerciseNameNormalizer.normalizeForMatching(set.exerciseNameRaw)
+                    }
                     set.copy(liftId = resolved)
                 } else {
-                    recordUnmatchedSet(unmatchedCounts, set.exerciseNameRaw)
+                    if (isRecentForEnablement(set)) {
+                        recordUnmatchedSet(unmatchedCounts, set.exerciseNameRaw)
+                    }
                     set.copy(liftId = null)
                 }
             }
@@ -132,7 +142,12 @@ class ResolveImportLiftsUseCase @Inject constructor(
                         if (inferred != null) {
                             liftRepository.addCustomLift(inferred.toCustomLiftDefinition(defaultIncrement))
                         } else {
-                            liftRepository.addCustomLift(aggregate.displayName, false, defaultIncrement)
+                            liftRepository.addCustomLift(
+                                ImportStubLiftGuesser.definitionFromName(
+                                    aggregate.displayName,
+                                    defaultIncrement,
+                                ),
+                            )
                         }
                     customLiftIds += createdId
                     customLiftsCreated += 1
@@ -154,9 +169,11 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     } else {
                         val resolved = applyResolvedLiftId(set, updatedIds, secondPassByExerciseName)
                         if (resolved != null) {
-                            catalogLiftsToEnable += resolved
-                            if (resolved !in firstPassCatalogMatchIds) {
-                                secondPassAdditionalMatches += 1
+                            if (isRecentForEnablement(set)) {
+                                catalogLiftsToEnable += resolved
+                                if (resolved !in firstPassCatalogMatchIds) {
+                                    secondPassAdditionalMatches += 1
+                                }
                             }
                             set.copy(liftId = resolved)
                         } else {
@@ -174,7 +191,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
         // Transient equipment inference: map the user's distinct import names to equipment, then
         // union with equipment required by the Tier A catalog matches (looked up in the asset).
         val confirmedEquipment: Set<GymEquipment> = run {
-            val distinctNames = sets.map { it.exerciseNameRaw }.distinct()
+            val distinctNames =
+                ImportWindowPolicy.recentSetsForLiftEnablement(sets)
+                    .map { it.exerciseNameRaw }
+                    .distinct()
             onProgress(
                 ImportProgress(
                     phase = ImportProgressPhase.EnrichingCustomLifts,
