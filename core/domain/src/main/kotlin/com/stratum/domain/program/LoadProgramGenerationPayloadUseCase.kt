@@ -4,6 +4,9 @@ import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.domain.response.LiftEffectivenessObservationRepository
+import com.stratum.domain.response.ResponseProfileMetadataRepository
+import com.stratum.domain.response.VolumeResponseObservationRepository
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.ObserveSpecializationUseCase
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
@@ -19,6 +22,9 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
     private val supersetAffinityRepository: SupersetAffinityRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
     private val importAnalysisMetadataRepository: ImportAnalysisMetadataRepository,
+    private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
+    private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
+    private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
     private val promptBuilder: ProgramGenerationPromptBuilder,
 ) {
     suspend operator fun invoke(): String {
@@ -34,6 +40,7 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
                 proven.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) } to
                     available.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) }
             }
+        val responseProfile = assembleResponseProfilePayload()
         return promptBuilder.buildPayload(
             profile = profile,
             specialization = specialization,
@@ -42,6 +49,18 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
             supersetAffinities = supersetAffinityRepository.getAll(),
             volumeBaselines = muscleVolumeBaselineRepository.getAll(),
             analysisMetadata = metadata,
+            responseProfile = responseProfile,
+        )
+    }
+
+    private suspend fun assembleResponseProfilePayload(): ResponseProfilePayload? {
+        val metadata = responseProfileMetadataRepository.get() ?: return null
+        return ResponseProfilePayload.fromObservations(
+            volumeObservations = volumeResponseObservationRepository.getAll(),
+            effectivenessObservations = liftEffectivenessObservationRepository.getAll(),
+            epochsAnalyzed = metadata.epochsAnalyzed,
+            analysisWindowStart = metadata.analysisWindowStart,
+            analysisWindowEnd = metadata.analysisWindowEnd,
         )
     }
 }

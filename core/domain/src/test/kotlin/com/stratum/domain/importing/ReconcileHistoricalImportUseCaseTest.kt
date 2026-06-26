@@ -1,6 +1,11 @@
 package com.stratum.domain.importing
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.response.FakeExperimentBlockRepository
+import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
+import com.stratum.core.testing.response.FakeResponseEpochRepository
+import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
+import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
@@ -48,6 +53,11 @@ class ReconcileHistoricalImportUseCaseTest {
                 InMemorySupersetRepository(),
                 InMemoryVolumeRepository(),
                 metadataRepo,
+                FakeResponseEpochRepository(),
+                FakeVolumeResponseObservationRepository(),
+                FakeLiftEffectivenessObservationRepository(),
+                FakeExperimentBlockRepository(),
+                FakeResponseProfileMetadataRepository(),
                 liftRepo,
             )
         val subject = ReconcileHistoricalImportUseCase(metadataRepo, rollback)
@@ -78,6 +88,11 @@ class ReconcileHistoricalImportUseCaseTest {
                 InMemorySupersetRepository(),
                 InMemoryVolumeRepository(),
                 metadataRepo,
+                FakeResponseEpochRepository(),
+                FakeVolumeResponseObservationRepository(),
+                FakeLiftEffectivenessObservationRepository(),
+                FakeExperimentBlockRepository(),
+                FakeResponseProfileMetadataRepository(),
                 FakeLiftRepository(),
             )
         val subject = ReconcileHistoricalImportUseCase(metadataRepo, rollback)

@@ -18,15 +18,26 @@ import com.stratum.core.data.seed.LiftCatalogSeeder
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
+import com.stratum.core.data.db.ExperimentBlockDao
 import com.stratum.core.data.db.HistoricalSessionDao
 import com.stratum.core.data.db.ImportAnalysisMetadataDao
 import com.stratum.core.data.db.ImportJobDao
+import com.stratum.core.data.db.LiftEffectivenessObservationDao
 import com.stratum.core.data.db.LiftTrainingInsightsDao
 import com.stratum.core.data.db.LoggedSetDao
 import com.stratum.core.data.db.MuscleVolumeBaselineDao
+import com.stratum.core.data.db.ResponseEpochDao
+import com.stratum.core.data.db.ResponseProfileMetadataDao
 import com.stratum.core.data.db.SupersetAffinityDao
+import com.stratum.core.data.db.VolumeResponseObservationDao
+import com.stratum.core.data.repository.RoomExperimentBlockRepository
+import com.stratum.core.data.repository.RoomLiftEffectivenessObservationRepository
+import com.stratum.core.data.repository.RoomResponseEpochRepository
+import com.stratum.core.data.repository.RoomResponseProfileMetadataRepository
+import com.stratum.core.data.repository.RoomVolumeResponseObservationRepository
 import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
 import com.stratum.core.data.repository.RoomImportJobRepository
+import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.data.repository.RoomSupersetAffinityRepository
@@ -39,7 +50,15 @@ import com.stratum.domain.importing.LiftNameResolverPort
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinityRepository
-import com.stratum.domain.importing.TrainingHistoryRepository
+import com.stratum.domain.response.DefaultResponseObservationExtractor
+import com.stratum.domain.response.EmptyExperimentRegistry
+import com.stratum.domain.response.ExperimentBlockRepository
+import com.stratum.domain.response.ExperimentRegistry
+import com.stratum.domain.response.LiftEffectivenessObservationRepository
+import com.stratum.domain.response.ResponseEpochRepository
+import com.stratum.domain.response.ResponseObservationExtractor
+import com.stratum.domain.response.ResponseProfileMetadataRepository
+import com.stratum.domain.response.VolumeResponseObservationRepository
 import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import dagger.Binds
 import dagger.Module
@@ -148,6 +167,30 @@ object DatabaseModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+object ResponseDatabaseModule {
+    @Provides
+    fun provideResponseEpochDao(database: StratumDatabase): ResponseEpochDao =
+        database.responseEpochDao()
+
+    @Provides
+    fun provideVolumeResponseObservationDao(database: StratumDatabase): VolumeResponseObservationDao =
+        database.volumeResponseObservationDao()
+
+    @Provides
+    fun provideLiftEffectivenessObservationDao(database: StratumDatabase): LiftEffectivenessObservationDao =
+        database.liftEffectivenessObservationDao()
+
+    @Provides
+    fun provideExperimentBlockDao(database: StratumDatabase): ExperimentBlockDao =
+        database.experimentBlockDao()
+
+    @Provides
+    fun provideResponseProfileMetadataDao(database: StratumDatabase): ResponseProfileMetadataDao =
+        database.responseProfileMetadataDao()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
     @Binds
     @Singleton
@@ -202,4 +245,46 @@ abstract class RepositoryModule {
     abstract fun bindImportAnalysisMetadataRepository(
         impl: RoomImportAnalysisMetadataRepository,
     ): ImportAnalysisMetadataRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindResponseEpochRepository(
+        impl: RoomResponseEpochRepository,
+    ): ResponseEpochRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindVolumeResponseObservationRepository(
+        impl: RoomVolumeResponseObservationRepository,
+    ): VolumeResponseObservationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLiftEffectivenessObservationRepository(
+        impl: RoomLiftEffectivenessObservationRepository,
+    ): LiftEffectivenessObservationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExperimentBlockRepository(
+        impl: RoomExperimentBlockRepository,
+    ): ExperimentBlockRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindResponseProfileMetadataRepository(
+        impl: RoomResponseProfileMetadataRepository,
+    ): ResponseProfileMetadataRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExperimentRegistry(
+        impl: EmptyExperimentRegistry,
+    ): ExperimentRegistry
+
+    @Binds
+    @Singleton
+    abstract fun bindResponseObservationExtractor(
+        impl: DefaultResponseObservationExtractor,
+    ): ResponseObservationExtractor
 }

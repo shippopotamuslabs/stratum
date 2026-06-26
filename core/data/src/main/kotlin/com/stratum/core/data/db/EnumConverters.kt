@@ -11,6 +11,10 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.response.EpochSplitReason
+import com.stratum.domain.response.EvidenceLevel
+import com.stratum.domain.response.ExperimentStatus
+import com.stratum.domain.response.OutcomeMetric
 
 /**
  * Single source of truth for enum ↔ String and typed-id ↔ String persistence across the
@@ -108,4 +112,32 @@ class EnumConverters {
     @TypeConverter
     fun toImportJobId(value: String?): ImportJobId? =
         value?.let { runCatching { ImportJobId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromEpochSplitReason(reason: EpochSplitReason?): String? = reason?.name
+
+    @TypeConverter
+    fun toEpochSplitReason(value: String?): EpochSplitReason? =
+        value?.let { runCatching { EpochSplitReason.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromEvidenceLevel(level: EvidenceLevel?): String? = level?.name
+
+    @TypeConverter
+    fun toEvidenceLevel(value: String?): EvidenceLevel? =
+        value?.let { runCatching { EvidenceLevel.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromOutcomeMetric(metric: OutcomeMetric?): String? = metric?.name
+
+    @TypeConverter
+    fun toOutcomeMetric(value: String?): OutcomeMetric? =
+        value?.let { runCatching { OutcomeMetric.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromExperimentStatus(status: ExperimentStatus?): String? = status?.name
+
+    @TypeConverter
+    fun toExperimentStatus(value: String?): ExperimentStatus? =
+        value?.let { runCatching { ExperimentStatus.valueOf(it) }.getOrNull() }
 }

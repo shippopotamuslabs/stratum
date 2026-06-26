@@ -19,6 +19,11 @@ import androidx.room.TypeConverters
         SupersetAffinityEntity::class,
         MuscleVolumeBaselineEntity::class,
         ImportAnalysisMetadataEntity::class,
+        ResponseEpochEntity::class,
+        VolumeResponseObservationEntity::class,
+        LiftEffectivenessObservationEntity::class,
+        ExperimentBlockEntity::class,
+        ResponseProfileMetadataEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -50,6 +55,16 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun muscleVolumeBaselineDao(): MuscleVolumeBaselineDao
 
     abstract fun importAnalysisMetadataDao(): ImportAnalysisMetadataDao
+
+    abstract fun responseEpochDao(): ResponseEpochDao
+
+    abstract fun volumeResponseObservationDao(): VolumeResponseObservationDao
+
+    abstract fun liftEffectivenessObservationDao(): LiftEffectivenessObservationDao
+
+    abstract fun experimentBlockDao(): ExperimentBlockDao
+
+    abstract fun responseProfileMetadataDao(): ResponseProfileMetadataDao
 
     companion object {
         const val DATABASE_NAME = "stratum.db"

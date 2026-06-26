@@ -27,6 +27,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
         supersetAffinities: List<SupersetAffinity>,
         volumeBaselines: List<MuscleVolumeBaseline>,
         analysisMetadata: ImportAnalysisMetadata?,
+        responseProfile: ResponseProfilePayload? = null,
     ): String {
         val provenJson = provenLifts.joinToString(",") { it.toJson(proven = true) }
         val availableJson = availableLifts.joinToString(",") { it.toJson(proven = false) }
@@ -66,6 +67,10 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
                 append(volumeJson)
                 append(']')
             }
+            if (responseProfile != null && shouldIncludeResponseProfile(responseProfile)) {
+                append(""","responseProfile":""")
+                append(responseProfile.toJson())
+            }
             append(importJson)
             append('}')
         }
@@ -103,6 +108,60 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
         val trend = trendSlope?.let { ""","trendSlope":$it""" } ?: ""
         val muscle = muscle.name.quoteJson()
         return """{"muscle":$muscle,"meanWeeklyHardSets":$meanWeeklyHardSets,"p90WeeklyHardSets":$p90WeeklyHardSets$trend}"""
+    }
+
+    internal fun ResponseProfilePayload.toJson(): String {
+        val windowStartJson = analysisWindowStart.toString().quoteJson()
+        val windowEndJson = analysisWindowEnd.toString().quoteJson()
+        val volumeInfluenceJson =
+            volumeResponses.joinToString(",") { influence ->
+                buildString {
+                    append("""{"muscle":${influence.muscle.name.quoteJson()},""")
+                    append(""""anchorLiftId":${influence.anchorLiftId.value.quoteJson()},""")
+                    append(""""correlationSlope":${influence.correlationSlope},""")
+                    append(""""confidenceScore":${influence.confidenceScore},""")
+                    append(""""evidence":${influence.evidence.name.quoteJson()}}""")
+                }
+            }
+        val liftInfluenceJson =
+            liftEffectiveness.joinToString(",") { influence ->
+                buildString {
+                    append("""{"pattern":${influence.pattern.name.quoteJson()},""")
+                    append(""""liftId":${influence.liftId.value.quoteJson()},""")
+                    append(""""effectivenessScore":${influence.effectivenessScore},""")
+                    append(""""rank":${influence.rank},""")
+                    append(""""evidence":${influence.evidence.name.quoteJson()}}""")
+                }
+            }
+        val informationalVolumeJson =
+            informational.volumeResponses.joinToString(",") { observation ->
+                buildString {
+                    append("""{"muscle":${observation.muscle.name.quoteJson()},""")
+                    append(""""confidenceScore":${observation.confidenceScore},""")
+                    append(""""evidence":${observation.evidence.name.quoteJson()}}""")
+                }
+            }
+        val informationalEffectivenessJson =
+            informational.liftEffectiveness.joinToString(",") { observation ->
+                buildString {
+                    append("""{"pattern":${observation.pattern.name.quoteJson()},""")
+                    append(""""liftId":${observation.liftId.value.quoteJson()},""")
+                    append(""""confidenceScore":${observation.confidenceScore},""")
+                    append(""""evidence":${observation.evidence.name.quoteJson()}}""")
+                }
+            }
+        return buildString {
+            append('{')
+            append(""""epochsAnalyzed":$epochsAnalyzed,""")
+            append(""""analysisWindowStart":$windowStartJson,""")
+            append(""""analysisWindowEnd":$windowEndJson,""")
+            append(""""volumeResponses":[$volumeInfluenceJson],""")
+            append(""""liftEffectiveness":[$liftInfluenceJson],""")
+            append(""""informational":{""")
+            append(""""volumeResponses":[$informationalVolumeJson],""")
+            append(""""liftEffectiveness":[$informationalEffectivenessJson]""")
+            append("}}")
+        }
     }
 
     private fun ImportAnalysisMetadata.toJsonSnippet(): String {
