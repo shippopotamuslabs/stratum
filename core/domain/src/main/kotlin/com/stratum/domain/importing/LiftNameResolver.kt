@@ -2,14 +2,29 @@ package com.stratum.domain.importing
 
 import com.stratum.domain.lift.identity.LiftId
 
+data class Bm25LiftCandidate(
+    val liftId: LiftId,
+    val catalogName: String,
+    val score: Double,
+    val overlap: Int,
+)
+
+/** Token overlap metrics for a query vs catalog name pair. */
+data class TokenAlignment(
+    val jaccard: Double,
+    val queryRecall: Double,
+    val docRecall: Double,
+)
+
 /**
  * Simple BM25-inspired token overlap + Levenshtein fallback for lift name resolution.
+ *
+ * Catalog acceptance requires [isStrongTokenAlignment] (near-identical token bags after
+ * normalization). Lower scores are for ranking embedding rerank candidates only.
  */
 class Bm25LiftNameResolver : LiftNameResolverPort {
-    override fun resolve(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): LiftId? {
-        val best = scoreBest(exerciseNameRaw, catalogNames)
-        return best?.takeIf { it.score >= MATCH_THRESHOLD }?.liftId
-    }
+    override fun resolve(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): LiftId? =
+        evaluate(exerciseNameRaw, catalogNames).matchedLiftId
 
     override fun evaluate(
         exerciseNameRaw: String,
@@ -24,7 +39,7 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
                 matched = false,
             )
         }
-        val matched = best.score >= MATCH_THRESHOLD
+        val matched = isStrongTokenAlignment(exerciseNameRaw, best.catalogName)
         return LiftNameMatchEvaluation(
             matchedLiftId = if (matched) best.liftId else null,
             bestScore = best.score,
@@ -33,58 +48,133 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         )
     }
 
+    fun rankTopK(
+        exerciseNameRaw: String,
+        catalogNames: Map<LiftId, String>,
+        k: Int = DEFAULT_TOP_K,
+    ): List<Bm25LiftCandidate> {
+        val queryTokens = queryTokens(exerciseNameRaw)
+        if (queryTokens.isEmpty()) return emptyList()
+
+        return catalogNames
+            .map { (id, name) ->
+                val scored = scoreAgainstCatalogName(exerciseNameRaw, queryTokens, name)
+                Bm25LiftCandidate(
+                    liftId = id,
+                    catalogName = name,
+                    score = scored.score,
+                    overlap = scored.overlap,
+                )
+            }
+            .sortedWith(
+                compareByDescending<Bm25LiftCandidate> { it.score }
+                    .thenByDescending { it.overlap }
+                    .thenBy { it.catalogName.length },
+            )
+            .take(k)
+    }
+
+    fun matchingQueryTokenCount(exerciseNameRaw: String): Int = queryTokens(exerciseNameRaw).size
+
+    fun isExactNormalizedMatch(exerciseNameRaw: String, catalogName: String): Boolean =
+        normalizeForMatching(exerciseNameRaw) == normalizeForMatching(catalogName)
+
+    fun tokenAlignment(exerciseNameRaw: String, catalogName: String): TokenAlignment =
+        computeTokenAlignment(queryTokens(exerciseNameRaw), catalogTokens(catalogName))
+
+    /**
+     * True when normalized strings match or both token bags align strongly in both directions.
+     * Prevents subset matches (e.g. "bench press" -> "barbell bench press") from auto-accepting.
+     */
+    fun isStrongTokenAlignment(exerciseNameRaw: String, catalogName: String): Boolean {
+        if (isExactNormalizedMatch(exerciseNameRaw, catalogName)) {
+            return true
+        }
+        val alignment = tokenAlignment(exerciseNameRaw, catalogName)
+        return alignment.jaccard >= STRONG_JACCARD_MIN &&
+            alignment.queryRecall >= STRONG_RECALL_MIN &&
+            alignment.docRecall >= STRONG_RECALL_MIN
+    }
+
+    private fun computeTokenAlignment(queryTokens: List<String>, docTokens: List<String>): TokenAlignment {
+        if (queryTokens.isEmpty() || docTokens.isEmpty()) {
+            return TokenAlignment(jaccard = 0.0, queryRecall = 0.0, docRecall = 0.0)
+        }
+        val overlap = queryTokens.intersect(docTokens.toSet()).size.toDouble()
+        val union = queryTokens.size + docTokens.size - overlap.toInt()
+        return TokenAlignment(
+            jaccard = overlap / union.coerceAtLeast(1),
+            queryRecall = overlap / queryTokens.size.coerceAtLeast(1),
+            docRecall = overlap / docTokens.size.coerceAtLeast(1),
+        )
+    }
+
+    private fun scoreAll(
+        exerciseNameRaw: String,
+        catalogNames: Map<LiftId, String>,
+    ): List<ScoredLiftMatch> {
+        val queryTokens = queryTokens(exerciseNameRaw)
+        if (queryTokens.isEmpty()) return emptyList()
+
+        return catalogNames.map { (id, name) ->
+            val scored = scoreAgainstCatalogName(exerciseNameRaw, queryTokens, name)
+            ScoredLiftMatch(
+                liftId = id,
+                catalogName = name,
+                score = scored.score,
+                overlap = scored.overlap,
+            )
+        }
+    }
+
+    private fun scoreBest(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): ScoredLiftMatch? =
+        scoreAll(exerciseNameRaw, catalogNames).reduceOrNull { current, candidate ->
+            if (isBetterMatch(candidate, current)) candidate else current
+        }
+
     private data class ScoredLiftMatch(
         val liftId: LiftId,
         val catalogName: String,
         val score: Double,
+        val overlap: Int,
     )
 
-    private fun scoreBest(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): ScoredLiftMatch? {
-        val queryTokens = queryTokens(exerciseNameRaw)
-        if (queryTokens.isEmpty()) return null
-
-        var best: ScoredLiftMatch? = null
-        catalogNames.forEach { (id, name) ->
-            val score = scoreAgainstCatalogName(exerciseNameRaw, queryTokens, name)
-            val candidate = ScoredLiftMatch(liftId = id, catalogName = name, score = score)
-            if (best == null || isBetterMatch(candidate, best)) {
-                best = candidate
-            }
-        }
-        return best
-    }
-
-    private fun isBetterMatch(candidate: ScoredLiftMatch, current: ScoredLiftMatch): Boolean {
-        if (candidate.score > current.score + SCORE_EPSILON) return true
-        if (current.score > candidate.score + SCORE_EPSILON) return false
-        return candidate.catalogName.length < current.catalogName.length
-    }
+    private data class TokenScore(val score: Double, val overlap: Int)
 
     private fun scoreAgainstCatalogName(
         exerciseNameRaw: String,
         queryTokens: List<String>,
         catalogName: String,
-    ): Double {
+    ): TokenScore {
         val docTokens = catalogTokens(catalogName)
-        if (docTokens.isEmpty()) return 0.0
+        if (docTokens.isEmpty()) return TokenScore(score = 0.0, overlap = 0)
 
         val queryTokenSet = queryTokens.toSet()
-        val overlap = queryTokens.intersect(docTokens.toSet()).size.toDouble()
+        val docTokenSet = docTokens.toSet()
+        val overlap = queryTokens.intersect(docTokenSet).size
         val levBonus = levenshteinBonus(exerciseNameRaw, catalogName)
-        if (overlap == 0.0) {
-            return levBonus
+        if (overlap == 0) {
+            return TokenScore(score = levBonus, overlap = 0)
         }
 
-        val union = queryTokens.size + docTokens.size - overlap.toInt()
-        val jaccard = overlap / union.coerceAtLeast(1)
-        val queryRecall = overlap / queryTokens.size.coerceAtLeast(1)
-        val docRecall = overlap / docTokens.size.coerceAtLeast(1)
-        val tokenScore = maxOf(jaccard, queryRecall, docRecall)
+        val alignment = computeTokenAlignment(queryTokens, docTokens)
+        val tokenScore = alignment.jaccard
         val equipmentPenalty =
             docTokens
                 .count { token -> token !in queryTokenSet && token in EQUIPMENT_TOKENS }
                 .toDouble() * EQUIPMENT_TOKEN_PENALTY
-        return (tokenScore + levBonus - equipmentPenalty).coerceAtLeast(0.0)
+        return TokenScore(
+            score = (tokenScore + levBonus - equipmentPenalty).coerceAtLeast(0.0),
+            overlap = overlap,
+        )
+    }
+
+    private fun isBetterMatch(candidate: ScoredLiftMatch, current: ScoredLiftMatch): Boolean {
+        if (candidate.score > current.score + SCORE_EPSILON) return true
+        if (current.score > candidate.score + SCORE_EPSILON) return false
+        if (candidate.overlap > current.overlap) return true
+        if (current.overlap > candidate.overlap) return false
+        return candidate.catalogName.length < current.catalogName.length
     }
 
     private fun queryTokens(exerciseNameRaw: String): List<String> =
@@ -147,11 +237,15 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
     }
 
     companion object {
+        /** Minimum ranking score for near-miss diagnostics in import summaries. */
         const val MATCH_THRESHOLD = 0.6
+        const val SCORE_EPSILON = 0.000_1
+        const val STRONG_JACCARD_MIN = 0.85
+        const val STRONG_RECALL_MIN = 0.9
+        private const val DEFAULT_TOP_K = 5
         private const val LEVENSHTEIN_DISTANCE_THRESHOLD = 3
         private const val LEVENSHTEIN_BONUS = 0.5
         private const val EQUIPMENT_TOKEN_PENALTY = 0.2
-        private const val SCORE_EPSILON = 0.000_1
         private const val MIN_STEM_TOKEN_LENGTH = 3
         private const val HAMSTRING_TOKEN = "hamstring"
         private const val LEG_TOKEN = "leg"

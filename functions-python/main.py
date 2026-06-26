@@ -109,3 +109,41 @@ def run_conversion_script(req: https_fn.CallableRequest) -> dict:
             code=https_fn.FunctionsErrorCode.INTERNAL,
             message=str(exc),
         ) from exc
+
+
+@https_fn.on_call(timeout_sec=120, memory=1024)
+def embed_exercise_names(req: https_fn.CallableRequest) -> dict:
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="Sign-in required.",
+        )
+    data = req.data or {}
+    names = data.get("names")
+    if not isinstance(names, list) or not names:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="names must be a non-empty list of strings.",
+        )
+    if len(names) > 200:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="names exceeds maximum batch size of 200.",
+        )
+    try:
+        from embedding.lift_name_embedder import EMBEDDING_DIM, embed_texts
+        from embedding.normalize import normalize_for_matching
+
+        normalized = [normalize_for_matching(str(name)) for name in names]
+        vectors = embed_texts(normalized)
+        embeddings = {
+            str(name): vector
+            for name, vector in zip(names, vectors, strict=True)
+            if len(vector) == EMBEDDING_DIM
+        }
+        return {"embeddings": embeddings, "dimensions": EMBEDDING_DIM}
+    except Exception as exc:  # noqa: BLE001
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INTERNAL,
+            message=str(exc),
+        ) from exc
