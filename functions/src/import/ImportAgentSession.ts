@@ -15,7 +15,14 @@ import {
 import { buildImportAgentUserPrompt } from "./importDomainRules";
 
 export const MAX_TURNS = 15;
-export const MAX_BLOB_NUDGES = 3;
+export const MAX_BLOB_NUDGES = 5;
+const MAX_TOOL_ERROR_SUMMARY_CHARS = 500;
+const MAX_USER_ERROR_MESSAGE_CHARS = 600;
+
+export interface LastToolFailure {
+  toolName: string;
+  errorSummary: string;
+}
 
 export interface SessionResult {
   status: "ready" | "failed";
@@ -79,6 +86,7 @@ export async function runImportAgentSessionWithDeps(
   let blobNudges = 0;
   let turnCount = 0;
   let lastConversionPath: string | undefined = job.latestConversion?.storagePath;
+  let lastToolFailure: LastToolFailure | undefined;
 
   while (turnCount < MAX_TURNS) {
     turnCount += 1;
@@ -104,6 +112,8 @@ export async function runImportAgentSessionWithDeps(
         messages,
         blobNudges,
         lastConversionPath,
+        false,
+        lastToolFailure,
       );
       blobNudges = nudgeResult.blobNudges;
       if (nudgeResult.done) {
@@ -145,6 +155,17 @@ export async function runImportAgentSessionWithDeps(
         tool_call_id: call.id,
         content: result.isError ? `ERROR: ${content}` : content,
       });
+      if (result.isError && isTrackedConversionTool(call.function.name)) {
+        lastToolFailure = {
+          toolName: call.function.name,
+          errorSummary: summarizeToolError(content),
+        };
+        await deps.updateJob({
+          lastToolError: lastToolFailure.errorSummary,
+          lastToolName: lastToolFailure.toolName,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
     }
 
     if (conversionUpdated && lastConversionPath) {
@@ -162,6 +183,7 @@ export async function runImportAgentSessionWithDeps(
       blobNudges,
       lastConversionPath,
       hadFullExecute,
+      lastToolFailure,
     );
     blobNudges = nudgeResult.blobNudges;
     if (nudgeResult.done) {
@@ -240,6 +262,7 @@ export async function handleBlobGate(
   blobNudges: number,
   lastConversionPath: string | undefined,
   afterFullAttempt = false,
+  lastToolFailure?: LastToolFailure,
 ): Promise<{
   blobNudges: number;
   done: boolean;
@@ -252,11 +275,13 @@ export async function handleBlobGate(
     return { blobNudges, done: false };
   }
   if (blobNudges >= MAX_BLOB_NUDGES) {
-    const errorMessage = "Conversion produced no output after multiple attempts.";
+    const errorMessage = buildBlobGateFailureMessage(lastToolFailure);
     await updateJob({
       status: "failed",
       progressPhase: "failed",
       errorMessage,
+      lastToolError: lastToolFailure?.errorSummary ?? null,
+      lastToolName: lastToolFailure?.toolName ?? null,
       updatedAt: FieldValue.serverTimestamp(),
     });
     return { blobNudges, done: true, result: { status: "failed", errorMessage } };
@@ -264,9 +289,64 @@ export async function handleBlobGate(
   const next = blobNudges + 1;
   messages.push({
     role: "user",
-    content: "Nothing was produced. Continue.",
+    content: buildBlobGateNudgeMessage(lastToolFailure),
   });
   return { blobNudges: next, done: false };
+}
+
+function isTrackedConversionTool(toolName: string): boolean {
+  return toolName === "execute_on_full" || toolName === "execute_on_sample";
+}
+
+export function summarizeToolError(content: string): string {
+  const withoutErrorPrefix = content.replace(/^ERROR:\s*/i, "").trim();
+  const singleLine = withoutErrorPrefix.replace(/\s+/g, " ");
+  if (singleLine.length <= MAX_TOOL_ERROR_SUMMARY_CHARS) {
+    return singleLine;
+  }
+  return `${singleLine.slice(0, MAX_TOOL_ERROR_SUMMARY_CHARS)}…`;
+}
+
+export function buildBlobGateFailureMessage(lastToolFailure?: LastToolFailure): string {
+  if (!lastToolFailure) {
+    return "Conversion produced no output after multiple attempts.";
+  }
+  const detail =
+    `Last error from ${formatToolName(lastToolFailure.toolName)}: ${lastToolFailure.errorSummary}`;
+  const message = `Conversion failed after ${MAX_BLOB_NUDGES} attempts. ${detail}`;
+  return truncateUserErrorMessage(message);
+}
+
+export function buildBlobGateNudgeMessage(lastToolFailure?: LastToolFailure): string {
+  if (!lastToolFailure) {
+    return (
+      "execute_on_full did not produce conversion output. " +
+      "Run execute_on_sample until it passes validation, then execute_on_full again."
+    );
+  }
+  return (
+    `execute_on_full did not produce conversion output. ` +
+    `Last ${formatToolName(lastToolFailure.toolName)} error: ${lastToolFailure.errorSummary} ` +
+    "Fix the converter, verify with execute_on_sample, then run execute_on_full again."
+  );
+}
+
+function formatToolName(toolName: string): string {
+  switch (toolName) {
+    case "execute_on_full":
+      return "execute_on_full";
+    case "execute_on_sample":
+      return "execute_on_sample";
+    default:
+      return toolName;
+  }
+}
+
+function truncateUserErrorMessage(message: string): string {
+  if (message.length <= MAX_USER_ERROR_MESSAGE_CHARS) {
+    return message;
+  }
+  return `${message.slice(0, MAX_USER_ERROR_MESSAGE_CHARS)}…`;
 }
 
 export function truncateToolOutput(content: string, maxLen = 8000): string {

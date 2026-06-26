@@ -100,6 +100,7 @@ internal object OnboardingViewModelTestFixtures {
                 ),
             ),
         )
+        fakeHistoricalImport.resetInvocations()
     }
 
     fun seedOrphanImportHistory() {

@@ -13,6 +13,10 @@ class ImportProgressUiTest {
             catalogProgressStepStringRes(ImportCatalogProgressStep.LoadingConvertedData),
         )
         assertEquals(
+            FeatureR.string.gym_lifts_import_subtitle_merging,
+            catalogProgressStepStringRes(ImportCatalogProgressStep.MergingImportedFiles(fileCount = 3)),
+        )
+        assertEquals(
             FeatureR.string.gym_lifts_import_subtitle_matching,
             catalogProgressStepStringRes(ImportCatalogProgressStep.MatchingCatalog(exerciseCount = 1)),
         )

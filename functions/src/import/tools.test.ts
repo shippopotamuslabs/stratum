@@ -196,6 +196,7 @@ describe("dispatchTool", () => {
     assert.equal(result.conversionUpdated, true);
     assert.equal(jobRef.data.progressPhase, "converting_full");
     assert.ok(jobRef.data.fullSliceStoragePath);
+    assert.equal(jobRef.data.fullSliceStoragePath, rawPath);
     assert.ok(jobRef.data.latestConversion);
     const conversionPaths = [...storage.files.keys()].filter((k) => k.includes("/conversions/"));
     assert.equal(conversionPaths.length, 1);

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import android.net.Uri
+import com.stratum.domain.importing.ImportFileInput
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -59,12 +60,19 @@ fun OnboardingRoute(
 
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@rememberLauncherForActivityResult
-        val name = uri.lastPathSegment ?: "import.csv"
-        viewModel.onImportFileSelected(bytes, name)
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris: List<Uri> ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        val files =
+            uris.mapNotNull { uri ->
+                val bytes =
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: return@mapNotNull null
+                val name = uri.lastPathSegment?.substringAfterLast('/') ?: "import.csv"
+                ImportFileInput(bytes = bytes, fileName = name)
+            }
+        if (files.isEmpty()) return@rememberLauncherForActivityResult
+        viewModel.onImportFilesSelected(files)
     }
 
     OnboardingWizard(
