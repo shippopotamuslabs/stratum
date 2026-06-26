@@ -13,8 +13,6 @@ import kotlin.math.abs
  * Pure analytics over normalized history. Computes metrics only — persistence is the use case's job.
  */
 object TrainingInsightsExtractor {
-    private const val MAX_WINDOW_DAYS = 183L
-    private const val MIN_WEEKS = 12L
     private const val MIN_SESSIONS_FOR_FATIGUE = 3
     private const val MIN_WEEKLY_POINTS_FOR_PROGRESS = 4
     private const val SUPERSET_MAX_MEDIAN_SECONDS = 90.0
@@ -22,7 +20,6 @@ object TrainingInsightsExtractor {
     private const val STAGNANT_SLOPE_THRESHOLD = 0.25
     private const val DAYS_PER_WEEK = 7L
     private const val SECONDS_PER_WEEK = 7L * 24L * 3600L
-    private const val MAJOR_MUSCLE_HARD_SET_THRESHOLD = 30
     private const val P90_QUANTILE = 0.9
     private const val REGRESSION_DENOM_EPSILON = 1e-9
 
@@ -46,7 +43,7 @@ object TrainingInsightsExtractor {
 
     fun analyze(input: AnalysisInput): AnalysisOutput {
         val liftById = input.lifts.associateBy { it.id }
-        val window = selectWindow(input.sessions, input.sets, liftById)
+        val window = selectFullHistoryWindow(input.sessions, input.sets)
         val windowSets = input.sets.filter { it.completedAt in window.start..window.endInclusive }
         val windowSessions = input.sessions.filter { it.startedAt in window.start..window.endInclusive }
 
@@ -71,31 +68,23 @@ object TrainingInsightsExtractor {
 
     private data class Window(val start: Instant, val endInclusive: Instant)
 
-    private fun selectWindow(
+    private fun selectFullHistoryWindow(
         sessions: List<HistoricalSession>,
         sets: List<LoggedSet>,
-        liftById: Map<LiftId, Lift>,
     ): Window {
-        if (sessions.isEmpty()) {
+        if (sessions.isEmpty() && sets.isEmpty()) {
             val now = Instant.now()
-            return Window(now.minus(MAX_WINDOW_DAYS, ChronoUnit.DAYS), now)
+            return Window(now, now)
         }
-        val sorted = sessions.sortedBy { it.startedAt }
-        val latestActivity = sets.maxOfOrNull { it.completedAt } ?: sorted.last().startedAt
-        val latest = maxOf(sorted.last().startedAt, latestActivity)
-        val earliestAllowed = latest.minus(MAX_WINDOW_DAYS, ChronoUnit.DAYS)
-        val candidateStart = maxOf(sorted.first().startedAt, earliestAllowed)
-        val weeks = ChronoUnit.DAYS.between(candidateStart, latest) / DAYS_PER_WEEK
-            .coerceAtLeast(1)
-        val windowSets = sets.filter { it.completedAt >= candidateStart && it.completedAt <= latest }
-        val hardSetsByMuscle = countHardSetsByMuscle(windowSets, liftById)
-        val majorMusclesSatisfied = hardSetsByMuscle.values.any { it >= MAJOR_MUSCLE_HARD_SET_THRESHOLD }
-        val start = if (weeks >= MIN_WEEKS || majorMusclesSatisfied) {
-            candidateStart
-        } else {
-            sorted.first().startedAt.coerceAtLeast(earliestAllowed)
-        }
-        return Window(start, latest)
+        val sessionStarts = sessions.map { it.startedAt }
+        val setTimes = sets.map { it.completedAt }
+        val earliest =
+            (sessionStarts + setTimes).minOrNull()
+                ?: Instant.now()
+        val latest =
+            (sessionStarts + setTimes).maxOrNull()
+                ?: Instant.now()
+        return Window(earliest, latest)
     }
 
     private fun computeLiftInsights(
@@ -233,20 +222,6 @@ object TrainingInsightsExtractor {
                 trendSlope = trend,
             )
         }
-    }
-
-    private fun countHardSetsByMuscle(
-        sets: List<LoggedSet>,
-        liftById: Map<LiftId, Lift>,
-    ): Map<MuscleGroup, Int> {
-        val counts = mutableMapOf<MuscleGroup, Int>()
-        sets.filter { it.liftId != null }.forEach { set ->
-            val lift = liftById[set.liftId] ?: return@forEach
-            lift.primaryMuscles.forEach { muscle ->
-                counts[muscle] = counts.getOrDefault(muscle, 0) + 1
-            }
-        }
-        return counts
     }
 
     private data class Regression(val slope: Double, val intercept: Double)
