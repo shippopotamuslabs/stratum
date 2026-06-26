@@ -145,6 +145,7 @@ data class GymLiftsDraftUi(
     val hasCompletedHistoricalImport: Boolean = false,
     val importProgress: ImportProgress? = null,
     val importError: String? = null,
+    val importInsightsSummary: ImportInsightsSummaryUi? = null,
     val isValid: Boolean = false,
     val showErrors: Boolean = false,
 ) {

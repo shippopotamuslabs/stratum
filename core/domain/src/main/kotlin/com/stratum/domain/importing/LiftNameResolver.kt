@@ -40,18 +40,24 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
     )
 
     private fun scoreBest(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): ScoredLiftMatch? {
-        val queryTokens = tokenize(exerciseNameRaw)
+        val queryTokens = queryTokens(exerciseNameRaw)
         if (queryTokens.isEmpty()) return null
 
         var best: ScoredLiftMatch? = null
         catalogNames.forEach { (id, name) ->
             val score = scoreAgainstCatalogName(exerciseNameRaw, queryTokens, name)
             val candidate = ScoredLiftMatch(liftId = id, catalogName = name, score = score)
-            if (best == null || score > best.score) {
+            if (best == null || isBetterMatch(candidate, best)) {
                 best = candidate
             }
         }
         return best
+    }
+
+    private fun isBetterMatch(candidate: ScoredLiftMatch, current: ScoredLiftMatch): Boolean {
+        if (candidate.score > current.score + SCORE_EPSILON) return true
+        if (current.score > candidate.score + SCORE_EPSILON) return false
+        return candidate.catalogName.length < current.catalogName.length
     }
 
     private fun scoreAgainstCatalogName(
@@ -59,9 +65,10 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         queryTokens: List<String>,
         catalogName: String,
     ): Double {
-        val docTokens = tokenize(catalogName)
+        val docTokens = catalogTokens(catalogName)
         if (docTokens.isEmpty()) return 0.0
 
+        val queryTokenSet = queryTokens.toSet()
         val overlap = queryTokens.intersect(docTokens.toSet()).size.toDouble()
         val levBonus = levenshteinBonus(exerciseNameRaw, catalogName)
         if (overlap == 0.0) {
@@ -73,8 +80,37 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         val queryRecall = overlap / queryTokens.size.coerceAtLeast(1)
         val docRecall = overlap / docTokens.size.coerceAtLeast(1)
         val tokenScore = maxOf(jaccard, queryRecall, docRecall)
-        return tokenScore + levBonus
+        val equipmentPenalty =
+            docTokens
+                .count { token -> token !in queryTokenSet && token in EQUIPMENT_TOKENS }
+                .toDouble() * EQUIPMENT_TOKEN_PENALTY
+        return (tokenScore + levBonus - equipmentPenalty).coerceAtLeast(0.0)
     }
+
+    private fun queryTokens(exerciseNameRaw: String): List<String> =
+        applyQueryMatchingAliases(tokenize(exerciseNameRaw))
+
+    private fun catalogTokens(catalogName: String): List<String> = tokenize(catalogName)
+
+    private fun applyQueryMatchingAliases(tokens: List<String>): List<String> {
+        if (!tokens.contains(CURL_TOKEN) || !tokens.contains(HAMSTRING_TOKEN)) {
+            return tokens
+        }
+        return tokens.map { token -> if (token == HAMSTRING_TOKEN) LEG_TOKEN else token }
+    }
+
+    private fun tokenize(value: String): List<String> =
+        normalizeForMatching(value)
+            .split(TOKEN_SPLIT_REGEX)
+            .filter { it.isNotBlank() }
+            .map { stemMatchingToken(it) }
+
+    private fun stemMatchingToken(token: String): String =
+        if (token.length > MIN_STEM_TOKEN_LENGTH && token.endsWith('s')) {
+            token.dropLast(1)
+        } else {
+            token
+        }
 
     private fun levenshteinBonus(exerciseNameRaw: String, catalogName: String): Double {
         val normalizedQuery = normalizeForMatching(exerciseNameRaw)
@@ -85,9 +121,6 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
             0.0
         }
     }
-
-    private fun tokenize(value: String): List<String> =
-        normalizeForMatching(value).split(Regex("\\s+")).filter { it.isNotBlank() }
 
     private fun normalizeForMatching(value: String): String =
         ImportExerciseNameNormalizer.normalizeForMatching(value)
@@ -117,6 +150,25 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         const val MATCH_THRESHOLD = 0.6
         private const val LEVENSHTEIN_DISTANCE_THRESHOLD = 3
         private const val LEVENSHTEIN_BONUS = 0.5
+        private const val EQUIPMENT_TOKEN_PENALTY = 0.2
+        private const val SCORE_EPSILON = 0.000_1
+        private const val MIN_STEM_TOKEN_LENGTH = 3
+        private const val HAMSTRING_TOKEN = "hamstring"
+        private const val LEG_TOKEN = "leg"
+        private const val CURL_TOKEN = "curl"
+        private val TOKEN_SPLIT_REGEX = Regex("\\s+")
+        private val EQUIPMENT_TOKENS =
+            setOf(
+                "band",
+                "barbell",
+                "cable",
+                "dumbbell",
+                "kettlebell",
+                "machine",
+                "plate",
+                "rope",
+                "smith",
+            )
     }
 }
 

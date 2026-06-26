@@ -25,6 +25,7 @@ internal fun List<Lift>.toGymLiftsDraft(
     hasCompletedHistoricalImport: Boolean,
     importProgress: ImportProgress?,
     importError: String?,
+    importInsightsSummary: ImportInsightsSummaryUi?,
     liftsValid: Boolean,
     showErrors: Boolean,
 ): GymLiftsDraftUi = GymLiftsDraftUi(
@@ -33,6 +34,7 @@ internal fun List<Lift>.toGymLiftsDraft(
     hasCompletedHistoricalImport = hasCompletedHistoricalImport,
     importProgress = importProgress,
     importError = importError,
+    importInsightsSummary = importInsightsSummary,
     isValid = liftsValid,
     showErrors = showErrors,
 )

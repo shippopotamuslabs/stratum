@@ -34,6 +34,7 @@ import com.stratum.core.data.repository.RoomExperimentBlockRepository
 import com.stratum.core.data.repository.RoomLiftEffectivenessObservationRepository
 import com.stratum.core.data.repository.RoomResponseEpochRepository
 import com.stratum.core.data.repository.RoomResponseProfileMetadataRepository
+import com.stratum.core.data.repository.RoomResponseProfilePersistenceRepository
 import com.stratum.core.data.repository.RoomVolumeResponseObservationRepository
 import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
 import com.stratum.core.data.repository.RoomImportJobRepository
@@ -58,6 +59,7 @@ import com.stratum.domain.response.LiftEffectivenessObservationRepository
 import com.stratum.domain.response.ResponseEpochRepository
 import com.stratum.domain.response.ResponseObservationExtractor
 import com.stratum.domain.response.ResponseProfileMetadataRepository
+import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.VolumeResponseObservationRepository
 import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import dagger.Binds
@@ -269,6 +271,12 @@ abstract class RepositoryModule {
     abstract fun bindExperimentBlockRepository(
         impl: RoomExperimentBlockRepository,
     ): ExperimentBlockRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindResponseProfilePersistencePort(
+        impl: RoomResponseProfilePersistenceRepository,
+    ): ResponseProfilePersistencePort
 
     @Binds
     @Singleton

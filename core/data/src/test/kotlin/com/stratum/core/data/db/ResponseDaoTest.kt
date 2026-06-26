@@ -50,11 +50,11 @@ class ResponseDaoTest {
                 RuntimeEnvironment.getApplication(),
                 StratumDatabase::class.java,
             ).allowMainThreadQueries().build()
-        epochRepository = RoomResponseEpochRepository(database.responseEpochDao())
-        volumeRepository = RoomVolumeResponseObservationRepository(database.volumeResponseObservationDao())
+        epochRepository = RoomResponseEpochRepository(database, database.responseEpochDao())
+        volumeRepository = RoomVolumeResponseObservationRepository(database, database.volumeResponseObservationDao())
         effectivenessRepository =
-            RoomLiftEffectivenessObservationRepository(database.liftEffectivenessObservationDao())
-        experimentRepository = RoomExperimentBlockRepository(database.experimentBlockDao())
+            RoomLiftEffectivenessObservationRepository(database, database.liftEffectivenessObservationDao())
+        experimentRepository = RoomExperimentBlockRepository(database, database.experimentBlockDao())
         metadataRepository = RoomResponseProfileMetadataRepository(database.responseProfileMetadataDao())
     }
 

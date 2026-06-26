@@ -6,6 +6,7 @@ import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.HistoricalImportRunnerPort
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
+import com.stratum.domain.importing.LoadHistoricalImportSummaryUseCase
 import com.stratum.domain.importing.ReconcileHistoricalImportUseCase
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.lift.ApplyGymPresetUseCase
@@ -44,6 +45,7 @@ class OnboardingViewModel @Inject constructor(
     private val runFullHistoricalImport: HistoricalImportRunnerPort,
     private val rollbackHistoricalImport: RollbackHistoricalImportUseCase,
     private val reconcileHistoricalImport: ReconcileHistoricalImportUseCase,
+    private val loadHistoricalImportSummary: LoadHistoricalImportSummaryUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
 ) : ViewModel() {
 
@@ -54,10 +56,12 @@ class OnboardingViewModel @Inject constructor(
     private val importProgress = MutableStateFlow<ImportProgress?>(null)
     private val importError = MutableStateFlow<String?>(null)
     private val hasCompletedHistoricalImport = MutableStateFlow(false)
+    private val importInsightsSummary = MutableStateFlow<ImportInsightsSummaryUi?>(null)
 
     init {
         viewModelScope.launch {
             refreshPersistedImportState()
+            refreshImportInsightsSummary()
         }
     }
 
@@ -99,7 +103,16 @@ class OnboardingViewModel @Inject constructor(
                 importError,
                 hasCompletedHistoricalImport,
             ) { errs, presetApplying, progress, importErr, hasCompleted ->
-                ImportUiFlags(errs, presetApplying, progress, importErr, hasCompleted)
+                ImportUiFlagsPartial(errs, presetApplying, progress, importErr, hasCompleted)
+            }.combine(importInsightsSummary) { partial, insightsSummary ->
+                ImportUiFlags(
+                    showErrors = partial.showErrors,
+                    presetApplying = partial.presetApplying,
+                    importProgress = partial.importProgress,
+                    importError = partial.importError,
+                    hasCompletedHistoricalImport = partial.hasCompletedHistoricalImport,
+                    importInsightsSummary = insightsSummary,
+                )
             },
         ) { current, profile, edit, spec, importFlags ->
             val step = current.currentStep.toWizardStepUi()
@@ -141,6 +154,7 @@ class OnboardingViewModel @Inject constructor(
                     hasCompletedHistoricalImport = importFlags.hasCompletedHistoricalImport,
                     importProgress = importFlags.importProgress,
                     importError = importFlags.importError,
+                    importInsightsSummary = importFlags.importInsightsSummary,
                     liftsValid = gymLiftsValid,
                     showErrors = importFlags.showErrors,
                 ),
@@ -252,6 +266,7 @@ class OnboardingViewModel @Inject constructor(
                     is HistoricalImportEvent.Completed -> {
                         importProgress.value = ImportProgress(ImportProgressPhase.Complete)
                         refreshPersistedImportState()
+                        refreshImportInsightsSummary()
                     }
                     is HistoricalImportEvent.Failed -> {
                         rollbackHistoricalImport()
@@ -266,6 +281,17 @@ class OnboardingViewModel @Inject constructor(
 
     private suspend fun refreshPersistedImportState() {
         hasCompletedHistoricalImport.value = reconcileHistoricalImport()
+        if (!hasCompletedHistoricalImport.value) {
+            importInsightsSummary.value = null
+        }
+    }
+
+    private suspend fun refreshImportInsightsSummary() {
+        if (!hasCompletedHistoricalImport.value) {
+            importInsightsSummary.value = null
+            return
+        }
+        importInsightsSummary.value = loadHistoricalImportSummary()?.toImportInsightsSummaryUi()
     }
 
     fun next() {
@@ -345,12 +371,21 @@ class OnboardingViewModel @Inject constructor(
         return copy(levels = base)
     }
 
+    private data class ImportUiFlagsPartial(
+        val showErrors: Boolean,
+        val presetApplying: Boolean,
+        val importProgress: ImportProgress?,
+        val importError: String?,
+        val hasCompletedHistoricalImport: Boolean,
+    )
+
     private data class ImportUiFlags(
         val showErrors: Boolean,
         val presetApplying: Boolean,
         val importProgress: ImportProgress?,
         val importError: String?,
         val hasCompletedHistoricalImport: Boolean,
+        val importInsightsSummary: ImportInsightsSummaryUi?,
     )
 
     private companion object {

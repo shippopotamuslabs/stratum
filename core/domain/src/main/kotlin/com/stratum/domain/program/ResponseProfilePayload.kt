@@ -3,6 +3,7 @@ package com.stratum.domain.program
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.domain.response.HYPOTHESIS_CONFIDENCE_PAYLOAD_MIN
 import com.stratum.domain.response.LiftEffectivenessObservation
+import com.stratum.domain.response.ResponseEvidenceMerger
 import com.stratum.domain.response.VolumeResponseObservation
 import java.time.Instant
 
@@ -44,8 +45,8 @@ data class ResponseProfilePayload(
             analysisWindowEnd: Instant,
         ): ResponseProfilePayload =
             ResponseProfilePayload(
-                volumeResponses = filterVolumeInfluence(volumeObservations),
-                liftEffectiveness = filterLiftEffectivenessInfluence(effectivenessObservations),
+                volumeResponses = filterVolumeInfluenceWithMerge(volumeObservations),
+                liftEffectiveness = filterLiftEffectivenessInfluenceWithMerge(effectivenessObservations),
                 informational =
                     ResponseProfileInformational(
                         volumeResponses = filterInformationalVolume(volumeObservations),
@@ -111,9 +112,34 @@ fun LiftEffectivenessObservation.toInfluenceOrNull(): LiftEffectivenessInfluence
 fun filterVolumeInfluence(observations: List<VolumeResponseObservation>): List<VolumeResponseInfluence> =
     observations.mapNotNull { it.toInfluenceOrNull() }
 
+fun filterVolumeInfluenceWithMerge(observations: List<VolumeResponseObservation>): List<VolumeResponseInfluence> =
+    observations.groupBy { it.muscle }.flatMap { (_, muscleObservations) ->
+        when (ResponseEvidenceMerger.mergeVolumeEvidence(muscleObservations)) {
+            EvidenceLevel.Proven -> {
+                val representative = muscleObservations.maxBy { it.confidenceScore }
+                listOfNotNull(representative.copy(evidence = EvidenceLevel.Proven).toInfluenceOrNull())
+            }
+            else -> muscleObservations.mapNotNull { it.toInfluenceOrNull() }
+        }
+    }
+
 fun filterLiftEffectivenessInfluence(
     observations: List<LiftEffectivenessObservation>,
 ): List<LiftEffectivenessInfluence> = observations.mapNotNull { it.toInfluenceOrNull() }
+
+fun filterLiftEffectivenessInfluenceWithMerge(
+    observations: List<LiftEffectivenessObservation>,
+): List<LiftEffectivenessInfluence> =
+    observations.groupBy { it.pattern }.flatMap { (_, patternObservations) ->
+        val rankOnes = patternObservations.filter { it.rank == 1 }
+        when (ResponseEvidenceMerger.mergeLiftEffectivenessEvidence(rankOnes)) {
+            EvidenceLevel.Proven -> {
+                val representative = rankOnes.maxBy { it.confidenceScore }
+                listOfNotNull(representative.copy(evidence = EvidenceLevel.Proven).toInfluenceOrNull())
+            }
+            else -> patternObservations.mapNotNull { it.toInfluenceOrNull() }
+        }
+    }
 
 fun filterInformationalVolume(
     observations: List<VolumeResponseObservation>,

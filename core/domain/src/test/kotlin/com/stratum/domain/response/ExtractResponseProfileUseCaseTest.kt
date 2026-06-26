@@ -1,11 +1,7 @@
 package com.stratum.domain.response
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.core.testing.response.FakeExperimentBlockRepository
-import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
-import com.stratum.core.testing.response.FakeResponseEpochRepository
-import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
-import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
+import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.domain.importing.HistoricalSession
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
@@ -26,47 +22,26 @@ class ExtractResponseProfileUseCaseTest {
     @DisplayName("RP-S7-002 extract use case round trip")
     fun rpS7_002_extractUseCaseRoundTrip() = runTest {
         val fixture = ResponseFixtures.fixS7MultiEpoch()
-        val historyRepo = FakeTrainingHistoryRepository(fixture.sessions, fixture.sets)
-        val liftRepo = FakeLiftRepository()
-        liftRepo.seedLifts(fixture.lifts)
-        val epochRepo = FakeResponseEpochRepository()
-        val volumeRepo = FakeVolumeResponseObservationRepository()
-        val effectivenessRepo = FakeLiftEffectivenessObservationRepository()
-        val experimentRepo = FakeExperimentBlockRepository()
-        val metadataRepo = FakeResponseProfileMetadataRepository()
-        val useCase =
-            ExtractResponseProfileUseCase(
-                trainingHistoryRepository = historyRepo,
-                liftRepository = liftRepo,
-                liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
-                muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
-                importAnalysisMetadataRepository = FakeImportMetadataRepository(fixture),
-                responseEpochRepository = epochRepo,
-                volumeResponseObservationRepository = volumeRepo,
-                liftEffectivenessObservationRepository = effectivenessRepo,
-                experimentBlockRepository = experimentRepo,
-                responseProfileMetadataRepository = metadataRepo,
-                extractor = DefaultResponseObservationExtractor(),
-                experimentRegistry = EmptyExperimentRegistry(),
-            )
+        val persistence = FakeResponseProfilePersistencePort()
+        val useCase = buildUseCase(fixture, persistence)
 
         val result = useCase(fixture.provenLiftIds)
 
         assertTrue(result.isSuccess)
-        assertEquals(2, epochRepo.getAll().size)
-        assertEquals(2, metadataRepo.get()?.epochsAnalyzed)
+        assertEquals(2, persistence.epochRepository.getAll().size)
+        assertEquals(2, persistence.metadataRepository.get()?.epochsAnalyzed)
     }
 
     @Test
     @DisplayName("RP-S7-003 empty experiment registry")
     fun rpS7_003_emptyExperimentRegistry() = runTest {
         val fixture = ResponseFixtures.fixS7MultiEpoch()
-        val experimentRepo = FakeExperimentBlockRepository()
-        val useCase = buildUseCase(fixture, experimentRepo)
+        val persistence = FakeResponseProfilePersistencePort()
+        val useCase = buildUseCase(fixture, persistence)
 
         val summary = useCase(fixture.provenLiftIds).getOrThrow()
 
-        assertEquals(0, experimentRepo.getAll().size)
+        assertEquals(0, persistence.experimentRepository.getAll().size)
         assertEquals(0, summary.experimentsRecorded)
     }
 
@@ -74,7 +49,7 @@ class ExtractResponseProfileUseCaseTest {
     @DisplayName("RP-S7-004 summary fields")
     fun rpS7_004_summaryFields() = runTest {
         val fixture = ResponseFixtures.fixS7MultiEpoch()
-        val useCase = buildUseCase(fixture, FakeExperimentBlockRepository())
+        val useCase = buildUseCase(fixture, FakeResponseProfilePersistencePort())
 
         val summary = useCase(fixture.provenLiftIds).getOrThrow()
 
@@ -84,9 +59,31 @@ class ExtractResponseProfileUseCaseTest {
         assertEquals(0, summary.experimentsRecorded)
     }
 
+    @Test
+    @DisplayName("RP-S7-005 empty history does not crash")
+    fun rpS7_005_emptyHistoryDoesNotCrash() = runTest {
+        val persistence = FakeResponseProfilePersistencePort()
+        val useCase =
+            ExtractResponseProfileUseCase(
+                trainingHistoryRepository = FakeTrainingHistoryRepository(emptyList(), emptyList()),
+                liftRepository = FakeLiftRepository(),
+                liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
+                muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
+                importAnalysisMetadataRepository = FakeImportMetadataRepository(null),
+                responseProfilePersistence = persistence,
+                extractor = DefaultResponseObservationExtractor(),
+                experimentRegistry = EmptyExperimentRegistry(),
+            )
+
+        val result = useCase()
+
+        assertTrue(result.isSuccess)
+        assertEquals(1, persistence.epochRepository.getAll().size)
+    }
+
     private fun buildUseCase(
         fixture: ResponseExtractionInput,
-        experimentRepo: FakeExperimentBlockRepository,
+        persistence: FakeResponseProfilePersistencePort,
     ): ExtractResponseProfileUseCase {
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(fixture.lifts)
@@ -96,11 +93,7 @@ class ExtractResponseProfileUseCaseTest {
             liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
             muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
             importAnalysisMetadataRepository = FakeImportMetadataRepository(fixture),
-            responseEpochRepository = FakeResponseEpochRepository(),
-            volumeResponseObservationRepository = FakeVolumeResponseObservationRepository(),
-            liftEffectivenessObservationRepository = FakeLiftEffectivenessObservationRepository(),
-            experimentBlockRepository = experimentRepo,
-            responseProfileMetadataRepository = FakeResponseProfileMetadataRepository(),
+            responseProfilePersistence = persistence,
             extractor = DefaultResponseObservationExtractor(),
             experimentRegistry = EmptyExperimentRegistry(),
         )
@@ -138,19 +131,21 @@ class ExtractResponseProfileUseCaseTest {
     }
 
     private class FakeImportMetadataRepository(
-        private val fixture: ResponseExtractionInput,
+        private val fixture: ResponseExtractionInput?,
     ) : ImportAnalysisMetadataRepository {
         override suspend fun save(metadata: ImportAnalysisMetadata) = Unit
 
         override suspend fun get(): ImportAnalysisMetadata? =
-            ImportAnalysisMetadata(
-                windowStart = fixture.analysisWindowStart,
-                windowEnd = fixture.analysisWindowEnd,
-                provenLiftIds = fixture.provenLiftIds.toList(),
-                unmatchedExerciseNames = emptyList(),
-                totalSessions = fixture.sessions.size,
-                totalSets = fixture.sets.size,
-            )
+            fixture?.let {
+                ImportAnalysisMetadata(
+                    windowStart = it.analysisWindowStart,
+                    windowEnd = it.analysisWindowEnd,
+                    provenLiftIds = it.provenLiftIds.toList(),
+                    unmatchedExerciseNames = emptyList(),
+                    totalSessions = it.sessions.size,
+                    totalSets = it.sets.size,
+                )
+            }
 
         override suspend fun clear() = Unit
     }

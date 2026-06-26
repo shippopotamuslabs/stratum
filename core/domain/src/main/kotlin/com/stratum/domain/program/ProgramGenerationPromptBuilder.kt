@@ -85,9 +85,9 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             buildString {
                 append(""","trainingInsights":{""")
                 append(""""sessionCount":${insights.sessionCount}""")
-                e1rm?.let { append(""","estimatedOneRm":$it""") }
-                slope?.let { append(""","fatigueDecaySlope":$it""") }
-                intercept?.let { append(""","fatigueDecayIntercept":$it""") }
+                append(e1rm.toJsonField("estimatedOneRm"))
+                append(slope.toJsonField("fatigueDecaySlope"))
+                append(intercept.toJsonField("fatigueDecayIntercept"))
                 trend?.let { append(""","progressTrend":${it.quoteJson()}""") }
                 append('}')
             }
@@ -105,7 +105,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
     }
 
     private fun MuscleVolumeBaseline.toJson(): String {
-        val trend = trendSlope?.let { ""","trendSlope":$it""" } ?: ""
+        val trend = trendSlope.toJsonField("trendSlope")
         val muscle = muscle.name.quoteJson()
         return """{"muscle":$muscle,"meanWeeklyHardSets":$meanWeeklyHardSets,"p90WeeklyHardSets":$p90WeeklyHardSets$trend}"""
     }
@@ -118,8 +118,8 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
                 buildString {
                     append("""{"muscle":${influence.muscle.name.quoteJson()},""")
                     append(""""anchorLiftId":${influence.anchorLiftId.value.quoteJson()},""")
-                    append(""""correlationSlope":${influence.correlationSlope},""")
-                    append(""""confidenceScore":${influence.confidenceScore},""")
+                    append(influence.correlationSlope.toJsonField("correlationSlope"))
+                    append(influence.confidenceScore.toJsonField("confidenceScore"))
                     append(""""evidence":${influence.evidence.name.quoteJson()}}""")
                 }
             }
@@ -128,7 +128,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
                 buildString {
                     append("""{"pattern":${influence.pattern.name.quoteJson()},""")
                     append(""""liftId":${influence.liftId.value.quoteJson()},""")
-                    append(""""effectivenessScore":${influence.effectivenessScore},""")
+                    append(influence.effectivenessScore.toJsonField("effectivenessScore"))
                     append(""""rank":${influence.rank},""")
                     append(""""evidence":${influence.evidence.name.quoteJson()}}""")
                 }
@@ -137,7 +137,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             informational.volumeResponses.joinToString(",") { observation ->
                 buildString {
                     append("""{"muscle":${observation.muscle.name.quoteJson()},""")
-                    append(""""confidenceScore":${observation.confidenceScore},""")
+                    append(observation.confidenceScore.toJsonField("confidenceScore"))
                     append(""""evidence":${observation.evidence.name.quoteJson()}}""")
                 }
             }
@@ -146,7 +146,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
                 buildString {
                     append("""{"pattern":${observation.pattern.name.quoteJson()},""")
                     append(""""liftId":${observation.liftId.value.quoteJson()},""")
-                    append(""""confidenceScore":${observation.confidenceScore},""")
+                    append(observation.confidenceScore.toJsonField("confidenceScore"))
                     append(""""evidence":${observation.evidence.name.quoteJson()}}""")
                 }
             }

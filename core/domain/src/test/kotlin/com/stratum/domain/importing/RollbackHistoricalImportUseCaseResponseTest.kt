@@ -1,11 +1,7 @@
 package com.stratum.domain.importing
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.core.testing.response.FakeExperimentBlockRepository
-import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
-import com.stratum.core.testing.response.FakeResponseEpochRepository
-import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
-import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
+import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
@@ -41,37 +37,29 @@ class RollbackHistoricalImportUseCaseResponseTest {
     @Test
     @DisplayName("RP-S9-003 rollback clears response data")
     fun rpS9_003_rollbackClearsResponseData() = runTest {
-        val epochRepo = FakeResponseEpochRepository()
-        val volumeRepo = FakeVolumeResponseObservationRepository()
-        val effectivenessRepo = FakeLiftEffectivenessObservationRepository()
-        val experimentRepo = FakeExperimentBlockRepository()
-        val metadataRepo = FakeResponseProfileMetadataRepository()
-        seedResponseData(epochRepo, volumeRepo, effectivenessRepo, experimentRepo, metadataRepo)
+        val persistence = FakeResponseProfilePersistencePort()
+        seedResponseData(persistence)
         val rollback = buildRollback(
             historyRepo = seededHistoryRepository(),
             importMetadataRepo = InMemoryMetadataRepository(),
-            epochRepo = epochRepo,
-            volumeRepo = volumeRepo,
-            effectivenessRepo = effectivenessRepo,
-            experimentRepo = experimentRepo,
-            responseMetadataRepo = metadataRepo,
+            persistence = persistence,
         )
 
         rollback()
 
-        assertEquals(0, epochRepo.getAll().size)
-        assertEquals(0, volumeRepo.getAll().size)
-        assertEquals(0, effectivenessRepo.getAll().size)
-        assertEquals(0, experimentRepo.getAll().size)
-        assertNull(metadataRepo.get())
+        assertEquals(0, persistence.epochRepository.getAll().size)
+        assertEquals(0, persistence.volumeRepository.getAll().size)
+        assertEquals(0, persistence.effectivenessRepository.getAll().size)
+        assertEquals(0, persistence.experimentRepository.getAll().size)
+        assertNull(persistence.metadataRepository.get())
     }
 
     @Test
     @DisplayName("RP-S9-004 reconcile without metadata")
     fun rpS9_004_reconcileWithoutMetadata() = runTest {
         val historyRepo = seededHistoryRepository()
-        val epochRepo = FakeResponseEpochRepository()
-        epochRepo.seed(
+        val persistence = FakeResponseProfilePersistencePort()
+        persistence.epochRepository.seed(
             listOf(
                 ResponseFixtures.epoch(
                     id = "epoch-1",
@@ -86,27 +74,19 @@ class RollbackHistoricalImportUseCaseResponseTest {
             buildRollback(
                 historyRepo = historyRepo,
                 importMetadataRepo = importMetadataRepo,
-                epochRepo = epochRepo,
-                volumeRepo = FakeVolumeResponseObservationRepository(),
-                effectivenessRepo = FakeLiftEffectivenessObservationRepository(),
-                experimentRepo = FakeExperimentBlockRepository(),
-                responseMetadataRepo = FakeResponseProfileMetadataRepository(),
+                persistence = persistence,
             )
         val reconcile = ReconcileHistoricalImportUseCase(importMetadataRepo, rollback)
 
         assertFalse(reconcile())
         assertEquals(0, historyRepo.getAllSessions().size)
-        assertEquals(0, epochRepo.getAll().size)
+        assertEquals(0, persistence.epochRepository.getAll().size)
     }
 
     private fun buildRollback(
         historyRepo: InMemoryTrainingHistoryRepository,
         importMetadataRepo: ImportAnalysisMetadataRepository,
-        epochRepo: FakeResponseEpochRepository,
-        volumeRepo: FakeVolumeResponseObservationRepository,
-        effectivenessRepo: FakeLiftEffectivenessObservationRepository,
-        experimentRepo: FakeExperimentBlockRepository,
-        responseMetadataRepo: ResponseProfileMetadataRepository,
+        persistence: FakeResponseProfilePersistencePort,
     ): RollbackHistoricalImportUseCase =
         RollbackHistoricalImportUseCase(
             trainingHistoryRepository = historyRepo,
@@ -114,11 +94,7 @@ class RollbackHistoricalImportUseCaseResponseTest {
             supersetAffinityRepository = InMemorySupersetRepository(),
             muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
             importAnalysisMetadataRepository = importMetadataRepo,
-            responseEpochRepository = epochRepo,
-            volumeResponseObservationRepository = volumeRepo,
-            liftEffectivenessObservationRepository = effectivenessRepo,
-            experimentBlockRepository = experimentRepo,
-            responseProfileMetadataRepository = responseMetadataRepo,
+            responseProfilePersistence = persistence,
             liftRepository = FakeLiftRepository(),
         )
 
@@ -150,14 +126,10 @@ class RollbackHistoricalImportUseCaseResponseTest {
         )
 
     private suspend fun seedResponseData(
-        epochRepo: FakeResponseEpochRepository,
-        volumeRepo: FakeVolumeResponseObservationRepository,
-        effectivenessRepo: FakeLiftEffectivenessObservationRepository,
-        experimentRepo: FakeExperimentBlockRepository,
-        metadataRepo: FakeResponseProfileMetadataRepository,
+        persistence: FakeResponseProfilePersistencePort,
     ) {
         val epochId = EpochId("epoch-1")
-        epochRepo.seed(
+        persistence.epochRepository.seed(
             listOf(
                 ResponseFixtures.epoch(
                     id = epochId.value,
@@ -171,7 +143,7 @@ class RollbackHistoricalImportUseCaseResponseTest {
                 ),
             ),
         )
-        volumeRepo.seed(
+        persistence.volumeRepository.seed(
             listOf(
                 VolumeResponseObservation(
                     muscle = MuscleGroup.Quad,
@@ -206,8 +178,8 @@ class RollbackHistoricalImportUseCaseResponseTest {
                 ),
             ),
         )
-        effectivenessRepo.seed(emptyList())
-        experimentRepo.replaceAll(
+        persistence.effectivenessRepository.seed(emptyList())
+        persistence.experimentRepository.replaceAll(
             listOf(
                 ExperimentBlock(
                     id = ExperimentId("exp-1"),
@@ -228,7 +200,7 @@ class RollbackHistoricalImportUseCaseResponseTest {
                 ),
             ),
         )
-        metadataRepo.save(
+        persistence.metadataRepository.save(
             ResponseProfileMetadata(
                 epochsAnalyzed = 2,
                 analysisWindowStart = Instant.parse("2025-01-01T00:00:00Z"),

@@ -28,6 +28,7 @@ object EpochSplitter {
         splitPoints += sessionGapSplits(orderedSessions)
         splitPoints += equipmentShiftSplits(orderedSessions, cleanSets)
         splitPoints += primaryLiftSplits(orderedSessions, cleanSets)
+        splitPoints += changePointSplits(input, cleanSets, splitPoints)
 
         val uniqueStarts =
             splitPoints
@@ -40,8 +41,11 @@ object EpochSplitter {
         )
     }
 
-    fun markDeloadWeeks(epoch: Epoch, input: ResponseExtractionInput): Set<Instant> {
-        val cleanSets = TrainingSignalCleaner.clean(input)
+    fun markDeloadWeeks(
+        epoch: Epoch,
+        input: ResponseExtractionInput,
+        cleanSets: List<CleanTrainingSet> = TrainingSignalCleaner.clean(input),
+    ): Set<Instant> {
         val working = WeeklySignalSupport.workingSetsInEpoch(epoch, cleanSets)
         if (working.isEmpty()) return emptySet()
 
@@ -104,6 +108,45 @@ object EpochSplitter {
         val reason: EpochSplitReason,
         val priority: Int,
     )
+
+    private fun changePointSplits(
+        input: ResponseExtractionInput,
+        cleanSets: List<CleanTrainingSet>,
+        existingSplits: List<SplitPoint>,
+    ): List<SplitPoint> {
+        val working = cleanSets.filter { it.isWorkingSet && it.sourceSet.liftId != null }
+        if (working.isEmpty()) return emptyList()
+
+        val anchorLiftId =
+            working.groupingBy { it.sourceSet.liftId!! }.eachCount().maxByOrNull { it.value }?.key
+                ?: return emptyList()
+        val scanEpoch =
+            Epoch(
+                id = EpochId("change-point-scan"),
+                start = input.analysisWindowStart,
+                end = input.analysisWindowEnd,
+                anchorLiftIds = emptySet(),
+                splitReason = EpochSplitReason.WindowEnd,
+            )
+        val deloadWeeks = markDeloadWeeks(scanEpoch, input, cleanSets)
+        val signals = OutcomeSeriesBuilder.weeklyAnchorOutcomes(scanEpoch, anchorLiftId, cleanSets)
+        return ChangePointDetector.binarySegment(signals).mapNotNull { boundary ->
+            if (WeeklySignalSupport.weekStartFor(boundary) in deloadWeeks) return@mapNotNull null
+            val duplicatesExistingSplit =
+                existingSplits.any { split ->
+                    ChronoUnit.DAYS.between(
+                        WeeklySignalSupport.weekStartFor(split.start),
+                        WeeklySignalSupport.weekStartFor(boundary),
+                    ).let { days -> kotlin.math.abs(days) <= ROLLING_PRIMARY_WINDOW_WEEKS * 7L }
+                }
+            if (duplicatesExistingSplit) return@mapNotNull null
+            SplitPoint(
+                start = boundary,
+                reason = EpochSplitReason.ChangePoint,
+                priority = 4,
+            )
+        }
+    }
 
     private fun sessionGapSplits(sessions: List<HistoricalSession>): List<SplitPoint> {
         if (sessions.size < 2) return emptyList()
