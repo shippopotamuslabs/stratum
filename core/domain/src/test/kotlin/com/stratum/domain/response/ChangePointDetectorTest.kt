@@ -19,7 +19,7 @@ class ChangePointDetectorTest {
                 ResponseFixtures.weeklySignal(
                     weekStart = start,
                     muscle = com.stratum.domain.onboarding.MuscleGroup.Quad,
-                    hardSets = volume.toInt(),
+                    hardSets = volume,
                     peakEstimatedOneRm = volume,
                     smoothedEstimatedOneRm = volume,
                 )

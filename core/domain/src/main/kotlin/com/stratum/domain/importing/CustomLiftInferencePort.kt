@@ -19,15 +19,17 @@ data class InferredCustomLiftMetadata(
     val secondaryMuscles: Set<MuscleGroup> = emptySet(),
     val equipment: String? = null,
 ) {
-    fun toCustomLiftDefinition(defaultIncrement: Weight): CustomLiftDefinition =
-        CustomLiftDefinition(
-            name = exerciseNameRaw,
-            movementPattern = movementPattern,
-            primaryMuscles = primaryMuscles,
-            secondaryMuscles = secondaryMuscles,
-            equipment = equipment,
+    fun toCustomLiftDefinition(defaultIncrement: Weight): CustomLiftDefinition {
+        val normalized = CustomLiftMusclePolicy.withPatternSecondaryDefaults(this)
+        return CustomLiftDefinition(
+            name = normalized.exerciseNameRaw,
+            movementPattern = normalized.movementPattern,
+            primaryMuscles = normalized.primaryMuscles,
+            secondaryMuscles = normalized.secondaryMuscles,
+            equipment = normalized.equipment,
             increment = defaultIncrement,
         )
+    }
 }
 
 /** Cloud LLM port for inferring custom-lift metadata from exercise names. */

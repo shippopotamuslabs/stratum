@@ -19,7 +19,7 @@ object VolumeResponseAnalyzer {
 
         val stimulusByWeek =
             StimulusSeriesBuilder.weeklyHardSetsByMuscle(epoch, cleanSets, input.lifts)[muscle]
-                ?.associate { it.weekStart to it.hardSets.toDouble() }
+                ?.associate { it.weekStart to it.hardSets }
                 ?: emptyMap()
         val outcomeByWeek =
             OutcomeSeriesBuilder.weeklyAnchorOutcomes(epoch, anchorLiftId, cleanSets)

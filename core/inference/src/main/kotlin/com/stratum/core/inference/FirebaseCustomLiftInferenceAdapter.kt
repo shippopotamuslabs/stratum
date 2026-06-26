@@ -3,6 +3,7 @@ package com.stratum.core.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.importing.CustomLiftInferencePort
+import com.stratum.domain.importing.CustomLiftMusclePolicy
 import com.stratum.domain.importing.InferredCustomLiftMetadata
 import com.stratum.domain.importing.UnmatchedExerciseCandidate
 import com.stratum.domain.lift.MovementPattern
@@ -65,7 +66,7 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor() : CustomLiftInfer
             primaryMuscles = primary,
             secondaryMuscles = secondary,
             equipment = equipment,
-        )
+        ).let(CustomLiftMusclePolicy::withPatternSecondaryDefaults)
     }
 
     private fun parseMuscleGroups(value: Any?, maxItems: Int): Set<MuscleGroup> {

@@ -23,7 +23,7 @@ object OutcomeSeriesBuilder {
                     weekStart = weekStart,
                     liftId = anchorLiftId,
                     muscle = null,
-                    hardSets = weekSets.size,
+                    hardSets = weekSets.size.toDouble(),
                     sessions = weekSets.map { it.sourceSet.sessionId }.distinct().size,
                     meanRir = weekSets.mapNotNull { it.sourceSet.rir }.average().takeIf { weekSets.any { s -> s.sourceSet.rir != null } },
                     intensityProxy = IntensityProxyCalculator.forWeek(weekSets, anchorLiftId),

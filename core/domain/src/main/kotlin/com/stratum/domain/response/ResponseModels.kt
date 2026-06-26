@@ -65,7 +65,7 @@ data class WeeklyTrainingSignal(
     val weekStart: Instant,
     val liftId: LiftId?,
     val muscle: MuscleGroup?,
-    val hardSets: Int,
+    val hardSets: Double,
     val sessions: Int,
     val meanRir: Double?,
     val intensityProxy: Double?,
