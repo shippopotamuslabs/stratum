@@ -62,6 +62,9 @@ functions/.env.*
 functions-python/venv/
 functions-python/**/__pycache__/
 functions-python/.pytest_cache/
+scripts/.venv-embed/
+scripts/**/__pycache__/
+**/.venv*/
 **/__pycache__/
 *.py[cod]
 *$py.class
@@ -73,3 +76,6 @@ venv/
 .mypy_cache/
 .ruff_cache/
 pip-wheel-metadata/
+# sentence-transformers / Hugging Face model cache (local embed builds)
+**/.cache/huggingface/
+.cache/
