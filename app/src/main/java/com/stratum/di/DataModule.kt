@@ -44,9 +44,12 @@ import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.data.repository.RoomSupersetAffinityRepository
 import com.stratum.core.data.repository.RoomTrainingHistoryRepository
 import com.stratum.domain.importing.Bm25LiftNameResolver
+import com.stratum.domain.importing.HybridLiftNameResolver
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.ImportJobRepository
+import com.stratum.domain.importing.LiftEmbeddingCatalogPort
 import com.stratum.domain.importing.LiftEquipmentCatalogPort
+import com.stratum.domain.importing.LiftNameEmbeddingPort
 import com.stratum.domain.importing.LiftNameResolverPort
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
@@ -61,6 +64,7 @@ import com.stratum.domain.response.ResponseObservationExtractor
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.VolumeResponseObservationRepository
+import com.stratum.core.data.seed.AssetLiftEmbeddingCatalog
 import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import dagger.Binds
 import dagger.Module
@@ -158,7 +162,21 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideLiftNameResolver(): LiftNameResolverPort = Bm25LiftNameResolver()
+    fun provideBm25LiftNameResolver(): Bm25LiftNameResolver = Bm25LiftNameResolver()
+
+    @Provides
+    @Singleton
+    fun provideLiftEmbeddingCatalog(
+        @ApplicationContext context: Context,
+    ): LiftEmbeddingCatalogPort = AssetLiftEmbeddingCatalog(context)
+
+    @Provides
+    @Singleton
+    fun provideLiftNameResolver(
+        bm25: Bm25LiftNameResolver,
+        catalogEmbeddings: LiftEmbeddingCatalogPort,
+        nameEmbedding: LiftNameEmbeddingPort,
+    ): LiftNameResolverPort = HybridLiftNameResolver(bm25, catalogEmbeddings, nameEmbedding)
 
     @Provides
     @Singleton

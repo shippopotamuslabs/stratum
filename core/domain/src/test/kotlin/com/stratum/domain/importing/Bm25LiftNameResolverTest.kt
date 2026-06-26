@@ -2,6 +2,7 @@ package com.stratum.domain.importing
 
 import com.stratum.domain.lift.identity.LiftId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -29,8 +30,14 @@ class Bm25LiftNameResolverTest {
                 "Single Arm Cable Overhead Triceps Extension ∈ SS3",
                 catalog,
             )
-        assertTrue(evaluation.matched)
-        assertEquals(LiftId("overhead"), evaluation.matchedLiftId)
+        assertFalse(evaluation.matched)
+    }
+
+    @Test
+    fun `subset query does not strongly align with longer catalog name`() {
+        val catalog = mapOf(LiftId("bench") to "Barbell Bench Press")
+        assertFalse(resolver.isStrongTokenAlignment("bench press", catalog.getValue(LiftId("bench"))))
+        assertFalse(resolver.evaluate("bench press", catalog).matched)
     }
 
     @Test
@@ -62,10 +69,7 @@ class Bm25LiftNameResolverTest {
                 LiftId("lat-pulldown") to "Lat Pulldown",
             )
         val evaluation = resolver.evaluate("Lat Pulldown - Underhand (Cable)", catalog)
-        // Dash variant moved front + paren moved front: "underhand cable lat pulldown" still
-        // contains "lat pulldown" tokens, so it scores well against the bare catalog name.
-        assertTrue(evaluation.matched)
-        assertEquals(LiftId("lat-pulldown"), evaluation.matchedLiftId)
+        assertFalse(evaluation.matched)
     }
 
     @Test
