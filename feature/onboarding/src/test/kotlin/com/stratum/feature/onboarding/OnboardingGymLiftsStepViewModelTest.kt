@@ -2,6 +2,9 @@ package com.stratum.feature.onboarding
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.domain.importing.HistoricalImportEvent
+import com.stratum.domain.importing.ImportProgress
+import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
@@ -75,7 +78,7 @@ class OnboardingGymLiftsStepViewModelTest {
     }
 
     @Test
-    @DisplayName("Given a preset selected when deselected then label clears but enabled lifts keep draft valid")
+    @DisplayName("Given a preset selected when deselected then label clears and draft requires preset or import")
     fun deselectingPresetClearsLabel() = runTest {
         OnboardingViewModelTestFixtures.fakeLiftRepository.seedLifts(
             listOf(OnboardingViewModelTestFixtures.aLift("squat", tags = setOf(GymPreset.CommercialGym))),
@@ -89,7 +92,7 @@ class OnboardingGymLiftsStepViewModelTest {
         subject.uiState.test {
             val draft = awaitItem().gymLiftsDraft
             assertNull(draft.selectedPresetLabel)
-            assertTrue(draft.isValid)
+            assertFalse(draft.isValid)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -171,5 +174,57 @@ class OnboardingGymLiftsStepViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(OnboardingStep.Review, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
+    }
+
+    @Test
+    @DisplayName("Given orphan history from failed import when gym step loads then import is not complete")
+    fun orphanHistoryFromFailedImportIsReconciled() = runTest {
+        OnboardingViewModelTestFixtures.fakeLiftRepository.seedUsedHistoricalImport(true)
+        OnboardingViewModelTestFixtures.seedOrphanImportHistory()
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val draft = awaitItem().gymLiftsDraft
+            assertFalse(draft.importComplete)
+            assertFalse(draft.usedHistoricalImport)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun staleImportFlagReconciledOnLoad() = runTest {
+        OnboardingViewModelTestFixtures.fakeLiftRepository.seedUsedHistoricalImport(true)
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val draft = awaitItem().gymLiftsDraft
+            assertFalse(draft.importComplete)
+            assertFalse(draft.usedHistoricalImport)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given import failed when progress is Failed then import is not marked complete")
+    fun failedImportDoesNotShowComplete() = runTest {
+        OnboardingViewModelTestFixtures.fakeLiftRepository.seedUsedHistoricalImport(true)
+        OnboardingViewModelTestFixtures.fakeHistoricalImport.setEvents(
+            listOf(HistoricalImportEvent.Failed("reps must be positive")),
+        )
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+
+        subject.onImportFileSelected("bad".toByteArray(), "export.csv")
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            val draft = awaitItem().gymLiftsDraft
+            assertTrue(draft.importFailed)
+            assertFalse(draft.importComplete)
+            assertEquals("reps must be positive", draft.importError)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertFalse(OnboardingViewModelTestFixtures.fakeLiftRepository.currentUsedHistoricalImport)
     }
 }

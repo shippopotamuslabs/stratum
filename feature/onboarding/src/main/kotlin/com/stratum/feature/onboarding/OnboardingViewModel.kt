@@ -2,6 +2,12 @@ package com.stratum.feature.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.domain.importing.HistoricalImportEvent
+import com.stratum.domain.importing.HistoricalImportRunnerPort
+import com.stratum.domain.importing.ImportProgress
+import com.stratum.domain.importing.ImportProgressPhase
+import com.stratum.domain.importing.ReconcileHistoricalImportUseCase
+import com.stratum.domain.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.lift.ApplyGymPresetUseCase
 import com.stratum.domain.lift.SetSelectedPresetUseCase
 import com.stratum.domain.onboarding.AdditiveSetEdit
@@ -35,6 +41,9 @@ class OnboardingViewModel @Inject constructor(
     private val validateCurrentStep: ValidateCurrentOnboardingStepUseCase,
     private val applyGymPreset: ApplyGymPresetUseCase,
     private val setSelectedPreset: SetSelectedPresetUseCase,
+    private val runFullHistoricalImport: HistoricalImportRunnerPort,
+    private val rollbackHistoricalImport: RollbackHistoricalImportUseCase,
+    private val reconcileHistoricalImport: ReconcileHistoricalImportUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
 ) : ViewModel() {
 
@@ -42,6 +51,15 @@ class OnboardingViewModel @Inject constructor(
     private val specializationEdits = MutableStateFlow(SpecializationEdit())
     private val showErrors = MutableStateFlow(false)
     private val applyingPreset = MutableStateFlow(false)
+    private val importProgress = MutableStateFlow<ImportProgress?>(null)
+    private val importError = MutableStateFlow<String?>(null)
+    private val hasCompletedHistoricalImport = MutableStateFlow(false)
+
+    init {
+        viewModelScope.launch {
+            refreshPersistedImportState()
+        }
+    }
 
     private val wizardState: StateFlow<OnboardingWizardState> =
         getOnboardingWizardState().stateIn(
@@ -71,12 +89,19 @@ class OnboardingViewModel @Inject constructor(
     val uiState: StateFlow<OnboardingUiState> =
         combine(
             wizardState,
-            combine(effectiveProfile, edits) { profile, edit -> profile to edit },
+            effectiveProfile,
+            edits,
             effectiveSpecialization,
-            showErrors,
-            applyingPreset,
-        ) { current, profileAndEdit, spec, errs, presetApplying ->
-            val (profile, edit) = profileAndEdit
+            combine(
+                showErrors,
+                applyingPreset,
+                importProgress,
+                importError,
+                hasCompletedHistoricalImport,
+            ) { errs, presetApplying, progress, importErr, hasCompleted ->
+                ImportUiFlags(errs, presetApplying, progress, importErr, hasCompleted)
+            },
+        ) { current, profile, edit, spec, importFlags ->
             val step = current.currentStep.toWizardStepUi()
             val lifts = current.lifts
             val preset = current.selectedPreset
@@ -86,14 +111,20 @@ class OnboardingViewModel @Inject constructor(
                 specialization = spec,
                 lifts = lifts,
                 selectedPreset = preset,
+                usedHistoricalImport = current.usedHistoricalImport,
             ).isValid
-            val canAdvance = !presetApplying && stepValid
+            val importing = importFlags.importProgress?.let { progress ->
+                progress.phase != ImportProgressPhase.Complete &&
+                    progress.phase != ImportProgressPhase.Failed
+            } == true
+            val canAdvance = !importFlags.presetApplying && !importing && stepValid
             val gymLiftsValid = validateCurrentStep(
                 step = OnboardingStep.GymAndLifts,
                 profile = profile,
                 specialization = spec,
                 lifts = lifts,
                 selectedPreset = preset,
+                usedHistoricalImport = current.usedHistoricalImport,
             ).isValid
 
             OnboardingUiState(
@@ -101,13 +132,17 @@ class OnboardingViewModel @Inject constructor(
                 isComplete = current.isComplete,
                 canAdvance = canAdvance,
                 canGoBack = current.currentStep.previous() != null,
-                profileDraft = profile.toProfileDraft().copy(showErrors = errs),
-                scheduleDraft = profile.toScheduleDraft(edit.sessionLength).copy(showErrors = errs),
-                specializationDraft = spec.toSpecializationDraft().copy(showErrors = errs),
+                profileDraft = profile.toProfileDraft().copy(showErrors = importFlags.showErrors),
+                scheduleDraft = profile.toScheduleDraft(edit.sessionLength).copy(showErrors = importFlags.showErrors),
+                specializationDraft = spec.toSpecializationDraft().copy(showErrors = importFlags.showErrors),
                 gymLiftsDraft = lifts.toGymLiftsDraft(
                     selectedPreset = preset,
+                    usedHistoricalImport = current.usedHistoricalImport,
+                    hasCompletedHistoricalImport = importFlags.hasCompletedHistoricalImport,
+                    importProgress = importFlags.importProgress,
+                    importError = importFlags.importError,
                     liftsValid = gymLiftsValid,
-                    showErrors = errs,
+                    showErrors = importFlags.showErrors,
                 ),
                 reviewDraft = profile.toReviewProfileSection(spec, lifts, preset),
                 presetOptions = allGymPresetOptions(),
@@ -184,9 +219,17 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun onPresetSelected(label: String?) {
+        if (importProgress.value?.let { progress ->
+                progress.phase != ImportProgressPhase.Complete &&
+                    progress.phase != ImportProgressPhase.Failed
+            } == true
+        ) {
+            return
+        }
         val preset = gymPresetFromLabel(label)
         viewModelScope.launch {
             applyingPreset.value = true
+            importError.value = null
             try {
                 if (preset != null) {
                     applyGymPreset(preset)
@@ -199,6 +242,32 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
+    fun onImportFileSelected(bytes: ByteArray, fileName: String) {
+        viewModelScope.launch {
+            importProgress.value = ImportProgress(ImportProgressPhase.Uploading)
+            importError.value = null
+            runFullHistoricalImport.run(bytes, fileName).collect { event ->
+                when (event) {
+                    is HistoricalImportEvent.Progress -> importProgress.value = event.progress
+                    is HistoricalImportEvent.Completed -> {
+                        importProgress.value = ImportProgress(ImportProgressPhase.Complete)
+                        refreshPersistedImportState()
+                    }
+                    is HistoricalImportEvent.Failed -> {
+                        rollbackHistoricalImport()
+                        importProgress.value = ImportProgress(ImportProgressPhase.Failed)
+                        importError.value = event.message
+                        refreshPersistedImportState()
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun refreshPersistedImportState() {
+        hasCompletedHistoricalImport.value = reconcileHistoricalImport()
+    }
+
     fun next() {
         val current = wizardState.value
         viewModelScope.launch {
@@ -209,6 +278,7 @@ class OnboardingViewModel @Inject constructor(
                 specialization = effectiveSpecialization.value,
                 lifts = current.lifts,
                 selectedPreset = current.selectedPreset,
+                usedHistoricalImport = current.usedHistoricalImport,
             )
             when (result) {
                 AdvanceOnboardingStepResult.ValidationFailed -> showErrors.value = true
@@ -232,6 +302,7 @@ class OnboardingViewModel @Inject constructor(
                 specialization = effectiveSpecialization.value,
                 lifts = current.lifts,
                 selectedPreset = current.selectedPreset,
+                usedHistoricalImport = current.usedHistoricalImport,
             )
             if (result is AdvanceOnboardingStepResult.Success) {
                 edits.value = ProfileEdit()
@@ -273,6 +344,14 @@ class OnboardingViewModel @Inject constructor(
         edit.musclesEdit.removed.forEach { base.remove(it) }
         return copy(levels = base)
     }
+
+    private data class ImportUiFlags(
+        val showErrors: Boolean,
+        val presetApplying: Boolean,
+        val importProgress: ImportProgress?,
+        val importError: String?,
+        val hasCompletedHistoricalImport: Boolean,
+    )
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L

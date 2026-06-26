@@ -34,6 +34,7 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
         specialization: SpecializationPreference,
         lifts: List<Lift>,
         selectedPreset: GymPreset?,
+        usedHistoricalImport: Boolean = false,
     ): AdvanceOnboardingStepResult {
         val targetStep = when (direction) {
             OnboardingStepDirection.Forward -> currentStep.next()
@@ -47,6 +48,7 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
                 specialization = specialization,
                 lifts = lifts,
                 selectedPreset = selectedPreset,
+                usedHistoricalImport = usedHistoricalImport,
             )
             if (!validation.isValid) {
                 return AdvanceOnboardingStepResult.ValidationFailed

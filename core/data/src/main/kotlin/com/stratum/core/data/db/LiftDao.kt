@@ -57,4 +57,8 @@ interface LiftDao {
     /** Total catalog rows (seed + custom). Used to detect an empty DB that needs seeding. */
     @Query("SELECT COUNT(*) FROM lifts")
     suspend fun countAll(): Int
+
+    /** Bundled seed rows only — customs must not suppress catalog seeding. */
+    @Query("SELECT COUNT(*) FROM lifts WHERE isCustom = 0")
+    suspend fun countSeedLifts(): Int
 }

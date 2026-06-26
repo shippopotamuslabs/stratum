@@ -47,6 +47,7 @@ Stratum is a modular Android app. Module layout is defined in `contracts/ARCHITE
 - `core/data/`: Room, repositories, entity/domain mapping, schemas, background work
 - `core/ui/`: shared Compose UI components and themes
 - `core/testing/`: shared fakes, `MainDispatcherRule`, test fixtures (JVM module)
+- `core/inference/` (or `feature/inference/`): Firebase Callable Function client — **no Compose**
 - `feature/*/`: feature modules (add per journey — see ARCHITECTURE.md §1.2)
 - `config/detekt/`: Detekt config + custom `stratum` rule set wiring
 - `detekt-rules/`: Custom Detekt rules enforcing `UI_DESIGN.md`
@@ -109,12 +110,36 @@ Whenever production code is added or modified (new classes, public functions, lo
 **Never** invent new database tables or columns for transient UI state (e.g., `is_loading`,
 `is_editing`). Database schema changes require explicit developer authorization.
 
-### 4.6 Intelligence — On-Device First
+### 4.6 Intelligence — Deterministic Core, Cloud LLM
 
-Prioritize on-device deterministic engines for progression, volume accounting, and session
-construction. Use on-device LLM only for high-judgment, long-horizon, or natural-language
-moments described in the product vision. Keep deterministic and LLM responsibilities clearly
-separated.
+**No on-device / local LLM models.** Stratum does not bundle weights or run inference on
+device (no LiteRT, no local GGUF, etc.). All LLM work goes through **cloud APIs**.
+
+| Concern | Layer | Notes |
+|---------|--------|-------|
+| Progression math, volume accounting, session construction, set logging | Deterministic (`:core:domain`) | Runs offline; no network |
+| Program generation and other high-judgment synthesis | **OpenRouter** via Firebase Callable Function | Secrets `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` in Secret Manager (**provisioned**) |
+
+**Cloud LLM rules:**
+
+- **Never ship provider API keys in the APK** or in client-readable storage (Firestore,
+  Remote Config, etc.). Proxy all provider calls through **Firebase Callable Functions**.
+- **OpenRouter** is the v1 inference provider. **`OPENROUTER_API_KEY`** and **`OPENROUTER_MODEL`**
+  are already in **Firebase Secret Manager** (maintainer-provisioned — do not ask to create).
+  Model value: `deepseek/deepseek-v4-pro`.
+- Firebase Android config: **`app/google-services.json`** — gitignored; not an API key.
+- Android `:core:inference` is a **Firebase Functions client** — not a direct OpenRouter
+  caller. See pocket-crew `OpenRouterInferenceServiceImpl` for server-side patterns.
+- Require **Firebase Auth** + **App Check** on inference endpoints; rate-limit per user.
+  **Google Sign-In** (not anonymous). Firebase **console provisioning is complete** (SHA
+  fingerprints, Google provider, App Check, secrets) — do not ask maintainer; wire SDK in OS-6.
+- Prefer **bounded, single-purpose calls** with structured output over conversational sessions.
+- Domain defines **ports** (`ProgramGeneratorPort`, etc.); inference module implements them.
+  Unit tests use fakes and recorded fixtures — **no live API in CI**.
+- Keep deterministic and LLM responsibilities clearly separated: the LLM proposes programs;
+  deterministic code owns runtime progression and persistence.
+
+**Reference:** `~/Code/pocket-crew` (`OpenRouterInferenceServiceImpl`); `docs/onboarding-vertical-slices.md` §2.3 (progression), §2.7 (credentials).
 
 ### 4.7 Privacy And Identity
 
@@ -150,7 +175,7 @@ Before merge or a large cross-module change, run the CI-aligned checks for touch
 Do not inspect or edit these during normal tasks unless the task explicitly targets them:
 
 - Gradle/build outputs: `build/`, `**/build/`, `.gradle/`, `.kotlin/`, `.cxx/`
-- Binary/assets noise: `*.so`, APK/AAB outputs, keystores, large model files
+- Binary/assets noise: `*.so`, APK/AAB outputs, keystores
 - IDE metadata unless configuring the project: `.idea/caches/`, `*.iml` churn from Studio
 
 ---

@@ -14,6 +14,7 @@ data class OnboardingWizardState(
     val specialization: SpecializationPreference,
     val lifts: List<Lift>,
     val selectedPreset: GymPreset?,
+    val usedHistoricalImport: Boolean = false,
 ) {
     val currentStep: OnboardingStep get() = progress?.currentStep ?: OnboardingStep.First
     val isComplete: Boolean get() = progress?.isComplete == true

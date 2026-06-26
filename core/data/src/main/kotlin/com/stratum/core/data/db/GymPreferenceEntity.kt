@@ -20,6 +20,7 @@ import com.stratum.domain.lift.GymPreset
 data class GymPreferenceEntity(
     @PrimaryKey val id: Int = ID,
     val selectedPreset: GymPreset?,
+    val usedHistoricalImport: Boolean = false,
 ) {
     companion object {
         const val ID = 0

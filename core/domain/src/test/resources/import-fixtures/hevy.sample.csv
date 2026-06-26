@@ -1,0 +1,11 @@
+title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_lbs,reps,distance_miles,duration_seconds,rpe
+Workout,"2024-01-01, 12:00","2024-01-01, 13:00",,Crunch (Machine),,,0,normal,205,18,,,9
+Workout,"2024-01-02, 12:00","2024-01-02, 13:00",,Calf Press (Machine),,,0,normal,280,28,,,9
+Workout,"2024-01-03, 12:00","2024-01-03, 13:00",,Katana Extension,2,,0,normal,23,14,,,8.5
+Workout,"2024-01-04, 12:00","2024-01-04, 13:00",,Rear Delt Reverse Fly (Cable),2,,0,normal,20,8,,,10
+Workout,"2024-01-05, 12:00","2024-01-05, 13:00",,Preacher Curl (Machine),3,,0,normal,50,15,,,9
+Workout,"2024-01-06, 12:00","2024-01-06, 13:00",,Incline Bench Press (Dumbbell),0,,0,normal,70,9,,,8.5
+Workout,"2024-01-07, 12:00","2024-01-07, 13:00",,Seated Cable Row - Bar Wide Grip,1,,0,normal,148,10,,,8
+Workout,"2024-01-08, 12:00","2024-01-08, 13:00",,Kassem Extension,2,,0,normal,16.5,14,,,10
+Workout,"2024-01-09, 12:00","2024-01-09, 13:00",,Cable Lateral Raise - Behind Back,,,0,normal,20,13,,,8.5
+Workout,"2024-01-10, 12:00","2024-01-10, 13:00",,Hack Squat (Machine),,,0,normal,180,8,,,8.5

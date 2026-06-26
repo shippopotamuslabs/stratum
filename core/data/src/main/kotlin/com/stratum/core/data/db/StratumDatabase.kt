@@ -12,6 +12,13 @@ import androidx.room.TypeConverters
         LiftEntity::class,
         IncrementTierEntity::class,
         GymPreferenceEntity::class,
+        ImportJobEntity::class,
+        HistoricalSessionEntity::class,
+        LoggedSetEntity::class,
+        LiftTrainingInsightsEntity::class,
+        SupersetAffinityEntity::class,
+        MuscleVolumeBaselineEntity::class,
+        ImportAnalysisMetadataEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -29,6 +36,20 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun incrementTierDao(): IncrementTierDao
 
     abstract fun gymPreferenceDao(): GymPreferenceDao
+
+    abstract fun importJobDao(): ImportJobDao
+
+    abstract fun historicalSessionDao(): HistoricalSessionDao
+
+    abstract fun loggedSetDao(): LoggedSetDao
+
+    abstract fun liftTrainingInsightsDao(): LiftTrainingInsightsDao
+
+    abstract fun supersetAffinityDao(): SupersetAffinityDao
+
+    abstract fun muscleVolumeBaselineDao(): MuscleVolumeBaselineDao
+
+    abstract fun importAnalysisMetadataDao(): ImportAnalysisMetadataDao
 
     companion object {
         const val DATABASE_NAME = "stratum.db"
