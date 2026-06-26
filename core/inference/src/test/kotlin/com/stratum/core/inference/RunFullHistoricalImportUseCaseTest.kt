@@ -22,6 +22,14 @@ import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
 import com.stratum.domain.importing.EnrichCustomLiftsUseCase
 import com.stratum.domain.importing.PersistImportedHistoryUseCase
+import com.stratum.core.testing.response.FakeExperimentBlockRepository
+import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
+import com.stratum.core.testing.response.FakeResponseEpochRepository
+import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
+import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
+import com.stratum.domain.response.DefaultResponseObservationExtractor
+import com.stratum.domain.response.EmptyExperimentRegistry
+import com.stratum.domain.response.ExtractResponseProfileUseCase
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.importing.RemoteImportJobStatus
 import com.stratum.domain.importing.ResolveImportLiftsUseCase
@@ -90,6 +98,26 @@ class RunFullHistoricalImportUseCaseTest {
                 }
                 """.trimIndent(),
         )
+        val epochRepo = FakeResponseEpochRepository()
+        val volumeResponseRepo = FakeVolumeResponseObservationRepository()
+        val effectivenessRepo = FakeLiftEffectivenessObservationRepository()
+        val experimentRepo = FakeExperimentBlockRepository()
+        val responseMetadataRepo = FakeResponseProfileMetadataRepository()
+        val extractResponseProfile =
+            ExtractResponseProfileUseCase(
+                trainingHistoryRepository = historyRepo,
+                liftRepository = liftRepo,
+                liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
+                muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
+                importAnalysisMetadataRepository = InMemoryMetadataRepository(),
+                responseEpochRepository = epochRepo,
+                volumeResponseObservationRepository = volumeResponseRepo,
+                liftEffectivenessObservationRepository = effectivenessRepo,
+                experimentBlockRepository = experimentRepo,
+                responseProfileMetadataRepository = responseMetadataRepo,
+                extractor = DefaultResponseObservationExtractor(),
+                experimentRegistry = EmptyExperimentRegistry(),
+            )
         val persist = PersistImportedHistoryUseCase(
             trainingHistoryRepository = historyRepo,
             resolveImportLifts =
@@ -108,6 +136,7 @@ class RunFullHistoricalImportUseCaseTest {
                 importAnalysisMetadataRepository = InMemoryMetadataRepository(),
                 liftRepository = liftRepo,
             ),
+            extractResponseProfile = extractResponseProfile,
             liftRepository = liftRepo,
         )
         val rollback =
@@ -117,6 +146,11 @@ class RunFullHistoricalImportUseCaseTest {
                 InMemorySupersetRepository(),
                 InMemoryVolumeRepository(),
                 InMemoryMetadataRepository(),
+                epochRepo,
+                volumeResponseRepo,
+                effectivenessRepo,
+                experimentRepo,
+                responseMetadataRepo,
                 liftRepo,
             )
         val useCase = RunFullHistoricalImportUseCase(
@@ -137,11 +171,20 @@ class RunFullHistoricalImportUseCaseTest {
     }
 
     private class InMemoryTrainingHistoryRepository : TrainingHistoryRepository {
-        override suspend fun replaceAll(sessions: List<HistoricalSession>, sets: List<LoggedSet>) = Unit
-        override suspend fun getAllSessions(): List<HistoricalSession> = emptyList()
-        override suspend fun getAllSets(): List<LoggedSet> = emptyList()
+        private var sessions: List<HistoricalSession> = emptyList()
+        private var sets: List<LoggedSet> = emptyList()
+
+        override suspend fun replaceAll(sessions: List<HistoricalSession>, sets: List<LoggedSet>) {
+            this.sessions = sessions
+            this.sets = sets
+        }
+
+        override suspend fun getAllSessions(): List<HistoricalSession> = sessions
+
+        override suspend fun getAllSets(): List<LoggedSet> = sets
+
         override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
-            emptyList()
+            sets.filter { it.completedAt in windowStart..windowEnd }
     }
 
     private class InMemoryLiftInsightsRepository : LiftTrainingInsightsRepository {

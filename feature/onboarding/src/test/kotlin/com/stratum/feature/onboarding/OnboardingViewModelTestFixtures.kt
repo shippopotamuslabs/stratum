@@ -2,6 +2,11 @@ package com.stratum.feature.onboarding
 
 import com.stratum.core.testing.importing.FakeHistoricalImportRunnerPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.response.FakeExperimentBlockRepository
+import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
+import com.stratum.core.testing.response.FakeResponseEpochRepository
+import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
+import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
@@ -125,27 +130,28 @@ internal object OnboardingViewModelTestFixtures {
         applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),
         setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository),
         runFullHistoricalImport = fakeHistoricalImport,
-        rollbackHistoricalImport = RollbackHistoricalImportUseCase(
+        rollbackHistoricalImport = buildRollbackHistoricalImport(),
+        reconcileHistoricalImport = ReconcileHistoricalImportUseCase(
+            fakeMetadataRepository,
+            buildRollbackHistoricalImport(),
+        ),
+        completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
+    )
+
+    private fun buildRollbackHistoricalImport(): RollbackHistoricalImportUseCase =
+        RollbackHistoricalImportUseCase(
             fakeTrainingHistoryRepository,
             fakeLiftInsightsRepository,
             fakeSupersetRepository,
             fakeVolumeRepository,
             fakeMetadataRepository,
+            FakeResponseEpochRepository(),
+            FakeVolumeResponseObservationRepository(),
+            FakeLiftEffectivenessObservationRepository(),
+            FakeExperimentBlockRepository(),
+            FakeResponseProfileMetadataRepository(),
             fakeLiftRepository,
-        ),
-        reconcileHistoricalImport = ReconcileHistoricalImportUseCase(
-            fakeMetadataRepository,
-            RollbackHistoricalImportUseCase(
-                fakeTrainingHistoryRepository,
-                fakeLiftInsightsRepository,
-                fakeSupersetRepository,
-                fakeVolumeRepository,
-                fakeMetadataRepository,
-                fakeLiftRepository,
-            ),
-        ),
-        completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
-    )
+        )
 
     private class FakeTrainingHistoryRepository : TrainingHistoryRepository {
         private var sessions: List<HistoricalSession> = emptyList()

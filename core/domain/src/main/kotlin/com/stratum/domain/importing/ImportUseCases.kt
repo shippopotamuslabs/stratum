@@ -5,6 +5,12 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.response.ExtractResponseProfileUseCase
+import com.stratum.domain.response.ExperimentBlockRepository
+import com.stratum.domain.response.LiftEffectivenessObservationRepository
+import com.stratum.domain.response.ResponseEpochRepository
+import com.stratum.domain.response.ResponseProfileMetadataRepository
+import com.stratum.domain.response.VolumeResponseObservationRepository
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
@@ -375,6 +381,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
     private val trainingHistoryRepository: TrainingHistoryRepository,
     private val resolveImportLifts: ResolveImportLiftsUseCase,
     private val extractTrainingInsights: ExtractTrainingInsightsUseCase,
+    private val extractResponseProfile: ExtractResponseProfileUseCase,
     private val liftRepository: LiftRepository,
 ) {
     suspend operator fun invoke(
@@ -409,6 +416,12 @@ class PersistImportedHistoryUseCase @Inject constructor(
                 trainingHistoryRepository.replaceAll(emptyList(), emptyList())
                 throw error
             }
+        try {
+            extractResponseProfile(outcome.provenLiftIds).getOrThrow()
+        } catch (error: Throwable) {
+            trainingHistoryRepository.replaceAll(emptyList(), emptyList())
+            throw error
+        }
         liftRepository.setUsedHistoricalImport(true)
         liftRepository.setSelectedPreset(null)
         summary
@@ -421,6 +434,11 @@ class RollbackHistoricalImportUseCase @Inject constructor(
     private val supersetAffinityRepository: SupersetAffinityRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
     private val importAnalysisMetadataRepository: ImportAnalysisMetadataRepository,
+    private val responseEpochRepository: ResponseEpochRepository,
+    private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
+    private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
+    private val experimentBlockRepository: ExperimentBlockRepository,
+    private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
     private val liftRepository: LiftRepository,
 ) {
     suspend operator fun invoke() {
@@ -429,6 +447,11 @@ class RollbackHistoricalImportUseCase @Inject constructor(
         supersetAffinityRepository.replaceAll(emptyList())
         muscleVolumeBaselineRepository.replaceAll(emptyList())
         importAnalysisMetadataRepository.clear()
+        responseEpochRepository.replaceAll(emptyList())
+        volumeResponseObservationRepository.replaceAll(emptyList())
+        liftEffectivenessObservationRepository.replaceAll(emptyList())
+        experimentBlockRepository.replaceAll(emptyList())
+        responseProfileMetadataRepository.clear()
         liftRepository.setUsedHistoricalImport(false)
     }
 }
