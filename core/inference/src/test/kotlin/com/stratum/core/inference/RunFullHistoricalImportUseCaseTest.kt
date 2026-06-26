@@ -42,6 +42,8 @@ import java.time.Instant
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -188,7 +190,72 @@ class RunFullHistoricalImportUseCaseTest {
             ).toList()
 
         assertTrue(events.last() is HistoricalImportEvent.Failed)
+        val failed = events.last() as HistoricalImportEvent.Failed
+        assertNotNull(failed.resume)
+        assertEquals(1, failed.resume?.completedChunks?.size)
         assertTrue(historyRepo.getAllSets().isEmpty())
+    }
+
+    @Test
+    fun `resume retries only pending files after partial multi-file failure`() = runTest {
+        val jobRepo = FakeImportJobRepository()
+        val historyRepo = InMemoryTrainingHistoryRepository()
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val readySnapshot =
+            listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Ready,
+                    progressPhase = ImportProgressPhase.ConvertingFull,
+                    progressMessage = "Done",
+                    conversionStoragePath = "imports/test/job/conversions/1/normalized.json",
+                    errorMessage = null,
+                ),
+            )
+        val failedSnapshot =
+            listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Failed,
+                    progressPhase = ImportProgressPhase.Failed,
+                    progressMessage = null,
+                    conversionStoragePath = null,
+                    errorMessage = "Conversion failed.",
+                ),
+            )
+        val port =
+            FakeHistoricalImportPort(
+                snapshotSequenceByUpload = listOf(readySnapshot, failedSnapshot, readySnapshot),
+                conversionJson = sampleConversionJson(),
+            )
+        val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
+        val useCase =
+            RunFullHistoricalImportUseCase(
+                startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
+                historicalImportPort = port,
+                persistImportedHistory = persist,
+                rollbackHistoricalImport = rollback,
+                importJobRepository = jobRepo,
+                mergeImportedHistory = MergeImportedHistoryUseCase(),
+            )
+        val fileA = ImportFileInput("a".toByteArray(), "a.csv")
+        val fileB = ImportFileInput("b".toByteArray(), "b.csv")
+
+        val firstRun =
+            useCase.run(listOf(fileA, fileB)).toList()
+        val failed = firstRun.last() as HistoricalImportEvent.Failed
+        val resume = checkNotNull(failed.resume)
+        assertEquals(2, port.uploads.size)
+
+        val correctedB = ImportFileInput("fixed".toByteArray(), "b.csv")
+        val resumedFiles = listOf(fileA, correctedB)
+        val secondRun =
+            useCase.run(
+                files = resumedFiles,
+                resume = resume.copy(files = resumedFiles),
+            ).toList()
+
+        assertTrue(secondRun.last() is HistoricalImportEvent.Completed)
+        assertEquals(3, port.uploads.size)
+        assertEquals(2, historyRepo.getAllSets().size)
     }
 
     private fun sampleConversionJson(): String =

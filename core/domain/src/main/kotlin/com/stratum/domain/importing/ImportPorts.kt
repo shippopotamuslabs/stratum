@@ -116,11 +116,36 @@ sealed interface HistoricalImportEvent {
 
     data class Completed(val summary: ExtractTrainingInsightsSummary) : HistoricalImportEvent
 
-    data class Failed(val message: String) : HistoricalImportEvent
+    data class Failed(
+        val message: String,
+        /** Present when one or more files converted successfully before a later file failed. */
+        val resume: HistoricalImportResumeState? = null,
+    ) : HistoricalImportEvent
+}
+
+/**
+ * Checkpoint for resuming a multi-file import without re-converting files that already succeeded.
+ * [files] is the full ordered selection; [completedChunks] holds normalized history per success.
+ */
+data class HistoricalImportResumeState(
+    val files: List<ImportFileInput>,
+    val completedChunks: List<ImportedHistoryChunk>,
+) {
+    val nextFileIndex: Int get() = completedChunks.size
+
+    val totalFiles: Int get() = files.size
+
+    val failedFileName: String?
+        get() = files.getOrNull(nextFileIndex)?.fileName
+
+    fun isResumable(): Boolean = completedChunks.isNotEmpty() && nextFileIndex < totalFiles
 }
 
 interface HistoricalImportRunnerPort {
-    fun run(files: List<ImportFileInput>): Flow<HistoricalImportEvent>
+    fun run(
+        files: List<ImportFileInput> = emptyList(),
+        resume: HistoricalImportResumeState? = null,
+    ): Flow<HistoricalImportEvent>
 }
 
 interface TrainingHistoryRepository {

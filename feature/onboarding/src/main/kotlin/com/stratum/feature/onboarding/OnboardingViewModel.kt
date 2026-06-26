@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.HistoricalImportLimits
+import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.HistoricalImportRunnerPort
 import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportProgress
@@ -35,6 +36,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -59,6 +62,8 @@ class OnboardingViewModel @Inject constructor(
     private val importError = MutableStateFlow<String?>(null)
     private val hasCompletedHistoricalImport = MutableStateFlow(false)
     private val importInsightsSummary = MutableStateFlow<ImportInsightsSummaryUi?>(null)
+    private val importResumeState = MutableStateFlow<HistoricalImportResumeState?>(null)
+    private var importJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -115,6 +120,8 @@ class OnboardingViewModel @Inject constructor(
                     hasCompletedHistoricalImport = partial.hasCompletedHistoricalImport,
                     importInsightsSummary = insightsSummary,
                 )
+            }.combine(importResumeState) { flags, resume ->
+                flags.copy(importResumeState = resume)
             },
         ) { current, profile, edit, spec, importFlags ->
             val step = current.currentStep.toWizardStepUi()
@@ -157,6 +164,7 @@ class OnboardingViewModel @Inject constructor(
                     importProgress = importFlags.importProgress,
                     importError = importFlags.importError,
                     importInsightsSummary = importFlags.importInsightsSummary,
+                    importResumeState = importFlags.importResumeState,
                     liftsValid = gymLiftsValid,
                     showErrors = importFlags.showErrors,
                 ),
@@ -246,6 +254,7 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             applyingPreset.value = true
             importError.value = null
+            importResumeState.value = null
             try {
                 if (preset != null) {
                     applyGymPreset(preset)
@@ -259,29 +268,76 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun onImportFilesSelected(files: List<ImportFileInput>) {
-        viewModelScope.launch {
+        launchHistoricalImport {
             val validationError = validateImportFiles(files)
             if (validationError != null) {
                 importError.value = validationError
                 importProgress.value = ImportProgress(ImportProgressPhase.Failed)
-                return@launch
+            } else {
+                importResumeState.value = null
+                runHistoricalImport(files = files, resume = null)
             }
-            importProgress.value = ImportProgress(ImportProgressPhase.Uploading)
-            importError.value = null
-            runFullHistoricalImport.run(files).collect { event ->
-                when (event) {
-                    is HistoricalImportEvent.Progress -> importProgress.value = event.progress
-                    is HistoricalImportEvent.Completed -> {
-                        importProgress.value = ImportProgress(ImportProgressPhase.Complete)
-                        refreshPersistedImportState()
-                        refreshImportInsightsSummary()
-                    }
-                    is HistoricalImportEvent.Failed -> {
-                        rollbackHistoricalImport()
-                        importProgress.value = ImportProgress(ImportProgressPhase.Failed)
-                        importError.value = event.message
-                        refreshPersistedImportState()
-                    }
+        }
+    }
+
+    fun onRetryImportFromFailedFile() {
+        launchHistoricalImport {
+            val resume = importResumeState.value?.takeIf { it.isResumable() }
+            if (resume != null) {
+                runHistoricalImport(files = resume.files, resume = resume)
+            }
+        }
+    }
+
+    fun onCancelImport() {
+        viewModelScope.launch {
+            importJob?.cancel()
+            importJob = null
+            resetImportState()
+        }
+    }
+
+    private fun launchHistoricalImport(block: suspend () -> Unit) {
+        importJob?.cancel()
+        importJob =
+            viewModelScope.launch {
+                try {
+                    block()
+                } catch (_: CancellationException) {
+                    // Stop requested — onCancelImport resets UI.
+                }
+            }
+    }
+
+    private suspend fun resetImportState() {
+        rollbackHistoricalImport()
+        importResumeState.value = null
+        importProgress.value = null
+        importError.value = null
+        refreshPersistedImportState()
+    }
+
+    private suspend fun runHistoricalImport(
+        files: List<ImportFileInput>,
+        resume: HistoricalImportResumeState?,
+    ) {
+        importProgress.value = ImportProgress(ImportProgressPhase.Uploading)
+        importError.value = null
+        runFullHistoricalImport.run(files = files, resume = resume).collect { event ->
+            when (event) {
+                is HistoricalImportEvent.Progress -> importProgress.value = event.progress
+                is HistoricalImportEvent.Completed -> {
+                    importResumeState.value = null
+                    importProgress.value = ImportProgress(ImportProgressPhase.Complete)
+                    refreshPersistedImportState()
+                    refreshImportInsightsSummary()
+                }
+                is HistoricalImportEvent.Failed -> {
+                    rollbackHistoricalImport()
+                    importResumeState.value = event.resume
+                    importProgress.value = ImportProgress(ImportProgressPhase.Failed)
+                    importError.value = event.message
+                    refreshPersistedImportState()
                 }
             }
         }
@@ -408,6 +464,7 @@ class OnboardingViewModel @Inject constructor(
         val importError: String?,
         val hasCompletedHistoricalImport: Boolean,
         val importInsightsSummary: ImportInsightsSummaryUi?,
+        val importResumeState: HistoricalImportResumeState? = null,
     )
 
     private companion object {

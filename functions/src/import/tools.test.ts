@@ -204,6 +204,88 @@ describe("dispatchTool", () => {
     validateNormalizedHistory(saved);
   });
 
+  it("execute_on_full persists normalized timestamps, not raw converter output", async () => {
+    const jobRef = new FakeJobRef({
+      scriptStoragePath: `imports/${UID}/${JOB_ID}/script/converter.py`,
+    });
+    const storage = new FakeToolStorage();
+    const rawOutput = {
+      sessions: [{ id: "session-1", startedAt: "2025-12-28" }],
+      sets: [
+        {
+          id: "set-1",
+          sessionId: "session-1",
+          exerciseNameRaw: "Squat",
+          setIndex: 0,
+          weightAmount: 100,
+          weightUnit: "lbs",
+          reps: 5,
+          completedAt: "2025-12-28T10:15:00",
+        },
+      ],
+    };
+
+    const result = await dispatchTool(
+      "execute_on_full",
+      { intent: "Full history convert", scriptStoragePath: jobRef.data.scriptStoragePath },
+      toolCtx(jobRef, storage, {
+        runSandbox: async () =>
+          sandboxSuccess({
+            outputJson: JSON.stringify(rawOutput),
+            rowCount: 1,
+            sessionCount: 1,
+          }),
+      }),
+    );
+
+    assert.equal(result.isError, false);
+    const conversionPaths = [...storage.files.keys()].filter((k) => k.includes("/conversions/"));
+    const saved = JSON.parse(storage.files.get(conversionPaths[0]!)!.toString("utf8")) as {
+      sessions: Array<{ startedAt: string }>;
+      sets: Array<{ completedAt: string; weightUnit: string }>;
+    };
+    assert.equal(saved.sessions[0]?.startedAt, "2025-12-28T00:00:00Z");
+    assert.equal(saved.sets[0]?.completedAt, "2025-12-28T10:15:00Z");
+    assert.equal(saved.sets[0]?.weightUnit, "Lb");
+  });
+
+  it("execute_on_sample rejects space-separated timestamps", async () => {
+    const jobRef = new FakeJobRef({
+      scriptStoragePath: `imports/${UID}/${JOB_ID}/script/converter.py`,
+    });
+    const storage = new FakeToolStorage();
+    const result = await dispatchTool(
+      "execute_on_sample",
+      {
+        intent: "Testing sample",
+        scriptStoragePath: jobRef.data.scriptStoragePath,
+      },
+      toolCtx(jobRef, storage, {
+        runSandbox: async () =>
+          sandboxSuccess({
+            outputJson: JSON.stringify({
+              sessions: [{ id: "session-1", startedAt: "2018-01-31 20:21:08" }],
+              sets: [
+                {
+                  id: "set-1",
+                  sessionId: "session-1",
+                  exerciseNameRaw: "Squat",
+                  setIndex: 0,
+                  weightAmount: 100,
+                  weightUnit: "Lb",
+                  reps: 5,
+                  completedAt: "2018-01-31 20:21:08",
+                },
+              ],
+            }),
+          }),
+      }),
+    );
+
+    assert.equal(result.isError, true);
+    assert.match(result.content, /Invalid timestamp/);
+  });
+
   it("uses default intent when model omits intent", async () => {
     const jobRef = new FakeJobRef({
       scriptStoragePath: `imports/${UID}/${JOB_ID}/script/converter.py`,

@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.lift.GymPreset
@@ -26,6 +27,7 @@ internal fun List<Lift>.toGymLiftsDraft(
     importProgress: ImportProgress?,
     importError: String?,
     importInsightsSummary: ImportInsightsSummaryUi?,
+    importResumeState: HistoricalImportResumeState?,
     liftsValid: Boolean,
     showErrors: Boolean,
 ): GymLiftsDraftUi = GymLiftsDraftUi(
@@ -35,6 +37,9 @@ internal fun List<Lift>.toGymLiftsDraft(
     importProgress = importProgress,
     importError = importError,
     importInsightsSummary = importInsightsSummary,
+    importResumeFileIndex = importResumeState?.nextFileIndex?.plus(1),
+    importResumeFileCount = importResumeState?.totalFiles,
+    importResumeFailedFileName = importResumeState?.failedFileName,
     isValid = liftsValid,
     showErrors = showErrors,
 )

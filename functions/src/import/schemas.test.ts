@@ -90,6 +90,17 @@ describe("normalizeImportTimestamp", () => {
   it("appends Z to local datetimes without offset", () => {
     assert.equal(normalizeImportTimestamp("2025-12-28T10:15:00"), "2025-12-28T10:15:00Z");
   });
+
+  it("keeps UTC datetimes with Z", () => {
+    assert.equal(normalizeImportTimestamp("2025-12-28T10:15:00Z"), "2025-12-28T10:15:00Z");
+  });
+
+  it("rejects space-separated datetimes", () => {
+    assert.throws(
+      () => normalizeImportTimestamp("2018-01-31 20:21:08"),
+      /Invalid timestamp/,
+    );
+  });
 });
 
 describe("validateNormalizedHistory", () => {

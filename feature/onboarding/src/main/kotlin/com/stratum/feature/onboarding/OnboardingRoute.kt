@@ -89,7 +89,14 @@ fun OnboardingRoute(
         gymLifts = GymLiftsHandlers(
             onPresetSelected = viewModel::onPresetSelected,
         ),
-        onImportClick = { importLauncher.launch(arrayOf("text/*", "application/json", "text/csv")) },
+        onImportClick = {
+            if (state.gymLiftsDraft.importResumable) {
+                viewModel.onRetryImportFromFailedFile()
+            } else {
+                importLauncher.launch(arrayOf("text/*", "application/json", "text/csv"))
+            }
+        },
+        onImportCancel = viewModel::onCancelImport,
         modifier = modifier,
     )
 }
@@ -108,6 +115,7 @@ private fun OnboardingWizard(
     onMuscleToggled: (String) -> Unit,
     gymLifts: GymLiftsHandlers,
     onImportClick: () -> Unit,
+    onImportCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -156,6 +164,7 @@ private fun OnboardingWizard(
                         presetOptions = state.presetOptions,
                         onPresetSelected = gymLifts.onPresetSelected,
                         onImportClick = onImportClick,
+                        onImportCancel = onImportCancel,
                     )
                     WIZARD_STEP_REVIEW -> ReviewScreen(draft = state.reviewDraft)
                     WIZARD_STEP_GENERATE -> GenerateScreen(onComplete = onComplete)
