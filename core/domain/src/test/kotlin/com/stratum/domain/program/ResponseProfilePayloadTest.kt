@@ -66,6 +66,7 @@ class ResponseProfilePayloadTest {
             ResponseProfilePayload.fromObservations(
                 volumeObservations = listOf(observation),
                 effectivenessObservations = emptyList(),
+                volumeLandmarks = emptyList(),
                 epochsAnalyzed = 1,
                 analysisWindowStart = windowStart,
                 analysisWindowEnd = windowEnd,
@@ -136,6 +137,7 @@ class ProgramGenerationPromptBuilderResponseProfileTest {
             ResponseProfilePayload(
                 volumeResponses = emptyList(),
                 liftEffectiveness = emptyList(),
+                volumeLandmarks = emptyList(),
                 informational = ResponseProfileInformational(emptyList(), emptyList()),
                 epochsAnalyzed = 2,
                 analysisWindowStart = Instant.parse("2025-01-01T00:00:00Z"),
@@ -164,6 +166,7 @@ class ProgramGenerationPromptBuilderResponseProfileTest {
             ResponseProfilePayload(
                 volumeResponses = emptyList(),
                 liftEffectiveness = emptyList(),
+                volumeLandmarks = emptyList(),
                 informational = ResponseProfileInformational(emptyList(), emptyList()),
                 epochsAnalyzed = 0,
                 analysisWindowStart = Instant.parse("2025-01-01T00:00:00Z"),
@@ -248,12 +251,71 @@ class LoadProgramGenerationPayloadUseCaseTest {
             volumeResponseObservationRepository = volumeRepo,
             liftEffectivenessObservationRepository = com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository(),
             responseProfileMetadataRepository = metadataRepo,
+            trainingHistoryRepository = com.stratum.core.testing.importing.FakeTrainingHistoryRepository(),
             promptBuilder = ProgramGenerationPromptBuilder(),
         )
 
         val json = useCase()
 
         assertTrue(json.contains("\"responseProfile\""))
+    }
+
+    @Test
+    @DisplayName("RP-S10-009 load payload includes volumeLandmarks (MEV/MRV) when baselines exist")
+    fun rpS10_009_loadPayloadIncludesVolumeLandmarks() = kotlinx.coroutines.test.runTest {
+        val volumeRepo = com.stratum.core.testing.response.FakeVolumeResponseObservationRepository()
+        val metadataRepo = com.stratum.core.testing.response.FakeResponseProfileMetadataRepository()
+        metadataRepo.save(
+            com.stratum.domain.response.ResponseProfileMetadata(
+                epochsAnalyzed = 1,
+                analysisWindowStart = Instant.parse("2025-01-01T00:00:00Z"),
+                analysisWindowEnd = Instant.parse("2025-06-01T00:00:00Z"),
+                lastExtractedAt = Instant.parse("2026-01-15T00:00:00Z"),
+            ),
+        )
+        val volumeRepository = FakeVolumeRepository(
+            listOf(
+                com.stratum.domain.importing.MuscleVolumeBaseline(
+                    muscle = MuscleGroup.Quad,
+                    meanWeeklyHardSets = 10.0,
+                    p90WeeklyHardSets = 14.0,
+                    trendSlope = 0.5,
+                ),
+            ),
+        )
+        val importMetadataRepository = FakeMetadataRepository(
+            com.stratum.domain.importing.ImportAnalysisMetadata(
+                windowStart = Instant.parse("2025-01-01T00:00:00Z"),
+                windowEnd = Instant.parse("2025-06-01T00:00:00Z"),
+                provenLiftIds = listOf(LiftId("lift-squat")),
+                unmatchedExerciseNames = emptyList(),
+                totalSessions = 20,
+                totalSets = 200,
+            ),
+        )
+        val liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository()
+        val useCase = LoadProgramGenerationPayloadUseCase(
+            userTrainingProfileRepository = com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository(),
+            observeSpecialization = com.stratum.domain.onboarding.ObserveSpecializationUseCase(
+                com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
+            ),
+            liftRepository = liftRepository,
+            liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
+            supersetAffinityRepository = FakeSupersetRepository(),
+            muscleVolumeBaselineRepository = volumeRepository,
+            importAnalysisMetadataRepository = importMetadataRepository,
+            volumeResponseObservationRepository = volumeRepo,
+            liftEffectivenessObservationRepository = com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository(),
+            responseProfileMetadataRepository = metadataRepo,
+            trainingHistoryRepository = com.stratum.core.testing.importing.FakeTrainingHistoryRepository(),
+            promptBuilder = ProgramGenerationPromptBuilder(),
+        )
+
+        val json = useCase()
+
+        assertTrue(json.contains("\"volumeLandmarks\":["))
+        assertTrue(json.contains("\"estimatedMev\""))
+        assertTrue(json.contains("\"estimatedMrv\""))
     }
 
     private class FakeLiftInsightsRepository : com.stratum.domain.importing.LiftTrainingInsightsRepository {
@@ -267,14 +329,18 @@ class LoadProgramGenerationPayloadUseCaseTest {
         override suspend fun getAll(): List<com.stratum.domain.importing.SupersetAffinity> = emptyList()
     }
 
-    private class FakeVolumeRepository : com.stratum.domain.importing.MuscleVolumeBaselineRepository {
+    private class FakeVolumeRepository(
+        private val baselines: List<com.stratum.domain.importing.MuscleVolumeBaseline> = emptyList(),
+    ) : com.stratum.domain.importing.MuscleVolumeBaselineRepository {
         override suspend fun replaceAll(baselines: List<com.stratum.domain.importing.MuscleVolumeBaseline>) = Unit
-        override suspend fun getAll(): List<com.stratum.domain.importing.MuscleVolumeBaseline> = emptyList()
+        override suspend fun getAll(): List<com.stratum.domain.importing.MuscleVolumeBaseline> = baselines
     }
 
-    private class FakeMetadataRepository : com.stratum.domain.importing.ImportAnalysisMetadataRepository {
+    private class FakeMetadataRepository(
+        private val metadata: com.stratum.domain.importing.ImportAnalysisMetadata? = null,
+    ) : com.stratum.domain.importing.ImportAnalysisMetadataRepository {
         override suspend fun save(metadata: com.stratum.domain.importing.ImportAnalysisMetadata) = Unit
-        override suspend fun get(): com.stratum.domain.importing.ImportAnalysisMetadata? = null
+        override suspend fun get(): com.stratum.domain.importing.ImportAnalysisMetadata? = metadata
         override suspend fun clear() = Unit
     }
 }
