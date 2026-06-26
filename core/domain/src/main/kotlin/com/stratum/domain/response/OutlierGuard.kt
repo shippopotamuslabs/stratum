@@ -20,10 +20,13 @@ object OutlierGuard {
             val peak = peaks[index]
             val isOutlier = abs(peak - median) > threshold
             val rollingMedian = rollingMedianPeaks(sorted, index)
-            val smoothed = rollingMedian ?: peak
             signal.copy(
                 peakEstimatedOneRm = signal.peakEstimatedOneRm ?: peak,
-                smoothedEstimatedOneRm = if (isOutlier && rollingMedian != null) rollingMedian else smoothed,
+                smoothedEstimatedOneRm =
+                    when {
+                        isOutlier && rollingMedian != null -> rollingMedian
+                        else -> signal.smoothedEstimatedOneRm ?: signal.peakEstimatedOneRm ?: peak
+                    },
                 qualityFlags =
                     if (isOutlier) {
                         signal.qualityFlags + TrainingSignalQualityFlag.OutlierWinsorized

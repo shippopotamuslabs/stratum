@@ -4,19 +4,16 @@ import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.core.testing.response.FakeExperimentBlockRepository
-import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
-import com.stratum.core.testing.response.FakeResponseEpochRepository
-import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
-import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
+import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
+import com.stratum.core.testing.response.FailOnVolumeResponseProfilePersistencePort
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.response.DefaultResponseObservationExtractor
 import com.stratum.domain.response.EmptyExperimentRegistry
-import com.stratum.domain.response.Epoch
+import org.junit.jupiter.api.Assertions.assertNull
 import com.stratum.domain.response.ExtractResponseProfileUseCase
-import com.stratum.domain.response.ResponseEpochRepository
+import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.ResponseExtractionInput
 import com.stratum.domain.response.fixtures.ResponseFixtures
 import java.time.Instant
@@ -36,16 +33,14 @@ class PersistImportedHistoryUseCaseResponseTest {
         val metadataRepo = InMemoryMetadataRepository()
         val insightsRepo = InMemoryLiftInsightsRepository()
         val liftRepo = FakeLiftRepository(initialLifts = catalogWithFixtureLifts(fixture))
-        val epochRepo = FakeResponseEpochRepository()
-        val responseMetadataRepo = FakeResponseProfileMetadataRepository()
+        val persistence = FakeResponseProfilePersistencePort()
         val useCase = buildPersistUseCase(
             fixture = fixture,
             historyRepo = historyRepo,
             metadataRepo = metadataRepo,
             insightsRepo = insightsRepo,
             liftRepo = liftRepo,
-            epochRepo = epochRepo,
-            responseMetadataRepo = responseMetadataRepo,
+            persistence = persistence,
         )
 
         val result = useCase(fixture.sessions, fixture.sets)
@@ -53,8 +48,8 @@ class PersistImportedHistoryUseCaseResponseTest {
         assertTrue(result.isSuccess)
         assertNotNull(metadataRepo.get())
         assertTrue(insightsRepo.getAll().isNotEmpty())
-        assertEquals(2, epochRepo.getAll().size)
-        assertNotNull(responseMetadataRepo.get())
+        assertEquals(2, persistence.epochRepository.getAll().size)
+        assertNotNull(persistence.metadataRepository.get())
     }
 
     @Test
@@ -62,22 +57,45 @@ class PersistImportedHistoryUseCaseResponseTest {
     fun rpS9_002_responseFailureRollback() = runTest {
         val fixture = ResponseFixtures.fixS9ImportOk()
         val historyRepo = InMemoryTrainingHistoryRepository()
-        val epochRepo = ThrowingResponseEpochRepository()
+        val persistence = FailOnVolumeResponseProfilePersistencePort()
         val useCase = buildPersistUseCase(
             fixture = fixture,
             historyRepo = historyRepo,
             metadataRepo = InMemoryMetadataRepository(),
             insightsRepo = InMemoryLiftInsightsRepository(),
             liftRepo = FakeLiftRepository(initialLifts = catalogWithFixtureLifts(fixture)),
-            epochRepo = epochRepo,
-            responseMetadataRepo = FakeResponseProfileMetadataRepository(),
+            persistence = persistence,
         )
 
         val result = useCase(fixture.sessions, fixture.sets)
 
         assertTrue(result.isFailure)
         assertEquals(0, historyRepo.getAllSessions().size)
-        assertEquals(0, epochRepo.getAll().size)
+        assertEquals(0, persistence.epochRepository.getAll().size)
+        assertEquals(0, persistence.volumeRepository.getAll().size)
+    }
+
+    @Test
+    @DisplayName("RP-S9-004 response failure on second repo rolls back persisted epochs")
+    fun rpS9_004_responseFailureOnSecondRepoRollsBackEpochs() = runTest {
+        val fixture = ResponseFixtures.fixS9ImportOk()
+        val historyRepo = InMemoryTrainingHistoryRepository()
+        val persistence = FailOnVolumeResponseProfilePersistencePort()
+        val useCase = buildPersistUseCase(
+            fixture = fixture,
+            historyRepo = historyRepo,
+            metadataRepo = InMemoryMetadataRepository(),
+            insightsRepo = InMemoryLiftInsightsRepository(),
+            liftRepo = FakeLiftRepository(initialLifts = catalogWithFixtureLifts(fixture)),
+            persistence = persistence,
+        )
+
+        val result = useCase(fixture.sessions, fixture.sets)
+
+        assertTrue(result.isFailure)
+        assertEquals(0, persistence.epochRepository.getAll().size)
+        assertEquals(0, persistence.volumeRepository.getAll().size)
+        assertNull(persistence.metadataRepository.get())
     }
 
     @Test
@@ -85,22 +103,21 @@ class PersistImportedHistoryUseCaseResponseTest {
     fun rpS9_005_insightFailureStillRollsBack() = runTest {
         val fixture = ResponseFixtures.fixS9ImportOk()
         val historyRepo = InMemoryTrainingHistoryRepository()
-        val epochRepo = FakeResponseEpochRepository()
+        val persistence = FakeResponseProfilePersistencePort()
         val useCase = buildPersistUseCase(
             fixture = fixture,
             historyRepo = historyRepo,
             metadataRepo = InMemoryMetadataRepository(),
             insightsRepo = ThrowingLiftInsightsRepository(),
             liftRepo = FakeLiftRepository(initialLifts = catalogWithFixtureLifts(fixture)),
-            epochRepo = epochRepo,
-            responseMetadataRepo = FakeResponseProfileMetadataRepository(),
+            persistence = persistence,
         )
 
         val result = useCase(fixture.sessions, fixture.sets)
 
         assertTrue(result.isFailure)
         assertEquals(0, historyRepo.getAllSessions().size)
-        assertEquals(0, epochRepo.getAll().size)
+        assertEquals(0, persistence.epochRepository.getAll().size)
     }
 
     private fun buildPersistUseCase(
@@ -109,12 +126,8 @@ class PersistImportedHistoryUseCaseResponseTest {
         metadataRepo: InMemoryMetadataRepository,
         insightsRepo: LiftTrainingInsightsRepository,
         liftRepo: FakeLiftRepository,
-        epochRepo: ResponseEpochRepository,
-        responseMetadataRepo: FakeResponseProfileMetadataRepository,
+        persistence: ResponseProfilePersistencePort,
     ): PersistImportedHistoryUseCase {
-        val volumeRepo = FakeVolumeResponseObservationRepository()
-        val effectivenessRepo = FakeLiftEffectivenessObservationRepository()
-        val experimentRepo = FakeExperimentBlockRepository()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
                 trainingHistoryRepository = historyRepo,
@@ -122,11 +135,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
                 importAnalysisMetadataRepository = metadataRepo,
-                responseEpochRepository = epochRepo,
-                volumeResponseObservationRepository = volumeRepo,
-                liftEffectivenessObservationRepository = effectivenessRepo,
-                experimentBlockRepository = experimentRepo,
-                responseProfileMetadataRepository = responseMetadataRepo,
+                responseProfilePersistence = persistence,
                 extractor = DefaultResponseObservationExtractor(),
                 experimentRegistry = EmptyExperimentRegistry(),
             )
@@ -150,6 +159,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                     liftRepository = liftRepo,
                 ),
             extractResponseProfile = extractResponseProfile,
+            responseProfilePersistence = persistence,
             liftRepository = liftRepo,
         )
     }
@@ -243,13 +253,5 @@ class PersistImportedHistoryUseCaseResponseTest {
         override suspend fun replaceAll(baselines: List<MuscleVolumeBaseline>) = Unit
 
         override suspend fun getAll(): List<MuscleVolumeBaseline> = emptyList()
-    }
-
-    private class ThrowingResponseEpochRepository : ResponseEpochRepository {
-        override suspend fun replaceAll(epochs: List<Epoch>) {
-            throw IllegalStateException("response extraction failed")
-        }
-
-        override suspend fun getAll(): List<Epoch> = emptyList()
     }
 }

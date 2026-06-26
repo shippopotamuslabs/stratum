@@ -22,11 +22,7 @@ import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
 import com.stratum.domain.importing.EnrichCustomLiftsUseCase
 import com.stratum.domain.importing.PersistImportedHistoryUseCase
-import com.stratum.core.testing.response.FakeExperimentBlockRepository
-import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
-import com.stratum.core.testing.response.FakeResponseEpochRepository
-import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
-import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
+import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.domain.response.DefaultResponseObservationExtractor
 import com.stratum.domain.response.EmptyExperimentRegistry
 import com.stratum.domain.response.ExtractResponseProfileUseCase
@@ -98,11 +94,7 @@ class RunFullHistoricalImportUseCaseTest {
                 }
                 """.trimIndent(),
         )
-        val epochRepo = FakeResponseEpochRepository()
-        val volumeResponseRepo = FakeVolumeResponseObservationRepository()
-        val effectivenessRepo = FakeLiftEffectivenessObservationRepository()
-        val experimentRepo = FakeExperimentBlockRepository()
-        val responseMetadataRepo = FakeResponseProfileMetadataRepository()
+        val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
                 trainingHistoryRepository = historyRepo,
@@ -110,11 +102,7 @@ class RunFullHistoricalImportUseCaseTest {
                 liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
                 importAnalysisMetadataRepository = InMemoryMetadataRepository(),
-                responseEpochRepository = epochRepo,
-                volumeResponseObservationRepository = volumeResponseRepo,
-                liftEffectivenessObservationRepository = effectivenessRepo,
-                experimentBlockRepository = experimentRepo,
-                responseProfileMetadataRepository = responseMetadataRepo,
+                responseProfilePersistence = persistence,
                 extractor = DefaultResponseObservationExtractor(),
                 experimentRegistry = EmptyExperimentRegistry(),
             )
@@ -137,6 +125,7 @@ class RunFullHistoricalImportUseCaseTest {
                 liftRepository = liftRepo,
             ),
             extractResponseProfile = extractResponseProfile,
+            responseProfilePersistence = persistence,
             liftRepository = liftRepo,
         )
         val rollback =
@@ -146,11 +135,7 @@ class RunFullHistoricalImportUseCaseTest {
                 InMemorySupersetRepository(),
                 InMemoryVolumeRepository(),
                 InMemoryMetadataRepository(),
-                epochRepo,
-                volumeResponseRepo,
-                effectivenessRepo,
-                experimentRepo,
-                responseMetadataRepo,
+                persistence,
                 liftRepo,
             )
         val useCase = RunFullHistoricalImportUseCase(

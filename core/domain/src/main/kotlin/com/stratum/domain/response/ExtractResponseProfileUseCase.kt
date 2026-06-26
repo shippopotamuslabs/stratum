@@ -20,11 +20,7 @@ class ExtractResponseProfileUseCase @Inject constructor(
     private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
     private val importAnalysisMetadataRepository: ImportAnalysisMetadataRepository,
-    private val responseEpochRepository: ResponseEpochRepository,
-    private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
-    private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
-    private val experimentBlockRepository: ExperimentBlockRepository,
-    private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
+    private val responseProfilePersistence: ResponseProfilePersistencePort,
     private val extractor: ResponseObservationExtractor,
     private val experimentRegistry: ExperimentRegistry,
 ) {
@@ -44,22 +40,31 @@ class ExtractResponseProfileUseCase @Inject constructor(
                 specializeMuscles = emptySet(),
                 liftInsights = liftTrainingInsightsRepository.getAll(),
                 volumeBaselines = muscleVolumeBaselineRepository.getAll(),
-                analysisWindowStart = metadata?.windowStart ?: sessions.minOf { it.startedAt },
-                analysisWindowEnd = metadata?.windowEnd ?: sessions.maxOf { it.startedAt },
+                analysisWindowStart =
+                    metadata?.windowStart
+                        ?: sessions.minOfOrNull { it.startedAt }
+                        ?: Instant.EPOCH,
+                analysisWindowEnd =
+                    metadata?.windowEnd
+                        ?: sessions.maxOfOrNull { it.startedAt }
+                        ?: Instant.now(),
                 activeExperiments = experimentRegistry.active(),
             )
         val output = extractor.extract(input)
 
-        responseEpochRepository.replaceAll(output.epochs)
-        volumeResponseObservationRepository.replaceAll(output.volumeResponses)
-        liftEffectivenessObservationRepository.replaceAll(output.liftEffectiveness)
-        experimentBlockRepository.replaceAll(experimentRegistry.active())
-        responseProfileMetadataRepository.save(
-            ResponseProfileMetadata(
-                epochsAnalyzed = output.epochs.size,
-                analysisWindowStart = input.analysisWindowStart,
-                analysisWindowEnd = input.analysisWindowEnd,
-                lastExtractedAt = Instant.now(),
+        responseProfilePersistence.replaceExtractedProfile(
+            ExtractedResponseProfile(
+                epochs = output.epochs,
+                volumeResponses = output.volumeResponses,
+                liftEffectiveness = output.liftEffectiveness,
+                experimentBlocks = experimentRegistry.active(),
+                metadata =
+                    ResponseProfileMetadata(
+                        epochsAnalyzed = output.epochs.size,
+                        analysisWindowStart = input.analysisWindowStart,
+                        analysisWindowEnd = input.analysisWindowEnd,
+                        lastExtractedAt = Instant.now(),
+                    ),
             ),
         )
 

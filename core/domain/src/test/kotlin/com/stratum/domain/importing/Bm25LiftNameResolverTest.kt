@@ -67,4 +67,29 @@ class Bm25LiftNameResolverTest {
         assertTrue(evaluation.matched)
         assertEquals(LiftId("lat-pulldown"), evaluation.matchedLiftId)
     }
+
+    @Test
+    fun `matches seated hamstring curl to seated leg curl not band variant`() {
+        val catalog =
+            mapOf(
+                LiftId("seated-band") to "Seated Band Hamstring Curl",
+                LiftId("seated-leg") to "Seated Leg Curl",
+            )
+        val evaluation = resolver.evaluate("Seated Hamstring Curl ∈ SS1", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("seated-leg"), evaluation.matchedLiftId)
+        assertEquals("Seated Leg Curl", evaluation.bestCatalogName)
+    }
+
+    @Test
+    fun `matches lying hamstring curl to lying leg curls`() {
+        val catalog =
+            mapOf(
+                LiftId("lying-leg") to "Lying Leg Curls",
+                LiftId("seated-band") to "Seated Band Hamstring Curl",
+            )
+        val evaluation = resolver.evaluate("Lying Hamstring Curl ∈ SS1", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("lying-leg"), evaluation.matchedLiftId)
+    }
 }

@@ -38,13 +38,6 @@ object LiftEffectivenessAnalyzer {
             )
         }
 
-        val top = ranked[0]
-        val runnerUp = ranked[1]
-        val marginBeatsRunnerUp =
-            runnerUp.effectivenessScore <= 0.0 ||
-                (top.effectivenessScore - runnerUp.effectivenessScore) / runnerUp.effectivenessScore >=
-                EFFECTIVENESS_RANK_MARGIN
-
         return ranked.mapIndexed { index, score ->
             LiftEffectivenessObservation(
                 pattern = pattern,
@@ -53,12 +46,7 @@ object LiftEffectivenessAnalyzer {
                 effectivenessScore = score.effectivenessScore,
                 peerLiftCount = peerCount,
                 rank = index + 1,
-                evidence =
-                    if (index == 0 && marginBeatsRunnerUp) {
-                        EvidenceLevel.Hypothesis
-                    } else {
-                        EvidenceLevel.Hypothesis
-                    },
+                evidence = EvidenceLevel.Hypothesis,
                 confidenceScore = score.confidenceScore,
             )
         }

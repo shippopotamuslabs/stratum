@@ -96,6 +96,11 @@ fun GymAndLiftsScreen(
             onLearnMoreClick = { showImportDetails = true },
         )
 
+        AnimatedImportInsightsSummary(
+            visible = importComplete,
+            summary = draft.importInsightsSummary,
+        )
+
         draft.importError?.let { error ->
             StratumText(text = error, muted = true)
         }
