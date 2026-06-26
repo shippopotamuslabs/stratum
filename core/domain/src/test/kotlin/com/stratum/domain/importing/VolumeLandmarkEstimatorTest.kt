@@ -57,7 +57,7 @@ class VolumeLandmarkEstimatorTest {
     fun implausibleValuesReduceConfidence() {
         val points =
             buildWeeklyPoints(weekCount = 12).map {
-                it.copy(hardSets = 80)
+                it.copy(hardSets = 80.0)
             }
         val estimate =
             VolumeLandmarkEstimator.estimate(
@@ -72,11 +72,84 @@ class VolumeLandmarkEstimatorTest {
         assertEquals(LandmarkConfidenceTier.Low, estimate.confidenceTier)
     }
 
+    @Test
+    @DisplayName("Given still-progressing at observed volume ceiling when estimating then MRV blends toward prior")
+    fun stillProgressingAtCeilingBlendsTowardPrior() {
+        // Highest-volume week (18 sets) still shows a positive e1RM delta, and the volume response
+        // has a positive correlation slope. The estimator should blend the observed max (18) toward
+        // the population prior MRV mid rather than reporting 18 as a settled ceiling.
+        val prior = VolumeLandmarkPriors.forMuscle(MuscleGroup.Chest)
+        val points = buildClimbingAtCeilingPoints(weekCount = 12, maxHardSets = 18.0)
+        val estimate =
+            VolumeLandmarkEstimator.estimate(
+                VolumeLandmarkEstimator.Input(
+                    muscle = MuscleGroup.Chest,
+                    weeklyPoints = points,
+                    volumeResponse = positiveVolumeResponse(),
+                    rirCoverage = 0.85,
+                ),
+            )
+
+        assertTrue(estimate.estimatedMrv > 18.0, "MRV should exceed observed max when still progressing")
+        assertTrue(
+            estimate.estimatedMrv <= prior.mrvMid + 0.001,
+            "MRV should not exceed the population prior mid ($prior.mrvMid, got ${estimate.estimatedMrv})",
+        )
+    }
+
+    @Test
+    @DisplayName("Given higher effective volume on weeks without anchor e1RM when estimating then MRV uses that ceiling")
+    fun mrvUsesEffectiveVolumeWithoutAnchorWeek() {
+        val start = Instant.parse("2025-01-06T00:00:00Z")
+        val points =
+            (0 until 12).map { index ->
+                val curlOnlyWeek = index < 8
+                MuscleWeeklyVolumePoint(
+                    weekStart = start.plusSeconds(index * 7L * 24L * 3600L),
+                    hardSets = if (curlOnlyWeek) 11.0 else 20.0,
+                    anchorPeakE1rm = if (curlOnlyWeek) 100.0 + index else null,
+                    weekOverWeekE1rmDelta = if (index == 0 || !curlOnlyWeek) null else 1.0,
+                )
+            }
+        val estimate =
+            VolumeLandmarkEstimator.estimate(
+                VolumeLandmarkEstimator.Input(
+                    muscle = MuscleGroup.Bicep,
+                    weeklyPoints = points,
+                    volumeResponse = null,
+                    rirCoverage = 0.5,
+                ),
+            )
+
+        assertTrue(
+            estimate.estimatedMrv > 11.0,
+            "MRV should exceed curl-only ceiling when row-only weeks carry higher effective volume",
+        )
+    }
+
+    private fun buildClimbingAtCeilingPoints(weekCount: Int, maxHardSets: Double): List<MuscleWeeklyVolumePoint> {
+        val start = Instant.parse("2025-01-06T00:00:00Z")
+        var previousPeak = 200.0
+        return (0 until weekCount).map { index ->
+            // Climb hard sets so the final week reaches maxHardSets and still has a positive delta.
+            val hardSets = (8.0 + index * ((maxHardSets - 8.0) / (weekCount - 1)))
+            val peak = previousPeak + 1.0
+            val delta = if (index == 0) null else 1.0
+            previousPeak = peak
+            MuscleWeeklyVolumePoint(
+                weekStart = start.plusSeconds(index * 7L * 24L * 3600L),
+                hardSets = hardSets,
+                anchorPeakE1rm = peak,
+                weekOverWeekE1rmDelta = delta,
+            )
+        }
+    }
+
     private fun buildWeeklyPoints(weekCount: Int): List<MuscleWeeklyVolumePoint> {
         val start = Instant.parse("2025-01-06T00:00:00Z")
         var previousPeak = 200.0
         return (0 until weekCount).map { index ->
-            val hardSets = 8 + (index % 4) * 2
+            val hardSets = (8 + (index % 4) * 2).toDouble()
             val peak = previousPeak + 1.0
             val delta = if (index == 0) null else 1.0
             previousPeak = peak

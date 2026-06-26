@@ -6,7 +6,7 @@ import java.time.Instant
 
 data class MuscleWeeklyVolumePoint(
     val weekStart: Instant,
-    val hardSets: Int,
+    val hardSets: Double,
     val anchorPeakE1rm: Double?,
     val weekOverWeekE1rmDelta: Double?,
 )
@@ -34,21 +34,25 @@ object VolumeLandmarkEstimator {
 
     fun estimate(input: Input): EstimatedVolumeLandmark {
         val prior = input.prior
-        if (input.weeklyPoints.size < VolumeLandmarkEstimatorConstants.MIN_WEEKS_FOR_OBSERVATION) {
+        val weeklyPoints = input.weeklyPoints.sortedBy { it.weekStart }
+        val anchoredPoints = weeklyPoints.filter { it.anchorPeakE1rm != null }
+        if (anchoredPoints.size < VolumeLandmarkEstimatorConstants.MIN_WEEKS_FOR_OBSERVATION) {
             return fallback(prior, input.muscle, LandmarkConfidenceTier.Low)
         }
 
-        val points = input.weeklyPoints.filter { it.anchorPeakE1rm != null }.sortedBy { it.weekStart }
-        if (points.size < VolumeLandmarkEstimatorConstants.MIN_WEEKS_FOR_OBSERVATION) {
-            return fallback(prior, input.muscle, LandmarkConfidenceTier.Low)
-        }
-
-        val volumeSpread = points.map { it.hardSets }.distinct().size
-        var observedMev = estimateMev(points)
-        var observedMrv = estimateMrv(points, input.volumeResponse)
+        val volumePoints = weeklyPoints.filter { it.hardSets > 0.0 }
+        val volumeSpread = volumePoints.map { it.hardSets }.distinct().size
+        var observedMev = estimateMev(anchoredPoints)
+        var observedMrv =
+            estimateMrv(
+                anchoredPoints = anchoredPoints,
+                volumePoints = volumePoints,
+                volumeResponse = input.volumeResponse,
+                prior = prior,
+            )
         var confidence =
             baseConfidence(
-                weekCount = points.size,
+                weekCount = anchoredPoints.size,
                 volumeSpread = volumeSpread,
                 rirCoverage = input.rirCoverage,
                 volumeResponse = input.volumeResponse,
@@ -92,23 +96,48 @@ object VolumeLandmarkEstimator {
         for (candidate in sortedByVolume) {
             val delta = candidate.weekOverWeekE1rmDelta
             if (delta == null || delta >= -VolumeLandmarkEstimatorConstants.STAGNATION_DELTA_LBS) {
-                return candidate.hardSets.toDouble()
+                return candidate.hardSets
             }
         }
-        return sortedByVolume.first().hardSets.toDouble()
+        return sortedByVolume.first().hardSets
     }
 
     private fun estimateMrv(
-        points: List<MuscleWeeklyVolumePoint>,
+        anchoredPoints: List<MuscleWeeklyVolumePoint>,
+        volumePoints: List<MuscleWeeklyVolumePoint>,
         volumeResponse: VolumeResponseObservation?,
+        prior: VolumeLandmarkPrior,
     ): Double {
+        val volumeSource = volumePoints.ifEmpty { anchoredPoints }
+        val anchorByWeek = anchoredPoints.associateBy { it.weekStart }
+
         volumeResponse?.let { response ->
             if (response.correlationSlope > 0) {
-                return response.observedWeeklySetRange.max
+                val observedMax =
+                    maxOf(
+                        response.observedWeeklySetRange.max,
+                        volumeSource.maxOfOrNull { it.hardSets } ?: 0.0,
+                    )
+                val highestVolumeWeek = volumeSource.maxByOrNull { it.hardSets }
+                val anchorAtCeiling =
+                    highestVolumeWeek?.let { anchorByWeek[it.weekStart] }
+                val stillProgressingAtCeiling =
+                    highestVolumeWeek != null &&
+                        highestVolumeWeek.hardSets >= observedMax - VolumeLandmarkEstimatorConstants.VOLUME_EPSILON &&
+                        (
+                            anchorAtCeiling == null ||
+                                (anchorAtCeiling.weekOverWeekE1rmDelta ?: 0.0) >
+                                VolumeLandmarkEstimatorConstants.STAGNATION_DELTA_LBS
+                            )
+                if (stillProgressingAtCeiling) {
+                    val blend = VolumeLandmarkEstimatorConstants.CEILING_BLEND_TOWARD_PRIOR
+                    return (blend * prior.mrvMid) + ((1.0 - blend) * observedMax)
+                }
+                return observedMax
             }
             if (response.correlationSlope <= 0) {
                 val plateauVolume =
-                    points
+                    anchoredPoints
                         .filter {
                             (it.weekOverWeekE1rmDelta ?: 0.0) <
                                 -VolumeLandmarkEstimatorConstants.STAGNATION_DELTA_LBS
@@ -117,21 +146,30 @@ object VolumeLandmarkEstimator {
                 if (plateauVolume != null) {
                     return (
                         plateauVolume - VolumeLandmarkEstimatorConstants.PLATEAU_VOLUME_STEP_DOWN
-                        ).coerceAtLeast(VolumeLandmarkEstimatorConstants.MIN_RECOVERABLE_WEEKLY_SETS)
-                        .toDouble()
+                        ).coerceAtLeast(VolumeLandmarkEstimatorConstants.MIN_RECOVERABLE_WEEKLY_SETS.toDouble())
                 }
             }
         }
 
-        var bestVolume = points.maxOf { it.hardSets }.toDouble()
-        for (candidate in points.sortedByDescending { it.hardSets }) {
-            val delta = candidate.weekOverWeekE1rmDelta
-            if (delta == null || delta >= -VolumeLandmarkEstimatorConstants.STAGNATION_DELTA_LBS) {
-                bestVolume = candidate.hardSets.toDouble()
-                break
-            }
-        }
-        return bestVolume
+        val peakVolume = volumeSource.maxOf { it.hardSets }
+        val stagnatedWeek =
+            volumeSource
+                .sortedByDescending { it.hardSets }
+                .firstOrNull { candidate -> isStagnatedAnchorWeek(candidate, anchorByWeek) }
+        return stagnatedWeek?.let { week ->
+            (
+                week.hardSets - VolumeLandmarkEstimatorConstants.PLATEAU_VOLUME_STEP_DOWN
+                ).coerceAtLeast(VolumeLandmarkEstimatorConstants.MIN_RECOVERABLE_WEEKLY_SETS.toDouble())
+        } ?: peakVolume
+    }
+
+    private fun isStagnatedAnchorWeek(
+        candidate: MuscleWeeklyVolumePoint,
+        anchorByWeek: Map<Instant, MuscleWeeklyVolumePoint>,
+    ): Boolean {
+        val anchor = anchorByWeek[candidate.weekStart] ?: return false
+        return (anchor.weekOverWeekE1rmDelta ?: 0.0) <
+            -VolumeLandmarkEstimatorConstants.STAGNATION_DELTA_LBS
     }
 
     private fun baseConfidence(
