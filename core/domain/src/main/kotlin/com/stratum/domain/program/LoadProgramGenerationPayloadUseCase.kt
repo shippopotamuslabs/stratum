@@ -4,11 +4,11 @@ import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinityRepository
-import com.stratum.domain.importing.TrainingHistoryRepository
-import com.stratum.domain.importing.VolumeLandmarkSummaryBuilder
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
+import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.VolumeResponseObservationRepository
+import com.stratum.domain.response.modeling.toHighlights
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.ObserveSpecializationUseCase
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
@@ -27,7 +27,7 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
     private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
     private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
     private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
-    private val trainingHistoryRepository: TrainingHistoryRepository,
+    private val muscleVolumeLandmarkEstimateRepository: MuscleVolumeLandmarkEstimateRepository,
     private val promptBuilder: ProgramGenerationPromptBuilder,
 ) {
     suspend operator fun invoke(): String {
@@ -44,7 +44,7 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
                 proven.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) } to
                     available.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) }
             }
-        val responseProfile = assembleResponseProfilePayload(metadata, lifts)
+        val responseProfile = assembleResponseProfilePayload()
         return promptBuilder.buildPayload(
             profile = profile,
             specialization = specialization,
@@ -57,28 +57,15 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
         )
     }
 
-    private suspend fun assembleResponseProfilePayload(
-        importMetadata: com.stratum.domain.importing.ImportAnalysisMetadata?,
-        lifts: List<com.stratum.domain.lift.Lift>,
-    ): ResponseProfilePayload? {
+    private suspend fun assembleResponseProfilePayload(): ResponseProfilePayload? {
         val responseMetadata = responseProfileMetadataRepository.get() ?: return null
         val baselines = muscleVolumeBaselineRepository.getAll()
         val volumeResponses = volumeResponseObservationRepository.getAll()
+        val persistedLandmarks = muscleVolumeLandmarkEstimateRepository.getAll()
         val volumeLandmarks =
-            if (importMetadata != null && baselines.isNotEmpty()) {
-                val sessions = trainingHistoryRepository.getAllSessions()
-                val sets = trainingHistoryRepository.getAllSets()
-                VolumeLandmarkSummaryBuilder.build(
-                    metadata = importMetadata,
-                    sessions = sessions,
-                    sets = sets,
-                    lifts = lifts,
-                    baselines = baselines,
-                    volumeResponses = volumeResponses,
-                )
-            } else {
-                emptyList()
-            }
+            persistedLandmarks
+                .filter { estimate -> baselines.any { it.muscle == estimate.muscle } }
+                .toHighlights()
         return ResponseProfilePayload.fromObservations(
             volumeObservations = volumeResponses,
             effectivenessObservations = liftEffectivenessObservationRepository.getAll(),

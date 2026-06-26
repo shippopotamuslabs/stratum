@@ -104,9 +104,7 @@
     <string name="gym_lifts_import_summary_landmarks_detail_range_header">Possible Range</string>
     <string name="gym_lifts_import_summary_landmarks_detail_range_unavailable">—</string>
     <string name="gym_lifts_import_summary_landmarks_confidence_header">Data confidence</string>
-    <string name="gym_lifts_import_summary_landmarks_confidence_high">Based on substantial logged volume and clear trends for this muscle.</string>
-    <string name="gym_lifts_import_summary_landmarks_confidence_medium">Based on moderate logged volume for this muscle.</string>
-    <string name="gym_lifts_import_summary_landmarks_confidence_low">Based on limited logged volume for this muscle.</string>
+
     <string name="gym_lifts_import_summary_landmarks_expand_a11y">Show ranges and confidence for %1$s</string>
     <string name="gym_lifts_import_summary_landmarks_collapse_a11y">Hide ranges and confidence for %1$s</string>
     <string name="gym_lifts_import_summary_landmarks_muscle_header">Muscle</string>

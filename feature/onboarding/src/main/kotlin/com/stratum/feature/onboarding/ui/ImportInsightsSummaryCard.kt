@@ -389,7 +389,6 @@ private fun LandmarksTableHeader() {
         LandmarkHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_mav_header),
             modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-            emphasized = true,
         )
         LandmarkHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_mrv_header),
@@ -398,6 +397,7 @@ private fun LandmarksTableHeader() {
         LandmarkHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_pv_header),
             modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            emphasized = true,
         )
     }
 }
@@ -587,25 +587,20 @@ private fun LandmarkExpandedDetail(
 
         Spacer(Modifier.height(4.dp))
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            StratumConfidenceBars(
+                tier = landmark.confidenceTier,
+                contentDescription = confidenceBarsContentDescription(landmark.confidenceTier),
+            )
             StratumText(
                 text = stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_header),
                 muted = true,
                 style = StratumThemeAccessor.typography.sectionLabel,
             )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                StratumConfidenceBars(
-                    tier = landmark.confidenceTier,
-                    contentDescription = confidenceBarsContentDescription(landmark.confidenceTier),
-                )
-                StratumText(
-                    text = landmarkConfidenceExplanation(landmark.confidenceTier),
-                    muted = true,
-                )
-            }
         }
     }
 }
@@ -682,17 +677,6 @@ private fun LandmarkDetailMetricRow(
         }
     }
 }
-
-@Composable
-private fun landmarkConfidenceExplanation(tier: LandmarkConfidenceTier): String =
-    when (tier) {
-        LandmarkConfidenceTier.High ->
-            stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_high)
-        LandmarkConfidenceTier.Medium ->
-            stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_medium)
-        LandmarkConfidenceTier.Low ->
-            stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_low)
-    }
 
 /** Build an a11y content description for an estimated-range label, or "" when there is no range. */
 @Composable

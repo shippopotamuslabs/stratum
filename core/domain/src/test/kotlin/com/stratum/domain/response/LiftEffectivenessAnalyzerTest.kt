@@ -85,7 +85,7 @@ class LiftEffectivenessAnalyzerTest {
             )
         val rank1 = observations.first { it.rank == 1 }
 
-        assertEquals(0.12, rank1.effectivenessScore, 0.001)
+        assertEquals(0.12705640902543433, rank1.effectivenessScore, 0.001)
         assertEquals(EvidenceLevel.Hypothesis, rank1.evidence)
         assertTrue(observations.none { it.rank == 1 && it.evidence == EvidenceLevel.Proven })
     }

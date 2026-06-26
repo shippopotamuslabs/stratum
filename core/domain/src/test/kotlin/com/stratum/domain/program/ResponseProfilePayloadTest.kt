@@ -9,6 +9,9 @@ import com.stratum.domain.response.RegressionReliability
 import com.stratum.domain.response.StimulusDescriptor
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.WeeklySetRange
+import com.stratum.domain.response.modeling.MrvSource
+import com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate
+import com.stratum.domain.response.modeling.OutcomeModelType
 import com.stratum.domain.response.identity.EpochId
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -251,7 +254,7 @@ class LoadProgramGenerationPayloadUseCaseTest {
             volumeResponseObservationRepository = volumeRepo,
             liftEffectivenessObservationRepository = com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository(),
             responseProfileMetadataRepository = metadataRepo,
-            trainingHistoryRepository = com.stratum.core.testing.importing.FakeTrainingHistoryRepository(),
+            muscleVolumeLandmarkEstimateRepository = com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
             promptBuilder = ProgramGenerationPromptBuilder(),
         )
 
@@ -294,6 +297,29 @@ class LoadProgramGenerationPayloadUseCaseTest {
             ),
         )
         val liftRepository = com.stratum.core.testing.onboarding.FakeLiftRepository()
+        val landmarkRepo = com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository().apply {
+            seed(
+                listOf(
+                    MuscleVolumeLandmarkEstimate(
+                        muscle = MuscleGroup.Quad,
+                        estimatedMev = 6.0,
+                        estimatedMav = 12.0,
+                        estimatedMrv = 18.0,
+                        estimatedPv = 9.0,
+                        mevInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                        mavInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                        mrvInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                        pvInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                        confidenceTier = com.stratum.domain.importing.LandmarkConfidenceTier.Medium,
+                        outcomeModelType = OutcomeModelType.MuscleIndex,
+                        mrvSource = MrvSource.Observed,
+                        observedDoseMin = 4.0,
+                        observedDoseMax = 16.0,
+                        diagnosticAnchorLiftId = LiftId("lift-squat"),
+                    ),
+                ),
+            )
+        }
         val useCase = LoadProgramGenerationPayloadUseCase(
             userTrainingProfileRepository = com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository(),
             observeSpecialization = com.stratum.domain.onboarding.ObserveSpecializationUseCase(
@@ -307,7 +333,7 @@ class LoadProgramGenerationPayloadUseCaseTest {
             volumeResponseObservationRepository = volumeRepo,
             liftEffectivenessObservationRepository = com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository(),
             responseProfileMetadataRepository = metadataRepo,
-            trainingHistoryRepository = com.stratum.core.testing.importing.FakeTrainingHistoryRepository(),
+            muscleVolumeLandmarkEstimateRepository = landmarkRepo,
             promptBuilder = ProgramGenerationPromptBuilder(),
         )
 

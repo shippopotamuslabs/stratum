@@ -103,9 +103,11 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     }
                     set.copy(liftId = resolved)
                 } else {
-                    if (isRecentForEnablement(set)) {
-                        recordUnmatchedSet(unmatchedCounts, set.exerciseNameRaw)
-                    }
+                    recordUnmatchedSet(
+                        unmatchedCounts = unmatchedCounts,
+                        exerciseNameRaw = set.exerciseNameRaw,
+                        isRecent = isRecentForEnablement(set),
+                    )
                     set.copy(liftId = null)
                 }
             }
@@ -149,7 +151,11 @@ class ResolveImportLiftsUseCase @Inject constructor(
                                 ),
                             )
                         }
-                    customLiftIds += createdId
+                    if (aggregate.isRecent) {
+                        customLiftIds += createdId
+                    } else {
+                        liftRepository.setLiftEnabled(createdId, false)
+                    }
                     customLiftsCreated += 1
                 }
 
@@ -350,6 +356,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
     private fun recordUnmatchedSet(
         unmatchedCounts: MutableMap<String, UnmatchedExerciseAggregate>,
         exerciseNameRaw: String,
+        isRecent: Boolean,
     ) {
         val normalizedKey = ImportExerciseNameNormalizer.normalizeForMatching(exerciseNameRaw)
         val existing = unmatchedCounts[normalizedKey]
@@ -358,15 +365,20 @@ class ResolveImportLiftsUseCase @Inject constructor(
                 UnmatchedExerciseAggregate(
                     displayName = ImportExerciseNameNormalizer.displayName(exerciseNameRaw),
                     loggedSetCount = 1,
+                    isRecent = isRecent,
                 )
         } else {
             existing.loggedSetCount += 1
+            if (isRecent) {
+                existing.isRecent = true
+            }
         }
     }
 
     private data class UnmatchedExerciseAggregate(
         val displayName: String,
         var loggedSetCount: Int,
+        var isRecent: Boolean,
     )
 
     private companion object {

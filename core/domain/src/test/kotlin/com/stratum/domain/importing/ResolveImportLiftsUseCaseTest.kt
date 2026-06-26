@@ -358,6 +358,44 @@ class ResolveImportLiftsUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given non-recent unmatched exercise when importing then custom lift is created disabled and excluded from provenLiftIds but set is mapped")
+    fun nonRecentUnmatchedExerciseCreatedDisabledAndMapped() = runTest {
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val subject = buildSubject(liftRepo)
+
+        val recentSet = loggedSet(exerciseNameRaw = "Recent Bench").copy(
+            completedAt = Instant.parse("2025-01-01T12:00:00Z"),
+        )
+        val nonRecentSet = loggedSet(exerciseNameRaw = "Old Incline Press").copy(
+            completedAt = Instant.parse("2024-05-01T12:00:00Z"), // > 183 days ago
+        )
+
+        val outcome = subject(listOf(recentSet, nonRecentSet))
+
+        // Find the custom lifts created
+        val currentLifts = liftRepo.currentLifts.filter { it.isCustom }
+        assertEquals(2, currentLifts.size)
+
+        val recentCustomLift = currentLifts.first { it.name == "Recent Bench" }
+        val nonRecentCustomLift = currentLifts.first { it.name == "Old Incline Press" }
+
+        // Recent custom lift should be enabled and in provenLiftIds
+        assertTrue(recentCustomLift.enabled)
+        assertTrue(recentCustomLift.id in outcome.provenLiftIds)
+
+        // Non-recent custom lift should be disabled and NOT in provenLiftIds
+        assertFalse(nonRecentCustomLift.enabled)
+        assertFalse(nonRecentCustomLift.id in outcome.provenLiftIds)
+
+        // Both sets should still be resolved to their respective custom lift IDs!
+        val resolvedRecentSet = outcome.resolvedSets.first { it.exerciseNameRaw == "Recent Bench" }
+        val resolvedNonRecentSet = outcome.resolvedSets.first { it.exerciseNameRaw == "Old Incline Press" }
+
+        assertEquals(recentCustomLift.id, resolvedRecentSet.liftId)
+        assertEquals(nonRecentCustomLift.id, resolvedNonRecentSet.liftId)
+    }
+
+    @Test
     fun `prepareBatch is called once with distinct exercise names`() = runTest {
         val embeddingPort = FakeLiftNameEmbeddingPort()
         val liftRepo =

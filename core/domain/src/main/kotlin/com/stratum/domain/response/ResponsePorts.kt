@@ -32,6 +32,12 @@ interface ResponseProfileMetadataRepository {
     suspend fun clear()
 }
 
+interface MuscleVolumeLandmarkEstimateRepository {
+    suspend fun replaceAll(estimates: List<com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate>)
+
+    suspend fun getAll(): List<com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate>
+}
+
 interface ExperimentRegistry {
     fun active(): List<ExperimentBlock>
 
