@@ -22,4 +22,18 @@ internal object VolumeLandmarkEstimatorConstants {
 
     const val MIN_RECOVERABLE_WEEKLY_SETS = 1
     const val PLATEAU_VOLUME_STEP_DOWN = 1
+
+    /** Half-window for centered rolling-mean smoothing of weekly e1RM deltas (total window = 2×+1). */
+    const val DELTA_SMOOTHING_WINDOW = 1
+
+    /** Volume comparison tolerance for "at the observed ceiling" checks (handles float drift). */
+    const val VOLUME_EPSILON = 1e-6
+
+    /**
+     * Weight given to the population prior MRV when the user was still progressing at their
+     * observed volume ceiling. Higher = more inferential headroom above the observed max; the
+     * blended estimate never exceeds the prior mid, so this is bounded inference, not free
+     * extrapolation. 0.5 means "split the difference between observed max and prior mid."
+     */
+    const val CEILING_BLEND_TOWARD_PRIOR = 0.5
 }

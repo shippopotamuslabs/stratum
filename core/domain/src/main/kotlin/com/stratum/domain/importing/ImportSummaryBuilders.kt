@@ -206,18 +206,39 @@ object VolumeLandmarkSummaryBuilder {
             } ?: emptyMap()
 
         val weekStarts = muscleWeeks.keys.union(outcomeByWeek.keys).sorted()
-        var previousPeak: Double? = null
-        return weekStarts.map { weekStart ->
-            val hardSets = muscleWeeks[weekStart]?.hardSets ?: 0
-            val peak = outcomeByWeek[weekStart]?.smoothedEstimatedOneRm ?: outcomeByWeek[weekStart]?.peakEstimatedOneRm
+        val rawPeaks = weekStarts.map { weekStart ->
+            outcomeByWeek[weekStart]?.smoothedEstimatedOneRm ?: outcomeByWeek[weekStart]?.peakEstimatedOneRm
+        }
+        // Smooth the weekly e1RM series with a centered rolling mean so a single good/bad week
+        // does not drive the week-over-week delta that MEV/MRV estimation keys off of. Weeks with
+        // null outcome are excluded from the window; the delta is null until two smoothed points
+        // exist. This mirrors OutlierGuard's intent without discarding legitimate signal.
+        val smoothedPeaks = centeredRollingMean(rawPeaks, VolumeLandmarkEstimatorConstants.DELTA_SMOOTHING_WINDOW)
+        return weekStarts.mapIndexed { index, weekStart ->
+            val hardSets = muscleWeeks[weekStart]?.hardSets ?: 0.0
+            val peak = smoothedPeaks[index]
+            val previousPeak = smoothedPeaks.getOrNull(index - 1)
             val delta = if (peak != null && previousPeak != null) peak - previousPeak else null
-            if (peak != null) previousPeak = peak
             MuscleWeeklyVolumePoint(
                 weekStart = weekStart,
                 hardSets = hardSets,
-                anchorPeakE1rm = peak,
+                anchorPeakE1rm = rawPeaks[index] ?: peak,
                 weekOverWeekE1rmDelta = delta,
             )
+        }
+    }
+
+    /**
+     * Centered rolling mean over [values], skipping nulls. Returns null for indices whose window
+     * contains no non-null values. Window is symmetric: [halfWindow] neighbors on each side.
+     */
+    internal fun centeredRollingMean(values: List<Double?>, halfWindow: Int): List<Double?> {
+        if (values.isEmpty()) return emptyList()
+        return values.indices.map { index ->
+            val from = (index - halfWindow).coerceAtLeast(0)
+            val to = (index + halfWindow).coerceAtMost(values.lastIndex)
+            val window = values.subList(from, to + 1).filterNotNull()
+            if (window.isEmpty()) null else window.average()
         }
     }
 
