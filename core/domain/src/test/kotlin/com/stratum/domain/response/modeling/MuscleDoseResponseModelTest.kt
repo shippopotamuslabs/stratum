@@ -31,6 +31,35 @@ class MuscleDoseResponseModelTest {
         assertEquals(OutcomeModelType.PriorOnly, result.landmarks.outcomeModelType)
         assertEquals(MrvSource.PriorDominant, result.landmarks.mrvSource)
         assertTrue(result.landmarks.confidenceTier == LandmarkConfidenceTier.Low)
+        assertTrue(result.landmarks.estimatedMev.isFinite())
+        assertTrue(result.landmarks.estimatedMav.isFinite())
+        assertTrue(result.landmarks.estimatedMrv.isFinite())
+        assertTrue(result.landmarks.estimatedPv.isFinite())
+        assertTrue(result.diagnostics.confidenceScore.isFinite())
+    }
+
+    @Test
+    @DisplayName("MDM-003 empty outcome indices still produce persistable finite landmarks")
+    fun emptyOutcomeIndicesProduceFiniteLandmarks() {
+        val pairing =
+            LaggedDoseResponsePairer.PairingResult(
+                points = emptyList(),
+                selectedLagWeeks = 0,
+                responseWindowWeeks = 4,
+                predictiveScore = null,
+            )
+        val result =
+            MuscleDoseResponseModel.estimate(
+                muscle = MuscleGroup.Tricep,
+                pairing = pairing,
+                indices = emptyList(),
+                stimulus = emptyList(),
+                diagnosticAnchorLiftId = null,
+            )
+
+        assertTrue(result.landmarks.estimatedMev.isFinite() && result.landmarks.estimatedMev > 0.0)
+        assertTrue(result.landmarks.mevInterval.low.isFinite())
+        assertTrue(result.landmarks.mevInterval.high.isFinite())
     }
 
     @Test

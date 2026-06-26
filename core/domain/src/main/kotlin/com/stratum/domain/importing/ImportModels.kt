@@ -134,6 +134,14 @@ data class ResolveImportLiftsSummary(
     val tierBLiftsEnabled: Int = 0,
     /** Gym type derived from confirmed equipment for the sparse-import fallback; null if unused. */
     val derivedGymFallback: GymPreset? = null,
+    /** Callable batches sent to inferCustomLifts; zero when no unmatched customs. */
+    val customLiftInferenceBatchesAttempted: Int = 0,
+    /** Callable batches that failed (timeout, auth, parse, etc.). */
+    val customLiftInferenceBatchesFailed: Int = 0,
+    /** Custom lifts created from successful LLM inference (remainder used stub guesser). */
+    val customLiftLlmInferredCount: Int = 0,
+    /** Last inferCustomLifts error message when any batch failed. */
+    val customLiftInferenceLastError: String? = null,
 )
 
 data class UnmatchedExerciseSample(

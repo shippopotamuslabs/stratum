@@ -24,9 +24,9 @@ internal object ResponseModelDiagnostics {
         weightSum += 0.25
         score += (volumeBinCount.coerceAtMost(8).toDouble() / 8.0) * 0.15
         weightSum += 0.15
-        score += peakDoseCoverage.coerceIn(0.0, 1.0) * 0.15
+        score += (peakDoseCoverage.takeIf { it.isFinite() }?.coerceIn(0.0, 1.0) ?: 0.0) * 0.15
         weightSum += 0.15
-        score += compositionStability.coerceIn(0.0, 1.0) * 0.10
+        score += (compositionStability.takeIf { it.isFinite() }?.coerceIn(0.0, 1.0) ?: 0.0) * 0.10
         weightSum += 0.10
         predictiveScore?.let {
             val normalized = (it + 1.0).coerceIn(0.0, 1.0)

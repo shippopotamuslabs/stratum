@@ -27,8 +27,25 @@ internal object ImportLiftResolutionLogger {
                 append("enabledCustom=${summary.finalEnabledCustomLiftCount} ")
                 append("enabledTotal=${summary.finalEnabledTotal} ")
                 append("unresolvedSets=${summary.unresolvedSetCount}")
+                if (summary.customLiftInferenceBatchesAttempted > 0) {
+                    append(" inferenceBatches=${summary.customLiftInferenceBatchesAttempted}")
+                    append(" inferenceFailedBatches=${summary.customLiftInferenceBatchesFailed}")
+                    append(" llmInferred=${summary.customLiftLlmInferredCount}")
+                    append(" stubFallback=${summary.customLiftsCreated - summary.customLiftLlmInferredCount}")
+                    summary.customLiftInferenceLastError?.let { append(" inferenceError=\"$it\"") }
+                }
             },
         )
+
+        if (summary.customLiftInferenceBatchesFailed > 0) {
+            logWarning(
+                "Custom lift inference failed for ${summary.customLiftInferenceBatchesFailed}/" +
+                    "${summary.customLiftInferenceBatchesAttempted} batches " +
+                    "(${summary.customLiftLlmInferredCount} LLM, " +
+                    "${summary.customLiftsCreated - summary.customLiftLlmInferredCount} stub). " +
+                    "Last error: ${summary.customLiftInferenceLastError ?: "unknown"}",
+            )
+        }
 
         if (summary.seedCatalogLiftCount < MIN_EXPECTED_SEED_CATALOG_LIFTS) {
             logWarning(

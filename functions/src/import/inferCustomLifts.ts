@@ -16,7 +16,10 @@ import {
 
 export const inferCustomLifts = onCall(
   {
-    secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL"],
+    secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL_SMALL"],
+    // Default Cloud Run timeout is 60s; keep headroom for large structured JSON batches.
+    timeoutSeconds: 300,
+    memory: "512MiB",
   },
   async (request) => {
     if (!request.auth) {
@@ -54,7 +57,7 @@ export const inferCustomLifts = onCall(
     }
 
     const apiKey = process.env.OPENROUTER_API_KEY;
-    const model = process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4-pro";
+    const model = process.env.OPENROUTER_MODEL_SMALL ?? "deepseek/deepseek-v4-flash";
     if (!apiKey) {
       throw new HttpsError("failed-precondition", "OPENROUTER_API_KEY missing.");
     }

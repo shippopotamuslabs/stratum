@@ -115,6 +115,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
         var customLiftsCreated = 0
         val customLiftIds = mutableSetOf<LiftId>()
         var secondPassAdditionalMatches = 0
+        var customLiftInferenceBatchesAttempted = 0
+        var customLiftInferenceBatchesFailed = 0
+        var customLiftLlmInferredCount = 0
+        var customLiftInferenceLastError: String? = null
         val finalResolvedSets =
             if (unmatchedCounts.isEmpty()) {
                 resolvedSets
@@ -135,13 +139,18 @@ class ResolveImportLiftsUseCase @Inject constructor(
                             ),
                     ),
                 )
-                val inferredByName = enrichCustomLifts(candidates)
+                val enrichment = enrichCustomLifts(candidates)
+                val inferredByName = enrichment.inferredByName
+                customLiftInferenceBatchesAttempted = enrichment.batchesAttempted
+                customLiftInferenceBatchesFailed = enrichment.batchesFailed
+                customLiftInferenceLastError = enrichment.lastFailureMessage
                 val defaultIncrement = Weight(DEFAULT_CUSTOM_INCREMENT_LB, Weight.WeightUnit.Lb)
 
                 unmatchedCounts.values.forEach { aggregate ->
                     val inferred = inferredByName[aggregate.displayName]
                     val createdId =
                         if (inferred != null) {
+                            customLiftLlmInferredCount += 1
                             liftRepository.addCustomLift(inferred.toCustomLiftDefinition(defaultIncrement))
                         } else {
                             liftRepository.addCustomLift(
@@ -305,6 +314,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     confirmedEquipment = confirmedEquipment,
                     tierBLiftsEnabled = tierBIds.size,
                     derivedGymFallback = derivedGymFallback,
+                    customLiftInferenceBatchesAttempted = customLiftInferenceBatchesAttempted,
+                    customLiftInferenceBatchesFailed = customLiftInferenceBatchesFailed,
+                    customLiftLlmInferredCount = customLiftLlmInferredCount,
+                    customLiftInferenceLastError = customLiftInferenceLastError,
                 ),
         )
     }
