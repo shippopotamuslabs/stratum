@@ -10,7 +10,8 @@ import javax.inject.Inject
 class SetSelectedPresetUseCase @Inject constructor(
     private val repository: LiftRepository,
 ) {
-    suspend operator fun invoke(preset: GymPreset?) {
-        repository.setSelectedPreset(preset)
-    }
+    suspend operator fun invoke(preset: GymPreset?): Result<Unit> =
+        runCatching {
+            repository.setSelectedPreset(preset)
+        }
 }

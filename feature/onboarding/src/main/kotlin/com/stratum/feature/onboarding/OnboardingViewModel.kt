@@ -17,10 +17,8 @@ import com.stratum.domain.lift.SetSelectedPresetUseCase
 import com.stratum.domain.onboarding.AdditiveSetEdit
 import com.stratum.domain.onboarding.AdvanceOnboardingStepResult
 import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
-import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.OnboardingStepDirection
 import com.stratum.domain.onboarding.OnboardingWizardState
 import com.stratum.domain.onboarding.SpecializationPreference
@@ -29,13 +27,16 @@ import com.stratum.domain.onboarding.ValidateCurrentOnboardingStepUseCase
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.onboarding.applyAdditiveSetEdit
 import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
+import com.stratum.domain.program.GenerateProgramUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -51,19 +52,14 @@ class OnboardingViewModel @Inject constructor(
     private val rollbackHistoricalImport: RollbackHistoricalImportUseCase,
     private val reconcileHistoricalImport: ReconcileHistoricalImportUseCase,
     private val loadHistoricalImportSummary: LoadHistoricalImportSummaryUseCase,
-    private val completeOnboarding: CompleteOnboardingUseCase,
+    private val generateProgram: GenerateProgramUseCase,
 ) : ViewModel() {
 
     private val edits = MutableStateFlow(ProfileEdit())
     private val specializationEdits = MutableStateFlow(SpecializationEdit())
-    private val showErrors = MutableStateFlow(false)
-    private val applyingPreset = MutableStateFlow(false)
-    private val importProgress = MutableStateFlow<ImportProgress?>(null)
-    private val importError = MutableStateFlow<String?>(null)
-    private val hasCompletedHistoricalImport = MutableStateFlow(false)
-    private val importInsightsSummary = MutableStateFlow<ImportInsightsSummaryUi?>(null)
-    private val importResumeState = MutableStateFlow<HistoricalImportResumeState?>(null)
+    private val ephemeral = MutableStateFlow(OnboardingEphemeralState.Initial)
     private var importJob: Job? = null
+    private var generateJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -103,75 +99,17 @@ class OnboardingViewModel @Inject constructor(
             effectiveProfile,
             edits,
             effectiveSpecialization,
-            combine(
-                showErrors,
-                applyingPreset,
-                importProgress,
-                importError,
-                hasCompletedHistoricalImport,
-            ) { errs, presetApplying, progress, importErr, hasCompleted ->
-                ImportUiFlagsPartial(errs, presetApplying, progress, importErr, hasCompleted)
-            }.combine(importInsightsSummary) { partial, insightsSummary ->
-                ImportUiFlags(
-                    showErrors = partial.showErrors,
-                    presetApplying = partial.presetApplying,
-                    importProgress = partial.importProgress,
-                    importError = partial.importError,
-                    hasCompletedHistoricalImport = partial.hasCompletedHistoricalImport,
-                    importInsightsSummary = insightsSummary,
-                )
-            }.combine(importResumeState) { flags, resume ->
-                flags.copy(importResumeState = resume)
-            },
-        ) { current, profile, edit, spec, importFlags ->
-            val step = current.currentStep.toWizardStepUi()
-            val lifts = current.lifts
-            val preset = current.selectedPreset
-            val stepValid = validateCurrentStep(
-                step = current.currentStep,
+            ephemeral,
+        ) { current, profile, edit, spec, ephemeralState ->
+            buildOnboardingUiState(
+                current = current,
                 profile = profile,
+                sessionLengthEdit = edit.sessionLength,
                 specialization = spec,
-                lifts = lifts,
-                selectedPreset = preset,
-                usedHistoricalImport = current.usedHistoricalImport,
-            ).isValid
-            val importing = importFlags.importProgress?.let { progress ->
-                progress.phase != ImportProgressPhase.Complete &&
-                    progress.phase != ImportProgressPhase.Failed
-            } == true
-            val canAdvance = !importFlags.presetApplying && !importing && stepValid
-            val gymLiftsValid = validateCurrentStep(
-                step = OnboardingStep.GymAndLifts,
-                profile = profile,
-                specialization = spec,
-                lifts = lifts,
-                selectedPreset = preset,
-                usedHistoricalImport = current.usedHistoricalImport,
-            ).isValid
-
-            OnboardingUiState(
-                step = step,
-                isComplete = current.isComplete,
-                canAdvance = canAdvance,
-                canGoBack = current.currentStep.previous() != null,
-                profileDraft = profile.toProfileDraft().copy(showErrors = importFlags.showErrors),
-                scheduleDraft = profile.toScheduleDraft(edit.sessionLength).copy(showErrors = importFlags.showErrors),
-                specializationDraft = spec.toSpecializationDraft().copy(showErrors = importFlags.showErrors),
-                gymLiftsDraft = lifts.toGymLiftsDraft(
-                    selectedPreset = preset,
-                    usedHistoricalImport = current.usedHistoricalImport,
-                    hasCompletedHistoricalImport = importFlags.hasCompletedHistoricalImport,
-                    importProgress = importFlags.importProgress,
-                    importError = importFlags.importError,
-                    importInsightsSummary = importFlags.importInsightsSummary,
-                    importResumeState = importFlags.importResumeState,
-                    liftsValid = gymLiftsValid,
-                    showErrors = importFlags.showErrors,
-                ),
-                reviewDraft = profile.toReviewProfileSection(spec, lifts, preset),
-                presetOptions = allGymPresetOptions(),
+                ephemeral = ephemeralState,
+                validateCurrentStep = validateCurrentStep,
             )
-        }.stateIn(
+        }.distinctUntilChanged().stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS),
             initialValue = OnboardingUiState.Initial,
@@ -243,7 +181,7 @@ class OnboardingViewModel @Inject constructor(
     }
 
     fun onPresetSelected(label: String?) {
-        if (importProgress.value?.let { progress ->
+        if (ephemeral.value.importProgress?.let { progress ->
                 progress.phase != ImportProgressPhase.Complete &&
                     progress.phase != ImportProgressPhase.Failed
             } == true
@@ -252,17 +190,26 @@ class OnboardingViewModel @Inject constructor(
         }
         val preset = gymPresetFromLabel(label)
         viewModelScope.launch {
-            applyingPreset.value = true
-            importError.value = null
-            importResumeState.value = null
-            try {
+            ephemeral.update {
+                it.copy(
+                    applyingPreset = true,
+                    importError = null,
+                    importResumeState = null,
+                    presetApplyError = null,
+                )
+            }
+            val result =
                 if (preset != null) {
                     applyGymPreset(preset)
                 } else {
                     setSelectedPreset(null)
                 }
-            } finally {
-                applyingPreset.value = false
+            ephemeral.update {
+                it.copy(
+                    applyingPreset = false,
+                    presetApplyError = result.exceptionOrNull().toPresetApplyErrorMessage()
+                        .takeIf { result.isFailure },
+                )
             }
         }
     }
@@ -271,10 +218,14 @@ class OnboardingViewModel @Inject constructor(
         launchHistoricalImport {
             val validationError = validateImportFiles(files)
             if (validationError != null) {
-                importError.value = validationError
-                importProgress.value = ImportProgress(ImportProgressPhase.Failed)
+                ephemeral.update {
+                    it.copy(
+                        importError = validationError,
+                        importProgress = ImportProgress(ImportProgressPhase.Failed),
+                    )
+                }
             } else {
-                importResumeState.value = null
+                ephemeral.update { it.copy(importResumeState = null) }
                 runHistoricalImport(files = files, resume = null)
             }
         }
@@ -282,7 +233,7 @@ class OnboardingViewModel @Inject constructor(
 
     fun onRetryImportFromFailedFile() {
         launchHistoricalImport {
-            val resume = importResumeState.value?.takeIf { it.isResumable() }
+            val resume = ephemeral.value.importResumeState?.takeIf { it.isResumable() }
             if (resume != null) {
                 runHistoricalImport(files = resume.files, resume = resume)
             }
@@ -311,9 +262,13 @@ class OnboardingViewModel @Inject constructor(
 
     private suspend fun resetImportState() {
         rollbackHistoricalImport()
-        importResumeState.value = null
-        importProgress.value = null
-        importError.value = null
+        ephemeral.update {
+            it.copy(
+                importResumeState = null,
+                importProgress = null,
+                importError = null,
+            )
+        }
         refreshPersistedImportState()
     }
 
@@ -321,22 +276,35 @@ class OnboardingViewModel @Inject constructor(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
     ) {
-        importProgress.value = ImportProgress(ImportProgressPhase.Uploading)
-        importError.value = null
+        ephemeral.update {
+            it.copy(
+                importProgress = ImportProgress(ImportProgressPhase.Uploading),
+                importError = null,
+            )
+        }
         runFullHistoricalImport.run(files = files, resume = resume).collect { event ->
             when (event) {
-                is HistoricalImportEvent.Progress -> importProgress.value = event.progress
+                is HistoricalImportEvent.Progress ->
+                    ephemeral.update { it.copy(importProgress = event.progress) }
                 is HistoricalImportEvent.Completed -> {
-                    importResumeState.value = null
-                    importProgress.value = ImportProgress(ImportProgressPhase.Complete)
+                    ephemeral.update {
+                        it.copy(
+                            importResumeState = null,
+                            importProgress = ImportProgress(ImportProgressPhase.Complete),
+                        )
+                    }
                     refreshPersistedImportState()
                     refreshImportInsightsSummary()
                 }
                 is HistoricalImportEvent.Failed -> {
                     rollbackHistoricalImport()
-                    importResumeState.value = event.resume
-                    importProgress.value = ImportProgress(ImportProgressPhase.Failed)
-                    importError.value = event.message
+                    ephemeral.update {
+                        it.copy(
+                            importResumeState = event.resume,
+                            importProgress = ImportProgress(ImportProgressPhase.Failed),
+                            importError = event.message,
+                        )
+                    }
                     refreshPersistedImportState()
                 }
             }
@@ -358,18 +326,23 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private suspend fun refreshPersistedImportState() {
-        hasCompletedHistoricalImport.value = reconcileHistoricalImport()
-        if (!hasCompletedHistoricalImport.value) {
-            importInsightsSummary.value = null
+        val hasCompleted = reconcileHistoricalImport()
+        ephemeral.update {
+            it.copy(
+                hasCompletedHistoricalImport = hasCompleted,
+                importInsightsSummary = if (hasCompleted) it.importInsightsSummary else null,
+            )
         }
     }
 
     private suspend fun refreshImportInsightsSummary() {
-        if (!hasCompletedHistoricalImport.value) {
-            importInsightsSummary.value = null
+        if (!ephemeral.value.hasCompletedHistoricalImport) {
+            ephemeral.update { it.copy(importInsightsSummary = null) }
             return
         }
-        importInsightsSummary.value = loadHistoricalImportSummary()?.toImportInsightsSummaryUi()
+        ephemeral.update {
+            it.copy(importInsightsSummary = loadHistoricalImportSummary()?.toImportInsightsSummaryUi())
+        }
     }
 
     fun next() {
@@ -385,11 +358,12 @@ class OnboardingViewModel @Inject constructor(
                 usedHistoricalImport = current.usedHistoricalImport,
             )
             when (result) {
-                AdvanceOnboardingStepResult.ValidationFailed -> showErrors.value = true
+                AdvanceOnboardingStepResult.ValidationFailed ->
+                    ephemeral.update { it.copy(showErrors = true) }
                 is AdvanceOnboardingStepResult.Success -> {
                     edits.value = ProfileEdit()
                     specializationEdits.value = SpecializationEdit()
-                    showErrors.value = false
+                    ephemeral.update { it.copy(showErrors = false) }
                 }
                 AdvanceOnboardingStepResult.NoOp -> Unit
             }
@@ -415,8 +389,36 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    fun complete() {
-        viewModelScope.launch { completeOnboarding(effectiveProfile.value) }
+    /**
+     * Triggered by the Generate step CTA (OS-7 D4). Runs [GenerateProgramUseCase] (load payload →
+     * generate → persist → complete onboarding), surfacing Loading then Idle (success) or Error
+     * (failure). On success the use case marks onboarding complete, which flips `isComplete` in
+     * [wizardState] and is consumed by the route's `LaunchedEffect(state.isComplete)`. On failure
+     * onboarding stays incomplete (PROG-GEN-601 mutation-defense).
+     */
+    fun generate() {
+        if (ephemeral.value.generateState == GenerateState.Loading) return
+        // Set Loading synchronously before launching so the Loading emission is observable even
+        // under an unconfined test dispatcher (the coroutine below would otherwise race ahead and
+        // the first collection would see only the terminal state).
+        ephemeral.update {
+            it.copy(
+                generateState = GenerateState.Loading,
+                generateErrorMessage = null,
+            )
+        }
+        generateJob?.cancel()
+        generateJob =
+            viewModelScope.launch {
+                val result = generateProgram()
+                ephemeral.update {
+                    it.copy(
+                        generateState = if (result.isSuccess) GenerateState.Idle else GenerateState.Error,
+                        generateErrorMessage = result.exceptionOrNull().toGenerateErrorMessage()
+                            .takeIf { result.isFailure },
+                    )
+                }
+            }
     }
 
     private data class ProfileEdit(
@@ -448,24 +450,6 @@ class OnboardingViewModel @Inject constructor(
         edit.musclesEdit.removed.forEach { base.remove(it) }
         return copy(levels = base)
     }
-
-    private data class ImportUiFlagsPartial(
-        val showErrors: Boolean,
-        val presetApplying: Boolean,
-        val importProgress: ImportProgress?,
-        val importError: String?,
-        val hasCompletedHistoricalImport: Boolean,
-    )
-
-    private data class ImportUiFlags(
-        val showErrors: Boolean,
-        val presetApplying: Boolean,
-        val importProgress: ImportProgress?,
-        val importError: String?,
-        val hasCompletedHistoricalImport: Boolean,
-        val importInsightsSummary: ImportInsightsSummaryUi?,
-        val importResumeState: HistoricalImportResumeState? = null,
-    )
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L

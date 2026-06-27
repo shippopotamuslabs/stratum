@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Programs screen (OS-7 read-only overview) -->
+    <string name="programs_title">Your Program</string>
+    <string name="programs_empty">No program yet. Generate one from onboarding.</string>
+    <string name="programs_workout_sets">Sets</string>
+    <string name="programs_top_set">Top set</string>
+</resources>

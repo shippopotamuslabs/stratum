@@ -79,7 +79,7 @@ fun OnboardingRoute(
         state = state,
         onNext = viewModel::next,
         onBack = viewModel::back,
-        onComplete = viewModel::complete,
+        onGenerate = viewModel::generate,
         onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
         onLastTrainedSelected = viewModel::onLastTrainedSelected,
         onWeekdayToggled = viewModel::onWeekdayToggled,
@@ -106,7 +106,7 @@ private fun OnboardingWizard(
     state: OnboardingUiState,
     onNext: () -> Unit,
     onBack: () -> Unit,
-    onComplete: () -> Unit,
+    onGenerate: () -> Unit,
     onTrainingAgeSelected: (String?) -> Unit,
     onLastTrainedSelected: (String?) -> Unit,
     onWeekdayToggled: (String) -> Unit,
@@ -167,7 +167,12 @@ private fun OnboardingWizard(
                         onImportCancel = onImportCancel,
                     )
                     WIZARD_STEP_REVIEW -> ReviewScreen(draft = state.reviewDraft)
-                    WIZARD_STEP_GENERATE -> GenerateScreen(onComplete = onComplete)
+                    WIZARD_STEP_GENERATE -> GenerateScreen(
+                        onGenerate = onGenerate,
+                        onBack = onBack,
+                        generateState = state.generateState,
+                        generateErrorMessage = state.generateErrorMessage,
+                    )
                 }
             }
             WizardControls(
@@ -206,7 +211,12 @@ private fun Stepper(steps: List<WizardStepUi>, currentStepId: String) {
 }
 
 @Composable
-private fun GenerateScreen(onComplete: () -> Unit) {
+private fun GenerateScreen(
+    onGenerate: () -> Unit,
+    onBack: () -> Unit,
+    generateState: GenerateState,
+    generateErrorMessage: String?,
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -217,10 +227,34 @@ private fun GenerateScreen(onComplete: () -> Unit) {
             style = StratumThemeAccessor.typography.titleLarge,
         )
         Spacer(modifier = Modifier.height(16.dp))
-        StratumButton(
-            text = stringResource(R.string.onboarding_button_generate),
-            onClick = onComplete,
-        )
+        when (generateState) {
+            GenerateState.Loading -> {
+                StratumText(text = stringResource(R.string.onboarding_generate_loading), muted = true)
+            }
+            GenerateState.Error -> {
+                StratumText(text = stringResource(R.string.onboarding_generate_error_title))
+                generateErrorMessage?.let { message ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    StratumText(text = message, muted = true)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                StratumButton(
+                    text = stringResource(R.string.onboarding_generate_error_retry),
+                    onClick = onGenerate,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                StratumButton(
+                    text = stringResource(R.string.onboarding_generate_error_back_to_review),
+                    onClick = onBack,
+                )
+            }
+            GenerateState.Idle -> {
+                StratumButton(
+                    text = stringResource(R.string.onboarding_button_generate),
+                    onClick = onGenerate,
+                )
+            }
+        }
     }
 }
 

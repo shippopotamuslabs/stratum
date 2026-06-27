@@ -1,15 +1,19 @@
 package com.stratum.core.inference
 
-import android.util.Log
 import com.stratum.domain.importing.NearMissExerciseSample
 import com.stratum.domain.importing.ResolveImportLiftsSummary
 import com.stratum.domain.importing.UnmatchedExerciseSample
+import com.stratum.domain.logging.LoggingPort
+import javax.inject.Inject
+import javax.inject.Singleton
 
-internal object ImportLiftResolutionLogger {
-    private const val TAG = "StratumImportLifts"
-
+@Singleton
+class ImportLiftResolutionLogger @Inject constructor(
+    private val loggingPort: LoggingPort,
+) {
     fun log(summary: ResolveImportLiftsSummary) {
-        logInfo(
+        loggingPort.info(
+            TAG,
             buildString {
                 append("liftResolution ")
                 append("inputSets=${summary.inputSetCount} ")
@@ -38,7 +42,8 @@ internal object ImportLiftResolutionLogger {
         )
 
         if (summary.customLiftInferenceBatchesFailed > 0) {
-            logWarning(
+            loggingPort.warning(
+                TAG,
                 "Custom lift inference failed for ${summary.customLiftInferenceBatchesFailed}/" +
                     "${summary.customLiftInferenceBatchesAttempted} batches " +
                     "(${summary.customLiftLlmInferredCount} LLM, " +
@@ -48,7 +53,8 @@ internal object ImportLiftResolutionLogger {
         }
 
         if (summary.seedCatalogLiftCount < MIN_EXPECTED_SEED_CATALOG_LIFTS) {
-            logWarning(
+            loggingPort.warning(
+                TAG,
                 "Seed catalog looks incomplete (${summary.seedCatalogLiftCount} lifts). " +
                     "BM25 matching may fail until bundled catalog is seeded.",
             )
@@ -57,7 +63,8 @@ internal object ImportLiftResolutionLogger {
         if (summary.finalEnabledTotal <= summary.finalEnabledCustomLiftCount &&
             summary.distinctCatalogLiftsEnabledInFirstPass == 0
         ) {
-            logWarning(
+            loggingPort.warning(
+                TAG,
                 "No catalog lifts matched — only custom lifts are enabled. " +
                     "Check unmatched/nearMiss samples below.",
             )
@@ -68,7 +75,8 @@ internal object ImportLiftResolutionLogger {
     }
 
     private fun logUnmatched(sample: UnmatchedExerciseSample) {
-        logDebug(
+        loggingPort.debug(
+            TAG,
             "unmatched name=\"${sample.exerciseNameRaw}\" sets=${sample.loggedSetCount} " +
                 "bestCatalog=\"${sample.bestCatalogName ?: "none"}\" " +
                 "bestScore=${formatScore(sample.bestScore)}",
@@ -76,28 +84,20 @@ internal object ImportLiftResolutionLogger {
     }
 
     private fun logNearMiss(sample: NearMissExerciseSample) {
-        logDebug(
+        loggingPort.debug(
+            TAG,
             "nearMiss name=\"${sample.exerciseNameRaw}\" sets=${sample.loggedSetCount} " +
                 "bestCatalog=\"${sample.bestCatalogName}\" " +
                 "bestScore=${formatScore(sample.bestScore)} " +
-                "threshold=$Bm25MatchThresholdLogValue",
+                "threshold=$BM25_MATCH_THRESHOLD_LOG_VALUE",
         )
-    }
-
-    private fun logInfo(message: String) {
-        runCatching { Log.i(TAG, message) }
-    }
-
-    private fun logWarning(message: String) {
-        runCatching { Log.w(TAG, message) }
-    }
-
-    private fun logDebug(message: String) {
-        runCatching { Log.d(TAG, message) }
     }
 
     private fun formatScore(score: Double): String = "%.3f".format(score)
 
-    private const val Bm25MatchThresholdLogValue = "0.600"
-    private const val MIN_EXPECTED_SEED_CATALOG_LIFTS = 50
+    private companion object {
+        const val TAG = "StratumImportLifts"
+        const val BM25_MATCH_THRESHOLD_LOG_VALUE = "0.600"
+        const val MIN_EXPECTED_SEED_CATALOG_LIFTS = 50
+    }
 }

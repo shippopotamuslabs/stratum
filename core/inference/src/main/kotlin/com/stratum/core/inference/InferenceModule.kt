@@ -5,6 +5,8 @@ import com.stratum.domain.importing.HistoricalImportPort
 import com.stratum.domain.importing.HistoricalImportRunnerPort
 import com.stratum.domain.importing.ImportEquipmentInferencePort
 import com.stratum.domain.importing.LiftNameEmbeddingPort
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.program.ProgramGeneratorPort
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -39,4 +41,14 @@ abstract class InferenceModule {
     abstract fun bindLiftNameEmbeddingPort(
         impl: FirebaseLiftNameEmbeddingAdapter,
     ): LiftNameEmbeddingPort
+
+    @Binds
+    @Singleton
+    abstract fun bindProgramGeneratorPort(
+        impl: FirebaseProgramGenerator,
+    ): ProgramGeneratorPort
+
+    @Binds
+    @Singleton
+    abstract fun bindLoggingPort(impl: AndroidLoggingAdapter): LoggingPort
 }

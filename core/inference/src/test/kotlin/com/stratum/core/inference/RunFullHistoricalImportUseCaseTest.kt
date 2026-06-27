@@ -22,6 +22,7 @@ import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.importing.EnrichCustomLiftsUseCase
 import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
@@ -80,6 +81,8 @@ class RunFullHistoricalImportUseCaseTest {
             rollbackHistoricalImport = rollback,
             importJobRepository = jobRepo,
             mergeImportedHistory = MergeImportedHistoryUseCase(),
+            importLiftResolutionLogger = testImportLiftResolutionLogger(),
+            loggingPort = FakeLoggingPort(),
         )
 
         val events =
@@ -123,6 +126,8 @@ class RunFullHistoricalImportUseCaseTest {
                 rollbackHistoricalImport = rollback,
                 importJobRepository = jobRepo,
                 mergeImportedHistory = MergeImportedHistoryUseCase(),
+                importLiftResolutionLogger = testImportLiftResolutionLogger(),
+                loggingPort = FakeLoggingPort(),
             )
 
         val events =
@@ -179,6 +184,8 @@ class RunFullHistoricalImportUseCaseTest {
                 rollbackHistoricalImport = rollback,
                 importJobRepository = jobRepo,
                 mergeImportedHistory = MergeImportedHistoryUseCase(),
+                importLiftResolutionLogger = testImportLiftResolutionLogger(),
+                loggingPort = FakeLoggingPort(),
             )
 
         val events =
@@ -235,6 +242,8 @@ class RunFullHistoricalImportUseCaseTest {
                 rollbackHistoricalImport = rollback,
                 importJobRepository = jobRepo,
                 mergeImportedHistory = MergeImportedHistoryUseCase(),
+                importLiftResolutionLogger = testImportLiftResolutionLogger(),
+                loggingPort = FakeLoggingPort(),
             )
         val fileA = ImportFileInput("a".toByteArray(), "a.csv")
         val fileB = ImportFileInput("b".toByteArray(), "b.csv")
@@ -338,6 +347,9 @@ class RunFullHistoricalImportUseCaseTest {
             )
         return persist to rollback
     }
+
+    private fun testImportLiftResolutionLogger(): ImportLiftResolutionLogger =
+        ImportLiftResolutionLogger(FakeLoggingPort())
 
     private class InMemoryTrainingHistoryRepository : TrainingHistoryRepository {
         private var sessions: List<HistoricalSession> = emptyList()
