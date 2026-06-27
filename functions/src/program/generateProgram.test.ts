@@ -4,9 +4,13 @@ import { HttpsError } from "firebase-functions/v2/https";
 import type OpenAI from "openai";
 import {
   assertCanClaimGenerationSlot,
+  cachedProgramFromMarker,
   generateProgramWithDeps,
+  GENERATION_CALLABLE_TIMEOUT_MS,
+  isStalePendingMarker,
   parseProgramGenerationPayload,
   type ChatCompletionLike,
+  type GenerationMarkerSnapshot,
 } from "./generateProgram";
 import { programGenerationSessionId } from "../openrouterSession";
 import { programJsonSchema } from "./programSchema";
@@ -65,6 +69,8 @@ function fakeClient(
   };
   return { client, createCalls: () => createCalls };
 }
+
+const CACHED_PROGRAM = { name: "Cached Full Body", workouts: [] };
 
 describe("generateProgram", () => {
   describe("PROG-GEN-700 callable contract", () => {
@@ -134,6 +140,34 @@ describe("generateProgram", () => {
   });
 
   describe("PROG-GEN-703 generation marker lifecycle", () => {
+    it("parses payloads with populated responseProfile influence arrays", () => {
+      const payload = JSON.stringify({
+        profile: { trainingAge: "Beginner" },
+        provenLifts: [],
+        availableLifts: [],
+        responseProfile: {
+          epochsAnalyzed: 1,
+          analysisWindowStart: "2025-01-01T00:00:00Z",
+          analysisWindowEnd: "2025-06-01T00:00:00Z",
+          volumeResponses: [
+            {
+              muscle: "Quad",
+              anchorLiftId: "back-squat",
+              correlationSlope: 0.8,
+              confidenceScore: 0.8,
+              evidence: "Proven",
+            },
+          ],
+          liftEffectiveness: [],
+          volumeLandmarks: [],
+          informational: { volumeResponses: [], liftEffectiveness: [] },
+        },
+      });
+      const request = parseProgramGenerationPayload(payload);
+      assert.equal(request.trainingAge, "Beginner");
+      assert.ok(request.enabledLiftIds.size === 0);
+    });
+
     it("rejects invalid payload JSON before any Firestore slot is claimable", () => {
       assert.throws(
         () => parseProgramGenerationPayload("not json"),
@@ -149,9 +183,20 @@ describe("generateProgram", () => {
       assert.doesNotThrow(() => assertCanClaimGenerationSlot({ exists: false }));
     });
 
-    it("rejects claiming when generation already completed", () => {
+    it("allows reclaiming a completed marker that has no cached program", () => {
+      assert.doesNotThrow(() =>
+        assertCanClaimGenerationSlot({ exists: true, status: "completed" }),
+      );
+    });
+
+    it("rejects claiming when generation completed with a cached program", () => {
       assert.throws(
-        () => assertCanClaimGenerationSlot({ exists: true, status: "completed" }),
+        () =>
+          assertCanClaimGenerationSlot({
+            exists: true,
+            status: "completed",
+            program: CACHED_PROGRAM,
+          }),
         (err: unknown) => {
           assert.ok(err instanceof HttpsError);
           assert.equal(err.code, "already-exists");
@@ -160,15 +205,51 @@ describe("generateProgram", () => {
       );
     });
 
+    it("returns a cached program for idempotent client retries", () => {
+      const cached = cachedProgramFromMarker({
+        exists: true,
+        status: "completed",
+        program: CACHED_PROGRAM,
+      });
+      assert.deepEqual(cached, CACHED_PROGRAM);
+    });
+
+    it("does not treat completed markers without a program cache as retrievable", () => {
+      assert.equal(
+        cachedProgramFromMarker({ exists: true, status: "completed" }),
+        null,
+      );
+    });
+
     it("rejects claiming when generation is already in progress", () => {
+      const now = Date.parse("2026-06-27T12:00:00.000Z");
       assert.throws(
-        () => assertCanClaimGenerationSlot({ exists: true, status: "pending" }),
+        () =>
+          assertCanClaimGenerationSlot(
+            {
+              exists: true,
+              status: "pending",
+              startedAtMs: now - 30_000,
+            },
+            now,
+          ),
         (err: unknown) => {
           assert.ok(err instanceof HttpsError);
           assert.equal(err.code, "aborted");
           return true;
         },
       );
+    });
+
+    it("allows reclaiming a stale pending marker after the callable timeout", () => {
+      const now = Date.parse("2026-06-27T12:00:00.000Z");
+      const snapshot: GenerationMarkerSnapshot = {
+        exists: true,
+        status: "pending",
+        startedAtMs: now - GENERATION_CALLABLE_TIMEOUT_MS - 1,
+      };
+      assert.ok(isStalePendingMarker(snapshot, now));
+      assert.doesNotThrow(() => assertCanClaimGenerationSlot(snapshot, now));
     });
   });
 });

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -65,6 +66,20 @@ class FirebaseProgramGeneratorTest {
     fun `fixtures are well-formed`() {
         assertNotEquals(FIXTURE_RESPONSE, responseMap(weekday = "Moonday"))
         assertNotNull(FIXTURE_RESPONSE["program"])
+    }
+
+    @Test
+    @DisplayName("PROG-GEN-504 invalid payload JSON fails before the callable is invoked")
+    fun `invalid payload json is rejected client-side`() {
+        val invalidPayload =
+            """{"responseProfile":{"volumeResponses":[{"muscle":"Quad","anchorLiftId":"squat",,"correlationSlope":0.8}]}}"""
+
+        val error =
+            assertThrows(ProgramGenerationException::class.java) {
+                FirebaseProgramGenerator.validatePayloadJson(invalidPayload)
+            }
+
+        assertTrue(error.message.contains("could not be serialized"))
     }
 
     // region Recorded fixture (server post-pass output shape — no progressionScheme, no ids)

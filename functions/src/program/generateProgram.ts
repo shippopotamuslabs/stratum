@@ -17,10 +17,15 @@ import {
 
 export type GenerationMarkerStatus = "pending" | "completed";
 
-/** Firestore snapshot shape used by [assertCanClaimGenerationSlot] (unit-testable). */
+/** Matches [generateProgram] Cloud Function and Android client callable timeouts. */
+export const GENERATION_CALLABLE_TIMEOUT_MS = 600_000;
+
+/** Firestore snapshot shape used by generation-slot helpers (unit-testable). */
 export interface GenerationMarkerSnapshot {
   exists: boolean;
   status?: GenerationMarkerStatus;
+  program?: unknown;
+  startedAtMs?: number | null;
 }
 
 /**
@@ -37,6 +42,8 @@ export const generateProgram = onCall(
   {
     secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL"],
     enforceAppCheck: true,
+    // OpenRouter structured generation can exceed the 60s default; match the Android client timeout.
+    timeoutSeconds: 600,
   },
   async (request) => {
     if (!request.auth) {
@@ -59,7 +66,22 @@ export const generateProgram = onCall(
     const normalizationRequest = parseProgramGenerationPayload(payload);
     const uid = request.auth.uid;
 
-    await claimGenerationSlot(uid);
+    const cachedProgram = await loadCachedProgram(uid);
+    if (cachedProgram != null) {
+      return { program: cachedProgram };
+    }
+
+    try {
+      await claimGenerationSlot(uid);
+    } catch (error) {
+      if (error instanceof HttpsError && error.code === "already-exists") {
+        const racedCache = await loadCachedProgram(uid);
+        if (racedCache != null) {
+          return { program: racedCache };
+        }
+      }
+      throw error;
+    }
     try {
       const sessionId = programGenerationSessionId(uid);
       const client = createOpenRouterClient(apiKey, sessionId);
@@ -70,7 +92,7 @@ export const generateProgram = onCall(
         normalizationRequest,
         sessionId,
       );
-      await markGenerationCompleted(uid);
+      await markGenerationCompleted(uid, program);
       return { program };
     } catch (error) {
       await releaseGenerationSlot(uid);
@@ -179,18 +201,59 @@ export function parseProgramGenerationPayload(payload: string): ProgramNormaliza
 }
 
 /**
- * Guards the Firestore generation slot before claiming `pending`. Rejects completed generations
- * (`already-exists`) and in-flight duplicates (`aborted`). Missing or released slots are claimable.
+ * Returns a cached program when a prior invocation completed but the client never received the
+ * response (e.g. DEADLINE_EXCEEDED after the server finished). Enables idempotent retries without
+ * burning another LLM call.
  */
-export function assertCanClaimGenerationSlot(snapshot: GenerationMarkerSnapshot): void {
+export function cachedProgramFromMarker(snapshot: GenerationMarkerSnapshot): unknown | null {
+  if (!snapshot.exists || snapshot.status !== "completed") {
+    return null;
+  }
+  const program = snapshot.program;
+  if (program != null && typeof program === "object") {
+    return program;
+  }
+  return null;
+}
+
+/** True when a stuck `pending` marker can be reclaimed (client timed out / function crashed). */
+export function isStalePendingMarker(
+  snapshot: GenerationMarkerSnapshot,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!snapshot.exists || snapshot.status !== "pending") {
+    return false;
+  }
+  if (snapshot.startedAtMs == null) {
+    return true;
+  }
+  return nowMs - snapshot.startedAtMs > GENERATION_CALLABLE_TIMEOUT_MS;
+}
+
+/**
+ * Guards the Firestore generation slot before claiming `pending`. Rejects concurrent in-flight
+ * duplicates (`aborted`). Completed markers with a cached [GenerationMarkerSnapshot.program] should
+ * be served via [cachedProgramFromMarker] before claiming. Completed markers without a cache (or
+ * stale `pending`) are reclaimable so a timed-out client can retry.
+ */
+export function assertCanClaimGenerationSlot(
+  snapshot: GenerationMarkerSnapshot,
+  nowMs: number = Date.now(),
+): void {
   if (!snapshot.exists) return;
-  if (snapshot.status === "completed") {
+  if (cachedProgramFromMarker(snapshot) != null) {
     throw new HttpsError(
       "already-exists",
       "Program generation already completed for this user.",
     );
   }
+  if (snapshot.status === "completed") {
+    return;
+  }
   if (snapshot.status === "pending") {
+    if (isStalePendingMarker(snapshot, nowMs)) {
+      return;
+    }
     throw new HttpsError("aborted", "Program generation already in progress.");
   }
 }
@@ -199,15 +262,40 @@ function generationMarkerRef(uid: string) {
   return admin.firestore().doc(`users/${uid}/programs_generation/latest`);
 }
 
+function snapshotFromDoc(
+  doc: FirebaseFirestore.DocumentSnapshot,
+): GenerationMarkerSnapshot {
+  const data = doc.data();
+  const startedAt = data?.startedAt as FirebaseFirestore.Timestamp | undefined;
+  return {
+    exists: doc.exists,
+    status: data?.status as GenerationMarkerStatus | undefined,
+    program: data?.program,
+    startedAtMs: startedAt?.toMillis() ?? null,
+  };
+}
+
+async function loadCachedProgram(uid: string): Promise<unknown | null> {
+  const doc = await generationMarkerRef(uid).get();
+  return cachedProgramFromMarker(snapshotFromDoc(doc));
+}
+
 async function claimGenerationSlot(uid: string): Promise<void> {
   const generationRef = generationMarkerRef(uid);
   try {
     await admin.firestore().runTransaction(async (txn) => {
       const doc = await txn.get(generationRef);
-      assertCanClaimGenerationSlot({
-        exists: doc.exists,
-        status: doc.data()?.status as GenerationMarkerStatus | undefined,
-      });
+      const snapshot = snapshotFromDoc(doc);
+      if (cachedProgramFromMarker(snapshot) != null) {
+        throw new HttpsError(
+          "already-exists",
+          "Program generation already completed for this user.",
+        );
+      }
+      assertCanClaimGenerationSlot(snapshot);
+      if (snapshot.exists) {
+        txn.delete(generationRef);
+      }
       txn.set(generationRef, {
         status: "pending",
         startedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -219,7 +307,7 @@ async function claimGenerationSlot(uid: string): Promise<void> {
   }
 }
 
-async function markGenerationCompleted(uid: string): Promise<void> {
+async function markGenerationCompleted(uid: string, program: unknown): Promise<void> {
   const generationRef = generationMarkerRef(uid);
   await admin.firestore().runTransaction(async (txn) => {
     const doc = await txn.get(generationRef);
@@ -229,6 +317,7 @@ async function markGenerationCompleted(uid: string): Promise<void> {
     txn.set(generationRef, {
       status: "completed",
       generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      program,
     });
   });
 }

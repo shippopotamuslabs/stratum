@@ -5,9 +5,11 @@ import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGeneratorPort
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
+import kotlinx.serialization.json.Json
 
 /**
  * Thin Firebase Callable client for the `generateProgram` endpoint (OS-7). Calls the Callable with
@@ -29,9 +31,12 @@ class FirebaseProgramGenerator @Inject constructor(
     override suspend fun generateProgram(payload: String): Result<Program> =
         runCatching {
             requireAuth()
-            val result = functions.getHttpsCallable(CALLABLE_NAME)
-                .call(mapOf("payload" to payload))
-                .await()
+            Companion.validatePayloadJson(payload)
+            val callable =
+                functions
+                    .getHttpsCallable(CALLABLE_NAME)
+                    .withTimeout(CALLABLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            val result = callable.call(mapOf("payload" to payload)).await()
             parseProgram(result.data)
         }.fold(
             onSuccess = { Result.success(it) },
@@ -53,6 +58,18 @@ class FirebaseProgramGenerator @Inject constructor(
     internal companion object {
         private const val TAG = "StratumProgramGenerator"
         private const val CALLABLE_NAME = "generateProgram"
+        const val CALLABLE_TIMEOUT_SECONDS = 600L
+
+        internal fun validatePayloadJson(payload: String) {
+            try {
+                Json.parseToJsonElement(payload)
+            } catch (error: Exception) {
+                throw ProgramGenerationException(
+                    message = "Program setup could not be serialized. Please review your onboarding answers and try again.",
+                    cause = error,
+                )
+            }
+        }
 
         /** Parses the Callable response into a domain [Program], assigning UUID ids at parse time. */
         fun parseProgram(data: Any?): Program = ProgramResponseParser.parse(data)
