@@ -1,7 +1,12 @@
 package com.stratum.feature.program
 
 import app.cash.turbine.test
+import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
@@ -23,11 +28,10 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import com.stratum.core.testing.MainDispatcherRule
 
 /**
  * [ProgramsViewModel] / [toProgramsUiState] mapping tests. Scenarios PROG-GEN-400 (empty → Empty),
- * 401 (populated → Loaded mapped presentation), 402 (WorkoutLift expansion).
+ * 401 (populated → Loaded mapped presentation), 402 (lift summary lines).
  */
 @ExtendWith(MainDispatcherRule::class)
 class ProgramsViewModelTest {
@@ -87,29 +91,49 @@ class ProgramsViewModelTest {
     }
 
     @Nested
-    @DisplayName("PROG-GEN-402 WorkoutLift expansion reveals its sets")
-    inner class Expansion {
+    @DisplayName("PROG-GEN-402 WorkoutLift summary lines include catalog names")
+    inner class LiftSummary {
         @Test
-        fun `the populated WorkoutLift view state carries two sets`() = runTest {
-            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+        fun `the populated WorkoutLift view state carries a summary line with set count and reps`() =
+            runTest {
+                val viewModel = buildViewModel(initial = PROGRAM_PPL)
 
-            viewModel.programsUiState.test {
-                val lift = (awaitItem() as ProgramsUiState.Loaded)
-                    .program.workouts[0].workoutLifts[0]
-                assertEquals(2, lift.sets.size)
-                val first = lift.sets.first()
-                assertTrue(first.repMin in 5..12)
-                assertTrue(first.repMax in 5..15)
-                assertTrue(first.rirGoal in 0..3)
-                cancelAndIgnoreRemainingEvents()
+                viewModel.programsUiState.test {
+                    val lift = (awaitItem() as ProgramsUiState.Loaded)
+                        .program.workouts[0].workoutLifts[0]
+                    assertEquals("Barbell Bench Press - 2 x 8\u201312", lift.summaryLine)
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
-        }
     }
 
     private fun buildViewModel(initial: Program?): ProgramsViewModel {
         repository = FakeProgramRepository(initial)
-        return ProgramsViewModel(com.stratum.domain.program.ObserveProgramUseCase(repository))
+        val liftRepository =
+            FakeLiftRepository(
+                initialLifts =
+                    listOf(
+                        catalogLift(LiftId("bench-press"), "Barbell Bench Press"),
+                    ),
+            )
+        return ProgramsViewModel(
+            observeProgram = com.stratum.domain.program.ObserveProgramUseCase(repository),
+            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+        )
     }
+
+    private fun catalogLift(id: LiftId, name: String): Lift =
+        Lift(
+            id = id,
+            name = name,
+            movementPattern = MovementPattern.HorizontalPush,
+            primaryMuscles = emptySet(),
+            secondaryMuscles = emptySet(),
+            allowWeightChangeBetweenSets = false,
+            incrementTiers = emptyList(),
+            presetTags = emptySet(),
+            enabled = true,
+        )
 
     private companion object {
         val PROGRAM_PPL: Program = Program(
