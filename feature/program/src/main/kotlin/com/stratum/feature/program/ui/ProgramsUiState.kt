@@ -3,8 +3,6 @@ package com.stratum.feature.program.ui
 /**
  * Read-only presentation of a generated program (OS-7 D3). Domain models are never passed to
  * composables (ARCHITECTURE.md §4.3); these view states are the presentation boundary.
- *
- * Lift expansion is local screen state in [ProgramsScreen] — not part of the mapped UiState.
  */
 sealed interface ProgramsUiState {
     val status: Status
@@ -34,19 +32,8 @@ data class WorkoutViewState(
     val workoutLifts: List<WorkoutLiftViewState>,
 )
 
+/** One line per lift: `Lift Name - 3 x 8–12`. */
 data class WorkoutLiftViewState(
-    val liftId: String,
-    val liftName: String,
-    val progressionSchemeLabel: String,
+    val summaryLine: String,
     val position: Int,
-    val sets: List<LiftSetViewState>,
-)
-
-data class LiftSetViewState(
-    val position: Int,
-    val setTypeLabel: String,
-    val repMin: Int,
-    val repMax: Int,
-    val rirGoal: Int,
-    val isTopSet: Boolean,
 )
