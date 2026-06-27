@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -48,6 +49,14 @@ interface LoggedSetDao {
 
     @Query("SELECT * FROM logged_sets")
     suspend fun getAll(): List<LoggedSetEntity>
+
+    @Query(
+        """
+        SELECT * FROM logged_sets
+        WHERE completedAtEpochMillis >= :startMillis AND completedAtEpochMillis <= :endMillis
+        """,
+    )
+    suspend fun getInWindow(startMillis: Long, endMillis: Long): List<LoggedSetEntity>
 }
 
 @Dao
@@ -62,7 +71,7 @@ interface LiftTrainingInsightsDao {
     suspend fun getAll(): List<LiftTrainingInsightsEntity>
 
     @Query("SELECT * FROM lift_training_insights WHERE liftId = :liftId LIMIT 1")
-    suspend fun getByLiftId(liftId: String): LiftTrainingInsightsEntity?
+    suspend fun getByLiftId(liftId: LiftId): LiftTrainingInsightsEntity?
 }
 
 @Dao

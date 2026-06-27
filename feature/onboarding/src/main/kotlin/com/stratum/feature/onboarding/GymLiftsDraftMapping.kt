@@ -1,8 +1,5 @@
 package com.stratum.feature.onboarding
 
-import com.stratum.domain.importing.HistoricalImportResumeState
-import com.stratum.domain.importing.ImportProgress
-import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.onboarding.MuscleGroup
@@ -24,11 +21,11 @@ internal fun List<Lift>.toGymLiftsDraft(
     selectedPreset: GymPreset?,
     usedHistoricalImport: Boolean,
     hasCompletedHistoricalImport: Boolean,
-    importProgress: ImportProgress?,
+    importProgress: ImportProgressUi?,
     importError: String?,
     presetApplyError: String?,
     importInsightsSummary: ImportInsightsSummaryUi?,
-    importResumeState: HistoricalImportResumeState?,
+    importResumeScalars: ImportResumeScalars,
     liftsValid: Boolean,
     showErrors: Boolean,
 ): GymLiftsDraftUi = GymLiftsDraftUi(
@@ -39,9 +36,9 @@ internal fun List<Lift>.toGymLiftsDraft(
     importError = importError,
     presetApplyError = presetApplyError,
     importInsightsSummary = importInsightsSummary,
-    importResumeFileIndex = importResumeState?.nextFileIndex?.plus(1),
-    importResumeFileCount = importResumeState?.totalFiles,
-    importResumeFailedFileName = importResumeState?.failedFileName,
+    importResumeFileIndex = importResumeScalars.fileIndex,
+    importResumeFileCount = importResumeScalars.fileCount,
+    importResumeFailedFileName = importResumeScalars.failedFileName,
     isValid = liftsValid,
     showErrors = showErrors,
 )

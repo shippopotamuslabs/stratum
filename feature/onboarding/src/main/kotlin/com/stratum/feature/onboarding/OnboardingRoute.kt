@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import android.net.Uri
-import com.stratum.domain.importing.ImportFileInput
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -63,14 +62,7 @@ fun OnboardingRoute(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
-        val files =
-            uris.mapNotNull { uri ->
-                val bytes =
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        ?: return@mapNotNull null
-                val name = uri.lastPathSegment?.substringAfterLast('/') ?: "import.csv"
-                ImportFileInput(bytes = bytes, fileName = name)
-            }
+        val files = readImportFilesFromUris(context.contentResolver, uris)
         if (files.isEmpty()) return@rememberLauncherForActivityResult
         viewModel.onImportFilesSelected(files)
     }

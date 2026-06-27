@@ -5,6 +5,7 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.Weekday
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -79,13 +80,12 @@ class OnboardingScheduleStepViewModelTest {
         subject.onWeekdayToggled("Mon")
         subject.onWeekdayToggled("Wed")
         subject.onSessionPresetSelected("60")
+        advanceUntilIdle()
+        assertTrue(subject.uiState.value.canAdvance)
 
-        subject.uiState.test {
-            assertTrue(awaitItem().canAdvance)
-            subject.next()
-            assertEquals("Specialization", awaitItem().step.id)
-            cancelAndIgnoreRemainingEvents()
-        }
+        subject.next()
+        advanceUntilIdle()
+        assertEquals("Specialization", subject.uiState.value.step.id)
 
         val saved = OnboardingViewModelTestFixtures.fakeProfileRepository.current
         assertEquals(setOf(Weekday.Monday, Weekday.Wednesday), saved?.weekdays)

@@ -4,7 +4,6 @@ import com.stratum.core.data.db.LiftSetEntity
 import com.stratum.core.data.db.ProgramEntity
 import com.stratum.core.data.db.WorkoutEntity
 import com.stratum.core.data.db.WorkoutLiftEntity
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
@@ -13,8 +12,8 @@ import java.time.Instant
 
 /**
  * Pure translations between the OS-7 program hierarchy domain models and the four normalized
- * entities. `Program.createdAt` ↔ stored ISO-8601 string; `Weekday` ↔ its `.name` (nullable).
- * Typed ids round-trip via `EnumConverters` and stay typed in the entity layer.
+ * entities. `Program.createdAt` ↔ stored ISO-8601 string; [Weekday] is typed on [WorkoutEntity]
+ * via [com.stratum.core.data.db.EnumConverters]. Typed ids round-trip via `EnumConverters` and stay typed in the entity layer.
  */
 internal fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
     id = id,
@@ -27,7 +26,7 @@ internal fun WorkoutEntity.toDomain(workoutLifts: List<WorkoutLift>): Workout = 
     id = id,
     programId = programId,
     name = name,
-    weekday = weekday?.let { runCatching { Weekday.valueOf(it) }.getOrNull() },
+    weekday = weekday,
     position = position,
     workoutLifts = workoutLifts,
 )
@@ -62,7 +61,7 @@ internal fun Workout.toEntity(): WorkoutEntity = WorkoutEntity(
     id = id,
     programId = programId,
     name = name,
-    weekday = weekday?.name,
+    weekday = weekday,
     position = position,
 )
 

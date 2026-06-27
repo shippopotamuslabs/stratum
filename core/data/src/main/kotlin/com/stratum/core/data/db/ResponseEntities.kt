@@ -86,6 +86,7 @@ data class ResponseProfileMetadataEntity(
     val analysisWindowStartEpochMillis: Long,
     val analysisWindowEndEpochMillis: Long,
     val lastExtractedAtEpochMillis: Long,
+    val pipelineVersion: String? = null,
 ) {
     companion object {
         const val SINGLETON_ID = 0

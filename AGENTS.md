@@ -15,7 +15,7 @@ Every task maps to binding contracts in `/contracts/`. Read the relevant contrac
 | Module structure, navigation, Scaffold, dependency graph, layer rules | `ARCHITECTURE.md` |
 | Kotlin style, Compose conventions, testing | `CODE_STYLE_RULES.md` (when added) |
 | Unit tests, fakes, Robolectric, golden examples | `UNIT_TESTING.md` |
-| Room, repositories, schema | `DATA_LAYER_RULES.md` (when added) |
+| Room, repositories, schema | `DATA_LAYER_RULES.md` |
 
 Never modify files in `/contracts/` without an explicit **"Contract Waiver"** from the user.
 

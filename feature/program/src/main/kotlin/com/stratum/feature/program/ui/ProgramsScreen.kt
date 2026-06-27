@@ -61,7 +61,7 @@ private fun WorkoutSection(workout: WorkoutViewState) {
 
 @Composable
 private fun WorkoutLiftRow(lift: WorkoutLiftViewState) {
-    var expanded by remember(lift.liftId) { mutableStateOf(lift.isExpanded) }
+    var expanded by remember(lift.liftId) { mutableStateOf(false) }
     Column(
         modifier = Modifier.clickable { expanded = !expanded },
         verticalArrangement = Arrangement.spacedBy(4.dp),

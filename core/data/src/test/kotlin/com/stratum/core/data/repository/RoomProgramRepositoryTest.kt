@@ -2,7 +2,9 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
@@ -79,6 +81,7 @@ class RoomProgramRepositoryTest {
     inner class RoundTrip {
         @Test
         fun `saveProgram then getProgram returns an equal-by-value Program`() = runTest {
+            seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1)
 
             val loaded = repository.getProgram()
@@ -98,6 +101,7 @@ class RoomProgramRepositoryTest {
     inner class NullWeekday {
         @Test
         fun `a null weekday round-trips as null`() = runTest {
+            seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1.copy(workouts = PROGRAM_P1.workouts.map { it.copy(weekday = null) }))
 
             assertEquals(null, repository.getProgram()!!.workouts[0].weekday)
@@ -109,6 +113,7 @@ class RoomProgramRepositoryTest {
     inner class ReplaceNotAppend {
         @Test
         fun `saving a smaller program after a larger one leaves only the new rows`() = runTest {
+            seedReferencedLifts()
             repository.saveProgram(PROGRAM_P1) // 1 workout, 1 workoutLift, 2 sets
             repository.saveProgram(PROGRAM_P2) // 1 workout, 1 workoutLift, 1 set
 
@@ -129,6 +134,27 @@ class RoomProgramRepositoryTest {
             })
         }
     }
+
+    private suspend fun seedReferencedLifts() {
+        database.liftDao().upsertAll(
+            listOf(
+                minimalLift(LiftId("bench-press"), MovementPattern.HorizontalPush),
+                minimalLift(LiftId("back-squat"), MovementPattern.LegPush),
+            ),
+        )
+    }
+
+    private fun minimalLift(id: LiftId, pattern: MovementPattern): LiftEntity = LiftEntity(
+        id = id,
+        name = id.value,
+        movementPattern = pattern,
+        primaryMusclesBitmask = 0,
+        secondaryMusclesBitmask = 0,
+        allowWeightChangeBetweenSets = false,
+        presetTags = ",",
+        isCustom = false,
+        enabled = true,
+    )
 
     private companion object {
         val PROGRAM_P1: Program = Program(
