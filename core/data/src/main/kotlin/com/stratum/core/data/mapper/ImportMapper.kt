@@ -16,12 +16,8 @@ import com.stratum.domain.importing.LoggedSet
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.ProgressTrend
 import com.stratum.domain.importing.SupersetAffinity
-import com.stratum.domain.importing.identity.HistoricalSessionId
-import com.stratum.domain.importing.identity.ImportJobId
-import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.onboarding.MuscleGroup
 import java.time.Instant
 
 internal fun ImportJobEntity.toDomain(): ImportJob = ImportJob(
@@ -47,24 +43,24 @@ internal fun ImportJob.toEntity(): ImportJobEntity = ImportJobEntity(
 )
 
 internal fun HistoricalSessionEntity.toDomain(): HistoricalSession = HistoricalSession(
-    id = HistoricalSessionId(id),
+    id = id,
     startedAt = Instant.ofEpochMilli(startedAtEpochMillis),
     endedAt = endedAtEpochMillis?.let(Instant::ofEpochMilli),
     sourceApp = sourceApp,
 )
 
 internal fun HistoricalSession.toEntity(): HistoricalSessionEntity = HistoricalSessionEntity(
-    id = id.value,
+    id = id,
     startedAtEpochMillis = startedAt.toEpochMilli(),
     endedAtEpochMillis = endedAt?.toEpochMilli(),
     sourceApp = sourceApp,
 )
 
 internal fun LoggedSetEntity.toDomain(): LoggedSet = LoggedSet(
-    id = LoggedSetId(id),
-    sessionId = HistoricalSessionId(sessionId),
+    id = id,
+    sessionId = sessionId,
     exerciseNameRaw = exerciseNameRaw,
-    liftId = liftId?.let(::LiftId),
+    liftId = liftId,
     setIndex = setIndex,
     weight = Weight(weightAmount, Weight.WeightUnit.parse(weightUnit)),
     reps = reps,
@@ -73,10 +69,10 @@ internal fun LoggedSetEntity.toDomain(): LoggedSet = LoggedSet(
 )
 
 internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
-    id = id.value,
-    sessionId = sessionId.value,
+    id = id,
+    sessionId = sessionId,
     exerciseNameRaw = exerciseNameRaw,
-    liftId = liftId?.value,
+    liftId = liftId,
     setIndex = setIndex,
     weightAmount = weight.amount,
     weightUnit = weight.unit.name,
@@ -86,7 +82,7 @@ internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
 )
 
 internal fun LiftTrainingInsightsEntity.toDomain(): LiftTrainingInsights = LiftTrainingInsights(
-    liftId = LiftId(liftId),
+    liftId = liftId,
     estimatedOneRm = estimatedOneRm?.let { amount ->
         Weight(amount, weightUnit?.let(Weight.WeightUnit::parse) ?: Weight.WeightUnit.Lb)
     },
@@ -98,7 +94,7 @@ internal fun LiftTrainingInsightsEntity.toDomain(): LiftTrainingInsights = LiftT
 )
 
 internal fun LiftTrainingInsights.toEntity(): LiftTrainingInsightsEntity = LiftTrainingInsightsEntity(
-    liftId = liftId.value,
+    liftId = liftId,
     estimatedOneRm = estimatedOneRm?.amount,
     weightUnit = estimatedOneRm?.unit?.name,
     fatigueDecaySlope = fatigueDecaySlope,
@@ -116,23 +112,27 @@ internal fun SupersetAffinityEntity.toDomain(): SupersetAffinity = SupersetAffin
     confidence = confidence,
 )
 
-internal fun SupersetAffinity.toEntity(): SupersetAffinityEntity = SupersetAffinityEntity(
-    liftA = liftA.value,
-    liftB = liftB.value,
-    medianRestSeconds = medianRestSeconds,
-    coOccurrenceCount = coOccurrenceCount,
-    confidence = confidence,
-)
+internal fun SupersetAffinity.toEntity(): SupersetAffinityEntity {
+    // Canonical pair ordering (liftA < liftB lexicographically) so the unique index on (liftA, liftB) is stable.
+    val (first, second) = if (liftA.value <= liftB.value) liftA to liftB else liftB to liftA
+    return SupersetAffinityEntity(
+        liftA = first.value,
+        liftB = second.value,
+        medianRestSeconds = medianRestSeconds,
+        coOccurrenceCount = coOccurrenceCount,
+        confidence = confidence,
+    )
+}
 
 internal fun MuscleVolumeBaselineEntity.toDomain(): MuscleVolumeBaseline = MuscleVolumeBaseline(
-    muscle = MuscleGroup.valueOf(muscle),
+    muscle = muscle,
     meanWeeklyHardSets = meanWeeklyHardSets,
     p90WeeklyHardSets = p90WeeklyHardSets,
     trendSlope = trendSlope,
 )
 
 internal fun MuscleVolumeBaseline.toEntity(): MuscleVolumeBaselineEntity = MuscleVolumeBaselineEntity(
-    muscle = muscle.name,
+    muscle = muscle,
     meanWeeklyHardSets = meanWeeklyHardSets,
     p90WeeklyHardSets = p90WeeklyHardSets,
     trendSlope = trendSlope,
@@ -149,6 +149,8 @@ internal fun ImportAnalysisMetadataEntity.toDomain(): ImportAnalysisMetadata = I
     },
     totalSessions = totalSessions,
     totalSets = totalSets,
+    extractedAt = Instant.ofEpochMilli(extractedAtEpochMillis),
+    pipelineVersion = pipelineVersion,
 )
 
 internal fun ImportAnalysisMetadata.toEntity(): ImportAnalysisMetadataEntity = ImportAnalysisMetadataEntity(
@@ -158,6 +160,8 @@ internal fun ImportAnalysisMetadata.toEntity(): ImportAnalysisMetadataEntity = I
     unmatchedExerciseNamesCsv = unmatchedExerciseNames.joinToString(","),
     totalSessions = totalSessions,
     totalSets = totalSets,
+    extractedAtEpochMillis = extractedAt.toEpochMilli(),
+    pipelineVersion = pipelineVersion,
 )
 
 private fun String.toLiftIdList(): List<LiftId> =

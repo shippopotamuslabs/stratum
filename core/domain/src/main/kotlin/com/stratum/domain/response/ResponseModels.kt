@@ -184,4 +184,5 @@ data class ResponseProfileMetadata(
     val analysisWindowStart: Instant,
     val analysisWindowEnd: Instant,
     val lastExtractedAt: Instant,
+    val pipelineVersion: String? = null,
 )

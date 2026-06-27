@@ -2,10 +2,9 @@ package com.stratum.feature.program.ui
 
 /**
  * Read-only presentation of a generated program (OS-7 D3). Domain models are never passed to
- * composables (ARCHITECTURE.md §4.1); these view states are the presentation boundary.
+ * composables (ARCHITECTURE.md §4.3); these view states are the presentation boundary.
  *
- * `isExpanded` on [WorkoutLiftViewState] toggles set visibility. No edit/swap/regenerate affordance
- * is present — those are deferred to a follow-up.
+ * Lift expansion is local screen state in [ProgramsScreen] — not part of the mapped UiState.
  */
 sealed interface ProgramsUiState {
     val status: Status
@@ -40,7 +39,6 @@ data class WorkoutLiftViewState(
     val liftName: String,
     val progressionSchemeLabel: String,
     val position: Int,
-    val isExpanded: Boolean,
     val sets: List<LiftSetViewState>,
 )
 

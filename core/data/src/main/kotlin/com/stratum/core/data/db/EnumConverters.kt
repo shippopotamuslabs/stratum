@@ -7,7 +7,9 @@ import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.ImportJobId
+import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
@@ -19,10 +21,13 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.response.EpochSplitReason
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.domain.response.ExperimentStatus
 import com.stratum.domain.response.OutcomeMetric
+import com.stratum.domain.response.identity.EpochId
+import com.stratum.domain.response.identity.ExperimentId
 import com.stratum.domain.response.modeling.MrvSource
 import com.stratum.domain.response.modeling.OutcomeModelType
 
@@ -123,6 +128,41 @@ class EnumConverters {
     @TypeConverter
     fun toImportJobId(value: String?): ImportJobId? =
         value?.let { runCatching { ImportJobId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromHistoricalSessionId(id: HistoricalSessionId?): String? = id?.value
+
+    @TypeConverter
+    fun toHistoricalSessionId(value: String?): HistoricalSessionId? =
+        value?.let { runCatching { HistoricalSessionId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromLoggedSetId(id: LoggedSetId?): String? = id?.value
+
+    @TypeConverter
+    fun toLoggedSetId(value: String?): LoggedSetId? =
+        value?.let { runCatching { LoggedSetId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromEpochId(id: EpochId?): String? = id?.value
+
+    @TypeConverter
+    fun toEpochId(value: String?): EpochId? =
+        value?.let { runCatching { EpochId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromExperimentId(id: ExperimentId?): String? = id?.value
+
+    @TypeConverter
+    fun toExperimentId(value: String?): ExperimentId? =
+        value?.let { runCatching { ExperimentId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromWeekday(weekday: Weekday?): String? = weekday?.name
+
+    @TypeConverter
+    fun toWeekday(value: String?): Weekday? =
+        value?.let { runCatching { Weekday.valueOf(it) }.getOrNull() }
 
     @TypeConverter
     fun fromEpochSplitReason(reason: EpochSplitReason?): String? = reason?.name

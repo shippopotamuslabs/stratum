@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
@@ -47,7 +48,7 @@ data class WorkoutEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: WorkoutId,
     @ColumnInfo(name = "program_id") val programId: ProgramId,
     val name: String,
-    val weekday: String?,
+    val weekday: Weekday?,
     val position: Int,
 )
 
@@ -60,8 +61,14 @@ data class WorkoutEntity(
             childColumns = ["workout_id"],
             onDelete = ForeignKey.CASCADE,
         ),
+        ForeignKey(
+            entity = LiftEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["lift_id"],
+            onDelete = ForeignKey.RESTRICT,
+        ),
     ],
-    indices = [Index("workout_id")],
+    indices = [Index("workout_id"), Index("lift_id")],
 )
 data class WorkoutLiftEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: WorkoutLiftId,

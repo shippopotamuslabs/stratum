@@ -20,21 +20,16 @@ import org.robolectric.RuntimeEnvironment
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
- * OS-7 schema invariants and converter tests. Scenarios PROG-GEN-301 (DB stays at v1
- * with the four program tables, no migration) and PROG-GEN-302 (EnumConverters round-trips the
- * OS-7 enums and typed ids).
- *
- * PROG-GEN-301 observes the invariant at runtime through a real in-memory database (no reflection):
- * the four tables exist and a `2.json` schema export is absent. These pin the contract against a
- * later version bump.
+ * Schema invariants and converter tests for the v2 database (pre-release: no migration file;
+ * uninstall/reinstall to apply).
  */
 @ExtendWith(RobolectricExtension::class)
 class ProgramSchemaContractTest {
     @Nested
-    @DisplayName("PROG-GEN-301 DB version is 1 and 4 program tables exist")
+    @DisplayName("DB version is 2 and program tables exist")
     inner class SchemaInvariants {
         @Test
-        fun `the four OS-7 program tables exist in the database`() {
+        fun `the four program tables exist in the database`() {
             val database = Room.inMemoryDatabaseBuilder(
                 RuntimeEnvironment.getApplication(),
                 StratumDatabase::class.java,
@@ -55,16 +50,14 @@ class ProgramSchemaContractTest {
         }
 
         @Test
-        fun `no 2_json schema export exists yet`() {
-            // The source schema dir lives at core/data/schemas/...; a 2.json would only appear after
-            // a version bump + build. Assert it is absent (version stays 1, no migration authored).
+        fun `v2 schema export exists`() {
             val schemasDir = java.io.File("schemas/com.stratum.core.data.db.StratumDatabase")
-            assertFalse(schemasDir.resolve("2.json").exists())
+            assertTrue(schemasDir.resolve("2.json").exists(), "2.json schema export missing")
         }
     }
 
     @Nested
-    @DisplayName("PROG-GEN-302 EnumConverters round-trip OS-7 enums and typed ids")
+    @DisplayName("EnumConverters round-trip OS-7 enums and typed ids")
     inner class ConverterRoundTrips {
         private val converters = EnumConverters()
 
@@ -96,7 +89,6 @@ class ProgramSchemaContractTest {
             assertEquals(WorkoutId("w-1"), converters.toWorkoutId("w-1"))
             assertEquals(WorkoutLiftId("wl-1"), converters.toWorkoutLiftId("wl-1"))
             assertEquals(LiftSetId("ls-1"), converters.toLiftSetId("ls-1"))
-            // A blank stored value cannot re-wrap (value classes reject blank), so it decodes null.
             assertNull(converters.toProgramId(""))
             assertNull(converters.toProgramId(null))
         }

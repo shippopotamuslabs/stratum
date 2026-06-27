@@ -1,8 +1,5 @@
 package com.stratum.feature.onboarding
 
-import com.stratum.domain.importing.ImportProgress
-import com.stratum.domain.importing.ImportProgressPhase
-
 /**
  * Presentation model for the onboarding wizard. Domain types are mapped here; composables
  * never receive domain enums (ARCHITECTURE.md §4.3).
@@ -152,7 +149,7 @@ data class GymLiftsDraftUi(
     val selectedPresetLabel: String? = null,
     val usedHistoricalImport: Boolean = false,
     val hasCompletedHistoricalImport: Boolean = false,
-    val importProgress: ImportProgress? = null,
+    val importProgress: ImportProgressUi? = null,
     val importError: String? = null,
     val presetApplyError: String? = null,
     val importInsightsSummary: ImportInsightsSummaryUi? = null,
@@ -166,8 +163,8 @@ data class GymLiftsDraftUi(
     val importComplete: Boolean
         get() =
             when (importProgress?.phase) {
-                ImportProgressPhase.Complete -> true
-                ImportProgressPhase.Failed -> false
+                ImportProgressPhaseUi.Complete -> true
+                ImportProgressPhaseUi.Failed -> false
                 null ->
                     usedHistoricalImport &&
                         hasCompletedHistoricalImport &&
@@ -176,7 +173,7 @@ data class GymLiftsDraftUi(
             }
 
     val importFailed: Boolean
-        get() = importProgress?.phase == ImportProgressPhase.Failed
+        get() = importProgress?.phase == ImportProgressPhaseUi.Failed
 
     val importResumable: Boolean
         get() = importFailed &&
@@ -186,8 +183,8 @@ data class GymLiftsDraftUi(
 
     val importInProgress: Boolean
         get() = importProgress != null &&
-            importProgress.phase != ImportProgressPhase.Complete &&
-            importProgress.phase != ImportProgressPhase.Failed
+            importProgress.phase != ImportProgressPhaseUi.Complete &&
+            importProgress.phase != ImportProgressPhaseUi.Failed
 
     val showNoPresetError: Boolean
         get() = showErrors && !isValid && selectedPresetLabel == null && !usedHistoricalImport

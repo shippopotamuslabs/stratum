@@ -33,7 +33,7 @@ machinery.
 ### User-visible messages
 
 Map infrastructure errors to readable copy **at the adapter** (e.g. `ProgramGenerationErrorMapper`,
-`toGoogleSignInMessage()`). ViewModels copy `exception.message` into presentation state when the
+`toGoogleSignInMessage()` in `:core:ui`). ViewModels copy `exception.message` into presentation state when the
 lower layer already attached a safe string; otherwise use a feature-level fallback constant aligned
 with `strings.xml`.
 

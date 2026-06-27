@@ -1,9 +1,9 @@
 package com.stratum.feature.program
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.feature.program.ui.ProgramsScreen
 import com.stratum.feature.program.ui.ProgramsUiState
 
@@ -16,6 +16,6 @@ fun ProgramsRoute(
     viewModel: ProgramsViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val state: ProgramsUiState by viewModel.programsUiState.collectAsState()
+    val state: ProgramsUiState by viewModel.programsUiState.collectAsStateWithLifecycle()
     ProgramsScreen(state = state, modifier = modifier)
 }

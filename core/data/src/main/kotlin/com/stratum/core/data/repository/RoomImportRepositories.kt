@@ -83,9 +83,10 @@ class RoomTrainingHistoryRepository @Inject constructor(
     override suspend fun getSetsInWindow(
         windowStart: Instant,
         windowEnd: Instant,
-    ): List<LoggedSet> = getAllSets().filter { set ->
-        !set.completedAt.isBefore(windowStart) && !set.completedAt.isAfter(windowEnd)
-    }
+    ): List<LoggedSet> = setDao.getInWindow(
+        windowStart.toEpochMilli(),
+        windowEnd.toEpochMilli(),
+    ).map { it.toDomain() }
 }
 
 class RoomLiftTrainingInsightsRepository @Inject constructor(
@@ -100,7 +101,7 @@ class RoomLiftTrainingInsightsRepository @Inject constructor(
         dao.getAll().map { it.toDomain() }
 
     override suspend fun getByLiftId(liftId: com.stratum.domain.lift.identity.LiftId): LiftTrainingInsights? =
-        dao.getByLiftId(liftId.value)?.toDomain()
+        dao.getByLiftId(liftId)?.toDomain()
 }
 
 class RoomSupersetAffinityRepository @Inject constructor(

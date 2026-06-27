@@ -22,6 +22,12 @@ stratum:
     active: true
   ForbiddenDomainTypeInComposable:
     active: true
+  ForbiddenPortInViewModel:
+    active: true
+  ForbiddenDomainTypeInUiState:
+    active: true
+  ForbiddenUseCaseInFeatureMapper:
+    active: true
 
 potential-bugs:
   active: true

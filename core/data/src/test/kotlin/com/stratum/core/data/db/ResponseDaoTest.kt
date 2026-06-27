@@ -186,9 +186,9 @@ class ResponseDaoTest {
     }
 
     @Test
-    @DisplayName("RP-S8-007 schema version 1 includes response modeling tables")
+    @DisplayName("RP-S8-007 schema version 2 includes response modeling tables")
     fun rpS8_007_schemaVersionIncludesModelingTables() {
-        assertEquals(1, database.openHelper.readableDatabase.version)
+        assertEquals(2, database.openHelper.readableDatabase.version)
     }
 
     private fun sampleVolumeObservation(

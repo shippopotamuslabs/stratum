@@ -36,10 +36,10 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.domain.importing.ImportProgress
-import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.feature.onboarding.GymLiftsDraftUi
 import com.stratum.feature.onboarding.GymPresetOptionUi
+import com.stratum.feature.onboarding.ImportProgressPhaseUi
+import com.stratum.feature.onboarding.ImportProgressUi
 import com.stratum.feature.onboarding.R as FeatureR
 
 /**
@@ -157,15 +157,15 @@ private fun GymImportCard(
     importFailed: Boolean,
     importResumeFileIndex: Int?,
     importResumeFileCount: Int?,
-    progress: ImportProgress?,
+    progress: ImportProgressUi?,
     onClick: () -> Unit,
     onCancel: () -> Unit,
     onLearnMoreClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val importActive = progress != null &&
-        progress.phase != ImportProgressPhase.Complete &&
-        progress.phase != ImportProgressPhase.Failed
+        progress.phase != ImportProgressPhaseUi.Complete &&
+        progress.phase != ImportProgressPhaseUi.Failed
     val borderColor =
         when {
             importFailed -> StratumThemeAccessor.colors.error
@@ -302,17 +302,17 @@ private fun ImportCompleteBadge(
 }
 
 @Composable
-private fun phaseLabel(progress: ImportProgress): String =
+private fun phaseLabel(progress: ImportProgressUi): String =
     when (progress.phase) {
-        ImportProgressPhase.Uploading -> stringResource(FeatureR.string.gym_lifts_import_phase_uploading)
-        ImportProgressPhase.ReadingData -> stringResource(FeatureR.string.gym_lifts_import_phase_reading)
-        ImportProgressPhase.CreatingConverter -> stringResource(FeatureR.string.gym_lifts_import_phase_creating)
-        ImportProgressPhase.ValidatingSample -> stringResource(FeatureR.string.gym_lifts_import_phase_validating)
-        ImportProgressPhase.ConvertingFull -> stringResource(FeatureR.string.gym_lifts_import_phase_converting)
-        ImportProgressPhase.EnrichingCustomLifts -> stringResource(FeatureR.string.gym_lifts_import_phase_enriching)
-        ImportProgressPhase.ExtractingInsights -> stringResource(FeatureR.string.gym_lifts_import_phase_extracting)
-        ImportProgressPhase.Complete -> stringResource(FeatureR.string.gym_lifts_import_complete)
-        ImportProgressPhase.Failed -> stringResource(FeatureR.string.gym_lifts_import_phase_failed)
+        ImportProgressPhaseUi.Uploading -> stringResource(FeatureR.string.gym_lifts_import_phase_uploading)
+        ImportProgressPhaseUi.ReadingData -> stringResource(FeatureR.string.gym_lifts_import_phase_reading)
+        ImportProgressPhaseUi.CreatingConverter -> stringResource(FeatureR.string.gym_lifts_import_phase_creating)
+        ImportProgressPhaseUi.ValidatingSample -> stringResource(FeatureR.string.gym_lifts_import_phase_validating)
+        ImportProgressPhaseUi.ConvertingFull -> stringResource(FeatureR.string.gym_lifts_import_phase_converting)
+        ImportProgressPhaseUi.EnrichingCustomLifts -> stringResource(FeatureR.string.gym_lifts_import_phase_enriching)
+        ImportProgressPhaseUi.ExtractingInsights -> stringResource(FeatureR.string.gym_lifts_import_phase_extracting)
+        ImportProgressPhaseUi.Complete -> stringResource(FeatureR.string.gym_lifts_import_complete)
+        ImportProgressPhaseUi.Failed -> stringResource(FeatureR.string.gym_lifts_import_phase_failed)
     }
 
 @Composable

@@ -7,6 +7,7 @@ import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -59,13 +60,12 @@ class OnboardingProfileStepViewModelTest {
     fun completeProfileNextAdvancesAndPersists() = runTest {
         subject.onTrainingAgeSelected("4–7 years")
         subject.onLastTrainedSelected("Within the last month")
+        advanceUntilIdle()
+        assertTrue(subject.uiState.value.canAdvance)
 
-        subject.uiState.test {
-            assertTrue(awaitItem().canAdvance)
-            subject.next()
-            assertEquals("Schedule", awaitItem().step.id)
-            cancelAndIgnoreRemainingEvents()
-        }
+        subject.next()
+        advanceUntilIdle()
+        assertEquals("Schedule", subject.uiState.value.step.id)
 
         val saved = OnboardingViewModelTestFixtures.fakeProfileRepository.current
         assertEquals(TrainingAge.Intermediate, saved?.trainingAge)
