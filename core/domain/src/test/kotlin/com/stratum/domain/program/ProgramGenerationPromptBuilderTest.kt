@@ -195,6 +195,53 @@ class ProgramGenerationPromptBuilderTest {
         assertFalse(payload.contains("\"pvInterval\""))
     }
 
+    @Test
+    @DisplayName("PROG-GEN-807 responseProfile influence fields do not double-separate with commas")
+    fun progGen807_responseProfileInfluenceFieldsAvoidDoubleCommas() {
+        val responseProfile =
+            ResponseProfilePayload(
+                volumeResponses =
+                    listOf(
+                        VolumeResponseInfluence(
+                            muscle = MuscleGroup.Quad,
+                            anchorLiftId = LiftId("back-squat"),
+                            correlationSlope = 0.8,
+                            confidenceScore = 0.80,
+                            evidence = EvidenceLevel.Proven,
+                        ),
+                    ),
+                liftEffectiveness =
+                    listOf(
+                        LiftEffectivenessInfluence(
+                            pattern = MovementPattern.LegPush,
+                            liftId = LiftId("back-squat"),
+                            effectivenessScore = 0.75,
+                            rank = 1,
+                            evidence = EvidenceLevel.Proven,
+                        ),
+                    ),
+                volumeLandmarks = emptyList(),
+                informational = ResponseProfileInformational(emptyList(), emptyList()),
+                epochsAnalyzed = 1,
+                analysisWindowStart = Instant.parse("2025-01-01T00:00:00Z"),
+                analysisWindowEnd = Instant.parse("2025-06-01T00:00:00Z"),
+            )
+        val payload =
+            builder.buildPayload(
+                profile = UserTrainingProfile.Empty,
+                specialization = SpecializationPreference.Empty,
+                provenLifts = emptyList(),
+                availableLifts = emptyList(),
+                supersetAffinities = emptyList(),
+                volumeBaselines = emptyList(),
+                analysisMetadata = null,
+                responseProfile = responseProfile,
+            )
+
+        assertFalse(payload.contains(",,"))
+        kotlinx.serialization.json.Json.parseToJsonElement(payload)
+    }
+
     private fun catalogLift(id: LiftId, name: String): Lift =
         Lift(
             id = id,

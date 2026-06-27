@@ -143,37 +143,37 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             volumeResponses.joinToString(",") { influence ->
                 buildString {
                     append("""{"muscle":${influence.muscle.name.quoteJson()},""")
-                    append(""""anchorLiftId":${influence.anchorLiftId.value.quoteJson()},""")
+                    append(""""anchorLiftId":${influence.anchorLiftId.value.quoteJson()}""")
                     append(influence.correlationSlope.toJsonField("correlationSlope"))
                     append(influence.confidenceScore.toJsonField("confidenceScore"))
-                    append(""""evidence":${influence.evidence.name.quoteJson()}}""")
+                    append(""","evidence":${influence.evidence.name.quoteJson()}}""")
                 }
             }
         val liftInfluenceJson =
             liftEffectiveness.joinToString(",") { influence ->
                 buildString {
                     append("""{"pattern":${influence.pattern.name.quoteJson()},""")
-                    append(""""liftId":${influence.liftId.value.quoteJson()},""")
+                    append(""""liftId":${influence.liftId.value.quoteJson()}""")
                     append(influence.effectivenessScore.toJsonField("effectivenessScore"))
-                    append(""""rank":${influence.rank},""")
-                    append(""""evidence":${influence.evidence.name.quoteJson()}}""")
+                    append(""","rank":${influence.rank}""")
+                    append(""","evidence":${influence.evidence.name.quoteJson()}}""")
                 }
             }
         val informationalVolumeJson =
             informational.volumeResponses.joinToString(",") { observation ->
                 buildString {
-                    append("""{"muscle":${observation.muscle.name.quoteJson()},""")
+                    append("""{"muscle":${observation.muscle.name.quoteJson()}""")
                     append(observation.confidenceScore.toJsonField("confidenceScore"))
-                    append(""""evidence":${observation.evidence.name.quoteJson()}}""")
+                    append(""","evidence":${observation.evidence.name.quoteJson()}}""")
                 }
             }
         val informationalEffectivenessJson =
             informational.liftEffectiveness.joinToString(",") { observation ->
                 buildString {
                     append("""{"pattern":${observation.pattern.name.quoteJson()},""")
-                    append(""""liftId":${observation.liftId.value.quoteJson()},""")
+                    append(""""liftId":${observation.liftId.value.quoteJson()}""")
                     append(observation.confidenceScore.toJsonField("confidenceScore"))
-                    append(""""evidence":${observation.evidence.name.quoteJson()}}""")
+                    append(""","evidence":${observation.evidence.name.quoteJson()}}""")
                 }
             }
         val volumeLandmarksJson =

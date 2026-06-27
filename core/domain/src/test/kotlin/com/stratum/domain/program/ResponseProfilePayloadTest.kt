@@ -160,6 +160,7 @@ class ProgramGenerationPromptBuilderResponseProfileTest {
 
         assertTrue(json.contains("\"responseProfile\""))
         assertTrue(json.contains("\"epochsAnalyzed\":2"))
+        kotlinx.serialization.json.Json.parseToJsonElement(json)
     }
 
     @Test
@@ -261,6 +262,7 @@ class LoadProgramGenerationPayloadUseCaseTest {
         val json = useCase()
 
         assertTrue(json.contains("\"responseProfile\""))
+        kotlinx.serialization.json.Json.parseToJsonElement(json)
     }
 
     @Test
@@ -342,6 +344,7 @@ class LoadProgramGenerationPayloadUseCaseTest {
         assertTrue(json.contains("\"volumeLandmarks\":["))
         assertTrue(json.contains("\"estimatedMev\""))
         assertTrue(json.contains("\"estimatedMrv\""))
+        kotlinx.serialization.json.Json.parseToJsonElement(json)
     }
 
     private class FakeLiftInsightsRepository : com.stratum.domain.importing.LiftTrainingInsightsRepository {

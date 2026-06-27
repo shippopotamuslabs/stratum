@@ -20,7 +20,7 @@ internal object ProgramGenerationErrorMapper {
             FirebaseFunctionsException.Code.FAILED_PRECONDITION ->
                 appCheckOrMessage(error.message)
             FirebaseFunctionsException.Code.ALREADY_EXISTS ->
-                "Program generation was already attempted for this account."
+                "Program generation already finished. Tap Generate again to load your program."
             FirebaseFunctionsException.Code.UNAVAILABLE,
             FirebaseFunctionsException.Code.DEADLINE_EXCEEDED,
             ->
