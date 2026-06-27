@@ -9,7 +9,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 /**
  * Deterministic movement metadata for import stub custom lifts (LLM inference failed).
  * Applied when persisting stubs and when crediting weekly volume so existing imports
- * gain pull/push secondaries without re-import.
+ * gain pull/push secondaries and correct delt tagging without re-import.
  */
 object ImportStubLiftGuesser {
     fun definitionFromName(
@@ -22,7 +22,7 @@ object ImportStubLiftGuesser {
                 InferredCustomLiftMetadata(
                     exerciseNameRaw = name,
                     movementPattern = pattern,
-                    primaryMuscles = guessPrimaryMuscles(pattern),
+                    primaryMuscles = guessPrimaryMuscles(name, pattern),
                     secondaryMuscles = emptySet(),
                 ),
             )
@@ -37,23 +37,34 @@ object ImportStubLiftGuesser {
     }
 
     fun effectiveMovementPattern(lift: Lift): MovementPattern {
-        if (!isRecoverableStub(lift)) return lift.movementPattern
-        return guessMovementPattern(lift.name) ?: lift.movementPattern
+        if (isRecoverableStub(lift)) {
+            return guessMovementPattern(lift.name) ?: lift.movementPattern
+        }
+        return lift.movementPattern
     }
 
     fun effectivePrimaryMuscles(
         lift: Lift,
         movementPattern: MovementPattern,
     ): Set<MuscleGroup> {
+        if (isRecoverableStub(lift)) {
+            return guessPrimaryMuscles(lift.name, movementPattern)
+        }
         if (lift.primaryMuscles.isNotEmpty()) return lift.primaryMuscles
-        if (!isRecoverableStub(lift)) return lift.primaryMuscles
-        return guessPrimaryMuscles(movementPattern)
+        if (!lift.isCustom) return lift.primaryMuscles
+        return guessPrimaryMuscles(lift.name, movementPattern)
     }
 
-    private fun isRecoverableStub(lift: Lift): Boolean =
-        lift.isCustom &&
-            lift.movementPattern == MovementPattern.LegPush &&
-            lift.primaryMuscles.isEmpty()
+    /**
+     * Re-classify custom lifts whose persisted metadata disagrees with name-based rules.
+     * Covers stub fallbacks (e.g. lateral raises saved as LegPush/Quad) without a re-import.
+     */
+    private fun isRecoverableStub(lift: Lift): Boolean {
+        if (!lift.isCustom) return false
+        val guessedPattern = guessMovementPattern(lift.name) ?: return false
+        val guessedPrimary = guessPrimaryMuscles(lift.name, guessedPattern)
+        return lift.movementPattern != guessedPattern || lift.primaryMuscles != guessedPrimary
+    }
 
     internal fun guessMovementPattern(name: String): MovementPattern? {
         val normalized = ImportExerciseNameNormalizer.normalizeForMatching(name)
@@ -64,8 +75,7 @@ object ImportStubLiftGuesser {
             containsAny(normalized, "pulldown", "pullup", "pull up", "chinup", "chin up") ->
                 MovementPattern.VerticalPull
             containsAny(normalized, "shrug") -> MovementPattern.TrapIso
-            containsAny(normalized, "rear delt", "reardelt", "face pull", "facepull") ->
-                MovementPattern.DeltIso
+            isDeltIsolationName(normalized) -> MovementPattern.DeltIso
             containsAny(normalized, "row", "pullover") -> MovementPattern.HorizontalPull
             containsAny(normalized, "bench press", "benchpress", "pushup", "push up", "dip", "fly") ->
                 MovementPattern.HorizontalPush
@@ -83,12 +93,44 @@ object ImportStubLiftGuesser {
         }
     }
 
-    private fun guessPrimaryMuscles(pattern: MovementPattern): Set<MuscleGroup> =
+    internal fun guessPrimaryMuscles(name: String, pattern: MovementPattern): Set<MuscleGroup> {
+        if (pattern == MovementPattern.DeltIso) {
+            return setOf(guessDeltPrimary(ImportExerciseNameNormalizer.normalizeForMatching(name)))
+        }
+        return patternPrimaryMuscles(pattern)
+    }
+
+    private fun isDeltIsolationName(normalized: String): Boolean =
+        containsAny(
+            normalized,
+            "rear delt",
+            "reardelt",
+            "reverse fly",
+            "reverse pec",
+            "face pull",
+            "facepull",
+            "lateral raise",
+            "side raise",
+            "cuffed lateral",
+            "y raise",
+            "iron cross",
+            "front raise",
+        )
+
+    private fun guessDeltPrimary(normalized: String): MuscleGroup =
+        when {
+            containsAny(normalized, "rear delt", "reardelt", "reverse fly", "reverse pec", "face pull", "facepull") ->
+                MuscleGroup.PosteriorDeltoid
+            containsAny(normalized, "front raise") -> MuscleGroup.AnteriorDeltoid
+            else -> MuscleGroup.LateralDeltoid
+        }
+
+    private fun patternPrimaryMuscles(pattern: MovementPattern): Set<MuscleGroup> =
         when (pattern) {
             MovementPattern.BicepIso -> setOf(MuscleGroup.Bicep)
             MovementPattern.TricepIso -> setOf(MuscleGroup.Tricep)
             MovementPattern.ChestIso -> setOf(MuscleGroup.Chest)
-            MovementPattern.DeltIso -> setOf(MuscleGroup.AnteriorDeltoid)
+            MovementPattern.DeltIso -> setOf(MuscleGroup.LateralDeltoid)
             MovementPattern.HorizontalPull,
             MovementPattern.VerticalPull,
             -> setOf(MuscleGroup.Back)

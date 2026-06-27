@@ -34,7 +34,11 @@ object MuscleDoseResponseModel {
         val peakPairedDose = points.maxOfOrNull { it.dose } ?: 0.0
         val peakCoverage = if (peakDose <= 0.0) 0.0 else peakPairedDose / peakDose
         val compositionStability =
-            1.0 - indices.map { it.compositionDrift }.average().coerceIn(0.0, 1.0)
+            if (indices.isEmpty()) {
+                0.0
+            } else {
+                1.0 - indices.map { it.compositionDrift }.average().coerceIn(0.0, 1.0)
+            }
         val rejectionReasons = mutableListOf<String>()
 
         if (indexWeekCount < ResponseModelingConstants.MIN_INDEX_WEEKS_FOR_MODEL) {
@@ -214,12 +218,17 @@ object MuscleDoseResponseModel {
     ): LiftId? = AnchorLiftSelector.select(muscle, epochs, input)
 
     private fun buildResult(context: LandmarkBuildContext): MuscleResponseModelResult {
-        val roundedMev =
-            ceil(context.observedMev.coerceAtLeast(ResponseModelingConstants.MIN_RECOVERABLE_WEEKLY_SETS.toDouble()))
-        val roundedMav = ceil(context.observedMav).coerceAtLeast(roundedMev)
-        val roundedPv = ceil(context.observedPv).coerceAtLeast(roundedMev).coerceAtMost(roundedMav)
-        val roundedMrv = ceil(context.observedMrv).coerceAtLeast(roundedMav)
         val musclePrior = VolumeLandmarkPriors.forMuscle(context.muscle)
+        val minSets = ResponseModelingConstants.MIN_RECOVERABLE_WEEKLY_SETS.toDouble()
+        val roundedMev =
+            roundLandmark(context.observedMev, musclePrior.mevMid, minSets)
+        val roundedMav = roundLandmark(context.observedMav, musclePrior.mavMid, roundedMev)
+        val roundedPv =
+            roundLandmark(context.observedPv, musclePrior.pvMid, roundedMev).coerceAtMost(roundedMav)
+        val roundedMrv = roundLandmark(context.observedMrv, musclePrior.mrvMid, roundedMav)
+        val safeConfidenceScore = finite(context.confidenceScore, 0.0).coerceIn(0.0, 1.0)
+        val safePeakCoverage = finite(context.peakCoverage, 0.0).coerceIn(0.0, 1.0)
+        val safeCompositionStability = finite(context.compositionStability, 0.0).coerceIn(0.0, 1.0)
         val landmarks =
             MuscleVolumeLandmarkEstimate(
                 muscle = context.muscle,
@@ -227,19 +236,35 @@ object MuscleDoseResponseModel {
                 estimatedMav = roundedMav,
                 estimatedMrv = roundedMrv,
                 estimatedPv = roundedPv,
-                mevInterval = context.mevInterval.takeIf { it.isAvailable }
-                    ?: pragmaticInterval(roundedMev, musclePrior, context.confidenceTier),
-                mavInterval = context.mavInterval.takeIf { it.isAvailable }
-                    ?: pragmaticInterval(roundedMav, musclePrior, context.confidenceTier),
-                mrvInterval = context.mrvInterval.takeIf { it.isAvailable }
-                    ?: pragmaticInterval(roundedMrv, musclePrior, context.confidenceTier),
-                pvInterval = context.pvInterval.takeIf { it.isAvailable }
-                    ?: pragmaticInterval(roundedPv, musclePrior, context.confidenceTier),
+                mevInterval = sanitizeInterval(
+                    context.mevInterval.takeIf { it.isAvailable }
+                        ?: pragmaticInterval(roundedMev, musclePrior, context.confidenceTier),
+                    roundedMev,
+                    musclePrior,
+                ),
+                mavInterval = sanitizeInterval(
+                    context.mavInterval.takeIf { it.isAvailable }
+                        ?: pragmaticInterval(roundedMav, musclePrior, context.confidenceTier),
+                    roundedMav,
+                    musclePrior,
+                ),
+                mrvInterval = sanitizeInterval(
+                    context.mrvInterval.takeIf { it.isAvailable }
+                        ?: pragmaticInterval(roundedMrv, musclePrior, context.confidenceTier),
+                    roundedMrv,
+                    musclePrior,
+                ),
+                pvInterval = sanitizeInterval(
+                    context.pvInterval.takeIf { it.isAvailable }
+                        ?: pragmaticInterval(roundedPv, musclePrior, context.confidenceTier),
+                    roundedPv,
+                    musclePrior,
+                ),
                 confidenceTier = context.confidenceTier,
                 outcomeModelType = context.outcomeModelType,
                 mrvSource = context.mrvSource,
-                observedDoseMin = context.observedDoseMin,
-                observedDoseMax = context.observedDoseMax,
+                observedDoseMin = finite(context.observedDoseMin, 0.0).coerceAtLeast(0.0),
+                observedDoseMax = finite(context.observedDoseMax, 0.0).coerceAtLeast(0.0),
                 diagnosticAnchorLiftId = context.diagnosticAnchorLiftId,
             )
         val diagnostics =
@@ -250,19 +275,39 @@ object MuscleDoseResponseModel {
                 pairedPointCount = context.points.size,
                 volumeBinCount = context.volumeBins,
                 indexWeekCount = context.indexWeekCount,
-                peakDoseCoverage = context.peakCoverage,
-                compositionStability = context.compositionStability,
+                peakDoseCoverage = safePeakCoverage,
+                compositionStability = safeCompositionStability,
                 residualError = null,
-                predictiveScore = context.pairing.predictiveScore,
+                predictiveScore = context.pairing.predictiveScore?.takeIf { it.isFinite() },
                 anchorAgreement = null,
                 rejectionReasons = context.rejectionReasons,
-                confidenceScore = context.confidenceScore,
+                confidenceScore = safeConfidenceScore,
             )
         return MuscleResponseModelResult(landmarks = landmarks, diagnostics = diagnostics, dosePoints = context.points)
     }
 
-    private fun blend(observed: Double, prior: Double, weight: Double): Double =
-        (weight * observed) + ((1.0 - weight) * prior)
+    private fun roundLandmark(value: Double, fallback: Double, minimum: Double): Double =
+        ceil(finite(value, fallback).coerceAtLeast(minimum))
+
+    private fun finite(value: Double, fallback: Double): Double =
+        value.takeIf { it.isFinite() } ?: fallback
+
+    private fun sanitizeInterval(
+        interval: LandmarkConfidenceInterval,
+        point: Double,
+        prior: VolumeLandmarkPrior,
+    ): LandmarkConfidenceInterval {
+        if (!interval.low.isFinite() || !interval.high.isFinite()) {
+            return pragmaticInterval(point, prior, LandmarkConfidenceTier.Low)
+        }
+        return interval
+    }
+
+    private fun blend(observed: Double, prior: Double, weight: Double): Double {
+        val safeWeight = weight.takeIf { it.isFinite() }?.coerceIn(0.0, 1.0) ?: 0.0
+        val safeObserved = observed.takeIf { it.isFinite() } ?: prior
+        return (safeWeight * safeObserved) + ((1.0 - safeWeight) * prior)
+    }
 
     private fun estimateMrvFromPoints(
         points: List<MuscleDoseResponsePoint>,

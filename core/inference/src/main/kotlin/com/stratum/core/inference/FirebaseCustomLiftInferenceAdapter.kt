@@ -1,5 +1,6 @@
 package com.stratum.core.inference
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.importing.CustomLiftInferencePort
@@ -8,6 +9,7 @@ import com.stratum.domain.importing.InferredCustomLiftMetadata
 import com.stratum.domain.importing.UnmatchedExerciseCandidate
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
@@ -21,7 +23,10 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor() : CustomLiftInfer
         candidates: List<UnmatchedExerciseCandidate>,
     ): Result<List<InferredCustomLiftMetadata>> = runCatching {
         requireAuth()
-        val callable = functions.getHttpsCallable("inferCustomLifts")
+        val callable =
+            functions
+                .getHttpsCallable("inferCustomLifts")
+                .withTimeout(CALLABLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         val payload =
             mapOf(
                 "exercises" to
@@ -34,6 +39,19 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor() : CustomLiftInfer
             )
         val result = callable.call(payload).await()
         parseResponse(result.data)
+    }.onFailure { error ->
+        runCatching {
+            Log.w(
+                TAG,
+                "inferCustomLifts failed for ${candidates.size} exercises: ${error.message}",
+                error,
+            )
+        }
+    }
+
+    private companion object {
+        const val TAG = "StratumCustomLiftInference"
+        const val CALLABLE_TIMEOUT_SECONDS = 300L
     }
 
     private fun requireAuth() {
