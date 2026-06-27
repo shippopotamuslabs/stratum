@@ -169,6 +169,7 @@ data class ResponseExtractionOutput(
     val volumeResponses: List<VolumeResponseObservation>,
     val liftEffectiveness: List<LiftEffectivenessObservation>,
     val deloadWeeksExcluded: Set<Instant>,
+    val modeling: com.stratum.domain.response.modeling.ResponseModelingOutput? = null,
 )
 
 data class ExtractResponseProfileSummary(

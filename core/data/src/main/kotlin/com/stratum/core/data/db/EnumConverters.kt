@@ -2,6 +2,8 @@ package com.stratum.core.data.db
 
 import androidx.room.TypeConverter
 import com.stratum.domain.importing.ImportJobStatus
+import com.stratum.domain.importing.IntervalMethod
+import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
@@ -15,6 +17,8 @@ import com.stratum.domain.response.EpochSplitReason
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.domain.response.ExperimentStatus
 import com.stratum.domain.response.OutcomeMetric
+import com.stratum.domain.response.modeling.MrvSource
+import com.stratum.domain.response.modeling.OutcomeModelType
 
 /**
  * Single source of truth for enum ↔ String and typed-id ↔ String persistence across the
@@ -34,6 +38,7 @@ import com.stratum.domain.response.OutcomeMetric
  * This replaces the hand-rolled `.name` / `valueOf` mapping previously scattered across
  * mappers (OS-1 / OS-2), standardizing every enum round-trip in one place.
  */
+@Suppress("TooManyFunctions")
 class EnumConverters {
     @TypeConverter
     fun fromMuscleGroup(muscle: MuscleGroup?): String? = muscle?.name
@@ -140,4 +145,32 @@ class EnumConverters {
     @TypeConverter
     fun toExperimentStatus(value: String?): ExperimentStatus? =
         value?.let { runCatching { ExperimentStatus.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromLandmarkConfidenceTier(tier: LandmarkConfidenceTier?): String? = tier?.name
+
+    @TypeConverter
+    fun toLandmarkConfidenceTier(value: String?): LandmarkConfidenceTier? =
+        value?.let { runCatching { LandmarkConfidenceTier.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromIntervalMethod(method: IntervalMethod?): String? = method?.name
+
+    @TypeConverter
+    fun toIntervalMethod(value: String?): IntervalMethod? =
+        value?.let { runCatching { IntervalMethod.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromOutcomeModelType(type: OutcomeModelType?): String? = type?.name
+
+    @TypeConverter
+    fun toOutcomeModelType(value: String?): OutcomeModelType? =
+        value?.let { runCatching { OutcomeModelType.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromMrvSource(source: MrvSource?): String? = source?.name
+
+    @TypeConverter
+    fun toMrvSource(value: String?): MrvSource? =
+        value?.let { runCatching { MrvSource.valueOf(it) }.getOrNull() }
 }

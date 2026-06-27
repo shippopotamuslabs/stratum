@@ -52,6 +52,7 @@ class ExtractResponseProfileUseCase @Inject constructor(
             )
         val output = extractor.extract(input)
 
+        val modeling = output.modeling
         responseProfilePersistence.replaceExtractedProfile(
             ExtractedResponseProfile(
                 epochs = output.epochs,
@@ -65,6 +66,12 @@ class ExtractResponseProfileUseCase @Inject constructor(
                         analysisWindowEnd = input.analysisWindowEnd,
                         lastExtractedAt = Instant.now(),
                     ),
+                weeklyStimulus = modeling?.weeklyStimulus.orEmpty(),
+                liftPerformance = modeling?.liftPerformance.orEmpty(),
+                outcomeIndices = modeling?.outcomeIndices.orEmpty(),
+                landmarkEstimates = modeling?.landmarkEstimates.orEmpty(),
+                modelDiagnostics = modeling?.diagnostics.orEmpty(),
+                dosePoints = modeling?.dosePoints.orEmpty(),
             ),
         )
 

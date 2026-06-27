@@ -4,9 +4,11 @@ import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.domain.response.HYPOTHESIS_CONFIDENCE_PAYLOAD_MIN
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
+import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
 import com.stratum.domain.response.ResponseEvidenceMerger
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.VolumeResponseObservationRepository
+import com.stratum.domain.response.modeling.toHighlights
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
@@ -18,19 +20,23 @@ class LoadHistoricalImportSummaryUseCase @Inject constructor(
     private val supersetAffinityRepository: SupersetAffinityRepository,
     private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
     private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
-    private val trainingHistoryRepository: TrainingHistoryRepository,
+    private val muscleVolumeLandmarkEstimateRepository: MuscleVolumeLandmarkEstimateRepository,
     private val liftRepository: LiftRepository,
 ) {
     suspend operator fun invoke(): HistoricalImportSummary? {
         val metadata = importAnalysisMetadataRepository.get() ?: return null
         val liftsById = liftRepository.observeLifts().first().associateBy { it.id }
-        val lifts = liftsById.values.toList()
         val baselines = muscleVolumeBaselineRepository.getAll()
         val liftInsights = liftTrainingInsightsRepository.getAll()
         val effectiveness = liftEffectivenessObservationRepository.getAll()
         val volumeResponses = volumeResponseObservationRepository.getAll()
-        val sessions = trainingHistoryRepository.getAllSessions()
-        val sets = trainingHistoryRepository.getAllSets()
+        val volumeHighlights =
+            muscleVolumeLandmarkEstimateRepository.getAll()
+                .filter { estimate -> baselines.any { it.muscle == estimate.muscle && it.meanWeeklyHardSets > 0.0 } }
+                .sortedByDescending { estimate ->
+                    baselines.firstOrNull { it.muscle == estimate.muscle }?.meanWeeklyHardSets ?: 0.0
+                }
+                .toHighlights()
 
         return HistoricalImportSummary(
             totalSessions = metadata.totalSessions,
@@ -41,15 +47,7 @@ class LoadHistoricalImportSummaryUseCase @Inject constructor(
             customLiftsCreated = liftsById.values.count { lift -> lift.isCustom && lift.enabled },
             liftsWithInsights = liftInsights.size,
             supersetPairs = supersetAffinityRepository.getAll().size,
-            volumeHighlights =
-                VolumeLandmarkSummaryBuilder.build(
-                    metadata = metadata,
-                    sessions = sessions,
-                    sets = sets,
-                    lifts = lifts,
-                    baselines = baselines,
-                    volumeResponses = volumeResponses,
-                ),
+            volumeHighlights = volumeHighlights,
             effectiveLifts = EffectiveLiftSummaryBuilder.build(effectiveness, liftsById),
             volumeResponses = buildVolumeResponseHighlights(volumeResponses),
         )

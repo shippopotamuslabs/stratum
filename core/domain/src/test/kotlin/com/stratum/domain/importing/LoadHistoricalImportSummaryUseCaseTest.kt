@@ -2,6 +2,7 @@ package com.stratum.domain.importing
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
+import com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository
 import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -16,6 +17,9 @@ import com.stratum.domain.response.StimulusDescriptor
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.WeeklySetRange
 import com.stratum.domain.response.identity.EpochId
+import com.stratum.domain.response.modeling.MrvSource
+import com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate
+import com.stratum.domain.response.modeling.OutcomeModelType
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -148,7 +152,14 @@ class LoadHistoricalImportSummaryUseCaseTest {
         val volumeResponseRepository = FakeVolumeResponseObservationRepository().apply { seed(volumeResponses) }
         val effectivenessRepository = FakeLiftEffectivenessObservationRepository().apply { seed(effectiveness) }
         val liftRepository = FakeLiftRepository().apply { seedLifts(lifts) }
-        val trainingHistoryRepository = FakeTrainingHistoryRepository()
+        val landmarkRepository = FakeMuscleVolumeLandmarkEstimateRepository().apply {
+            seed(
+                listOf(
+                    sampleLandmark(MuscleGroup.Chest),
+                    sampleLandmark(MuscleGroup.Back),
+                ),
+            )
+        }
         return LoadHistoricalImportSummaryUseCase(
             metadataRepository,
             volumeRepository,
@@ -156,10 +167,29 @@ class LoadHistoricalImportSummaryUseCaseTest {
             supersetRepository,
             volumeResponseRepository,
             effectivenessRepository,
-            trainingHistoryRepository,
+            landmarkRepository,
             liftRepository,
         )
     }
+
+    private fun sampleLandmark(muscle: MuscleGroup): MuscleVolumeLandmarkEstimate =
+        MuscleVolumeLandmarkEstimate(
+            muscle = muscle,
+            estimatedMev = 6.0,
+            estimatedMav = 12.0,
+            estimatedMrv = 18.0,
+            estimatedPv = 9.0,
+            mevInterval = LandmarkConfidenceInterval.Unavailable,
+            mavInterval = LandmarkConfidenceInterval.Unavailable,
+            mrvInterval = LandmarkConfidenceInterval.Unavailable,
+            pvInterval = LandmarkConfidenceInterval.Unavailable,
+            confidenceTier = LandmarkConfidenceTier.Medium,
+            outcomeModelType = OutcomeModelType.MuscleIndex,
+            mrvSource = MrvSource.Observed,
+            observedDoseMin = 4.0,
+            observedDoseMax = 16.0,
+            diagnosticAnchorLiftId = null,
+        )
 
     private fun sampleLift(
         slug: String,
@@ -213,16 +243,5 @@ class LoadHistoricalImportSummaryUseCaseTest {
         override suspend fun replaceAll(affinities: List<SupersetAffinity>) = Unit
 
         override suspend fun getAll(): List<SupersetAffinity> = emptyList()
-    }
-
-    private class FakeTrainingHistoryRepository : TrainingHistoryRepository {
-        override suspend fun replaceAll(sessions: List<HistoricalSession>, sets: List<LoggedSet>) = Unit
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = emptyList()
-
-        override suspend fun getAllSets(): List<LoggedSet> = emptyList()
-
-        override suspend fun getSetsInWindow(windowStart: java.time.Instant, windowEnd: java.time.Instant): List<LoggedSet> =
-            emptyList()
     }
 }

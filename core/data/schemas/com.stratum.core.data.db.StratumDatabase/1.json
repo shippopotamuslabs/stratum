@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ac3ad13616088044703e716379a73822",
+    "identityHash": "76bddc64a81f63d7bb86c58988465cd5",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -1011,11 +1011,506 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "muscle_weekly_stimulus",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `weekStartEpochMillis` INTEGER NOT NULL, `hardSets` REAL NOT NULL, `sessions` INTEGER NOT NULL, `meanRir` REAL, `intensityProxy` REAL, `compositionHash` TEXT NOT NULL, `deloadFlag` INTEGER NOT NULL, `qualityFlagsCsv` TEXT NOT NULL, PRIMARY KEY(`muscle`, `weekStartEpochMillis`))",
+        "fields": [
+          {
+            "fieldPath": "muscle",
+            "columnName": "muscle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekStartEpochMillis",
+            "columnName": "weekStartEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hardSets",
+            "columnName": "hardSets",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessions",
+            "columnName": "sessions",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "meanRir",
+            "columnName": "meanRir",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "intensityProxy",
+            "columnName": "intensityProxy",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "compositionHash",
+            "columnName": "compositionHash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deloadFlag",
+            "columnName": "deloadFlag",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "qualityFlagsCsv",
+            "columnName": "qualityFlagsCsv",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "muscle",
+            "weekStartEpochMillis"
+          ]
+        }
+      },
+      {
+        "tableName": "lift_weekly_performance",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`liftId` TEXT NOT NULL, `weekStartEpochMillis` INTEGER NOT NULL, `peakE1rm` REAL NOT NULL, `smoothedE1rm` REAL NOT NULL, `logE1rm` REAL NOT NULL, `hardSets` REAL NOT NULL, `sessions` INTEGER NOT NULL, `meanRir` REAL, `reliability` REAL NOT NULL, `qualityFlagsCsv` TEXT NOT NULL, PRIMARY KEY(`liftId`, `weekStartEpochMillis`))",
+        "fields": [
+          {
+            "fieldPath": "liftId",
+            "columnName": "liftId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekStartEpochMillis",
+            "columnName": "weekStartEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "peakE1rm",
+            "columnName": "peakE1rm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "smoothedE1rm",
+            "columnName": "smoothedE1rm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "logE1rm",
+            "columnName": "logE1rm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hardSets",
+            "columnName": "hardSets",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessions",
+            "columnName": "sessions",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "meanRir",
+            "columnName": "meanRir",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "reliability",
+            "columnName": "reliability",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "qualityFlagsCsv",
+            "columnName": "qualityFlagsCsv",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "liftId",
+            "weekStartEpochMillis"
+          ]
+        }
+      },
+      {
+        "tableName": "muscle_weekly_outcome_indices",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `weekStartEpochMillis` INTEGER NOT NULL, `indexValue` REAL NOT NULL, `indexStdError` REAL, `contributingLiftCount` INTEGER NOT NULL, `effectiveLiftCount` INTEGER NOT NULL, `primaryCoverage` REAL NOT NULL, `compositionHash` TEXT NOT NULL, `compositionDrift` REAL NOT NULL, `qualityFlagsCsv` TEXT NOT NULL, PRIMARY KEY(`muscle`, `weekStartEpochMillis`))",
+        "fields": [
+          {
+            "fieldPath": "muscle",
+            "columnName": "muscle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekStartEpochMillis",
+            "columnName": "weekStartEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "indexValue",
+            "columnName": "indexValue",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "indexStdError",
+            "columnName": "indexStdError",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "contributingLiftCount",
+            "columnName": "contributingLiftCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "effectiveLiftCount",
+            "columnName": "effectiveLiftCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "primaryCoverage",
+            "columnName": "primaryCoverage",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compositionHash",
+            "columnName": "compositionHash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compositionDrift",
+            "columnName": "compositionDrift",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "qualityFlagsCsv",
+            "columnName": "qualityFlagsCsv",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "muscle",
+            "weekStartEpochMillis"
+          ]
+        }
+      },
+      {
+        "tableName": "muscle_dose_response_points",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `weekStartEpochMillis` INTEGER NOT NULL, `dose` REAL NOT NULL, `response` REAL NOT NULL, `lagWeeks` INTEGER NOT NULL, `responseWindowWeeks` INTEGER NOT NULL, PRIMARY KEY(`muscle`, `weekStartEpochMillis`, `lagWeeks`))",
+        "fields": [
+          {
+            "fieldPath": "muscle",
+            "columnName": "muscle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekStartEpochMillis",
+            "columnName": "weekStartEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dose",
+            "columnName": "dose",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "response",
+            "columnName": "response",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lagWeeks",
+            "columnName": "lagWeeks",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "responseWindowWeeks",
+            "columnName": "responseWindowWeeks",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "muscle",
+            "weekStartEpochMillis",
+            "lagWeeks"
+          ]
+        }
+      },
+      {
+        "tableName": "muscle_volume_landmark_estimates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `estimatedMev` REAL NOT NULL, `estimatedMav` REAL NOT NULL, `estimatedMrv` REAL NOT NULL, `estimatedPv` REAL NOT NULL, `mevIntervalLow` REAL NOT NULL, `mevIntervalHigh` REAL NOT NULL, `mevIntervalMethod` TEXT NOT NULL, `mavIntervalLow` REAL NOT NULL, `mavIntervalHigh` REAL NOT NULL, `mavIntervalMethod` TEXT NOT NULL, `mrvIntervalLow` REAL NOT NULL, `mrvIntervalHigh` REAL NOT NULL, `mrvIntervalMethod` TEXT NOT NULL, `pvIntervalLow` REAL NOT NULL, `pvIntervalHigh` REAL NOT NULL, `pvIntervalMethod` TEXT NOT NULL, `confidenceTier` TEXT NOT NULL, `outcomeModelType` TEXT NOT NULL, `mrvSource` TEXT NOT NULL, `observedDoseMin` REAL NOT NULL, `observedDoseMax` REAL NOT NULL, `diagnosticAnchorLiftId` TEXT, PRIMARY KEY(`muscle`))",
+        "fields": [
+          {
+            "fieldPath": "muscle",
+            "columnName": "muscle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedMev",
+            "columnName": "estimatedMev",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedMav",
+            "columnName": "estimatedMav",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedMrv",
+            "columnName": "estimatedMrv",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimatedPv",
+            "columnName": "estimatedPv",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mevIntervalLow",
+            "columnName": "mevIntervalLow",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mevIntervalHigh",
+            "columnName": "mevIntervalHigh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mevIntervalMethod",
+            "columnName": "mevIntervalMethod",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mavIntervalLow",
+            "columnName": "mavIntervalLow",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mavIntervalHigh",
+            "columnName": "mavIntervalHigh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mavIntervalMethod",
+            "columnName": "mavIntervalMethod",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mrvIntervalLow",
+            "columnName": "mrvIntervalLow",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mrvIntervalHigh",
+            "columnName": "mrvIntervalHigh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mrvIntervalMethod",
+            "columnName": "mrvIntervalMethod",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pvIntervalLow",
+            "columnName": "pvIntervalLow",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pvIntervalHigh",
+            "columnName": "pvIntervalHigh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pvIntervalMethod",
+            "columnName": "pvIntervalMethod",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confidenceTier",
+            "columnName": "confidenceTier",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outcomeModelType",
+            "columnName": "outcomeModelType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mrvSource",
+            "columnName": "mrvSource",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observedDoseMin",
+            "columnName": "observedDoseMin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observedDoseMax",
+            "columnName": "observedDoseMax",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "diagnosticAnchorLiftId",
+            "columnName": "diagnosticAnchorLiftId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "muscle"
+          ]
+        }
+      },
+      {
+        "tableName": "muscle_response_model_diagnostics",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `selectedLagWeeks` INTEGER NOT NULL, `responseWindowWeeks` INTEGER NOT NULL, `pairedPointCount` INTEGER NOT NULL, `volumeBinCount` INTEGER NOT NULL, `indexWeekCount` INTEGER NOT NULL, `peakDoseCoverage` REAL NOT NULL, `compositionStability` REAL NOT NULL, `residualError` REAL, `predictiveScore` REAL, `anchorAgreement` INTEGER, `rejectionReasonsCsv` TEXT NOT NULL, `confidenceScore` REAL NOT NULL, PRIMARY KEY(`muscle`))",
+        "fields": [
+          {
+            "fieldPath": "muscle",
+            "columnName": "muscle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "selectedLagWeeks",
+            "columnName": "selectedLagWeeks",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "responseWindowWeeks",
+            "columnName": "responseWindowWeeks",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pairedPointCount",
+            "columnName": "pairedPointCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "volumeBinCount",
+            "columnName": "volumeBinCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "indexWeekCount",
+            "columnName": "indexWeekCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "peakDoseCoverage",
+            "columnName": "peakDoseCoverage",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "compositionStability",
+            "columnName": "compositionStability",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "residualError",
+            "columnName": "residualError",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "predictiveScore",
+            "columnName": "predictiveScore",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "anchorAgreement",
+            "columnName": "anchorAgreement",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "rejectionReasonsCsv",
+            "columnName": "rejectionReasonsCsv",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confidenceScore",
+            "columnName": "confidenceScore",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "muscle"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ac3ad13616088044703e716379a73822')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '76bddc64a81f63d7bb86c58988465cd5')"
     ]
   }
 }

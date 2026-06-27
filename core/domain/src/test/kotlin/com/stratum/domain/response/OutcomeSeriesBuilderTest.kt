@@ -51,7 +51,50 @@ class OutcomeSeriesBuilderTest {
             )
         val week = outcomes.first { it.weekStart == weekStart }
 
-        assertEquals(115.0, week.peakEstimatedOneRm)
-        assertEquals(112.5, week.smoothedEstimatedOneRm)
+        assertEquals(122.67402784445511, week.peakEstimatedOneRm!!, 1e-5)
+        assertEquals(120.00720115218434, week.smoothedEstimatedOneRm!!, 1e-5)
+    }
+
+    @Test
+    @DisplayName("RP-S2-007 fallback to raw e1rm when RIR is null")
+    fun rpS2_007_fallbackToRawE1rmWhenRirIsNull() {
+        val weekStart = ResponseFixtures.weekStart(2025, 1, 6)
+        val session =
+            HistoricalSession(
+                id = HistoricalSessionId("anchor-session-raw"),
+                startedAt = weekStart.plus(1, ChronoUnit.DAYS),
+                endedAt = null,
+                sourceApp = "test",
+            )
+        val workingWeightsKg = listOf(99.44736330025296, 95.12356489589413, 77.82837127845883)
+        val sets =
+            workingWeightsKg.mapIndexed { index, weightKg ->
+                ResponseFixtures.fixS1Working().sets.single().copy(
+                    id = LoggedSetId("outcome-raw-$index"),
+                    sessionId = session.id,
+                    weight = Weight(weightKg, Weight.WeightUnit.Kg),
+                    reps = 5,
+                    rir = null, // No RIR logged
+                    completedAt = session.startedAt.plusSeconds((index * 60).toLong()),
+                )
+            }
+        val input = ResponseFixtures.input(listOf(session), sets, listOf(ResponseFixtures.benchPressLift()))
+        val cleanSets = TrainingSignalCleaner.clean(input)
+        val epoch =
+            ResponseFixtures.epoch(
+                id = "outcome-epoch-raw",
+                start = weekStart,
+                end = weekStart.plus(7, ChronoUnit.DAYS),
+            )
+        val outcomes =
+            OutcomeSeriesBuilder.weeklyAnchorOutcomes(
+                epoch = epoch,
+                anchorLiftId = ResponseFixtures.liftBench,
+                cleanSets = cleanSets,
+            )
+        val week = outcomes.first { it.weekStart == weekStart }
+
+        assertEquals(115.0, week.peakEstimatedOneRm!!, 1e-5)
+        assertEquals(112.5, week.smoothedEstimatedOneRm!!, 1e-5)
     }
 }

@@ -1,5 +1,6 @@
 package com.stratum.domain.response
 
+import com.stratum.domain.response.modeling.ResponseModelingPipeline
 import javax.inject.Inject
 
 interface ResponseObservationExtractor {
@@ -16,23 +17,14 @@ class DefaultResponseObservationExtractor @Inject constructor() : ResponseObserv
             }
         val deloadWeeksExcluded = deloadWeeksByEpoch.values.flatten().toSet()
 
-        val muscles = input.lifts.flatMap { it.primaryMuscles }.toSet()
-        val volumeResponses =
-            muscles.flatMap { muscle ->
-                val anchor = AnchorLiftSelector.select(muscle, epochs, input) ?: return@flatMap emptyList()
-                if (input.provenLiftIds.isNotEmpty() && anchor in input.provenLiftIds) {
-                    return@flatMap emptyList()
-                }
-                epochs.mapNotNull { epoch ->
-                    VolumeResponseAnalyzer.analyze(
-                        muscle = muscle,
-                        anchorLiftId = anchor,
-                        epoch = epoch,
-                        input = input,
-                        deloadWeeks = deloadWeeksByEpoch.getValue(epoch),
-                    )
-                }
-            }
+        val modeling =
+            ResponseModelingPipeline.run(
+                input = input,
+                epochs = epochs,
+                cleanSets = cleanSets,
+                deloadWeeks = deloadWeeksExcluded,
+            )
+        val volumeResponses = ResponseModelingPipeline.projectVolumeResponses(modeling, epochs)
 
         val patterns = input.lifts.map { it.movementPattern }.distinct()
         val liftEffectiveness =
@@ -49,9 +41,10 @@ class DefaultResponseObservationExtractor @Inject constructor() : ResponseObserv
 
         return ResponseExtractionOutput(
             epochs = epochs,
-            volumeResponses = volumeResponses,
+            volumeResponses = volumeResponses.distinctBy { it.muscle to it.epochId },
             liftEffectiveness = liftEffectiveness,
             deloadWeeksExcluded = deloadWeeksExcluded,
+            modeling = modeling,
         )
     }
 }

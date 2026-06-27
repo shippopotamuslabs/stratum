@@ -9,8 +9,8 @@ import java.time.temporal.ChronoUnit
 
 class EpochSplitterTest {
     @Test
-    @DisplayName("RP-S3-001 15 day gap yields 2 epochs")
-    fun rpS3_001_gap15DaysYieldsTwoEpochs() {
+    @DisplayName("RP-S3-001 45 day gap yields 2 epochs")
+    fun rpS3_001_gap45DaysYieldsTwoEpochs() {
         val input = ResponseFixtures.fixS3Gap15d()
         val epochs = EpochSplitter.split(input)
 

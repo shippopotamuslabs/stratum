@@ -11,7 +11,7 @@ object OutcomeSeriesBuilder {
         val working = WeeklySignalSupport.workingSetsInEpoch(epoch, cleanSets, anchorLiftId)
         return OutlierGuard.winsorizeWeeklySignals(
             WeeklySignalSupport.groupByWeek(working).map { (weekStart, weekSets) ->
-                val e1rms = weekSets.map { it.estimatedOneRm }.sortedDescending()
+                val e1rms = weekSets.map { it.rirAdjustedEstimatedOneRm ?: it.estimatedOneRm }.sortedDescending()
                 val peak = e1rms.first()
                 val topTwoMean =
                     if (e1rms.size >= 2) {

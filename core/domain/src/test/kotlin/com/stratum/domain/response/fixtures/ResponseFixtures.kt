@@ -217,10 +217,10 @@ object ResponseFixtures {
             )
         }
 
-    /** FIX-S3-GAP-15D — two blocks separated by 15 calendar days */
+    /** FIX-S3-GAP-45D — two blocks separated by 45 calendar days */
     fun fixS3Gap15d(): ResponseExtractionInput {
         val blockAEnd = baseInstant
-        val blockBStart = blockAEnd.plus(15, ChronoUnit.DAYS)
+        val blockBStart = blockAEnd.plus(45, ChronoUnit.DAYS)
         val sessionA = session("gap-a", blockAEnd.minus(1, ChronoUnit.DAYS))
         val sessionB = session("gap-b", blockBStart)
         val sets =
@@ -571,7 +571,7 @@ object ResponseFixtures {
 
     /** FIX-S5-DUAL-EPOCH — two 10-week epochs, positive slope in both for Quad */
     fun fixS5DualEpoch(): ResponseExtractionInput {
-        val gapDays = 15L
+        val gapDays = 45L
         val blockBStartDays = 10 * 7 + gapDays
         val squatSessions =
             buildList {

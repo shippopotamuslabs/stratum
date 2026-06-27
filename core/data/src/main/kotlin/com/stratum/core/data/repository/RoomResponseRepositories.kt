@@ -3,6 +3,12 @@ package com.stratum.core.data.repository
 import androidx.room.withTransaction
 import com.stratum.core.data.db.ExperimentBlockDao
 import com.stratum.core.data.db.LiftEffectivenessObservationDao
+import com.stratum.core.data.db.LiftWeeklyPerformanceDao
+import com.stratum.core.data.db.MuscleDoseResponsePointDao
+import com.stratum.core.data.db.MuscleResponseModelDiagnosticDao
+import com.stratum.core.data.db.MuscleVolumeLandmarkEstimateDao
+import com.stratum.core.data.db.MuscleWeeklyOutcomeIndexDao
+import com.stratum.core.data.db.MuscleWeeklyStimulusDao
 import com.stratum.core.data.db.ResponseEpochDao
 import com.stratum.core.data.db.ResponseProfileMetadataDao
 import com.stratum.core.data.db.StratumDatabase
@@ -15,12 +21,14 @@ import com.stratum.domain.response.ExperimentBlockRepository
 import com.stratum.domain.response.ExtractedResponseProfile
 import com.stratum.domain.response.LiftEffectivenessObservation
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
+import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
 import com.stratum.domain.response.ResponseEpochRepository
 import com.stratum.domain.response.ResponseProfileMetadata
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.VolumeResponseObservationRepository
+import com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate
 import javax.inject.Inject
 
 class RoomResponseProfilePersistenceRepository @Inject constructor(
@@ -30,6 +38,12 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
     private val effectivenessDao: LiftEffectivenessObservationDao,
     private val experimentDao: ExperimentBlockDao,
     private val metadataDao: ResponseProfileMetadataDao,
+    private val stimulusDao: MuscleWeeklyStimulusDao,
+    private val liftPerformanceDao: LiftWeeklyPerformanceDao,
+    private val outcomeIndexDao: MuscleWeeklyOutcomeIndexDao,
+    private val dosePointDao: MuscleDoseResponsePointDao,
+    private val landmarkDao: MuscleVolumeLandmarkEstimateDao,
+    private val diagnosticDao: MuscleResponseModelDiagnosticDao,
 ) : ResponseProfilePersistencePort {
     override suspend fun replaceExtractedProfile(profile: ExtractedResponseProfile) {
         database.withTransaction {
@@ -37,6 +51,12 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
             volumeDao.deleteAll()
             effectivenessDao.deleteAll()
             experimentDao.deleteAll()
+            stimulusDao.deleteAll()
+            liftPerformanceDao.deleteAll()
+            outcomeIndexDao.deleteAll()
+            dosePointDao.deleteAll()
+            landmarkDao.deleteAll()
+            diagnosticDao.deleteAll()
             if (profile.epochs.isNotEmpty()) {
                 epochDao.insertAll(profile.epochs.map { it.toEntity() })
             }
@@ -49,6 +69,24 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
             if (profile.experimentBlocks.isNotEmpty()) {
                 experimentDao.insertAll(profile.experimentBlocks.map { it.toEntity() })
             }
+            if (profile.weeklyStimulus.isNotEmpty()) {
+                stimulusDao.insertAll(profile.weeklyStimulus.map { it.toEntity() })
+            }
+            if (profile.liftPerformance.isNotEmpty()) {
+                liftPerformanceDao.insertAll(profile.liftPerformance.map { it.toEntity() })
+            }
+            if (profile.outcomeIndices.isNotEmpty()) {
+                outcomeIndexDao.insertAll(profile.outcomeIndices.map { it.toEntity() })
+            }
+            if (profile.dosePoints.isNotEmpty()) {
+                dosePointDao.insertAll(profile.dosePoints.map { it.toEntity() })
+            }
+            if (profile.landmarkEstimates.isNotEmpty()) {
+                landmarkDao.insertAll(profile.landmarkEstimates.map { it.toEntity() })
+            }
+            if (profile.modelDiagnostics.isNotEmpty()) {
+                diagnosticDao.insertAll(profile.modelDiagnostics.map { it.toEntity() })
+            }
             metadataDao.upsert(profile.metadata.toEntity())
         }
     }
@@ -59,6 +97,12 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
             volumeDao.deleteAll()
             effectivenessDao.deleteAll()
             experimentDao.deleteAll()
+            stimulusDao.deleteAll()
+            liftPerformanceDao.deleteAll()
+            outcomeIndexDao.deleteAll()
+            dosePointDao.deleteAll()
+            landmarkDao.deleteAll()
+            diagnosticDao.deleteAll()
             metadataDao.deleteAll()
         }
     }
@@ -134,4 +178,19 @@ class RoomResponseProfileMetadataRepository @Inject constructor(
     override suspend fun clear() {
         dao.deleteAll()
     }
+}
+
+class RoomMuscleVolumeLandmarkEstimateRepository @Inject constructor(
+    private val database: StratumDatabase,
+    private val dao: MuscleVolumeLandmarkEstimateDao,
+) : MuscleVolumeLandmarkEstimateRepository {
+    override suspend fun replaceAll(estimates: List<MuscleVolumeLandmarkEstimate>) {
+        database.withTransaction {
+            dao.deleteAll()
+            if (estimates.isNotEmpty()) dao.insertAll(estimates.map { it.toEntity() })
+        }
+    }
+
+    override suspend fun getAll(): List<MuscleVolumeLandmarkEstimate> =
+        dao.getAll().map { it.toDomain() }
 }

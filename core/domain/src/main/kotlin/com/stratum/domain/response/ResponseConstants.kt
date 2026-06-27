@@ -1,7 +1,7 @@
 package com.stratum.domain.response
 
-const val MAX_EPOCH_GAP_DAYS = 14
-const val PRIMARY_JACCARD_CHANGE_THRESHOLD = 0.5
+const val MAX_EPOCH_GAP_DAYS = 42
+const val PRIMARY_JACCARD_CHANGE_THRESHOLD = 0.75
 const val ROLLING_PRIMARY_WINDOW_WEEKS = 4
 const val HIGH_RIR_WARMUP_THRESHOLD = 5
 const val LOW_RELATIVE_LOAD_FRACTION = 0.65

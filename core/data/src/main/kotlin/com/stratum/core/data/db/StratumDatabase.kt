@@ -24,6 +24,12 @@ import androidx.room.TypeConverters
         LiftEffectivenessObservationEntity::class,
         ExperimentBlockEntity::class,
         ResponseProfileMetadataEntity::class,
+        MuscleWeeklyStimulusEntity::class,
+        LiftWeeklyPerformanceEntity::class,
+        MuscleWeeklyOutcomeIndexEntity::class,
+        MuscleDoseResponsePointEntity::class,
+        MuscleVolumeLandmarkEstimateEntity::class,
+        MuscleResponseModelDiagnosticEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -65,6 +71,18 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun experimentBlockDao(): ExperimentBlockDao
 
     abstract fun responseProfileMetadataDao(): ResponseProfileMetadataDao
+
+    abstract fun muscleWeeklyStimulusDao(): MuscleWeeklyStimulusDao
+
+    abstract fun liftWeeklyPerformanceDao(): LiftWeeklyPerformanceDao
+
+    abstract fun muscleWeeklyOutcomeIndexDao(): MuscleWeeklyOutcomeIndexDao
+
+    abstract fun muscleDoseResponsePointDao(): MuscleDoseResponsePointDao
+
+    abstract fun muscleVolumeLandmarkEstimateDao(): MuscleVolumeLandmarkEstimateDao
+
+    abstract fun muscleResponseModelDiagnosticDao(): MuscleResponseModelDiagnosticDao
 
     companion object {
         const val DATABASE_NAME = "stratum.db"

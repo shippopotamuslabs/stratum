@@ -18,7 +18,7 @@ import kotlin.math.sqrt
  * The fit is rejected (returns `null` from [fit]) when the data does not support an inverted-U:
  * too few points, a non-negative `a` (no vertex / concave-up), a vertex outside the observed
  * volume range, or an R² below [VolumeLandmarkEstimatorConstants.OLS_FIT_MIN_R_SQUARED]. The
- * estimator then falls back to the heuristic/prior path.
+ * caller then falls back to the monotonic or prior path.
  */
 data class DoseResponseQuadraticFit(
     val a: Double,
@@ -44,7 +44,7 @@ data class DoseResponseQuadraticFit(
         val se = sqrt(mavDeltaVariance)
         val half = VolumeLandmarkEstimatorConstants.Z_95 * se
         return LandmarkConfidenceInterval(
-            low = (mavVertex - half).coerceAtLeast(0.0),
+            low = (mavVertex - half).coerceAtLeast(VolumeLandmarkEstimatorConstants.MIN_RECOVERABLE_WEEKLY_SETS.toDouble()),
             high = mavVertex + half,
             method = IntervalMethod.DeltaMethod,
         )
@@ -56,7 +56,7 @@ data class DoseResponseQuadraticFit(
         val se = sqrt(mevDeltaVariance)
         val half = VolumeLandmarkEstimatorConstants.Z_95 * se
         return LandmarkConfidenceInterval(
-            low = (mevRoot - half).coerceAtLeast(0.0),
+            low = (mevRoot - half).coerceAtLeast(VolumeLandmarkEstimatorConstants.MIN_RECOVERABLE_WEEKLY_SETS.toDouble()),
             high = mevRoot + half,
             method = IntervalMethod.DeltaMethod,
         )
@@ -68,7 +68,7 @@ data class DoseResponseQuadraticFit(
         val se = sqrt(pvDeltaVariance)
         val half = VolumeLandmarkEstimatorConstants.Z_95 * se
         return LandmarkConfidenceInterval(
-            low = (pvPareto - half).coerceAtLeast(0.0),
+            low = (pvPareto - half).coerceAtLeast(VolumeLandmarkEstimatorConstants.MIN_RECOVERABLE_WEEKLY_SETS.toDouble()),
             high = pvPareto + half,
             method = IntervalMethod.DeltaMethod,
         )
