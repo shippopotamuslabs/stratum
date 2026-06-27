@@ -71,6 +71,10 @@ internal object OnboardingViewModelTestFixtures {
     private val fakeVolumeRepository = FakeVolumeRepository()
     private val fakeVolumeResponseRepository = FakeVolumeResponseObservationRepository()
     private val fakeEffectivenessRepository = FakeLiftEffectivenessObservationRepository()
+    val fakeProgramGeneratorPort = com.stratum.core.testing.program.FakeProgramGeneratorPort(
+        program = aProgram(),
+    )
+    val fakeProgramRepository = com.stratum.core.testing.program.FakeProgramRepository()
 
     fun resetDefaults() {
         fakeRepository.seed(
@@ -150,7 +154,20 @@ internal object OnboardingViewModelTestFixtures {
             com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
             fakeLiftRepository,
         ),
-        completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
+        generateProgram = com.stratum.domain.program.GenerateProgramUseCase(
+            loadPayload = com.stratum.domain.program.ProgramGenerationPayloadLoader { "{}" },
+            generator = fakeProgramGeneratorPort,
+            repository = fakeProgramRepository,
+            completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
+            profileRepository = fakeProfileRepository,
+        ),
+    )
+
+    private fun aProgram(): com.stratum.domain.program.Program = com.stratum.domain.program.Program(
+        id = com.stratum.domain.program.identity.ProgramId("p-1"),
+        name = "Generated Program",
+        createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+        workouts = emptyList(),
     )
 
     private fun buildRollbackHistoricalImport(): RollbackHistoricalImportUseCase =

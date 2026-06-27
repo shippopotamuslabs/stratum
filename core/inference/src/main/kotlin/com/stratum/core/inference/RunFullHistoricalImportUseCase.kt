@@ -1,7 +1,5 @@
 package com.stratum.core.inference
 
-import android.util.Log
-import com.stratum.domain.importing.ExtractTrainingInsightsSummary
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.HistoricalImportPort
 import com.stratum.domain.importing.HistoricalImportRunnerPort
@@ -19,6 +17,7 @@ import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.importing.RemoteImportJobStatus
 import com.stratum.domain.importing.StartHistoricalImportUseCase
+import com.stratum.domain.logging.LoggingPort
 import java.time.Instant
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
@@ -33,6 +32,8 @@ class RunFullHistoricalImportUseCase @Inject constructor(
     private val rollbackHistoricalImport: RollbackHistoricalImportUseCase,
     private val importJobRepository: ImportJobRepository,
     private val mergeImportedHistory: MergeImportedHistoryUseCase,
+    private val importLiftResolutionLogger: ImportLiftResolutionLogger,
+    private val loggingPort: LoggingPort,
 ) : HistoricalImportRunnerPort {
     override fun run(
         files: List<ImportFileInput>,
@@ -84,13 +85,13 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                 persistImportedHistory(sessions, sets) { progress ->
                     emit(HistoricalImportEvent.Progress(progress))
                 }.getOrThrow()
-            summary.liftResolution?.let(ImportLiftResolutionLogger::log)
+            summary.liftResolution?.let(importLiftResolutionLogger::log)
             emit(HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)))
             emit(HistoricalImportEvent.Completed(summary))
         } catch (error: Throwable) {
             rollbackHistoricalImport()
             val message = error.message ?: "Import failed."
-            runCatching { Log.e(TAG, "Historical import failed: $message", error) }
+            loggingPort.error(TAG, "Historical import failed: $message", error)
             val resumeState =
                 HistoricalImportResumeState(
                     files = allFiles,

@@ -17,6 +17,8 @@ import com.stratum.HomePlaceholder
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.onboarding.navigation.onboardingEntry
+import com.stratum.feature.program.navigation.ProgramsKey
+import com.stratum.feature.program.navigation.programsEntry
 
 @Composable
 fun StratumNavHost() {
@@ -29,7 +31,7 @@ fun StratumNavHost() {
         return
     }
     val startKey: NavKey = remember(isComplete) {
-        if (isComplete == true) HomeKey else OnboardingKey
+        if (isComplete == true) ProgramsKey else OnboardingKey
     }
     val backStack = rememberNavBackStack(startKey)
 
@@ -39,9 +41,10 @@ fun StratumNavHost() {
             onboardingEntry(
                 onComplete = {
                     backStack.removeAll { it is OnboardingKey }
-                    backStack.add(HomeKey)
+                    backStack.add(ProgramsKey)
                 },
             )
+            programsEntry()
             entry<HomeKey> { HomePlaceholder() }
         },
     )

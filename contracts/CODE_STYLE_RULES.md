@@ -1,0 +1,71 @@
+# Code Style Rules — Stratum
+
+Binding conventions for Kotlin, Gradle, and cross-layer patterns. Read alongside
+`ARCHITECTURE.md` and `UNIT_TESTING.md`.
+
+Never modify this file without an explicit **"Contract Waiver"** from the user.
+
+---
+
+## 1. Error handling
+
+Stratum uses **containment below, UI reaction above** — not try/catch/rethrow chains.
+
+### Layer responsibilities
+
+| Layer | Pattern | Logging |
+|-------|---------|---------|
+| **Infrastructure adapter** (Firebase, credentials, Room-backed auth) | `runCatching { … }.onFailure { log; Result.failure(mapped) }` | `LoggingPort.error` once, with tag + context |
+| **Use case (orchestration)** | `runCatching` or propagate `Result`; return `Result<T>`, sealed types, or `Flow<Event>` | Only when adding context the adapter lacks (avoid duplicate logs) |
+| **Repository** | Plain `suspend` / `Flow`; let exceptions propagate to the caller's `runCatching` | No logging |
+| **ViewModel** | Branch on `Result` / sealed type / Flow event → `UiState` | No logging; map to user-visible strings |
+
+### Return types
+
+- **Operational failures** (network, I/O, unexpected exceptions): `Result<T>` from ports and orchestrating use cases.
+- **Expected business outcomes** (validation): sealed interfaces (e.g. `AdvanceOnboardingStepResult.ValidationFailed`).
+- **Long-running multi-step work**: `Flow` of terminal events (e.g. `HistoricalImportEvent.Failed`).
+
+ViewModels must **not** rely on try/catch for business failures. Use `result.onFailure { … }` or
+`if (result.isFailure)`. Reserve try/catch for `CancellationException` and similar coroutine
+machinery.
+
+### User-visible messages
+
+Map infrastructure errors to readable copy **at the adapter** (e.g. `ProgramGenerationErrorMapper`,
+`toGoogleSignInMessage()`). ViewModels copy `exception.message` into presentation state when the
+lower layer already attached a safe string; otherwise use a feature-level fallback constant aligned
+with `strings.xml`.
+
+### LoggingPort
+
+- Single domain port: `com.stratum.domain.logging.LoggingPort`.
+- Production adapter: `AndroidLoggingAdapter` in `:core:inference` — Logcat + Firebase Crashlytics
+  non-fatals on `error(…, throwable)` (PII scrubbed via `TelemetryPiiScrubber` before breadcrumbs).
+- Future OpenTelemetry export should compose through the same port (composite adapter or extended
+  `AndroidLoggingAdapter`), mirroring pocket-crew.
+- Tests use `FakeLoggingPort` from `:core:testing`.
+
+### Anti-patterns
+
+- Logging the same failure at every layer.
+- Rethrowing through repositories/use cases for the ViewModel to catch.
+- Passing raw `Throwable` or domain exceptions to Composables.
+- Swallowing failures without `Result`, event, or UI state.
+
+---
+
+## 2. Imports
+
+Keep imports at the top of the file. No inline imports unless a documented circular-dependency
+exception exists.
+
+---
+
+## 3. Related contracts
+
+| Topic | Contract |
+|-------|----------|
+| Module graph, ViewModel deps | `ARCHITECTURE.md` |
+| Tests, fakes, MockK boundaries | `UNIT_TESTING.md` |
+| Compose UI | `UI_DESIGN.md` |

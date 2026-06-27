@@ -8,6 +8,12 @@ import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.importing.identity.ImportJobId
+import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SetType
+import com.stratum.domain.program.identity.LiftSetId
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
@@ -173,4 +179,48 @@ class EnumConverters {
     @TypeConverter
     fun toMrvSource(value: String?): MrvSource? =
         value?.let { runCatching { MrvSource.valueOf(it) }.getOrNull() }
+
+    // --- OS-7: program hierarchy enums + typed ids -------------------------------------
+
+    @TypeConverter
+    fun fromProgressionScheme(scheme: ProgressionScheme?): String? = scheme?.name
+
+    @TypeConverter
+    fun toProgressionScheme(value: String?): ProgressionScheme? =
+        value?.let { runCatching { ProgressionScheme.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromSetType(type: SetType?): String? = type?.name
+
+    @TypeConverter
+    fun toSetType(value: String?): SetType? =
+        value?.let { runCatching { SetType.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromProgramId(id: ProgramId?): String? = id?.value
+
+    @TypeConverter
+    fun toProgramId(value: String?): ProgramId? =
+        value?.let { runCatching { ProgramId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromWorkoutId(id: WorkoutId?): String? = id?.value
+
+    @TypeConverter
+    fun toWorkoutId(value: String?): WorkoutId? =
+        value?.let { runCatching { WorkoutId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromWorkoutLiftId(id: WorkoutLiftId?): String? = id?.value
+
+    @TypeConverter
+    fun toWorkoutLiftId(value: String?): WorkoutLiftId? =
+        value?.let { runCatching { WorkoutLiftId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromLiftSetId(id: LiftSetId?): String? = id?.value
+
+    @TypeConverter
+    fun toLiftSetId(value: String?): LiftSetId? =
+        value?.let { runCatching { LiftSetId(it) }.getOrNull() }
 }

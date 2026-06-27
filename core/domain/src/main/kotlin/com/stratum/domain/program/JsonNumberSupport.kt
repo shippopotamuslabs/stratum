@@ -14,3 +14,6 @@ internal fun Double?.toJsonField(fieldName: String): String =
  */
 internal fun Double?.toJsonNumberOrZero(): String =
     this?.takeIf { it.isFinite() }?.toString() ?: "0.0"
+
+/** Finite JSON numeric literal for non-nullable doubles; non-finite values become 0.0. */
+internal fun Double.toJsonLiteral(): String = takeIf { it.isFinite() }?.toString() ?: "0.0"

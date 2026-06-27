@@ -16,6 +16,7 @@ import com.stratum.app.ui.SignInScreen
 import com.stratum.core.data.auth.SignInHostContext
 import com.stratum.core.ui.auth.StratumAuthUiState
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.navigation.StratumNavHost
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -24,6 +25,9 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
     @Inject
     lateinit var signInHostContext: SignInHostContext
+
+    @Inject
+    lateinit var loggingPort: LoggingPort
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,10 +65,35 @@ class MainActivity : FragmentActivity() {
         val appCheck = FirebaseAppCheck.getInstance()
         if (BuildConfig.DEBUG) {
             appCheck.installAppCheckProviderFactory(DebugAppCheckProviderFactory.getInstance())
+            logDebugAppCheckTokenHint(appCheck)
         } else {
             appCheck.installAppCheckProviderFactory(
                 PlayIntegrityAppCheckProviderFactory.getInstance(),
             )
         }
+    }
+
+    /**
+     * Surfaces App Check setup issues early. On debug builds, register the secret printed by
+     * `DebugAppCheckProvider` (or logged here on failure) in Firebase Console → App Check →
+     * Manage debug tokens. `generateProgram` enforces App Check server-side.
+     */
+    private fun logDebugAppCheckTokenHint(appCheck: FirebaseAppCheck) {
+        appCheck.getAppCheckToken(false)
+            .addOnSuccessListener {
+                loggingPort.info(TAG, "App Check debug token obtained successfully.")
+            }
+            .addOnFailureListener { error ->
+                loggingPort.error(
+                    TAG,
+                    "App Check debug token failed (register the debug secret from logcat in " +
+                        "Firebase Console → App Check → Manage debug tokens): ${error.message}",
+                    error,
+                )
+            }
+    }
+
+    private companion object {
+        const val TAG = "StratumAppCheck"
     }
 }

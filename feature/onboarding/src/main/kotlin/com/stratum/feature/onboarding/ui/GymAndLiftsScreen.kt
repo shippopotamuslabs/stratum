@@ -110,6 +110,10 @@ fun GymAndLiftsScreen(
             StratumText(text = error, muted = true)
         }
 
+        draft.presetApplyError?.let { error ->
+            StratumText(text = error, muted = true)
+        }
+
         if (draft.showNoPresetError) {
             StratumText(
                 text = stringResource(FeatureR.string.gym_lifts_error_no_preset),

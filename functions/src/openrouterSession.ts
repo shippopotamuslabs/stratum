@@ -22,6 +22,11 @@ export function importEquipmentInferenceSessionId(uid: string): string {
   return sanitizeOpenRouterSessionId(`stratum-import-equipment:${uid}`);
 }
 
+/** Sticky-routing key for one-shot program generation (OS-7). */
+export function programGenerationSessionId(uid: string): string {
+  return sanitizeOpenRouterSessionId(`stratum-program-generate:${uid}`);
+}
+
 export function sanitizeOpenRouterSessionId(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {

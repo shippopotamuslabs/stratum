@@ -29,7 +29,10 @@ class LoadProgramGenerationPayloadUseCase @Inject constructor(
     private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
     private val muscleVolumeLandmarkEstimateRepository: MuscleVolumeLandmarkEstimateRepository,
     private val promptBuilder: ProgramGenerationPromptBuilder,
-) {
+) : ProgramGenerationPayloadLoader {
+    /** @see ProgramGenerationPayloadLoader */
+    override suspend fun load(): String = invoke()
+
     suspend operator fun invoke(): String {
         val profile = userTrainingProfileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
         val specialization = observeSpecialization().first()

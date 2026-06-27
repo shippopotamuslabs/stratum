@@ -49,7 +49,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             append(profile.sessionLengthMinutes ?: "null")
             append(""","weekdays":""")
             append(profile.weekdays.joinToString(",") { it.name }.quoteJson())
-            append("\"},")
+            append("},")
             append(""""specialization":{""")
             append(specializationJson)
             append("},")
@@ -103,13 +103,15 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
     private fun SupersetAffinity.toJson(): String {
         val liftA = liftA.value.quoteJson()
         val liftB = liftB.value.quoteJson()
-        return """{"liftA":$liftA,"liftB":$liftB,"medianRestSeconds":$medianRestSeconds,"coOccurrenceCount":$coOccurrenceCount}"""
+        return """{"liftA":$liftA,"liftB":$liftB,"medianRestSeconds":${medianRestSeconds.toJsonLiteral()},""" +
+            """"coOccurrenceCount":$coOccurrenceCount}"""
     }
 
     private fun MuscleVolumeBaseline.toJson(): String {
         val trend = trendSlope.toJsonField("trendSlope")
         val muscle = muscle.name.quoteJson()
-        return """{"muscle":$muscle,"meanWeeklyHardSets":$meanWeeklyHardSets,"p90WeeklyHardSets":$p90WeeklyHardSets$trend}"""
+        return """{"muscle":$muscle,"meanWeeklyHardSets":${meanWeeklyHardSets.toJsonLiteral()},""" +
+            """"p90WeeklyHardSets":${p90WeeklyHardSets.toJsonLiteral()}$trend}"""
     }
 
     private fun MuscleVolumeHighlight.toJson(): String {
@@ -199,7 +201,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             append(""""windowStart":$windowStartJson,""")
             append(""""windowEnd":$windowEndJson,""")
             append(""""totalSessions":$totalSessions,""")
-            append(""""totalSets":$totalSets}}""")
+            append(""""totalSets":$totalSets}""")
         }
     }
 
@@ -212,7 +214,12 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
                 '\n' -> append("\\n")
                 '\r' -> append("\\r")
                 '\t' -> append("\\t")
-                else -> append(ch)
+                else ->
+                    if (ch.code < 0x20) {
+                        append("\\u%04x".format(ch.code))
+                    } else {
+                        append(ch)
+                    }
             }
         }
         append('"')

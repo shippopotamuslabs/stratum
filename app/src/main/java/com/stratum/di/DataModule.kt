@@ -195,6 +195,26 @@ object DatabaseModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+object ProgramDatabaseModule {
+    @Provides
+    fun provideProgramDao(database: StratumDatabase): com.stratum.core.data.db.ProgramDao =
+        database.programDao()
+
+    @Provides
+    fun provideWorkoutDao(database: StratumDatabase): com.stratum.core.data.db.WorkoutDao =
+        database.workoutDao()
+
+    @Provides
+    fun provideWorkoutLiftDao(database: StratumDatabase): com.stratum.core.data.db.WorkoutLiftDao =
+        database.workoutLiftDao()
+
+    @Provides
+    fun provideLiftSetDao(database: StratumDatabase): com.stratum.core.data.db.LiftSetDao =
+        database.liftSetDao()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 object ResponseDatabaseModule {
     @Provides
     fun provideResponseEpochDao(database: StratumDatabase): ResponseEpochDao =
@@ -351,4 +371,16 @@ abstract class RepositoryModule {
     abstract fun bindResponseObservationExtractor(
         impl: DefaultResponseObservationExtractor,
     ): ResponseObservationExtractor
+
+    @Binds
+    @Singleton
+    abstract fun bindProgramRepository(
+        impl: com.stratum.core.data.repository.RoomProgramRepository,
+    ): com.stratum.domain.program.ProgramRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProgramGenerationPayloadLoader(
+        impl: com.stratum.domain.program.LoadProgramGenerationPayloadUseCase,
+    ): com.stratum.domain.program.ProgramGenerationPayloadLoader
 }

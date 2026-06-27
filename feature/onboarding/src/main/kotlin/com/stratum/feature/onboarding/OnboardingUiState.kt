@@ -19,6 +19,8 @@ data class OnboardingUiState(
     val gymLiftsDraft: GymLiftsDraftUi = GymLiftsDraftUi.Empty,
     val reviewDraft: ReviewDraftUi = ReviewDraftUi.Empty,
     val presetOptions: List<GymPresetOptionUi> = emptyList(),
+    val generateState: GenerateState = GenerateState.Idle,
+    val generateErrorMessage: String? = null,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast
@@ -100,6 +102,13 @@ enum class SessionLengthErrorKind {
 }
 
 /**
+ * State of the Generate step (OS-7 D4). `Idle` shows the Generate CTA; `Loading` shows progress copy
+ * and disables the CTA; `Error` offers retry + back-to-review. Success is implicit — the wizard's
+ * `isComplete` flips and the existing `LaunchedEffect(state.isComplete)` consumes it.
+ */
+enum class GenerateState { Idle, Loading, Error }
+
+/**
  * UI-shaped snapshot of the Specialization step (OS-3).
  */
 data class SpecializationDraftUi(
@@ -145,6 +154,7 @@ data class GymLiftsDraftUi(
     val hasCompletedHistoricalImport: Boolean = false,
     val importProgress: ImportProgress? = null,
     val importError: String? = null,
+    val presetApplyError: String? = null,
     val importInsightsSummary: ImportInsightsSummaryUi? = null,
     /** 1-based index of the file that failed during a multi-file import; enables resume UX. */
     val importResumeFileIndex: Int? = null,
