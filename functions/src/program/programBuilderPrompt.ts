@@ -30,7 +30,8 @@ Rules:
 - For each pattern slot on each day, pick exactly one lift from THAT day's candidates list. Use the liftId verbatim.
 - VARY lift selection across sibling days that share a muscle focus (e.g. Upper A and Upper B). When a day's candidate list offers more than one lift for a slot, choose a different lift on the sibling day rather than repeating the same one. Diversify the week.
 - Never reuse the same liftId more than once within a single workout.
-- Order lifts within each day to interleave antagonists — never stack 3 consecutive lifts with the same primary muscle.
+- Order lifts within each day by training importance. As a default, place heavy compound lifts (candidates with isCompound: true — squats, deadlifts, presses, rows, pull-ups, overhead presses) before isolation/accessory work, because compounds demand the most focus and load and are far harder when fatigued. The exception is pre-exhaustion or specialization: if a day targets a specific muscle group the user is specializing (e.g. arms), you MAY lead with a targeted isolation lift to pre-fatigue it, then follow with compounds. Use judgment — but when in doubt, compound-first. Never put a heavy deadlift or squat last in a workout.
+- Interleave antagonists within the ordering — never stack 3 consecutive lifts with the same primary muscle.
 - Propose repMin/repMax inside each candidate's repBand. Do not go outside the band.
 - Hit the per-muscle set budget on each day: each muscle's total hard sets should match the muscleBudget aim for that day.
 - For Double progression, the first set of each lift is the top set (isTopSet: true); all others are false. For Linear progression, no set is a top set.
@@ -67,6 +68,7 @@ export function buildProgramBuilderInput(
         pattern: c.pattern,
         priority: c.priority,
         priorityTier: c.priorityTier,
+        isCompound: c.isCompound,
         primaryMuscles: c.primaryMuscles,
         secondaryMuscles: c.secondaryMuscles,
         ...(c.trainingInsights ? { trainingInsights: c.trainingInsights } : {}),
@@ -82,6 +84,7 @@ export function buildProgramBuilderInput(
       mustUseAllSlots: true,
       varyAcrossSiblingDays: true,
       noDuplicateLiftWithinWorkout: true,
+      compoundBeforeAccessory: true,
       interleaveAntagonists: true,
     },
   };
@@ -93,4 +96,33 @@ export function buildProgramBuilderInput(
  */
 export function programBuilderOutputSchema(): ReturnType<typeof programJsonSchema> {
   return programJsonSchema();
+}
+
+/** Issue row from [validateProgramMetrics] for retry feedback. */
+export interface ProgramBuilderValidationIssue {
+  code: string;
+  severity: string;
+  message: string;
+}
+
+/**
+ * User follow-up after the first builder response failed metric validation. Keeps the model in the
+ * same chat: it should tweak the program it just returned, not rebuild from scratch.
+ */
+export function buildProgramBuilderRetryMessage(
+  issues: ProgramBuilderValidationIssue[],
+  trainingDaysPerWeek: number,
+): string {
+  const errors = issues.filter((issue) => issue.severity === "error");
+  const warnings = issues.filter((issue) => issue.severity === "warning");
+  const lines = [
+    "There were a few issues with the program. Please correct these and return the full updated program JSON.",
+    "",
+    ...errors.map((issue) => `- [ERROR ${issue.code}] ${issue.message}`),
+    ...warnings.map((issue) => `- [WARN ${issue.code}] ${issue.message}`),
+    "",
+    `Keep all ${trainingDaysPerWeek} workouts. Make targeted tweaks — adjust set counts, lift choices, or ordering — rather than rebuilding from scratch.`,
+    "Use only liftId values from the candidate lists you were given.",
+  ];
+  return lines.join("\n");
 }

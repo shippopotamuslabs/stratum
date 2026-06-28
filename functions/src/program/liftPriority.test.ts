@@ -6,6 +6,8 @@ import { allocateDayPlans } from "./splitAllocator";
 import {
   buildDayCandidates,
   CANDIDATES_PER_SLOT,
+  compareLiftCandidates,
+  mainstreamNameScore,
   scoreLift,
 } from "./liftPriority";
 
@@ -185,6 +187,47 @@ describe("liftPriority", () => {
       const candidates = buildDayCandidates(lowerPlan, ctx);
       // No upper-push lifts should appear on a lower day.
       assert.ok(!candidates.some((c) => c.liftId === "bench"));
+    });
+
+    it("prefers bread-and-butter lifts over alternating catalog tail when priorities tie", () => {
+      const ctx = contextWith({
+        provenLifts: [],
+        availableLifts: [
+          { id: "alt-press", name: "Alternating Floor Press", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+          { id: "bench", name: "Bench Press", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+        ],
+        days: 4,
+      });
+      const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
+      const upperPlan = plans.find((p) => p.theme.startsWith("Upper"))!;
+      const hpush = buildDayCandidates(upperPlan, ctx).filter((c) => c.pattern === "HorizontalPush");
+      assert.ok(hpush.length >= 2);
+      assert.equal(hpush[0].liftId, "bench", "bench should outrank alternating floor press");
+      assert.ok(mainstreamNameScore("Bench Press") > mainstreamNameScore("Alternating Floor Press"));
+    });
+
+    it("compareLiftCandidates breaks priority ties with mainstream names", () => {
+      const a = {
+        liftId: "alt",
+        name: "Alternating Kettlebell Row",
+        pattern: "HorizontalPull",
+        priority: 0.4,
+        priorityTier: "available" as const,
+        isCompound: true,
+        primaryMuscles: ["Back"],
+        secondaryMuscles: [],
+      };
+      const b = {
+        liftId: "row",
+        name: "Barbell Row",
+        pattern: "HorizontalPull",
+        priority: 0.4,
+        priorityTier: "available" as const,
+        isCompound: true,
+        primaryMuscles: ["Back"],
+        secondaryMuscles: [],
+      };
+      assert.ok(compareLiftCandidates(b, a) < 0, "barbell row should sort ahead of alternating row");
     });
   });
 });
