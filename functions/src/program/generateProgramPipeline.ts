@@ -15,8 +15,9 @@
  *   2. Latency: one provider hop replaces the N-call fan-out and its per-call timeout cascade.
  *
  * The pipeline always returns a valid program: a builder failure falls through to the
- * deterministic fallback; a global re-gen is attempted once if final validation fails; if that
- * also fails, the whole program is rebuilt from the deterministic fallback. No 6-attempt loops.
+ * deterministic fallback; if final validation fails, one in-chat correction turn is attempted
+ * (assistant program + user feedback listing issues); if that also fails, the whole program is
+ * rebuilt from the deterministic fallback. No 6-attempt loops.
  */
 import type OpenAI from "openai";
 import {
@@ -47,9 +48,20 @@ import {
 } from "./splitPlannerPrompt";
 import {
   buildProgramBuilderInput,
+  buildProgramBuilderRetryMessage,
   PROGRAM_BUILDER_SYSTEM_PROMPT,
   programBuilderOutputSchema,
 } from "./programBuilderPrompt";
+import {
+  logPhase0Precompute,
+  logPipelineOutcome,
+  logPipelineTotal,
+  logProgramBuilderResult,
+  logProgramGenerationMetricAttempt,
+  logSplitPlannerResult,
+  type ProgramBuilderFailureReason,
+  type ProgramGenerationOutcome,
+} from "./programGenerationDiagnostics";
 
 /** OpenAI client seam (matches the v1 generateProgramWithDeps seam for testability). */
 export interface ChatCompletionLike {
@@ -73,7 +85,7 @@ export interface PipelineOptions {
   skipSplitPlanner?: boolean;
   /** Skip the final metric validation + global re-gen (for unit tests). */
   skipFinalValidation?: boolean;
-  /** Per-call timeout for the whole-program builder (ms, default 120_000). */
+  /** Per-call timeout for the whole-program builder (ms, default 240_000). */
   builderTimeoutMs?: number;
   progress?: PipelineProgressCallback;
 }
@@ -84,8 +96,23 @@ const SPLIT_PLANNER_DAY_THRESHOLD = 4;
 /** Max attempts for the global re-gen escape hatch. */
 const MAX_GLOBAL_REGEN_ATTEMPTS = 1;
 
-/** Default timeout for the single whole-program builder call (replaces the 90s × N fan-out). */
-const DEFAULT_BUILDER_TIMEOUT_MS = 120_000;
+/** Default timeout for the whole-program builder call (large lift pools can exceed 120s). */
+const DEFAULT_BUILDER_TIMEOUT_MS = 240_000;
+
+/** Continues the builder chat with the model's prior JSON plus validation feedback. */
+export interface ProgramBuilderRetryContext {
+  assistantContent: string;
+  feedbackMessage: string;
+}
+
+export interface ProgramBuilderRunResult {
+  results: WorkoutBuilderResult[];
+  perDayFallbackCount: number;
+  llmWorkoutCount: number;
+  failureReason: ProgramBuilderFailureReason;
+  /** Raw JSON text from the model when the call succeeded; used for in-chat correction. */
+  assistantContent: string | null;
+}
 
 /** Modest sampling temperature so parallel sibling days do not collapse to the same argmax. */
 const BUILDER_TEMPERATURE = 0.6;
@@ -103,36 +130,54 @@ export async function generateProgramPipeline(
   normalizationRequest: ProgramNormalizationRequest,
   options: PipelineOptions = {},
 ): Promise<unknown> {
+  const pipelineStartMs = Date.now();
   const context = parseGenerationContext(payload);
   const progress = options.progress ?? (() => {});
 
   // Phase 0: deterministic precompute.
+  const phase0StartMs = Date.now();
   const weeklyTargets = computeAllWeeklyTargets(context);
   const patternsByMuscle = availablePatternsByMuscle(context);
   await progress("split_planning");
+  const splitPlannerStartMs = Date.now();
 
   // Phase 1a: split planning. Deterministic for ≤4 days; LLM for 5–6 (with allocator fallback).
   const useLlmSplitPlanner =
     !options.skipSplitPlanner && context.trainingDaysPerWeek > SPLIT_PLANNER_DAY_THRESHOLD;
   let dayPlans: DayPlan[];
+  let splitPlannerUsedLlm = false;
+  let splitPlannerValid = true;
+  let splitPlannerFallback = false;
   if (useLlmSplitPlanner) {
+    splitPlannerUsedLlm = true;
     dayPlans = await runSplitPlanner(client, model, context, weeklyTargets, patternsByMuscle, sessionId);
-    // If the planner failed, fall back to the deterministic allocator (relaxed to 4-day UL).
+    splitPlannerValid = dayPlans.length > 0;
     if (dayPlans.length === 0) {
+      splitPlannerFallback = true;
       dayPlans = allocateDayPlans({ ...context, trainingDaysPerWeek: SPLIT_PLANNER_DAY_THRESHOLD }, weeklyTargets);
     }
   } else {
     dayPlans = allocateDayPlans(context, weeklyTargets);
   }
+  const splitPlannerMs = Date.now() - splitPlannerStartMs;
+  logSplitPlannerResult(sessionId, splitPlannerUsedLlm, splitPlannerValid, splitPlannerFallback);
 
   // Phase 1b: per-day candidates + rep bands.
   const progressionScheme = schemeForTrainingAge(context.trainingAge);
   const candidatesByDay = dayPlans.map((plan) => buildDayCandidates(plan, context));
   const repBandsByDay = dayPlans.map((plan, i) => repBandsForLifts(candidatesByDay[i].map((c) => c.liftId), context));
+  const phase0Ms = Date.now() - phase0StartMs;
+  logPhase0Precompute(
+    sessionId,
+    phase0Ms,
+    dayPlans.length,
+    candidatesByDay.reduce((sum, day) => sum + day.length, 0),
+  );
 
   // Phase 1c: single whole-program builder.
   await progress("building_workouts");
-  const results = await runProgramBuilder(
+  const buildersStartMs = Date.now();
+  const initialBuilder = await runProgramBuilder(
     client,
     model,
     dayPlans,
@@ -142,10 +187,15 @@ export async function generateProgramPipeline(
     sessionId,
     context,
     options,
+    0,
   );
+  let results = initialBuilder.results;
+  let builderFallbackCount = initialBuilder.perDayFallbackCount;
+  let builderAssistantContent = initialBuilder.assistantContent;
 
   // Phase 2: integration + repair (includes intra-workout dedup in repairWorkout).
   await progress("integrating");
+  const integrateStartMs = Date.now();
   let program = mergeWorkouts(results, context);
   program = repairWeeklyVolume(program, weeklyTargets, context);
 
@@ -153,16 +203,46 @@ export async function generateProgramPipeline(
   // parseAndNormalizeProgram expects { program: { workouts: [...] } } (v1 wire shape).
   let normalized = parseAndNormalizeProgram({ program }, normalizationRequest);
   if (options.skipFinalValidation) {
+    logPipelineTotal(sessionId, {
+      splitPlannerMs,
+      buildersMs: Date.now() - buildersStartMs,
+      integrateMs: Date.now() - integrateStartMs,
+      totalMs: Date.now() - pipelineStartMs,
+    }, builderFallbackCount);
     return normalized;
   }
   let report = validateProgramMetrics(normalized, context);
+  logProgramGenerationMetricAttempt(
+    sessionId,
+    0,
+    report.pass,
+    report.issues.length,
+    report.issues.map((issue) => issue.code),
+  );
+  let outcome: ProgramGenerationOutcome = builderFallbackCount === dayPlans.length ? "full_deterministic_fallback" : "llm";
   if (report.pass) {
+    logPipelineOutcome(
+      sessionId,
+      outcome,
+      true,
+      report.issues.length,
+      report.issues.map((issue) => issue.code),
+    );
+    logPipelineTotal(sessionId, {
+      splitPlannerMs,
+      buildersMs: Date.now() - buildersStartMs,
+      integrateMs: Date.now() - integrateStartMs,
+      totalMs: Date.now() - pipelineStartMs,
+    }, builderFallbackCount);
     return normalized;
   }
 
   for (let attempt = 0; attempt < MAX_GLOBAL_REGEN_ATTEMPTS && !report.pass; attempt++) {
-    // Global re-gen: re-run the whole-program builder with a "fix these errors" nudge.
-    const retryResults = await runProgramBuilder(
+    if (!builderAssistantContent) {
+      break;
+    }
+    // In-chat correction: assistant keeps its prior program JSON; user lists validation issues.
+    const retryBuilder = await runProgramBuilder(
       client,
       model,
       dayPlans,
@@ -172,20 +252,78 @@ export async function generateProgramPipeline(
       sessionId,
       context,
       options,
-      report.issues,
+      attempt + 1,
+      {
+        assistantContent: builderAssistantContent,
+        feedbackMessage: buildProgramBuilderRetryMessage(
+          report.issues,
+          context.trainingDaysPerWeek,
+        ),
+      },
     );
-    program = mergeWorkouts(retryResults, context);
-    program = repairWeeklyVolume(program, weeklyTargets, context);
-    normalized = parseAndNormalizeProgram({ program }, normalizationRequest);
-    report = validateProgramMetrics(normalized, context);
+    if (retryBuilder.failureReason === "none" && retryBuilder.llmWorkoutCount > 0) {
+      results = retryBuilder.results;
+      builderFallbackCount = retryBuilder.perDayFallbackCount;
+      if (retryBuilder.assistantContent) {
+        builderAssistantContent = retryBuilder.assistantContent;
+      }
+      program = mergeWorkouts(results, context);
+      program = repairWeeklyVolume(program, weeklyTargets, context);
+      normalized = parseAndNormalizeProgram({ program }, normalizationRequest);
+      report = validateProgramMetrics(normalized, context);
+      if (report.pass) {
+        outcome = "llm_after_regen";
+      }
+    }
+    logProgramGenerationMetricAttempt(
+      sessionId,
+      attempt + 1,
+      report.pass,
+      report.issues.length,
+      report.issues.map((issue) => issue.code),
+    );
   }
 
   if (!report.pass) {
-    // Last resort: full deterministic fallback. Every workout rebuilt from rank-n candidates
-    // (sibling-rotated) so sibling days still vary even without the LLM.
-    program = fullDeterministicFallback(dayPlans, candidatesByDay, repBandsByDay, context);
-    normalized = parseAndNormalizeProgram({ program }, normalizationRequest);
+    // Last resort: deterministic fallback only when no LLM program exists. If the first builder
+    // call produced workouts, keep that draft rather than replacing it with rank-n picks.
+    if (initialBuilder.llmWorkoutCount > 0) {
+      program = mergeWorkouts(initialBuilder.results, context);
+      program = repairWeeklyVolume(program, weeklyTargets, context);
+      normalized = parseAndNormalizeProgram({ program }, normalizationRequest);
+      report = validateProgramMetrics(normalized, context);
+      if (outcome !== "llm_after_regen") {
+        outcome = "llm";
+      }
+    } else {
+      program = fullDeterministicFallback(dayPlans, candidatesByDay, repBandsByDay, context);
+      normalized = parseAndNormalizeProgram({ program }, normalizationRequest);
+      report = validateProgramMetrics(normalized, context);
+      builderFallbackCount = dayPlans.length;
+      outcome = "full_deterministic_fallback";
+    }
+    logProgramGenerationMetricAttempt(
+      sessionId,
+      MAX_GLOBAL_REGEN_ATTEMPTS + 1,
+      report.pass,
+      report.issues.length,
+      report.issues.map((issue) => issue.code),
+    );
   }
+
+  logPipelineOutcome(
+    sessionId,
+    outcome,
+    report.pass,
+    report.issues.length,
+    report.issues.map((issue) => issue.code),
+  );
+  logPipelineTotal(sessionId, {
+    splitPlannerMs,
+    buildersMs: Date.now() - buildersStartMs,
+    integrateMs: Date.now() - integrateStartMs,
+    totalMs: Date.now() - pipelineStartMs,
+  }, builderFallbackCount);
   return normalized;
 }
 async function runSplitPlanner(
@@ -303,8 +441,9 @@ async function runProgramBuilder(
   sessionId: string,
   context: GenerationContext,
   options: PipelineOptions,
-  validationIssues?: unknown[],
-): Promise<WorkoutBuilderResult[]> {
+  attempt: number,
+  retryContext?: ProgramBuilderRetryContext,
+): Promise<ProgramBuilderRunResult> {
   const timeoutMs = options.builderTimeoutMs ?? DEFAULT_BUILDER_TIMEOUT_MS;
   const extras = buildOpenRouterChatCompletionExtras(sessionId, { requireParameters: true });
   const input = buildProgramBuilderInput(dayPlans, candidatesByDay, repBandsByDay, progressionScheme);
@@ -312,38 +451,64 @@ async function runProgramBuilder(
     { role: "system", content: PROGRAM_BUILDER_SYSTEM_PROMPT },
     { role: "user", content: JSON.stringify(input) },
   ];
-  if (validationIssues) {
-    messages.push({
-      role: "user",
-      content: `Previous program had validation errors: ${JSON.stringify(validationIssues)}. Fix and regenerate a complete program with ${dayPlans.length} workouts.`,
-    });
+  if (retryContext) {
+    messages.push({ role: "assistant", content: retryContext.assistantContent });
+    messages.push({ role: "user", content: retryContext.feedbackMessage });
   }
 
   let raw: unknown = null;
+  let assistantContent: string | null = null;
+  let failureReason: ProgramBuilderFailureReason = "none";
+  const builderStartMs = Date.now();
   try {
     const completion = await withTimeout(
       client.chat.completions.create({
         model,
         messages,
         temperature: BUILDER_TEMPERATURE,
+        // Maximum reasoning effort for GLM-5.2's program synthesis — this is the high-judgment
+        // call (lift selection, cross-day variety, compound-first ordering). Scoped to the builder
+        // only; the split planner is a lighter partitioning call. Once-per-onboarding, so the
+        // extra latency/cost is acceptable. OpenRouter normalizes "xhigh" across providers.
+        reasoning: { effort: "xhigh" },
         response_format: { type: "json_schema", json_schema: programBuilderOutputSchema() },
         ...extras,
       } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming),
       timeoutMs,
     );
     const content = completion.choices[0]?.message?.content;
-    if (content) {
+    if (!content) {
+      failureReason = "empty_content";
+    } else {
+      assistantContent = content;
       try {
         raw = JSON.parse(content);
       } catch {
         raw = null;
+        failureReason = "invalid_json";
       }
     }
-  } catch {
-    raw = null; // timeout or API error → fallback
+  } catch (error) {
+    raw = null;
+    failureReason = error instanceof Error && error.message.startsWith("timeout after")
+      ? "timeout"
+      : "api_error";
   }
-
-  return splitProgramToBuilderResults(raw, dayPlans, candidatesByDay, repBandsByDay, context);
+  const builderLatencyMs = Date.now() - builderStartMs;
+  const split = splitProgramToBuilderResults(raw, dayPlans, candidatesByDay, repBandsByDay, context);
+  logProgramBuilderResult(
+    sessionId,
+    attempt,
+    builderLatencyMs,
+    failureReason,
+    split.llmWorkoutCount,
+    split.perDayFallbackCount,
+  );
+  return {
+    ...split,
+    failureReason,
+    assistantContent,
+  };
 }
 
 /**
@@ -359,29 +524,35 @@ function splitProgramToBuilderResults(
   candidatesByDay: LiftCandidate[][],
   repBandsByDay: Map<string, RepBand>[],
   context: GenerationContext,
-): WorkoutBuilderResult[] {
+): { results: WorkoutBuilderResult[]; llmWorkoutCount: number; perDayFallbackCount: number } {
   const workouts = extractWorkouts(raw, dayPlans.length);
-  return dayPlans.map((plan, i) => {
+  let llmWorkoutCount = 0;
+  let perDayFallbackCount = 0;
+  const results = dayPlans.map((plan, i) => {
     const workoutJson = i < workouts.length ? workouts[i] : null;
     if (hasWorkoutLifts(workoutJson)) {
-      // Wrap as a per-workout object shaped like the old builder's { workout: {...} } so
-      // toWorkoutDraft (called inside mergeWorkouts → repairWorkout) can read it unchanged.
+      llmWorkoutCount++;
       return {
         dayPlan: plan,
+        dayIndex: i,
+        allDayPlans: dayPlans,
         candidates: candidatesByDay[i],
         repBands: repBandsByDay[i],
         raw: { workout: workoutJson },
       };
     }
-    // Missing/empty day → deterministic fallback (sibling-rotated) so siblings still vary.
+    perDayFallbackCount++;
     const fallback = deterministicFallbackWorkout(plan, candidatesByDay[i], repBandsByDay[i], context, dayPlans, i);
     return {
       dayPlan: plan,
+      dayIndex: i,
+      allDayPlans: dayPlans,
       candidates: candidatesByDay[i],
       repBands: repBandsByDay[i],
       raw: { workout: fallback },
     };
   });
+  return { results, llmWorkoutCount, perDayFallbackCount };
 }
 
 /**
