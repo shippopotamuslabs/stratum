@@ -1,19 +1,28 @@
-import OpenAI from "openai";
+import { logger } from "firebase-functions";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import admin from "firebase-admin";
 import {
-  buildOpenRouterChatCompletionExtras,
   createOpenRouterClient,
   programGenerationSessionId,
 } from "../openrouterSession";
 import {
-  PROGRAM_GENERATION_SYSTEM_PROMPT,
-} from "./programGenerationSystemPrompt";
+  parseGenerationContext,
+  toNormalizationRequest,
+} from "./programPayloadContext";
 import {
-  parseAndNormalizeProgram,
-  programJsonSchema,
+  writeProgramGenerationProgress,
+  type ProgramGenerationMarkerRef,
+} from "./programGenerationProgress";
+import {
   type ProgramNormalizationRequest,
 } from "./programSchema";
+import {
+  generateProgramPipeline,
+  type ChatCompletionLike,
+} from "./generateProgramPipeline";
+
+// Re-export so the existing test imports of ChatCompletionLike keep working.
+export type { ChatCompletionLike };
 
 export type GenerationMarkerStatus = "pending" | "completed";
 
@@ -29,10 +38,14 @@ export interface GenerationMarkerSnapshot {
 }
 
 /**
- * `generateProgram` — one-shot LLM program generation (OS-7). Sends the assembled onboarding payload
- * to OpenRouter under a strict JSON schema, then deterministically validates + normalizes the
- * response (assign progressionScheme from trainingAge, clamp RIR, enforce straight sets) before
- * returning the normalized `Program` document. Mirrors `inferImportEquipment` for auth/secrets/
+ * `generateProgram` — one-shot LLM program generation (OS-7 v2). Runs the 3-phase pipeline
+ * (deterministic precompute → bounded LLM per workout → deterministic integration) via
+ * [generateProgramPipeline]. The pipeline always returns a valid program: per-workout failures
+ * fall through to the deterministic fallback; a global re-gen is attempted once if final
+ * validation fails; if that also fails, every workout is rebuilt from the deterministic fallback.
+ *
+ * Abuse boundary: exactly one bounded generation per onboarding completion (per-uid). No
+ * follow-up turns, no open chat.
  * routing.
  *
  * Abuse boundary: exactly one bounded generation per onboarding completion (per-uid). No follow-up
@@ -83,6 +96,12 @@ export const generateProgram = onCall(
       throw error;
     }
     try {
+      const markerRef = generationMarkerRef(uid);
+      await writeProgramGenerationProgress(
+        markerRef,
+        "reviewing_profile",
+        "Reviewing your training profile…",
+      );
       const sessionId = programGenerationSessionId(uid);
       const client = createOpenRouterClient(apiKey, sessionId);
       const program = await generateProgramWithDeps(
@@ -91,6 +110,7 @@ export const generateProgram = onCall(
         payload,
         normalizationRequest,
         sessionId,
+        { markerRef },
       );
       await markGenerationCompleted(uid, program);
       return { program };
@@ -101,22 +121,12 @@ export const generateProgram = onCall(
   },
 );
 
-/** OpenAI client seam used by [generateProgramWithDeps] (and its tests). */
-export interface ChatCompletionLike {
-  chat: {
-    completions: {
-      create: (
-        params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
-      ) => Promise<OpenAI.Chat.Completions.ChatCompletion>;
-    };
-  };
-}
-
 /**
- * Core generation loop with injected deps — the unit-testable seam (mirrors
- * `runImportAgentSessionWithDeps`). One retry on schema/parse/normalize failure; a second failure
- * surfaces as `internal`. Returns the normalized program document (no ids — the client assigns
- * UUIDs at parse time, D1).
+ * Core generation entrypoint with injected deps. Delegates to [generateProgramPipeline] (the v2
+ * 3-phase pipeline). Kept as a thin wrapper so the existing test seam (client + model + payload
+ * + sessionId + options) and the callable's progress writes stay unchanged.
+ *
+ * The v1 tool phase + 6-attempt JSON loop are deleted; the pipeline owns all retry/fallback logic.
  */
 export async function generateProgramWithDeps(
   client: ChatCompletionLike,
@@ -124,49 +134,25 @@ export async function generateProgramWithDeps(
   payload: string,
   normalizationRequest: ProgramNormalizationRequest,
   sessionId: string,
+  options?: {
+    skipSplitPlanner?: boolean;
+    skipFinalValidation?: boolean;
+    markerRef?: ProgramGenerationMarkerRef;
+  },
 ): Promise<unknown> {
-  const extras = buildOpenRouterChatCompletionExtras(sessionId, {
-    requireParameters: true,
+  const markerRef = options?.markerRef;
+  return generateProgramPipeline(client, model, payload, sessionId, normalizationRequest, {
+    skipSplitPlanner: options?.skipSplitPlanner,
+    skipFinalValidation: options?.skipFinalValidation,
+    progress: async (phase) => {
+      if (!markerRef) return;
+      const message =
+        phase === "split_planning" ? "Planning your weekly split…" :
+        phase === "building_workouts" ? "Building your workouts…" :
+        "Putting it together…";
+      await writeProgramGenerationProgress(markerRef, phase, message);
+    },
   });
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const completion = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: "system", content: PROGRAM_GENERATION_SYSTEM_PROMPT },
-        { role: "user", content: payload },
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: programJsonSchema(),
-      },
-      ...extras,
-    } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      if (attempt === 1) {
-        throw new HttpsError("internal", "Empty model response.");
-      }
-      continue;
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      if (attempt === 1) {
-        throw new HttpsError("internal", "Model returned invalid JSON.");
-      }
-      continue;
-    }
-    try {
-      return parseAndNormalizeProgram(parsed, normalizationRequest);
-    } catch (error) {
-      if (attempt === 1) {
-        const message = error instanceof Error ? error.message : "Normalization failed.";
-        throw new HttpsError("invalid-argument", message);
-      }
-    }
-  }
-  throw new HttpsError("internal", "Generation failed after retry.");
 }
 
 /**
@@ -175,29 +161,12 @@ export async function generateProgramWithDeps(
  * `{"profile":{"trainingAge":"..."},"provenLifts":[{"id","movementPattern"},...],"availableLifts":[...]}`.
  */
 export function parseProgramGenerationPayload(payload: string): ProgramNormalizationRequest {
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(payload);
-  } catch {
-    throw new HttpsError("invalid-argument", "payload must be valid JSON.");
+    return toNormalizationRequest(parseGenerationContext(payload));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid payload.";
+    throw new HttpsError("invalid-argument", message);
   }
-  const body = parsed as {
-    profile?: { trainingAge?: string };
-    provenLifts?: Array<{ id?: string; movementPattern?: string }>;
-    availableLifts?: Array<{ id?: string; movementPattern?: string }>;
-  };
-  const trainingAge = body.profile?.trainingAge ?? "";
-  const enabledLiftIds = new Set<string>();
-  const movementPatternByLiftId = new Map<string, string>();
-  for (const lift of [...(body.provenLifts ?? []), ...(body.availableLifts ?? [])]) {
-    const id = typeof lift?.id === "string" ? lift.id : null;
-    if (!id) continue;
-    enabledLiftIds.add(id);
-    if (typeof lift.movementPattern === "string") {
-      movementPatternByLiftId.set(id, lift.movementPattern);
-    }
-  }
-  return { trainingAge, enabledLiftIds, movementPatternByLiftId };
 }
 
 /**
@@ -258,7 +227,7 @@ export function assertCanClaimGenerationSlot(
   }
 }
 
-function generationMarkerRef(uid: string) {
+function generationMarkerRef(uid: string): FirebaseFirestore.DocumentReference {
   return admin.firestore().doc(`users/${uid}/programs_generation/latest`);
 }
 
