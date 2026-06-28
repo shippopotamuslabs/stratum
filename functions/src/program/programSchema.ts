@@ -152,6 +152,44 @@ export function parseAndNormalizeProgram(
   return { name, workouts };
 }
 
+/** Lift ids present in the model draft but not in the enabled catalog (silently dropped by normalization). */
+export function collectRejectedLiftIds(
+  payload: unknown,
+  enabledLiftIds: Set<string>,
+): string[] {
+  const program = extractRawProgram(payload);
+  if (!program) {
+    return [];
+  }
+  const rejected = new Set<string>();
+  const workouts = Array.isArray(program.workouts) ? program.workouts : [];
+  for (const workout of workouts) {
+    if (!workout || typeof workout !== "object") continue;
+    const lifts = (workout as RawWorkout).workoutLifts;
+    if (!Array.isArray(lifts)) continue;
+    for (const lift of lifts) {
+      if (!lift || typeof lift !== "object") continue;
+      const liftId = (lift as RawLift).liftId;
+      if (typeof liftId === "string" && !enabledLiftIds.has(liftId)) {
+        rejected.add(liftId);
+      }
+    }
+  }
+  return [...rejected];
+}
+
+function extractRawProgram(payload: unknown): { workouts?: unknown } | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const body = payload as { program?: unknown };
+  const program = body.program ?? payload;
+  if (!program || typeof program !== "object") {
+    return null;
+  }
+  return program as { workouts?: unknown };
+}
+
 function normalizeLifts(
   workout: RawWorkout,
   request: ProgramNormalizationRequest,

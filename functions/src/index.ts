@@ -5,6 +5,7 @@ import { processImportJob } from "./import/processImportJob";
 import { inferCustomLifts } from "./import/inferCustomLifts";
 import { inferImportEquipment } from "./import/inferImportEquipment";
 import { generateProgram } from "./program/generateProgram";
+import { getProgramGenerationStatus } from "./program/getProgramGenerationStatus";
 
 admin.initializeApp();
 
@@ -15,4 +16,5 @@ export {
   inferCustomLifts,
   inferImportEquipment,
   generateProgram,
+  getProgramGenerationStatus,
 };
