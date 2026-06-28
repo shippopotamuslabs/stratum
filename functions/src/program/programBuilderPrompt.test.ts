@@ -7,6 +7,7 @@ import { buildDayCandidates } from "./liftPriority";
 import { repBandsForLifts } from "./repBandPlanner";
 import {
   buildProgramBuilderInput,
+  buildProgramBuilderRetryMessage,
   programBuilderOutputSchema,
   PROGRAM_BUILDER_PROMPT_VERSION,
   PROGRAM_BUILDER_SYSTEM_PROMPT,
@@ -37,9 +38,17 @@ describe("programBuilderPrompt", () => {
     assert.ok(/EVERY training day/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/VARY lift selection across sibling days/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/Never reuse the same liftId more than once within a single workout/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
-    assert.ok(/interleave antagonists/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
+    assert.ok(/interleave antagonists/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/repBand/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/No prose, no tools/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
+  });
+
+  it("system prompt instructs compound-before-accessory ordering with a specialization exception", () => {
+    // The nuanced rule: compounds first by default, but pre-exhaust/specialization is allowed.
+    assert.ok(/isCompound: true/.test(PROGRAM_BUILDER_SYSTEM_PROMPT), "prompt should reference the isCompound signal");
+    assert.ok(/compound.*before|compounds?.*before/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT), "prompt should instruct compound-first ordering");
+    assert.ok(/specializ|pre-exhaust|pre-exhaustion/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT), "prompt should allow the specialization exception");
+    assert.ok(/deadlift.*last|squat.*last/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT), "prompt should explicitly forbid deadlift/squat last");
   });
 
   it("buildProgramBuilderInput contains all days + candidates + constraints, no landmarks/responseProfile/profile", () => {
@@ -55,7 +64,16 @@ describe("programBuilderPrompt", () => {
     assert.equal((input as { days: unknown[] }).days.length, 4, "should include all 4 day plans");
     assert.equal((input as { constraints: { varyAcrossSiblingDays: boolean } }).constraints.varyAcrossSiblingDays, true);
     assert.equal((input as { constraints: { noDuplicateLiftWithinWorkout: boolean } }).constraints.noDuplicateLiftWithinWorkout, true);
+    assert.equal((input as { constraints: { compoundBeforeAccessory: boolean } }).constraints.compoundBeforeAccessory, true);
     assert.ok(/bench/.test(inputJson), "candidate liftId should appear");
+
+    // isCompound is denormalized onto each candidate (bench=HorizontalPush → true).
+    const firstDayCandidates = (input as { days: Array<{ candidates: Array<{ liftId: string; isCompound: boolean }> }> }).days[0].candidates;
+    assert.ok(firstDayCandidates.length > 0);
+    assert.ok(firstDayCandidates.every((c) => typeof c.isCompound === "boolean"), "every candidate should carry an isCompound boolean");
+    const bench = firstDayCandidates.find((c) => c.liftId === "bench");
+    assert.ok(bench, "bench should be a candidate");
+    assert.equal(bench!.isCompound, true, "bench (HorizontalPush) should be isCompound: true");
 
     // Does NOT have the bloated v1 fields.
     assert.ok(!/literatureVolumeLandmarks/.test(inputJson), "landmarks leaked into builder input");
@@ -90,5 +108,20 @@ describe("programBuilderPrompt", () => {
       schema.schema.properties.program.required.includes("workouts"),
       true,
     );
+  });
+
+  it("buildProgramBuilderRetryMessage asks for in-chat tweaks with listed issues", () => {
+    const message = buildProgramBuilderRetryMessage(
+      [
+        { code: "WEEKLY_VOLUME_BELOW_TARGET", severity: "error", message: "Chest low" },
+        { code: "PUSH_PULL_IMBALANCE", severity: "warning", message: "Push heavy" },
+      ],
+      4,
+    );
+    assert.match(message, /few issues with the program/i);
+    assert.match(message, /targeted tweaks/i);
+    assert.match(message, /\[ERROR WEEKLY_VOLUME_BELOW_TARGET\]/);
+    assert.match(message, /\[WARN PUSH_PULL_IMBALANCE\]/);
+    assert.match(message, /4 workouts/);
   });
 });

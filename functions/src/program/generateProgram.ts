@@ -53,7 +53,7 @@ export interface GenerationMarkerSnapshot {
  */
 export const generateProgram = onCall(
   {
-    secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL"],
+    secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_PROGRAM_GENERATE_MODEL"],
     enforceAppCheck: true,
     // OpenRouter structured generation can exceed the 60s default; match the Android client timeout.
     timeoutSeconds: 600,
@@ -73,7 +73,7 @@ export const generateProgram = onCall(
     if (!apiKey) {
       throw new HttpsError("failed-precondition", "OPENROUTER_API_KEY missing.");
     }
-    const model = process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4-pro";
+    const model = process.env.OPENROUTER_PROGRAM_GENERATE_MODEL ?? process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4-pro";
 
     // Validate payload JSON before touching Firestore so malformed input never burns a slot.
     const normalizationRequest = parseProgramGenerationPayload(payload);
