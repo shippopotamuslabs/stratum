@@ -11,7 +11,7 @@
  * the builder actually needs (dropping `estimatedOneRm`/`sessionCount` from the builder payload).
  */
 import type { GenerationContext, LiftContext } from "./programPayloadContext";
-import type { DayPlan, PatternSlot } from "./splitAllocator";
+import type { DayPlan } from "./splitAllocator";
 import { MAJOR_COMPOUND_PATTERNS } from "./programRules";
 
 /** A lift with its denormalized priority score and trimmed insights, ready for a builder call. */
@@ -65,16 +65,18 @@ export function mainstreamNameScore(name: string): number {
     return 1.0;
   }
   if (
-    /^(bench press|squat|deadlift|chin-up|chin up|pull-up|pull up|lat pulldown|leg press|romanian deadlift|seated row|cable row|overhead press|military press|hip thrust|leg curl|leg extension|calf raise|barbell row|incline bench|decline bench)/.test(
+    /^(bench press|squat|deadlift|chin-up|chin up|pull-up|pull up|lat pulldown|leg press|romanian deadlift|seated row|cable row|overhead press|military press|hip thrust|leg curl|leg extension|calf raise|barbell row|incline bench|decline bench|\bdips?\b)/.test(
       n,
     )
   ) {
     return 1.0;
   }
-  if (/\b(machine|smith machine)\b/.test(n)) return 0.85;
-  if (/\bdumbbell\b/.test(n)) return 0.75;
-  if (/\bcable\b/.test(n)) return 0.7;
-  return 0.5;
+  if (/\bbarbell\b/.test(n)) return 0.9;
+  if (/\b(machine|smith machine|smith)\b/.test(n)) return 0.85;
+  if (/\b(dumbbell|db)\b/.test(n)) return 0.8;
+  if (/\b(cable|pulley)\b/.test(n)) return 0.8;
+  if (/\bez-bar\b|\bez bar\b/.test(n)) return 0.8;
+  return 0.3;
 }
 
 /** Sort comparator for [LiftCandidate]s: priority desc, then mainstream name, then stable name. */
@@ -137,21 +139,31 @@ export function scoreLift(lift: LiftContext, context: GenerationContext): number
 }
 
 /**
- * Builds the candidate lift list for one day: enabled lifts whose movement pattern matches any
- * pattern slot on this day, scored and capped to [CANDIDATES_PER_SLOT] per slot, sorted by
- * priority descending. Insights are trimmed to fatigue-decay slope/intercept + progress trend
- * only — `estimatedOneRm` and `sessionCount` are dropped from the builder payload (Phase 0 already
- * consumed them into the priority score and rep bands).
+ * Builds the candidate lift list for one day: enabled lifts that train any of the day's targeted
+ * muscles (those with a muscle budget), scored and capped to [CANDIDATES_PER_SLOT] per pattern,
+ * deduped by liftId. A lift qualifies if any of its primary or secondary muscles is targeted on
+ * the day — this keeps the pool focused on what the day needs while still surfacing compounds that
+ * contribute to multiple muscles (e.g. a bench press hits Chest primary + Tricep secondary).
+ *
+ * Capping is per pattern (not per slot): each distinct movement pattern contributes at most
+ * [CANDIDATES_PER_SLOT] candidates, so a day with many targeted muscles doesn't flood the builder
+ * with a huge list but still offers enough variety per pattern for the model to diversify.
  */
 export function buildDayCandidates(
   dayPlan: DayPlan,
   context: GenerationContext,
 ): LiftCandidate[] {
-  const slotPatterns = new Set(dayPlan.patternSlots.map((s) => s.pattern));
+  const targetedMuscles = new Set(dayPlan.muscleBudgets.map((b) => b.muscle));
   const byPattern = new Map<string, LiftCandidate[]>();
+  const seenLiftIds = new Set<string>();
 
   for (const lift of context.liftsById.values()) {
-    if (!slotPatterns.has(lift.movementPattern)) continue;
+    const trainsTarget =
+      lift.primaryMuscles.some((m) => targetedMuscles.has(m)) ||
+      lift.secondaryMuscles.some((m) => targetedMuscles.has(m));
+    if (!trainsTarget) continue;
+    if (seenLiftIds.has(lift.id)) continue;
+    seenLiftIds.add(lift.id);
     const candidate = toCandidate(lift, context);
     let bucket = byPattern.get(lift.movementPattern);
     if (!bucket) {
@@ -161,13 +173,11 @@ export function buildDayCandidates(
     bucket.push(candidate);
   }
 
-  // Sort each pattern bucket by priority desc, then cap to top-K per slot.
+  // Sort each pattern bucket by priority desc, then cap to top-K per pattern.
   const out: LiftCandidate[] = [];
-  for (const slot of dayPlan.patternSlots) {
-    const bucket = (byPattern.get(slot.pattern) ?? [])
-      .sort(compareLiftCandidates)
-      .slice(0, CANDIDATES_PER_SLOT);
-    out.push(...bucket);
+  for (const bucket of byPattern.values()) {
+    bucket.sort(compareLiftCandidates);
+    out.push(...bucket.slice(0, CANDIDATES_PER_SLOT));
   }
   return out;
 }

@@ -91,14 +91,14 @@ class OnboardingGenerateViewModelTest {
             viewModel.uiState.test {
                 val state = awaitItem()
                 assertEquals(GenerateState.Error, state.generateState)
-                assertEquals(GENERATE_ERROR_FALLBACK, state.generateErrorMessage)
+                assertEquals(null, state.generateErrorMessage)
                 cancelAndIgnoreRemainingEvents()
             }
             assertFalse(onboardingRepo.current.isComplete)
         }
 
         @Test
-        fun `generate failure surfaces the exception message in ui state`() = runTest {
+        fun `generate failure does not surface technical exception message in ui state`() = runTest {
             val (viewModel, _, _) = buildViewModel(
                 fail = true,
                 failMessage = "Network error. Check your connection and try again.",
@@ -106,10 +106,7 @@ class OnboardingGenerateViewModelTest {
             viewModel.generate()
             viewModel.uiState.test {
                 val state = awaitItem()
-                assertEquals(
-                    "Network error. Check your connection and try again.",
-                    state.generateErrorMessage,
-                )
+                assertEquals(null, state.generateErrorMessage)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -137,7 +134,7 @@ class OnboardingGenerateViewModelTest {
 
     private fun buildViewModel(
         fail: Boolean,
-        failMessage: String = GENERATE_ERROR_FALLBACK,
+        failMessage: String = "FakeProgramGeneratorPort configured to fail",
     ): Triple<OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository> {
         val onboardingRepo = FakeOnboardingRepository()
         val profileRepo = FakeUserTrainingProfileRepository(
@@ -180,6 +177,22 @@ class OnboardingGenerateViewModelTest {
                 com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
             ),
+        )
+        val liftRepo = com.stratum.core.testing.onboarding.FakeLiftRepository(
+            initialLifts =
+                listOf(
+                    com.stratum.domain.lift.Lift(
+                        id = com.stratum.domain.lift.identity.LiftId("back-squat"),
+                        name = "Back Squat",
+                        movementPattern = com.stratum.domain.lift.MovementPattern.LegPush,
+                        primaryMuscles = emptySet(),
+                        secondaryMuscles = emptySet(),
+                        allowWeightChangeBetweenSets = false,
+                        incrementTiers = emptyList(),
+                        presetTags = emptySet(),
+                        enabled = true,
+                    ),
+                ),
         )
         val viewModel = OnboardingViewModel(
             getOnboardingWizardState = com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase(
@@ -230,6 +243,7 @@ class OnboardingGenerateViewModelTest {
                 loadPayload = loadPayload,
                 generator = generator,
                 repository = programRepo,
+                liftRepository = liftRepo,
                 completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
                 profileRepository = profileRepo,
             ),
@@ -238,11 +252,45 @@ class OnboardingGenerateViewModelTest {
     }
 
     private companion object {
-        val PROGRAM = Program(
-            id = ProgramId("p-1"),
-            name = "Generated Program",
-            createdAt = Instant.parse("2026-06-26T12:00:00Z"),
-            workouts = emptyList(),
-        )
+        val PROGRAM =
+            Program(
+                id = ProgramId("p-1"),
+                name = "Generated Program",
+                createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+                workouts =
+                    listOf(
+                        com.stratum.domain.program.Workout(
+                            id = com.stratum.domain.program.identity.WorkoutId("w-1"),
+                            programId = ProgramId("p-1"),
+                            name = "Session A",
+                            weekday = null,
+                            position = 0,
+                            workoutLifts =
+                                listOf(
+                                    com.stratum.domain.program.WorkoutLift(
+                                        id = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
+                                        workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
+                                        liftId = com.stratum.domain.lift.identity.LiftId("back-squat"),
+                                        progressionScheme = com.stratum.domain.program.ProgressionScheme.Linear,
+                                        position = 0,
+                                        sets =
+                                            listOf(
+                                                com.stratum.domain.program.LiftSet(
+                                                    id = com.stratum.domain.program.identity.LiftSetId("ls-1"),
+                                                    workoutLiftId =
+                                                        com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
+                                                    position = 0,
+                                                    setType = com.stratum.domain.program.SetType.Standard,
+                                                    repMin = 5,
+                                                    repMax = 5,
+                                                    rirGoal = 2,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
     }
 }

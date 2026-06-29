@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.importing.CancelHistoricalImportUseCase
@@ -353,19 +354,41 @@ class OnboardingViewModel @Inject constructor(
         ephemeral.update {
             it.copy(
                 generateState = GenerateState.Loading,
+                generateProgress = null,
                 generateErrorMessage = null,
             )
         }
         generateJob?.cancel()
         generateJob =
             viewModelScope.launch {
-                val result = generateProgram()
-                ephemeral.update {
-                    it.copy(
-                        generateState = if (result.isSuccess) GenerateState.Idle else GenerateState.Error,
-                        generateErrorMessage = result.exceptionOrNull().toGenerateErrorMessage()
-                            .takeIf { result.isFailure },
-                    )
+                try {
+                    val result =
+                        generateProgram { progress ->
+                            ephemeral.update {
+                                it.copy(generateProgress = progress.toUi())
+                            }
+                        }
+                    result.exceptionOrNull()?.let { error ->
+                        logGenerateFailure(error)
+                    }
+                    ephemeral.update {
+                        it.copy(
+                            generateState = if (result.isSuccess) GenerateState.Idle else GenerateState.Error,
+                            generateProgress = null,
+                            generateErrorMessage = null,
+                        )
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    logGenerateFailure(error)
+                    ephemeral.update {
+                        it.copy(
+                            generateState = GenerateState.Error,
+                            generateProgress = null,
+                            generateErrorMessage = null,
+                        )
+                    }
                 }
             }
     }
@@ -416,5 +439,17 @@ class OnboardingViewModel @Inject constructor(
         }
         edit.musclesEdit.removed.forEach { base.remove(it) }
         return copy(levels = base)
+    }
+
+    private companion object {
+        const val TAG = "OnboardingViewModel"
+
+        private fun logGenerateFailure(error: Throwable) {
+            try {
+                Log.e(TAG, "Program generation failed", error)
+            } catch (_: RuntimeException) {
+                // android.util.Log is not mocked in JVM unit tests.
+            }
+        }
     }
 }

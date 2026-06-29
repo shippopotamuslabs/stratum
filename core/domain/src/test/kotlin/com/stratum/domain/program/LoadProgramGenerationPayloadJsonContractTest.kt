@@ -83,6 +83,10 @@ class LoadProgramGenerationPayloadJsonContractTest {
         assertFalse(payload.contains("Infinity"))
         assertTrue(payload.contains("\"availableLifts\":["))
         assertFalse(payload.contains("\"provenLifts\":[{")) // no proven lifts without import
+        assertTrue(payload.contains("\"literatureVolumeLandmarks\":["))
+        assertTrue(payload.contains("\"muscle\":\"Chest\""))
+        assertTrue(payload.contains("\"source\":\"LiteraturePrior\""))
+        assertFalse(payload.contains("\"responseProfile\""))
     }
 
     @Test

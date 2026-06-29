@@ -59,9 +59,17 @@ export interface ProgramLiftDraft {
   workoutLiftSets?: unknown[];
 }
 
-const VOLUME_TOLERANCE_SETS = 2;
+/** Split allocator / repair use a tight time cap; validation accepts a wider fuzzy band. */
 const DURATION_TOLERANCE_RATIO = 1.08;
-const PUSH_PULL_TOLERANCE_RATIO = 0.25;
+/** Validation-only session overrun allowance (~18% over stated session length). */
+export const DURATION_VALIDATION_RATIO = 1.18;
+/** Relative weekly-volume slack below min / above max (≈ practical programming noise). */
+export const VOLUME_RELATIVE_TOLERANCE = 0.2;
+/** Minimum hard-set slack regardless of target size. */
+export const VOLUME_ABSOLUTE_TOLERANCE = 3;
+const PUSH_PULL_TOLERANCE_RATIO = 0.35;
+/** Share of weekly volume in one workout before flagging imbalance (warning only). */
+const WORKOUT_VOLUME_SHARE_THRESHOLD = 0.85;
 
 export function validateProgramMetrics(
   program: unknown,
@@ -112,7 +120,7 @@ export function validateWorkoutDuration(
   const minutes =
     estimatedMinutes ??
     program.workouts.map((workout) => countWorkoutHardSets(workout) * MINUTES_PER_HARD_SET);
-  const budget = context.sessionLengthMinutes * DURATION_TOLERANCE_RATIO;
+  const budget = context.sessionLengthMinutes * DURATION_VALIDATION_RATIO;
   const issues: ValidationIssue[] = [];
   program.workouts.forEach((workout, index) => {
     const estimate = minutes[index] ?? 0;
@@ -130,6 +138,26 @@ export function validateWorkoutDuration(
     }
   });
   return issues;
+}
+
+/**
+ * Fuzzy weekly-volume band: allows ~20% (min 3 sets) below [min] and above [max]. Hypertrophy
+ * programming is not exact — validation should catch only material misses, not minor drift.
+ */
+export function weeklyVolumeToleranceBand(target: {
+  min: number;
+  aim: number;
+  max: number;
+}): { minFloor: number; maxCeiling: number } {
+  const relative = Math.max(
+    VOLUME_ABSOLUTE_TOLERANCE,
+    target.aim * VOLUME_RELATIVE_TOLERANCE,
+    target.max * (VOLUME_RELATIVE_TOLERANCE * 0.75),
+  );
+  return {
+    minFloor: Math.max(0, target.min - relative),
+    maxCeiling: target.max + relative,
+  };
 }
 
 export function validateWeeklyMuscleVolume(
@@ -159,20 +187,21 @@ export function validateWeeklyMuscleVolume(
     if (volume <= 0.01) continue;
 
     const target = resolveVolumeTarget(muscle, level, context);
-    if (volume < target.min - VOLUME_TOLERANCE_SETS) {
+    const band = weeklyVolumeToleranceBand(target);
+    if (volume < band.minFloor) {
       issues.push({
         code: "WEEKLY_VOLUME_BELOW_TARGET",
         severity: "error",
-        message: `${muscle} weekly volume ${volume.toFixed(1)} is below target minimum ${target.min.toFixed(1)} (${level}, aim ${target.aim.toFixed(1)}).`,
-        details: { muscle, volume, target },
+        message: `${muscle} weekly volume ${volume.toFixed(1)} is materially below target minimum ${target.min.toFixed(1)} (${level}, aim ${target.aim.toFixed(1)}; fuzzy floor ${band.minFloor.toFixed(1)}).`,
+        details: { muscle, volume, target, band },
       });
     }
-    if (volume > target.max + VOLUME_TOLERANCE_SETS) {
+    if (volume > band.maxCeiling) {
       issues.push({
         code: "WEEKLY_VOLUME_ABOVE_MRV",
         severity: "error",
-        message: `${muscle} weekly volume ${volume.toFixed(1)} exceeds MRV ceiling ${target.max.toFixed(1)}.`,
-        details: { muscle, volume, target },
+        message: `${muscle} weekly volume ${volume.toFixed(1)} materially exceeds MRV ceiling ${target.max.toFixed(1)} (fuzzy cap ${band.maxCeiling.toFixed(1)}).`,
+        details: { muscle, volume, target, band },
       });
     }
   }
@@ -192,7 +221,7 @@ export function validateWorkoutMuscleVolume(
       const inWorkout = workoutVolume[muscle] ?? 0;
       if (inWorkout <= 0) continue;
       const share = inWorkout / weeklyTotal;
-      if (share > 0.7) {
+      if (share > WORKOUT_VOLUME_SHARE_THRESHOLD) {
         issues.push({
           code: "WORKOUT_VOLUME_IMBALANCED",
           severity: "warning",
@@ -219,8 +248,8 @@ export function validateMuscleFrequency(
     if (frequency < requiredFrequency) {
       issues.push({
         code: "MUSCLE_FREQUENCY_LOW",
-        severity: "error",
-        message: `${muscle} is trained ${frequency}×/week; need ≥${requiredFrequency}× for ${context.trainingDaysPerWeek} training days.`,
+        severity: level === "Specialize" ? "error" : "warning",
+        message: `${muscle} is trained ${frequency}×/week; prefer ≥${requiredFrequency}× for ${context.trainingDaysPerWeek} training days.`,
         details: { muscle, frequency, requiredFrequency },
       });
     }
@@ -281,8 +310,8 @@ export function validateExerciseOrdering(
       if (consecutiveSamePrimary >= 3) {
         issues.push({
           code: "EXERCISE_ORDER_STACKED",
-          severity: "error",
-          message: `Workout "${workout.name ?? workoutIndex}" stacks ${consecutiveSamePrimary} consecutive exercises for the same primary muscle (${primaryKey}). Interleave antagonists.`,
+          severity: "warning",
+          message: `Workout "${workout.name ?? workoutIndex}" stacks ${consecutiveSamePrimary} consecutive exercises for the same primary muscle (${primaryKey}). Consider interleaving antagonists.`,
           details: { workoutIndex, liftId, primaryKey },
         });
         break;

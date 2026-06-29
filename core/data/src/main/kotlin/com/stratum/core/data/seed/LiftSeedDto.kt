@@ -38,6 +38,8 @@ data class LiftSeedDto(
     val presetTags: List<String> = emptyList(),
     val equipment: String? = null,
     val imageSlug: String? = null,
+    val description: String? = null,
+    val imageUris: List<String> = emptyList(),
 )
 
 @Serializable

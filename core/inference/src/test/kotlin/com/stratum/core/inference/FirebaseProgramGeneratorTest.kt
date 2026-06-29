@@ -1,6 +1,7 @@
 package com.stratum.core.inference
 
 import com.stratum.domain.program.Program
+import com.stratum.domain.program.ProgramGenerationProgressPhase
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -80,6 +81,48 @@ class FirebaseProgramGeneratorTest {
             }
 
         assertTrue(error.message.contains("could not be serialized"))
+    }
+
+    @Test
+    @DisplayName("PROG-GEN-505 refining_program maps to RefiningProgram phase for the UI headline")
+    fun `mapGenerationStatusToProgress uses progressPhase for headline`() {
+        val progress =
+            FirebaseProgramGenerator.mapGenerationStatusToProgress(
+                progressPhase = "refining_program",
+                progressMessage = "Adjusting volume and exercise order…",
+            )
+
+        assertEquals(ProgramGenerationProgressPhase.RefiningProgram, progress?.phase)
+        assertEquals("Adjusting volume and exercise order…", progress?.detail)
+    }
+
+    @Test
+    @DisplayName("PROG-GEN-506 unknown progressPhase does not default to reviewing_profile")
+    fun `mapGenerationStatusToProgress ignores unknown phases`() {
+        assertEquals(
+            null,
+            FirebaseProgramGenerator.mapGenerationStatusToProgress(
+                progressPhase = "refining_program_typo",
+                progressMessage = "Adjusting volume and exercise order…",
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("PROG-GEN-505b v2 pipeline phases map to the new progress enum values")
+    fun `mapGenerationStatusToProgress maps v2 pipeline phases`() {
+        assertEquals(
+            ProgramGenerationProgressPhase.SplitPlanning,
+            FirebaseProgramGenerator.mapGenerationStatusToProgress("split_planning", "Planning your weekly split…")?.phase,
+        )
+        assertEquals(
+            ProgramGenerationProgressPhase.BuildingWorkouts,
+            FirebaseProgramGenerator.mapGenerationStatusToProgress("building_workouts", "Building your workouts…")?.phase,
+        )
+        assertEquals(
+            ProgramGenerationProgressPhase.Integrating,
+            FirebaseProgramGenerator.mapGenerationStatusToProgress("integrating", "Putting it together…")?.phase,
+        )
     }
 
     // region Recorded fixture (server post-pass output shape — no progressionScheme, no ids)

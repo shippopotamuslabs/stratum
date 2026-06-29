@@ -6,7 +6,8 @@ import com.google.firebase.functions.FirebaseFunctionsException
 internal object ProgramGenerationErrorMapper {
     fun userMessage(error: Throwable): String =
         when (error) {
-            is ProgramGenerationException -> error.message ?: GENERIC_FAILURE
+            is ProgramGenerationException ->
+                error.message?.takeIf { !looksLikeMetricValidationLeak(it) } ?: GENERIC_FAILURE
             is FirebaseFunctionsException -> mapFunctionsError(error)
             else -> mapGenericError(error)
         }
@@ -24,7 +25,15 @@ internal object ProgramGenerationErrorMapper {
             FirebaseFunctionsException.Code.UNAVAILABLE,
             FirebaseFunctionsException.Code.DEADLINE_EXCEEDED,
             ->
-                "Network error. Check your connection and try again."
+                "Generation took longer than expected. Tap Generate again — your program may already be ready."
+            FirebaseFunctionsException.Code.INVALID_ARGUMENT ->
+                if (looksLikeMetricValidationLeak(error.message)) {
+                    GENERIC_FAILURE
+                } else {
+                    error.message?.takeIf { it.isNotBlank() } ?: GENERIC_FAILURE
+                }
+            FirebaseFunctionsException.Code.INTERNAL ->
+                error.message?.takeIf { it.isNotBlank() } ?: GENERIC_FAILURE
             else -> error.message?.takeIf { it.isNotBlank() } ?: GENERIC_FAILURE
         }
 
@@ -45,6 +54,11 @@ internal object ProgramGenerationErrorMapper {
         return APP_CHECK_MARKERS.any { marker -> message.contains(marker, ignoreCase = true) }
     }
 
+    private fun looksLikeMetricValidationLeak(message: String?): Boolean {
+        if (message.isNullOrBlank()) return false
+        return METRIC_VALIDATION_MARKERS.any { marker -> message.contains(marker, ignoreCase = true) }
+    }
+
     private const val GENERIC_FAILURE = "Program generation failed. Try again."
     private const val APP_CHECK_FAILURE =
         "Couldn't verify this device (App Check). On debug builds, register the App Check debug " +
@@ -56,5 +70,13 @@ internal object ProgramGenerationErrorMapper {
             "app check",
             "App attestation failed",
             "attestation failed",
+        )
+
+    private val METRIC_VALIDATION_MARKERS =
+        listOf(
+            "Program metric validation failed",
+            "WEEKLY_VOLUME_BELOW_TARGET",
+            "MUSCLE_FREQUENCY_LOW",
+            "WORKOUT_VOLUME_IMBALANCED",
         )
 }

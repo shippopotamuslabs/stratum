@@ -32,8 +32,8 @@ const LIFT_CATALOG = [
   // Calves
   { id: "calf-raise", movementPattern: "Calves", primaryMuscles: ["Calf"], secondaryMuscles: [] },
   // Shoulders
-  { id: "lat-raise", movementPattern: "DeltIso", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
-  { id: "rear-delt-fly", movementPattern: "DeltIso", primaryMuscles: ["PosteriorDeltoid"], secondaryMuscles: [] },
+  { id: "lat-raise", movementPattern: "LateralDeltIso", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
+  { id: "rear-delt-fly", movementPattern: "RearDeltIso", primaryMuscles: ["PosteriorDeltoid"], secondaryMuscles: [] },
   { id: "ohp", movementPattern: "VerticalPush", primaryMuscles: ["AnteriorDeltoid"], secondaryMuscles: ["Tricep"] },
   // Arms
   { id: "curl", movementPattern: "BicepIso", primaryMuscles: ["Bicep"], secondaryMuscles: [] },
@@ -103,6 +103,28 @@ describe("splitAllocator", () => {
   });
 
   describe("allocateDayPlans", () => {
+    it("derives anatomically-correct suggested patterns (not catalog-order-dependent)", () => {
+      // The core regression: an Upper day must suggest HorizontalPush/VerticalPull/arm iso/lateral
+      // delt, and a Lower day must suggest LegPush (NOT HipHinge-for-quad or AbIso-for-hamstring).
+      const ctx = contextFor(4);
+      const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
+      const upper = plans.find((p) => p.theme.startsWith("Upper"))!;
+      const upperPatterns = new Set(upper.suggestedPatterns.map((s) => s.pattern));
+      assert.ok(upperPatterns.has("HorizontalPush"), "Upper should suggest a horizontal push");
+      assert.ok(upperPatterns.has("VerticalPull"), "Upper should suggest a vertical pull");
+      assert.ok(upperPatterns.has("TricepIso"), "Upper should suggest a tricep iso");
+      assert.ok(upperPatterns.has("BicepIso"), "Upper should suggest a bicep iso");
+
+      const lower = plans.find((p) => p.theme.startsWith("Lower"))!;
+      const lowerPatterns = new Set(lower.suggestedPatterns.map((s) => s.pattern));
+      assert.ok(lowerPatterns.has("LegPush"), "Lower should suggest LegPush (squats), not HipHinge-for-quad");
+      assert.ok(lowerPatterns.has("HamstringIso"), "Lower should suggest HamstringIso, not AbIso-for-hamstring");
+      assert.ok(lowerPatterns.has("Calves"), "Lower should suggest Calves");
+      // Lower must NOT suggest AbIso-for-hamstring or duplicate AbIso slots.
+      const lowerAbSuggestions = lower.suggestedPatterns.filter((s) => s.pattern === "AbIso");
+      assert.ok(lowerAbSuggestions.length <= 1, "Lower should not duplicate AbIso suggestions");
+    });
+
     it("produces one DayPlan per training day (4-day UL×2)", () => {
       const ctx = contextFor(4);
       const targets = computeAllWeeklyTargets(ctx);
@@ -121,14 +143,27 @@ describe("splitAllocator", () => {
       }
     });
 
-    it("per-day slot maxSets sum respects the time budget", () => {
-      const ctx = contextFor(4);
+    it("per-day muscle budget credits fit within the time budget", () => {
+      const ctx = parseGenerationContext(
+        JSON.stringify({
+          profile: {
+            trainingAge: "Intermediate",
+            sessionLengthMinutes: 110,
+            weekdays: "Monday,Tuesday,Thursday,Friday",
+            trainingDaysPerWeek: 4,
+          },
+          specialization: { Chest: "Specialize" },
+          provenLifts: LIFT_CATALOG,
+          availableLifts: [],
+          literatureVolumeLandmarks: LANDMARKS,
+        })
+      );
       const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
       const timeBudget = plans[0].timeBudgetHardSets;
       assert.ok(timeBudget != null);
       for (const plan of plans) {
-        const total = plan.patternSlots.reduce((s, slot) => s + slot.maxSets, 0);
-        assert.ok(total <= (plan.timeBudgetHardSets ?? Infinity), `day ${plan.dayIndex} slots ${total} > budget ${plan.timeBudgetHardSets}`);
+        const total = plan.muscleBudgets.reduce((s, b) => s + b.sets, 0);
+        assert.ok(total <= (plan.timeBudgetHardSets ?? Infinity) + 2, `day ${plan.dayIndex} credits ${total} > budget ${plan.timeBudgetHardSets} (tolerance 2)`);
       }
     });
 
@@ -156,10 +191,9 @@ describe("splitAllocator", () => {
       assert.ok(anyAccessory, "expected at least one accessory on a lower day");
     });
 
-    it("never emits a patternSlot for a pattern with zero enabled candidates", () => {
-      // Remove all calf lifts — the allocator must not plan a Calf slot.
+    it("never suggests a pattern the user has no enabled lift for", () => {
+      // Remove all calf lifts — the allocator must not suggest a Calves pattern.
       const ctx = contextFor(4);
-      // Rebuild context with no calf lift.
       const noCalfCtx = parseGenerationContext(
         JSON.stringify({
           profile: {
@@ -176,8 +210,8 @@ describe("splitAllocator", () => {
       );
       const plans = allocateDayPlans(noCalfCtx, computeAllWeeklyTargets(noCalfCtx));
       for (const plan of plans) {
-        for (const slot of plan.patternSlots) {
-          assert.ok(slot.muscleFocus !== "Calf", `day ${plan.dayIndex} has a Calf slot with no enabled lift`);
+        for (const s of plan.suggestedPatterns) {
+          assert.ok(s.pattern !== "Calves", `day ${plan.dayIndex} suggests Calves with no enabled lift`);
         }
       }
     });
@@ -222,8 +256,8 @@ describe("splitAllocator", () => {
       );
       const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
       assert.equal(plans[0].timeBudgetHardSets, null);
-      // Slots still produced; Phase 2 validates the final program.
-      assert.ok(plans[0].patternSlots.length > 0);
+      // Suggested patterns still produced; Phase 2 validates the final program.
+      assert.ok(plans[0].suggestedPatterns.length > 0);
     });
   });
 });

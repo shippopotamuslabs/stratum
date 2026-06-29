@@ -33,9 +33,9 @@ function ctxFor(days = 4) {
 }
 
 describe("programBuilderPrompt", () => {
-  it("system prompt is version 2 and instructs whole-program slot-filling + sibling variety, no tools, JSON-only", () => {
-    assert.equal(PROGRAM_BUILDER_PROMPT_VERSION, 2);
-    assert.ok(/EVERY training day/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
+  it("system prompt is version 3 and instructs target-driven whole-program building + sibling variety, no tools, JSON-only", () => {
+    assert.equal(PROGRAM_BUILDER_PROMPT_VERSION, 3);
+    assert.ok(/HIT THE MUSCLE BUDGETS/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/VARY lift selection across sibling days/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/Never reuse the same liftId more than once within a single workout/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/interleave antagonists/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
@@ -65,7 +65,13 @@ describe("programBuilderPrompt", () => {
     assert.equal((input as { constraints: { varyAcrossSiblingDays: boolean } }).constraints.varyAcrossSiblingDays, true);
     assert.equal((input as { constraints: { noDuplicateLiftWithinWorkout: boolean } }).constraints.noDuplicateLiftWithinWorkout, true);
     assert.equal((input as { constraints: { compoundBeforeAccessory: boolean } }).constraints.compoundBeforeAccessory, true);
+    assert.equal((input as { constraints: { hitMuscleBudgets: boolean } }).constraints.hitMuscleBudgets, true);
     assert.ok(/bench/.test(inputJson), "candidate liftId should appear");
+
+    // Each day carries muscle budgets (the hard constraint) + suggested patterns (advisory).
+    const firstDay = (input as { days: Array<{ muscleBudgets: unknown[]; suggestedPatterns: unknown[] }> }).days[0];
+    assert.ok(firstDay.muscleBudgets.length > 0, "day should carry muscle budgets");
+    assert.ok(firstDay.suggestedPatterns.length > 0, "day should carry suggested patterns");
 
     // isCompound is denormalized onto each candidate (bench=HorizontalPush → true).
     const firstDayCandidates = (input as { days: Array<{ candidates: Array<{ liftId: string; isCompound: boolean }> }> }).days[0].candidates;

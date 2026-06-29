@@ -28,7 +28,9 @@ Rules:
 - Omitted muscles receive zero volume on every day.
 - Only plan volume for muscles that have at least one available movement pattern listed.
 
-Return ONLY a JSON object matching the schema: one entry per training day with a theme, muscle budgets, and the movement-pattern slots that day should include.`;
+For each day, also list suggestedPatterns: the movement patterns a balanced day of that theme would cover and the muscle each one primarily drives (e.g. an Upper day: HorizontalPush/Chest, VerticalPull/Back, BicepIso/Bicep). These are advisory structure, not rigid slots — the workout builder owns lift selection and set distribution. Only suggest patterns the user has at least one lift for (see availablePatternsByMuscle).
+
+Return ONLY a JSON object matching the schema: one entry per training day with a theme, muscle budgets, and suggested movement patterns.`;
 
 /** Builds the small split-planner input (no individual lifts). */
 export function buildSplitPlannerInput(
@@ -92,7 +94,7 @@ export function splitPlannerOutputSchema() {
                   required: ["muscle", "sets", "min", "aim"],
                 },
               },
-              patternSlots: {
+              suggestedPatterns: {
                 type: "array",
                 items: {
                   type: "object",
@@ -100,14 +102,12 @@ export function splitPlannerOutputSchema() {
                   properties: {
                     pattern: { type: "string" },
                     muscleFocus: { type: "string" },
-                    minSets: { type: "integer" },
-                    maxSets: { type: "integer" },
                   },
-                  required: ["pattern", "muscleFocus", "minSets", "maxSets"],
+                  required: ["pattern", "muscleFocus"],
                 },
               },
             },
-            required: ["weekday", "theme", "muscleBudgets", "patternSlots"],
+            required: ["weekday", "theme", "muscleBudgets", "suggestedPatterns"],
           },
         },
       },

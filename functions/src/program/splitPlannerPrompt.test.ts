@@ -51,10 +51,10 @@ describe("splitPlannerPrompt", () => {
     assert.ok(!/"lifts"/.test(inputJson), "lifts array leaked into split-planner input");
   });
 
-  it("splitPlannerOutputSchema is strict and requires days with muscleBudgets + patternSlots", () => {
+  it("splitPlannerOutputSchema is strict and requires days with muscleBudgets + suggestedPatterns", () => {
     const schema = splitPlannerOutputSchema();
     assert.equal(schema.strict, true);
     assert.equal(schema.schema.properties.days.items.required.includes("muscleBudgets"), true);
-    assert.equal(schema.schema.properties.days.items.required.includes("patternSlots"), true);
+    assert.equal(schema.schema.properties.days.items.required.includes("suggestedPatterns"), true);
   });
 });

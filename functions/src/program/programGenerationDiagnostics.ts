@@ -64,3 +64,67 @@ export function logPipelineTotal(
 ): void {
   logger.info("programGeneration.pipelineTotal", { sessionId, ...phaseMs, usedFallbackCount });
 }
+
+export type ProgramGenerationOutcome =
+  | "llm"
+  | "llm_after_regen"
+  | "full_deterministic_fallback";
+
+/** Logs the final pipeline outcome after validation + any repair path. */
+export function logPipelineOutcome(
+  sessionId: string,
+  outcome: ProgramGenerationOutcome,
+  validationPass: boolean,
+  issueCount: number,
+  issueCodes: string[],
+): void {
+  logger.info("programGeneration.outcome", {
+    sessionId,
+    outcome,
+    validationPass,
+    issueCount,
+    issueCodes: issueCodes.slice(0, 12),
+  });
+}
+
+export type ProgramBuilderFailureReason =
+  | "none"
+  | "timeout"
+  | "api_error"
+  | "empty_content"
+  | "invalid_json";
+
+/** Logs the single whole-program builder call (latency, parse outcome, per-day fallback count). */
+export function logProgramBuilderResult(
+  sessionId: string,
+  attempt: number,
+  latencyMs: number,
+  failureReason: ProgramBuilderFailureReason,
+  llmWorkoutCount: number,
+  perDayFallbackCount: number,
+): void {
+  logger.info("programGeneration.programBuilder", {
+    sessionId,
+    attempt,
+    latencyMs,
+    failureReason,
+    llmWorkoutCount,
+    perDayFallbackCount,
+    usedFallback: failureReason !== "none" || perDayFallbackCount > 0,
+  });
+}
+
+/** Logs Phase 0 precompute timing (volume targets + candidate shaping). */
+export function logPhase0Precompute(
+  sessionId: string,
+  latencyMs: number,
+  dayCount: number,
+  candidateCount: number,
+): void {
+  logger.info("programGeneration.phase0Precompute", {
+    sessionId,
+    latencyMs,
+    dayCount,
+    candidateCount,
+  });
+}

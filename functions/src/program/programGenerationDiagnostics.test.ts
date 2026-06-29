@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  logPhase0Precompute,
+  logPipelineOutcome,
   logPipelineTotal,
+  logProgramBuilderResult,
   logProgramGenerationMetricAttempt,
   logSplitPlannerResult,
   logWorkoutBuilderResult,
@@ -38,5 +41,11 @@ describe("programGenerationDiagnostics", () => {
         0,
       ),
     );
+  });
+
+  it("new pipeline loggers do not throw", () => {
+    assert.doesNotThrow(() => logPhase0Precompute("sid", 12, 4, 80));
+    assert.doesNotThrow(() => logProgramBuilderResult("sid", 0, 900, "none", 4, 0));
+    assert.doesNotThrow(() => logPipelineOutcome("sid", "llm", true, 0, []));
   });
 });

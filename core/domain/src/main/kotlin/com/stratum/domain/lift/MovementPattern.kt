@@ -2,9 +2,10 @@ package com.stratum.domain.lift
 
 /**
  * How a [Lift] moves — the categorical slot a lift occupies (squat pattern, horizontal push,
- * etc.). The 18 values port LiftLab's `MovementPattern` one-for-one for OS-6 generation
- * parity, renamed to PascalCase to match the Stratum enum style (see `MuscleGroup`). Values
- * are grouped logically: lower body, then upper-body compound, then isolation.
+ * etc.). Values are grouped logically: lower body, then upper-body compound, then isolation.
+ * The deltoid head isos are split into [LateralDeltIso], [RearDeltIso], and [AnteriorDeltIso]
+ * so program generation can target each head independently (a balanced upper day covers a
+ * lateral raise AND a rear-delt movement, which a single `DeltIso` could not express).
  *
  * A lift's pattern is orthogonal to which muscles it works ([Lift.primaryMuscles]) — many
  * lifts in the same pattern share muscle contributions, but the pattern drives exercise
@@ -23,7 +24,9 @@ enum class MovementPattern {
     ChestIso,
     TricepIso,
     BicepIso,
-    DeltIso,
+    LateralDeltIso,
+    RearDeltIso,
+    AnteriorDeltIso,
 
     GluteIso,
     ForearmIso,
@@ -50,7 +53,9 @@ enum class MovementPattern {
             ChestIso -> "Chest Isolation"
             TricepIso -> "Tricep Isolation"
             BicepIso -> "Bicep Isolation"
-            DeltIso -> "Deltoid Isolation"
+            LateralDeltIso -> "Lateral Delt Isolation"
+            RearDeltIso -> "Rear Delt Isolation"
+            AnteriorDeltIso -> "Front Delt Isolation"
             GluteIso -> "Glute Isolation"
             ForearmIso -> "Forearm Isolation"
             TrapIso -> "Trap Isolation"

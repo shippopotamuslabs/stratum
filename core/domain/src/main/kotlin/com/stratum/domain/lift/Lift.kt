@@ -41,4 +41,6 @@ data class Lift(
     val equipment: String? = null,
     val enabled: Boolean,
     val isCustom: Boolean = false,
+    val description: String? = null,
+    val imageUris: List<String> = emptyList(),
 )

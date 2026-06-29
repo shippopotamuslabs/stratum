@@ -13,6 +13,16 @@
     <string name="onboarding_button_generate">Generate</string>
     <string name="onboarding_generate_title">Ready to build your program?</string>
     <string name="onboarding_generate_loading">Building your program…</string>
+    <string name="onboarding_generate_phase_preparing">Preparing your profile…</string>
+    <string name="onboarding_generate_phase_reviewing">Reviewing your training profile…</string>
+    <string name="onboarding_generate_phase_validating">Checking your draft program…</string>
+    <string name="onboarding_generate_phase_drafting">Building your weekly split…</string>
+    <string name="onboarding_generate_phase_refining">Adjusting volume and exercise order…</string>
+    <string name="onboarding_generate_phase_split_planning">Planning your weekly split</string>
+    <string name="onboarding_generate_phase_building_workouts">Building your workouts</string>
+    <string name="onboarding_generate_phase_integrating">Putting it together</string>
+    <string name="onboarding_generate_phase_saving">Saving your program…</string>
+    <string name="onboarding_generate_phase_complete">Program ready</string>
     <string name="onboarding_generate_error_title">Something went wrong</string>
     <string name="onboarding_generate_error_retry">Try again</string>
     <string name="onboarding_generate_error_back_to_review">Back to review</string>

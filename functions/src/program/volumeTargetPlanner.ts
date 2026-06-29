@@ -33,7 +33,7 @@ const VOLUME_TOLERANCE_SETS = 2;
  * `resolveVolumeTarget` in `programValidation.ts` — do not change behavior without
  * updating the matching validator tests.
  */
-export function resolveMuscleWeeklyTarget(
+function resolveUnscaledTarget(
   muscle: string,
   specializationLevel: string,
   context: GenerationContext,
@@ -70,6 +70,46 @@ export function resolveMuscleWeeklyTarget(
   }
 
   return { min: mev, aim: mav, max: mrv };
+}
+
+function trainableMuscles(context: GenerationContext): string[] {
+  const patternsByMuscle = availablePatternsByMuscle(context);
+  return targetableMuscles(context).filter(
+    (m) => (patternsByMuscle.get(m)?.length ?? 0) > 0,
+  );
+}
+
+export function resolveMuscleWeeklyTarget(
+  muscle: string,
+  specializationLevel: string,
+  context: GenerationContext,
+): WeeklyVolumeTarget {
+  const unscaled = resolveUnscaledTarget(muscle, specializationLevel, context);
+  
+  if (context.sessionLengthMinutes == null || context.sessionLengthMinutes <= 0) {
+    return unscaled;
+  }
+  
+  const timeBudget = Math.floor((context.sessionLengthMinutes * 1.08) / 3.5);
+  const weeklyTimeBudget = context.trainingDaysPerWeek * timeBudget;
+  
+  let totalUnscaledAim = 0;
+  for (const m of trainableMuscles(context)) {
+    const lvl = context.specialization[m] ?? "Maintenance";
+    const target = resolveUnscaledTarget(m, lvl, context);
+    totalUnscaledAim += target.aim;
+  }
+  
+  if (totalUnscaledAim > weeklyTimeBudget) {
+    const scale = weeklyTimeBudget / totalUnscaledAim;
+    return {
+      min: Math.max(2, Math.round(unscaled.min * scale * 2) / 2),
+      aim: Math.max(2, Math.round(unscaled.aim * scale * 2) / 2),
+      max: Math.max(2, Math.round(unscaled.max * scale * 2) / 2),
+    };
+  }
+  
+  return unscaled;
 }
 
 /**

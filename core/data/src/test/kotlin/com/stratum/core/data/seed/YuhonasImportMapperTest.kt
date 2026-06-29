@@ -83,11 +83,29 @@ class YuhonasImportMapperTest {
         }
 
         @Test
-        @DisplayName("Given DeltIso pattern when refining shoulders then it resolves to LateralDeltoid")
-        fun deltIsoMapsToSideDelts() {
+        @DisplayName("Given LateralDeltIso pattern when refining shoulders then it resolves to LateralDeltoid")
+        fun lateralDeltIsoMapsToSideDelts() {
             assertEquals(
                 MuscleGroup.LateralDeltoid,
-                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.DeltIso),
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.LateralDeltIso),
+            )
+        }
+
+        @Test
+        @DisplayName("Given RearDeltIso pattern when refining shoulders then it resolves to PosteriorDeltoid")
+        fun rearDeltIsoMapsToRearDelts() {
+            assertEquals(
+                MuscleGroup.PosteriorDeltoid,
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.RearDeltIso),
+            )
+        }
+
+        @Test
+        @DisplayName("Given AnteriorDeltIso pattern when refining shoulders then it resolves to AnteriorDeltoid")
+        fun anteriorDeltIsoMapsToFrontDelts() {
+            assertEquals(
+                MuscleGroup.AnteriorDeltoid,
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.AnteriorDeltIso),
             )
         }
 
@@ -114,10 +132,10 @@ class YuhonasImportMapperTest {
     inner class NameBasedClassification {
 
         @Test
-        @DisplayName("Given a lateral raise exercise when classified then it resolves to DeltIso")
+        @DisplayName("Given a lateral raise exercise when classified then it resolves to LateralDeltIso")
         fun lateralRaise() {
             assertEquals(
-                MovementPattern.DeltIso,
+                MovementPattern.LateralDeltIso,
                 classify("Dumbbell Lateral Raise", "push", "isolation", listOf("shoulders")),
             )
         }

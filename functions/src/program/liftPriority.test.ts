@@ -107,11 +107,11 @@ describe("liftPriority", () => {
   });
 
   describe("buildDayCandidates", () => {
-    it("returns only lifts whose pattern matches a day's pattern slots", () => {
+    it("returns lifts that train the day's targeted muscles, excludes off-day lifts", () => {
       const ctx = contextWith({ days: 4 });
       const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
-      // Upper day 0 has HorizontalPush + HorizontalPull slots → bench + row should both appear;
-      // the Lower day has no HorizontalPush slot → bench should not appear there.
+      // Upper day targets Chest/Back/etc → bench + row should both appear (they hit those muscles);
+      // the Lower day targets Quad/Hamstring/etc → bench (Chest) should not appear there.
       const upperPlan = plans.find((p) => p.theme.startsWith("Upper"))!;
       const upperCandidates = buildDayCandidates(upperPlan, ctx);
       const upperIds = upperCandidates.map((c) => c.liftId);
@@ -122,11 +122,11 @@ describe("liftPriority", () => {
       const lowerCandidates = buildDayCandidates(lowerPlan, ctx);
       assert.ok(
         !lowerCandidates.some((c) => c.liftId === "bench"),
-        "bench (HorizontalPush) should not appear on a Lower day",
+        "bench (Chest) should not appear on a Lower day",
       );
     });
 
-    it("caps candidates to CANDIDATES_PER_SLOT per pattern slot", () => {
+    it("caps candidates to CANDIDATES_PER_SLOT per pattern", () => {
       // Many HorizontalPush lifts → only top-K should appear for that slot.
       const ctx = contextWith({
         provenLifts: [
@@ -180,7 +180,7 @@ describe("liftPriority", () => {
       assert.equal("sessionCount" in (bench!.trainingInsights! as Record<string, unknown>), false);
     });
 
-    it("a lift with no matching pattern slot on a day is excluded", () => {
+    it("a lift that trains none of the day's targeted muscles is excluded", () => {
       const ctx = contextWith({ days: 4 });
       const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
       const lowerPlan = plans.find((p) => p.theme.startsWith("Lower"))!;

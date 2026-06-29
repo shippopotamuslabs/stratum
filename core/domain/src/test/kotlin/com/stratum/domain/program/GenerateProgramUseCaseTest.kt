@@ -1,5 +1,6 @@
 package com.stratum.domain.program
 
+import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
 import com.stratum.core.testing.program.FakeProgramGeneratorPort
@@ -80,6 +81,27 @@ class GenerateProgramUseCaseTest {
         }
     }
 
+    @Nested
+    @DisplayName("PROG-GEN-206 progress callbacks report orchestration phases")
+    inner class ProgressPath {
+        @Test
+        fun `invoke reports preparing payload saving and complete`() = runTest {
+            val phases = mutableListOf<ProgramGenerationProgressPhase>()
+            val useCase = buildUseCase()
+
+            useCase.invoke { progress -> phases.add(progress.phase) }
+
+            assertEquals(
+                listOf(
+                    ProgramGenerationProgressPhase.PreparingPayload,
+                    ProgramGenerationProgressPhase.SavingProgram,
+                    ProgramGenerationProgressPhase.Complete,
+                ),
+                phases,
+            )
+        }
+    }
+
     // region Fixture wiring
     private lateinit var generator: FakeProgramGeneratorPort
     private lateinit var programRepository: FakeProgramRepository
@@ -101,6 +123,22 @@ class GenerateProgramUseCaseTest {
             loadPayload = loadPayload,
             generator = generator,
             repository = programRepository,
+            liftRepository = FakeLiftRepository(
+                initialLifts =
+                    listOf(
+                        com.stratum.domain.lift.Lift(
+                            id = LiftId("back-squat"),
+                            name = "Back Squat",
+                            movementPattern = com.stratum.domain.lift.MovementPattern.LegPush,
+                            primaryMuscles = emptySet(),
+                            secondaryMuscles = emptySet(),
+                            allowWeightChangeBetweenSets = false,
+                            incrementTiers = emptyList(),
+                            presetTags = emptySet(),
+                            enabled = true,
+                        ),
+                    ),
+            ),
             completeOnboarding = CompleteOnboardingUseCase(onboardingRepository, profileRepository),
             profileRepository = profileRepository,
         )

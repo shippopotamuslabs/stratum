@@ -50,6 +50,7 @@ internal fun buildOnboardingUiState(
         reviewDraft = profile.toReviewProfileSection(specialization, lifts, preset),
         presetOptions = allGymPresetOptions(),
         generateState = ephemeral.generateState,
+        generateProgress = ephemeral.generateProgress,
         generateErrorMessage = ephemeral.generateErrorMessage,
     )
 }

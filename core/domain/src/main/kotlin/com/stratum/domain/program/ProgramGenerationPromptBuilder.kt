@@ -49,7 +49,7 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             append(profile.sessionLengthMinutes ?: "null")
             append(""","weekdays":""")
             append(profile.weekdays.joinToString(",") { it.name }.quoteJson())
-            append("},")
+            append(""","trainingDaysPerWeek":${profile.weekdays.size}},""")
             append(""""specialization":{""")
             append(specializationJson)
             append("},")
@@ -73,6 +73,11 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
                 append(""","responseProfile":""")
                 append(responseProfile.toJson())
             }
+            val literatureJson =
+                LiteratureVolumeLandmarks.all().joinToString(",") { it.toJson() }
+            append(""","literatureVolumeLandmarks":[""")
+            append(literatureJson)
+            append(']')
             append(importJson)
             append('}')
         }
@@ -97,7 +102,12 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
         val id = lift.id.value.quoteJson()
         val name = lift.name.quoteJson()
         val pattern = lift.movementPattern.name.quoteJson()
-        return """{"id":$id,"name":$name,"movementPattern":$pattern,"proven":$proven$insightsJson}"""
+        val primaryMuscles =
+            lift.primaryMuscles.joinToString(",") { muscle -> muscle.name.quoteJson() }
+        val secondaryMuscles =
+            lift.secondaryMuscles.joinToString(",") { muscle -> muscle.name.quoteJson() }
+        return """{"id":$id,"name":$name,"movementPattern":$pattern,"proven":$proven,""" +
+            """"primaryMuscles":[$primaryMuscles],"secondaryMuscles":[$secondaryMuscles]$insightsJson}"""
     }
 
     private fun SupersetAffinity.toJson(): String {
@@ -112,6 +122,18 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
         val muscle = muscle.name.quoteJson()
         return """{"muscle":$muscle,"meanWeeklyHardSets":${meanWeeklyHardSets.toJsonLiteral()},""" +
             """"p90WeeklyHardSets":${p90WeeklyHardSets.toJsonLiteral()}$trend}"""
+    }
+
+    private fun LiteratureVolumeLandmark.toJson(): String {
+        val muscle = muscle.name.quoteJson()
+        return """{"muscle":$muscle,""" +
+            """"estimatedMev":${estimatedMev.toJsonLiteral()},""" +
+            """"estimatedMav":${estimatedMav.toJsonLiteral()},""" +
+            """"estimatedMrv":${estimatedMrv.toJsonLiteral()},""" +
+            """"estimatedPv":${estimatedPv.toJsonLiteral()},""" +
+            """"mevInterval":{"low":${mevLow.toJsonLiteral()},"high":${mevHigh.toJsonLiteral()},"method":"LiteraturePrior"},""" +
+            """"mrvInterval":{"low":${mrvLow.toJsonLiteral()},"high":${mrvHigh.toJsonLiteral()},"method":"LiteraturePrior"},""" +
+            """"source":"LiteraturePrior"}"""
     }
 
     private fun MuscleVolumeHighlight.toJson(): String {

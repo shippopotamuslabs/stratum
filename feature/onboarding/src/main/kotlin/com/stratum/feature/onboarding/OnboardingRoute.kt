@@ -33,6 +33,8 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.ui.GymAndLiftsScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
+import com.stratum.feature.onboarding.ui.programGenerationPhaseLabel
+import com.stratum.feature.onboarding.ui.programGenerationProgressSubtitle
 import com.stratum.feature.onboarding.ui.ScheduleScreen
 import com.stratum.feature.onboarding.ui.SpecializationScreen
 import com.stratum.feature.onboarding.ui.WelcomeScreen
@@ -163,6 +165,7 @@ private fun OnboardingWizard(
                         onGenerate = onGenerate,
                         onBack = onBack,
                         generateState = state.generateState,
+                        generateProgress = state.generateProgress,
                         generateErrorMessage = state.generateErrorMessage,
                     )
                 }
@@ -207,6 +210,7 @@ private fun GenerateScreen(
     onGenerate: () -> Unit,
     onBack: () -> Unit,
     generateState: GenerateState,
+    generateProgress: ProgramGenerationProgressUi?,
     generateErrorMessage: String?,
 ) {
     Column(
@@ -214,14 +218,27 @@ private fun GenerateScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        StratumText(
-            text = stringResource(R.string.onboarding_generate_title),
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        if (generateState != GenerateState.Loading) {
+            StratumText(
+                text = stringResource(R.string.onboarding_generate_title),
+                style = StratumThemeAccessor.typography.titleLarge,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         when (generateState) {
             GenerateState.Loading -> {
-                StratumText(text = stringResource(R.string.onboarding_generate_loading), muted = true)
+                val progress = generateProgress
+                val phaseTitle =
+                    progress?.let { programGenerationPhaseLabel(it) }
+                        ?: stringResource(R.string.onboarding_generate_loading)
+                StratumText(
+                    text = phaseTitle,
+                    style = StratumThemeAccessor.typography.titleLarge,
+                )
+                progress?.let { programGenerationProgressSubtitle(it, phaseTitle) }?.let { detail ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    StratumText(text = detail, muted = true)
+                }
             }
             GenerateState.Error -> {
                 StratumText(text = stringResource(R.string.onboarding_generate_error_title))

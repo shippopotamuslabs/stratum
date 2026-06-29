@@ -49,7 +49,7 @@ class EnrichCustomLiftsUseCaseTest {
                             candidates.map { candidate ->
                                 InferredCustomLiftMetadata(
                                     exerciseNameRaw = candidate.exerciseNameRaw,
-                                    movementPattern = MovementPattern.DeltIso,
+                                    movementPattern = MovementPattern.LateralDeltIso,
                                     primaryMuscles = setOf(MuscleGroup.LateralDeltoid),
                                     secondaryMuscles = emptySet(),
                                     equipment = "cable",

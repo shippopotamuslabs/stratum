@@ -1,5 +1,6 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
@@ -24,15 +25,31 @@ class GenerateProgramUseCase @Inject constructor(
     private val loadPayload: ProgramGenerationPayloadLoader,
     private val generator: ProgramGeneratorPort,
     private val repository: ProgramRepository,
+    private val liftRepository: LiftRepository,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val profileRepository: UserTrainingProfileRepository,
 ) {
-    suspend operator fun invoke(): Result<Unit> =
+    suspend operator fun invoke(
+        onProgress: ProgramGenerationProgressCallback = {},
+    ): Result<Unit> =
         runCatching {
+            onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload))
             val payload = loadPayload.load()
-            val program = generator.generateProgram(payload).getOrThrow()
+            val knownLiftIds =
+                liftRepository.observeLifts().first()
+                    .filter { lift -> lift.enabled }
+                    .map { lift -> lift.id }
+                    .toSet()
+            val program =
+                generator.generateProgram(payload, onProgress).getOrThrow()
+                    .retainOnlyKnownLifts(knownLiftIds)
+            require(program.workouts.isNotEmpty()) {
+                "Generated program has no workouts with known lift references"
+            }
+            onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram))
             repository.saveProgram(program)
             val profile = profileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
             completeOnboarding(profile)
+            onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))
         }
 }
