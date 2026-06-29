@@ -19,7 +19,7 @@ class EffectiveLiftSummaryBuilderTest {
                 observations =
                     listOf(
                         observation(
-                            pattern = MovementPattern.HorizontalPush,
+                            pattern = MovementPattern.HorizontalPress,
                             liftId = LiftId("bench-press"),
                             score = 0.4,
                             epoch = "e1",
@@ -52,13 +52,13 @@ class EffectiveLiftSummaryBuilderTest {
                 observations =
                     listOf(
                         observation(
-                            pattern = MovementPattern.LegPush,
+                            pattern = MovementPattern.SquatPattern,
                             liftId = LiftId("leg-press"),
                             score = 1.4,
                             epoch = "e1",
                         ),
                         observation(
-                            pattern = MovementPattern.QuadIso,
+                            pattern = MovementPattern.KneeExtension,
                             liftId = LiftId("leg-extension"),
                             score = 0.6,
                             epoch = "e1",
@@ -100,7 +100,7 @@ class EffectiveLiftSummaryBuilderTest {
         com.stratum.domain.lift.Lift(
             id = LiftId(slug),
             name = slug,
-            movementPattern = MovementPattern.HorizontalPush,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(primaryMuscle),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,

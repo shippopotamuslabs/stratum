@@ -12,7 +12,7 @@ object LiftEffectivenessAnalyzer {
         deloadWeeks: Set<Instant>,
     ): List<LiftEffectivenessObservation> {
         val cleanSets = TrainingSignalCleaner.clean(input)
-        val patternLifts = input.lifts.filter { it.movementPattern == pattern }.map { it.id }
+        val patternLifts = input.lifts.filter { pattern in it.movementPatterns }.map { it.id }
         val scoredLifts =
             patternLifts.mapNotNull { liftId ->
                 scoreLift(liftId, epoch, cleanSets, deloadWeeks)

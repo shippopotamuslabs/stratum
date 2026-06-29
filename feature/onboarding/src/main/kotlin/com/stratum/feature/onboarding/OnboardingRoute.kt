@@ -2,18 +2,15 @@ package com.stratum.feature.onboarding
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import android.net.Uri
-import com.stratum.domain.importing.ImportFileInput
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -28,9 +25,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumScaffold
-import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.feature.onboarding.ui.GenerateScreen
 import com.stratum.feature.onboarding.ui.GymAndLiftsScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
@@ -63,14 +61,7 @@ fun OnboardingRoute(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
-        val files =
-            uris.mapNotNull { uri ->
-                val bytes =
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        ?: return@mapNotNull null
-                val name = uri.lastPathSegment?.substringAfterLast('/') ?: "import.csv"
-                ImportFileInput(bytes = bytes, fileName = name)
-            }
+        val files = readImportFilesFromUris(context.contentResolver, uris)
         if (files.isEmpty()) return@rememberLauncherForActivityResult
         viewModel.onImportFilesSelected(files)
     }
@@ -79,7 +70,7 @@ fun OnboardingRoute(
         state = state,
         onNext = viewModel::next,
         onBack = viewModel::back,
-        onComplete = viewModel::complete,
+        onGenerate = viewModel::generate,
         onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
         onLastTrainedSelected = viewModel::onLastTrainedSelected,
         onWeekdayToggled = viewModel::onWeekdayToggled,
@@ -106,7 +97,7 @@ private fun OnboardingWizard(
     state: OnboardingUiState,
     onNext: () -> Unit,
     onBack: () -> Unit,
-    onComplete: () -> Unit,
+    onGenerate: () -> Unit,
     onTrainingAgeSelected: (String?) -> Unit,
     onLastTrainedSelected: (String?) -> Unit,
     onWeekdayToggled: (String) -> Unit,
@@ -123,14 +114,11 @@ private fun OnboardingWizard(
         topBar = {
             StratumTopBar(
                 title = state.step.displayName,
-                navigationIcon = if (!state.isFirst) {
+                navigationIcon = if (state.canGoBack) {
                     {
-                        StratumText(
-                            text = stringResource(R.string.onboarding_button_back),
-                            modifier = Modifier
-                                .clickable(onClick = onBack)
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            style = StratumThemeAccessor.typography.bodyLarge,
+                        StratumTopBarBackButton(
+                            onClick = onBack,
+                            contentDescription = stringResource(R.string.onboarding_content_description_back),
                         )
                     }
                 } else {
@@ -167,16 +155,22 @@ private fun OnboardingWizard(
                         onImportCancel = onImportCancel,
                     )
                     WIZARD_STEP_REVIEW -> ReviewScreen(draft = state.reviewDraft)
-                    WIZARD_STEP_GENERATE -> GenerateScreen(onComplete = onComplete)
+                    WIZARD_STEP_GENERATE -> GenerateScreen(
+                        onGenerate = onGenerate,
+                        onBack = onBack,
+                        generateState = state.generateState,
+                        generateProgress = state.generateProgress,
+                        generateMaxTimelineIndex = state.generateMaxTimelineIndex,
+                        generateErrorMessage = state.generateErrorMessage,
+                    )
                 }
             }
-            WizardControls(
-                isFirst = state.isFirst,
-                isLast = state.isLast,
-                canAdvance = state.canAdvance,
-                onBack = onBack,
-                onNext = onNext,
-            )
+            if (!state.isLast && state.generateState != GenerateState.Loading) {
+                WizardControls(
+                    canAdvance = state.canAdvance,
+                    onNext = onNext,
+                )
+            }
         }
     }
 }
@@ -206,46 +200,16 @@ private fun Stepper(steps: List<WizardStepUi>, currentStepId: String) {
 }
 
 @Composable
-private fun GenerateScreen(onComplete: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        StratumText(
-            text = stringResource(R.string.onboarding_generate_title),
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        StratumButton(
-            text = stringResource(R.string.onboarding_button_generate),
-            onClick = onComplete,
-        )
-    }
-}
-
-@Composable
 private fun WizardControls(
-    isFirst: Boolean,
-    isLast: Boolean,
     canAdvance: Boolean,
-    onBack: () -> Unit,
     onNext: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(24.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (!isFirst) {
-            StratumButton(
-                text = stringResource(R.string.onboarding_button_back),
-                onClick = onBack,
-            )
-        } else {
-            Spacer(modifier = Modifier.height(48.dp))
-        }
-        if (!isLast && canAdvance) {
+        if (canAdvance) {
             StratumButton(
                 text = stringResource(R.string.onboarding_button_next),
                 onClick = onNext,

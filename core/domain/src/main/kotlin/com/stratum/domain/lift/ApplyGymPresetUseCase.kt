@@ -10,8 +10,9 @@ import javax.inject.Inject
 class ApplyGymPresetUseCase @Inject constructor(
     private val repository: LiftRepository,
 ) {
-    suspend operator fun invoke(preset: GymPreset) {
-        repository.applyPreset(preset)
-        repository.setSelectedPreset(preset)
-    }
+    suspend operator fun invoke(preset: GymPreset): Result<Unit> =
+        runCatching {
+            repository.applyPreset(preset)
+            repository.setSelectedPreset(preset)
+        }
 }

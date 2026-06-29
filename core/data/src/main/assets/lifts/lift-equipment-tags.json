@@ -1,14 +1,8 @@
 [
   {
-    "id": "ab-crunch-machine",
+    "id": "ab-roller",
     "equipment": [
-      "AbCrunchMachine"
-    ]
-  },
-  {
-    "id": "advanced-kettlebell-windmill",
-    "equipment": [
-      "Kettlebell"
+      "Bodyweight"
     ]
   },
   {
@@ -18,75 +12,15 @@
     ]
   },
   {
-    "id": "alternating-cable-shoulder-press",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "alternating-kettlebell-press",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "alternating-kettlebell-row",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
     "id": "arnold-dumbbell-press",
     "equipment": [
       "Dumbbell"
     ]
   },
   {
-    "id": "back-flyes-with-bands",
+    "id": "back-extension",
     "equipment": [
-      "PecDeck"
-    ]
-  },
-  {
-    "id": "ball-leg-curl",
-    "equipment": [
-      "LegCurl"
-    ]
-  },
-  {
-    "id": "band-assisted-pull-up",
-    "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "band-good-morning",
-    "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "band-good-morning-pull-through",
-    "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "band-hip-adductions",
-    "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "band-pull-apart",
-    "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "band-skull-crusher",
-    "equipment": [
-      "Band"
+      "Ghd"
     ]
   },
   {
@@ -102,19 +36,22 @@
     ]
   },
   {
-    "id": "barbell-bench-press-medium-grip",
+    "id": "barbell-back-squat",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "PowerRack"
+    ]
+  },
+  {
+    "id": "barbell-bench-press",
+    "equipment": [
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
     ]
   },
   {
     "id": "barbell-curl",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "barbell-curls-lying-against-an-incline",
     "equipment": [
       "Barbell"
     ]
@@ -126,9 +63,10 @@
     ]
   },
   {
-    "id": "barbell-full-squat",
+    "id": "barbell-front-squat",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
@@ -140,14 +78,15 @@
   {
     "id": "barbell-guillotine-bench-press",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
     ]
   },
   {
     "id": "barbell-hack-squat",
     "equipment": [
-      "HackSquat",
-      "Barbell"
+      "HackSquat"
     ]
   },
   {
@@ -158,19 +97,21 @@
     ]
   },
   {
-    "id": "barbell-incline-bench-press-medium-grip",
+    "id": "barbell-incline-bench-press",
     "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "barbell-incline-shoulder-raise",
-    "equipment": [
-      "Barbell"
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
     ]
   },
   {
     "id": "barbell-lunge",
+    "equipment": [
+      "Barbell"
+    ]
+  },
+  {
+    "id": "barbell-rack-pull",
     "equipment": [
       "Barbell"
     ]
@@ -188,14 +129,7 @@
     ]
   },
   {
-    "id": "barbell-seated-calf-raise",
-    "equipment": [
-      "CalfRaiseMachine",
-      "Barbell"
-    ]
-  },
-  {
-    "id": "barbell-shoulder-press",
+    "id": "barbell-romanian-deadlift",
     "equipment": [
       "Barbell"
     ]
@@ -213,31 +147,19 @@
     ]
   },
   {
-    "id": "barbell-side-bend",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
     "id": "barbell-side-split-squat",
     "equipment": [
-      "Barbell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "barbell-squat",
+    "id": "barbell-stiff-legged-deadlift",
     "equipment": [
       "Barbell"
     ]
   },
   {
-    "id": "barbell-squat-to-a-bench",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "barbell-step-ups",
+    "id": "barbell-sumo-deadlift",
     "equipment": [
       "Barbell"
     ]
@@ -249,15 +171,15 @@
     ]
   },
   {
-    "id": "bent-arm-barbell-pullover",
+    "id": "bench-dips",
     "equipment": [
-      "Barbell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "bent-arm-dumbbell-pullover",
+    "id": "bent-arm-barbell-pullover",
     "equipment": [
-      "Dumbbell"
+      "Barbell"
     ]
   },
   {
@@ -269,19 +191,8 @@
   {
     "id": "bent-over-dumbbell-rear-delt-raise-with-head-on-bench",
     "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "bent-over-one-arm-long-bar-row",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "bent-over-two-arm-long-bar-row",
-    "equipment": [
-      "Barbell"
+      "Dumbbell",
+      "FlatBench"
     ]
   },
   {
@@ -299,13 +210,6 @@
   {
     "id": "bodyweight-flyes",
     "equipment": [
-      "PecDeck",
-      "Bodyweight"
-    ]
-  },
-  {
-    "id": "bodyweight-mid-row",
-    "equipment": [
       "Bodyweight"
     ]
   },
@@ -318,18 +222,26 @@
   {
     "id": "bodyweight-walking-lunge",
     "equipment": [
-      "Bodyweight"
+      "Dumbbell"
     ]
   },
   {
-    "id": "bosu-ball-cable-crunch-with-side-bends",
+    "id": "box-squat",
     "equipment": [
-      "CableStation"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
-    "id": "butterfly",
+    "id": "bulgarian-split-squat",
     "equipment": [
+      "Dumbbell"
+    ]
+  },
+  {
+    "id": "cable-chest-fly",
+    "equipment": [
+      "CableStation",
       "PecDeck"
     ]
   },
@@ -342,31 +254,7 @@
   {
     "id": "cable-crossover",
     "equipment": [
-      "CableStation",
-      "CableCrossover"
-    ]
-  },
-  {
-    "id": "cable-crunch",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "cable-deadlifts",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "cable-hammer-curls-rope-attachment",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "cable-hip-adduction",
-    "equipment": [
+      "CableCrossover",
       "CableStation"
     ]
   },
@@ -383,50 +271,20 @@
     ]
   },
   {
-    "id": "cable-internal-rotation",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "cable-iron-cross",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "cable-judo-flip",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "cable-lying-triceps-extension",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
     "id": "cable-one-arm-tricep-extension",
     "equipment": [
       "CableStation"
     ]
   },
   {
-    "id": "cable-preacher-curl",
-    "equipment": [
-      "CableStation",
-      "PreacherCurlMachine"
-    ]
-  },
-  {
     "id": "cable-rear-delt-fly",
     "equipment": [
-      "CableStation"
+      "CableStation",
+      "PecDeck"
     ]
   },
   {
-    "id": "cable-reverse-crunch",
+    "id": "cable-rope-hammer-curl",
     "equipment": [
       "CableStation"
     ]
@@ -440,23 +298,12 @@
   {
     "id": "cable-rope-rear-delt-rows",
     "equipment": [
-      "CableStation"
+      "CableStation",
+      "SeatedCableRowStation"
     ]
   },
   {
-    "id": "cable-russian-twists",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "cable-seated-crunch",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "cable-seated-lateral-raise",
+    "id": "cable-rope-triceps-pushdown",
     "equipment": [
       "CableStation"
     ]
@@ -474,7 +321,25 @@
     ]
   },
   {
+    "id": "cable-triceps-pushdown",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "cable-v-bar-triceps-pushdown",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
     "id": "cable-wrist-curl",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "cable-y-raise",
     "equipment": [
       "CableStation"
     ]
@@ -482,27 +347,40 @@
   {
     "id": "calf-press",
     "equipment": [
-      "CalfRaiseMachine"
+      "CableStation"
     ]
   },
   {
-    "id": "calf-press-on-the-leg-press-machine",
+    "id": "chain-handle-extension",
     "equipment": [
-      "LegPress",
-      "CalfRaiseMachine"
+      "Bodyweight"
     ]
   },
   {
-    "id": "calf-raise-on-a-dumbbell",
+    "id": "chain-press",
     "equipment": [
-      "CalfRaiseMachine",
-      "Dumbbell"
+      "CableStation"
+    ]
+  },
+  {
+    "id": "chair-squat",
+    "equipment": [
+      "Barbell",
+      "PowerRack"
+    ]
+  },
+  {
+    "id": "chin-up",
+    "equipment": [
+      "Bodyweight"
     ]
   },
   {
     "id": "close-grip-barbell-bench-press",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
     ]
   },
   {
@@ -514,36 +392,19 @@
   {
     "id": "close-grip-ez-bar-curl",
     "equipment": [
-      "Barbell",
       "EzBar"
-    ]
-  },
-  {
-    "id": "close-grip-ez-bar-curl-with-band",
-    "equipment": [
-      "Barbell",
-      "EzBar",
-      "Band"
     ]
   },
   {
     "id": "close-grip-ez-bar-press",
     "equipment": [
-      "Barbell",
       "EzBar"
     ]
   },
   {
     "id": "close-grip-front-lat-pulldown",
     "equipment": [
-      "CableStation",
-      "LatPulldownMachine"
-    ]
-  },
-  {
-    "id": "close-grip-push-up-off-of-a-dumbbell",
-    "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
@@ -553,22 +414,24 @@
     ]
   },
   {
+    "id": "cross-body-hammer-curl",
+    "equipment": [
+      "Bodyweight"
+    ]
+  },
+  {
     "id": "decline-barbell-bench-press",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
     ]
   },
   {
-    "id": "decline-dumbbell-bench-press",
+    "id": "decline-dumbbell-fly",
     "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "decline-dumbbell-flyes",
-    "equipment": [
-      "PecDeck",
-      "Dumbbell"
+      "Dumbbell",
+      "FlatBench"
     ]
   },
   {
@@ -580,8 +443,13 @@
   {
     "id": "decline-ez-bar-triceps-extension",
     "equipment": [
-      "Barbell",
       "EzBar"
+    ]
+  },
+  {
+    "id": "decline-push-up",
+    "equipment": [
+      "Bodyweight"
     ]
   },
   {
@@ -591,75 +459,64 @@
     ]
   },
   {
-    "id": "double-kettlebell-alternating-hang-clean",
+    "id": "deficit-deadlift",
     "equipment": [
-      "Kettlebell"
+      "Barbell"
     ]
   },
   {
-    "id": "double-kettlebell-jerk",
+    "id": "dip-machine",
     "equipment": [
-      "Kettlebell"
+      "CableStation"
     ]
   },
   {
-    "id": "double-kettlebell-push-press",
+    "id": "dips-chest-version",
     "equipment": [
-      "Kettlebell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "double-kettlebell-snatch",
+    "id": "dips-triceps-version",
     "equipment": [
-      "Kettlebell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "double-kettlebell-windmill",
+    "id": "donkey-calf-raise",
     "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "dumbbell-alternate-bicep-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-bench-press",
-    "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
     "id": "dumbbell-bench-press-with-neutral-grip",
     "equipment": [
-      "Dumbbell"
+      "Dumbbell",
+      "FlatBench"
     ]
   },
   {
-    "id": "dumbbell-bicep-curl",
+    "id": "dumbbell-concentration-curl",
     "equipment": [
       "Dumbbell"
     ]
   },
   {
-    "id": "dumbbell-clean",
+    "id": "dumbbell-fly",
+    "equipment": [
+      "Dumbbell",
+      "FlatBench"
+    ]
+  },
+  {
+    "id": "dumbbell-hammer-curl",
     "equipment": [
       "Dumbbell"
     ]
   },
   {
-    "id": "dumbbell-floor-press",
+    "id": "dumbbell-incline-curl",
     "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-flyes",
-    "equipment": [
-      "PecDeck",
       "Dumbbell"
     ]
   },
@@ -670,37 +527,13 @@
     ]
   },
   {
-    "id": "dumbbell-incline-shoulder-raise",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-lunges",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-lying-one-arm-rear-lateral-raise",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-lying-pronation",
+    "id": "dumbbell-lateral-raise",
     "equipment": [
       "Dumbbell"
     ]
   },
   {
     "id": "dumbbell-lying-rear-lateral-raise",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-lying-supination",
     "equipment": [
       "Dumbbell"
     ]
@@ -730,44 +563,13 @@
     ]
   },
   {
-    "id": "dumbbell-raise",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
     "id": "dumbbell-rear-lunge",
     "equipment": [
       "Dumbbell"
     ]
   },
   {
-    "id": "dumbbell-scaption",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-seated-one-leg-calf-raise",
-    "equipment": [
-      "CalfRaiseMachine",
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-shoulder-press",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-shrug",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "dumbbell-side-bend",
+    "id": "dumbbell-spider-curl",
     "equipment": [
       "Dumbbell"
     ]
@@ -781,7 +583,8 @@
   {
     "id": "dumbbell-squat-to-a-bench",
     "equipment": [
-      "Dumbbell"
+      "Dumbbell",
+      "FlatBench"
     ]
   },
   {
@@ -797,103 +600,53 @@
     ]
   },
   {
-    "id": "elevated-cable-rows",
+    "id": "elevated-back-lunge",
     "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "extended-range-one-arm-kettlebell-floor-press",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "external-rotation-with-band",
-    "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "external-rotation-with-cable",
-    "equipment": [
-      "CableStation"
+      "Dumbbell"
     ]
   },
   {
     "id": "ez-bar-curl",
     "equipment": [
-      "Barbell",
       "EzBar"
     ]
   },
   {
-    "id": "ez-bar-skullcrusher",
+    "id": "ez-bar-skull-crusher",
     "equipment": [
-      "Barbell",
       "EzBar"
     ]
   },
   {
-    "id": "flat-bench-cable-flyes",
-    "equipment": [
-      "CableStation",
-      "PecDeck"
-    ]
-  },
-  {
-    "id": "flat-bench-lying-leg-raise",
-    "equipment": [
-      "LegRaiseCaptainChair"
-    ]
-  },
-  {
-    "id": "flexor-incline-dumbbell-curls",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "front-barbell-squat",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "front-barbell-squat-to-a-bench",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "front-cable-raise",
+    "id": "face-pull",
     "equipment": [
       "CableStation"
     ]
   },
   {
-    "id": "front-dumbbell-raise",
+    "id": "flat-bench-lying-leg-raise",
     "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "front-incline-dumbbell-raise",
+    "id": "floor-press",
     "equipment": [
-      "Dumbbell"
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
     ]
   },
   {
-    "id": "front-two-dumbbell-raise",
+    "id": "front-plate-raise",
     "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
     "id": "full-range-of-motion-lat-pulldown",
     "equipment": [
-      "CableStation",
-      "LatPulldownMachine"
+      "Bodyweight"
     ]
   },
   {
@@ -903,21 +656,28 @@
     ]
   },
   {
-    "id": "hack-squat",
+    "id": "goblet-squat",
     "equipment": [
-      "HackSquat"
+      "Dumbbell"
     ]
   },
   {
-    "id": "hanging-bar-good-morning",
+    "id": "good-morning",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "PowerRack"
+    ]
+  },
+  {
+    "id": "handstand-push-ups",
+    "equipment": [
+      "Bodyweight"
     ]
   },
   {
     "id": "hanging-leg-raise",
     "equipment": [
-      "LegRaiseCaptainChair"
+      "Bodyweight"
     ]
   },
   {
@@ -927,21 +687,9 @@
     ]
   },
   {
-    "id": "hip-flexion-with-band",
+    "id": "incline-bench-pull",
     "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "hip-lift-with-band",
-    "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "incline-barbell-triceps-extension",
-    "equipment": [
-      "Barbell"
+      "Bodyweight"
     ]
   },
   {
@@ -951,36 +699,10 @@
     ]
   },
   {
-    "id": "incline-cable-flye",
+    "id": "incline-cable-fly",
     "equipment": [
       "CableStation",
       "PecDeck"
-    ]
-  },
-  {
-    "id": "incline-dumbbell-bench-with-palms-facing-in",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "incline-dumbbell-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "incline-dumbbell-flyes",
-    "equipment": [
-      "PecDeck",
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "incline-dumbbell-flyes-with-a-twist",
-    "equipment": [
-      "PecDeck",
-      "Dumbbell"
     ]
   },
   {
@@ -990,103 +712,38 @@
     ]
   },
   {
-    "id": "internal-rotation-with-band",
+    "id": "incline-hammer-curls",
     "equipment": [
-      "Band"
+      "Bodyweight"
     ]
   },
   {
-    "id": "kettlebell-arnold-press",
+    "id": "incline-inner-biceps-curl",
     "equipment": [
-      "Kettlebell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "kettlebell-dead-clean",
+    "id": "incline-push-up",
     "equipment": [
-      "Kettlebell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "kettlebell-figure-8",
+    "id": "jefferson-squats",
     "equipment": [
-      "Kettlebell"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
-    "id": "kettlebell-hang-clean",
+    "id": "jm-press",
     "equipment": [
-      "Kettlebell"
+      "Barbell"
     ]
   },
   {
-    "id": "kettlebell-one-legged-deadlift",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-pass-between-the-legs",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-pirate-ships",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-pistol-squat",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-seated-press",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-seesaw-press",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-sumo-high-pull",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-thruster",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-turkish-get-up-lunge-style",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-turkish-get-up-squat-style",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kettlebell-windmill",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "kneeling-cable-crunch-with-alternating-oblique-twists",
+    "id": "katana-triceps-extension",
     "equipment": [
       "CableStation"
     ]
@@ -1098,16 +755,69 @@
     ]
   },
   {
-    "id": "leg-press",
+    "id": "kneeling-high-pulley-row",
     "equipment": [
-      "LegPress"
+      "CableStation",
+      "SeatedCableRowStation"
+    ]
+  },
+  {
+    "id": "kneeling-single-arm-high-pulley-row",
+    "equipment": [
+      "CableStation",
+      "SeatedCableRowStation"
+    ]
+  },
+  {
+    "id": "kneeling-squat",
+    "equipment": [
+      "Barbell",
+      "PowerRack"
+    ]
+  },
+  {
+    "id": "leg-lift",
+    "equipment": [
+      "Bodyweight"
+    ]
+  },
+  {
+    "id": "leg-over-floor-press",
+    "equipment": [
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
+    ]
+  },
+  {
+    "id": "leverage-chest-press",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "leverage-decline-chest-press",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "leverage-high-row",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "leverage-iso-row",
+    "equipment": [
+      "CableStation"
     ]
   },
   {
     "id": "low-cable-crossover",
     "equipment": [
-      "CableStation",
-      "CableCrossover"
+      "CableCrossover",
+      "CableStation"
     ]
   },
   {
@@ -1117,21 +827,16 @@
     ]
   },
   {
-    "id": "lying-cable-curl",
+    "id": "low-pulley-row-to-neck",
     "equipment": [
-      "CableStation"
+      "CableStation",
+      "SeatedCableRowStation"
     ]
   },
   {
-    "id": "lying-cambered-barbell-row",
+    "id": "lunge-pass-through",
     "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "lying-close-grip-bar-curl-on-high-pulley",
-    "equipment": [
-      "Barbell"
+      "Dumbbell"
     ]
   },
   {
@@ -1153,53 +858,71 @@
     ]
   },
   {
-    "id": "lying-high-bench-barbell-curl",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "lying-supine-dumbbell-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
     "id": "lying-t-bar-row",
     "equipment": [
-      "TBarRowStation",
-      "Barbell"
+      "CableStation"
     ]
   },
   {
-    "id": "machine-preacher-curls",
+    "id": "machine-bicep-curl",
     "equipment": [
-      "PreacherCurlMachine"
+      "CableStation"
+    ]
+  },
+  {
+    "id": "machine-leg-extension",
+    "equipment": [
+      "LegExtension"
+    ]
+  },
+  {
+    "id": "machine-lying-leg-curl",
+    "equipment": [
+      "LegCurl"
+    ]
+  },
+  {
+    "id": "machine-shoulder-military-press",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "machine-triceps-extension",
+    "equipment": [
+      "CableStation"
     ]
   },
   {
     "id": "narrow-stance-leg-press",
     "equipment": [
+      "CalfRaiseMachine",
       "LegPress"
     ]
   },
   {
-    "id": "natural-glute-ham-raise",
+    "id": "neck-press",
     "equipment": [
-      "Ghd"
+      "CableStation"
+    ]
+  },
+  {
+    "id": "one-arm-chin-up",
+    "equipment": [
+      "Bodyweight"
     ]
   },
   {
     "id": "one-arm-dumbbell-bench-press",
     "equipment": [
-      "Dumbbell"
+      "Dumbbell",
+      "FlatBench"
     ]
   },
   {
     "id": "one-arm-dumbbell-preacher-curl",
     "equipment": [
-      "PreacherCurlMachine",
-      "Dumbbell"
+      "PreacherCurlMachine"
     ]
   },
   {
@@ -1209,131 +932,36 @@
     ]
   },
   {
-    "id": "one-arm-flat-bench-dumbbell-flye",
+    "id": "one-arm-floor-press",
     "equipment": [
-      "PecDeck",
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "one-arm-high-pulley-cable-side-bends",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-clean",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-clean-and-jerk",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-floor-press",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-jerk",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-military-press-to-the-side",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-para-press",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-push-press",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-row",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-snatch",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-split-jerk",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-split-snatch",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-kettlebell-swings",
-    "equipment": [
-      "Kettlebell"
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
     ]
   },
   {
     "id": "one-arm-lat-pulldown",
     "equipment": [
-      "CableStation",
-      "LatPulldownMachine"
+      "Bodyweight"
     ]
   },
   {
     "id": "one-arm-long-bar-row",
     "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "one-arm-side-deadlift",
+    "equipment": [
       "Barbell"
-    ]
-  },
-  {
-    "id": "one-arm-open-palm-kettlebell-clean",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-overhead-kettlebell-squats",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "one-arm-pronated-dumbbell-triceps-extension",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "one-arm-supinated-dumbbell-triceps-extension",
-    "equipment": [
-      "Dumbbell"
     ]
   },
   {
     "id": "one-leg-barbell-squat",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
@@ -1343,21 +971,15 @@
     ]
   },
   {
-    "id": "open-palm-kettlebell-clean",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
     "id": "overhead-cable-curl",
     "equipment": [
       "CableStation"
     ]
   },
   {
-    "id": "palms-down-dumbbell-wrist-curl-over-a-bench",
+    "id": "palms-down-wrist-curl-over-a-bench",
     "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
@@ -1367,27 +989,35 @@
     ]
   },
   {
-    "id": "palms-up-dumbbell-wrist-curl-over-a-bench",
+    "id": "parallel-bar-dip",
     "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "parallel-bar-dip",
+    "id": "pec-deck-fly",
     "equipment": [
-      "Barbell"
+      "PecDeck"
+    ]
+  },
+  {
+    "id": "pin-presses",
+    "equipment": [
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
+    ]
+  },
+  {
+    "id": "plank",
+    "equipment": [
+      "Bodyweight"
     ]
   },
   {
     "id": "plie-dumbbell-squat",
     "equipment": [
       "Dumbbell"
-    ]
-  },
-  {
-    "id": "plyo-kettlebell-pushups",
-    "equipment": [
-      "Kettlebell"
     ]
   },
   {
@@ -1399,51 +1029,37 @@
   {
     "id": "preacher-hammer-dumbbell-curl",
     "equipment": [
-      "PreacherCurlMachine",
       "Dumbbell"
     ]
   },
   {
-    "id": "reverse-band-bench-press",
+    "id": "pull-through",
     "equipment": [
-      "Band"
+      "Bodyweight"
     ]
   },
   {
-    "id": "reverse-band-box-squat",
+    "id": "pull-up",
     "equipment": [
-      "Band"
+      "Bodyweight"
     ]
   },
   {
-    "id": "reverse-band-deadlift",
+    "id": "push-up-to-side-plank",
     "equipment": [
-      "Band"
+      "Bodyweight"
     ]
   },
   {
-    "id": "reverse-band-power-squat",
+    "id": "pushups",
     "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "reverse-band-sumo-deadlift",
-    "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "reverse-barbell-curl",
-    "equipment": [
-      "Barbell"
+      "Bodyweight"
     ]
   },
   {
     "id": "reverse-barbell-preacher-curls",
     "equipment": [
-      "PreacherCurlMachine",
-      "Barbell"
+      "PreacherCurlMachine"
     ]
   },
   {
@@ -1455,25 +1071,21 @@
   {
     "id": "reverse-flyes",
     "equipment": [
-      "PecDeck"
+      "Bodyweight"
     ]
   },
   {
-    "id": "reverse-flyes-with-external-rotation",
+    "id": "reverse-grip-bent-over-rows",
     "equipment": [
-      "PecDeck"
+      "CableStation"
     ]
   },
   {
-    "id": "reverse-machine-flyes",
+    "id": "reverse-triceps-bench-press",
     "equipment": [
-      "PecDeck"
-    ]
-  },
-  {
-    "id": "rocking-standing-calf-raise",
-    "equipment": [
-      "CalfRaiseMachine"
+      "Barbell",
+      "FlatBench",
+      "PowerRack"
     ]
   },
   {
@@ -1484,51 +1096,22 @@
     ]
   },
   {
-    "id": "seated-band-hamstring-curl",
+    "id": "scapular-pull-up",
     "equipment": [
-      "Band"
-    ]
-  },
-  {
-    "id": "seated-barbell-military-press",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "seated-barbell-twist",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "seated-bent-over-one-arm-dumbbell-triceps-extension",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "seated-bent-over-two-arm-dumbbell-triceps-extension",
-    "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
     "id": "seated-cable-rows",
     "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "seated-cable-shoulder-press",
-    "equipment": [
-      "CableStation"
+      "CableStation",
+      "SeatedCableRowStation"
     ]
   },
   {
     "id": "seated-calf-raise",
     "equipment": [
-      "CalfRaiseMachine"
+      "Bodyweight"
     ]
   },
   {
@@ -1538,82 +1121,48 @@
     ]
   },
   {
-    "id": "seated-dumbbell-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "seated-dumbbell-inner-biceps-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "seated-dumbbell-palms-down-wrist-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "seated-dumbbell-palms-up-wrist-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
     "id": "seated-dumbbell-press",
     "equipment": [
       "Dumbbell"
     ]
   },
   {
-    "id": "seated-leg-curl",
+    "id": "seated-one-arm-cable-pulley-rows",
     "equipment": [
-      "LegCurl"
+      "CableStation",
+      "SeatedCableRowStation"
     ]
   },
   {
-    "id": "seated-one-arm-cable-pulley-rows",
+    "id": "seated-triceps-press",
     "equipment": [
       "CableStation"
     ]
   },
   {
-    "id": "seated-one-arm-dumbbell-palms-down-wrist-curl",
+    "id": "side-to-side-chins",
     "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "seated-one-arm-dumbbell-palms-up-wrist-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "seated-palm-up-barbell-wrist-curl",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "seated-palms-down-barbell-wrist-curl",
-    "equipment": [
-      "Barbell"
+      "Bodyweight"
     ]
   },
   {
     "id": "single-arm-cable-crossover",
     "equipment": [
-      "CableStation",
-      "CableCrossover"
+      "CableCrossover",
+      "CableStation"
     ]
   },
   {
-    "id": "single-dumbbell-raise",
+    "id": "single-leg-glute-bridge",
     "equipment": [
-      "Dumbbell"
+      "Bodyweight"
+    ]
+  },
+  {
+    "id": "single-leg-high-box-squat",
+    "equipment": [
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
@@ -1623,81 +1172,14 @@
     ]
   },
   {
-    "id": "sled-reverse-flye",
+    "id": "sled-leg-press",
     "equipment": [
-      "PecDeck"
-    ]
-  },
-  {
-    "id": "smith-incline-shoulder-raise",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-behind-the-back-shrug",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-bench-press",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-bent-over-row",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-calf-raise",
-    "equipment": [
-      "SmithMachine",
-      "CalfRaiseMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-close-grip-bench-press",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-decline-press",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-hang-power-clean",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-hip-raise",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-incline-bench-press",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-leg-press",
-    "equipment": [
-      "SmithMachine",
+      "CalfRaiseMachine",
       "LegPress"
     ]
   },
   {
-    "id": "smith-machine-one-arm-upright-row",
+    "id": "smith-machine-behind-the-back-shrug",
     "equipment": [
       "SmithMachine"
     ]
@@ -1709,45 +1191,30 @@
     ]
   },
   {
-    "id": "smith-machine-pistol-squat",
+    "id": "speed-box-squat",
     "equipment": [
-      "SmithMachine"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
-    "id": "smith-machine-reverse-calf-raises",
+    "id": "speed-squats",
     "equipment": [
-      "SmithMachine"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
-    "id": "smith-machine-squat",
+    "id": "split-squat-with-dumbbells",
     "equipment": [
-      "SmithMachine"
+      "Dumbbell"
     ]
   },
   {
-    "id": "smith-machine-stiff-legged-deadlift",
+    "id": "squat-with-plate-movers",
     "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-machine-upright-row",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "smith-single-leg-split-squat",
-    "equipment": [
-      "SmithMachine"
-    ]
-  },
-  {
-    "id": "speed-band-overhead-triceps",
-    "equipment": [
-      "Band"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
@@ -1757,28 +1224,9 @@
     ]
   },
   {
-    "id": "standing-barbell-calf-raise",
-    "equipment": [
-      "CalfRaiseMachine",
-      "Barbell"
-    ]
-  },
-  {
     "id": "standing-barbell-press-behind-neck",
     "equipment": [
       "Barbell"
-    ]
-  },
-  {
-    "id": "standing-bent-over-one-arm-dumbbell-triceps-extension",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "standing-bent-over-two-arm-dumbbell-triceps-extension",
-    "equipment": [
-      "Dumbbell"
     ]
   },
   {
@@ -1788,88 +1236,28 @@
     ]
   },
   {
-    "id": "standing-cable-chest-press",
+    "id": "standing-inner-biceps-curl",
+    "equipment": [
+      "Bodyweight"
+    ]
+  },
+  {
+    "id": "standing-low-pulley-one-arm-triceps-extension",
     "equipment": [
       "CableStation"
     ]
   },
   {
-    "id": "standing-cable-lift",
+    "id": "standing-military-press",
     "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "standing-cable-wood-chop",
-    "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "standing-dumbbell-calf-raise",
-    "equipment": [
-      "CalfRaiseMachine",
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "standing-dumbbell-press",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "standing-dumbbell-reverse-curl",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "standing-dumbbell-straight-arm-front-delt-raise-above-head",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "standing-dumbbell-triceps-extension",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "standing-dumbbell-upright-row",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "standing-front-barbell-raise-over-head",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "standing-leg-curl",
-    "equipment": [
-      "LegCurl"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
     "id": "standing-one-arm-cable-curl",
     "equipment": [
       "CableStation"
-    ]
-  },
-  {
-    "id": "standing-one-arm-dumbbell-curl-over-incline-bench",
-    "equipment": [
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "standing-one-arm-dumbbell-triceps-extension",
-    "equipment": [
-      "Dumbbell"
     ]
   },
   {
@@ -1891,27 +1279,9 @@
     ]
   },
   {
-    "id": "standing-palms-up-barbell-behind-the-back-wrist-curl",
+    "id": "step-up-with-knee-raise",
     "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "stiff-leg-barbell-good-morning",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "stiff-legged-barbell-deadlift",
-    "equipment": [
-      "Barbell"
-    ]
-  },
-  {
-    "id": "stiff-legged-dumbbell-deadlift",
-    "equipment": [
-      "Dumbbell"
+      "Bodyweight"
     ]
   },
   {
@@ -1923,21 +1293,25 @@
   {
     "id": "straight-arm-pulldown",
     "equipment": [
-      "CableStation",
-      "LatPulldownMachine"
+      "Bodyweight"
     ]
   },
   {
     "id": "straight-bar-bench-mid-rows",
     "equipment": [
-      "Barbell"
+      "CableStation"
     ]
   },
   {
     "id": "t-bar-row-with-handle",
     "equipment": [
-      "TBarRowStation",
-      "Barbell"
+      "CableStation"
+    ]
+  },
+  {
+    "id": "tate-press",
+    "equipment": [
+      "CableStation"
     ]
   },
   {
@@ -1953,104 +1327,79 @@
     ]
   },
   {
-    "id": "triceps-pushdown-v-bar-attachment",
+    "id": "triceps-overhead-extension-with-rope",
     "equipment": [
-      "Barbell"
+      "CableStation"
     ]
   },
   {
     "id": "two-arm-dumbbell-preacher-curl",
     "equipment": [
-      "PreacherCurlMachine",
-      "Dumbbell"
-    ]
-  },
-  {
-    "id": "two-arm-kettlebell-clean",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "two-arm-kettlebell-jerk",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "two-arm-kettlebell-military-press",
-    "equipment": [
-      "Kettlebell"
-    ]
-  },
-  {
-    "id": "two-arm-kettlebell-row",
-    "equipment": [
-      "Kettlebell"
+      "PreacherCurlMachine"
     ]
   },
   {
     "id": "underhand-cable-pulldowns",
     "equipment": [
-      "CableStation"
-    ]
-  },
-  {
-    "id": "upright-barbell-row",
-    "equipment": [
-      "Barbell"
+      "CableStation",
+      "LatPulldownMachine"
     ]
   },
   {
     "id": "upright-cable-row",
     "equipment": [
-      "CableStation"
+      "CableStation",
+      "SeatedCableRowStation"
     ]
   },
   {
     "id": "v-bar-pulldown",
     "equipment": [
       "CableStation",
-      "LatPulldownMachine",
-      "Barbell"
+      "LatPulldownMachine"
     ]
   },
   {
     "id": "v-bar-pullup",
     "equipment": [
-      "Barbell"
+      "CableStation"
     ]
   },
   {
-    "id": "wide-grip-barbell-bench-press",
+    "id": "weighted-bench-dip",
     "equipment": [
-      "Barbell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "wide-grip-decline-barbell-bench-press",
+    "id": "weighted-pull-ups",
     "equipment": [
-      "Barbell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "wide-grip-decline-barbell-pullover",
+    "id": "weighted-sissy-squat",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
     "id": "wide-grip-lat-pulldown",
     "equipment": [
-      "CableStation",
-      "LatPulldownMachine"
+      "Bodyweight"
     ]
   },
   {
     "id": "wide-grip-pulldown-behind-the-neck",
     "equipment": [
-      "CableStation",
-      "LatPulldownMachine"
+      "Bodyweight"
+    ]
+  },
+  {
+    "id": "wide-grip-rear-pull-up",
+    "equipment": [
+      "Bodyweight"
     ]
   },
   {
@@ -2062,19 +1411,21 @@
   {
     "id": "wide-stance-barbell-squat",
     "equipment": [
-      "Barbell"
+      "Barbell",
+      "PowerRack"
     ]
   },
   {
-    "id": "wrist-rotations-with-straight-bar",
+    "id": "wrist-roller",
     "equipment": [
-      "Barbell"
+      "Bodyweight"
     ]
   },
   {
-    "id": "zottman-preacher-curl",
+    "id": "zercher-squats",
     "equipment": [
-      "PreacherCurlMachine"
+      "Barbell",
+      "PowerRack"
     ]
   }
 ]

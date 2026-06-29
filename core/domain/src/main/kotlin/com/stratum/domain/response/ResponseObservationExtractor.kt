@@ -26,7 +26,7 @@ class DefaultResponseObservationExtractor @Inject constructor() : ResponseObserv
             )
         val volumeResponses = ResponseModelingPipeline.projectVolumeResponses(modeling, epochs)
 
-        val patterns = input.lifts.map { it.movementPattern }.distinct()
+        val patterns = input.lifts.flatMap { it.movementPatterns }.distinct()
         val liftEffectiveness =
             patterns.flatMap { pattern ->
                 epochs.flatMap { epoch ->

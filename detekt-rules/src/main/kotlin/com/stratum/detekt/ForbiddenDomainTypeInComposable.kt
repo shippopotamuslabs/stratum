@@ -40,14 +40,12 @@ class ForbiddenDomainTypeInComposable(config: Config) : Rule(config) {
         super.visitImportDirective(importDirective)
 
         val importPath = importDirective.importPath?.pathStr ?: return
-        if (!importPath.startsWith(DOMAIN_PACKAGE_PREFIX)) {
+        if (!importPath.startsWith(DomainTypeReference.DOMAIN_PACKAGE_PREFIX)) {
             return
         }
 
-        val simpleName =
-            importDirective.importedName?.asString()
-                ?: importPath.substringAfterLast('.')
-        domainImportedTypes = domainImportedTypes + simpleName
+        domainImportedTypes =
+            DomainTypeReference.collectDomainImportedTypes(importDirective, domainImportedTypes)
     }
 
     override fun visitNamedFunction(function: KtNamedFunction) {
@@ -69,10 +67,10 @@ class ForbiddenDomainTypeInComposable(config: Config) : Rule(config) {
 
         function.valueParameters.forEach { parameter ->
             val typeText = parameter.typeReference?.text ?: return@forEach
-            if (isAllowedType(typeText)) {
+            if (DomainTypeReference.isAllowedType(typeText)) {
                 return@forEach
             }
-            if (!typeReferencesDomain(typeText, domainImportedTypes)) {
+            if (!DomainTypeReference.typeReferencesDomain(typeText, domainImportedTypes)) {
                 return@forEach
             }
 
@@ -89,49 +87,10 @@ class ForbiddenDomainTypeInComposable(config: Config) : Rule(config) {
     }
 
     companion object {
-        private const val DOMAIN_PACKAGE_PREFIX = "com.stratum.domain"
-
-        private val ALLOWED_SIMPLE_TYPES =
-            setOf(
-                "String",
-                "Int",
-                "Boolean",
-                "Float",
-                "Double",
-                "Long",
-                "Short",
-                "Byte",
-                "Char",
-                "Unit",
-                "Modifier",
-                "Any",
-            )
-
         private fun KtAnnotated.hasComposableAnnotation(): Boolean =
             annotationEntries.any { entry ->
                 entry.shortName?.asString() == "Composable" ||
                     entry.typeReference?.text?.endsWith("Composable") == true
             }
-
-        private fun isAllowedType(typeText: String): Boolean {
-            if (typeText.contains("->")) {
-                return true
-            }
-            val root = typeText.substringBefore('<').trim()
-            return root in ALLOWED_SIMPLE_TYPES
-        }
-
-        private fun typeReferencesDomain(typeText: String, domainTypes: Set<String>): Boolean {
-            val tokens =
-                typeText
-                    .split(TOKEN_SPLIT_REGEX)
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-            return tokens.any { token ->
-                token.startsWith(DOMAIN_PACKAGE_PREFIX) || token in domainTypes
-            }
-        }
-
-        private val TOKEN_SPLIT_REGEX = Regex("[<>,\\s()?.]+")
     }
 }

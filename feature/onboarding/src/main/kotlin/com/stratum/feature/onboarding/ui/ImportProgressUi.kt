@@ -3,8 +3,9 @@ package com.stratum.feature.onboarding.ui
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import com.stratum.domain.importing.ImportCatalogProgressStep
-import com.stratum.domain.importing.ImportProgress
+import com.stratum.feature.onboarding.ImportCatalogStepUi
+import com.stratum.feature.onboarding.ImportProgressPhaseUi
+import com.stratum.feature.onboarding.ImportProgressUi
 import com.stratum.feature.onboarding.R as FeatureR
 
 private val TECHNICAL_IMPORT_DETAIL_PATTERNS =
@@ -26,44 +27,44 @@ internal fun userFacingImportDetail(detail: String): String? =
     detail.takeIf { text -> TECHNICAL_IMPORT_DETAIL_PATTERNS.none { it.containsMatchIn(text) } }
 
 @StringRes
-internal fun catalogProgressStepStringRes(step: ImportCatalogProgressStep): Int =
+internal fun catalogProgressStepStringRes(step: ImportCatalogStepUi): Int =
     when (step) {
-        ImportCatalogProgressStep.LoadingConvertedData -> FeatureR.string.gym_lifts_import_subtitle_loading_converted
-        is ImportCatalogProgressStep.MergingImportedFiles -> FeatureR.string.gym_lifts_import_subtitle_merging
-        is ImportCatalogProgressStep.MatchingCatalog -> FeatureR.string.gym_lifts_import_subtitle_matching
-        is ImportCatalogProgressStep.IdentifyingCustomLifts -> FeatureR.string.gym_lifts_import_subtitle_custom_lifts
-        is ImportCatalogProgressStep.InferringEquipment -> FeatureR.string.gym_lifts_import_subtitle_equipment
-        ImportCatalogProgressStep.EnablingAvailableLifts -> FeatureR.string.gym_lifts_import_subtitle_enabling
-        ImportCatalogProgressStep.SavingHistory -> FeatureR.string.gym_lifts_import_subtitle_saving
-        ImportCatalogProgressStep.AnalyzingPatterns -> FeatureR.string.gym_lifts_import_subtitle_analyzing
+        ImportCatalogStepUi.LoadingConvertedData -> FeatureR.string.gym_lifts_import_subtitle_loading_converted
+        is ImportCatalogStepUi.MergingImportedFiles -> FeatureR.string.gym_lifts_import_subtitle_merging
+        is ImportCatalogStepUi.MatchingCatalog -> FeatureR.string.gym_lifts_import_subtitle_matching
+        is ImportCatalogStepUi.IdentifyingCustomLifts -> FeatureR.string.gym_lifts_import_subtitle_custom_lifts
+        is ImportCatalogStepUi.InferringEquipment -> FeatureR.string.gym_lifts_import_subtitle_equipment
+        ImportCatalogStepUi.EnablingAvailableLifts -> FeatureR.string.gym_lifts_import_subtitle_enabling
+        ImportCatalogStepUi.SavingHistory -> FeatureR.string.gym_lifts_import_subtitle_saving
+        ImportCatalogStepUi.AnalyzingPatterns -> FeatureR.string.gym_lifts_import_subtitle_analyzing
     }
 
 @Composable
-internal fun importProgressSubtitle(progress: ImportProgress): String? {
+internal fun importProgressSubtitle(progress: ImportProgressUi): String? {
     progress.catalogStep?.let { step ->
         return when (step) {
-            ImportCatalogProgressStep.LoadingConvertedData,
-            ImportCatalogProgressStep.EnablingAvailableLifts,
-            ImportCatalogProgressStep.SavingHistory,
-            ImportCatalogProgressStep.AnalyzingPatterns,
+            ImportCatalogStepUi.LoadingConvertedData,
+            ImportCatalogStepUi.EnablingAvailableLifts,
+            ImportCatalogStepUi.SavingHistory,
+            ImportCatalogStepUi.AnalyzingPatterns,
             ->
                 stringResource(catalogProgressStepStringRes(step))
-            is ImportCatalogProgressStep.MergingImportedFiles ->
+            is ImportCatalogStepUi.MergingImportedFiles ->
                 stringResource(
                     catalogProgressStepStringRes(step),
                     step.fileCount,
                 )
-            is ImportCatalogProgressStep.MatchingCatalog ->
+            is ImportCatalogStepUi.MatchingCatalog ->
                 stringResource(
                     catalogProgressStepStringRes(step),
                     step.exerciseCount,
                 )
-            is ImportCatalogProgressStep.IdentifyingCustomLifts ->
+            is ImportCatalogStepUi.IdentifyingCustomLifts ->
                 stringResource(
                     catalogProgressStepStringRes(step),
                     step.exerciseCount,
                 )
-            is ImportCatalogProgressStep.InferringEquipment ->
+            is ImportCatalogStepUi.InferringEquipment ->
                 stringResource(
                     catalogProgressStepStringRes(step),
                     step.exerciseCount,

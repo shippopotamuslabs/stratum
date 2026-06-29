@@ -12,6 +12,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.stratum.domain.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
+import com.stratum.domain.logging.LoggingPort
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,6 +29,7 @@ class FirebaseGoogleAuthManager @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val credentialManager: CredentialManager,
     private val signInHostContext: SignInHostContext,
+    private val loggingPort: LoggingPort,
     @com.stratum.core.data.di.ApplicationScope private val externalScope: CoroutineScope,
 ) : AuthManager {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
@@ -91,10 +93,18 @@ class FirebaseGoogleAuthManager @Inject constructor(
             email = user.email,
             photoUrl = user.photoUrl?.toString(),
         )
+    }.onFailure { error ->
+        loggingPort.error(TAG, "Google sign-in failed: ${error.message}", error)
     }
 
     override suspend fun signOut(): Result<Unit> = runCatching {
         firebaseAuth.signOut()
         credentialManager.clearCredentialState(ClearCredentialStateRequest())
+    }.onFailure { error ->
+        loggingPort.error(TAG, "Google sign-out failed: ${error.message}", error)
+    }
+
+    private companion object {
+        const val TAG = "StratumGoogleAuth"
     }
 }

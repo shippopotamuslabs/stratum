@@ -12,6 +12,9 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveSelectedPresetUseCase
+import com.stratum.domain.importing.CancelHistoricalImportUseCase
+import com.stratum.domain.importing.ExecuteHistoricalImportUseCase
+import com.stratum.domain.onboarding.GetOnboardingStepCapabilitiesUseCase
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
@@ -19,7 +22,9 @@ import com.stratum.domain.importing.LoadHistoricalImportSummaryUseCase
 import com.stratum.domain.importing.ReconcileHistoricalImportUseCase
 import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
 import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
+import com.stratum.domain.importing.RefreshPersistedImportStateUseCase
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
+import com.stratum.domain.importing.RunHistoricalImportUseCase
 import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.domain.lift.ObserveUsedHistoricalImportUseCase
 import com.stratum.domain.lift.SetSelectedPresetUseCase
@@ -54,6 +59,9 @@ import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.program.scenarioContext
 import java.time.Instant
 
 internal object OnboardingViewModelTestFixtures {
@@ -71,6 +79,7 @@ internal object OnboardingViewModelTestFixtures {
     private val fakeVolumeRepository = FakeVolumeRepository()
     private val fakeVolumeResponseRepository = FakeVolumeResponseObservationRepository()
     private val fakeEffectivenessRepository = FakeLiftEffectivenessObservationRepository()
+    val fakeProgramRepository = FakeProgramRepository()
 
     fun resetDefaults() {
         fakeRepository.seed(
@@ -88,10 +97,10 @@ internal object OnboardingViewModelTestFixtures {
         fakeEffectivenessRepository.seed(emptyList())
         fakeHistoricalImport.setEvents(
             listOf(
-                com.stratum.domain.importing.HistoricalImportEvent.Progress(
-                    com.stratum.domain.importing.ImportProgress(ImportProgressPhase.Uploading),
+                HistoricalImportEvent.Progress(
+                    ImportProgress(ImportProgressPhase.Uploading),
                 ),
-                com.stratum.domain.importing.HistoricalImportEvent.Completed(
+                HistoricalImportEvent.Completed(
                     com.stratum.domain.importing.ExtractTrainingInsightsSummary(
                         liftsWithInsights = 1,
                         supersetPairs = 0,
@@ -107,51 +116,70 @@ internal object OnboardingViewModelTestFixtures {
         fakeTrainingHistoryRepository.seedOrphanHistory()
     }
 
-    fun buildViewModel(): OnboardingViewModel = OnboardingViewModel(
-        getOnboardingWizardState = GetOnboardingWizardStateUseCase(
-            getOnboardingState = GetOnboardingStateUseCase(fakeRepository, fakeProfileRepository),
-            observeSpecialization = ObserveSpecializationUseCase(fakeSpecializationRepository),
-            observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
-            observeSelectedPreset = ObserveSelectedPresetUseCase(fakeLiftRepository),
-            observeUsedHistoricalImport = ObserveUsedHistoricalImportUseCase(fakeLiftRepository),
-        ),
-        advanceOnboardingStep = AdvanceOnboardingStepUseCase(
-            validateCurrentStep = ValidateCurrentOnboardingStepUseCase(
-                validateProfileStep = ValidateProfileStepUseCase(),
-                validateScheduleStep = ValidateScheduleStepUseCase(),
-                validateSpecializationStep = ValidateSpecializationStepUseCase(),
-                validateGymLiftsStep = ValidateGymLiftsStepUseCase(),
-            ),
-            updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
-            updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
-            saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeRepository),
-        ),
-        validateCurrentStep = ValidateCurrentOnboardingStepUseCase(
+    fun buildViewModel(): OnboardingViewModel {
+        val validateCurrentStep = ValidateCurrentOnboardingStepUseCase(
             validateProfileStep = ValidateProfileStepUseCase(),
             validateScheduleStep = ValidateScheduleStepUseCase(),
             validateSpecializationStep = ValidateSpecializationStepUseCase(),
             validateGymLiftsStep = ValidateGymLiftsStepUseCase(),
-        ),
-        applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),
-        setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository),
-        runFullHistoricalImport = fakeHistoricalImport,
-        rollbackHistoricalImport = buildRollbackHistoricalImport(),
-        reconcileHistoricalImport = ReconcileHistoricalImportUseCase(
-            fakeMetadataRepository,
-            buildRollbackHistoricalImport(),
-        ),
-        loadHistoricalImportSummary = LoadHistoricalImportSummaryUseCase(
-            fakeMetadataRepository,
-            fakeVolumeRepository,
-            fakeLiftInsightsRepository,
-            fakeSupersetRepository,
-            fakeVolumeResponseRepository,
-            fakeEffectivenessRepository,
-            com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
-            fakeLiftRepository,
-        ),
-        completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
-    )
+        )
+        val rollbackHistoricalImport = buildRollbackHistoricalImport()
+        val refreshPersistedImportState = RefreshPersistedImportStateUseCase(
+            reconcileHistoricalImport = ReconcileHistoricalImportUseCase(
+                fakeMetadataRepository,
+                rollbackHistoricalImport,
+            ),
+            loadHistoricalImportSummary = LoadHistoricalImportSummaryUseCase(
+                fakeMetadataRepository,
+                fakeVolumeRepository,
+                fakeLiftInsightsRepository,
+                fakeSupersetRepository,
+                fakeVolumeResponseRepository,
+                fakeEffectivenessRepository,
+                com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
+                fakeLiftRepository,
+            ),
+        )
+        return OnboardingViewModel(
+            getOnboardingWizardState = GetOnboardingWizardStateUseCase(
+                getOnboardingState = GetOnboardingStateUseCase(fakeRepository, fakeProfileRepository),
+                observeSpecialization = ObserveSpecializationUseCase(fakeSpecializationRepository),
+                observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
+                observeSelectedPreset = ObserveSelectedPresetUseCase(fakeLiftRepository),
+                observeUsedHistoricalImport = ObserveUsedHistoricalImportUseCase(fakeLiftRepository),
+            ),
+            advanceOnboardingStep = AdvanceOnboardingStepUseCase(
+                validateCurrentStep = validateCurrentStep,
+                updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
+                updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
+                saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeRepository),
+            ),
+            getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
+            applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),
+            setSelectedPreset = SetSelectedPresetUseCase(fakeLiftRepository),
+            executeHistoricalImport = ExecuteHistoricalImportUseCase(
+                validateImportFiles = com.stratum.domain.importing.ValidateImportFilesUseCase(),
+                runHistoricalImport = RunHistoricalImportUseCase(fakeHistoricalImport),
+                rollbackHistoricalImport = rollbackHistoricalImport,
+                refreshPersistedImportState = refreshPersistedImportState,
+            ),
+            cancelHistoricalImport = CancelHistoricalImportUseCase(
+                rollbackHistoricalImport,
+                refreshPersistedImportState,
+            ),
+            refreshPersistedImportState = refreshPersistedImportState,
+            generateProgram = com.stratum.domain.program.GenerateProgramUseCase(
+                loadContext = com.stratum.domain.program.ProgramGenerationContextLoader {
+                    scenarioContext(days = 3, specialization = emptyMap())
+                },
+                pipeline = testProgramGenerationPipeline(),
+                repository = fakeProgramRepository,
+                liftRepository = fakeLiftRepository,
+                completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
+                profileRepository = fakeProfileRepository,
+            ),
+        )
+    }
 
     private fun buildRollbackHistoricalImport(): RollbackHistoricalImportUseCase =
         RollbackHistoricalImportUseCase(
@@ -272,7 +300,7 @@ internal object OnboardingViewModelTestFixtures {
     ): Lift = Lift(
         id = LiftId(slug),
         name = slug.replace('-', ' ').replaceFirstChar { it.uppercase() },
-        movementPattern = MovementPattern.LegPush,
+        movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
         allowWeightChangeBetweenSets = false,

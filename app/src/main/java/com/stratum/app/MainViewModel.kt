@@ -2,7 +2,7 @@ package com.stratum.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.core.data.auth.toGoogleSignInMessage
+import com.stratum.core.ui.auth.toGoogleSignInMessage
 import com.stratum.core.ui.auth.StratumAuthUiState
 import com.stratum.core.ui.auth.toStratumAuthUiState
 import com.stratum.domain.auth.GetAuthStateUseCase

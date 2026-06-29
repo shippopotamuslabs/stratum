@@ -170,12 +170,21 @@ wired in `:app` via callbacks and shared routes.
 
 - ViewModels map **domain → presentation** before Composables render
 - No repository or use-case calls inside Composables
+- Presentation models (`*UiState`, `*DraftUi`, `*ViewState`) must not embed domain types.
+  Map at the ViewModel/mapper boundary.
+- Detekt enforces via `ForbiddenDomainTypeInComposable` (public composables) and
+  `ForbiddenDomainTypeInUiState` (presentation data classes).
 
 ### 4.4 ViewModel dependencies & Flow composition
 
-- **ViewModels depend on use cases, not repository ports.** A ViewModel constructor
-  injects `*UseCase` classes from `:core:domain`; it must not inject a `*Repository`
-  interface directly. Repository ports are consumed by use cases, not by presentation.
+- **ViewModels depend on use cases, not repository or port interfaces.** A ViewModel
+  constructor injects `*UseCase` classes from `:core:domain`; it must not inject a
+  `*Repository` or `*Port` interface directly. Repository and service ports are consumed
+  by use cases, not by presentation.
+- **Feature-layer mappers must not accept use case parameters**; domain validation
+  aggregates belong in use cases (e.g. `GetOnboardingStepCapabilitiesUseCase`). Mappers
+  are pure domain/ephemeral → presentation transforms; ViewModels invoke use cases and
+  pass derived values into mappers.
 - **Use cases own multi-source `Flow` composition.** When a screen needs data from more
   than one repository, add an interactor (e.g. `Get*StateUseCase`) in `:core:domain`
   that combines the repository streams into a single domain read model (e.g. an
@@ -226,6 +235,16 @@ wired in `:app` via callbacks and shared routes.
 - **Local-first:** persistence and intelligence default to on-device; sync is opt-in later
 - **WorkManager** for periodic analysis (phase detection, insight generation) lives in `:core:data`
 - **On-device LLM** in a dedicated inference module with no Compose — deterministic core stays in domain/data
+
+### Persistence design rules
+
+See `DATA_LAYER_RULES.md` for the full contract. Summary:
+
+- Entity primary/foreign keys use typed domain id value classes via `TypeConverter`s
+- Raw history tables need FK integrity and query indexes before large imports
+- Derived analytics tables should record `pipelineVersion` and extraction timestamps
+- Prefer SQL window queries over load-all-then-filter in repositories
+- Weekly aggregate tables are separate from raw `logged_sets` for analytics scalability
 
 ---
 

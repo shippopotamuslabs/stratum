@@ -29,6 +29,14 @@ class FakeOnboardingRepository(
         progress.value = progress.value.copy(completedAt = COMPLETED_AT)
     }
 
+    override suspend fun reopenWizard() {
+        progress.value =
+            progress.value.copy(
+                currentStep = OnboardingStep.Generate,
+                completedAt = null,
+            )
+    }
+
     /** Test hook: the current progress value. */
     val current: OnboardingProgress get() = progress.value
 

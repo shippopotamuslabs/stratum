@@ -32,7 +32,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 data class Lift(
     val id: LiftId,
     val name: String,
-    val movementPattern: MovementPattern,
+    val movementPatterns: Set<MovementPattern>,
     val primaryMuscles: Set<MuscleGroup>,
     val secondaryMuscles: Set<MuscleGroup>,
     val allowWeightChangeBetweenSets: Boolean,
@@ -41,4 +41,11 @@ data class Lift(
     val equipment: String? = null,
     val enabled: Boolean,
     val isCustom: Boolean = false,
-)
+    val description: String? = null,
+    val imageUris: List<String> = emptyList(),
+    val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
+    val mainstream: Boolean = false,
+) {
+    val isCompound: Boolean
+        get() = movementPatterns.size > 1
+}

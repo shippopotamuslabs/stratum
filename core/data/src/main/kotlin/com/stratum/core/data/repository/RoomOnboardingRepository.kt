@@ -39,4 +39,16 @@ class RoomOnboardingRepository @Inject constructor(
             ).toEntity(),
         )
     }
+
+    override suspend fun reopenWizard() {
+        val current = dao.getOrNull()
+        val startedAt = current?.startedAt ?: System.currentTimeMillis()
+        dao.upsert(
+            OnboardingProgress(
+                currentStep = OnboardingStep.Generate,
+                startedAt = startedAt,
+                completedAt = null,
+            ).toEntity(),
+        )
+    }
 }

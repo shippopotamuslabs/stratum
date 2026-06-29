@@ -2,35 +2,62 @@ package com.stratum.domain.lift
 
 /**
  * How a [Lift] moves — the categorical slot a lift occupies (squat pattern, horizontal push,
- * etc.). The 18 values port LiftLab's `MovementPattern` one-for-one for OS-6 generation
- * parity, renamed to PascalCase to match the Stratum enum style (see `MuscleGroup`). Values
- * are grouped logically: lower body, then upper-body compound, then isolation.
+ * etc.). Values are grouped logically: lower body, then upper-body compound, then isolation.
+ * The deltoid head isos are split into [ShoulderAbduction], [ShoulderHorizontalAbduction], and [ShoulderFlexion]
+ * so program generation can target each head independently (a balanced upper day covers a
+ * lateral raise AND a rear-delt movement, which a single `DeltIso` could not express).
  *
  * A lift's pattern is orthogonal to which muscles it works ([Lift.primaryMuscles]) — many
  * lifts in the same pattern share muscle contributions, but the pattern drives exercise
  * selection and split assignment in program generation (OS-6).
  */
 enum class MovementPattern {
-    LegPush,
+    // Primary Target: Quad / Glute
+    SquatPattern,
+    // Primary Target: Hamstring / Glute / Lower Back
     HipHinge,
-    QuadIso,
-    HamstringIso,
-    Calves,
+    // Primary Target: Quad
+    KneeExtension,
+    // Primary Target: Hamstring
+    KneeFlexion,
+    // Primary Target: Calf
+    PlantarFlexion,
 
-    HorizontalPush,
+    // Primary Target: Chest
+    HorizontalPress,
+    // Primary Target: Back
     VerticalPull,
+    // Primary Target: Back
     HorizontalPull,
-    ChestIso,
-    TricepIso,
-    BicepIso,
-    DeltIso,
+    // Primary Target: Chest
+    ShoulderAdduction,
+    // Primary Target: Tricep
+    ElbowExtension,
+    // Primary Target: Bicep
+    ElbowFlexion,
+    // Primary Target: Side Delt
+    ShoulderAbduction,
+    // Primary Target: Rear Delt
+    ShoulderHorizontalAbduction,
+    // Primary Target: Front Delt
+    ShoulderFlexion,
 
-    GluteIso,
-    ForearmIso,
-    TrapIso,
-    AbIso,
-    InclinePush,
-    VerticalPush,
+    // Primary Target: Glute
+    HipExtension,
+    // Primary Target: Forearm
+    WristFlexionExtension,
+    // Primary Target: Trap
+    ScapularElevation,
+    // Primary Target: Ab
+    SpinalFlexion,
+    // Primary Target: Chest (Upper) / Front Delt
+    InclinePress,
+    // Primary Target: Front Delt
+    VerticalPress,
+    // Primary Target: Glute Medius/Minimus (Abductors)
+    HipAbduction,
+    // Primary Target: Adductors
+    HipAdduction,
     ;
 
     /**
@@ -39,23 +66,39 @@ enum class MovementPattern {
      */
     val displayName: String
         get() = when (this) {
-            LegPush -> "Leg Push"
+            SquatPattern -> "Squat Pattern"
             HipHinge -> "Hip Hinge"
-            QuadIso -> "Quad Isolation"
-            HamstringIso -> "Hamstring Isolation"
-            Calves -> "Calves"
-            HorizontalPush -> "Horizontal Push"
+            KneeExtension -> "Knee Extension"
+            KneeFlexion -> "Knee Flexion"
+            PlantarFlexion -> "Plantar Flexion"
+            HorizontalPress -> "Horizontal Press"
             VerticalPull -> "Vertical Pull"
             HorizontalPull -> "Horizontal Pull"
-            ChestIso -> "Chest Isolation"
-            TricepIso -> "Tricep Isolation"
-            BicepIso -> "Bicep Isolation"
-            DeltIso -> "Deltoid Isolation"
-            GluteIso -> "Glute Isolation"
-            ForearmIso -> "Forearm Isolation"
-            TrapIso -> "Trap Isolation"
-            AbIso -> "Abs"
-            InclinePush -> "Incline Push"
-            VerticalPush -> "Vertical Push"
+            ShoulderAdduction -> "Shoulder Adduction"
+            ElbowExtension -> "Elbow Extension"
+            ElbowFlexion -> "Elbow Flexion"
+            ShoulderAbduction -> "Shoulder Abduction"
+            ShoulderHorizontalAbduction -> "Shoulder Horizontal Abduction"
+            ShoulderFlexion -> "Shoulder Flexion"
+            HipExtension -> "Hip Extension"
+            WristFlexionExtension -> "Wrist Flexion/Extension"
+            ScapularElevation -> "Scapular Elevation"
+            SpinalFlexion -> "Spinal Flexion"
+            InclinePress -> "Incline Press"
+            VerticalPress -> "Vertical Press"
+            HipAbduction -> "Hip Abduction"
+            HipAdduction -> "Hip Adduction"
+        }
+
+    val secondaryPatterns: Set<MovementPattern>
+        get() = when (this) {
+            HorizontalPress -> setOf(ElbowExtension)
+            InclinePress -> setOf(ElbowExtension)
+            VerticalPress -> setOf(ElbowExtension)
+            VerticalPull -> setOf(ElbowFlexion)
+            HorizontalPull -> setOf(ElbowFlexion)
+            SquatPattern -> setOf(HipExtension)
+            HipHinge -> setOf(HipExtension)
+            else -> emptySet()
         }
 }

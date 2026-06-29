@@ -6,17 +6,29 @@ import com.stratum.domain.importing.IntervalMethod
 import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.ImportJobId
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SetType
+import com.stratum.domain.program.identity.LiftSetId
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.response.EpochSplitReason
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.domain.response.ExperimentStatus
 import com.stratum.domain.response.OutcomeMetric
+import com.stratum.domain.response.identity.EpochId
+import com.stratum.domain.response.identity.ExperimentId
 import com.stratum.domain.response.modeling.MrvSource
 import com.stratum.domain.response.modeling.OutcomeModelType
 
@@ -85,11 +97,34 @@ class EnumConverters {
         value?.let { runCatching { MovementPattern.valueOf(it) }.getOrNull() }
 
     @TypeConverter
+    fun fromMovementPatternSet(patterns: Set<MovementPattern>?): String? =
+        patterns?.joinToString(",") { it.name }
+
+    @TypeConverter
+    fun toMovementPatternSet(value: String?): Set<MovementPattern>? {
+        if (value.isNullOrBlank()) return emptySet()
+        return value.split(",")
+            .mapNotNull { token ->
+                token.trim().takeIf { it.isNotEmpty() }?.let {
+                    runCatching { MovementPattern.valueOf(it) }.getOrNull()
+                }
+            }
+            .toSet()
+    }
+
+    @TypeConverter
     fun fromGymPreset(preset: GymPreset?): String? = preset?.name
 
     @TypeConverter
     fun toGymPreset(value: String?): GymPreset? =
         value?.let { runCatching { GymPreset.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromMuscleLengthBias(bias: MuscleLengthBias?): String? = bias?.name
+
+    @TypeConverter
+    fun toMuscleLengthBias(value: String?): MuscleLengthBias? =
+        value?.let { runCatching { MuscleLengthBias.valueOf(it) }.getOrNull() }
 
     /**
      * Unwraps a typed [LiftId] to its String `.value` for SQL, and re-wraps on the way back
@@ -117,6 +152,41 @@ class EnumConverters {
     @TypeConverter
     fun toImportJobId(value: String?): ImportJobId? =
         value?.let { runCatching { ImportJobId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromHistoricalSessionId(id: HistoricalSessionId?): String? = id?.value
+
+    @TypeConverter
+    fun toHistoricalSessionId(value: String?): HistoricalSessionId? =
+        value?.let { runCatching { HistoricalSessionId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromLoggedSetId(id: LoggedSetId?): String? = id?.value
+
+    @TypeConverter
+    fun toLoggedSetId(value: String?): LoggedSetId? =
+        value?.let { runCatching { LoggedSetId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromEpochId(id: EpochId?): String? = id?.value
+
+    @TypeConverter
+    fun toEpochId(value: String?): EpochId? =
+        value?.let { runCatching { EpochId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromExperimentId(id: ExperimentId?): String? = id?.value
+
+    @TypeConverter
+    fun toExperimentId(value: String?): ExperimentId? =
+        value?.let { runCatching { ExperimentId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromWeekday(weekday: Weekday?): String? = weekday?.name
+
+    @TypeConverter
+    fun toWeekday(value: String?): Weekday? =
+        value?.let { runCatching { Weekday.valueOf(it) }.getOrNull() }
 
     @TypeConverter
     fun fromEpochSplitReason(reason: EpochSplitReason?): String? = reason?.name
@@ -173,4 +243,48 @@ class EnumConverters {
     @TypeConverter
     fun toMrvSource(value: String?): MrvSource? =
         value?.let { runCatching { MrvSource.valueOf(it) }.getOrNull() }
+
+    // --- OS-7: program hierarchy enums + typed ids -------------------------------------
+
+    @TypeConverter
+    fun fromProgressionScheme(scheme: ProgressionScheme?): String? = scheme?.name
+
+    @TypeConverter
+    fun toProgressionScheme(value: String?): ProgressionScheme? =
+        value?.let { runCatching { ProgressionScheme.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromSetType(type: SetType?): String? = type?.name
+
+    @TypeConverter
+    fun toSetType(value: String?): SetType? =
+        value?.let { runCatching { SetType.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromProgramId(id: ProgramId?): String? = id?.value
+
+    @TypeConverter
+    fun toProgramId(value: String?): ProgramId? =
+        value?.let { runCatching { ProgramId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromWorkoutId(id: WorkoutId?): String? = id?.value
+
+    @TypeConverter
+    fun toWorkoutId(value: String?): WorkoutId? =
+        value?.let { runCatching { WorkoutId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromWorkoutLiftId(id: WorkoutLiftId?): String? = id?.value
+
+    @TypeConverter
+    fun toWorkoutLiftId(value: String?): WorkoutLiftId? =
+        value?.let { runCatching { WorkoutLiftId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromLiftSetId(id: LiftSetId?): String? = id?.value
+
+    @TypeConverter
+    fun toLiftSetId(value: String?): LiftSetId? =
+        value?.let { runCatching { LiftSetId(it) }.getOrNull() }
 }

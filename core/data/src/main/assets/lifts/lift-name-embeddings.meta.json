@@ -1,6 +1,6 @@
 {
   "modelId": "sentence-transformers/all-MiniLM-L6-v2",
   "dimensions": 384,
-  "liftCount": 619,
+  "liftCount": 229,
   "format": "lift-name-embeddings.bin v1"
 }

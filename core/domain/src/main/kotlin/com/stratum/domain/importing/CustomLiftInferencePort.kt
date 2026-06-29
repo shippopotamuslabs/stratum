@@ -21,9 +21,10 @@ data class InferredCustomLiftMetadata(
 ) {
     fun toCustomLiftDefinition(defaultIncrement: Weight): CustomLiftDefinition {
         val normalized = CustomLiftMusclePolicy.withPatternSecondaryDefaults(this)
+        val patterns = setOf(normalized.movementPattern) + normalized.movementPattern.secondaryPatterns
         return CustomLiftDefinition(
             name = normalized.exerciseNameRaw,
-            movementPattern = normalized.movementPattern,
+            movementPatterns = patterns,
             primaryMuscles = normalized.primaryMuscles,
             secondaryMuscles = normalized.secondaryMuscles,
             equipment = normalized.equipment,
