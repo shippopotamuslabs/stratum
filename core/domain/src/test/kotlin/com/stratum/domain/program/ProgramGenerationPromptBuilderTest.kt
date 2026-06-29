@@ -213,7 +213,7 @@ class ProgramGenerationPromptBuilderTest {
                 liftEffectiveness =
                     listOf(
                         LiftEffectivenessInfluence(
-                            pattern = MovementPattern.LegPush,
+                            pattern = MovementPattern.SquatPattern,
                             liftId = LiftId("back-squat"),
                             effectivenessScore = 0.75,
                             rank = 1,
@@ -337,7 +337,7 @@ class ProgramGenerationPromptBuilderTest {
         Lift(
             id = id,
             name = name,
-            movementPattern = MovementPattern.LegPush,
+            movementPattern = MovementPattern.SquatPattern,
             primaryMuscles = emptySet(),
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),

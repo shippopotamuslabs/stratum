@@ -20,7 +20,7 @@ function ctxFor(days = 4) {
       profile: { trainingAge: "Intermediate", sessionLengthMinutes: 75, weekdays, trainingDaysPerWeek: days },
       specialization: { Chest: "Specialize" },
       provenLifts: [
-        { id: "bench", name: "Bench Press", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"], trainingInsights: { sessionCount: 12, progressTrend: "Improving", fatigueDecaySlope: -0.8 } },
+        { id: "bench", name: "Bench Press", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"], trainingInsights: { sessionCount: 12, progressTrend: "Improving", fatigueDecaySlope: -0.8 } },
         { id: "row", name: "Row", movementPattern: "HorizontalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep"] },
       ],
       availableLifts: [],
@@ -73,13 +73,13 @@ describe("programBuilderPrompt", () => {
     assert.ok(firstDay.muscleBudgets.length > 0, "day should carry muscle budgets");
     assert.ok(firstDay.suggestedPatterns.length > 0, "day should carry suggested patterns");
 
-    // isCompound is denormalized onto each candidate (bench=HorizontalPush → true).
+    // isCompound is denormalized onto each candidate (bench=HorizontalPress → true).
     const firstDayCandidates = (input as { days: Array<{ candidates: Array<{ liftId: string; isCompound: boolean }> }> }).days[0].candidates;
     assert.ok(firstDayCandidates.length > 0);
     assert.ok(firstDayCandidates.every((c) => typeof c.isCompound === "boolean"), "every candidate should carry an isCompound boolean");
     const bench = firstDayCandidates.find((c) => c.liftId === "bench");
     assert.ok(bench, "bench should be a candidate");
-    assert.equal(bench!.isCompound, true, "bench (HorizontalPush) should be isCompound: true");
+    assert.equal(bench!.isCompound, true, "bench (HorizontalPress) should be isCompound: true");
 
     // Does NOT have the bloated v1 fields.
     assert.ok(!/literatureVolumeLandmarks/.test(inputJson), "landmarks leaked into builder input");

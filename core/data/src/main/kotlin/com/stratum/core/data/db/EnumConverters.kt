@@ -6,6 +6,7 @@ import com.stratum.domain.importing.IntervalMethod
 import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.ImportJobId
@@ -101,6 +102,13 @@ class EnumConverters {
     @TypeConverter
     fun toGymPreset(value: String?): GymPreset? =
         value?.let { runCatching { GymPreset.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromMuscleLengthBias(bias: MuscleLengthBias?): String? = bias?.name
+
+    @TypeConverter
+    fun toMuscleLengthBias(value: String?): MuscleLengthBias? =
+        value?.let { runCatching { MuscleLengthBias.valueOf(it) }.getOrNull() }
 
     /**
      * Unwraps a typed [LiftId] to its String `.value` for SQL, and re-wraps on the way back

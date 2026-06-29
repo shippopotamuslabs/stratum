@@ -129,7 +129,7 @@ class GenerateProgramUseCaseTest {
                         com.stratum.domain.lift.Lift(
                             id = LiftId("back-squat"),
                             name = "Back Squat",
-                            movementPattern = com.stratum.domain.lift.MovementPattern.LegPush,
+                            movementPattern = com.stratum.domain.lift.MovementPattern.SquatPattern,
                             primaryMuscles = emptySet(),
                             secondaryMuscles = emptySet(),
                             allowWeightChangeBetweenSets = false,

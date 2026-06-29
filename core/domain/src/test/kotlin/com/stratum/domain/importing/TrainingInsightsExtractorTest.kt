@@ -18,7 +18,7 @@ class TrainingInsightsExtractorTest {
         val squatId = LiftId("hack-squat")
         val curlId = LiftId("db-curl")
         val lifts = listOf(
-            lift(squatId, "Hack Squat", MovementPattern.LegPush, MuscleGroup.Quad),
+            lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
             lift(curlId, "DB Curl", MovementPattern.HorizontalPull, MuscleGroup.Bicep),
         )
         val t0 = Instant.parse("2025-01-01T10:00:00Z")
@@ -77,7 +77,7 @@ class TrainingInsightsExtractorTest {
         val squatId = LiftId("hack-squat")
         val lifts =
             listOf(
-                lift(squatId, "Hack Squat", MovementPattern.LegPush, MuscleGroup.Quad),
+                lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
             )
         val oldSession =
             HistoricalSession(

@@ -9,11 +9,11 @@
 
 /** Movement patterns classified as major compound for back-off RIR clamping (§2.3). */
 export const MAJOR_COMPOUND_PATTERNS: ReadonlySet<string> = new Set([
-  "LegPush",
+  "SquatPattern",
   "HipHinge",
-  "HorizontalPush",
-  "VerticalPush",
-  "InclinePush",
+  "HorizontalPress",
+  "VerticalPress",
+  "InclinePress",
   "HorizontalPull",
   "VerticalPull",
 ]);

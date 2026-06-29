@@ -23,7 +23,7 @@ const CONTEXT = parseGenerationContext(
     provenLifts: [
       {
         id: "bench",
-        movementPattern: "HorizontalPush",
+        movementPattern: "HorizontalPress",
         primaryMuscles: ["Chest"],
         secondaryMuscles: ["Tricep"],
       },

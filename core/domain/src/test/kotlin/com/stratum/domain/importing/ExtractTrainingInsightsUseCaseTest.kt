@@ -21,7 +21,7 @@ class ExtractTrainingInsightsUseCaseTest {
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(
             listOf(
-                lift(squatId, "Hack Squat", MovementPattern.LegPush, MuscleGroup.Quad),
+                lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
                 lift(curlId, "DB Curl", MovementPattern.HorizontalPull, MuscleGroup.Bicep),
             ),
         )

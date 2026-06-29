@@ -177,7 +177,7 @@ class RoomLiftRepositoryTest {
             LiftEntity(
                 id = id,
                 name = id.value,
-                movementPattern = MovementPattern.LegPush,
+                movementPattern = MovementPattern.SquatPattern,
                 primaryMusclesBitmask = 1 shl MuscleGroup.Quad.ordinal,
                 secondaryMusclesBitmask = 0,
                 allowWeightChangeBetweenSets = false,

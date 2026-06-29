@@ -59,7 +59,7 @@ class ValidateGymLiftsStepUseCaseTest {
     private fun aLift(enabled: Boolean): Lift = Lift(
         id = LiftId("lift-$enabled-${System.nanoTime()}"),
         name = "Test Lift",
-        movementPattern = MovementPattern.LegPush,
+        movementPattern = MovementPattern.SquatPattern,
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
         allowWeightChangeBetweenSets = false,

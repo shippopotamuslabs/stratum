@@ -101,7 +101,7 @@ class ResponseDaoTest {
     fun rpS8_003_effectivenessObservationPersistence() = runTest {
         val observation =
             LiftEffectivenessObservation(
-                pattern = MovementPattern.HorizontalPush,
+                pattern = MovementPattern.HorizontalPress,
                 liftId = LiftId("lift-bench"),
                 epochId = EpochId("epoch-1"),
                 effectivenessScore = 0.12,
@@ -114,7 +114,7 @@ class ResponseDaoTest {
         effectivenessRepository.replaceAll(listOf(observation))
         val stored = effectivenessRepository.getAll()
 
-        assertEquals(MovementPattern.HorizontalPush, stored[0].pattern)
+        assertEquals(MovementPattern.HorizontalPress, stored[0].pattern)
         assertEquals(1, stored[0].rank)
         assertEquals(EvidenceLevel.Proven, stored[0].evidence)
     }
@@ -130,7 +130,7 @@ class ResponseDaoTest {
                         epochId = EpochId("epoch-1"),
                         experimentId = ExperimentId("exp-1"),
                         muscle = MuscleGroup.Chest,
-                        pattern = MovementPattern.HorizontalPush,
+                        pattern = MovementPattern.HorizontalPress,
                         liftId = LiftId("lift-bench"),
                         weeklyHardSets = 12.0,
                         sessionsPerWeek = 3.0,

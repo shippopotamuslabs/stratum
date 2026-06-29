@@ -83,29 +83,29 @@ class YuhonasImportMapperTest {
         }
 
         @Test
-        @DisplayName("Given LateralDeltIso pattern when refining shoulders then it resolves to LateralDeltoid")
+        @DisplayName("Given ShoulderAbduction pattern when refining shoulders then it resolves to LateralDeltoid")
         fun lateralDeltIsoMapsToSideDelts() {
             assertEquals(
                 MuscleGroup.LateralDeltoid,
-                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.LateralDeltIso),
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.ShoulderAbduction),
             )
         }
 
         @Test
-        @DisplayName("Given RearDeltIso pattern when refining shoulders then it resolves to PosteriorDeltoid")
+        @DisplayName("Given ShoulderHorizontalAbduction pattern when refining shoulders then it resolves to PosteriorDeltoid")
         fun rearDeltIsoMapsToRearDelts() {
             assertEquals(
                 MuscleGroup.PosteriorDeltoid,
-                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.RearDeltIso),
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.ShoulderHorizontalAbduction),
             )
         }
 
         @Test
-        @DisplayName("Given AnteriorDeltIso pattern when refining shoulders then it resolves to AnteriorDeltoid")
+        @DisplayName("Given ShoulderFlexion pattern when refining shoulders then it resolves to AnteriorDeltoid")
         fun anteriorDeltIsoMapsToFrontDelts() {
             assertEquals(
                 MuscleGroup.AnteriorDeltoid,
-                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.AnteriorDeltIso),
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.ShoulderFlexion),
             )
         }
 
@@ -114,15 +114,15 @@ class YuhonasImportMapperTest {
         fun pushPatternsMapToFrontDelts() {
             assertEquals(
                 MuscleGroup.AnteriorDeltoid,
-                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.HorizontalPush),
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.HorizontalPress),
             )
             assertEquals(
                 MuscleGroup.AnteriorDeltoid,
-                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.VerticalPush),
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.VerticalPress),
             )
             assertEquals(
                 MuscleGroup.AnteriorDeltoid,
-                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.InclinePush),
+                YuhonasImportMapper.mapShoulderMuscle(MovementPattern.InclinePress),
             )
         }
     }
@@ -132,73 +132,73 @@ class YuhonasImportMapperTest {
     inner class NameBasedClassification {
 
         @Test
-        @DisplayName("Given a lateral raise exercise when classified then it resolves to LateralDeltIso")
+        @DisplayName("Given a lateral raise exercise when classified then it resolves to ShoulderAbduction")
         fun lateralRaise() {
             assertEquals(
-                MovementPattern.LateralDeltIso,
+                MovementPattern.ShoulderAbduction,
                 classify("Dumbbell Lateral Raise", "push", "isolation", listOf("shoulders")),
             )
         }
 
         @Test
-        @DisplayName("Given a shrug exercise when classified then it resolves to TrapIso")
+        @DisplayName("Given a shrug exercise when classified then it resolves to ScapularElevation")
         fun shrug() {
             assertEquals(
-                MovementPattern.TrapIso,
+                MovementPattern.ScapularElevation,
                 classify("Barbell Shrug", "pull", "isolation", listOf("traps")),
             )
         }
 
         @Test
-        @DisplayName("Given a wrist curl exercise when classified then it resolves to ForearmIso")
+        @DisplayName("Given a wrist curl exercise when classified then it resolves to WristFlexionExtension")
         fun wristCurl() {
             assertEquals(
-                MovementPattern.ForearmIso,
+                MovementPattern.WristFlexionExtension,
                 classify("Wrist Curl", "pull", "isolation", listOf("forearms")),
             )
         }
 
         @Test
-        @DisplayName("Given a crunch exercise when classified then it resolves to AbIso")
+        @DisplayName("Given a crunch exercise when classified then it resolves to SpinalFlexion")
         fun crunch() {
             assertEquals(
-                MovementPattern.AbIso,
+                MovementPattern.SpinalFlexion,
                 classify("Crunch", "pull", "isolation", listOf("abdominals")),
             )
         }
 
         @Test
-        @DisplayName("Given a calf raise exercise when classified then it resolves to Calves")
+        @DisplayName("Given a calf raise exercise when classified then it resolves to PlantarFlexion")
         fun calfRaise() {
             assertEquals(
-                MovementPattern.Calves,
+                MovementPattern.PlantarFlexion,
                 classify("Standing Calf Raises", "push", "isolation", listOf("calves")),
             )
         }
 
         @Test
-        @DisplayName("Given a hip thrust when classified then it resolves to GluteIso")
+        @DisplayName("Given a hip thrust when classified then it resolves to HipExtension")
         fun hipThrust() {
             assertEquals(
-                MovementPattern.GluteIso,
+                MovementPattern.HipExtension,
                 classify("Barbell Hip Thrust", "push", "compound", listOf("glutes")),
             )
         }
 
         @Test
-        @DisplayName("Given a leg extension when classified then it resolves to QuadIso")
+        @DisplayName("Given a leg extension when classified then it resolves to KneeExtension")
         fun legExtension() {
             assertEquals(
-                MovementPattern.QuadIso,
+                MovementPattern.KneeExtension,
                 classify("Leg Extensions", "push", "isolation", listOf("quadriceps")),
             )
         }
 
         @Test
-        @DisplayName("Given a leg curl when classified then it resolves to HamstringIso")
+        @DisplayName("Given a leg curl when classified then it resolves to KneeFlexion")
         fun legCurl() {
             assertEquals(
-                MovementPattern.HamstringIso,
+                MovementPattern.KneeFlexion,
                 classify("Lying Leg Curls", "pull", "isolation", listOf("hamstrings")),
             )
         }
@@ -209,37 +209,37 @@ class YuhonasImportMapperTest {
     inner class PatternBasedClassification {
 
         @Test
-        @DisplayName("Given a barbell squat when classified then it resolves to LegPush")
+        @DisplayName("Given a barbell squat when classified then it resolves to SquatPattern")
         fun squat() {
             assertEquals(
-                MovementPattern.LegPush,
+                MovementPattern.SquatPattern,
                 classify("Barbell Full Squat", "push", "compound", listOf("quadriceps")),
             )
         }
 
         @Test
-        @DisplayName("Given a bench press when classified then it resolves to HorizontalPush")
+        @DisplayName("Given a bench press when classified then it resolves to HorizontalPress")
         fun benchPress() {
             assertEquals(
-                MovementPattern.HorizontalPush,
+                MovementPattern.HorizontalPress,
                 classify("Barbell Bench Press - Medium Grip", "push", "compound", listOf("chest")),
             )
         }
 
         @Test
-        @DisplayName("Given an incline bench press when classified then it resolves to InclinePush")
+        @DisplayName("Given an incline bench press when classified then it resolves to InclinePress")
         fun inclinePress() {
             assertEquals(
-                MovementPattern.InclinePush,
+                MovementPattern.InclinePress,
                 classify("Incline Dumbbell Press", "push", "compound", listOf("chest")),
             )
         }
 
         @Test
-        @DisplayName("Given an overhead press when classified then it resolves to VerticalPush")
+        @DisplayName("Given an overhead press when classified then it resolves to VerticalPress")
         fun overheadPress() {
             assertEquals(
-                MovementPattern.VerticalPush,
+                MovementPattern.VerticalPress,
                 classify("Standing Military Press", "push", "compound", listOf("shoulders")),
             )
         }
@@ -277,46 +277,46 @@ class YuhonasImportMapperTest {
     inner class IsolationFallback {
 
         @Test
-        @DisplayName("Given a bicep curl not name-matched when classified then it resolves to BicepIso")
+        @DisplayName("Given a bicep curl not name-matched when classified then it resolves to ElbowFlexion")
         fun bicepIsolation() {
             assertEquals(
-                MovementPattern.BicepIso,
+                MovementPattern.ElbowFlexion,
                 classify("Dumbbell Bicep Curl", "pull", "isolation", listOf("biceps")),
             )
         }
 
         @Test
-        @DisplayName("Given a tricep pushdown not name-matched when classified then it resolves to TricepIso")
+        @DisplayName("Given a tricep pushdown not name-matched when classified then it resolves to ElbowExtension")
         fun tricepIsolation() {
             assertEquals(
-                MovementPattern.TricepIso,
+                MovementPattern.ElbowExtension,
                 classify("Triceps Pushdown", "push", "isolation", listOf("triceps")),
             )
         }
 
         @Test
-        @DisplayName("Given a cable fly when classified then it resolves to ChestIso")
+        @DisplayName("Given a cable fly when classified then it resolves to ShoulderAdduction")
         fun chestIsolation() {
             assertEquals(
-                MovementPattern.ChestIso,
+                MovementPattern.ShoulderAdduction,
                 classify("Cable Flyes", "pull", "isolation", listOf("chest")),
             )
         }
 
         @Test
-        @DisplayName("Given an abductor machine exercise when classified then it resolves to GluteIso")
+        @DisplayName("Given an abductor machine exercise when classified then it resolves to HipExtension")
         fun abductorMachine() {
             assertEquals(
-                MovementPattern.GluteIso,
+                MovementPattern.HipExtension,
                 classify("Machine Hip Abduction", "push", "isolation", listOf("abductors")),
             )
         }
 
         @Test
-        @DisplayName("Given an adductor machine exercise when classified then it resolves to GluteIso")
+        @DisplayName("Given an adductor machine exercise when classified then it resolves to HipExtension")
         fun adductorMachine() {
             assertEquals(
-                MovementPattern.GluteIso,
+                MovementPattern.HipExtension,
                 classify("Machine Hip Adduction", "push", "isolation", listOf("adductors")),
             )
         }

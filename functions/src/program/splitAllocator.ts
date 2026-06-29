@@ -84,52 +84,52 @@ interface SuggestedPatternTemplate {
 }
 
 const UPPER_PATTERNS: SuggestedPatternTemplate[] = [
-  { pattern: "HorizontalPush", muscleFocus: "Chest" },
+  { pattern: "HorizontalPress", muscleFocus: "Chest" },
   { pattern: "VerticalPull", muscleFocus: "Back" },
-  { pattern: "InclinePush", muscleFocus: "Chest" },
+  { pattern: "InclinePress", muscleFocus: "Chest" },
   { pattern: "HorizontalPull", muscleFocus: "Back" },
-  { pattern: "LateralDeltIso", muscleFocus: "LateralDeltoid" },
-  { pattern: "BicepIso", muscleFocus: "Bicep" },
-  { pattern: "TricepIso", muscleFocus: "Tricep" },
+  { pattern: "ShoulderAbduction", muscleFocus: "LateralDeltoid" },
+  { pattern: "ElbowFlexion", muscleFocus: "Bicep" },
+  { pattern: "ElbowExtension", muscleFocus: "Tricep" },
 ];
 
 const LOWER_PATTERNS: SuggestedPatternTemplate[] = [
-  { pattern: "LegPush", muscleFocus: "Quad" },
+  { pattern: "SquatPattern", muscleFocus: "Quad" },
   { pattern: "HipHinge", muscleFocus: "Hamstring" },
-  { pattern: "QuadIso", muscleFocus: "Quad" },
-  { pattern: "HamstringIso", muscleFocus: "Hamstring" },
-  { pattern: "Calves", muscleFocus: "Calf" },
-  { pattern: "AbIso", muscleFocus: "Ab" },
+  { pattern: "KneeExtension", muscleFocus: "Quad" },
+  { pattern: "KneeFlexion", muscleFocus: "Hamstring" },
+  { pattern: "PlantarFlexion", muscleFocus: "Calf" },
+  { pattern: "SpinalFlexion", muscleFocus: "Ab" },
 ];
 
 const FULL_BODY_PATTERNS: SuggestedPatternTemplate[] = [
-  { pattern: "LegPush", muscleFocus: "Quad" },
-  { pattern: "HorizontalPush", muscleFocus: "Chest" },
+  { pattern: "SquatPattern", muscleFocus: "Quad" },
+  { pattern: "HorizontalPress", muscleFocus: "Chest" },
   { pattern: "HorizontalPull", muscleFocus: "Back" },
   { pattern: "HipHinge", muscleFocus: "Hamstring" },
 ];
 
 const PUSH_PATTERNS: SuggestedPatternTemplate[] = [
-  { pattern: "HorizontalPush", muscleFocus: "Chest" },
-  { pattern: "VerticalPush", muscleFocus: "AnteriorDeltoid" },
-  { pattern: "InclinePush", muscleFocus: "Chest" },
-  { pattern: "LateralDeltIso", muscleFocus: "LateralDeltoid" },
-  { pattern: "TricepIso", muscleFocus: "Tricep" },
+  { pattern: "HorizontalPress", muscleFocus: "Chest" },
+  { pattern: "VerticalPress", muscleFocus: "AnteriorDeltoid" },
+  { pattern: "InclinePress", muscleFocus: "Chest" },
+  { pattern: "ShoulderAbduction", muscleFocus: "LateralDeltoid" },
+  { pattern: "ElbowExtension", muscleFocus: "Tricep" },
 ];
 
 const PULL_PATTERNS: SuggestedPatternTemplate[] = [
   { pattern: "VerticalPull", muscleFocus: "Back" },
   { pattern: "HorizontalPull", muscleFocus: "Back" },
-  { pattern: "RearDeltIso", muscleFocus: "PosteriorDeltoid" },
-  { pattern: "BicepIso", muscleFocus: "Bicep" },
+  { pattern: "ShoulderHorizontalAbduction", muscleFocus: "PosteriorDeltoid" },
+  { pattern: "ElbowFlexion", muscleFocus: "Bicep" },
 ];
 
 const LEGS_PATTERNS: SuggestedPatternTemplate[] = [
-  { pattern: "LegPush", muscleFocus: "Quad" },
+  { pattern: "SquatPattern", muscleFocus: "Quad" },
   { pattern: "HipHinge", muscleFocus: "Hamstring" },
-  { pattern: "QuadIso", muscleFocus: "Quad" },
-  { pattern: "HamstringIso", muscleFocus: "Hamstring" },
-  { pattern: "Calves", muscleFocus: "Calf" },
+  { pattern: "KneeExtension", muscleFocus: "Quad" },
+  { pattern: "KneeFlexion", muscleFocus: "Hamstring" },
+  { pattern: "PlantarFlexion", muscleFocus: "Calf" },
 ];
 
 /** Lookup of split templates by training-days-per-week. */
@@ -162,10 +162,10 @@ const SPLIT_TEMPLATES: Record<number, SplitDayTemplate[]> = {
       primaryMuscles: ["Bicep", "Tricep", "Chest", "LateralDeltoid"],
       accessoryMuscles: ["AnteriorDeltoid"],
       suggestedPatterns: [
-        { pattern: "HorizontalPush", muscleFocus: "Chest" },
-        { pattern: "BicepIso", muscleFocus: "Bicep" },
-        { pattern: "TricepIso", muscleFocus: "Tricep" },
-        { pattern: "LateralDeltIso", muscleFocus: "LateralDeltoid" },
+        { pattern: "HorizontalPress", muscleFocus: "Chest" },
+        { pattern: "ElbowFlexion", muscleFocus: "Bicep" },
+        { pattern: "ElbowExtension", muscleFocus: "Tricep" },
+        { pattern: "ShoulderAbduction", muscleFocus: "LateralDeltoid" },
       ],
     },
     lowerTemplate("Lower B"),

@@ -5,27 +5,27 @@ import { parseGenerationContext, toNormalizationRequest } from "./programPayload
 import { generateProgramPipeline, type ChatCompletionLike, type PipelineProgressCallback } from "./generateProgramPipeline";
 
 const LIFT_CATALOG = [
-  { id: "bench", name: "Bench Press", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep", "AnteriorDeltoid"], trainingInsights: { sessionCount: 12, progressTrend: "Improving", fatigueDecaySlope: -0.8 } },
-  { id: "db-press", name: "Dumbbell Press", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"] },
-  { id: "inc-press", name: "Incline Press", movementPattern: "InclinePush", primaryMuscles: ["Chest"], secondaryMuscles: ["AnteriorDeltoid"] },
+  { id: "bench", name: "Bench Press", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep", "AnteriorDeltoid"], trainingInsights: { sessionCount: 12, progressTrend: "Improving", fatigueDecaySlope: -0.8 } },
+  { id: "db-press", name: "Dumbbell Press", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"] },
+  { id: "inc-press", name: "Incline Press", movementPattern: "InclinePress", primaryMuscles: ["Chest"], secondaryMuscles: ["AnteriorDeltoid"] },
   { id: "row", name: "Barbell Row", movementPattern: "HorizontalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep", "PosteriorDeltoid"] },
   { id: "seated-row", name: "Seated Row", movementPattern: "HorizontalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep"] },
   { id: "pullup", name: "Pullup", movementPattern: "VerticalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep"] },
-  { id: "squat", name: "Squat", movementPattern: "LegPush", primaryMuscles: ["Quad"], secondaryMuscles: ["Glute"] },
-  { id: "front-squat", name: "Front Squat", movementPattern: "LegPush", primaryMuscles: ["Quad"], secondaryMuscles: ["Glute"] },
-  { id: "leg-ext", name: "Leg Extension", movementPattern: "QuadIso", primaryMuscles: ["Quad"], secondaryMuscles: [] },
+  { id: "squat", name: "Squat", movementPattern: "SquatPattern", primaryMuscles: ["Quad"], secondaryMuscles: ["Glute"] },
+  { id: "front-squat", name: "Front Squat", movementPattern: "SquatPattern", primaryMuscles: ["Quad"], secondaryMuscles: ["Glute"] },
+  { id: "leg-ext", name: "Leg Extension", movementPattern: "KneeExtension", primaryMuscles: ["Quad"], secondaryMuscles: [] },
   { id: "rdl", name: "RDL", movementPattern: "HipHinge", primaryMuscles: ["Hamstring"], secondaryMuscles: ["Glute", "LowerBack"] },
   { id: "gm", name: "Good Morning", movementPattern: "HipHinge", primaryMuscles: ["Hamstring"], secondaryMuscles: ["LowerBack"] },
-  { id: "leg-curl", name: "Leg Curl", movementPattern: "HamstringIso", primaryMuscles: ["Hamstring"], secondaryMuscles: [] },
-  { id: "hip-thrust", name: "Hip Thrust", movementPattern: "GluteIso", primaryMuscles: ["Glute"], secondaryMuscles: [] },
-  { id: "calf-raise", name: "Calf Raise", movementPattern: "Calves", primaryMuscles: ["Calf"], secondaryMuscles: [] },
-  { id: "seated-calf", name: "Seated Calf Raise", movementPattern: "Calves", primaryMuscles: ["Calf"], secondaryMuscles: [] },
-  { id: "lat-raise", name: "Lateral Raise", movementPattern: "LateralDeltIso", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
-  { id: "rear-delt-fly", name: "Rear Delt Fly", movementPattern: "RearDeltIso", primaryMuscles: ["PosteriorDeltoid"], secondaryMuscles: [] },
-  { id: "ohp", name: "Overhead Press", movementPattern: "VerticalPush", primaryMuscles: ["AnteriorDeltoid"], secondaryMuscles: ["Tricep"] },
-  { id: "curl", name: "Curl", movementPattern: "BicepIso", primaryMuscles: ["Bicep"], secondaryMuscles: [] },
-  { id: "tricep-ext", name: "Tricep Extension", movementPattern: "TricepIso", primaryMuscles: ["Tricep"], secondaryMuscles: [] },
-  { id: "crunch", name: "Crunch", movementPattern: "AbIso", primaryMuscles: ["Ab"], secondaryMuscles: [] },
+  { id: "leg-curl", name: "Leg Curl", movementPattern: "KneeFlexion", primaryMuscles: ["Hamstring"], secondaryMuscles: [] },
+  { id: "hip-thrust", name: "Hip Thrust", movementPattern: "HipExtension", primaryMuscles: ["Glute"], secondaryMuscles: [] },
+  { id: "calf-raise", name: "Calf Raise", movementPattern: "PlantarFlexion", primaryMuscles: ["Calf"], secondaryMuscles: [] },
+  { id: "seated-calf", name: "Seated Calf Raise", movementPattern: "PlantarFlexion", primaryMuscles: ["Calf"], secondaryMuscles: [] },
+  { id: "lat-raise", name: "Lateral Raise", movementPattern: "ShoulderAbduction", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
+  { id: "rear-delt-fly", name: "Rear Delt Fly", movementPattern: "ShoulderHorizontalAbduction", primaryMuscles: ["PosteriorDeltoid"], secondaryMuscles: [] },
+  { id: "ohp", name: "Overhead Press", movementPattern: "VerticalPress", primaryMuscles: ["AnteriorDeltoid"], secondaryMuscles: ["Tricep"] },
+  { id: "curl", name: "Curl", movementPattern: "ElbowFlexion", primaryMuscles: ["Bicep"], secondaryMuscles: [] },
+  { id: "tricep-ext", name: "Tricep Extension", movementPattern: "ElbowExtension", primaryMuscles: ["Tricep"], secondaryMuscles: [] },
+  { id: "crunch", name: "Crunch", movementPattern: "SpinalFlexion", primaryMuscles: ["Ab"], secondaryMuscles: [] },
 ];
 
 const LANDMARKS = [
@@ -136,7 +136,7 @@ function validSplitPlannerJson(days: number): string {
       weekday: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][i],
       theme,
       muscleBudgets: [{ muscle: "Chest", sets: 8, min: 6, aim: 8 }],
-      patternSlots: [{ pattern: "HorizontalPush", muscleFocus: "Chest", minSets: 3, maxSets: 4 }],
+      patternSlots: [{ pattern: "HorizontalPress", muscleFocus: "Chest", minSets: 3, maxSets: 4 }],
     })),
   });
 }

@@ -92,7 +92,7 @@ class RoomLiftRepository @Inject constructor(
             definition =
                 CustomLiftDefinition(
                     name = name,
-                    movementPattern = MovementPattern.LegPush,
+                    movementPattern = MovementPattern.SquatPattern,
                     primaryMuscles = emptySet(),
                     secondaryMuscles = emptySet(),
                     equipment = null,

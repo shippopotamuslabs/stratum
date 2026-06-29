@@ -155,7 +155,7 @@ class ProgramGenerationPayloadJsonContractTest {
         Lift(
             id = id,
             name = name,
-            movementPattern = MovementPattern.LegPush,
+            movementPattern = MovementPattern.SquatPattern,
             primaryMuscles = emptySet(),
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),

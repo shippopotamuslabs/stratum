@@ -32,9 +32,9 @@ object CustomLiftMusclePolicy {
             -> if (MuscleGroup.Bicep !in primaryMuscles) {
                 merged += MuscleGroup.Bicep
             }
-            MovementPattern.HorizontalPush,
-            MovementPattern.VerticalPush,
-            MovementPattern.InclinePush,
+            MovementPattern.HorizontalPress,
+            MovementPattern.VerticalPress,
+            MovementPattern.InclinePress,
             -> if (MuscleGroup.Tricep !in primaryMuscles) {
                 merged += MuscleGroup.Tricep
             }

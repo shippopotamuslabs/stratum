@@ -62,7 +62,7 @@ export interface GenerationContext {
   liftEffectivenessByLiftId: Map<string, LiftEffectivenessEntry>;
 }
 
-const PUSH_PATTERNS = new Set(["HorizontalPush", "VerticalPush", "InclinePush"]);
+const PUSH_PATTERNS = new Set(["HorizontalPress", "VerticalPress", "InclinePress"]);
 const PULL_PATTERNS = new Set(["HorizontalPull", "VerticalPull"]);
 
 export const MAJOR_MUSCLES = [

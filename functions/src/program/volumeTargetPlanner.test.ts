@@ -27,7 +27,7 @@ function contextWith(overrides: Record<string, unknown> = {}) {
       provenLifts: overrides.provenLifts ?? [
         {
           id: "bench",
-          movementPattern: "HorizontalPush",
+          movementPattern: "HorizontalPress",
           primaryMuscles: ["Chest"],
           secondaryMuscles: ["Tricep"],
         },
@@ -157,9 +157,9 @@ describe("volumeTargetPlanner", () => {
     it("maps each muscle to the movement patterns of enabled lifts that hit it", () => {
       const ctx = contextWith();
       const patterns = availablePatternsByMuscle(ctx);
-      // bench: HorizontalPush, primary Chest, secondary Tricep
-      assert.ok(patterns.get("Chest")?.includes("HorizontalPush"));
-      assert.ok(patterns.get("Tricep")?.includes("HorizontalPush")); // secondary
+      // bench: HorizontalPress, primary Chest, secondary Tricep
+      assert.ok(patterns.get("Chest")?.includes("HorizontalPress"));
+      assert.ok(patterns.get("Tricep")?.includes("HorizontalPress")); // secondary
       // row: HorizontalPull, primary Back, secondary Bicep
       assert.ok(patterns.get("Back")?.includes("HorizontalPull"));
       assert.ok(patterns.get("Bicep")?.includes("HorizontalPull")); // secondary
@@ -174,14 +174,14 @@ describe("volumeTargetPlanner", () => {
     it("deduplicates patterns across primary and secondary contributions", () => {
       const ctx = contextWith({
         provenLifts: [
-          { id: "bench", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"] },
-          { id: "inc-press", movementPattern: "InclinePush", primaryMuscles: ["Chest"], secondaryMuscles: ["AnteriorDeltoid"] },
+          { id: "bench", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"] },
+          { id: "inc-press", movementPattern: "InclinePress", primaryMuscles: ["Chest"], secondaryMuscles: ["AnteriorDeltoid"] },
         ],
       });
       const patterns = availablePatternsByMuscle(ctx);
       const chest = patterns.get("Chest") ?? [];
-      assert.equal(chest.filter((p) => p === "HorizontalPush").length, 1);
-      assert.ok(chest.includes("InclinePush"));
+      assert.equal(chest.filter((p) => p === "HorizontalPress").length, 1);
+      assert.ok(chest.includes("InclinePress"));
     });
   });
 });
