@@ -16,19 +16,20 @@ object ImportStubLiftGuesser {
         name: String,
         increment: Weight,
     ): CustomLiftDefinition {
-        val pattern = guessMovementPattern(name) ?: MovementPattern.LegPush
+        val pattern = guessMovementPattern(name) ?: MovementPattern.SquatPattern
         val normalized =
             CustomLiftMusclePolicy.withPatternSecondaryDefaults(
                 InferredCustomLiftMetadata(
                     exerciseNameRaw = name,
                     movementPattern = pattern,
-                    primaryMuscles = guessPrimaryMuscles(name, pattern),
+                    primaryMuscles = guessPrimaryMuscles(pattern),
                     secondaryMuscles = emptySet(),
                 ),
             )
+        val patterns = setOf(normalized.movementPattern) + normalized.movementPattern.secondaryPatterns
         return CustomLiftDefinition(
             name = name,
-            movementPattern = normalized.movementPattern,
+            movementPatterns = patterns,
             primaryMuscles = normalized.primaryMuscles,
             secondaryMuscles = normalized.secondaryMuscles,
             equipment = null,
@@ -38,9 +39,9 @@ object ImportStubLiftGuesser {
 
     fun effectiveMovementPattern(lift: Lift): MovementPattern {
         if (isRecoverableStub(lift)) {
-            return guessMovementPattern(lift.name) ?: lift.movementPattern
+            return guessMovementPattern(lift.name) ?: (lift.movementPatterns.firstOrNull() ?: MovementPattern.SquatPattern)
         }
-        return lift.movementPattern
+        return lift.movementPatterns.firstOrNull() ?: MovementPattern.SquatPattern
     }
 
     fun effectivePrimaryMuscles(
@@ -48,59 +49,61 @@ object ImportStubLiftGuesser {
         movementPattern: MovementPattern,
     ): Set<MuscleGroup> {
         if (isRecoverableStub(lift)) {
-            return guessPrimaryMuscles(lift.name, movementPattern)
+            return guessPrimaryMuscles(movementPattern)
         }
         if (lift.primaryMuscles.isNotEmpty()) return lift.primaryMuscles
         if (!lift.isCustom) return lift.primaryMuscles
-        return guessPrimaryMuscles(lift.name, movementPattern)
+        return guessPrimaryMuscles(movementPattern)
     }
 
     /**
      * Re-classify custom lifts whose persisted metadata disagrees with name-based rules.
-     * Covers stub fallbacks (e.g. lateral raises saved as LegPush/Quad) without a re-import.
+     * Covers stub fallbacks (e.g. lateral raises saved as SquatPattern/Quad) without a re-import.
      */
     private fun isRecoverableStub(lift: Lift): Boolean {
         if (!lift.isCustom) return false
         val guessedPattern = guessMovementPattern(lift.name) ?: return false
-        val guessedPrimary = guessPrimaryMuscles(lift.name, guessedPattern)
-        return lift.movementPattern != guessedPattern || lift.primaryMuscles != guessedPrimary
+        val guessedPrimary = guessPrimaryMuscles(guessedPattern)
+        val primaryPattern = lift.movementPatterns.firstOrNull() ?: MovementPattern.SquatPattern
+        return primaryPattern != guessedPattern || lift.primaryMuscles != guessedPrimary
     }
 
     internal fun guessMovementPattern(name: String): MovementPattern? {
         val normalized = ImportExerciseNameNormalizer.normalizeForMatching(name)
         return when {
-            containsAny(normalized, "curl", "preacher") -> MovementPattern.BicepIso
+            containsAny(normalized, "curl", "preacher") -> MovementPattern.ElbowFlexion
             containsAny(normalized, "tricep", "skull crusher", "skullcrusher", "pushdown") ->
-                MovementPattern.TricepIso
+                MovementPattern.ElbowExtension
             containsAny(normalized, "pulldown", "pullup", "pull up", "chinup", "chin up") ->
                 MovementPattern.VerticalPull
-            containsAny(normalized, "shrug") -> MovementPattern.TrapIso
-            isDeltIsolationName(normalized) -> MovementPattern.DeltIso
+            containsAny(normalized, "shrug") -> MovementPattern.ScapularElevation
+            isRearDeltName(normalized) -> MovementPattern.ShoulderHorizontalAbduction
+            isFrontDeltName(normalized) -> MovementPattern.ShoulderFlexion
+            isLateralDeltName(normalized) -> MovementPattern.ShoulderAbduction
             containsAny(normalized, "row", "pullover") -> MovementPattern.HorizontalPull
             containsAny(normalized, "bench press", "benchpress", "pushup", "push up", "dip", "fly") ->
-                MovementPattern.HorizontalPush
-            containsAny(normalized, "incline press", "incline bench") -> MovementPattern.InclinePush
+                MovementPattern.HorizontalPress
+            containsAny(normalized, "incline press", "incline bench") -> MovementPattern.InclinePress
             containsAny(normalized, "overhead press", "ohp", "shoulder press", "military press") ->
-                MovementPattern.VerticalPush
+                MovementPattern.VerticalPress
             containsAny(normalized, "squat", "leg press", "lunge", "step up", "stepup") ->
-                MovementPattern.LegPush
-            containsAny(normalized, "deadlift", "rdl", "hip thrust", "good morning") ->
+                MovementPattern.SquatPattern
+            containsAny(normalized, "deadlift", "rdl", "good morning") ->
                 MovementPattern.HipHinge
-            containsAny(normalized, "calf") -> MovementPattern.Calves
-            containsAny(normalized, "leg extension") -> MovementPattern.QuadIso
-            containsAny(normalized, "leg curl", "hamstring curl") -> MovementPattern.HamstringIso
+            containsAny(normalized, "hip thrust", "glute bridge") ->
+                MovementPattern.HipExtension
+            containsAny(normalized, "calf") -> MovementPattern.PlantarFlexion
+            containsAny(normalized, "leg extension") -> MovementPattern.KneeExtension
+            containsAny(normalized, "leg curl", "hamstring curl") -> MovementPattern.KneeFlexion
             else -> null
         }
     }
 
-    internal fun guessPrimaryMuscles(name: String, pattern: MovementPattern): Set<MuscleGroup> {
-        if (pattern == MovementPattern.DeltIso) {
-            return setOf(guessDeltPrimary(ImportExerciseNameNormalizer.normalizeForMatching(name)))
-        }
+    internal fun guessPrimaryMuscles(pattern: MovementPattern): Set<MuscleGroup> {
         return patternPrimaryMuscles(pattern)
     }
 
-    private fun isDeltIsolationName(normalized: String): Boolean =
+    private fun isRearDeltName(normalized: String): Boolean =
         containsAny(
             normalized,
             "rear delt",
@@ -109,44 +112,50 @@ object ImportStubLiftGuesser {
             "reverse pec",
             "face pull",
             "facepull",
+            "bent over",
+            "bent-over",
+        )
+
+    private fun isFrontDeltName(normalized: String): Boolean =
+        containsAny(normalized, "front raise", "frontraise", "front delt")
+
+    private fun isLateralDeltName(normalized: String): Boolean =
+        containsAny(
+            normalized,
             "lateral raise",
             "side raise",
+            "side lateral",
             "cuffed lateral",
             "y raise",
             "iron cross",
-            "front raise",
         )
-
-    private fun guessDeltPrimary(normalized: String): MuscleGroup =
-        when {
-            containsAny(normalized, "rear delt", "reardelt", "reverse fly", "reverse pec", "face pull", "facepull") ->
-                MuscleGroup.PosteriorDeltoid
-            containsAny(normalized, "front raise") -> MuscleGroup.AnteriorDeltoid
-            else -> MuscleGroup.LateralDeltoid
-        }
 
     private fun patternPrimaryMuscles(pattern: MovementPattern): Set<MuscleGroup> =
         when (pattern) {
-            MovementPattern.BicepIso -> setOf(MuscleGroup.Bicep)
-            MovementPattern.TricepIso -> setOf(MuscleGroup.Tricep)
-            MovementPattern.ChestIso -> setOf(MuscleGroup.Chest)
-            MovementPattern.DeltIso -> setOf(MuscleGroup.LateralDeltoid)
+            MovementPattern.ElbowFlexion -> setOf(MuscleGroup.Bicep)
+            MovementPattern.ElbowExtension -> setOf(MuscleGroup.Tricep)
+            MovementPattern.ShoulderAdduction -> setOf(MuscleGroup.Chest)
+            MovementPattern.ShoulderAbduction -> setOf(MuscleGroup.LateralDeltoid)
+            MovementPattern.ShoulderHorizontalAbduction -> setOf(MuscleGroup.PosteriorDeltoid)
+            MovementPattern.ShoulderFlexion -> setOf(MuscleGroup.AnteriorDeltoid)
             MovementPattern.HorizontalPull,
             MovementPattern.VerticalPull,
             -> setOf(MuscleGroup.Back)
-            MovementPattern.HorizontalPush,
-            MovementPattern.InclinePush,
+            MovementPattern.HorizontalPress,
+            MovementPattern.InclinePress,
             -> setOf(MuscleGroup.Chest)
-            MovementPattern.VerticalPush -> setOf(MuscleGroup.AnteriorDeltoid)
-            MovementPattern.LegPush -> setOf(MuscleGroup.Quad)
+            MovementPattern.VerticalPress -> setOf(MuscleGroup.AnteriorDeltoid)
+            MovementPattern.SquatPattern -> setOf(MuscleGroup.Quad)
             MovementPattern.HipHinge -> setOf(MuscleGroup.Glute, MuscleGroup.Hamstring)
-            MovementPattern.QuadIso -> setOf(MuscleGroup.Quad)
-            MovementPattern.HamstringIso -> setOf(MuscleGroup.Hamstring)
-            MovementPattern.Calves -> setOf(MuscleGroup.Calf)
-            MovementPattern.GluteIso -> setOf(MuscleGroup.Glute)
-            MovementPattern.TrapIso -> setOf(MuscleGroup.Trap)
-            MovementPattern.ForearmIso -> setOf(MuscleGroup.Forearm)
-            MovementPattern.AbIso -> setOf(MuscleGroup.Ab)
+            MovementPattern.KneeExtension -> setOf(MuscleGroup.Quad)
+            MovementPattern.KneeFlexion -> setOf(MuscleGroup.Hamstring)
+            MovementPattern.PlantarFlexion -> setOf(MuscleGroup.Calf)
+            MovementPattern.HipExtension -> setOf(MuscleGroup.Glute)
+            MovementPattern.ScapularElevation -> setOf(MuscleGroup.Trap)
+            MovementPattern.WristFlexionExtension -> setOf(MuscleGroup.Forearm)
+            MovementPattern.SpinalFlexion -> setOf(MuscleGroup.Ab)
+            MovementPattern.HipAbduction -> setOf(MuscleGroup.Abductor)
+            MovementPattern.HipAdduction -> setOf(MuscleGroup.Adductor)
         }
 
     private fun containsAny(haystack: String, vararg needles: String): Boolean =

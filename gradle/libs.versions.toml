@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.0-alpha01"
+agp = "9.4.0-alpha02"
 coreKtx = "1.15.0"
 detekt = "1.23.8"
 junit = "4.13.2"
@@ -27,6 +27,7 @@ firebaseBom = "34.13.0"
 androidxCredentials = "1.7.0-alpha02"
 googleid = "1.2.0"
 googleServices = "4.4.2"
+firebaseCrashlyticsPlugin = "3.0.7"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -78,6 +79,7 @@ firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
 firebase-appcheck = { group = "com.google.firebase", name = "firebase-appcheck" }
 firebase-appcheck-playintegrity = { group = "com.google.firebase", name = "firebase-appcheck-playintegrity" }
 firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "androidxCredentials" }
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "androidxCredentials" }
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
@@ -93,4 +95,5 @@ apter-robolectric-junit5 = { id = "tech.apter.junit5.jupiter.robolectric-extensi
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 

@@ -7,6 +7,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -75,6 +76,25 @@ class LiftCatalogSeederTest {
         assertEquals(4, curl.tiers.size)
         // Final band is open-ended.
         assertEquals(null, curl.tiers.last().upperBound)
+    }
+
+    @Test
+    @DisplayName("Given the bundled asset when seeded then no resistance-band variants are loaded")
+    fun seedExcludesBandVariants() = runTest {
+        subject.seed(RuntimeEnvironment.getApplication())
+
+        val bandPattern = Regex("(^|[-\\s])band($|[-\\s])", RegexOption.IGNORE_CASE)
+        val lifts = database.liftDao().observeLiftsWithTiers().first()
+        for (entry in lifts) {
+            assertFalse(
+                bandPattern.containsMatchIn(entry.lift.id.value),
+                "seed catalog must not include band variant id ${entry.lift.id.value}",
+            )
+            assertFalse(
+                bandPattern.containsMatchIn(entry.lift.name),
+                "seed catalog must not include band variant name ${entry.lift.name}",
+            )
+        }
     }
 
     @Test

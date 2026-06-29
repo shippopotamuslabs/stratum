@@ -1,7 +1,6 @@
 package com.stratum.feature.onboarding
 
-import com.stratum.domain.importing.ImportProgress
-import com.stratum.domain.importing.ImportProgressPhase
+import com.stratum.feature.onboarding.ImportProgressPhaseUi
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -27,7 +26,7 @@ class GymLiftsDraftUiTest {
             GymLiftsDraftUi(
                 usedHistoricalImport = true,
                 hasCompletedHistoricalImport = true,
-                importProgress = ImportProgress(ImportProgressPhase.Failed),
+                importProgress = ImportProgressUi(phase = ImportProgressPhaseUi.Failed),
             )
 
         assertFalse(draft.importComplete)

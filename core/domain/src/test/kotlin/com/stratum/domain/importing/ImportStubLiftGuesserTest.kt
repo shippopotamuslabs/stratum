@@ -28,13 +28,13 @@ class ImportStubLiftGuesserTest {
                 increment = Weight(5.0, Weight.WeightUnit.Lb),
             )
 
-        assertEquals(MovementPattern.HorizontalPull, definition.movementPattern)
+        assertEquals(MovementPattern.HorizontalPull, definition.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Back), definition.primaryMuscles)
         assertEquals(setOf(MuscleGroup.Bicep), definition.secondaryMuscles)
     }
 
     @Test
-    @DisplayName("Given lateral raise names when guessing then DeltIso and LateralDeltoid are used")
+    @DisplayName("Given lateral raise names when guessing then ShoulderAbduction and LateralDeltoid are used")
     fun lateralRaiseNamesMapToSideDelts() {
         val names =
             listOf(
@@ -44,7 +44,7 @@ class ImportStubLiftGuesserTest {
                 "Seated Machine Lateral Raise",
             )
         names.forEach { name ->
-            assertEquals(MovementPattern.DeltIso, ImportStubLiftGuesser.guessMovementPattern(name), name)
+            assertEquals(MovementPattern.ShoulderAbduction, ImportStubLiftGuesser.guessMovementPattern(name), name)
             val definition =
                 ImportStubLiftGuesser.definitionFromName(
                     name = name,
@@ -55,7 +55,7 @@ class ImportStubLiftGuesserTest {
     }
 
     @Test
-    @DisplayName("Given rear delt fly names when guessing then DeltIso and PosteriorDeltoid are used")
+    @DisplayName("Given rear delt fly names when guessing then ShoulderHorizontalAbduction and PosteriorDeltoid are used")
     fun rearDeltFlyNamesMapToRearDelts() {
         val names =
             listOf(
@@ -64,7 +64,7 @@ class ImportStubLiftGuesserTest {
                 "Neutral Grip Machine Rear Delt Fly",
             )
         names.forEach { name ->
-            assertEquals(MovementPattern.DeltIso, ImportStubLiftGuesser.guessMovementPattern(name), name)
+            assertEquals(MovementPattern.ShoulderHorizontalAbduction, ImportStubLiftGuesser.guessMovementPattern(name), name)
             val definition =
                 ImportStubLiftGuesser.definitionFromName(
                     name = name,
@@ -81,7 +81,7 @@ class ImportStubLiftGuesserTest {
             Lift(
                 id = LiftId("custom-lateral"),
                 name = "Single Arm Cable Cuffed Lateral Raise",
-                movementPattern = MovementPattern.LegPush,
+                movementPatterns = setOf(MovementPattern.SquatPattern),
                 primaryMuscles = setOf(MuscleGroup.Quad),
                 secondaryMuscles = emptySet(),
                 allowWeightChangeBetweenSets = true,
@@ -94,7 +94,7 @@ class ImportStubLiftGuesserTest {
         val pattern = ImportStubLiftGuesser.effectiveMovementPattern(lift)
         val primary = ImportStubLiftGuesser.effectivePrimaryMuscles(lift, pattern)
 
-        assertEquals(MovementPattern.DeltIso, pattern)
+        assertEquals(MovementPattern.ShoulderAbduction, pattern)
         assertEquals(setOf(MuscleGroup.LateralDeltoid), primary)
     }
 
@@ -105,7 +105,7 @@ class ImportStubLiftGuesserTest {
             Lift(
                 id = LiftId("custom-rear-delt"),
                 name = "45° Cable Rear Delt Fly",
-                movementPattern = MovementPattern.DeltIso,
+                movementPatterns = setOf(MovementPattern.ShoulderAbduction),
                 primaryMuscles = setOf(MuscleGroup.AnteriorDeltoid),
                 secondaryMuscles = emptySet(),
                 allowWeightChangeBetweenSets = true,
@@ -118,7 +118,7 @@ class ImportStubLiftGuesserTest {
         val pattern = ImportStubLiftGuesser.effectiveMovementPattern(lift)
         val primary = ImportStubLiftGuesser.effectivePrimaryMuscles(lift, pattern)
 
-        assertEquals(MovementPattern.DeltIso, pattern)
+        assertEquals(MovementPattern.ShoulderHorizontalAbduction, pattern)
         assertEquals(setOf(MuscleGroup.PosteriorDeltoid), primary)
     }
 }

@@ -160,7 +160,7 @@ class ReviewDraftMappingTest {
     private fun aLift(slug: String, enabled: Boolean): Lift = Lift(
         id = LiftId(slug),
         name = slug,
-        movementPattern = MovementPattern.LegPush,
+        movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
         allowWeightChangeBetweenSets = false,

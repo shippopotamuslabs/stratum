@@ -33,7 +33,7 @@ class ResolveImportLiftsUseCaseTest {
                     listOf(
                         InferredCustomLiftMetadata(
                             exerciseNameRaw = "Katana Triceps Extension",
-                            movementPattern = MovementPattern.TricepIso,
+                            movementPattern = MovementPattern.ElbowExtension,
                             primaryMuscles = setOf(MuscleGroup.Tricep),
                             secondaryMuscles = emptySet(),
                             equipment = "cable",
@@ -56,7 +56,7 @@ class ResolveImportLiftsUseCaseTest {
         assertEquals(0, outcome.summary.distinctCatalogLiftsEnabledInFirstPass)
         val custom = liftRepo.currentLifts.single { it.isCustom }
         assertEquals("Katana Triceps Extension", custom.name)
-        assertEquals(MovementPattern.TricepIso, custom.movementPattern)
+        assertEquals(MovementPattern.ElbowExtension, custom.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Tricep), custom.primaryMuscles)
         assertEquals("cable", custom.equipment)
         assertEquals(1, inference.invocations.single().size)
@@ -84,7 +84,7 @@ class ResolveImportLiftsUseCaseTest {
         subject(listOf(loggedSet(exerciseNameRaw = "Neutral Wide Grip Cable Row")))
 
         val custom = liftRepo.currentLifts.single { it.isCustom }
-        assertEquals(MovementPattern.HorizontalPull, custom.movementPattern)
+        assertEquals(MovementPattern.HorizontalPull, custom.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Bicep), custom.secondaryMuscles)
     }
 
@@ -98,7 +98,7 @@ class ResolveImportLiftsUseCaseTest {
 
         val custom = liftRepo.currentLifts.single { it.isCustom }
         assertEquals("Katana Triceps Extension", custom.name)
-        assertEquals(MovementPattern.TricepIso, custom.movementPattern)
+        assertEquals(MovementPattern.ElbowExtension, custom.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Tricep), custom.primaryMuscles)
     }
 
@@ -483,7 +483,7 @@ class ResolveImportLiftsUseCaseTest {
         Lift(
             id = id,
             name = name,
-            movementPattern = MovementPattern.LegPush,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = emptySet(),
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),

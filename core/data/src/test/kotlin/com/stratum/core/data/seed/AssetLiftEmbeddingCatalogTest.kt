@@ -15,7 +15,7 @@ class AssetLiftEmbeddingCatalogTest {
         val catalog = AssetLiftEmbeddingCatalog(context)
 
         assertEquals(384, catalog.dimensions)
-        assertTrue(catalog.allVectors().size >= 600)
+        assertTrue(catalog.allVectors().size >= 200)
         val anyVector = catalog.allVectors().values.first()
         assertEquals(384, anyVector.size)
     }

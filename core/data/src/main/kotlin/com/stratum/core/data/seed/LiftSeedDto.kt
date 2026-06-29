@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
  * - [primaryMuscles]/[secondaryMuscles] are `MuscleGroup.name` strings (e.g. `"Chest"`).
  *   Renaming or reordering the enum cannot silently corrupt seed data — an unknown name
  *   fails loudly at seed time rather than decoding to the wrong muscle.
- * - [movementPattern] is a `MovementPattern.name` string (e.g. `"LegPush"`).
+ * - [movementPattern] is a `MovementPattern.name` string (e.g. `"SquatPattern"`).
  * - [presetTags] are `GymPreset.name` strings.
  *
  * The id is a stable slug (e.g. `"barbell-full-squat"`) so seeding is deterministic across
@@ -30,7 +30,7 @@ import kotlinx.serialization.Serializable
 data class LiftSeedDto(
     val id: String,
     val name: String,
-    val movementPattern: String,
+    val movementPatterns: List<String> = emptyList(),
     val primaryMuscles: List<String> = emptyList(),
     val secondaryMuscles: List<String> = emptyList(),
     val allowWeightChangeBetweenSets: Boolean = false,
@@ -38,6 +38,10 @@ data class LiftSeedDto(
     val presetTags: List<String> = emptyList(),
     val equipment: String? = null,
     val imageSlug: String? = null,
+    val description: String? = null,
+    val imageUris: List<String> = emptyList(),
+    val muscleLengthBias: String? = null,
+    val mainstream: Boolean = false,
 )
 
 @Serializable

@@ -26,4 +26,10 @@ interface OnboardingRepository {
      * row with a non-null `completedAt`.
      */
     suspend fun markComplete()
+
+    /**
+     * Re-enter the wizard after completion so the user can edit choices and regenerate.
+     * Clears [OnboardingProgress.completedAt] and resumes on [OnboardingStep.Generate].
+     */
+    suspend fun reopenWizard()
 }

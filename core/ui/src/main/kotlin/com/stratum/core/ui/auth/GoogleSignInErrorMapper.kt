@@ -1,4 +1,4 @@
-package com.stratum.core.data.auth
+package com.stratum.core.ui.auth
 
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException

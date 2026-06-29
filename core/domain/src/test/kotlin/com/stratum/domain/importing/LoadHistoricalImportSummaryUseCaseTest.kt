@@ -75,7 +75,7 @@ class LoadHistoricalImportSummaryUseCaseTest {
                 effectiveness =
                     listOf(
                         LiftEffectivenessObservation(
-                            pattern = MovementPattern.HorizontalPush,
+                            pattern = MovementPattern.HorizontalPress,
                             liftId = LiftId("bench-press"),
                             epochId = EpochId("epoch-1"),
                             effectivenessScore = 1.2,
@@ -199,7 +199,7 @@ class LoadHistoricalImportSummaryUseCaseTest {
         Lift(
             id = LiftId(slug),
             name = slug.replace('-', ' ').replaceFirstChar { it.uppercase() },
-            movementPattern = MovementPattern.HorizontalPush,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,

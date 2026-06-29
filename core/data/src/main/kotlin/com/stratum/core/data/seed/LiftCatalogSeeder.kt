@@ -9,6 +9,7 @@ import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.serialization.json.Json
@@ -43,8 +44,11 @@ class LiftCatalogSeeder(
         val dtos = decode(context, assetPath) ?: return 0
         if (dtos.isEmpty()) return 0
 
-        for (dto in dtos) {
-            val mapped = mapDto(dto) ?: continue
+        val mappedLifts =
+            dtos
+                .filterNot { dto -> isBandVariantLift(dto.id, dto.name) }
+                .mapNotNull(::mapDto)
+        for (mapped in mappedLifts) {
             liftDao.upsert(mapped.lift)
             incrementTierDao.deleteForLift(mapped.lift.id)
             if (mapped.tiers.isNotEmpty()) incrementTierDao.upsertAll(mapped.tiers)
@@ -63,16 +67,24 @@ class LiftCatalogSeeder(
             null
         }
 
+    /** Resistance-band exercise variants are excluded from the commercial seed catalog. */
+    private fun isBandVariantLift(id: String, name: String): Boolean {
+        val pattern = Regex("(^|[-\\s])band($|[-\\s])", RegexOption.IGNORE_CASE)
+        return pattern.containsMatchIn(id) || pattern.containsMatchIn(name)
+    }
+
     private fun mapDto(dto: LiftSeedDto): MappedLift? {
-        val pattern = enumValueOfOrNull<MovementPattern>(dto.movementPattern) ?: return null
+        val patterns = dto.movementPatterns.mapNotNull { enumValueOfOrNull<MovementPattern>(it) }.toSet()
+        if (patterns.isEmpty()) return null
         val primary = dto.primaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
         val secondary = dto.secondaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
         val tags = dto.presetTags.mapNotNull { enumValueOfOrNull<GymPreset>(it) }.toSet()
+        val bias = dto.muscleLengthBias?.let { enumValueOfOrNull<MuscleLengthBias>(it) } ?: MuscleLengthBias.MidRange
         val id = LiftId(dto.id)
         val lift = LiftEntity(
             id = id,
             name = dto.name,
-            movementPattern = pattern,
+            movementPatterns = patterns,
             primaryMusclesBitmask = primary.toBitmask(),
             secondaryMusclesBitmask = secondary.toBitmask(),
             allowWeightChangeBetweenSets = dto.allowWeightChangeBetweenSets,
@@ -80,6 +92,10 @@ class LiftCatalogSeeder(
             equipment = dto.equipment,
             isCustom = false,
             enabled = false,
+            description = dto.description,
+            imageUrisCsv = dto.imageUris.joinToString(","),
+            muscleLengthBias = bias,
+            mainstream = dto.mainstream,
         )
         val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).mapIndexed { _, t ->
             IncrementTierEntity(

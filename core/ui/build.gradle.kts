@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.credentials)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test.junit5)

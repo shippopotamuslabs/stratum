@@ -48,7 +48,7 @@ class CustomLiftMusclePolicyTest {
             CustomLiftMusclePolicy.withPatternSecondaryDefaults(
                 InferredCustomLiftMetadata(
                     exerciseNameRaw = "Incline Dumbbell Biceps Curl",
-                    movementPattern = MovementPattern.BicepIso,
+                    movementPattern = MovementPattern.ElbowFlexion,
                     primaryMuscles = setOf(MuscleGroup.Bicep),
                     secondaryMuscles = emptySet(),
                 ),
@@ -64,7 +64,7 @@ class CustomLiftMusclePolicyTest {
             CustomLiftMusclePolicy.withPatternSecondaryDefaults(
                 InferredCustomLiftMetadata(
                     exerciseNameRaw = "Machine Chest Press",
-                    movementPattern = MovementPattern.HorizontalPush,
+                    movementPattern = MovementPattern.HorizontalPress,
                     primaryMuscles = setOf(MuscleGroup.Chest),
                     secondaryMuscles = emptySet(),
                 ),
@@ -80,7 +80,7 @@ class CustomLiftMusclePolicyTest {
             CustomLiftMusclePolicy.withPatternSecondaryDefaults(
                 InferredCustomLiftMetadata(
                     exerciseNameRaw = "Katana Triceps Extension",
-                    movementPattern = MovementPattern.TricepIso,
+                    movementPattern = MovementPattern.ElbowExtension,
                     primaryMuscles = setOf(MuscleGroup.Tricep),
                     secondaryMuscles = emptySet(),
                 ),

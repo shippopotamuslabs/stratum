@@ -93,6 +93,8 @@ data class ImportAnalysisMetadata(
     val unmatchedExerciseNames: List<String>,
     val totalSessions: Int,
     val totalSets: Int,
+    val extractedAt: Instant = Instant.EPOCH,
+    val pipelineVersion: String? = null,
 )
 
 data class ExtractTrainingInsightsSummary(

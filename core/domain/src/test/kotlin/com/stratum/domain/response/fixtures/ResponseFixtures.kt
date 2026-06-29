@@ -38,28 +38,28 @@ object ResponseFixtures {
     fun benchPressLift(): Lift = lift(
         id = liftBench,
         name = "Barbell Bench Press",
-        pattern = MovementPattern.HorizontalPush,
+        pattern = MovementPattern.HorizontalPress,
         muscle = MuscleGroup.Chest,
     )
 
     fun dumbbellFlyLift(): Lift = lift(
         id = liftFly,
         name = "Dumbbell Fly",
-        pattern = MovementPattern.ChestIso,
+        pattern = MovementPattern.ShoulderAdduction,
         muscle = MuscleGroup.Chest,
     )
 
     fun inclineBenchLift(): Lift = lift(
         id = liftIncline,
         name = "Incline Bench Press",
-        pattern = MovementPattern.InclinePush,
+        pattern = MovementPattern.InclinePress,
         muscle = MuscleGroup.Chest,
     )
 
     fun squatLift(): Lift = lift(
         id = liftSquat,
         name = "Back Squat",
-        pattern = MovementPattern.LegPush,
+        pattern = MovementPattern.SquatPattern,
         muscle = MuscleGroup.Quad,
     )
 
@@ -328,7 +328,7 @@ object ResponseFixtures {
                 lift(
                     id = ohpId,
                     name = "Overhead Press",
-                    pattern = MovementPattern.VerticalPush,
+                    pattern = MovementPattern.VerticalPress,
                     muscle = MuscleGroup.AnteriorDeltoid,
                 ),
             )
@@ -628,7 +628,7 @@ object ResponseFixtures {
         )
     }
 
-    /** FIX-S6-PATTERN-3 — HorizontalPush with 3 lifts, 8 sessions each; incline gated at 5 */
+    /** FIX-S6-PATTERN-3 — HorizontalPress with 3 lifts, 8 sessions each; incline gated at 5 */
     fun fixS6Pattern3(): ResponseExtractionInput {
         val benchSessions =
             (0 until 8).map { index ->
@@ -649,7 +649,7 @@ object ResponseFixtures {
                 lift(
                     id = LiftId("lift-dip"),
                     name = "Weighted Dip",
-                    pattern = MovementPattern.HorizontalPush,
+                    pattern = MovementPattern.HorizontalPress,
                     muscle = MuscleGroup.Chest,
                 ),
             )
@@ -699,7 +699,7 @@ object ResponseFixtures {
         return input(sessions = sessions, sets = sets, lifts = lifts)
     }
 
-    /** FIX-S6-SINGLE-LIFT — HorizontalPush with 1 lift, 8 sessions */
+    /** FIX-S6-SINGLE-LIFT — HorizontalPress with 1 lift, 8 sessions */
     fun fixS6SingleLift(): ResponseExtractionInput {
         val sessions =
             (0 until 8).map { index ->
@@ -893,7 +893,7 @@ object ResponseFixtures {
         Lift(
             id = id,
             name = name,
-            movementPattern = pattern,
+            movementPatterns = setOf(pattern),
             primaryMuscles = setOf(muscle),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = true,

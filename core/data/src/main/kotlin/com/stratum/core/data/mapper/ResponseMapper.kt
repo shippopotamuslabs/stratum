@@ -174,6 +174,7 @@ internal fun ResponseProfileMetadataEntity.toDomain(): ResponseProfileMetadata =
         analysisWindowStart = Instant.ofEpochMilli(analysisWindowStartEpochMillis),
         analysisWindowEnd = Instant.ofEpochMilli(analysisWindowEndEpochMillis),
         lastExtractedAt = Instant.ofEpochMilli(lastExtractedAtEpochMillis),
+        pipelineVersion = pipelineVersion,
     )
 
 internal fun ResponseProfileMetadata.toEntity(): ResponseProfileMetadataEntity =
@@ -182,6 +183,7 @@ internal fun ResponseProfileMetadata.toEntity(): ResponseProfileMetadataEntity =
         analysisWindowStartEpochMillis = analysisWindowStart.toEpochMilli(),
         analysisWindowEndEpochMillis = analysisWindowEnd.toEpochMilli(),
         lastExtractedAtEpochMillis = lastExtractedAt.toEpochMilli(),
+        pipelineVersion = pipelineVersion,
     )
 
 private fun String.splitCsvToLiftIds(): Set<LiftId> =

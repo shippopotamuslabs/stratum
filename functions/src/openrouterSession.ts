@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import {
   buildOpenRouterProviderRouting,
+  buildProgramGenerationProviderRouting,
   type OpenRouterRoutingOptions,
 } from "./openrouterRouting";
 
@@ -20,6 +21,11 @@ export function customLiftInferenceSessionId(uid: string): string {
 /** Sticky-routing key for transient equipment inference during import. */
 export function importEquipmentInferenceSessionId(uid: string): string {
   return sanitizeOpenRouterSessionId(`stratum-import-equipment:${uid}`);
+}
+
+/** Sticky-routing key for one-shot program generation (OS-7). */
+export function programGenerationSessionId(uid: string): string {
+  return sanitizeOpenRouterSessionId(`stratum-program-generate:${uid}`);
 }
 
 export function sanitizeOpenRouterSessionId(raw: string): string {
@@ -56,5 +62,20 @@ export function buildOpenRouterChatCompletionExtras(
       stickySession: true,
       ...routingOptions,
     }),
+  };
+}
+
+/**
+ * OpenRouter extras for one-shot program generation: sort by price, deprioritize providers
+ * below 50 tps (p90), require structured-output parameters. Keeps session_id for tracing but
+ * does not omit sort (stickySession=false).
+ */
+export function buildProgramGenerationChatCompletionExtras(sessionId: string): {
+  session_id: string;
+  provider: ReturnType<typeof buildProgramGenerationProviderRouting>;
+} {
+  return {
+    session_id: sanitizeOpenRouterSessionId(sessionId),
+    provider: buildProgramGenerationProviderRouting({ requireParameters: true }),
   };
 }

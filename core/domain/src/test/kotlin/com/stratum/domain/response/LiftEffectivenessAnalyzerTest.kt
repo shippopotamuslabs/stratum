@@ -28,7 +28,7 @@ class LiftEffectivenessAnalyzerTest {
             )
         val observations =
             LiftEffectivenessAnalyzer.analyze(
-                pattern = MovementPattern.HorizontalPush,
+                pattern = MovementPattern.HorizontalPress,
                 epoch = epochs.single(),
                 input = input,
                 deloadWeeks = emptySet(),
@@ -52,7 +52,7 @@ class LiftEffectivenessAnalyzerTest {
             )
         val observations =
             LiftEffectivenessAnalyzer.analyze(
-                pattern = MovementPattern.HorizontalPush,
+                pattern = MovementPattern.HorizontalPress,
                 epoch = epochs.single(),
                 input = input,
                 deloadWeeks = emptySet(),
@@ -78,7 +78,7 @@ class LiftEffectivenessAnalyzerTest {
             )
         val observations =
             LiftEffectivenessAnalyzer.analyze(
-                pattern = MovementPattern.HorizontalPush,
+                pattern = MovementPattern.HorizontalPress,
                 epoch = epochs.single(),
                 input = input,
                 deloadWeeks = emptySet(),
@@ -98,7 +98,7 @@ class LiftEffectivenessAnalyzerTest {
         val perEpoch =
             epochs.flatMap { epoch ->
                 LiftEffectivenessAnalyzer.analyze(
-                    pattern = MovementPattern.HorizontalPush,
+                    pattern = MovementPattern.HorizontalPress,
                     epoch = epoch,
                     input = input,
                     deloadWeeks = emptySet(),
@@ -123,7 +123,7 @@ class LiftEffectivenessAnalyzerTest {
             )
         val horizontal =
             LiftEffectivenessAnalyzer.analyze(
-                pattern = MovementPattern.HorizontalPush,
+                pattern = MovementPattern.HorizontalPress,
                 epoch = epoch,
                 input = input,
                 deloadWeeks = emptySet(),
@@ -139,7 +139,7 @@ class LiftEffectivenessAnalyzerTest {
         val verticalRank1 = vertical.first { it.rank == 1 }
 
         assertNotEquals(horizontalRank1.liftId, verticalRank1.liftId)
-        assertEquals(MovementPattern.HorizontalPush, horizontalRank1.pattern)
+        assertEquals(MovementPattern.HorizontalPress, horizontalRank1.pattern)
         assertEquals(MovementPattern.VerticalPull, verticalRank1.pattern)
     }
 
@@ -217,7 +217,7 @@ class LiftEffectivenessAnalyzerTest {
             )
         val observations =
             LiftEffectivenessAnalyzer.analyze(
-                pattern = MovementPattern.HorizontalPush,
+                pattern = MovementPattern.HorizontalPress,
                 epoch = epoch,
                 input = input,
                 deloadWeeks = emptySet(),
@@ -235,7 +235,7 @@ class LiftEffectivenessAnalyzerTest {
         com.stratum.domain.lift.Lift(
             id = id,
             name = name,
-            movementPattern = MovementPattern.HorizontalPush,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),

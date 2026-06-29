@@ -31,7 +31,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 fun LiftWithTiers.toDomain(): Lift = Lift(
     id = lift.id,
     name = lift.name,
-    movementPattern = lift.movementPattern,
+    movementPatterns = lift.movementPatterns,
     primaryMuscles = lift.primaryMusclesBitmask.toMuscleSet(),
     secondaryMuscles = lift.secondaryMusclesBitmask.toMuscleSet(),
     allowWeightChangeBetweenSets = lift.allowWeightChangeBetweenSets,
@@ -40,12 +40,16 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
     equipment = lift.equipment,
     enabled = lift.enabled,
     isCustom = lift.isCustom,
+    description = lift.description,
+    imageUris = lift.imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
+    muscleLengthBias = lift.muscleLengthBias,
+    mainstream = lift.mainstream,
 )
 
 fun Lift.toEntity(): LiftEntity = LiftEntity(
     id = id,
     name = name,
-    movementPattern = movementPattern,
+    movementPatterns = movementPatterns,
     primaryMusclesBitmask = primaryMuscles.toBitmask(),
     secondaryMusclesBitmask = secondaryMuscles.toBitmask(),
     allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
@@ -53,6 +57,10 @@ fun Lift.toEntity(): LiftEntity = LiftEntity(
     equipment = equipment,
     isCustom = isCustom,
     enabled = enabled,
+    description = description,
+    imageUrisCsv = imageUris.joinToString(","),
+    muscleLengthBias = muscleLengthBias,
+    mainstream = mainstream,
 )
 
 fun Lift.toTierEntities(): List<IncrementTierEntity> = incrementTiers.map { tier ->

@@ -1,13 +1,12 @@
 package com.stratum.core.data.db
 
-import com.stratum.domain.lift.GymPreset
-import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.onboarding.OnboardingStep
-import com.stratum.domain.onboarding.SpecializationLevel
-import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.response.identity.EpochId
+import com.stratum.domain.response.identity.ExperimentId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
@@ -21,49 +20,44 @@ class EnumConvertersTest {
     @DisplayName("Given a known enum value when round-tripped through a converter then it is preserved")
     fun knownValuesRoundTrip() {
         assertEquals(MuscleGroup.LateralDeltoid, converters.toMuscleGroup(converters.fromMuscleGroup(MuscleGroup.LateralDeltoid)))
-        assertEquals(SpecializationLevel.Specialize, converters.toSpecializationLevel(converters.fromSpecializationLevel(SpecializationLevel.Specialize)))
-        assertEquals(OnboardingStep.Specialization, converters.toOnboardingStep(converters.fromOnboardingStep(OnboardingStep.Specialization)))
-        assertEquals(TrainingAge.LateIntermediate, converters.toTrainingAge(converters.fromTrainingAge(TrainingAge.LateIntermediate)))
-        assertEquals(LastTrainedBucket.OneToSixMonthsAgo, converters.toLastTrainedBucket(converters.fromLastTrainedBucket(LastTrainedBucket.OneToSixMonthsAgo)))
-        assertEquals(MovementPattern.HorizontalPush, converters.toMovementPattern(converters.fromMovementPattern(MovementPattern.HorizontalPush)))
-        assertEquals(GymPreset.CommercialGym, converters.toGymPreset(converters.fromGymPreset(GymPreset.CommercialGym)))
+        assertEquals(Weekday.Monday, converters.toWeekday(converters.fromWeekday(Weekday.Monday)))
         assertEquals(LiftId("bench-press"), converters.toLiftId(converters.fromLiftId(LiftId("bench-press"))))
+        assertEquals(
+            HistoricalSessionId("session-1"),
+            converters.toHistoricalSessionId(converters.fromHistoricalSessionId(HistoricalSessionId("session-1"))),
+        )
+        assertEquals(
+            LoggedSetId("set-1"),
+            converters.toLoggedSetId(converters.fromLoggedSetId(LoggedSetId("set-1"))),
+        )
+        assertEquals(EpochId("epoch-1"), converters.toEpochId(converters.fromEpochId(EpochId("epoch-1"))))
+        assertEquals(
+            ExperimentId("exp-1"),
+            converters.toExperimentId(converters.fromExperimentId(ExperimentId("exp-1"))),
+        )
     }
 
     @Test
     @DisplayName("Given null when encoded then it round-trips as null")
     fun nullRoundTripsAsNull() {
         assertNull(converters.toMuscleGroup(converters.fromMuscleGroup(null)))
-        assertNull(converters.toSpecializationLevel(converters.fromSpecializationLevel(null)))
-        assertNull(converters.toOnboardingStep(converters.fromOnboardingStep(null)))
-        assertNull(converters.toTrainingAge(converters.fromTrainingAge(null)))
-        assertNull(converters.toLastTrainedBucket(converters.fromLastTrainedBucket(null)))
-        assertNull(converters.toMovementPattern(converters.fromMovementPattern(null)))
-        assertNull(converters.toGymPreset(converters.fromGymPreset(null)))
+        assertNull(converters.toWeekday(converters.fromWeekday(null)))
         assertNull(converters.toLiftId(converters.fromLiftId(null)))
+        assertNull(converters.toHistoricalSessionId(converters.fromHistoricalSessionId(null)))
+        assertNull(converters.toLoggedSetId(converters.fromLoggedSetId(null)))
+        assertNull(converters.toEpochId(converters.fromEpochId(null)))
+        assertNull(converters.toExperimentId(converters.fromExperimentId(null)))
     }
 
     @Test
     @DisplayName("Given an unknown enum name when decoded then it yields null rather than throwing")
     fun unknownNameYieldsNull() {
         assertNull(converters.toMuscleGroup("NotAMuscle"))
-        assertNull(converters.toSpecializationLevel("BogusLevel"))
-        assertNull(converters.toOnboardingStep("FutureStep"))
-        assertNull(converters.toTrainingAge("AlsoFake"))
-        assertNull(converters.toLastTrainedBucket("Nope"))
-        assertNull(converters.toMovementPattern("DiagonalPush"))
-        assertNull(converters.toGymPreset("PlanetFitness"))
+        assertNull(converters.toWeekday("Funday"))
     }
 
     @Test
-    @DisplayName("Given a renamed enum name when decoded then it yields null (no crash on downgrade)")
-    fun renamedEnumYieldsNull() {
-        // Simulates a value written by a newer schema version that no longer exists.
-        assertNull(converters.toMuscleGroup("Obliques"))
-    }
-
-    @Test
-    @DisplayName("Given a blank LiftId value when decoded then it yields null")
+    @DisplayName("Given a blank LiftId when decoded then it yields null")
     fun blankLiftIdYieldsNull() {
         assertNull(converters.toLiftId(""))
         assertNull(converters.toLiftId("   "))
