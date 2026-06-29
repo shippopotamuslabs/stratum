@@ -28,7 +28,7 @@ class ImportStubLiftGuesserTest {
                 increment = Weight(5.0, Weight.WeightUnit.Lb),
             )
 
-        assertEquals(MovementPattern.HorizontalPull, definition.movementPattern)
+        assertEquals(MovementPattern.HorizontalPull, definition.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Back), definition.primaryMuscles)
         assertEquals(setOf(MuscleGroup.Bicep), definition.secondaryMuscles)
     }
@@ -81,7 +81,7 @@ class ImportStubLiftGuesserTest {
             Lift(
                 id = LiftId("custom-lateral"),
                 name = "Single Arm Cable Cuffed Lateral Raise",
-                movementPattern = MovementPattern.SquatPattern,
+                movementPatterns = setOf(MovementPattern.SquatPattern),
                 primaryMuscles = setOf(MuscleGroup.Quad),
                 secondaryMuscles = emptySet(),
                 allowWeightChangeBetweenSets = true,
@@ -105,7 +105,7 @@ class ImportStubLiftGuesserTest {
             Lift(
                 id = LiftId("custom-rear-delt"),
                 name = "45° Cable Rear Delt Fly",
-                movementPattern = MovementPattern.ShoulderAbduction,
+                movementPatterns = setOf(MovementPattern.ShoulderAbduction),
                 primaryMuscles = setOf(MuscleGroup.AnteriorDeltoid),
                 secondaryMuscles = emptySet(),
                 allowWeightChangeBetweenSets = true,

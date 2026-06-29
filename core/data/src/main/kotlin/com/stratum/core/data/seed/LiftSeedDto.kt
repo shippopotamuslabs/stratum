@@ -30,7 +30,7 @@ import kotlinx.serialization.Serializable
 data class LiftSeedDto(
     val id: String,
     val name: String,
-    val movementPattern: String,
+    val movementPatterns: List<String> = emptyList(),
     val primaryMuscles: List<String> = emptyList(),
     val secondaryMuscles: List<String> = emptyList(),
     val allowWeightChangeBetweenSets: Boolean = false,

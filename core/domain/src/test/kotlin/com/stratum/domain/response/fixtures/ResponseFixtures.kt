@@ -893,7 +893,7 @@ object ResponseFixtures {
         Lift(
             id = id,
             name = name,
-            movementPattern = pattern,
+            movementPatterns = setOf(pattern),
             primaryMuscles = setOf(muscle),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = true,

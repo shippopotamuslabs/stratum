@@ -77,7 +77,7 @@ class FakeLiftRepository(
             definition =
                 CustomLiftDefinition(
                     name = name,
-                    movementPattern = MovementPattern.SquatPattern,
+                    movementPatterns = setOf(MovementPattern.SquatPattern),
                     primaryMuscles = emptySet(),
                     secondaryMuscles = emptySet(),
                     equipment = null,
@@ -101,7 +101,7 @@ class FakeLiftRepository(
             Lift(
                 id = id,
                 name = definition.name,
-                movementPattern = definition.movementPattern,
+                movementPatterns = definition.movementPatterns,
                 primaryMuscles = definition.primaryMuscles,
                 secondaryMuscles = definition.secondaryMuscles,
                 allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,

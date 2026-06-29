@@ -6,6 +6,7 @@ export interface LiftContext {
   id: string;
   name: string;
   movementPattern: string;
+  movementPatterns: string[];
   primaryMuscles: string[];
   secondaryMuscles: string[];
   progressTrend?: string;
@@ -96,7 +97,8 @@ function readLift(raw: unknown, provenTier: boolean): LiftContext | null {
   const id = typeof lift.id === "string" ? lift.id : null;
   if (!id) return null;
   const name = typeof lift.name === "string" ? lift.name : id;
-  const movementPattern = typeof lift.movementPattern === "string" ? lift.movementPattern : "";
+  const movementPatterns = readStringArray(lift.movementPatterns);
+  const movementPattern = movementPatterns[0] || (typeof lift.movementPattern === "string" ? lift.movementPattern : "");
   const primaryMuscles = readStringArray(lift.primaryMuscles);
   const secondaryMuscles = readStringArray(lift.secondaryMuscles);
   const insights =
@@ -115,6 +117,7 @@ function readLift(raw: unknown, provenTier: boolean): LiftContext | null {
     id,
     name,
     movementPattern,
+    movementPatterns,
     primaryMuscles,
     secondaryMuscles,
     progressTrend,

@@ -235,7 +235,7 @@ class LiftEffectivenessAnalyzerTest {
         com.stratum.domain.lift.Lift(
             id = id,
             name = name,
-            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),

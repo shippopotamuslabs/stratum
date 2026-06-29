@@ -126,7 +126,7 @@ class ProgramsViewModelTest {
         Lift(
             id = id,
             name = name,
-            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = emptySet(),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,

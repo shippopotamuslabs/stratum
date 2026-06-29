@@ -2,7 +2,6 @@
   {
     "id": "ab-roller",
     "name": "Ab Roller",
-    "movementPattern": "SpinalFlexion",
     "primaryMuscles": [
       "Ab"
     ],
@@ -20,12 +19,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Ab_Roller/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Ab_Roller/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SpinalFlexion"
+    ]
   },
   {
     "id": "alternate-incline-dumbbell-curl",
     "name": "Alternate Incline Dumbbell Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -43,12 +44,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Alternate_Incline_Dumbbell_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Alternate_Incline_Dumbbell_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "arnold-dumbbell-press",
     "name": "Arnold Dumbbell Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -66,12 +69,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "back-extension",
     "name": "Back Extension",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "LowerBack"
     ],
@@ -90,12 +96,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hyperextensions_Back_Extensions/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hyperextensions_Back_Extensions/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-ab-rollout",
     "name": "Barbell Ab Rollout",
-    "movementPattern": "SpinalFlexion",
     "primaryMuscles": [
       "Ab"
     ],
@@ -113,12 +122,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Ab_Rollout/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Ab_Rollout/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SpinalFlexion"
+    ]
   },
   {
     "id": "barbell-ab-rollout-on-knees",
     "name": "Barbell Ab Rollout - On Knees",
-    "movementPattern": "SpinalFlexion",
     "primaryMuscles": [
       "Ab"
     ],
@@ -136,12 +147,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Ab_Rollout_-_On_Knees/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Ab_Rollout_-_On_Knees/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SpinalFlexion"
+    ]
   },
   {
     "id": "barbell-back-squat",
     "name": "Barbell Back Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -161,12 +174,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-bench-press",
     "name": "Barbell Bench Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -184,12 +200,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "barbell-curl",
     "name": "Barbell Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -207,12 +226,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "barbell-deadlift",
     "name": "Barbell Deadlift",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "LowerBack"
     ],
@@ -236,12 +257,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Deadlift/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Deadlift/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-front-squat",
     "name": "Barbell Front Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -260,12 +284,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Front_Barbell_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Front_Barbell_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-glute-bridge",
     "name": "Barbell Glute Bridge",
-    "movementPattern": "HipExtension",
     "primaryMuscles": [
       "Glute"
     ],
@@ -283,12 +310,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Glute_Bridge/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Glute_Bridge/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-guillotine-bench-press",
     "name": "Barbell Guillotine Bench Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -306,12 +335,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Guillotine_Bench_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Guillotine_Bench_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "barbell-hack-squat",
     "name": "Barbell Hack Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -330,12 +362,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Hack_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Hack_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-hip-thrust",
     "name": "Barbell Hip Thrust",
-    "movementPattern": "HipExtension",
     "primaryMuscles": [
       "Glute"
     ],
@@ -353,12 +388,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Hip_Thrust/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Hip_Thrust/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-incline-bench-press",
     "name": "Barbell Incline Bench Press",
-    "movementPattern": "InclinePress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -376,12 +413,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Incline_Bench_Press_-_Medium_Grip/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Incline_Bench_Press_-_Medium_Grip/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "InclinePress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "barbell-lunge",
     "name": "Barbell Lunge",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -400,12 +440,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Lunge/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Lunge/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-rack-pull",
     "name": "Barbell Rack Pull",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "LowerBack"
     ],
@@ -425,12 +468,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Rack_Pulls/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Rack_Pulls/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-rear-delt-row",
     "name": "Barbell Rear Delt Row",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -449,12 +495,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Rear_Delt_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Rear_Delt_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-rollout-from-bench",
     "name": "Barbell Rollout from Bench",
-    "movementPattern": "SpinalFlexion",
     "primaryMuscles": [
       "Ab"
     ],
@@ -474,12 +523,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Rollout_from_Bench/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Rollout_from_Bench/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SpinalFlexion"
+    ]
   },
   {
     "id": "barbell-romanian-deadlift",
     "name": "Barbell Romanian Deadlift",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -498,12 +549,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-shrug",
     "name": "Barbell Shrug",
-    "movementPattern": "ScapularElevation",
     "primaryMuscles": [
       "Trap"
     ],
@@ -518,12 +572,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Shrug/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Shrug/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ScapularElevation"
+    ]
   },
   {
     "id": "barbell-shrug-behind-the-back",
     "name": "Barbell Shrug Behind The Back",
-    "movementPattern": "ScapularElevation",
     "primaryMuscles": [
       "Trap"
     ],
@@ -542,12 +598,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Shrug_Behind_The_Back/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Shrug_Behind_The_Back/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ScapularElevation"
+    ]
   },
   {
     "id": "barbell-side-split-squat",
     "name": "Barbell Side Split Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -566,12 +624,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Side_Split_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Side_Split_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-stiff-legged-deadlift",
     "name": "Barbell Stiff-Legged Deadlift",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -589,12 +650,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Stiff-Legged_Barbell_Deadlift/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Stiff-Legged_Barbell_Deadlift/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-sumo-deadlift",
     "name": "Barbell Sumo Deadlift",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -617,12 +681,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Sumo_Deadlift/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Sumo_Deadlift/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "barbell-walking-lunge",
     "name": "Barbell Walking Lunge",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -641,12 +708,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Walking_Lunge/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Walking_Lunge/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "bench-dips",
     "name": "Bench Dips",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -664,12 +734,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bench_Dips/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bench_Dips/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "bent-arm-barbell-pullover",
     "name": "Bent-Arm Barbell Pullover",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Back"
     ],
@@ -689,12 +761,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent-Arm_Barbell_Pullover/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent-Arm_Barbell_Pullover/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "bent-over-barbell-row",
     "name": "Bent Over Barbell Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -713,12 +787,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "bent-over-dumbbell-rear-delt-raise-with-head-on-bench",
     "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
-    "movementPattern": "ShoulderHorizontalAbduction",
     "primaryMuscles": [
       "PosteriorDeltoid"
     ],
@@ -733,12 +810,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Dumbbell_Rear_Delt_Raise_With_Head_On_Bench/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Dumbbell_Rear_Delt_Raise_With_Head_On_Bench/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderHorizontalAbduction"
+    ]
   },
   {
     "id": "bent-over-two-dumbbell-row",
     "name": "Bent Over Two-Dumbbell Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -758,12 +837,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Two-Dumbbell_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Two-Dumbbell_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "bent-over-two-dumbbell-row-with-palms-in",
     "name": "Bent Over Two-Dumbbell Row With Palms In",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -782,12 +864,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Two-Dumbbell_Row_With_Palms_In/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Two-Dumbbell_Row_With_Palms_In/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "bodyweight-flyes",
     "name": "Bodyweight Flyes",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -807,12 +892,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Flyes/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Flyes/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "bodyweight-squat",
     "name": "Bodyweight Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -830,12 +917,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "bodyweight-walking-lunge",
     "name": "Bodyweight Walking Lunge",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -855,12 +945,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Walking_Lunge/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Walking_Lunge/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "box-squat",
     "name": "Box Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -881,12 +974,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Box_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Box_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "bulgarian-split-squat",
     "name": "Bulgarian Split Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -905,12 +1001,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "cable-chest-fly",
     "name": "Cable Chest Fly",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -924,12 +1023,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Flat_Bench_Cable_Flyes/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Flat_Bench_Cable_Flyes/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "cable-chest-press",
     "name": "Cable Chest Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -947,12 +1048,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Chest_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Chest_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-crossover",
     "name": "Cable Crossover",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -969,12 +1073,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Crossover/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Crossover/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "cable-incline-pushdown",
     "name": "Cable Incline Pushdown",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Back"
     ],
@@ -988,12 +1094,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Incline_Pushdown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Incline_Pushdown/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-incline-triceps-extension",
     "name": "Cable Incline Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1007,12 +1115,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Incline_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Incline_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-one-arm-tricep-extension",
     "name": "Cable One Arm Tricep Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1026,12 +1136,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_One_Arm_Tricep_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_One_Arm_Tricep_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-rear-delt-fly",
     "name": "Cable Rear Delt Fly",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -1045,12 +1157,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "cable-rope-hammer-curl",
     "name": "Cable Rope Hammer Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -1064,12 +1178,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Hammer_Curls_-_Rope_Attachment/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Hammer_Curls_-_Rope_Attachment/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "cable-rope-overhead-triceps-extension",
     "name": "Cable Rope Overhead Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1083,12 +1199,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rope_Overhead_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rope_Overhead_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-rope-rear-delt-rows",
     "name": "Cable Rope Rear-Delt Rows",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -1106,12 +1224,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rope_Rear-Delt_Rows/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rope_Rear-Delt_Rows/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "cable-rope-triceps-pushdown",
     "name": "Cable Rope Triceps Pushdown",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1125,12 +1246,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_Rope_Attachment/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_Rope_Attachment/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-shoulder-press",
     "name": "Cable Shoulder Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -1147,12 +1270,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Shoulder_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Shoulder_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-shrugs",
     "name": "Cable Shrugs",
-    "movementPattern": "ScapularElevation",
     "primaryMuscles": [
       "Trap"
     ],
@@ -1166,12 +1292,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Shrugs/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Shrugs/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ScapularElevation"
+    ]
   },
   {
     "id": "cable-triceps-pushdown",
     "name": "Cable Triceps Pushdown",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1185,12 +1313,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-v-bar-triceps-pushdown",
     "name": "Cable V-Bar Triceps Pushdown",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1204,12 +1334,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "cable-wrist-curl",
     "name": "Cable Wrist Curl",
-    "movementPattern": "WristFlexionExtension",
     "primaryMuscles": [
       "Forearm"
     ],
@@ -1223,12 +1355,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Wrist_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Wrist_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "WristFlexionExtension"
+    ]
   },
   {
     "id": "cable-y-raise",
     "name": "Cable Y-Raise",
-    "movementPattern": "ShoulderAbduction",
     "primaryMuscles": [
       "LateralDeltoid"
     ],
@@ -1244,12 +1378,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Seated_Lateral_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Seated_Lateral_Raise/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ShoulderAbduction"
+    ]
   },
   {
     "id": "calf-press",
     "name": "Calf Press",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Calf"
     ],
@@ -1264,12 +1400,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "chain-handle-extension",
     "name": "Chain Handle Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1284,12 +1423,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chain_Handle_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chain_Handle_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "chain-press",
     "name": "Chain Press",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -1308,12 +1449,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chain_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chain_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "chair-squat",
     "name": "Chair Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -1333,12 +1476,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chair_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chair_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "chin-up",
     "name": "Chin-Up",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -1357,12 +1503,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chin-Up/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chin-Up/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "close-grip-barbell-bench-press",
     "name": "Close-Grip Barbell Bench Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1380,12 +1529,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Barbell_Bench_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Barbell_Bench_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "close-grip-dumbbell-press",
     "name": "Close-Grip Dumbbell Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1404,12 +1556,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Dumbbell_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Dumbbell_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "close-grip-ez-bar-curl",
     "name": "Close-Grip EZ Bar Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -1427,12 +1582,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_EZ_Bar_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_EZ_Bar_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "close-grip-ez-bar-press",
     "name": "Close-Grip EZ-Bar Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1450,12 +1607,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_EZ-Bar_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_EZ-Bar_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "close-grip-front-lat-pulldown",
     "name": "Close-Grip Front Lat Pulldown",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Back"
     ],
@@ -1474,12 +1634,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Front_Lat_Pulldown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Front_Lat_Pulldown/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "close-grip-standing-barbell-curl",
     "name": "Close-Grip Standing Barbell Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -1497,12 +1660,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Standing_Barbell_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Standing_Barbell_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "cross-body-hammer-curl",
     "name": "Cross Body Hammer Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -1520,12 +1685,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cross_Body_Hammer_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cross_Body_Hammer_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "decline-barbell-bench-press",
     "name": "Decline Barbell Bench Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -1543,12 +1710,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Barbell_Bench_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Barbell_Bench_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "decline-dumbbell-fly",
     "name": "Decline Dumbbell Fly",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -1563,12 +1733,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Dumbbell_Flyes/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Dumbbell_Flyes/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "decline-dumbbell-triceps-extension",
     "name": "Decline Dumbbell Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1583,12 +1755,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Dumbbell_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Dumbbell_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "decline-ez-bar-triceps-extension",
     "name": "Decline EZ Bar Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1603,12 +1777,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_EZ_Bar_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_EZ_Bar_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "decline-push-up",
     "name": "Decline Push-Up",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -1627,12 +1803,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Push-Up/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Push-Up/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "decline-smith-press",
     "name": "Decline Smith Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -1650,12 +1829,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Smith_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Decline_Smith_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "deficit-deadlift",
     "name": "Deficit Deadlift",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "LowerBack"
     ],
@@ -1677,12 +1859,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Deficit_Deadlift/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Deficit_Deadlift/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "dip-machine",
     "name": "Dip Machine",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1700,12 +1885,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dip_Machine/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dip_Machine/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "dips-chest-version",
     "name": "Dips - Chest Version",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Chest"
     ],
@@ -1724,12 +1911,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Chest_Version/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Chest_Version/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "dips-triceps-version",
     "name": "Dips - Triceps Version",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1747,12 +1936,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Triceps_Version/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Triceps_Version/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "donkey-calf-raise",
     "name": "Donkey Calf Raise",
-    "movementPattern": "PlantarFlexion",
     "primaryMuscles": [
       "Calf"
     ],
@@ -1767,12 +1958,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Donkey_Calf_Raises/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Donkey_Calf_Raises/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ]
   },
   {
     "id": "dumbbell-bench-press-with-neutral-grip",
     "name": "Dumbbell Bench Press with Neutral Grip",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -1791,12 +1984,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press_with_Neutral_Grip/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press_with_Neutral_Grip/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "dumbbell-concentration-curl",
     "name": "Dumbbell Concentration Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -1814,12 +2010,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Concentration_Curls/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Concentration_Curls/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "dumbbell-fly",
     "name": "Dumbbell Fly",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -1834,12 +2032,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Flyes/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Flyes/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "dumbbell-hammer-curl",
     "name": "Dumbbell Hammer Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -1854,12 +2054,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hammer_Curls/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hammer_Curls/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "dumbbell-incline-curl",
     "name": "Dumbbell Incline Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -1874,12 +2076,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "dumbbell-incline-row",
     "name": "Dumbbell Incline Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -1900,12 +2104,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Incline_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Incline_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "dumbbell-lateral-raise",
     "name": "Dumbbell Lateral Raise",
-    "movementPattern": "ShoulderAbduction",
     "primaryMuscles": [
       "LateralDeltoid"
     ],
@@ -1920,12 +2127,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAbduction"
+    ]
   },
   {
     "id": "dumbbell-lying-rear-lateral-raise",
     "name": "Dumbbell Lying Rear Lateral Raise",
-    "movementPattern": "ShoulderHorizontalAbduction",
     "primaryMuscles": [
       "PosteriorDeltoid"
     ],
@@ -1940,12 +2149,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Lying_Rear_Lateral_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Lying_Rear_Lateral_Raise/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderHorizontalAbduction"
+    ]
   },
   {
     "id": "dumbbell-one-arm-shoulder-press",
     "name": "Dumbbell One-Arm Shoulder Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -1963,12 +2174,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_One-Arm_Shoulder_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_One-Arm_Shoulder_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "dumbbell-one-arm-triceps-extension",
     "name": "Dumbbell One-Arm Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -1983,12 +2197,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_One-Arm_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_One-Arm_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "dumbbell-one-arm-upright-row",
     "name": "Dumbbell One-Arm Upright Row",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -2007,12 +2223,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_One-Arm_Upright_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_One-Arm_Upright_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "dumbbell-prone-incline-curl",
     "name": "Dumbbell Prone Incline Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -2027,12 +2246,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Prone_Incline_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Prone_Incline_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "dumbbell-rear-lunge",
     "name": "Dumbbell Rear Lunge",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -2052,12 +2273,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Rear_Lunge/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Rear_Lunge/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "dumbbell-spider-curl",
     "name": "Dumbbell Spider Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -2072,12 +2296,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Spider_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Spider_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "dumbbell-squat",
     "name": "Dumbbell Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -2098,12 +2324,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "dumbbell-squat-to-a-bench",
     "name": "Dumbbell Squat To A Bench",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -2124,12 +2353,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Squat_To_A_Bench/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Squat_To_A_Bench/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "dumbbell-step-ups",
     "name": "Dumbbell Step Ups",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -2149,12 +2381,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Step_Ups/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Step_Ups/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "dumbbell-tricep-extension-pronated-grip",
     "name": "Dumbbell Tricep Extension -Pronated Grip",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -2169,12 +2404,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Tricep_Extension_-Pronated_Grip/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Tricep_Extension_-Pronated_Grip/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "elevated-back-lunge",
     "name": "Elevated Back Lunge",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -2192,12 +2429,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Elevated_Back_Lunge/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Elevated_Back_Lunge/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "ez-bar-curl",
     "name": "EZ-Bar Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -2212,12 +2452,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "ez-bar-skull-crusher",
     "name": "EZ-Bar Skull Crusher",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -2235,12 +2477,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "face-pull",
     "name": "Face Pull",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "PosteriorDeltoid"
     ],
@@ -2258,12 +2502,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "flat-bench-lying-leg-raise",
     "name": "Flat Bench Lying Leg Raise",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Ab"
     ],
@@ -2278,12 +2525,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Flat_Bench_Lying_Leg_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Flat_Bench_Lying_Leg_Raise/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "floor-press",
     "name": "Floor Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -2301,12 +2551,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Floor_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Floor_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "front-plate-raise",
     "name": "Front Plate Raise",
-    "movementPattern": "ShoulderFlexion",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -2321,12 +2574,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Front_Plate_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Front_Plate_Raise/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderFlexion"
+    ]
   },
   {
     "id": "full-range-of-motion-lat-pulldown",
     "name": "Full Range-Of-Motion Lat Pulldown",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -2345,12 +2600,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Full_Range-Of-Motion_Lat_Pulldown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Full_Range-Of-Motion_Lat_Pulldown/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "glute-ham-raise",
     "name": "Glute Ham Raise",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -2369,12 +2627,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Glute_Ham_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Glute_Ham_Raise/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "goblet-squat",
     "name": "Goblet Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -2395,12 +2656,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Goblet_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Goblet_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "good-morning",
     "name": "Good Morning",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -2419,12 +2683,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Good_Morning/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Good_Morning/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "handstand-push-ups",
     "name": "Handstand Push-Ups",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -2441,12 +2708,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Handstand_Push-Ups/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Handstand_Push-Ups/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "hanging-leg-raise",
     "name": "Hanging Leg Raise",
-    "movementPattern": "SpinalFlexion",
     "primaryMuscles": [
       "Ab"
     ],
@@ -2461,12 +2731,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hanging_Leg_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hanging_Leg_Raise/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SpinalFlexion"
+    ]
   },
   {
     "id": "high-cable-curls",
     "name": "High Cable Curls",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -2480,12 +2752,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/High_Cable_Curls/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/High_Cable_Curls/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "incline-bench-pull",
     "name": "Incline Bench Pull",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -2504,12 +2778,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Bench_Pull/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Bench_Pull/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "incline-cable-chest-press",
     "name": "Incline Cable Chest Press",
-    "movementPattern": "InclinePress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -2527,12 +2804,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Cable_Chest_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Cable_Chest_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "InclinePress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "incline-cable-fly",
     "name": "Incline Cable Fly",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -2549,12 +2829,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Cable_Flye/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Cable_Flye/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "incline-dumbbell-press",
     "name": "Incline Dumbbell Press",
-    "movementPattern": "InclinePress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -2573,12 +2855,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "InclinePress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "incline-hammer-curls",
     "name": "Incline Hammer Curls",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -2593,12 +2878,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Hammer_Curls/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Hammer_Curls/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "incline-inner-biceps-curl",
     "name": "Incline Inner Biceps Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -2613,12 +2900,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Inner_Biceps_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Inner_Biceps_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "incline-push-up",
     "name": "Incline Push-Up",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -2636,12 +2925,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Push-Up/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Push-Up/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "jefferson-squats",
     "name": "Jefferson Squats",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -2662,12 +2954,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Jefferson_Squats/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Jefferson_Squats/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "jm-press",
     "name": "JM Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -2685,12 +2980,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/JM_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/JM_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "katana-triceps-extension",
     "name": "Katana Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -2704,12 +3002,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_One_Arm_Tricep_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_One_Arm_Tricep_Extension/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "kneeling-cable-triceps-extension",
     "name": "Kneeling Cable Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -2723,12 +3023,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Cable_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Cable_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "kneeling-high-pulley-row",
     "name": "Kneeling High Pulley Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -2747,12 +3049,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_High_Pulley_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_High_Pulley_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "kneeling-single-arm-high-pulley-row",
     "name": "Kneeling Single-Arm High Pulley Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -2771,12 +3076,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Single-Arm_High_Pulley_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Single-Arm_High_Pulley_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "kneeling-squat",
     "name": "Kneeling Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Glute"
     ],
@@ -2795,12 +3103,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "leg-lift",
     "name": "Leg Lift",
-    "movementPattern": "HipExtension",
     "primaryMuscles": [
       "Glute"
     ],
@@ -2818,12 +3129,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Lift/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Lift/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HipExtension"
+    ]
   },
   {
     "id": "leg-over-floor-press",
     "name": "Leg-Over Floor Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -2842,12 +3155,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg-Over_Floor_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg-Over_Floor_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "leverage-chest-press",
     "name": "Leverage Chest Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -2866,12 +3182,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leverage_Chest_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leverage_Chest_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "leverage-decline-chest-press",
     "name": "Leverage Decline Chest Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -2890,12 +3209,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leverage_Decline_Chest_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leverage_Decline_Chest_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "leverage-high-row",
     "name": "Leverage High Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -2914,12 +3236,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leverage_High_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leverage_High_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "leverage-iso-row",
     "name": "Leverage Iso Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -2938,12 +3263,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leverage_Iso_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leverage_Iso_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "low-cable-crossover",
     "name": "Low Cable Crossover",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -2960,12 +3288,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Low_Cable_Crossover/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Low_Cable_Crossover/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "low-cable-triceps-extension",
     "name": "Low Cable Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -2979,12 +3309,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Low_Cable_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Low_Cable_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "low-pulley-row-to-neck",
     "name": "Low Pulley Row To Neck",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -3004,12 +3336,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Low_Pulley_Row_To_Neck/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Low_Pulley_Row_To_Neck/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "lunge-pass-through",
     "name": "Lunge Pass Through",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -3029,12 +3364,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lunge_Pass_Through/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lunge_Pass_Through/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "lying-close-grip-barbell-triceps-extension-behind-the-head",
     "name": "Lying Close-Grip Barbell Triceps Extension Behind The Head",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -3049,12 +3387,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Close-Grip_Barbell_Triceps_Extension_Behind_The_Head/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Close-Grip_Barbell_Triceps_Extension_Behind_The_Head/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "lying-close-grip-barbell-triceps-press-to-chin",
     "name": "Lying Close-Grip Barbell Triceps Press To Chin",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -3069,12 +3409,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Close-Grip_Barbell_Triceps_Press_To_Chin/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Close-Grip_Barbell_Triceps_Press_To_Chin/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "lying-dumbbell-tricep-extension",
     "name": "Lying Dumbbell Tricep Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -3093,12 +3435,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Dumbbell_Tricep_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Dumbbell_Tricep_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "lying-t-bar-row",
     "name": "Lying T-Bar Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -3117,12 +3461,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_T-Bar_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_T-Bar_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "machine-bicep-curl",
     "name": "Machine Bicep Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -3136,12 +3483,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Machine_Bicep_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Machine_Bicep_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "machine-leg-extension",
     "name": "Machine Leg Extension",
-    "movementPattern": "KneeExtension",
     "primaryMuscles": [
       "Quad"
     ],
@@ -3155,12 +3504,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "KneeExtension"
+    ]
   },
   {
     "id": "machine-lying-leg-curl",
     "name": "Machine Lying Leg Curl",
-    "movementPattern": "KneeFlexion",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -3174,12 +3525,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Leg_Curls/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Leg_Curls/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "KneeFlexion"
+    ]
   },
   {
     "id": "machine-shoulder-military-press",
     "name": "Machine Shoulder (Military) Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -3196,12 +3549,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Machine_Shoulder_Military_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Machine_Shoulder_Military_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "machine-triceps-extension",
     "name": "Machine Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -3215,12 +3571,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Machine_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Machine_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "narrow-stance-leg-press",
     "name": "Narrow Stance Leg Press",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -3239,12 +3597,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Narrow_Stance_Leg_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Narrow_Stance_Leg_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "neck-press",
     "name": "Neck Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -3262,12 +3623,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Neck_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Neck_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "one-arm-chin-up",
     "name": "One Arm Chin-Up",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -3287,12 +3651,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Chin-Up/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Chin-Up/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "one-arm-dumbbell-bench-press",
     "name": "One Arm Dumbbell Bench Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -3311,12 +3678,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Dumbbell_Bench_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Dumbbell_Bench_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "one-arm-dumbbell-preacher-curl",
     "name": "One Arm Dumbbell Preacher Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -3331,12 +3701,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Dumbbell_Preacher_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Dumbbell_Preacher_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "one-arm-dumbbell-row",
     "name": "One-Arm Dumbbell Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -3356,12 +3728,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Dumbbell_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Dumbbell_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "one-arm-floor-press",
     "name": "One Arm Floor Press",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -3379,12 +3754,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Floor_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Floor_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "one-arm-lat-pulldown",
     "name": "One Arm Lat Pulldown",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -3402,12 +3780,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Lat_Pulldown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Arm_Lat_Pulldown/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "one-arm-long-bar-row",
     "name": "One-Arm Long Bar Row",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -3425,12 +3806,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Long_Bar_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Long_Bar_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "one-arm-side-deadlift",
     "name": "One-Arm Side Deadlift",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "Quad"
     ],
@@ -3452,12 +3836,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Side_Deadlift/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Side_Deadlift/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "one-leg-barbell-squat",
     "name": "One Leg Barbell Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -3476,12 +3863,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Leg_Barbell_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One_Leg_Barbell_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "one-legged-cable-kickback",
     "name": "One-Legged Cable Kickback",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Glute"
     ],
@@ -3498,12 +3888,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Legged_Cable_Kickback/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Legged_Cable_Kickback/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "overhead-cable-curl",
     "name": "Overhead Cable Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -3517,12 +3909,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Overhead_Cable_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Overhead_Cable_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "palms-down-wrist-curl-over-a-bench",
     "name": "Palms-Down Wrist Curl Over A Bench",
-    "movementPattern": "WristFlexionExtension",
     "primaryMuscles": [
       "Forearm"
     ],
@@ -3537,12 +3931,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Palms-Down_Wrist_Curl_Over_A_Bench/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Palms-Down_Wrist_Curl_Over_A_Bench/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "WristFlexionExtension"
+    ]
   },
   {
     "id": "palms-up-barbell-wrist-curl-over-a-bench",
     "name": "Palms-Up Barbell Wrist Curl Over A Bench",
-    "movementPattern": "WristFlexionExtension",
     "primaryMuscles": [
       "Forearm"
     ],
@@ -3557,12 +3953,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Palms-Up_Barbell_Wrist_Curl_Over_A_Bench/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Palms-Up_Barbell_Wrist_Curl_Over_A_Bench/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "WristFlexionExtension"
+    ]
   },
   {
     "id": "parallel-bar-dip",
     "name": "Parallel Bar Dip",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -3581,12 +3979,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Parallel_Bar_Dip/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Parallel_Bar_Dip/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "pec-deck-fly",
     "name": "Pec Deck Fly",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -3600,12 +4000,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Butterfly/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Butterfly/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "pin-presses",
     "name": "Pin Presses",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -3626,12 +4028,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pin_Presses/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pin_Presses/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "plank",
     "name": "Plank",
-    "movementPattern": "SpinalFlexion",
     "primaryMuscles": [
       "Ab"
     ],
@@ -3646,12 +4051,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SpinalFlexion"
+    ]
   },
   {
     "id": "plie-dumbbell-squat",
     "name": "Plie Dumbbell Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -3672,12 +4079,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plie_Dumbbell_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plie_Dumbbell_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "preacher-curl",
     "name": "Preacher Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -3692,12 +4102,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "preacher-hammer-dumbbell-curl",
     "name": "Preacher Hammer Dumbbell Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -3715,12 +4127,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Hammer_Dumbbell_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Hammer_Dumbbell_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "pull-through",
     "name": "Pull Through",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "Glute"
     ],
@@ -3739,12 +4153,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pull_Through/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pull_Through/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "pull-up",
     "name": "Pull-Up",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -3762,12 +4179,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "push-up-to-side-plank",
     "name": "Push Up to Side Plank",
-    "movementPattern": "SpinalFlexion",
     "primaryMuscles": [
       "Chest"
     ],
@@ -3786,12 +4206,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Push_Up_to_Side_Plank/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Push_Up_to_Side_Plank/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SpinalFlexion"
+    ]
   },
   {
     "id": "pushups",
     "name": "Pushups",
-    "movementPattern": "HorizontalPress",
     "primaryMuscles": [
       "Chest"
     ],
@@ -3809,12 +4231,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "reverse-barbell-preacher-curls",
     "name": "Reverse Barbell Preacher Curls",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -3832,12 +4257,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Barbell_Preacher_Curls/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Barbell_Preacher_Curls/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "reverse-cable-curl",
     "name": "Reverse Cable Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -3854,12 +4281,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Cable_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Cable_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "reverse-flyes",
     "name": "Reverse Flyes",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -3874,12 +4303,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Flyes/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Flyes/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "reverse-grip-bent-over-rows",
     "name": "Reverse Grip Bent-Over Rows",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -3898,12 +4329,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Grip_Bent-Over_Rows/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Grip_Bent-Over_Rows/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "reverse-triceps-bench-press",
     "name": "Reverse Triceps Bench Press",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -3921,12 +4355,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Triceps_Bench_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Triceps_Bench_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "rope-straight-arm-pulldown",
     "name": "Rope Straight-Arm Pulldown",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -3941,12 +4377,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Rope_Straight-Arm_Pulldown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Rope_Straight-Arm_Pulldown/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "scapular-pull-up",
     "name": "Scapular Pull-Up",
-    "movementPattern": "ScapularElevation",
     "primaryMuscles": [
       "Trap"
     ],
@@ -3965,12 +4404,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Scapular_Pull-Up/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Scapular_Pull-Up/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ScapularElevation"
+    ]
   },
   {
     "id": "seated-band-hamstring-curl",
     "name": "Seated Band Hamstring Curl",
-    "movementPattern": "KneeFlexion",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -3985,12 +4426,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Band_Hamstring_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Band_Hamstring_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "KneeFlexion"
+    ]
   },
   {
     "id": "seated-cable-rows",
     "name": "Seated Cable Rows",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4009,12 +4452,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "seated-calf-raise",
     "name": "Seated Calf Raise",
-    "movementPattern": "PlantarFlexion",
     "primaryMuscles": [
       "Calf"
     ],
@@ -4029,12 +4475,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Calf_Raise/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ]
   },
   {
     "id": "seated-close-grip-concentration-barbell-curl",
     "name": "Seated Close-Grip Concentration Barbell Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -4049,12 +4497,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Close-Grip_Concentration_Barbell_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Close-Grip_Concentration_Barbell_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "seated-dumbbell-press",
     "name": "Seated Dumbbell Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -4072,12 +4522,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Dumbbell_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Dumbbell_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "seated-one-arm-cable-pulley-rows",
     "name": "Seated One-arm Cable Pulley Rows",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4096,12 +4549,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_One-arm_Cable_Pulley_Rows/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_One-arm_Cable_Pulley_Rows/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "seated-triceps-press",
     "name": "Seated Triceps Press",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -4116,12 +4572,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Triceps_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Triceps_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "side-to-side-chins",
     "name": "Side To Side Chins",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4142,12 +4600,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_To_Side_Chins/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_To_Side_Chins/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "single-arm-cable-crossover",
     "name": "Single-Arm Cable Crossover",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -4161,12 +4622,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single-Arm_Cable_Crossover/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single-Arm_Cable_Crossover/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "single-leg-glute-bridge",
     "name": "Single Leg Glute Bridge",
-    "movementPattern": "HipExtension",
     "primaryMuscles": [
       "Glute"
     ],
@@ -4184,12 +4647,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single_Leg_Glute_Bridge/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single_Leg_Glute_Bridge/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HipExtension"
+    ]
   },
   {
     "id": "single-leg-high-box-squat",
     "name": "Single-Leg High Box Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -4208,12 +4673,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single-Leg_High_Box_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single-Leg_High_Box_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "single-leg-leg-extension",
     "name": "Single-Leg Leg Extension",
-    "movementPattern": "KneeExtension",
     "primaryMuscles": [
       "Quad"
     ],
@@ -4228,12 +4696,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single-Leg_Leg_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single-Leg_Leg_Extension/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "KneeExtension"
+    ]
   },
   {
     "id": "sled-leg-press",
     "name": "Sled Leg Press",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -4252,12 +4722,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "smith-machine-behind-the-back-shrug",
     "name": "Smith Machine Behind the Back Shrug",
-    "movementPattern": "ScapularElevation",
     "primaryMuscles": [
       "Trap"
     ],
@@ -4274,12 +4747,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Behind_the_Back_Shrug/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Behind_the_Back_Shrug/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ScapularElevation"
+    ]
   },
   {
     "id": "smith-machine-overhead-shoulder-press",
     "name": "Smith Machine Overhead Shoulder Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -4296,12 +4771,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Overhead_Shoulder_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Overhead_Shoulder_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "speed-box-squat",
     "name": "Speed Box Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -4320,12 +4798,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Speed_Box_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Speed_Box_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "speed-squats",
     "name": "Speed Squats",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -4345,12 +4826,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Speed_Squats/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Speed_Squats/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "split-squat-with-dumbbells",
     "name": "Split Squat with Dumbbells",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -4369,12 +4853,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "squat-with-plate-movers",
     "name": "Squat with Plate Movers",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -4395,12 +4882,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Squat_with_Plate_Movers/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Squat_with_Plate_Movers/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "standing-alternating-dumbbell-press",
     "name": "Standing Alternating Dumbbell Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -4418,12 +4908,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Alternating_Dumbbell_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Alternating_Dumbbell_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "standing-barbell-press-behind-neck",
     "name": "Standing Barbell Press Behind Neck",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -4440,12 +4933,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Press_Behind_Neck/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Press_Behind_Neck/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "standing-biceps-cable-curl",
     "name": "Standing Biceps Cable Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -4459,12 +4955,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Biceps_Cable_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Biceps_Cable_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "standing-inner-biceps-curl",
     "name": "Standing Inner-Biceps Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -4479,12 +4977,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Inner-Biceps_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Inner-Biceps_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "standing-low-pulley-one-arm-triceps-extension",
     "name": "Standing Low-Pulley One-Arm Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -4503,12 +5003,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Low-Pulley_One-Arm_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Low-Pulley_One-Arm_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "standing-military-press",
     "name": "Standing Military Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -4525,12 +5027,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "standing-one-arm-cable-curl",
     "name": "Standing One-Arm Cable Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -4544,12 +5049,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_One-Arm_Cable_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_One-Arm_Cable_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "standing-overhead-barbell-triceps-extension",
     "name": "Standing Overhead Barbell Triceps Extension",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -4567,12 +5074,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Overhead_Barbell_Triceps_Extension/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Overhead_Barbell_Triceps_Extension/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "standing-palm-in-one-arm-dumbbell-press",
     "name": "Standing Palm-In One-Arm Dumbbell Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -4590,12 +5099,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Palm-In_One-Arm_Dumbbell_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Palm-In_One-Arm_Dumbbell_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "standing-palms-in-dumbbell-press",
     "name": "Standing Palms-In Dumbbell Press",
-    "movementPattern": "VerticalPress",
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
@@ -4613,12 +5125,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Palms-In_Dumbbell_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Palms-In_Dumbbell_Press/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "VerticalPress",
+      "ElbowExtension"
+    ]
   },
   {
     "id": "step-up-with-knee-raise",
     "name": "Step-up with Knee Raise",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Glute"
     ],
@@ -4636,12 +5151,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Step-up_with_Knee_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Step-up_with_Knee_Raise/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "straight-arm-dumbbell-pullover",
     "name": "Straight-Arm Dumbbell Pullover",
-    "movementPattern": "ShoulderAdduction",
     "primaryMuscles": [
       "Chest"
     ],
@@ -4661,12 +5179,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Straight-Arm_Dumbbell_Pullover/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Straight-Arm_Dumbbell_Pullover/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ]
   },
   {
     "id": "straight-arm-pulldown",
     "name": "Straight-Arm Pulldown",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4681,12 +5201,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Straight-Arm_Pulldown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Straight-Arm_Pulldown/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "straight-bar-bench-mid-rows",
     "name": "Straight Bar Bench Mid Rows",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4704,12 +5227,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Straight_Bar_Bench_Mid_Rows/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Straight_Bar_Bench_Mid_Rows/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "t-bar-row-with-handle",
     "name": "T-Bar Row with Handle",
-    "movementPattern": "HorizontalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4727,12 +5253,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/T-Bar_Row_with_Handle/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/T-Bar_Row_with_Handle/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "tate-press",
     "name": "Tate Press",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -4751,12 +5280,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Tate_Press/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Tate_Press/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "trap-bar-deadlift",
     "name": "Trap Bar Deadlift",
-    "movementPattern": "HipHinge",
     "primaryMuscles": [
       "Quad"
     ],
@@ -4775,12 +5306,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Trap_Bar_Deadlift/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Trap_Bar_Deadlift/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ]
   },
   {
     "id": "tricep-dumbbell-kickback",
     "name": "Tricep Dumbbell Kickback",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -4795,12 +5329,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Tricep_Dumbbell_Kickback/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Tricep_Dumbbell_Kickback/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "triceps-overhead-extension-with-rope",
     "name": "Triceps Overhead Extension with Rope",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -4815,12 +5351,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Overhead_Extension_with_Rope/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Overhead_Extension_with_Rope/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "two-arm-dumbbell-preacher-curl",
     "name": "Two-Arm Dumbbell Preacher Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -4835,12 +5373,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Two-Arm_Dumbbell_Preacher_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Two-Arm_Dumbbell_Preacher_Curl/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "underhand-cable-pulldowns",
     "name": "Underhand Cable Pulldowns",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4859,12 +5399,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Underhand_Cable_Pulldowns/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Underhand_Cable_Pulldowns/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "upright-cable-row",
     "name": "Upright Cable Row",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Trap"
     ],
@@ -4881,12 +5424,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Upright_Cable_Row/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Upright_Cable_Row/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "v-bar-pulldown",
     "name": "V-Bar Pulldown",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4906,12 +5452,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/V-Bar_Pulldown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/V-Bar_Pulldown/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "v-bar-pullup",
     "name": "V-Bar Pullup",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4930,12 +5479,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/V-Bar_Pullup/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/V-Bar_Pullup/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "weighted-bench-dip",
     "name": "Weighted Bench Dip",
-    "movementPattern": "ElbowExtension",
     "primaryMuscles": [
       "Tricep"
     ],
@@ -4954,12 +5506,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Weighted_Bench_Dip/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Weighted_Bench_Dip/1.jpg"
     ],
-    "muscleLengthBias": "Shortened"
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ]
   },
   {
     "id": "weighted-pull-ups",
     "name": "Weighted Pull Ups",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -4978,12 +5532,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Weighted_Pull_Ups/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Weighted_Pull_Ups/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "weighted-sissy-squat",
     "name": "Weighted Sissy Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -5002,12 +5559,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Weighted_Sissy_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Weighted_Sissy_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "wide-grip-lat-pulldown",
     "name": "Wide-Grip Lat Pulldown",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -5026,12 +5586,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "wide-grip-pulldown-behind-the-neck",
     "name": "Wide-Grip Pulldown Behind The Neck",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -5051,12 +5614,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Pulldown_Behind_The_Neck/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Pulldown_Behind_The_Neck/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "wide-grip-rear-pull-up",
     "name": "Wide-Grip Rear Pull-Up",
-    "movementPattern": "VerticalPull",
     "primaryMuscles": [
       "Back"
     ],
@@ -5075,12 +5641,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Rear_Pull-Up/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Rear_Pull-Up/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "wide-grip-standing-barbell-curl",
     "name": "Wide-Grip Standing Barbell Curl",
-    "movementPattern": "ElbowFlexion",
     "primaryMuscles": [
       "Bicep"
     ],
@@ -5095,12 +5664,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Standing_Barbell_Curl/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Standing_Barbell_Curl/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ]
   },
   {
     "id": "wide-stance-barbell-squat",
     "name": "Wide Stance Barbell Squat",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -5120,12 +5691,15 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide_Stance_Barbell_Squat/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide_Stance_Barbell_Squat/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   },
   {
     "id": "wrist-roller",
     "name": "Wrist Roller",
-    "movementPattern": "WristFlexionExtension",
     "primaryMuscles": [
       "Forearm"
     ],
@@ -5143,12 +5717,14 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wrist_Roller/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wrist_Roller/1.jpg"
     ],
-    "muscleLengthBias": "MidRange"
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "WristFlexionExtension"
+    ]
   },
   {
     "id": "zercher-squats",
     "name": "Zercher Squats",
-    "movementPattern": "SquatPattern",
     "primaryMuscles": [
       "Quad"
     ],
@@ -5167,6 +5743,10 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Zercher_Squats/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Zercher_Squats/1.jpg"
     ],
-    "muscleLengthBias": "Lengthened"
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "HipExtension"
+    ]
   }
 ]

@@ -31,7 +31,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 fun LiftWithTiers.toDomain(): Lift = Lift(
     id = lift.id,
     name = lift.name,
-    movementPattern = lift.movementPattern,
+    movementPatterns = lift.movementPatterns,
     primaryMuscles = lift.primaryMusclesBitmask.toMuscleSet(),
     secondaryMuscles = lift.secondaryMusclesBitmask.toMuscleSet(),
     allowWeightChangeBetweenSets = lift.allowWeightChangeBetweenSets,
@@ -48,7 +48,7 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
 fun Lift.toEntity(): LiftEntity = LiftEntity(
     id = id,
     name = name,
-    movementPattern = movementPattern,
+    movementPatterns = movementPatterns,
     primaryMusclesBitmask = primaryMuscles.toBitmask(),
     secondaryMusclesBitmask = secondaryMuscles.toBitmask(),
     allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,

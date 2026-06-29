@@ -141,7 +141,7 @@ class TrainingInsightsExtractorTest {
     ): Lift = Lift(
         id = id,
         name = name,
-        movementPattern = pattern,
+        movementPatterns = setOf(pattern),
         primaryMuscles = setOf(muscle),
         secondaryMuscles = emptySet(),
         incrementTiers = emptyList(),

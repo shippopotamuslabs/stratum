@@ -54,6 +54,10 @@ enum class MovementPattern {
     InclinePress,
     // Primary Target: Front Delt
     VerticalPress,
+    // Primary Target: Glute Medius/Minimus (Abductors)
+    HipAbduction,
+    // Primary Target: Adductors
+    HipAdduction,
     ;
 
     /**
@@ -82,5 +86,19 @@ enum class MovementPattern {
             SpinalFlexion -> "Spinal Flexion"
             InclinePress -> "Incline Press"
             VerticalPress -> "Vertical Press"
+            HipAbduction -> "Hip Abduction"
+            HipAdduction -> "Hip Adduction"
+        }
+
+    val secondaryPatterns: Set<MovementPattern>
+        get() = when (this) {
+            HorizontalPress -> setOf(ElbowExtension)
+            InclinePress -> setOf(ElbowExtension)
+            VerticalPress -> setOf(ElbowExtension)
+            VerticalPull -> setOf(ElbowFlexion)
+            HorizontalPull -> setOf(ElbowFlexion)
+            SquatPattern -> setOf(HipExtension)
+            HipHinge -> setOf(HipExtension)
+            else -> emptySet()
         }
 }

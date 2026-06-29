@@ -401,7 +401,7 @@ class RunFullHistoricalImportUseCaseTest {
             Lift(
                 id = LiftId("seed-filler-$index"),
                 name = "Seed Filler $index",
-                movementPattern = MovementPattern.SquatPattern,
+                movementPatterns = setOf(MovementPattern.SquatPattern),
                 primaryMuscles = emptySet(),
                 secondaryMuscles = emptySet(),
                 incrementTiers = emptyList(),

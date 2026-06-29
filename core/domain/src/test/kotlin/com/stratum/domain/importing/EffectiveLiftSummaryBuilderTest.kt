@@ -100,7 +100,7 @@ class EffectiveLiftSummaryBuilderTest {
         com.stratum.domain.lift.Lift(
             id = LiftId(slug),
             name = slug,
-            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(primaryMuscle),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,

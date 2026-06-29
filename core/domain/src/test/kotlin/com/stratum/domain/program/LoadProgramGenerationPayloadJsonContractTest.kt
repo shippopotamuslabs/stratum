@@ -306,7 +306,7 @@ class LoadProgramGenerationPayloadJsonContractTest {
         Lift(
             id = id,
             name = name,
-            movementPattern = pattern,
+            movementPatterns = setOf(pattern),
             primaryMuscles = emptySet(),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,
