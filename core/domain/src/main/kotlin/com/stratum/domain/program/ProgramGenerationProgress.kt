@@ -1,16 +1,12 @@
 package com.stratum.domain.program
 
 /**
- * Client-visible phases during program generation. Server `progressPhase` strings map in
- * `:core:inference`; local-only phases are emitted by [GenerateProgramUseCase] before/after the
- * callable.
+ * Client-visible phases during on-device program generation. Emitted locally by
+ * [GenerateProgramUseCase] and the domain pipeline — no server polling.
  */
 enum class ProgramGenerationProgressPhase {
     PreparingPayload,
     ReviewingProfile,
-    ValidatingProgram,
-    DraftingProgram,
-    RefiningProgram,
     SplitPlanning,
     BuildingWorkouts,
     Integrating,

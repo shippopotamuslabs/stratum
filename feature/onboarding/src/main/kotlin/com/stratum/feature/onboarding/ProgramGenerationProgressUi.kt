@@ -7,9 +7,6 @@ package com.stratum.feature.onboarding
 enum class ProgramGenerationProgressPhaseUi {
     PreparingPayload,
     ReviewingProfile,
-    ValidatingProgram,
-    DraftingProgram,
-    RefiningProgram,
     SplitPlanning,
     BuildingWorkouts,
     Integrating,

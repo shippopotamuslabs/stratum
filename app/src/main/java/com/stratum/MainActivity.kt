@@ -76,7 +76,7 @@ class MainActivity : FragmentActivity() {
     /**
      * Surfaces App Check setup issues early. On debug builds, register the secret printed by
      * `DebugAppCheckProvider` (or logged here on failure) in Firebase Console → App Check →
-     * Manage debug tokens. `generateProgram` enforces App Check server-side.
+     * Manage debug tokens. Callable inference endpoints enforce App Check server-side.
      */
     private fun logDebugAppCheckTokenHint(appCheck: FirebaseAppCheck) {
         appCheck.getAppCheckToken(false)

@@ -15,12 +15,6 @@ private fun ProgramGenerationProgressPhase.toUi(): ProgramGenerationProgressPhas
             ProgramGenerationProgressPhaseUi.PreparingPayload
         ProgramGenerationProgressPhase.ReviewingProfile ->
             ProgramGenerationProgressPhaseUi.ReviewingProfile
-        ProgramGenerationProgressPhase.ValidatingProgram ->
-            ProgramGenerationProgressPhaseUi.ValidatingProgram
-        ProgramGenerationProgressPhase.DraftingProgram ->
-            ProgramGenerationProgressPhaseUi.DraftingProgram
-        ProgramGenerationProgressPhase.RefiningProgram ->
-            ProgramGenerationProgressPhaseUi.RefiningProgram
         ProgramGenerationProgressPhase.SplitPlanning ->
             ProgramGenerationProgressPhaseUi.SplitPlanning
         ProgramGenerationProgressPhase.BuildingWorkouts ->

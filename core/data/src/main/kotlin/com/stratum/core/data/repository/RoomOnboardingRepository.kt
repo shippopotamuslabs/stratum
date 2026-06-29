@@ -45,7 +45,7 @@ class RoomOnboardingRepository @Inject constructor(
         val startedAt = current?.startedAt ?: System.currentTimeMillis()
         dao.upsert(
             OnboardingProgress(
-                currentStep = OnboardingStep.Review,
+                currentStep = OnboardingStep.Generate,
                 startedAt = startedAt,
                 completedAt = null,
             ).toEntity(),

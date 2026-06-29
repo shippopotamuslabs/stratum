@@ -51,6 +51,7 @@ internal fun buildOnboardingUiState(
         presetOptions = allGymPresetOptions(),
         generateState = ephemeral.generateState,
         generateProgress = ephemeral.generateProgress,
+        generateMaxTimelineIndex = ephemeral.generateMaxTimelineIndex,
         generateErrorMessage = ephemeral.generateErrorMessage,
     )
 }

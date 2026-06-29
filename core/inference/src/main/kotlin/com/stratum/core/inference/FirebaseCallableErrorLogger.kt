@@ -5,7 +5,7 @@ import com.stratum.domain.logging.LoggingPort
 
 /**
  * Shared Firebase Callable failure logging for inference adapters. Keeps tag/message shape consistent
- * across `generateProgram`, `inferCustomLifts`, etc.
+ * across `swapProgramLifts`, `inferCustomLifts`, etc.
  */
 internal object FirebaseCallableErrorLogger {
     fun logFailure(

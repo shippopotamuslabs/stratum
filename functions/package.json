@@ -7,9 +7,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "node --test lib/**/*.test.js",
-    "export-scenarios": "npm run build && node scripts/export-program-scenarios.mjs",
-    "programs-to-markdown": "npm run build && node scripts/csv-to-program-markdown.mjs"
+    "test": "node --test lib/**/*.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.10.0",

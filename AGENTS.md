@@ -135,10 +135,10 @@ device (no LiteRT, no local GGUF, etc.). All LLM work goes through **cloud APIs*
   **Google Sign-In** (not anonymous). Firebase **console provisioning is complete** (SHA
   fingerprints, Google provider, App Check, secrets) — do not ask maintainer; wire SDK in OS-6.
 - Prefer **bounded, single-purpose calls** with structured output over conversational sessions.
-- Domain defines **ports** (`ProgramGeneratorPort`, etc.); inference module implements them.
+- Domain defines **ports** (`LiftSwapPort`, import inference ports, etc.); `:core:inference` implements network boundaries only.
   Unit tests use fakes and recorded fixtures — **no live API in CI**.
-- Keep deterministic and LLM responsibilities clearly separated: the LLM proposes programs;
-  deterministic code owns runtime progression and persistence.
+- Keep deterministic and LLM responsibilities clearly separated: deterministic program synthesis runs in
+  `:core:domain`; the cloud LLM may only suggest bounded lift swaps via `swapProgramLifts`.
 
 **Reference:** `~/Code/pocket-crew` (`OpenRouterInferenceServiceImpl`); `docs/onboarding-vertical-slices.md` §2.3 (progression), §2.7 (credentials).
 

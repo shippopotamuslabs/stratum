@@ -4,8 +4,7 @@ import { getImportJobStatus } from "./import/getImportJobStatus";
 import { processImportJob } from "./import/processImportJob";
 import { inferCustomLifts } from "./import/inferCustomLifts";
 import { inferImportEquipment } from "./import/inferImportEquipment";
-import { generateProgram } from "./program/generateProgram";
-import { getProgramGenerationStatus } from "./program/getProgramGenerationStatus";
+import { swapProgramLifts } from "./program-swap/swapProgramLifts";
 
 admin.initializeApp();
 
@@ -15,6 +14,5 @@ export {
   processImportJob,
   inferCustomLifts,
   inferImportEquipment,
-  generateProgram,
-  getProgramGenerationStatus,
+  swapProgramLifts,
 };

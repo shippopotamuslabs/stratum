@@ -4,26 +4,26 @@ import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
+import com.stratum.domain.program.generation.pipeline.PipelineOptions
+import com.stratum.domain.program.generation.pipeline.PipelinePhase
+import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
+import com.stratum.domain.program.generation.schema.toDomainProgram
+import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
 /**
- * Orchestrates program generation: load the onboarding payload → call the generator → persist the
- * program → mark onboarding complete. Composed so the ViewModel depends on a single use case
- * (D4 / ARCHITECTURE.md §4.4).
+ * Orchestrates on-device program generation: load context → run the deterministic pipeline (with
+ * optional lift-swap Callable) → persist → mark onboarding complete.
  *
- * Depends on [ProgramGenerationPayloadLoader] (a narrow seam) rather than the concrete
- * [LoadProgramGenerationPayloadUseCase], so orchestration tests substitute a fake loader without
- * wiring the loader's many repository dependencies.
+ * Progress phases are emitted synchronously as each pipeline step runs — no Firestore polling.
  *
- * Ordering guarantee (D2): generation runs to success (`getOrThrow`) **before** persist or
- * completion, so a failed generation never leaves a partial program nor a completed onboarding.
- * The whole flow is wrapped in `runCatching` so any failure surfaces as [Result.failure] with no
- * partial state. Infrastructure adapters log failures; this use case returns [Result] only.
+ * Ordering guarantee (D2): generation runs to success **before** persist or completion, so a failed
+ * generation never leaves a partial program nor a completed onboarding.
  */
 class GenerateProgramUseCase @Inject constructor(
-    private val loadPayload: ProgramGenerationPayloadLoader,
-    private val generator: ProgramGeneratorPort,
+    private val loadContext: ProgramGenerationContextLoader,
+    private val pipeline: ProgramGenerationPipeline,
     private val repository: ProgramRepository,
     private val liftRepository: LiftRepository,
     private val completeOnboarding: CompleteOnboardingUseCase,
@@ -32,16 +32,28 @@ class GenerateProgramUseCase @Inject constructor(
     suspend operator fun invoke(
         onProgress: ProgramGenerationProgressCallback = {},
     ): Result<Unit> =
-        runCatching {
+        try {
             onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload))
-            val payload = loadPayload.load()
+            val context = loadContext.load()
+            onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.ReviewingProfile))
+
             val knownLiftIds =
                 liftRepository.observeLifts().first()
                     .filter { lift -> lift.enabled }
                     .map { lift -> lift.id }
                     .toSet()
+
+            val normalized =
+                pipeline.generate(
+                    context = context,
+                    normalizationRequest = context.toProgramNormalizationRequest(),
+                    options =
+                        PipelineOptions(
+                            progress = { phase -> onProgress(phase.toDomainProgress()) },
+                        ),
+                )
             val program =
-                generator.generateProgram(payload, onProgress).getOrThrow()
+                normalized.toDomainProgram()
                     .retainOnlyKnownLifts(knownLiftIds)
             require(program.workouts.isNotEmpty()) {
                 "Generated program has no workouts with known lift references"
@@ -51,5 +63,18 @@ class GenerateProgramUseCase @Inject constructor(
             val profile = profileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
             completeOnboarding(profile)
             onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))
+            Result.success(Unit)
+        } catch (error: Throwable) {
+            Result.failure(error)
         }
 }
+
+private fun PipelinePhase.toDomainProgress(): ProgramGenerationProgress =
+    ProgramGenerationProgress(
+        phase =
+            when (this) {
+                PipelinePhase.SplitPlanning -> ProgramGenerationProgressPhase.SplitPlanning
+                PipelinePhase.BuildingWorkouts -> ProgramGenerationProgressPhase.BuildingWorkouts
+                PipelinePhase.Integrating -> ProgramGenerationProgressPhase.Integrating
+            },
+    )

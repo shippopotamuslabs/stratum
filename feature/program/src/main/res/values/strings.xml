@@ -5,5 +5,5 @@
     <string name="programs_title">Your Program</string>
     <string name="programs_empty">No program yet. Generate one from onboarding.</string>
     <string name="programs_workout_sets">Sets</string>
-    <string name="programs_back_to_onboarding">Back</string>
+    <string name="programs_back_to_onboarding_content_description">Back to create program</string>
 </resources>

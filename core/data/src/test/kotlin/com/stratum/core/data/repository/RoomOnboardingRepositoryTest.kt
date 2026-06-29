@@ -74,7 +74,7 @@ class RoomOnboardingRepositoryTest {
     }
 
     @Test
-    @DisplayName("Given completed onboarding when reopened then completedAt is cleared and step is Review")
+    @DisplayName("Given completed onboarding when reopened then completedAt is cleared and step is Generate")
     fun reopenWizardClearsCompletion() = runTest {
         subject.saveStep(OnboardingStep.Generate)
         subject.markComplete()
@@ -83,7 +83,7 @@ class RoomOnboardingRepositoryTest {
 
         subject.observeProgress().test {
             val emitted = awaitItem()
-            assertEquals(OnboardingStep.Review, emitted?.currentStep)
+            assertEquals(OnboardingStep.Generate, emitted?.currentStep)
             assertNull(emitted?.completedAt)
             cancelAndIgnoreRemainingEvents()
         }
