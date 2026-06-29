@@ -188,7 +188,7 @@ class RollbackHistoricalImportUseCaseResponseTest {
                             epochId = epochId,
                             experimentId = ExperimentId("exp-1"),
                             muscle = MuscleGroup.Quad,
-                            pattern = MovementPattern.LegPush,
+                            pattern = MovementPattern.SquatPattern,
                             liftId = ResponseFixtures.liftSquat,
                             weeklyHardSets = 10.0,
                             sessionsPerWeek = 2.0,

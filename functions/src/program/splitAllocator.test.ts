@@ -15,31 +15,31 @@ import {
  */
 const LIFT_CATALOG = [
   // Chest
-  { id: "bench", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep", "AnteriorDeltoid"] },
-  { id: "inc-press", movementPattern: "InclinePush", primaryMuscles: ["Chest"], secondaryMuscles: ["AnteriorDeltoid"] },
-  { id: "fly", movementPattern: "ChestIso", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+  { id: "bench", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep", "AnteriorDeltoid"] },
+  { id: "inc-press", movementPattern: "InclinePress", primaryMuscles: ["Chest"], secondaryMuscles: ["AnteriorDeltoid"] },
+  { id: "fly", movementPattern: "ShoulderAdduction", primaryMuscles: ["Chest"], secondaryMuscles: [] },
   // Back
   { id: "row", movementPattern: "HorizontalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep", "PosteriorDeltoid"] },
   { id: "pullup", movementPattern: "VerticalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep"] },
   // Quads
-  { id: "squat", movementPattern: "LegPush", primaryMuscles: ["Quad"], secondaryMuscles: ["Glute"] },
-  { id: "leg-ext", movementPattern: "QuadIso", primaryMuscles: ["Quad"], secondaryMuscles: [] },
+  { id: "squat", movementPattern: "SquatPattern", primaryMuscles: ["Quad"], secondaryMuscles: ["Glute"] },
+  { id: "leg-ext", movementPattern: "KneeExtension", primaryMuscles: ["Quad"], secondaryMuscles: [] },
   // Hamstrings
   { id: "rdl", movementPattern: "HipHinge", primaryMuscles: ["Hamstring"], secondaryMuscles: ["Glute", "LowerBack"] },
-  { id: "leg-curl", movementPattern: "HamstringIso", primaryMuscles: ["Hamstring"], secondaryMuscles: [] },
+  { id: "leg-curl", movementPattern: "KneeFlexion", primaryMuscles: ["Hamstring"], secondaryMuscles: [] },
   // Glutes
-  { id: "hip-thrust", movementPattern: "GluteIso", primaryMuscles: ["Glute"], secondaryMuscles: [] },
-  // Calves
-  { id: "calf-raise", movementPattern: "Calves", primaryMuscles: ["Calf"], secondaryMuscles: [] },
+  { id: "hip-thrust", movementPattern: "HipExtension", primaryMuscles: ["Glute"], secondaryMuscles: [] },
+  // PlantarFlexion
+  { id: "calf-raise", movementPattern: "PlantarFlexion", primaryMuscles: ["Calf"], secondaryMuscles: [] },
   // Shoulders
-  { id: "lat-raise", movementPattern: "LateralDeltIso", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
-  { id: "rear-delt-fly", movementPattern: "RearDeltIso", primaryMuscles: ["PosteriorDeltoid"], secondaryMuscles: [] },
-  { id: "ohp", movementPattern: "VerticalPush", primaryMuscles: ["AnteriorDeltoid"], secondaryMuscles: ["Tricep"] },
+  { id: "lat-raise", movementPattern: "ShoulderAbduction", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
+  { id: "rear-delt-fly", movementPattern: "ShoulderHorizontalAbduction", primaryMuscles: ["PosteriorDeltoid"], secondaryMuscles: [] },
+  { id: "ohp", movementPattern: "VerticalPress", primaryMuscles: ["AnteriorDeltoid"], secondaryMuscles: ["Tricep"] },
   // Arms
-  { id: "curl", movementPattern: "BicepIso", primaryMuscles: ["Bicep"], secondaryMuscles: [] },
-  { id: "tricep-ext", movementPattern: "TricepIso", primaryMuscles: ["Tricep"], secondaryMuscles: [] },
+  { id: "curl", movementPattern: "ElbowFlexion", primaryMuscles: ["Bicep"], secondaryMuscles: [] },
+  { id: "tricep-ext", movementPattern: "ElbowExtension", primaryMuscles: ["Tricep"], secondaryMuscles: [] },
   // Abs
-  { id: "crunch", movementPattern: "AbIso", primaryMuscles: ["Ab"], secondaryMuscles: [] },
+  { id: "crunch", movementPattern: "SpinalFlexion", primaryMuscles: ["Ab"], secondaryMuscles: [] },
 ];
 
 const LANDMARKS = [
@@ -104,25 +104,25 @@ describe("splitAllocator", () => {
 
   describe("allocateDayPlans", () => {
     it("derives anatomically-correct suggested patterns (not catalog-order-dependent)", () => {
-      // The core regression: an Upper day must suggest HorizontalPush/VerticalPull/arm iso/lateral
-      // delt, and a Lower day must suggest LegPush (NOT HipHinge-for-quad or AbIso-for-hamstring).
+      // The core regression: an Upper day must suggest HorizontalPress/VerticalPull/arm iso/lateral
+      // delt, and a Lower day must suggest SquatPattern (NOT HipHinge-for-quad or SpinalFlexion-for-hamstring).
       const ctx = contextFor(4);
       const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
       const upper = plans.find((p) => p.theme.startsWith("Upper"))!;
       const upperPatterns = new Set(upper.suggestedPatterns.map((s) => s.pattern));
-      assert.ok(upperPatterns.has("HorizontalPush"), "Upper should suggest a horizontal push");
+      assert.ok(upperPatterns.has("HorizontalPress"), "Upper should suggest a horizontal push");
       assert.ok(upperPatterns.has("VerticalPull"), "Upper should suggest a vertical pull");
-      assert.ok(upperPatterns.has("TricepIso"), "Upper should suggest a tricep iso");
-      assert.ok(upperPatterns.has("BicepIso"), "Upper should suggest a bicep iso");
+      assert.ok(upperPatterns.has("ElbowExtension"), "Upper should suggest a tricep iso");
+      assert.ok(upperPatterns.has("ElbowFlexion"), "Upper should suggest a bicep iso");
 
       const lower = plans.find((p) => p.theme.startsWith("Lower"))!;
       const lowerPatterns = new Set(lower.suggestedPatterns.map((s) => s.pattern));
-      assert.ok(lowerPatterns.has("LegPush"), "Lower should suggest LegPush (squats), not HipHinge-for-quad");
-      assert.ok(lowerPatterns.has("HamstringIso"), "Lower should suggest HamstringIso, not AbIso-for-hamstring");
-      assert.ok(lowerPatterns.has("Calves"), "Lower should suggest Calves");
-      // Lower must NOT suggest AbIso-for-hamstring or duplicate AbIso slots.
-      const lowerAbSuggestions = lower.suggestedPatterns.filter((s) => s.pattern === "AbIso");
-      assert.ok(lowerAbSuggestions.length <= 1, "Lower should not duplicate AbIso suggestions");
+      assert.ok(lowerPatterns.has("SquatPattern"), "Lower should suggest SquatPattern (squats), not HipHinge-for-quad");
+      assert.ok(lowerPatterns.has("KneeFlexion"), "Lower should suggest KneeFlexion, not SpinalFlexion-for-hamstring");
+      assert.ok(lowerPatterns.has("PlantarFlexion"), "Lower should suggest PlantarFlexion");
+      // Lower must NOT suggest SpinalFlexion-for-hamstring or duplicate SpinalFlexion slots.
+      const lowerAbSuggestions = lower.suggestedPatterns.filter((s) => s.pattern === "SpinalFlexion");
+      assert.ok(lowerAbSuggestions.length <= 1, "Lower should not duplicate SpinalFlexion suggestions");
     });
 
     it("produces one DayPlan per training day (4-day UL×2)", () => {
@@ -192,7 +192,7 @@ describe("splitAllocator", () => {
     });
 
     it("never suggests a pattern the user has no enabled lift for", () => {
-      // Remove all calf lifts — the allocator must not suggest a Calves pattern.
+      // Remove all calf lifts — the allocator must not suggest a PlantarFlexion pattern.
       const ctx = contextFor(4);
       const noCalfCtx = parseGenerationContext(
         JSON.stringify({
@@ -211,7 +211,7 @@ describe("splitAllocator", () => {
       const plans = allocateDayPlans(noCalfCtx, computeAllWeeklyTargets(noCalfCtx));
       for (const plan of plans) {
         for (const s of plan.suggestedPatterns) {
-          assert.ok(s.pattern !== "Calves", `day ${plan.dayIndex} suggests Calves with no enabled lift`);
+          assert.ok(s.pattern !== "PlantarFlexion", `day ${plan.dayIndex} suggests PlantarFlexion with no enabled lift`);
         }
       }
     });

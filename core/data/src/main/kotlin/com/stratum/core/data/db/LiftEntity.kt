@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
 
 /**
@@ -40,4 +41,5 @@ data class LiftEntity(
     val enabled: Boolean,
     val description: String? = null,
     val imageUrisCsv: String? = null,
+    val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
 )

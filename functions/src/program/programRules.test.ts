@@ -15,11 +15,11 @@ describe("programRules", () => {
         [
           "HipHinge",
           "HorizontalPull",
-          "HorizontalPush",
-          "InclinePush",
-          "LegPush",
+          "HorizontalPress",
+          "InclinePress",
+          "SquatPattern",
           "VerticalPull",
-          "VerticalPush",
+          "VerticalPress",
         ],
       );
     });

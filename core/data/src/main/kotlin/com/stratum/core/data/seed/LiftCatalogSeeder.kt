@@ -9,6 +9,7 @@ import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.serialization.json.Json
@@ -68,6 +69,7 @@ class LiftCatalogSeeder(
         val primary = dto.primaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
         val secondary = dto.secondaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
         val tags = dto.presetTags.mapNotNull { enumValueOfOrNull<GymPreset>(it) }.toSet()
+        val bias = dto.muscleLengthBias?.let { enumValueOfOrNull<MuscleLengthBias>(it) } ?: MuscleLengthBias.MidRange
         val id = LiftId(dto.id)
         val lift = LiftEntity(
             id = id,
@@ -82,6 +84,7 @@ class LiftCatalogSeeder(
             enabled = false,
             description = dto.description,
             imageUrisCsv = dto.imageUris.joinToString(","),
+            muscleLengthBias = bias,
         )
         val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).mapIndexed { _, t ->
             IncrementTierEntity(

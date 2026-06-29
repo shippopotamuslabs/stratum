@@ -54,7 +54,7 @@ enum class MuscleGroup {
             Tricep -> "Triceps"
             Bicep -> "Biceps"
             Trap -> "Traps"
-            Calf -> "Calves"
+            Calf -> "PlantarFlexion"
             Forearm -> "Forearms"
             Ab -> "Abs"
             LowerBack -> "Lower Back"

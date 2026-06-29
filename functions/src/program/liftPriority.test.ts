@@ -30,12 +30,12 @@ function contextWith(overrides: {
       },
       specialization: overrides.specialization ?? { Chest: "Specialize" },
       provenLifts: overrides.provenLifts ?? [
-        { id: "bench", name: "Bench Press", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"], trainingInsights: { sessionCount: 12, progressTrend: "Improving", fatigueDecaySlope: -0.8, fatigueDecayIntercept: 100 } },
+        { id: "bench", name: "Bench Press", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"], trainingInsights: { sessionCount: 12, progressTrend: "Improving", fatigueDecaySlope: -0.8, fatigueDecayIntercept: 100 } },
         { id: "row", name: "Barbell Row", movementPattern: "HorizontalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep"], trainingInsights: { sessionCount: 10, progressTrend: "Stagnant" } },
       ],
       availableLifts: overrides.availableLifts ?? [
-        { id: "inc-press", name: "Incline DB Press", movementPattern: "InclinePush", primaryMuscles: ["Chest"], secondaryMuscles: ["AnteriorDeltoid"] },
-        { id: "machine-press", name: "Chest Press Machine", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"] },
+        { id: "inc-press", name: "Incline DB Press", movementPattern: "InclinePress", primaryMuscles: ["Chest"], secondaryMuscles: ["AnteriorDeltoid"] },
+        { id: "machine-press", name: "Chest Press Machine", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"] },
       ],
       literatureVolumeLandmarks: [
         { muscle: "Chest", estimatedMev: 8, estimatedMav: 14, estimatedMrv: 20, estimatedPv: 11 },
@@ -52,7 +52,7 @@ describe("liftPriority", () => {
       const ctx = contextWith({
         responseProfile: {
           liftEffectiveness: [
-            { pattern: "HorizontalPush", liftId: "bench", rank: 1, evidence: "Hypothesis" },
+            { pattern: "HorizontalPress", liftId: "bench", rank: 1, evidence: "Hypothesis" },
           ],
         },
       });
@@ -66,12 +66,12 @@ describe("liftPriority", () => {
     it("a proven lift with Stagnant trend scores lower than the same lift with Improving trend", () => {
       const improvingCtx = contextWith({
         provenLifts: [
-          { id: "lift-a", name: "A", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Improving" } },
+          { id: "lift-a", name: "A", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Improving" } },
         ],
       });
       const stagnantCtx = contextWith({
         provenLifts: [
-          { id: "lift-b", name: "B", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Stagnant" } },
+          { id: "lift-b", name: "B", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Stagnant" } },
         ],
       });
       const improvingScore = scoreLift(improvingCtx.liftsById.get("lift-a")!, improvingCtx);
@@ -82,13 +82,13 @@ describe("liftPriority", () => {
     it("a lift with effectiveness rank 1 scores higher than rank 2 (same tier, same trend)", () => {
       const ctx = contextWith({
         provenLifts: [
-          { id: "rank1", name: "R1", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Improving" } },
-          { id: "rank2", name: "R2", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Improving" } },
+          { id: "rank1", name: "R1", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Improving" } },
+          { id: "rank2", name: "R2", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Improving" } },
         ],
         responseProfile: {
           liftEffectiveness: [
-            { pattern: "HorizontalPush", liftId: "rank1", rank: 1, evidence: "Hypothesis" },
-            { pattern: "HorizontalPush", liftId: "rank2", rank: 2, evidence: "Hypothesis" },
+            { pattern: "HorizontalPress", liftId: "rank1", rank: 1, evidence: "Hypothesis" },
+            { pattern: "HorizontalPress", liftId: "rank2", rank: 2, evidence: "Hypothesis" },
           ],
         },
       });
@@ -127,16 +127,16 @@ describe("liftPriority", () => {
     });
 
     it("caps candidates to CANDIDATES_PER_SLOT per pattern", () => {
-      // Many HorizontalPush lifts → only top-K should appear for that slot.
+      // Many HorizontalPress lifts → only top-K should appear for that slot.
       const ctx = contextWith({
         provenLifts: [
-          { id: "h1", name: "H1", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 20, progressTrend: "Improving" } },
-          { id: "h2", name: "H2", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 15, progressTrend: "Improving" } },
-          { id: "h3", name: "H3", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Stagnant" } },
-          { id: "h4", name: "H4", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 8, progressTrend: "Stagnant" } },
-          { id: "h5", name: "H5", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 5, progressTrend: "Regressing" } },
-          { id: "h6", name: "H6", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [] },
-          { id: "h7", name: "H7", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+          { id: "h1", name: "H1", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 20, progressTrend: "Improving" } },
+          { id: "h2", name: "H2", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 15, progressTrend: "Improving" } },
+          { id: "h3", name: "H3", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Stagnant" } },
+          { id: "h4", name: "H4", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 8, progressTrend: "Stagnant" } },
+          { id: "h5", name: "H5", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 5, progressTrend: "Regressing" } },
+          { id: "h6", name: "H6", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+          { id: "h7", name: "H7", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [] },
         ],
         availableLifts: [],
         days: 4,
@@ -144,7 +144,7 @@ describe("liftPriority", () => {
       const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
       const upperPlan = plans.find((p) => p.theme.startsWith("Upper"))!;
       const horizontalPushCandidates = buildDayCandidates(upperPlan, ctx)
-        .filter((c) => c.pattern === "HorizontalPush");
+        .filter((c) => c.pattern === "HorizontalPress");
       assert.ok(
         horizontalPushCandidates.length <= CANDIDATES_PER_SLOT,
         `got ${horizontalPushCandidates.length} > ${CANDIDATES_PER_SLOT}`,
@@ -154,15 +154,15 @@ describe("liftPriority", () => {
     it("candidates are sorted by priority descending within a pattern", () => {
       const ctx = contextWith({
         provenLifts: [
-          { id: "bench", name: "Bench", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 20, progressTrend: "Improving" } },
-          { id: "machine-press", name: "Machine", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+          { id: "bench", name: "Bench", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 20, progressTrend: "Improving" } },
+          { id: "machine-press", name: "Machine", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [] },
         ],
         availableLifts: [],
         days: 4,
       });
       const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
       const upperPlan = plans.find((p) => p.theme.startsWith("Upper"))!;
-      const hpush = buildDayCandidates(upperPlan, ctx).filter((c) => c.pattern === "HorizontalPush");
+      const hpush = buildDayCandidates(upperPlan, ctx).filter((c) => c.pattern === "HorizontalPress");
       assert.ok(hpush.length >= 2);
       assert.ok(hpush[0].priority >= hpush[1].priority, "sorted desc");
     });
@@ -193,14 +193,14 @@ describe("liftPriority", () => {
       const ctx = contextWith({
         provenLifts: [],
         availableLifts: [
-          { id: "alt-press", name: "Alternating Floor Press", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [] },
-          { id: "bench", name: "Bench Press", movementPattern: "HorizontalPush", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+          { id: "alt-press", name: "Alternating Floor Press", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+          { id: "bench", name: "Bench Press", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [] },
         ],
         days: 4,
       });
       const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
       const upperPlan = plans.find((p) => p.theme.startsWith("Upper"))!;
-      const hpush = buildDayCandidates(upperPlan, ctx).filter((c) => c.pattern === "HorizontalPush");
+      const hpush = buildDayCandidates(upperPlan, ctx).filter((c) => c.pattern === "HorizontalPress");
       assert.ok(hpush.length >= 2);
       assert.equal(hpush[0].liftId, "bench", "bench should outrank alternating floor press");
       assert.ok(mainstreamNameScore("Bench Press") > mainstreamNameScore("Alternating Floor Press"));

@@ -1,24 +1,24 @@
 export const MOVEMENT_PATTERNS = [
-  "LegPush",
+  "SquatPattern",
   "HipHinge",
-  "QuadIso",
-  "HamstringIso",
-  "Calves",
-  "HorizontalPush",
+  "KneeExtension",
+  "KneeFlexion",
+  "PlantarFlexion",
+  "HorizontalPress",
   "VerticalPull",
   "HorizontalPull",
-  "ChestIso",
-  "TricepIso",
-  "BicepIso",
-  "LateralDeltIso",
-  "RearDeltIso",
-  "AnteriorDeltIso",
-  "GluteIso",
-  "ForearmIso",
-  "TrapIso",
-  "AbIso",
-  "InclinePush",
-  "VerticalPush",
+  "ShoulderAdduction",
+  "ElbowExtension",
+  "ElbowFlexion",
+  "ShoulderAbduction",
+  "ShoulderHorizontalAbduction",
+  "ShoulderFlexion",
+  "HipExtension",
+  "WristFlexionExtension",
+  "ScapularElevation",
+  "SpinalFlexion",
+  "InclinePress",
+  "VerticalPress",
 ] as const;
 
 export const MUSCLE_GROUPS = [
@@ -61,9 +61,9 @@ export const CUSTOM_LIFT_INFERENCE_MAX_BATCH = 75;
 
 const PULL_PATTERNS = new Set<MovementPattern>(["HorizontalPull", "VerticalPull"]);
 const PUSH_PATTERNS = new Set<MovementPattern>([
-  "HorizontalPush",
-  "VerticalPush",
-  "InclinePush",
+  "HorizontalPress",
+  "VerticalPress",
+  "InclinePress",
 ]);
 
 function applyPatternSecondaryDefaults(row: InferredCustomLiftRow): InferredCustomLiftRow {
@@ -92,10 +92,10 @@ For each exercise name, infer:
 - secondaryMuscles: 0-4 supporting / co-mover muscle groups (e.g. triceps and front delts on a press, biceps on a row)
 - equipment: short optional label (e.g. "barbell", "dumbbell", "cable", "machine", "bodyweight")
 
-Use only the provided enum values. Prefer isolation patterns (TricepIso, BicepIso, etc.) for single-joint accessories.
-Lateral raises, side raises, and Y-raises: movementPattern LateralDeltIso, primaryMuscles ["LateralDeltoid"].
-Rear delt fly, reverse fly, and face pulls: movementPattern RearDeltIso, primaryMuscles ["PosteriorDeltoid"].
-Front raises: movementPattern AnteriorDeltIso, primaryMuscles ["AnteriorDeltoid"].
+Use only the provided enum values. Prefer isolation patterns (ElbowExtension, ElbowFlexion, etc.) for single-joint accessories.
+Lateral raises, side raises, and Y-raises: movementPattern ShoulderAbduction, primaryMuscles ["LateralDeltoid"].
+Rear delt fly, reverse fly, and face pulls: movementPattern ShoulderHorizontalAbduction, primaryMuscles ["PosteriorDeltoid"].
+Front raises: movementPattern ShoulderFlexion, primaryMuscles ["AnteriorDeltoid"].
 If the name mentions a brand or variant (e.g. "Katana Triceps Extension"), classify by the underlying movement.
 Return one row per input exercise; keep the name exactly as provided.`;
 

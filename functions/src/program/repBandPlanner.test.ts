@@ -7,7 +7,7 @@ function liftCtx(overrides: Partial<{ id: string; name: string; movementPattern:
   return {
     id: overrides.id ?? "bench",
     name: overrides.name ?? "Bench",
-    movementPattern: overrides.movementPattern ?? "HorizontalPush",
+    movementPattern: overrides.movementPattern ?? "HorizontalPress",
     primaryMuscles: overrides.primaryMuscles ?? ["Chest"],
     secondaryMuscles: overrides.secondaryMuscles ?? [],
     ...(overrides.trainingInsights ? { trainingInsights: overrides.trainingInsights } : {}),
@@ -30,28 +30,28 @@ function ctxFor(trainingAge: string, lifts: unknown[]) {
 describe("repBandPlanner", () => {
   describe("repBandFor — base bands", () => {
     it("Beginner compound: 6–10", () => {
-      const ctx = ctxFor("Beginner", [liftCtx({ movementPattern: "HorizontalPush" })]);
+      const ctx = ctxFor("Beginner", [liftCtx({ movementPattern: "HorizontalPress" })]);
       const band = repBandFor(ctx.liftsById.get("bench")!, ctx);
       assert.equal(band.repMin, 6);
       assert.equal(band.repMax, 10);
     });
 
     it("Beginner isolation: 10–15", () => {
-      const ctx = ctxFor("Beginner", [liftCtx({ id: "curl", movementPattern: "BicepIso" })]);
+      const ctx = ctxFor("Beginner", [liftCtx({ id: "curl", movementPattern: "ElbowFlexion" })]);
       const band = repBandFor(ctx.liftsById.get("curl")!, ctx);
       assert.equal(band.repMin, 10);
       assert.equal(band.repMax, 15);
     });
 
     it("Intermediate+ compound: 6–12", () => {
-      const ctx = ctxFor("Intermediate", [liftCtx({ movementPattern: "LegPush" })]);
+      const ctx = ctxFor("Intermediate", [liftCtx({ movementPattern: "SquatPattern" })]);
       const band = repBandFor(ctx.liftsById.get("bench")!, ctx);
       assert.equal(band.repMin, 6);
       assert.equal(band.repMax, 12);
     });
 
     it("Intermediate+ isolation: 10–20", () => {
-      const ctx = ctxFor("Advanced", [liftCtx({ id: "curl", movementPattern: "TricepIso" })]);
+      const ctx = ctxFor("Advanced", [liftCtx({ id: "curl", movementPattern: "ElbowExtension" })]);
       const band = repBandFor(ctx.liftsById.get("curl")!, ctx);
       assert.equal(band.repMin, 10);
       assert.equal(band.repMax, 20);
@@ -114,7 +114,7 @@ describe("repBandPlanner", () => {
 
     it("isolation ceiling clamps at 25 even with gentle decay + Improving", () => {
       const ctx = ctxFor("Advanced", [
-        liftCtx({ id: "curl", movementPattern: "BicepIso", trainingInsights: { fatigueDecaySlope: 0.0, progressTrend: "Improving" } }),
+        liftCtx({ id: "curl", movementPattern: "ElbowFlexion", trainingInsights: { fatigueDecaySlope: 0.0, progressTrend: "Improving" } }),
       ]);
       const band = repBandFor(ctx.liftsById.get("curl")!, ctx);
       // Base 10–20, shift up 1 → 10–21, clamp ceiling 25 → 10–21.
@@ -132,8 +132,8 @@ describe("repBandPlanner", () => {
   describe("repBandsForLifts", () => {
     it("returns a band per known lift id and skips unknown ids", () => {
       const ctx = ctxFor("Intermediate", [
-        liftCtx({ id: "bench", movementPattern: "HorizontalPush" }),
-        liftCtx({ id: "curl", movementPattern: "BicepIso" }),
+        liftCtx({ id: "bench", movementPattern: "HorizontalPress" }),
+        liftCtx({ id: "curl", movementPattern: "ElbowFlexion" }),
       ]);
       const bands = repBandsForLifts(["bench", "curl", "phantom"], ctx);
       assert.ok(bands.has("bench"));

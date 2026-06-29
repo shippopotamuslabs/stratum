@@ -3,7 +3,7 @@ package com.stratum.domain.lift
 /**
  * How a [Lift] moves — the categorical slot a lift occupies (squat pattern, horizontal push,
  * etc.). Values are grouped logically: lower body, then upper-body compound, then isolation.
- * The deltoid head isos are split into [LateralDeltIso], [RearDeltIso], and [AnteriorDeltIso]
+ * The deltoid head isos are split into [ShoulderAbduction], [ShoulderHorizontalAbduction], and [ShoulderFlexion]
  * so program generation can target each head independently (a balanced upper day covers a
  * lateral raise AND a rear-delt movement, which a single `DeltIso` could not express).
  *
@@ -12,28 +12,48 @@ package com.stratum.domain.lift
  * selection and split assignment in program generation (OS-6).
  */
 enum class MovementPattern {
-    LegPush,
+    // Primary Target: Quad / Glute
+    SquatPattern,
+    // Primary Target: Hamstring / Glute / Lower Back
     HipHinge,
-    QuadIso,
-    HamstringIso,
-    Calves,
+    // Primary Target: Quad
+    KneeExtension,
+    // Primary Target: Hamstring
+    KneeFlexion,
+    // Primary Target: Calf
+    PlantarFlexion,
 
-    HorizontalPush,
+    // Primary Target: Chest
+    HorizontalPress,
+    // Primary Target: Back
     VerticalPull,
+    // Primary Target: Back
     HorizontalPull,
-    ChestIso,
-    TricepIso,
-    BicepIso,
-    LateralDeltIso,
-    RearDeltIso,
-    AnteriorDeltIso,
+    // Primary Target: Chest
+    ShoulderAdduction,
+    // Primary Target: Tricep
+    ElbowExtension,
+    // Primary Target: Bicep
+    ElbowFlexion,
+    // Primary Target: Side Delt
+    ShoulderAbduction,
+    // Primary Target: Rear Delt
+    ShoulderHorizontalAbduction,
+    // Primary Target: Front Delt
+    ShoulderFlexion,
 
-    GluteIso,
-    ForearmIso,
-    TrapIso,
-    AbIso,
-    InclinePush,
-    VerticalPush,
+    // Primary Target: Glute
+    HipExtension,
+    // Primary Target: Forearm
+    WristFlexionExtension,
+    // Primary Target: Trap
+    ScapularElevation,
+    // Primary Target: Ab
+    SpinalFlexion,
+    // Primary Target: Chest (Upper) / Front Delt
+    InclinePress,
+    // Primary Target: Front Delt
+    VerticalPress,
     ;
 
     /**
@@ -42,25 +62,25 @@ enum class MovementPattern {
      */
     val displayName: String
         get() = when (this) {
-            LegPush -> "Leg Push"
+            SquatPattern -> "Squat Pattern"
             HipHinge -> "Hip Hinge"
-            QuadIso -> "Quad Isolation"
-            HamstringIso -> "Hamstring Isolation"
-            Calves -> "Calves"
-            HorizontalPush -> "Horizontal Push"
+            KneeExtension -> "Knee Extension"
+            KneeFlexion -> "Knee Flexion"
+            PlantarFlexion -> "Plantar Flexion"
+            HorizontalPress -> "Horizontal Press"
             VerticalPull -> "Vertical Pull"
             HorizontalPull -> "Horizontal Pull"
-            ChestIso -> "Chest Isolation"
-            TricepIso -> "Tricep Isolation"
-            BicepIso -> "Bicep Isolation"
-            LateralDeltIso -> "Lateral Delt Isolation"
-            RearDeltIso -> "Rear Delt Isolation"
-            AnteriorDeltIso -> "Front Delt Isolation"
-            GluteIso -> "Glute Isolation"
-            ForearmIso -> "Forearm Isolation"
-            TrapIso -> "Trap Isolation"
-            AbIso -> "Abs"
-            InclinePush -> "Incline Push"
-            VerticalPush -> "Vertical Push"
+            ShoulderAdduction -> "Shoulder Adduction"
+            ElbowExtension -> "Elbow Extension"
+            ElbowFlexion -> "Elbow Flexion"
+            ShoulderAbduction -> "Shoulder Abduction"
+            ShoulderHorizontalAbduction -> "Shoulder Horizontal Abduction"
+            ShoulderFlexion -> "Shoulder Flexion"
+            HipExtension -> "Hip Extension"
+            WristFlexionExtension -> "Wrist Flexion/Extension"
+            ScapularElevation -> "Scapular Elevation"
+            SpinalFlexion -> "Spinal Flexion"
+            InclinePress -> "Incline Press"
+            VerticalPress -> "Vertical Press"
         }
 }

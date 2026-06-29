@@ -138,8 +138,8 @@ class RoomProgramRepositoryTest {
     private suspend fun seedReferencedLifts() {
         database.liftDao().upsertAll(
             listOf(
-                minimalLift(LiftId("bench-press"), MovementPattern.HorizontalPush),
-                minimalLift(LiftId("back-squat"), MovementPattern.LegPush),
+                minimalLift(LiftId("bench-press"), MovementPattern.HorizontalPress),
+                minimalLift(LiftId("back-squat"), MovementPattern.SquatPattern),
             ),
         )
     }

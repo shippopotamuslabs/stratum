@@ -121,7 +121,7 @@ class AdvanceOnboardingStepUseCaseTest {
     private fun enabledLift(): Lift = Lift(
         id = LiftId("squat"),
         name = "Squat",
-        movementPattern = MovementPattern.LegPush,
+        movementPattern = MovementPattern.SquatPattern,
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
         allowWeightChangeBetweenSets = false,

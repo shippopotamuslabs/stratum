@@ -43,4 +43,5 @@ data class Lift(
     val isCustom: Boolean = false,
     val description: String? = null,
     val imageUris: List<String> = emptyList(),
+    val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
 )

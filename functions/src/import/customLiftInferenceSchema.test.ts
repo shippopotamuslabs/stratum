@@ -12,14 +12,14 @@ describe("parseInferredCustomLifts", () => {
         lifts: [
           {
             name: "Katana Triceps Extension",
-            movementPattern: "TricepIso",
+            movementPattern: "ElbowExtension",
             primaryMuscles: ["Tricep"],
             secondaryMuscles: [],
             equipment: "cable",
           },
           {
             name: "Not Requested",
-            movementPattern: "BicepIso",
+            movementPattern: "ElbowFlexion",
             primaryMuscles: ["Bicep"],
             secondaryMuscles: [],
             equipment: null,
@@ -31,7 +31,7 @@ describe("parseInferredCustomLifts", () => {
 
     assert.equal(rows.length, 1);
     assert.equal(rows[0]?.name, "Katana Triceps Extension");
-    assert.equal(rows[0]?.movementPattern, "TricepIso");
+    assert.equal(rows[0]?.movementPattern, "ElbowExtension");
     assert.deepEqual(rows[0]?.primaryMuscles, ["Tricep"]);
   });
 
@@ -48,7 +48,7 @@ describe("parseInferredCustomLifts", () => {
           },
           {
             name: "Mystery Move",
-            movementPattern: "TricepIso",
+            movementPattern: "ElbowExtension",
             primaryMuscles: [],
             secondaryMuscles: [],
             equipment: null,
@@ -91,7 +91,7 @@ describe("parseInferredCustomLifts", () => {
         lifts: [
           {
             name: "Machine Chest Press",
-            movementPattern: "HorizontalPush",
+            movementPattern: "HorizontalPress",
             primaryMuscles: ["Chest"],
             secondaryMuscles: [],
             equipment: "machine",
@@ -111,7 +111,7 @@ describe("parseInferredCustomLifts", () => {
         lifts: [
           {
             name: "Close-Grip Bench Press",
-            movementPattern: "HorizontalPush",
+            movementPattern: "HorizontalPress",
             primaryMuscles: ["Chest"],
             secondaryMuscles: ["Tricep", "AnteriorDeltoid", "Bicep", "Back"],
             equipment: "barbell",
@@ -132,7 +132,7 @@ describe("parseInferredCustomLifts", () => {
         lifts: [
           {
             name: "Hip Thrust",
-            movementPattern: "GluteIso",
+            movementPattern: "HipExtension",
             primaryMuscles: ["Glute"],
             secondaryMuscles: ["Glute", "Hamstring"],
             equipment: "barbell",

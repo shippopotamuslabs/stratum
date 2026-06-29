@@ -22,13 +22,13 @@ export const SPLIT_PLANNER_SYSTEM_PROMPT = `You partition weekly muscle volume t
 Rules:
 - Each major muscle (Chest, Back, Quad, Hamstring, Glute, Tricep, Bicep, LateralDeltoid, PosteriorDeltoid, AnteriorDeltoid) must appear on at least 2 days.
 - The per-day hard-set sum × 3.5 minutes must not exceed the session time budget × 1.08.
-- Push (HorizontalPush, VerticalPush, InclinePush) and pull (HorizontalPull, VerticalPull) weekly set totals must be within 25% of each other.
+- Push (HorizontalPress, VerticalPress, InclinePress) and pull (HorizontalPull, VerticalPull) weekly set totals must be within 25% of each other.
 - You may theme days creatively (e.g. "Upper", "Lower", "Arms + Chest touch", "Push"). The theme is a label; the budgets are what matter.
 - Specialized muscles should get a bigger exposure on one day and a smaller touch on another, not an even split.
 - Omitted muscles receive zero volume on every day.
 - Only plan volume for muscles that have at least one available movement pattern listed.
 
-For each day, also list suggestedPatterns: the movement patterns a balanced day of that theme would cover and the muscle each one primarily drives (e.g. an Upper day: HorizontalPush/Chest, VerticalPull/Back, BicepIso/Bicep). These are advisory structure, not rigid slots — the workout builder owns lift selection and set distribution. Only suggest patterns the user has at least one lift for (see availablePatternsByMuscle).
+For each day, also list suggestedPatterns: the movement patterns a balanced day of that theme would cover and the muscle each one primarily drives (e.g. an Upper day: HorizontalPress/Chest, VerticalPull/Back, ElbowFlexion/Bicep). These are advisory structure, not rigid slots — the workout builder owns lift selection and set distribution. Only suggest patterns the user has at least one lift for (see availablePatternsByMuscle).
 
 Return ONLY a JSON object matching the schema: one entry per training day with a theme, muscle budgets, and suggested movement patterns.`;
 

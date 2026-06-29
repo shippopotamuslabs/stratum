@@ -170,7 +170,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 Lift(
                     id = LiftId("seed-filler-$index"),
                     name = "Seed Filler $index",
-                    movementPattern = MovementPattern.LegPush,
+                    movementPattern = MovementPattern.SquatPattern,
                     primaryMuscles = emptySet(),
                     secondaryMuscles = emptySet(),
                     incrementTiers = emptyList(),

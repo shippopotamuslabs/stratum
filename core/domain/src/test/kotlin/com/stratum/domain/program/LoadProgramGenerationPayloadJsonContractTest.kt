@@ -96,9 +96,9 @@ class LoadProgramGenerationPayloadJsonContractTest {
         val benchId = LiftId("barbell-bench-press")
         val lifts =
             listOf(
-                seedLift(squatId, "Barbell Full Squat", MovementPattern.LegPush, GymPreset.CommercialGym),
-                seedLift(benchId, "Barbell Bench Press", MovementPattern.HorizontalPush, GymPreset.CommercialGym),
-                seedLift(LiftId("leg-press"), "Leg Press", MovementPattern.LegPush, GymPreset.CommercialGym),
+                seedLift(squatId, "Barbell Full Squat", MovementPattern.SquatPattern, GymPreset.CommercialGym),
+                seedLift(benchId, "Barbell Bench Press", MovementPattern.HorizontalPress, GymPreset.CommercialGym),
+                seedLift(LiftId("leg-press"), "Leg Press", MovementPattern.SquatPattern, GymPreset.CommercialGym),
             )
         val insights =
             listOf(

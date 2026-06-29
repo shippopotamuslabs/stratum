@@ -9,8 +9,8 @@ const BEGINNER_REQUEST: ProgramNormalizationRequest = {
   trainingAge: "Beginner",
   enabledLiftIds: new Set(["back-squat", "bicep-curl"]),
   movementPatternByLiftId: new Map([
-    ["back-squat", "LegPush"],
-    ["bicep-curl", "BicepIso"],
+    ["back-squat", "SquatPattern"],
+    ["bicep-curl", "ElbowFlexion"],
   ]),
 };
 

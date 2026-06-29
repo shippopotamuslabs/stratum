@@ -82,9 +82,9 @@ object YuhonasImportMapper {
      */
     fun mapShoulderMuscle(pattern: MovementPattern): MuscleGroup = when (pattern) {
         MovementPattern.HorizontalPull -> MuscleGroup.PosteriorDeltoid
-        MovementPattern.LateralDeltIso -> MuscleGroup.LateralDeltoid
-        MovementPattern.RearDeltIso -> MuscleGroup.PosteriorDeltoid
-        MovementPattern.AnteriorDeltIso -> MuscleGroup.AnteriorDeltoid
+        MovementPattern.ShoulderAbduction -> MuscleGroup.LateralDeltoid
+        MovementPattern.ShoulderHorizontalAbduction -> MuscleGroup.PosteriorDeltoid
+        MovementPattern.ShoulderFlexion -> MuscleGroup.AnteriorDeltoid
         else -> MuscleGroup.AnteriorDeltoid
     }
 
@@ -130,24 +130,22 @@ object YuhonasImportMapper {
     @Suppress("CyclomaticComplexMethod")
     private fun nameBasedPattern(lowerName: String): MovementPattern? = when {
         // --- Direct isolation movements by name ---
-        lowerName.contains("lateral raise") || lowerName.contains("side raise") -> MovementPattern.LateralDeltIso
-        lowerName.contains("shrug") -> MovementPattern.TrapIso
-        containsAny(lowerName, "wrist", "forearm curl", "reverse curl") -> MovementPattern.ForearmIso
-        containsAny(lowerName, "crunch", "sit-up", "hanging leg raise") -> MovementPattern.AbIso
-        lowerName.contains("calf raise") -> MovementPattern.Calves
-        containsAny(lowerName, "hip thrust", "glute bridge", "glute kickback", "hip lift") -> MovementPattern.GluteIso
-        lowerName.contains("leg extension") -> MovementPattern.QuadIso
-        containsAny(lowerName, "leg curl", "hamstring curl") -> MovementPattern.HamstringIso
+        lowerName.contains("lateral raise") || lowerName.contains("side raise") -> MovementPattern.ShoulderAbduction
+        lowerName.contains("shrug") -> MovementPattern.ScapularElevation
+        containsAny(lowerName, "wrist", "forearm curl", "reverse curl") -> MovementPattern.WristFlexionExtension
+        containsAny(lowerName, "crunch", "sit-up", "hanging leg raise") -> MovementPattern.SpinalFlexion
+        lowerName.contains("calf raise") -> MovementPattern.PlantarFlexion
+        containsAny(lowerName, "hip thrust", "glute bridge", "glute kickback", "hip lift") -> MovementPattern.HipExtension
+        lowerName.contains("leg extension") -> MovementPattern.KneeExtension
+        containsAny(lowerName, "leg curl", "hamstring curl") -> MovementPattern.KneeFlexion
         // Curl variants not caught by the simple "curl" substring (drag curl, high cable curl).
-        lowerName.contains("curl") -> MovementPattern.BicepIso
+        lowerName.contains("curl") -> MovementPattern.ElbowFlexion
         // Fly / pullover / pecdeck variants are chest isolation.
-        containsAny(lowerName, "fly", "flye", "pullover", "pect deck", "pec deck") -> MovementPattern.ChestIso
+        containsAny(lowerName, "fly", "flye", "pullover", "pect deck", "pec deck") -> MovementPattern.ShoulderAdduction
         // Tricep isolation by name.
-        containsAny(lowerName, "tricep", "triceps", "skull crusher", "pushdown", "kickback") -> MovementPattern.TricepIso
+        containsAny(lowerName, "tricep", "triceps", "skull crusher", "pushdown", "kickback") -> MovementPattern.ElbowExtension
 
         // --- Hip hinge / posterior chain by name ---
-        // yuhonas often tags good mornings, deadlifts, and RDLs with atypical primary muscles
-        // (hamstrings, lower back, or even quadriceps). The name is more reliable than the muscle.
         containsAny(
             lowerName,
             "good morning", "good-morning", "romanian", "rdl", "stiff leg", "stiff-leg",
@@ -172,89 +170,83 @@ object YuhonasImportMapper {
             "spider crawl", "judo flip", "slam", "air bike", "wind sprint",
             "kettlebell pass", "kettlebell windmill", "hip raise", "pike", "bottoms up",
             "otis-up", "otis up", "plate twist", "landmine 180", "cable lift",
-        ) -> MovementPattern.AbIso
+        ) -> MovementPattern.SpinalFlexion
 
-        // --- Lunge / step-up (LegPush — they are squat-pattern derivatives) ---
-        containsAny(lowerName, "lunge", "step up", "step-up") -> MovementPattern.LegPush
+        // --- Lunge / step-up (SquatPattern) ---
+        containsAny(lowerName, "lunge", "step up", "step-up") -> MovementPattern.SquatPattern
 
         // --- Dips (triceps compound — classify by name) ---
-        lowerName.contains("dip") -> MovementPattern.TricepIso
+        lowerName.contains("dip") -> MovementPattern.ElbowExtension
 
-        // --- Push-up variants (HorizontalPush) ---
-        lowerName.contains("push-up") || lowerName.contains("pushup") -> MovementPattern.HorizontalPush
+        // --- Push-up variants (HorizontalPress) ---
+        lowerName.contains("push-up") || lowerName.contains("pushup") -> MovementPattern.HorizontalPress
 
         // --- Bench / floor / board / pin / rack press variants ---
-        // yuhonas sometimes tags close-grip or powerlifting bench with primary=triceps, which
-        // would route them to the wrong fallback. Any "bench press" or "floor press" is a
-        // horizontal push (or incline/decline variant).
         containsAny(lowerName, "bench press", "floor press", "board press", "pin press") -> {
             benchPressPattern(lowerName)
         }
         // Close-grip / JM press variants are horizontal pushing (tricep-focused bench).
-        containsAny(lowerName, "close-grip", "close grip", "jm press", "neck press") -> MovementPattern.HorizontalPush
+        containsAny(lowerName, "close-grip", "close grip", "jm press", "neck press") -> MovementPattern.HorizontalPress
         // Decline press (smith or barbell) is horizontal.
-        lowerName.contains("decline") && lowerName.contains("press") -> MovementPattern.HorizontalPush
-        lowerName.contains("svend press") || lowerName.contains("chain press") -> MovementPattern.ChestIso
+        lowerName.contains("decline") && lowerName.contains("press") -> MovementPattern.HorizontalPress
+        lowerName.contains("svend press") || lowerName.contains("chain press") -> MovementPattern.ShoulderAdduction
 
         // --- Overhead / vertical press by name (shoulders-primary compounds) ---
-        // These have `shoulders` primary in yuhonas; the name confirms vertical pressing.
         containsAny(
             lowerName,
             "arnold", "bent press", "bradford", "seesaw press", "side press", "para press",
             "push press", "circus bell", "log lift", "thruster",
-        ) -> MovementPattern.VerticalPush
+        ) -> MovementPattern.VerticalPress
 
         // --- Glute / hip isolation by name ---
         containsAny(
             lowerName,
             "hip extension", "hip bridge", "hip lift", "monster walk", "hip flexion",
-        ) -> MovementPattern.GluteIso
+        ) -> MovementPattern.HipExtension
 
         // --- Face pulls (HorizontalPull — rear delt focus) ---
         lowerName.contains("face pull") -> MovementPattern.HorizontalPull
 
-        // --- Kettlebell sumo high pull (upright row variant — TrapIso) ---
-        lowerName.contains("sumo high pull") -> MovementPattern.TrapIso
+        // --- Kettlebell sumo high pull (upright row variant — ScapularElevation) ---
+        lowerName.contains("sumo high pull") -> MovementPattern.ScapularElevation
 
-        // --- Iron cross (lateral raise hold — LateralDeltIso) ---
-        lowerName.contains("iron cross") -> MovementPattern.LateralDeltIso
+        // --- Iron cross (lateral raise hold — ShoulderAbduction) ---
+        lowerName.contains("iron cross") -> MovementPattern.ShoulderAbduction
 
-        // --- Front raise (AnteriorDeltIso); generic "dumbbell raise" defaults to lateral ---
-        lowerName.contains("front raise") -> MovementPattern.AnteriorDeltIso
-        lowerName.contains("dumbbell raise") -> MovementPattern.LateralDeltIso
+        // --- Front raise (ShoulderFlexion); generic "dumbbell raise" defaults to lateral ---
+        lowerName.contains("front raise") -> MovementPattern.ShoulderFlexion
+        lowerName.contains("dumbbell raise") -> MovementPattern.ShoulderAbduction
 
-        // --- Carries / sled drags (forearm/trap dominant, but LegPush is the closest slot) ---
-        containsAny(lowerName, "farmer", "rickshaw", "yoke", "sled drag", "sled push") -> MovementPattern.LegPush
+        // --- Carries / sled drags (forearm/trap dominant, but SquatPattern is the closest slot) ---
+        containsAny(lowerName, "farmer", "rickshaw", "yoke", "sled drag", "sled push") -> MovementPattern.SquatPattern
 
-        // --- Rotator cuff / shoulder rehab (rear-delt/external-rotator biased — RearDeltIso) ---
-        containsAny(lowerName, "internal rotation", "external rotation") -> MovementPattern.RearDeltIso
+        // --- Rotator cuff / shoulder rehab (rear-delt/external-rotator biased — ShoulderHorizontalAbduction) ---
+        containsAny(lowerName, "internal rotation", "external rotation") -> MovementPattern.ShoulderHorizontalAbduction
 
         // --- Strongman lifts (hip-dominant pulls) ---
         containsAny(lowerName, "tire flip", "sandbag load", "backward drag", "conan") -> MovementPattern.HipHinge
 
-        // --- Battling ropes (conditioning — AbIso is closest) ---
-        lowerName.contains("battling rope") -> MovementPattern.AbIso
+        // --- Battling ropes (conditioning — SpinalFlexion is closest) ---
+        lowerName.contains("battling rope") -> MovementPattern.SpinalFlexion
 
-        // --- Kettlebell pirate ships (lateral raise variant — LateralDeltIso) ---
-        lowerName.contains("pirate ship") -> MovementPattern.LateralDeltIso
+        // --- Kettlebell pirate ships (lateral raise variant — ShoulderAbduction) ---
+        lowerName.contains("pirate ship") -> MovementPattern.ShoulderAbduction
 
-        // --- Rack delivery (strongman overhead — VerticalPush) ---
-        lowerName.contains("rack delivery") -> MovementPattern.VerticalPush
+        // --- Rack delivery (strongman overhead — VerticalPress) ---
+        lowerName.contains("rack delivery") -> MovementPattern.VerticalPress
 
-        // --- Balance board (calve stability — Calves) ---
-        lowerName.contains("balance board") -> MovementPattern.Calves
+        // --- Balance board (calve stability — PlantarFlexion) ---
+        lowerName.contains("balance board") -> MovementPattern.PlantarFlexion
 
         else -> null
     }
 
     /**
-     * Resolves a bench-press-family exercise to its plane. "Incline" → [InclinePush];
-     * "decline" → [HorizontalPush] (decline is still a horizontal plane press); otherwise
-     * [HorizontalPush].
+     * Resolves a bench-press-family exercise to its plane.
      */
     private fun benchPressPattern(lowerName: String): MovementPattern = when {
-        lowerName.contains("incline") -> MovementPattern.InclinePush
-        else -> MovementPattern.HorizontalPush
+        lowerName.contains("incline") -> MovementPattern.InclinePress
+        else -> MovementPattern.HorizontalPress
     }
 
     /** Compound-movement classification — returns a pattern if force+mechanic+muscle matches. */
@@ -273,44 +265,44 @@ object YuhonasImportMapper {
                 else -> MovementPattern.VerticalPull
             }
             force == "push" && firstPrimary == MuscleGroup.Chest -> when {
-                lowerName.contains("incline") -> MovementPattern.InclinePush
-                containsAny(lowerName, "overhead", "military", "shoulder press") -> MovementPattern.VerticalPush
-                else -> MovementPattern.HorizontalPush
+                lowerName.contains("incline") -> MovementPattern.InclinePress
+                containsAny(lowerName, "overhead", "military", "shoulder press") -> MovementPattern.VerticalPress
+                else -> MovementPattern.HorizontalPress
             }
             // Overhead / military / shoulder presses have `shoulders` (→ AnteriorDeltoid) as
             // primary, not Chest — handle them here, after the chest branch.
             force == "push" && firstPrimary == MuscleGroup.AnteriorDeltoid ->
                 if (containsAny(lowerName, "overhead", "military", "shoulder press", "press")) {
-                    MovementPattern.VerticalPush
+                    MovementPattern.VerticalPress
                 } else {
-                    MovementPattern.HorizontalPush
+                    MovementPattern.HorizontalPress
                 }
             force == "push" && firstPrimary == MuscleGroup.Quad ->
                 if (containsAny(lowerName, "deadlift", "rdl", "romanian")) {
                     MovementPattern.HipHinge
                 } else {
-                    MovementPattern.LegPush
+                    MovementPattern.SquatPattern
                 }
             // Good mornings and rack pulls are tagged with hamstring/lower-back primary but
             // are hip hinges — the name rules in nameBasedPattern catch most, but some land here.
             force == "pull" && firstPrimary == MuscleGroup.Hamstring -> MovementPattern.HipHinge
             force == "pull" && firstPrimary == MuscleGroup.LowerBack -> MovementPattern.HipHinge
-            force == "static" && firstPrimary == MuscleGroup.Ab -> MovementPattern.AbIso
+            force == "static" && firstPrimary == MuscleGroup.Ab -> MovementPattern.SpinalFlexion
             else -> null
         }
     }
 
     /** Isolation-movement fallback by primary muscle. */
     private fun isolationPattern(firstPrimary: MuscleGroup?): MovementPattern? = when (firstPrimary) {
-        MuscleGroup.Bicep -> MovementPattern.BicepIso
-        MuscleGroup.Tricep -> MovementPattern.TricepIso
-        MuscleGroup.Chest -> MovementPattern.ChestIso
-        MuscleGroup.AnteriorDeltoid -> MovementPattern.AnteriorDeltIso
-        MuscleGroup.LateralDeltoid -> MovementPattern.LateralDeltIso
-        MuscleGroup.PosteriorDeltoid -> MovementPattern.RearDeltIso
-        MuscleGroup.Trap -> MovementPattern.TrapIso
-        MuscleGroup.Glute -> MovementPattern.GluteIso
-        MuscleGroup.Abductor, MuscleGroup.Adductor -> MovementPattern.GluteIso
+        MuscleGroup.Bicep -> MovementPattern.ElbowFlexion
+        MuscleGroup.Tricep -> MovementPattern.ElbowExtension
+        MuscleGroup.Chest -> MovementPattern.ShoulderAdduction
+        MuscleGroup.AnteriorDeltoid -> MovementPattern.ShoulderFlexion
+        MuscleGroup.LateralDeltoid -> MovementPattern.ShoulderAbduction
+        MuscleGroup.PosteriorDeltoid -> MovementPattern.ShoulderHorizontalAbduction
+        MuscleGroup.Trap -> MovementPattern.ScapularElevation
+        MuscleGroup.Glute -> MovementPattern.HipExtension
+        MuscleGroup.Abductor, MuscleGroup.Adductor -> MovementPattern.HipExtension
         else -> null
     }
 
@@ -319,11 +311,11 @@ object YuhonasImportMapper {
         keywords.any { lowerName.contains(it) }
 
     private fun defaultCompoundOrLegPush(force: String?, firstPrimary: MuscleGroup?): MovementPattern = when {
-        force == "push" && firstPrimary == MuscleGroup.Quad -> MovementPattern.LegPush
+        force == "push" && firstPrimary == MuscleGroup.Quad -> MovementPattern.SquatPattern
         force == "pull" && firstPrimary == MuscleGroup.Back -> MovementPattern.VerticalPull
-        force == "push" && firstPrimary == MuscleGroup.Chest -> MovementPattern.HorizontalPush
+        force == "push" && firstPrimary == MuscleGroup.Chest -> MovementPattern.HorizontalPress
         force == "pull" && firstPrimary == MuscleGroup.Hamstring -> MovementPattern.HipHinge
-        else -> MovementPattern.LegPush
+        else -> MovementPattern.SquatPattern
     }
 
     // --- Heuristics ---------------------------------------------------------
