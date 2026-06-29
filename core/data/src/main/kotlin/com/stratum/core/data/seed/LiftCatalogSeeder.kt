@@ -44,8 +44,11 @@ class LiftCatalogSeeder(
         val dtos = decode(context, assetPath) ?: return 0
         if (dtos.isEmpty()) return 0
 
-        for (dto in dtos) {
-            val mapped = mapDto(dto) ?: continue
+        val mappedLifts =
+            dtos
+                .filterNot { dto -> isBandVariantLift(dto.id, dto.name) }
+                .mapNotNull(::mapDto)
+        for (mapped in mappedLifts) {
             liftDao.upsert(mapped.lift)
             incrementTierDao.deleteForLift(mapped.lift.id)
             if (mapped.tiers.isNotEmpty()) incrementTierDao.upsertAll(mapped.tiers)
@@ -63,6 +66,12 @@ class LiftCatalogSeeder(
             // produces an empty catalog; the user can still add custom lifts.
             null
         }
+
+    /** Resistance-band exercise variants are excluded from the commercial seed catalog. */
+    private fun isBandVariantLift(id: String, name: String): Boolean {
+        val pattern = Regex("(^|[-\\s])band($|[-\\s])", RegexOption.IGNORE_CASE)
+        return pattern.containsMatchIn(id) || pattern.containsMatchIn(name)
+    }
 
     private fun mapDto(dto: LiftSeedDto): MappedLift? {
         val patterns = dto.movementPatterns.mapNotNull { enumValueOfOrNull<MovementPattern>(it) }.toSet()
