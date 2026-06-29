@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "58a57f372d074a8ec17f6d5c4201319a",
+    "identityHash": "8ef9e99b6a885de0a2c73974c625c507",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -104,7 +104,7 @@
       },
       {
         "tableName": "lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPattern` TEXT NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `allowWeightChangeBetweenSets` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPattern` TEXT NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `allowWeightChangeBetweenSets` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -164,6 +164,16 @@
             "columnName": "enabled",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "imageUrisCsv",
+            "columnName": "imageUrisCsv",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -354,7 +364,7 @@
       },
       {
         "tableName": "logged_sets",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `exerciseNameRaw` TEXT NOT NULL, `liftId` TEXT, `setIndex` INTEGER NOT NULL, `weightAmount` REAL NOT NULL, `weightUnit` TEXT NOT NULL, `reps` INTEGER NOT NULL, `rir` INTEGER, `completedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `exerciseNameRaw` TEXT NOT NULL, `liftId` TEXT, `setIndex` INTEGER NOT NULL, `weightAmount` REAL NOT NULL, `weightUnit` TEXT NOT NULL, `reps` INTEGER NOT NULL, `rir` INTEGER, `completedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `historical_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -420,7 +430,40 @@
           "columnNames": [
             "id"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_logged_sets_sessionId",
+            "unique": false,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_logged_sets_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_logged_sets_completedAtEpochMillis",
+            "unique": false,
+            "columnNames": [
+              "completedAtEpochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_logged_sets_completedAtEpochMillis` ON `${TABLE_NAME}` (`completedAtEpochMillis`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "historical_sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
       },
       {
         "tableName": "lift_training_insights",
@@ -522,7 +565,19 @@
           "columnNames": [
             "rowId"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_superset_affinities_liftA_liftB",
+            "unique": true,
+            "columnNames": [
+              "liftA",
+              "liftB"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_superset_affinities_liftA_liftB` ON `${TABLE_NAME}` (`liftA`, `liftB`)"
+          }
+        ]
       },
       {
         "tableName": "muscle_volume_baselines",
@@ -561,7 +616,7 @@
       },
       {
         "tableName": "import_analysis_metadata",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `windowStartEpochMillis` INTEGER NOT NULL, `windowEndEpochMillis` INTEGER NOT NULL, `provenLiftIdsCsv` TEXT NOT NULL, `unmatchedExerciseNamesCsv` TEXT NOT NULL, `totalSessions` INTEGER NOT NULL, `totalSets` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `windowStartEpochMillis` INTEGER NOT NULL, `windowEndEpochMillis` INTEGER NOT NULL, `provenLiftIdsCsv` TEXT NOT NULL, `unmatchedExerciseNamesCsv` TEXT NOT NULL, `totalSessions` INTEGER NOT NULL, `totalSets` INTEGER NOT NULL, `extractedAtEpochMillis` INTEGER NOT NULL, `pipelineVersion` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -604,6 +659,17 @@
             "columnName": "totalSets",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "extractedAtEpochMillis",
+            "columnName": "extractedAtEpochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pipelineVersion",
+            "columnName": "pipelineVersion",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -972,7 +1038,7 @@
       },
       {
         "tableName": "response_profile_metadata",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `epochsAnalyzed` INTEGER NOT NULL, `analysisWindowStartEpochMillis` INTEGER NOT NULL, `analysisWindowEndEpochMillis` INTEGER NOT NULL, `lastExtractedAtEpochMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `epochsAnalyzed` INTEGER NOT NULL, `analysisWindowStartEpochMillis` INTEGER NOT NULL, `analysisWindowEndEpochMillis` INTEGER NOT NULL, `lastExtractedAtEpochMillis` INTEGER NOT NULL, `pipelineVersion` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -1003,6 +1069,11 @@
             "columnName": "lastExtractedAtEpochMillis",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "pipelineVersion",
+            "columnName": "pipelineVersion",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -1604,7 +1675,7 @@
       },
       {
         "tableName": "workout_lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_id` TEXT NOT NULL, `lift_id` TEXT NOT NULL, `progression_scheme` TEXT NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_id`) REFERENCES `workouts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_id` TEXT NOT NULL, `lift_id` TEXT NOT NULL, `progression_scheme` TEXT NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_id`) REFERENCES `workouts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`lift_id`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1652,6 +1723,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_workout_lifts_workout_id` ON `${TABLE_NAME}` (`workout_id`)"
+          },
+          {
+            "name": "index_workout_lifts_lift_id",
+            "unique": false,
+            "columnNames": [
+              "lift_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_workout_lifts_lift_id` ON `${TABLE_NAME}` (`lift_id`)"
           }
         ],
         "foreignKeys": [
@@ -1661,6 +1741,17 @@
             "onUpdate": "NO ACTION",
             "columns": [
               "workout_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "lifts",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "lift_id"
             ],
             "referencedColumns": [
               "id"
@@ -1755,7 +1846,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '58a57f372d074a8ec17f6d5c4201319a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8ef9e99b6a885de0a2c73974c625c507')"
     ]
   }
 }
