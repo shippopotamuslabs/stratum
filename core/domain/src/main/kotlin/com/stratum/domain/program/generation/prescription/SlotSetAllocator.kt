@@ -92,7 +92,7 @@ private fun WorkoutSlotTemplate.toFilledSlot(setCount: Int = 0): FilledSlot =
 private fun sessionHardSetCap(context: ProgramGenerationContext): Int? =
     sessionHardSetCapForLength(context.sessionLengthMinutes)
 
-private fun muscleCreditsInSession(plan: SessionSlotPlan, muscle: String): Double {
+internal fun muscleCreditsInSession(plan: SessionSlotPlan, muscle: String): Double {
     var total = 0.0
     for (slot in plan.filledSlots) {
         if (slot.setCount <= 0) continue
@@ -530,6 +530,10 @@ private fun ensureUpperDayPullMinimum(plan: SessionSlotPlan) {
  * Reserve compound minimums first, then cap arm isolation to remaining headroom.
  */
 private fun rebalanceArmSpecSplitSessions(plans: List<SessionSlotPlan>, context: ProgramGenerationContext) {
+    val dualArmSpecOnUpper =
+        (context.specialization["Bicep"] ?: "Maintenance") == "Specialize" &&
+            (context.specialization["Tricep"] ?: "Maintenance") == "Specialize"
+
     for (plan in plans) {
         when {
             plan.sessionType == SessionTypeId.UpperPush &&
@@ -542,9 +546,13 @@ private fun rebalanceArmSpecSplitSessions(plans: List<SessionSlotPlan>, context:
                 rebalanceCombinedUpperArmSpec(plan, context)
         }
     }
+
+    if (dualArmSpecOnUpper) {
+        balanceDualArmSpecAcrossUpperPlans(plans)
+    }
 }
 
-private fun secondaryCreditsForMuscle(plan: SessionSlotPlan, muscle: String): Double {
+internal fun secondaryCreditsForMuscle(plan: SessionSlotPlan, muscle: String): Double {
     var total = 0.0
     for (slot in plan.filledSlots) {
         if (slot.setCount <= 0 || slot.primaryMuscle == muscle) continue
@@ -577,8 +585,7 @@ private fun capDirectArmIsolation(
     val isolation = findSlotByPattern(plan, isolationPattern, SlotRole.Isolation) ?: return
     if (isolation.setCount <= 0) return
 
-    val secondary = secondaryCreditsForMuscle(plan, armMuscle)
-    val maxDirect = kotlin.math.floor(SESSION_MUSCLE_SET_CAP - secondary).toInt()
+    val maxDirect = kotlin.math.floor(SESSION_MUSCLE_SET_CAP - secondaryCreditsForMuscle(plan, armMuscle)).toInt()
     if (maxDirect <= 0) {
         isolation.setCount = 0
         return
@@ -644,15 +651,24 @@ private fun rebalanceCombinedUpperArmSpec(plan: SessionSlotPlan, context: Progra
     val hPress = findSlotByPattern(plan, "HorizontalPress")
 
     val armDonorFloor = MIN_ARM_ISO_ON_SPLIT_DAY
-    if (bicepSpec) {
+    if (bicepSpec && tricepSpec) {
+        ensureUpperDayPullMinimum(plan)
         transferToReachMinimum(bicep, vPull, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
+        transferToReachMinimum(tricep, hPress, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
         transferToReachMinimum(bicep, hPull, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
         capDirectArmIsolation(plan, "Bicep", "ElbowFlexion")
-    }
-    if (tricepSpec) {
-        transferToReachMinimum(tricep, hPress, ANCHOR_MIN_SETS, armDonorFloor)
         capDirectArmIsolation(plan, "Tricep", "ElbowExtension")
+        balanceDualArmSpecIsolationInSession(bicep, tricep, plan)
+    } else {
+        if (bicepSpec) {
+            transferToReachMinimum(bicep, vPull, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
+            transferToReachMinimum(bicep, hPull, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
+            capDirectArmIsolation(plan, "Bicep", "ElbowFlexion")
+        }
+        if (tricepSpec) {
+            transferToReachMinimum(tricep, hPress, ANCHOR_MIN_SETS, armDonorFloor)
+            capDirectArmIsolation(plan, "Tricep", "ElbowExtension")
+        }
+        ensureUpperDayPullMinimum(plan)
     }
-
-    ensureUpperDayPullMinimum(plan)
 }
