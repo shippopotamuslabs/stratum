@@ -14,6 +14,9 @@ import com.stratum.domain.program.generation.reference.FrequencyTier
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.frequencyTierForWeeklySets
 import com.stratum.domain.program.generation.reference.sessionDurationBudgetMinutes
+import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.assignProgramSchedule
+import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
@@ -39,11 +42,16 @@ class ProgramGenerationPipelineTest {
   @MethodSource("generationScenarios")
   @DisplayName("cycle structure and no duplicate lifts")
   fun cycleStructureAndNoDuplicateLifts(config: ScenarioConfig) = runTest {
-    val (program, _) = generateScenario(config)
+    val (normalized, context) = generateScenario(config)
+    val trainingWeekdays =
+        context.weekdays.mapNotNull { weekday ->
+            runCatching { Weekday.valueOf(weekday) }.getOrNull()
+        }
+    val program = assignProgramSchedule(normalized.toDomainProgram(), trainingWeekdays)
     assertEquals(config.days, program.cycleLength)
     assertEquals(config.days, program.workouts.size)
     for (workout in program.workouts) {
-      assertEquals(null, workout.weekday)
+      assertTrue(workout.weekday != null)
       val ids = workout.workoutLifts.map { it.liftId }
       assertEquals(ids.size, ids.toSet().size, "${workout.name} has duplicate liftIds")
       assertTrue(ids.size >= 3, "${workout.name} should have enough exercises to fill a session")

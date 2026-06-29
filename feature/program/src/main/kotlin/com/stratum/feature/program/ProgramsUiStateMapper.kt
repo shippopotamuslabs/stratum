@@ -1,31 +1,38 @@
 package com.stratum.feature.program
 
+import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
+import com.stratum.domain.program.MuscleVolumeSummary
 import com.stratum.domain.program.Program
+import com.stratum.domain.program.ScheduleDayItem
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.buildWeeklySchedule
 import com.stratum.feature.program.ui.ProgramViewState
 import com.stratum.feature.program.ui.ProgramsUiState
-import com.stratum.feature.program.ui.WorkoutLiftViewState
+import com.stratum.feature.program.ui.ScheduleItemState
+import com.stratum.feature.program.ui.WorkoutLiftLineState
 import com.stratum.feature.program.ui.WorkoutViewState
+import java.util.Locale
 
 /**
  * Domain → presentation mapping for the Programs screen. `null` (no program) maps to
  * [ProgramsUiState.Empty]; a non-null [Program] maps to [ProgramsUiState.Loaded].
- *
- * Lift display names resolve through [liftNamesById] (catalog id → human name). Slug ids fall
- * back to title-cased words; unrecognized UUIDs fall back to a generic label.
  */
-internal fun Program?.toProgramsUiState(liftNamesById: Map<String, String> = emptyMap()): ProgramsUiState =
+internal fun Program?.toProgramsUiState(
+    liftNamesById: Map<String, String> = emptyMap(),
+    volumeSummaries: List<MuscleVolumeSummary> = emptyList(),
+): ProgramsUiState =
     if (this == null) {
         ProgramsUiState.Empty
     } else {
         ProgramsUiState.Loaded(
-            program = ProgramViewState(
-                name = name,
-                workouts = workouts.sortedBy { it.position }.map { it.toViewState(liftNamesById) },
-            ),
+            program = ProgramViewState(name = name),
+            upperVolumeByMuscle = volumeSummaries.toUpperVolumeCards(),
+            lowerVolumeByMuscle = volumeSummaries.toLowerVolumeCards(),
+            scheduleItems = buildWeeklySchedule(this).map { item -> item.toScheduleItemState(liftNamesById) },
         )
     }
 
@@ -58,6 +65,11 @@ internal fun formatRepRangeLabel(sets: List<LiftSet>): String {
     }
 }
 
+internal fun formatTopSetRpeSuffix(sets: List<LiftSet>): String {
+    val topSet = sets.firstOrNull { set -> set.isTopSet }
+    return topSet?.let { set -> "@${10 - set.rirGoal}" } ?: ""
+}
+
 internal fun formatLiftSummaryLine(
     liftId: LiftId,
     sets: List<LiftSet>,
@@ -66,25 +78,44 @@ internal fun formatLiftSummaryLine(
     val name = resolveLiftDisplayName(liftId.value, liftNamesById)
     val setCount = sets.size
     val repRange = formatRepRangeLabel(sets)
-    return "$name - $setCount x $repRange"
+    val rpeSuffix = formatTopSetRpeSuffix(sets)
+    return "$name - $setCount x $repRange$rpeSuffix"
 }
 
-private fun Workout.toViewState(liftNamesById: Map<String, String>): WorkoutViewState = WorkoutViewState(
-    name = name,
-    weekdayLabel = weekday?.name,
-    position = position,
-    workoutLifts = workoutLifts.sortedBy { it.position }.map { it.toViewState(liftNamesById) },
-)
+private fun ScheduleDayItem.toScheduleItemState(liftNamesById: Map<String, String>): ScheduleItemState =
+    when (this) {
+        is ScheduleDayItem.RestDay ->
+            ScheduleItemState.RestDay(weekdayLabel = weekday.toDisplayLabel())
+        is ScheduleDayItem.WorkoutDay ->
+            ScheduleItemState.Workout(
+                workout = workout.toViewState(liftNamesById, weekday),
+            )
+    }
 
-private fun WorkoutLift.toViewState(liftNamesById: Map<String, String>): WorkoutLiftViewState =
-    WorkoutLiftViewState(
-        summaryLine = formatLiftSummaryLine(
-            liftId = liftId,
-            sets = sets.sortedBy { it.position },
-            liftNamesById = liftNamesById,
-        ),
+private fun Workout.toViewState(liftNamesById: Map<String, String>, weekday: Weekday): WorkoutViewState =
+    WorkoutViewState(
+        name = name,
+        weekdayLabel = weekday.toDisplayLabel(),
+        position = position,
+        lifts =
+            workoutLifts.sortedBy { lift -> lift.position }.map { lift ->
+                lift.toViewState(liftNamesById)
+            },
+    )
+
+private fun WorkoutLift.toViewState(liftNamesById: Map<String, String>): WorkoutLiftLineState =
+    WorkoutLiftLineState(
+        summaryLine =
+            formatLiftSummaryLine(
+                liftId = liftId,
+                sets = sets.sortedBy { set -> set.position },
+                liftNamesById = liftNamesById,
+            ),
         position = position,
     )
+
+private fun Weekday.toDisplayLabel(): String =
+    name.replaceFirstChar { char -> char.titlecase(Locale.US) }
 
 private const val UUID_LENGTH = 36
 private const val UUID_HYPHEN_COUNT = 4

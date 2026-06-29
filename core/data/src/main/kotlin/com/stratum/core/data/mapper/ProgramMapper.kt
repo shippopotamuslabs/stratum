@@ -4,6 +4,7 @@ import com.stratum.core.data.db.LiftSetEntity
 import com.stratum.core.data.db.ProgramEntity
 import com.stratum.core.data.db.WorkoutEntity
 import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
@@ -20,6 +21,7 @@ internal fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
     name = name,
     createdAt = Instant.parse(createdAt),
     cycleLength = cycleLength,
+    trainingWeekdays = trainingWeekdays,
     workouts = workouts,
 )
 
@@ -57,6 +59,7 @@ internal fun Program.toEntity(): ProgramEntity = ProgramEntity(
     name = name,
     createdAt = createdAt.toString(),
     cycleLength = cycleLength,
+    trainingWeekdays = trainingWeekdays,
 )
 
 internal fun Workout.toEntity(): WorkoutEntity = WorkoutEntity(

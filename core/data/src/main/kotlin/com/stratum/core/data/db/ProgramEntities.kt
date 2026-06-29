@@ -31,6 +31,7 @@ data class ProgramEntity(
     val name: String,
     @ColumnInfo(name = "created_at") val createdAt: String,
     @ColumnInfo(name = "cycle_length") val cycleLength: Int,
+    @ColumnInfo(name = "training_weekdays") val trainingWeekdays: Set<Weekday> = emptySet(),
 )
 
 @Entity(

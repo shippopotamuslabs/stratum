@@ -1,8 +1,12 @@
 package com.stratum.feature.program.ui
 
+import com.stratum.core.ui.component.StratumMuscleVolumeCardState
+import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.feature.program.ui.ScheduleItemState.RestDay
+import com.stratum.feature.program.ui.ScheduleItemState.Workout
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import com.stratum.core.ui.theme.StratumTheme
 
 @Preview(name = "Programs loaded light")
 @Composable
@@ -11,30 +15,63 @@ fun ProgramsScreenLoadedPreview() {
         ProgramsScreen(
             state =
                 ProgramsUiState.Loaded(
-                    program =
-                        ProgramViewState(
-                            name = "4-Day Specialization - Back, Tricep, Calf",
-                            workouts =
-                                listOf(
+                    program = ProgramViewState(name = "Minimal 4 Day"),
+                    upperVolumeByMuscle =
+                        listOf(
+                            StratumMuscleVolumeCardState(
+                                muscle = MuscleGroup.Back,
+                                displayName = "Back",
+                                exerciseCount = 4,
+                                setCount = 10.1,
+                            ),
+                            StratumMuscleVolumeCardState(
+                                muscle = MuscleGroup.Tricep,
+                                displayName = "Triceps",
+                                exerciseCount = 2,
+                                setCount = 8.0,
+                            ),
+                        ),
+                    lowerVolumeByMuscle =
+                        listOf(
+                            StratumMuscleVolumeCardState(
+                                muscle = MuscleGroup.Calf,
+                                displayName = "Calves",
+                                exerciseCount = 3,
+                                setCount = 9.7,
+                            ),
+                        ),
+                    scheduleItems =
+                        listOf(
+                            RestDay(weekdayLabel = "Tuesday"),
+                            Workout(
+                                workout =
                                     WorkoutViewState(
-                                        name = "Push A (Chest/Tricep Focus)",
-                                        weekdayLabel = "Wednesday",
+                                        name = "Minimal Lower A",
+                                        weekdayLabel = "Monday",
                                         position = 0,
-                                        workoutLifts =
+                                        lifts =
                                             listOf(
-                                                WorkoutLiftViewState(
-                                                    summaryLine = "Barbell Bench Press - 3 x 8\u201312",
+                                                WorkoutLiftLineState(
+                                                    summaryLine = "Barbell Romanian Deadlift - 3 x 8\u201312@8",
                                                     position = 0,
                                                 ),
-                                                WorkoutLiftViewState(
-                                                    summaryLine = "Cable One Arm Tricep Extension - 2 x 10\u201315",
+                                                WorkoutLiftLineState(
+                                                    summaryLine = "Pin-Loaded Leg Press Calf Raise - 2 x 10\u201315@8",
                                                     position = 1,
                                                 ),
                                             ),
                                     ),
-                                ),
+                            ),
                         ),
                 ),
+            onCalendarClick = {},
+            onCreateProgramClick = {},
+            onGenerateProgramClick = {},
+            onProgramLibraryClick = {},
+            onStartNextWorkoutClick = {},
+            onStartEmptyWorkoutClick = {},
+            onStartWorkoutClick = {},
+            onSkipWorkoutCheckedChange = { _, _ -> },
         )
     }
 }
@@ -43,6 +80,16 @@ fun ProgramsScreenLoadedPreview() {
 @Composable
 fun ProgramsScreenEmptyPreview() {
     StratumTheme(darkTheme = true) {
-        ProgramsScreen(state = ProgramsUiState.Empty)
+        ProgramsScreen(
+            state = ProgramsUiState.Empty,
+            onCalendarClick = {},
+            onCreateProgramClick = {},
+            onGenerateProgramClick = {},
+            onProgramLibraryClick = {},
+            onStartNextWorkoutClick = {},
+            onStartEmptyWorkoutClick = {},
+            onStartWorkoutClick = {},
+            onSkipWorkoutCheckedChange = { _, _ -> },
+        )
     }
 }

@@ -6,22 +6,16 @@ import androidx.navigation3.runtime.NavKey
 import com.stratum.feature.program.ProgramsRoute
 import kotlinx.serialization.Serializable
 
-/** Nav3 key for the read-only Programs overview (post-onboarding landing, OS-7 D3). */
+/** Nav3 key for the read-only Programs overview (OS-7 D3). */
 @Serializable
 data object ProgramsKey : NavKey
 
 /**
  * Registers the Programs entry in a Nav3 [EntryProviderScope]. Owned by `:feature:program`; the app
- * shell routes to [ProgramsKey] on onboarding completion.
+ * shell may also host [ProgramsRoute] directly inside [com.stratum.navigation.MainTabShell].
  */
-fun EntryProviderScope<NavKey>.programsEntry(
-    onBackToOnboarding: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun EntryProviderScope<NavKey>.programsEntry(modifier: Modifier = Modifier) {
     entry<ProgramsKey> {
-        ProgramsRoute(
-            onBackToOnboarding = onBackToOnboarding,
-            modifier = modifier,
-        )
+        ProgramsRoute(modifier = modifier)
     }
 }

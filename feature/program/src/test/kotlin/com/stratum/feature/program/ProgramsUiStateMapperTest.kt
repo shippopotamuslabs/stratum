@@ -20,7 +20,7 @@ class ProgramsUiStateMapperTest {
                 liftNamesById = mapOf("barbell-bench-press-medium-grip" to "Barbell Bench Press"),
             )
 
-        assertEquals("Barbell Bench Press - 2 x 8\u201312", line)
+        assertEquals("Barbell Bench Press - 2 x 8\u201312@8", line)
     }
 
     @Test
@@ -33,7 +33,7 @@ class ProgramsUiStateMapperTest {
                 liftNamesById = emptyMap(),
             )
 
-        assertEquals("Cable One Arm Tricep Extension - 2 x 8\u201312", line)
+        assertEquals("Cable One Arm Tricep Extension - 2 x 8\u201312@8", line)
     }
 
     @Test
@@ -46,7 +46,7 @@ class ProgramsUiStateMapperTest {
                 liftNamesById = emptyMap(),
             )
 
-        assertEquals("Unknown lift - 2 x 8\u201312", line)
+        assertEquals("Unknown lift - 2 x 8\u201312@8", line)
     }
 
     private fun sampleSets(): List<LiftSet> =
