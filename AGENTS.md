@@ -109,6 +109,7 @@ Whenever production code is added or modified (new classes, public functions, lo
 
 **Never** invent new database tables or columns for transient UI state (e.g., `is_loading`,
 `is_editing`). Database schema changes require explicit developer authorization.
+We do not perform any Room database version bumps or migrations during development (keep the database at version 1); schema updates are applied by resetting the database (uninstall/reinstall).
 
 ### 4.6 Intelligence — Deterministic Core, Cloud LLM
 

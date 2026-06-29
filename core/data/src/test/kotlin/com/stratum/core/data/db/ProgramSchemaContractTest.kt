@@ -20,13 +20,13 @@ import org.robolectric.RuntimeEnvironment
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
- * Schema invariants and converter tests for the v2 database (pre-release: no migration file;
+ * Schema invariants and converter tests for the v1 database (pre-release: no migration file;
  * uninstall/reinstall to apply).
  */
 @ExtendWith(RobolectricExtension::class)
 class ProgramSchemaContractTest {
     @Nested
-    @DisplayName("DB version is 2 and program tables exist")
+    @DisplayName("DB version is 1 and program tables exist")
     inner class SchemaInvariants {
         @Test
         fun `the four program tables exist in the database`() {
@@ -50,9 +50,11 @@ class ProgramSchemaContractTest {
         }
 
         @Test
-        fun `v2 schema export exists`() {
+        fun `v1 schema export exists`() {
             val schemasDir = java.io.File("schemas/com.stratum.core.data.db.StratumDatabase")
-            assertTrue(schemasDir.resolve("2.json").exists(), "2.json schema export missing")
+            assertTrue(schemasDir.resolve("1.json").exists(), "1.json schema export missing")
+            assertFalse(schemasDir.resolve("2.json").exists(), "2.json schema export should not exist")
+            assertFalse(schemasDir.resolve("3.json").exists(), "3.json schema export should not exist")
         }
     }
 
