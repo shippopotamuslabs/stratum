@@ -27,18 +27,21 @@ import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.onboarding.applyAdditiveSetEdit
 import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
 import com.stratum.domain.program.GenerateProgramUseCase
+import com.stratum.domain.program.ProgramGenerationProgress
+import com.stratum.domain.program.ProgramGenerationProgressPhase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
@@ -116,7 +119,7 @@ class OnboardingViewModel @Inject constructor(
                 capabilities = capabilities,
                 importResumeScalars = resume.toResumeScalars(),
             )
-        }.distinctUntilChanged().stateIn(
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
             initialValue = OnboardingUiState.Initial,
@@ -354,7 +357,9 @@ class OnboardingViewModel @Inject constructor(
         ephemeral.update {
             it.copy(
                 generateState = GenerateState.Loading,
-                generateProgress = null,
+                generateProgress =
+                    ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload).toUi(),
+                generateMaxTimelineIndex = 0,
                 generateErrorMessage = null,
             )
         }
@@ -364,8 +369,8 @@ class OnboardingViewModel @Inject constructor(
                 try {
                     val result =
                         generateProgram { progress ->
-                            ephemeral.update {
-                                it.copy(generateProgress = progress.toUi())
+                            withContext(Dispatchers.Main.immediate) {
+                                publishGenerateProgress(progress)
                             }
                         }
                     result.exceptionOrNull()?.let { error ->
@@ -375,6 +380,7 @@ class OnboardingViewModel @Inject constructor(
                         it.copy(
                             generateState = if (result.isSuccess) GenerateState.Idle else GenerateState.Error,
                             generateProgress = null,
+                            generateMaxTimelineIndex = 0,
                             generateErrorMessage = null,
                         )
                     }
@@ -386,11 +392,23 @@ class OnboardingViewModel @Inject constructor(
                         it.copy(
                             generateState = GenerateState.Error,
                             generateProgress = null,
+                            generateMaxTimelineIndex = 0,
                             generateErrorMessage = null,
                         )
                     }
                 }
             }
+    }
+
+    private fun publishGenerateProgress(progress: ProgramGenerationProgress) {
+        val ui = progress.toUi()
+        val index = ui.phase.activeTimelineIndex()
+        ephemeral.update { state ->
+            state.copy(
+                generateProgress = ui,
+                generateMaxTimelineIndex = maxOf(state.generateMaxTimelineIndex, index),
+            )
+        }
     }
 
     private fun resolveCustomSessionMinutes(): Int {

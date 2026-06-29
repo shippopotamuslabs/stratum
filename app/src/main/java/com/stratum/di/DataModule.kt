@@ -380,7 +380,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindProgramGenerationPayloadLoader(
-        impl: com.stratum.domain.program.LoadProgramGenerationPayloadUseCase,
-    ): com.stratum.domain.program.ProgramGenerationPayloadLoader
+    abstract fun bindProgramGenerationContextLoader(
+        impl: com.stratum.domain.program.LoadProgramGenerationContextUseCase,
+    ): com.stratum.domain.program.ProgramGenerationContextLoader
 }

@@ -18,6 +18,7 @@ data class OnboardingUiState(
     val presetOptions: List<GymPresetOptionUi> = emptyList(),
     val generateState: GenerateState = GenerateState.Idle,
     val generateProgress: ProgramGenerationProgressUi? = null,
+    val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
 ) {
     val isFirst: Boolean get() = step.isFirst

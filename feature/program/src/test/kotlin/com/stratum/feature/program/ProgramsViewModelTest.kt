@@ -132,7 +132,7 @@ class ProgramsViewModelTest {
 
             assertTrue(navigated)
             assertNull(onboardingRepo.current.completedAt)
-            assertEquals(OnboardingStep.Review, onboardingRepo.current.currentStep)
+            assertEquals(OnboardingStep.Generate, onboardingRepo.current.currentStep)
         }
     }
 

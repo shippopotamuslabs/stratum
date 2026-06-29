@@ -37,7 +37,7 @@ internal fun OnboardingStep.toStepDisplayName(): String = when (this) {
     OnboardingStep.Specialization -> "Specialization"
     OnboardingStep.GymAndLifts -> "Gym & Lifts"
     OnboardingStep.Review -> "Review"
-    OnboardingStep.Generate -> "Generate"
+    OnboardingStep.Generate -> "Create Program"
 }
 
 internal fun wizardStepFromId(id: String): WizardStepUi? =

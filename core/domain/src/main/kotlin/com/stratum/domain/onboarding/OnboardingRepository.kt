@@ -29,7 +29,7 @@ interface OnboardingRepository {
 
     /**
      * Re-enter the wizard after completion so the user can edit choices and regenerate.
-     * Clears [OnboardingProgress.completedAt] and resumes on [OnboardingStep.Review].
+     * Clears [OnboardingProgress.completedAt] and resumes on [OnboardingStep.Generate].
      */
     suspend fun reopenWizard()
 }

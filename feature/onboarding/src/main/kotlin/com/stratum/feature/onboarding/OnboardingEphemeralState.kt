@@ -14,6 +14,8 @@ internal data class OnboardingEphemeralState(
     val importInsightsSummary: ImportInsightsSummaryUi? = null,
     val generateState: GenerateState = GenerateState.Idle,
     val generateProgress: ProgramGenerationProgressUi? = null,
+    /** Furthest timeline step reached this run; keeps the UI monotonic when phases arrive quickly. */
+    val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
     val presetApplyError: String? = null,
 ) {

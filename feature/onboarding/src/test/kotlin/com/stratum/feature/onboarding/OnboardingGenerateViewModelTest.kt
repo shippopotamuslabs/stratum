@@ -4,18 +4,18 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
-import com.stratum.core.testing.program.FakeProgramGeneratorPort
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
+import com.stratum.core.testing.program.scenarioContext
+import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.domain.lift.ApplyGymPresetUseCase
 import com.stratum.domain.lift.SetSelectedPresetUseCase
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.program.GenerateProgramUseCase
-import com.stratum.domain.program.Program
-import com.stratum.domain.program.ProgramGenerationPayloadLoader
-import com.stratum.domain.program.identity.ProgramId
-import java.time.Instant
+import com.stratum.domain.program.ProgramGenerationContextLoader
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -134,19 +134,19 @@ class OnboardingGenerateViewModelTest {
 
     private fun buildViewModel(
         fail: Boolean,
-        failMessage: String = "FakeProgramGeneratorPort configured to fail",
+        @Suppress("UNUSED_PARAMETER") failMessage: String = "generation failed",
     ): Triple<OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository> {
         val onboardingRepo = FakeOnboardingRepository()
         val profileRepo = FakeUserTrainingProfileRepository(
-            UserTrainingProfile.Empty.copy(trainingAge = TrainingAge.Beginner),
+            UserTrainingProfile.Empty.copy(trainingAge = TrainingAge.Advanced),
         )
         val programRepo = FakeProgramRepository()
-        val generator = FakeProgramGeneratorPort(
-            program = if (fail) null else PROGRAM,
-            fail = fail,
-            failMessage = failMessage,
-        )
-        val loadPayload = ProgramGenerationPayloadLoader { "{}" }
+        val contextLoader: ProgramGenerationContextLoader =
+            if (fail) {
+                ProgramGenerationContextLoader { error("generation failed") }
+            } else {
+                ProgramGenerationContextLoader { scenarioContext(days = 3, specialization = emptyMap()) }
+            }
         val validateCurrentStep = com.stratum.domain.onboarding.ValidateCurrentOnboardingStepUseCase(
             validateProfileStep = com.stratum.domain.onboarding.ValidateProfileStepUseCase(),
             validateScheduleStep = com.stratum.domain.onboarding.ValidateScheduleStepUseCase(),
@@ -180,19 +180,19 @@ class OnboardingGenerateViewModelTest {
         )
         val liftRepo = com.stratum.core.testing.onboarding.FakeLiftRepository(
             initialLifts =
-                listOf(
+                SCENARIO_LIFT_CATALOG.map { lift ->
                     com.stratum.domain.lift.Lift(
-                        id = com.stratum.domain.lift.identity.LiftId("back-squat"),
-                        name = "Back Squat",
-                        movementPatterns = setOf(com.stratum.domain.lift.MovementPattern.SquatPattern),
+                        id = LiftId(lift.id),
+                        name = lift.name,
+                        movementPatterns = emptySet(),
                         primaryMuscles = emptySet(),
                         secondaryMuscles = emptySet(),
                         allowWeightChangeBetweenSets = false,
                         incrementTiers = emptyList(),
                         presetTags = emptySet(),
                         enabled = true,
-                    ),
-                ),
+                    )
+                },
         )
         val viewModel = OnboardingViewModel(
             getOnboardingWizardState = com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase(
@@ -240,8 +240,8 @@ class OnboardingGenerateViewModelTest {
             ),
             refreshPersistedImportState = refreshPersistedImportState,
             generateProgram = GenerateProgramUseCase(
-                loadPayload = loadPayload,
-                generator = generator,
+                loadContext = contextLoader,
+                pipeline = testProgramGenerationPipeline(),
                 repository = programRepo,
                 liftRepository = liftRepo,
                 completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
@@ -249,49 +249,5 @@ class OnboardingGenerateViewModelTest {
             ),
         )
         return Triple(viewModel, onboardingRepo, programRepo)
-    }
-
-    private companion object {
-        val PROGRAM =
-            Program(
-                id = ProgramId("p-1"),
-                name = "Generated Program",
-                createdAt = Instant.parse("2026-06-26T12:00:00Z"),
-                cycleLength = 1,
-                workouts =
-                    listOf(
-                        com.stratum.domain.program.Workout(
-                            id = com.stratum.domain.program.identity.WorkoutId("w-1"),
-                            programId = ProgramId("p-1"),
-                            name = "Session A",
-                            weekday = null,
-                            position = 0,
-                            workoutLifts =
-                                listOf(
-                                    com.stratum.domain.program.WorkoutLift(
-                                        id = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
-                                        workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
-                                        liftId = com.stratum.domain.lift.identity.LiftId("back-squat"),
-                                        progressionScheme = com.stratum.domain.program.ProgressionScheme.Linear,
-                                        position = 0,
-                                        sets =
-                                            listOf(
-                                                com.stratum.domain.program.LiftSet(
-                                                    id = com.stratum.domain.program.identity.LiftSetId("ls-1"),
-                                                    workoutLiftId =
-                                                        com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
-                                                    position = 0,
-                                                    setType = com.stratum.domain.program.SetType.Standard,
-                                                    repMin = 5,
-                                                    repMax = 5,
-                                                    rirGoal = 2,
-                                                    isTopSet = true,
-                                                ),
-                                            ),
-                                    ),
-                                ),
-                        ),
-                    ),
-            )
     }
 }

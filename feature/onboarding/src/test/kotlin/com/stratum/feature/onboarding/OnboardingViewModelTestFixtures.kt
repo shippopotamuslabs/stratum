@@ -59,6 +59,9 @@ import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.program.scenarioContext
 import java.time.Instant
 
 internal object OnboardingViewModelTestFixtures {
@@ -76,10 +79,7 @@ internal object OnboardingViewModelTestFixtures {
     private val fakeVolumeRepository = FakeVolumeRepository()
     private val fakeVolumeResponseRepository = FakeVolumeResponseObservationRepository()
     private val fakeEffectivenessRepository = FakeLiftEffectivenessObservationRepository()
-    val fakeProgramGeneratorPort = com.stratum.core.testing.program.FakeProgramGeneratorPort(
-        program = aProgram(),
-    )
-    val fakeProgramRepository = com.stratum.core.testing.program.FakeProgramRepository()
+    val fakeProgramRepository = FakeProgramRepository()
 
     fun resetDefaults() {
         fakeRepository.seed(
@@ -169,8 +169,10 @@ internal object OnboardingViewModelTestFixtures {
             ),
             refreshPersistedImportState = refreshPersistedImportState,
             generateProgram = com.stratum.domain.program.GenerateProgramUseCase(
-                loadPayload = com.stratum.domain.program.ProgramGenerationPayloadLoader { "{}" },
-                generator = fakeProgramGeneratorPort,
+                loadContext = com.stratum.domain.program.ProgramGenerationContextLoader {
+                    scenarioContext(days = 3, specialization = emptyMap())
+                },
+                pipeline = testProgramGenerationPipeline(),
                 repository = fakeProgramRepository,
                 liftRepository = fakeLiftRepository,
                 completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
@@ -178,48 +180,6 @@ internal object OnboardingViewModelTestFixtures {
             ),
         )
     }
-
-    private fun aProgram(): com.stratum.domain.program.Program =
-        com.stratum.domain.program.Program(
-            id = com.stratum.domain.program.identity.ProgramId("p-1"),
-            name = "Generated Program",
-            createdAt = Instant.parse("2026-06-26T12:00:00Z"),
-            cycleLength = 1,
-            workouts =
-                listOf(
-                    com.stratum.domain.program.Workout(
-                        id = com.stratum.domain.program.identity.WorkoutId("w-1"),
-                        programId = com.stratum.domain.program.identity.ProgramId("p-1"),
-                        name = "Session A",
-                        weekday = null,
-                        position = 0,
-                        workoutLifts =
-                            listOf(
-                                com.stratum.domain.program.WorkoutLift(
-                                    id = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
-                                    workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
-                                    liftId = com.stratum.domain.lift.identity.LiftId("back-squat"),
-                                    progressionScheme = com.stratum.domain.program.ProgressionScheme.Linear,
-                                    position = 0,
-                                    sets =
-                                        listOf(
-                                            com.stratum.domain.program.LiftSet(
-                                                id = com.stratum.domain.program.identity.LiftSetId("ls-1"),
-                                                workoutLiftId =
-                                                    com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
-                                                position = 0,
-                                                setType = com.stratum.domain.program.SetType.Standard,
-                                                repMin = 5,
-                                                repMax = 5,
-                                                rirGoal = 2,
-                                                isTopSet = true,
-                                            ),
-                                        ),
-                                ),
-                            ),
-                    ),
-                ),
-        )
 
     private fun buildRollbackHistoricalImport(): RollbackHistoricalImportUseCase =
         RollbackHistoricalImportUseCase(
