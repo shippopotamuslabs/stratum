@@ -242,6 +242,97 @@ class ProgramGenerationPromptBuilderTest {
         kotlinx.serialization.json.Json.parseToJsonElement(payload)
     }
 
+    @Test
+    fun `payload includes trainingDaysPerWeek and lift muscle mappings`() {
+        val provenLift =
+            catalogLift(LiftId("bench-press"), "Bench Press").copy(
+                primaryMuscles = setOf(MuscleGroup.Chest),
+                secondaryMuscles = setOf(MuscleGroup.Tricep, MuscleGroup.AnteriorDeltoid),
+            )
+        val payload =
+            builder.buildPayload(
+                profile =
+                    UserTrainingProfile.Empty.copy(
+                        weekdays =
+                            setOf(
+                                com.stratum.domain.onboarding.Weekday.Monday,
+                                com.stratum.domain.onboarding.Weekday.Wednesday,
+                                com.stratum.domain.onboarding.Weekday.Friday,
+                            ),
+                    ),
+                specialization = SpecializationPreference.Empty,
+                provenLifts = listOf(LiftWithInsights(provenLift, trainingInsights = null)),
+                availableLifts = emptyList(),
+                supersetAffinities = emptyList(),
+                volumeBaselines = emptyList(),
+                analysisMetadata = null,
+            )
+        assertTrue(payload.contains("\"trainingDaysPerWeek\":3"))
+        assertTrue(payload.contains("\"primaryMuscles\":[\"Chest\"]"))
+        assertTrue(payload.contains("\"secondaryMuscles\":[\"Tricep\",\"AnteriorDeltoid\"]"))
+        kotlinx.serialization.json.Json.parseToJsonElement(payload)
+    }
+
+    @Test
+    fun `preset-only payload includes literature volume landmarks for every muscle`() {
+        val payload =
+            builder.buildPayload(
+                profile = UserTrainingProfile.Empty,
+                specialization = SpecializationPreference.Empty,
+                provenLifts = emptyList(),
+                availableLifts = emptyList(),
+                supersetAffinities = emptyList(),
+                volumeBaselines = emptyList(),
+                analysisMetadata = null,
+            )
+        assertTrue(payload.contains("\"literatureVolumeLandmarks\":["))
+        assertTrue(payload.contains("\"muscle\":\"Quad\""))
+        assertTrue(payload.contains("\"method\":\"LiteraturePrior\""))
+        assertTrue(payload.contains("\"source\":\"LiteraturePrior\""))
+        kotlinx.serialization.json.Json.parseToJsonElement(payload)
+    }
+
+    @Test
+    fun `personal and literature volume landmarks are both included`() {
+        val responseProfile =
+            ResponseProfilePayload(
+                volumeResponses = emptyList(),
+                liftEffectiveness = emptyList(),
+                volumeLandmarks =
+                    listOf(
+                        com.stratum.domain.importing.MuscleVolumeHighlight(
+                            muscle = MuscleGroup.Quad,
+                            estimatedMev = 6.0,
+                            estimatedMav = 12.0,
+                            estimatedMrv = 18.0,
+                            estimatedPv = 9.0,
+                            mevInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                            mavInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                            mrvInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                            pvInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
+                            confidenceTier = com.stratum.domain.importing.LandmarkConfidenceTier.Medium,
+                        ),
+                    ),
+                informational = ResponseProfileInformational(emptyList(), emptyList()),
+                epochsAnalyzed = 1,
+                analysisWindowStart = Instant.parse("2025-01-01T00:00:00Z"),
+                analysisWindowEnd = Instant.parse("2025-06-01T00:00:00Z"),
+            )
+        val payload =
+            builder.buildPayload(
+                profile = UserTrainingProfile.Empty,
+                specialization = SpecializationPreference.Empty,
+                provenLifts = emptyList(),
+                availableLifts = emptyList(),
+                supersetAffinities = emptyList(),
+                volumeBaselines = emptyList(),
+                analysisMetadata = null,
+                responseProfile = responseProfile,
+            )
+        assertTrue(payload.contains("\"volumeLandmarks\":["))
+        assertTrue(payload.contains("\"literatureVolumeLandmarks\":["))
+    }
+
     private fun catalogLift(id: LiftId, name: String): Lift =
         Lift(
             id = id,

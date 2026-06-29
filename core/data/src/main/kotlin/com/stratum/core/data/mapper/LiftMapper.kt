@@ -40,6 +40,8 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
     equipment = lift.equipment,
     enabled = lift.enabled,
     isCustom = lift.isCustom,
+    description = lift.description,
+    imageUris = lift.imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
 )
 
 fun Lift.toEntity(): LiftEntity = LiftEntity(
@@ -53,6 +55,8 @@ fun Lift.toEntity(): LiftEntity = LiftEntity(
     equipment = equipment,
     isCustom = isCustom,
     enabled = enabled,
+    description = description,
+    imageUrisCsv = imageUris.joinToString(","),
 )
 
 fun Lift.toTierEntities(): List<IncrementTierEntity> = incrementTiers.map { tier ->

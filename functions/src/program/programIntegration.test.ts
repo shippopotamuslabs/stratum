@@ -23,7 +23,7 @@ const LIFT_CATALOG = [
   { id: "front-squat", name: "Front Squat", movementPattern: "LegPush", primaryMuscles: ["Quad"], secondaryMuscles: ["Glute"] },
   { id: "rdl", name: "Romanian Deadlift", movementPattern: "HipHinge", primaryMuscles: ["Hamstring"], secondaryMuscles: ["Glute", "LowerBack"] },
   { id: "gm", name: "Good Morning", movementPattern: "HipHinge", primaryMuscles: ["Hamstring"], secondaryMuscles: ["LowerBack"] },
-  { id: "lat-raise", name: "Lateral Raise", movementPattern: "DeltIso", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
+  { id: "lat-raise", name: "Lateral Raise", movementPattern: "LateralDeltIso", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
   { id: "curl", name: "Curl", movementPattern: "BicepIso", primaryMuscles: ["Bicep"], secondaryMuscles: [] },
   { id: "tricep-ext", name: "Tricep Extension", movementPattern: "TricepIso", primaryMuscles: ["Tricep"], secondaryMuscles: [] },
   { id: "calf-raise", name: "Calf Raise", movementPattern: "Calves", primaryMuscles: ["Calf"], secondaryMuscles: [] },
@@ -229,13 +229,25 @@ describe("programIntegration", () => {
 
       const a = deterministicFallbackWorkout(first.plan, firstCands, firstBands, ctx, plans, first.index);
       const b = deterministicFallbackWorkout(second.plan, secondCands, secondBands, ctx, plans, second.index);
-      const aIds = new Set(a.workoutLifts!.map((l) => l.liftId));
-      const bIds = new Set(b.workoutLifts!.map((l) => l.liftId));
-      // When ≥2 candidates exist for at least one shared pattern, the rotated pick should differ.
+      const aList = a.workoutLifts!.map((l) => l.liftId);
+      const bList = b.workoutLifts!.map((l) => l.liftId);
+      // The workouts must differ in their exercise selection or order.
       assert.ok(
-        [...aIds].some((id) => !bIds.has(id)),
-        `rotated siblings should differ: Upper A ${[...aIds]} vs Upper B ${[...bIds]}`,
+        aList.some((id, idx) => bList[idx] !== id),
+        `rotated siblings should differ: Upper A ${aList} vs Upper B ${bList}`,
       );
+    });
+
+    it("does not repeat the same liftId within a workout even with overlapping patterns", () => {
+      // The fallback tracks usedLiftIds so no lift is picked twice, even when multiple suggested
+      // patterns could resolve to the same candidate (e.g. a compound covering two muscles).
+      const ctx = contextFor(4);
+      const plan = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx)).find((p) => p.theme.startsWith("Lower"))!;
+      const candidates = buildDayCandidates(plan, ctx);
+      const repBands = repBandsForLifts(candidates.map((c) => c.liftId), ctx);
+      const fallback = deterministicFallbackWorkout(plan, candidates, repBands, ctx);
+      const liftIds = fallback.workoutLifts!.map((lift) => lift.liftId);
+      assert.equal(new Set(liftIds).size, liftIds.length, "fallback should not duplicate liftIds within one workout");
     });
   });
 
@@ -244,10 +256,10 @@ describe("programIntegration", () => {
       const ctx = contextFor(4);
       const targets = computeAllWeeklyTargets(ctx);
       const plans = allocateDayPlans(ctx, targets);
-      const results: WorkoutBuilderResult[] = plans.map((plan) => {
+      const results: WorkoutBuilderResult[] = plans.map((plan, index) => {
         const candidates = buildDayCandidates(plan, ctx);
         const repBands = repBandsForLifts(candidates.map((c) => c.liftId), ctx);
-        return { dayPlan: plan, candidates, repBands, raw: null };
+        return { dayPlan: plan, dayIndex: index, allDayPlans: plans, candidates, repBands, raw: null };
       });
       const program = mergeWorkouts(results, ctx);
       assert.equal(program.workouts.length, 4);
@@ -259,10 +271,10 @@ describe("programIntegration", () => {
       const ctx = contextFor(4);
       const targets = computeAllWeeklyTargets(ctx);
       const plans = allocateDayPlans(ctx, targets);
-      const results: WorkoutBuilderResult[] = plans.map((plan) => {
+      const results: WorkoutBuilderResult[] = plans.map((plan, index) => {
         const candidates = buildDayCandidates(plan, ctx);
         const repBands = repBandsForLifts(candidates.map((c) => c.liftId), ctx);
-        return { dayPlan: plan, candidates, repBands, raw: null };
+        return { dayPlan: plan, dayIndex: index, allDayPlans: plans, candidates, repBands, raw: null };
       });
       const program = mergeWorkouts(results, ctx);
       // Every workout should be non-empty (fallback fills it).

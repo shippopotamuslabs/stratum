@@ -2,13 +2,15 @@
  * Deterministic Phase 2 integration + repair (OS-7 v2).
  *
  * Merges N per-workout builder results into a program document, repairs each workout
- * deterministically (clamp set counts to the day's time budget, backfill under-min muscles,
- * clamp reps to bands, force one Double top set, interleave antagonists, drop unknown liftIds),
- * runs a global weekly-volume solver, and provides a deterministic fallback workout when an LLM
- * builder fails or returns empty.
+ * deterministically (drop unknown liftIds, clamp reps to bands, force one Double top set, merge
+ * duplicate liftId entries, backfill under-min muscles from the muscle budgets, trim to the time
+ * budget, interleave antagonists), runs a global weekly-volume solver, and provides a deterministic
+ * fallback workout when an LLM builder fails or returns empty.
  *
- * The final gate is [parseAndNormalizeProgram] + [validateProgramMetrics], reused unchanged from
- * v1. This module produces the pre-normalization draft those functions consume.
+ * Repair is driven by the day's MUSCLE BUDGETS (per-muscle min/aim), not by rigid pattern slots.
+ * The builder owns how many lifts and how many sets each; Phase 2 only guarantees the invariants:
+ * every hard constraint (min sets per muscle, time cap, top-set rule, no duplicates, valid ids)
+ * holds regardless of what the model returned.
  */
 import type { GenerationContext, LiftContext } from "./programPayloadContext";
 import {
@@ -21,13 +23,18 @@ import {
 } from "./programPayloadContext";
 import { MAJOR_COMPOUND_PATTERNS, schemeForTrainingAge } from "./programRules";
 import { validateProgramMetrics, type ProgramDraft, type ProgramWorkoutDraft, type ProgramLiftDraft } from "./programValidation";
-import type { DayPlan, MuscleBudget, PatternSlot } from "./splitAllocator";
+import type { DayPlan, MuscleBudget } from "./splitAllocator";
 import type { LiftCandidate } from "./liftPriority";
+import { compareLiftCandidates } from "./liftPriority";
 import type { RepBand } from "./repBandPlanner";
 
 /** A builder result for one day: the raw LLM output (may be malformed/empty) + the day plan. */
 export interface WorkoutBuilderResult {
   dayPlan: DayPlan;
+  /** Index of this day in the program (for sibling-rotation fallback). */
+  dayIndex: number;
+  /** All day plans in the program (for sibling-rotation fallback). */
+  allDayPlans: DayPlan[];
   candidates: LiftCandidate[];
   repBands: Map<string, RepBand>;
   /** The raw LLM output (parsed JSON or null when the call failed/returned invalid JSON). */
@@ -39,7 +46,17 @@ export function mergeWorkouts(results: WorkoutBuilderResult[], context: Generati
   const workouts: ProgramWorkoutDraft[] = results.map((result, index) => {
     const plan = result.dayPlan;
     const draft = toWorkoutDraft(result.raw, plan);
-    const repaired = repairWorkout(draft, plan, result.candidates, result.repBands, context);
+    let repaired = repairWorkout(draft, plan, result.candidates, result.repBands, context);
+    if ((repaired.workoutLifts?.length ?? 0) === 0 && result.candidates.length > 0) {
+      repaired = deterministicFallbackWorkout(
+        plan,
+        result.candidates,
+        result.repBands,
+        context,
+        result.allDayPlans,
+        result.dayIndex,
+      );
+    }
     return {
       name: repaired.name ?? plan.name,
       weekday: plan.weekday,
@@ -68,13 +85,29 @@ function toWorkoutDraft(raw: unknown, plan: DayPlan): ProgramWorkoutDraft {
 }
 
 /**
+ * Per-muscle set accounting for one workout. Primary hits count 1.0; secondary hits count 0.5
+ * (matches the validator's credit model). Used by the backfill + trim passes to hit muscle mins.
+ */
+function muscleCredit(
+  lift: LiftCandidate,
+  setCount: number,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const m of lift.primaryMuscles) out[m] = (out[m] ?? 0) + setCount * PRIMARY_SET_CREDIT;
+  for (const m of lift.secondaryMuscles) {
+    if (lift.primaryMuscles.includes(m)) continue;
+    out[m] = (out[m] ?? 0) + setCount * SECONDARY_SET_CREDIT;
+  }
+  return out;
+}
+
+/**
  * Deterministically repairs one workout:
  *  - drops lifts whose liftId is not in the candidate set (unknown/hallucinated ids),
- *  - clamps each lift's set count to the pattern slot's maxSets,
  *  - clamps reps to the candidate's rep band,
  *  - forces exactly one top set for Double-progression lifts,
- *  - merges duplicate liftId entries (the LLM can emit the same lift in two slots),
- *  - backfills sets on the highest-priority lift when a muscle is under its per-day min,
+ *  - merges duplicate liftId entries (the LLM can emit the same lift twice),
+ *  - backfills sets on the highest-priority lift(s) when a muscle is under its per-day min,
  *  - drops the lowest-priority sets when total hard sets exceed the time budget,
  *  - interleaves antagonists if 3+ consecutive lifts share a primary muscle.
  */
@@ -86,22 +119,17 @@ export function repairWorkout(
   context: GenerationContext,
 ): ProgramWorkoutDraft {
   const candidateById = new Map(candidates.map((c) => [c.liftId, c]));
-  const slotByPattern = new Map(plan.patternSlots.map((s) => [s.pattern, s]));
   const scheme = schemeForTrainingAge(context.trainingAge);
 
-  // 1. Drop unknown liftIds; clamp set counts + reps per candidate/slot.
+  // 1. Drop unknown liftIds; clamp set counts + reps per candidate.
   const repairedLifts: ProgramLiftDraft[] = [];
   for (const lift of draft.workoutLifts ?? []) {
     const liftId = typeof lift.liftId === "string" ? lift.liftId : "";
     const candidate = candidateById.get(liftId);
     if (!candidate) continue; // drop unknown
-    const slot = slotByPattern.get(candidate.pattern) ?? slotByPattern.values().next().value;
-    const maxSets = slot?.maxSets ?? 6;
     const band = repBands.get(liftId);
-
     const rawSets = Array.isArray(lift.workoutLiftSets) ? lift.workoutLiftSets : [];
-    const trimmed = rawSets.slice(0, maxSets);
-    const repairedSets = trimmed.map((set, i) => repairSet(set, band, scheme, i === 0, candidate, context));
+    const repairedSets = rawSets.map((set, i) => repairSet(set, band, scheme, i === 0, candidate, context));
     if (repairedSets.length === 0) continue;
 
     repairedLifts.push({
@@ -111,22 +139,12 @@ export function repairWorkout(
     });
   }
 
-  // 1b. Dedup: collapse entries sharing a liftId (an LLM can emit the same lift in two slots).
-  //      Merge their sets into the first occurrence, clamp to the slot's maxSets, force one top
-  //      set (Double), reassign positions.
-  const dedupedLifts = mergeDuplicateLifts(repairedLifts, candidateById, slotByPattern, scheme);
+  // 1b. Dedup: collapse entries sharing a liftId into one. Merge their sets, re-enforce one top set.
+  const dedupedLifts = mergeDuplicateLifts(repairedLifts, candidateById, scheme);
 
-  // 2. Backfill under-min muscles: for each muscle budget, if total sets < min, add sets to the
-  //    highest-priority candidate lift for that muscle.
-  const muscleSetCounts = countSetsByMuscle(dedupedLifts, candidateById);
-  for (const budget of plan.muscleBudgets) {
-    const current = muscleSetCounts.get(budget.muscle) ?? 0;
-    if (current >= budget.min) continue;
-    const deficit = Math.ceil(budget.min - current);
-    const top = topCandidateForMuscle(budget.muscle, candidates);
-    if (!top) continue;
-    addBackoffSets(dedupedLifts, top, deficit, repBands, scheme, context);
-  }
+  // 2. Backfill under-min muscles: for each muscle budget, if total credits < min, add sets to the
+  //    highest-priority candidate lift that trains it (creating it if absent).
+  backfillMuscleMins(dedupedLifts, plan.muscleBudgets, candidates, repBands, scheme, context);
 
   // 3. Trim over-budget total hard sets (drop lowest-priority sets first).
   const timeBudget = plan.timeBudgetHardSets;
@@ -177,18 +195,12 @@ function clampRir(raw: unknown): number {
 
 /**
  * Collapses [lifts] entries that share a liftId into one: the first occurrence keeps its liftId
- * and absorbs the sets of every later duplicate, the merged set list is clamped to the candidate
- * slot's maxSets, and positions are reassigned sequentially. Returns the lifts unchanged when
- * there are no duplicates. This is the deterministic fix for an LLM emitting the same lift twice
- * in one workout — merging (not dropping) preserves the volume the model intended. After merging,
- * the top-set rule is re-enforced for Double progression: the first set is the top set, all others
- * are forced non-top, so a merged lift (two entries each with their own top set) still satisfies the
- * normalizer's "exactly one top set" invariant.
+ * and absorbs the sets of every later duplicate, positions are reassigned sequentially, and the
+ * top-set rule is re-enforced for Double progression (first set top, rest non-top).
  */
 function mergeDuplicateLifts(
   lifts: ProgramLiftDraft[],
   candidateById: Map<string, LiftCandidate>,
-  slotByPattern: Map<string, PatternSlot>,
   scheme: "Linear" | "Double",
 ): ProgramLiftDraft[] {
   if (lifts.length <= 1) return lifts;
@@ -197,7 +209,6 @@ function mergeDuplicateLifts(
   for (const lift of lifts) {
     const liftId = typeof lift.liftId === "string" ? lift.liftId : "";
     if (liftId === "") {
-      // Untyped lift — keep verbatim (candidate validation already dropped unknowns).
       order.push(`__untyped_${order.length}`);
       byLiftId.set(order[order.length - 1], lift);
       continue;
@@ -208,24 +219,16 @@ function mergeDuplicateLifts(
       byLiftId.set(liftId, { ...lift });
       continue;
     }
-    // Merge this duplicate's sets into the first occurrence.
     const incoming = Array.isArray(lift.workoutLiftSets) ? lift.workoutLiftSets : [];
     const merged = Array.isArray(existing.workoutLiftSets) ? [...existing.workoutLiftSets] : [];
     merged.push(...incoming);
     existing.workoutLiftSets = merged;
   }
 
-  // Clamp each merged lift's sets to its slot's maxSets, enforce one top set, reassign positions.
   const out: ProgramLiftDraft[] = [];
   for (const key of order) {
     const lift = byLiftId.get(key)!;
-    const liftId = typeof lift.liftId === "string" ? lift.liftId : "";
-    const pattern = liftId !== "" ? candidateById.get(liftId)?.pattern : undefined;
-    const slot = pattern ? slotByPattern.get(pattern) : undefined;
-    const maxSets = slot?.maxSets ?? 6;
-    const rawSets = Array.isArray(lift.workoutLiftSets) ? lift.workoutLiftSets.slice(0, maxSets) : [];
-    // Re-enforce the top-set rule: merging duplicates that each carried a top set leaves ≥2 top sets,
-    // which would violate the normalizer. For Double, force the first set top and the rest non-top.
+    const rawSets = Array.isArray(lift.workoutLiftSets) ? lift.workoutLiftSets : [];
     const sets = rawSets.map((set, i) => {
       const s = (set && typeof set === "object" ? { ...set } : {}) as Record<string, unknown>;
       if (scheme === "Double") s.isTopSet = i === 0;
@@ -237,28 +240,66 @@ function mergeDuplicateLifts(
   return out;
 }
 
-/** Counts hard sets per muscle for a workout's lifts (primary credit only, for budget check). */
-function countSetsByMuscle(
+/**
+ * Counts set credits per muscle for a workout's lifts. Primary muscles count 1.0/set; secondary
+ * muscles count 0.5/set (matching the validator).
+ */
+function countCreditsByMuscle(
   lifts: ProgramLiftDraft[],
   candidateById: Map<string, LiftCandidate>,
 ): Map<string, number> {
-  const counts = new Map<string, number>();
+  const credits = new Map<string, number>();
   for (const lift of lifts) {
     const candidate = candidateById.get(lift.liftId ?? "");
     if (!candidate) continue;
     const setCount = lift.workoutLiftSets?.length ?? 0;
-    for (const muscle of candidate.primaryMuscles) {
-      counts.set(muscle, (counts.get(muscle) ?? 0) + setCount);
+    for (const [muscle, credit] of Object.entries(muscleCredit(candidate, setCount))) {
+      credits.set(muscle, (credits.get(muscle) ?? 0) + credit);
     }
   }
-  return counts;
+  return credits;
 }
 
-/** The highest-priority candidate whose primary muscles include [muscle]. */
+/**
+ * For every muscle budget below its per-day min, adds sets to the highest-priority candidate that
+ * trains it (found or created). This is the safety net that guarantees a muscle hits at least its
+ * minimum volume even when the builder under-allocated.
+ */
+function backfillMuscleMins(
+  lifts: ProgramLiftDraft[],
+  budgets: MuscleBudget[],
+  candidates: LiftCandidate[],
+  repBands: Map<string, RepBand>,
+  scheme: "Linear" | "Double",
+  context: GenerationContext,
+): void {
+  const candidateById = new Map(candidates.map((c) => [c.liftId, c]));
+  const credits = countCreditsByMuscle(lifts, candidateById);
+  for (const budget of budgets) {
+    const current = credits.get(budget.muscle) ?? 0;
+    if (current >= budget.min) continue;
+    const top = topCandidateForMuscle(budget.muscle, candidates);
+    if (!top) continue;
+    const deficit = Math.ceil(budget.min - current);
+    addBackoffSets(lifts, top, deficit, repBands, scheme, context);
+    // Re-count so subsequent budgets see the added sets (a backfill lift can cover multiple muscles).
+    credits.set(
+      budget.muscle,
+      (credits.get(budget.muscle) ?? 0) + deficit * (top.primaryMuscles.includes(budget.muscle) ? PRIMARY_SET_CREDIT : SECONDARY_SET_CREDIT),
+    );
+  }
+}
+
+/** The highest-priority candidate whose primary OR secondary muscles include [muscle]. */
 function topCandidateForMuscle(muscle: string, candidates: LiftCandidate[]): LiftCandidate | undefined {
-  return candidates
+  // Prefer a lift where the muscle is PRIMARY (full credit) before settling for secondary.
+  const primary = candidates
     .filter((c) => c.primaryMuscles.includes(muscle))
-    .sort((a, b) => b.priority - a.priority)[0];
+    .sort(compareLiftCandidates)[0];
+  if (primary) return primary;
+  return candidates
+    .filter((c) => c.secondaryMuscles.includes(muscle))
+    .sort(compareLiftCandidates)[0];
 }
 
 /** Adds [count] backoff sets to [lift] (found or created) for [candidate]. */
@@ -276,7 +317,6 @@ function addBackoffSets(
     lifts.push(lift);
   }
   const band = repBands.get(candidate.liftId);
-  const isMajorCompound = MAJOR_COMPOUND_PATTERNS.has(candidate.pattern);
   const existing = lift.workoutLiftSets ?? [];
   for (let i = 0; i < count; i++) {
     const isFirst = existing.length === 0 && i === 0;
@@ -293,7 +333,6 @@ function trimToTimeBudget(
 ): void {
   let total = lifts.reduce((s, l) => s + (l.workoutLiftSets?.length ?? 0), 0);
   if (total <= timeBudget) return;
-  // Sort lifts by priority ascending (lowest first) so we drop from the least relevant.
   const sorted = [...lifts].sort(
     (a, b) => (candidateById.get(a.liftId ?? "")?.priority ?? 0) - (candidateById.get(b.liftId ?? "")?.priority ?? 0),
   );
@@ -305,7 +344,6 @@ function trimToTimeBudget(
       total--;
     }
   }
-  // If still over, drop entire lowest-priority lifts (keeping ≥1 set each).
   for (const lift of sorted) {
     if (total <= timeBudget) break;
     const sets = lift.workoutLiftSets ?? [];
@@ -328,7 +366,6 @@ function interleaveAntagonists(
   let lastKey = "";
   let run = 0;
   while (remaining.length > 0) {
-    // Prefer a lift whose primary key differs from the last placed.
     let pick = remaining.find((l) => primaryKey(l) !== lastKey);
     if (!pick) pick = remaining[0];
     const key = primaryKey(pick);
@@ -337,7 +374,6 @@ function interleaveAntagonists(
     result.push(pick);
     remaining.splice(remaining.indexOf(pick), 1);
     lastKey = key;
-    // If a run of 3 is forming, try to swap the next pick; this simple pass suffices for ≤7 lifts.
     if (run >= 3 && remaining.length > 0) {
       const alt = remaining.find((l) => primaryKey(l) !== key);
       if (alt) {
@@ -353,7 +389,7 @@ function interleaveAntagonists(
 
 /**
  * Global weekly-volume solver: computes the weekly hard-set credits per muscle, compares to the
- * weekly target, and adjusts the highest-priority lift across the week for any deficit/surplus.
+ * weekly target, and adjusts the highest-priority lift across the week for any deficit.
  * Runs after all per-workout repairs.
  */
 export function repairWeeklyVolume(
@@ -367,12 +403,8 @@ export function repairWeeklyVolume(
     const current = muscleVolume[muscle] ?? 0;
     if (current >= target.min && current <= target.max) continue;
     if (current < target.min) {
-      // Deficit: add sets to the highest-priority lift for this muscle across the week.
-      // For v1, add one set to the first workout that trains this muscle (deterministic, simple).
       addSetsForMuscle(program, muscle, Math.ceil(target.min - current), context);
     }
-    // Over-MRV is left to the per-workout trim + final validation; a deterministic cap pass
-    // could be added here in v2.
   }
   return program;
 }
@@ -398,15 +430,12 @@ function trainsMuscle(lift: ProgramLiftDraft, muscle: string, context: Generatio
 }
 
 /**
- * Deterministic fallback workout: one lift per pattern slot, band-midpoint reps, one top set for
- * Double. Used when the LLM builder fails or returns empty.
+ * Deterministic fallback workout: builds one lift per suggested pattern (compound-first), giving
+ * each a working-set count proportional to the muscle's per-day budget so the muscle mins are met.
+ * Used when the LLM builder fails or returns empty.
  *
- * Sibling rotation: when [allPlans] and [dayIndex] are supplied, the candidate picked for each slot
- * is rotated by the day's sibling index — sibling 0 (e.g. Upper A) gets the top-ranked candidate,
- * sibling 1 (e.g. Upper B) gets the runner-up, and so on. Siblings are days that share the same
- * sorted set of slot patterns. This guarantees sibling days differ in the fallback path whenever a
- * pattern has ≥2 candidates (the same guarantee the whole-program LLM call provides on the happy
- * path). Without [allPlans], rank 0 is always picked (the original behavior, used by legacy callers).
+ * Sibling rotation: when [allPlans] and [dayIndex] are supplied, the candidate picked for each
+ * pattern is rotated by the day's sibling index so sibling days differ in the fallback path.
  */
 export function deterministicFallbackWorkout(
   plan: DayPlan,
@@ -418,20 +447,33 @@ export function deterministicFallbackWorkout(
 ): ProgramWorkoutDraft {
   const scheme = schemeForTrainingAge(context.trainingAge);
   const siblingIndex = allPlans != null && dayIndex != null ? siblingIndexFor(plan, allPlans, dayIndex) : 0;
+  const budgetByMuscle = new Map(plan.muscleBudgets.map((b) => [b.muscle, b]));
   const lifts: ProgramLiftDraft[] = [];
-  for (const slot of plan.patternSlots) {
-    // Rank candidates for this slot, deduped by liftId (buildDayCandidates repeats a candidate once
-    // per slot that matches its pattern). Rotating by sibling index then picks a distinct lift per sibling.
-    const seen = new Set<string>();
-    const ranked = candidates
-      .filter((c) => c.pattern === slot.pattern && (seen.has(c.liftId) ? false : (seen.add(c.liftId), true)))
-      .sort((a, b) => b.priority - a.priority);
-    const top = ranked[Math.min(siblingIndex, ranked.length - 1)] ?? ranked[0];
-    if (!top) continue;
-    const band = repBands.get(top.liftId);
+  const usedLiftIds = new Set<string>();
+  const allocatedSetsByMuscle = new Map<string, number>();
+
+  // Drive by suggested patterns (compound-first order) so the fallback covers the day's structure.
+  for (const slot of plan.suggestedPatterns) {
+    const budget = budgetByMuscle.get(slot.muscleFocus);
+    if (budget) {
+      const allocated = allocatedSetsByMuscle.get(slot.muscleFocus) ?? 0;
+      if (allocated >= budget.sets) continue;
+    }
+    const ranked = rankCandidatesForPattern(candidates, slot.pattern);
+    const pick = pickFallbackCandidate(ranked, siblingIndex, lifts.length, usedLiftIds);
+    if (!pick) continue;
+    
+    usedLiftIds.add(pick.liftId);
+    let setCount = 3;
+    if (budget) {
+      const allocated = allocatedSetsByMuscle.get(slot.muscleFocus) ?? 0;
+      const remaining = budget.sets - allocated;
+      setCount = Math.max(2, Math.min(pick.isCompound ? 3 : 4, Math.round(remaining)));
+      allocatedSetsByMuscle.set(slot.muscleFocus, allocated + setCount);
+    }
+    const band = repBands.get(pick.liftId);
     const repMin = band ? band.repMin : 8;
     const repMax = band ? Math.round((band.repMin + band.repMax) / 2) : 12;
-    const setCount = Math.max(slot.minSets, 2);
     const sets = Array.from({ length: setCount }, (_, i) => ({
       position: i,
       setType: "Standard",
@@ -440,26 +482,79 @@ export function deterministicFallbackWorkout(
       rirGoal: scheme === "Double" && i === 0 ? 2 : 0,
       isTopSet: scheme === "Double" && i === 0,
     }));
-    lifts.push({ liftId: top.liftId, position: lifts.length, workoutLiftSets: sets });
+    lifts.push({ liftId: pick.liftId, position: lifts.length, workoutLiftSets: sets });
   }
+
+  // Any muscle budget still unfulfilled (no suggested pattern matched, or pattern had no candidate)
+  // gets a lift from the candidate pool by primary muscle.
+  for (const budget of plan.muscleBudgets) {
+    const allocated = allocatedSetsByMuscle.get(budget.muscle) ?? 0;
+    if (allocated >= budget.sets) continue;
+    const pick = candidates
+      .filter((c) => c.primaryMuscles.includes(budget.muscle) && !usedLiftIds.has(c.liftId))
+      .sort(compareLiftCandidates)[0];
+    if (!pick) continue;
+    
+    usedLiftIds.add(pick.liftId);
+    const remaining = budget.sets - allocated;
+    const setCount = Math.max(2, Math.min(pick.isCompound ? 3 : 4, Math.round(remaining)));
+    allocatedSetsByMuscle.set(budget.muscle, allocated + setCount);
+    
+    const band = repBands.get(pick.liftId);
+    const repMin = band ? band.repMin : 8;
+    const repMax = band ? Math.round((band.repMin + band.repMax) / 2) : 12;
+    const sets = Array.from({ length: setCount }, (_, i) => ({
+      position: i,
+      setType: "Standard",
+      repMin,
+      repMax,
+      rirGoal: scheme === "Double" && i === 0 ? 2 : 0,
+      isTopSet: scheme === "Double" && i === 0,
+    }));
+    lifts.push({ liftId: pick.liftId, position: lifts.length, workoutLiftSets: sets });
+  }
+
   return { name: plan.name, workoutLifts: lifts };
 }
 
-/**
- * The 0-based index of [plan] among its sibling days (days sharing the same sorted slot-pattern
- * set) in [allPlans]. Used to rotate the fallback's candidate pick so siblings differ. Upper A is
- * sibling 0, Upper B is sibling 1, etc. Days with a unique pattern set are always sibling 0.
- */
-function siblingIndexFor(plan: DayPlan, allPlans: DayPlan[], dayIndex: number): number {
-  const key = patternKey(plan);
-  let index = 0;
-  for (let i = 0; i < dayIndex; i++) {
-    if (patternKey(allPlans[i]) === key) index++;
-  }
-  return index;
+/** Ranks candidates for a pattern by priority, deduped by liftId. */
+function rankCandidatesForPattern(candidates: LiftCandidate[], pattern: string): LiftCandidate[] {
+  const seen = new Set<string>();
+  return candidates
+    .filter((c) => c.pattern === pattern && (seen.has(c.liftId) ? false : (seen.add(c.liftId), true)))
+    .sort(compareLiftCandidates);
 }
 
-/** A stable grouping key for sibling days: their sorted, joined slot patterns. */
-function patternKey(plan: DayPlan): string {
-  return plan.patternSlots.map((s) => s.pattern).sort().join("|");
+/**
+ * Picks the fallback lift for one pattern. [siblingIndex] rotates the primary pick across sibling
+ * days; [pickIndex] advances through ranks within a day. Skips liftIds already used in this workout.
+ */
+function pickFallbackCandidate(
+  ranked: LiftCandidate[],
+  siblingIndex: number,
+  pickIndex: number,
+  usedLiftIds: Set<string>,
+): LiftCandidate | undefined {
+  if (ranked.length === 0) return undefined;
+  for (let step = 0; step < ranked.length; step++) {
+    const rankOffset = siblingIndex + pickIndex + step;
+    const index = rankOffset % ranked.length;
+    const candidate = ranked[index];
+    if (!usedLiftIds.has(candidate.liftId)) return candidate;
+  }
+  return undefined;
+}
+
+/**
+ * The 0-based index of [plan] among its sibling days (days sharing the same theme) in [allPlans].
+ * Used to rotate the fallback's candidate pick so siblings differ.
+ */
+function siblingIndexFor(plan: DayPlan, allPlans: DayPlan[], dayIndex: number): number {
+  const getBaseTheme = (theme: string) => theme.replace(/\s*[A-Z]$/, "").trim();
+  const key = getBaseTheme(plan.theme);
+  let index = 0;
+  for (let i = 0; i < dayIndex; i++) {
+    if (getBaseTheme(allPlans[i].theme) === key) index++;
+  }
+  return index;
 }

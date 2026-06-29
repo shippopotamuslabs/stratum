@@ -172,18 +172,53 @@ internal object OnboardingViewModelTestFixtures {
                 loadPayload = com.stratum.domain.program.ProgramGenerationPayloadLoader { "{}" },
                 generator = fakeProgramGeneratorPort,
                 repository = fakeProgramRepository,
+                liftRepository = fakeLiftRepository,
                 completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
                 profileRepository = fakeProfileRepository,
             ),
         )
     }
 
-    private fun aProgram(): com.stratum.domain.program.Program = com.stratum.domain.program.Program(
-        id = com.stratum.domain.program.identity.ProgramId("p-1"),
-        name = "Generated Program",
-        createdAt = Instant.parse("2026-06-26T12:00:00Z"),
-        workouts = emptyList(),
-    )
+    private fun aProgram(): com.stratum.domain.program.Program =
+        com.stratum.domain.program.Program(
+            id = com.stratum.domain.program.identity.ProgramId("p-1"),
+            name = "Generated Program",
+            createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+            workouts =
+                listOf(
+                    com.stratum.domain.program.Workout(
+                        id = com.stratum.domain.program.identity.WorkoutId("w-1"),
+                        programId = com.stratum.domain.program.identity.ProgramId("p-1"),
+                        name = "Session A",
+                        weekday = null,
+                        position = 0,
+                        workoutLifts =
+                            listOf(
+                                com.stratum.domain.program.WorkoutLift(
+                                    id = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
+                                    workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
+                                    liftId = com.stratum.domain.lift.identity.LiftId("back-squat"),
+                                    progressionScheme = com.stratum.domain.program.ProgressionScheme.Linear,
+                                    position = 0,
+                                    sets =
+                                        listOf(
+                                            com.stratum.domain.program.LiftSet(
+                                                id = com.stratum.domain.program.identity.LiftSetId("ls-1"),
+                                                workoutLiftId =
+                                                    com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
+                                                position = 0,
+                                                setType = com.stratum.domain.program.SetType.Standard,
+                                                repMin = 5,
+                                                repMax = 5,
+                                                rirGoal = 2,
+                                                isTopSet = true,
+                                            ),
+                                        ),
+                                ),
+                            ),
+                    ),
+                ),
+        )
 
     private fun buildRollbackHistoricalImport(): RollbackHistoricalImportUseCase =
         RollbackHistoricalImportUseCase(

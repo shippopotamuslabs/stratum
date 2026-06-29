@@ -97,7 +97,7 @@ const SPLIT_PLANNER_DAY_THRESHOLD = 4;
 const MAX_GLOBAL_REGEN_ATTEMPTS = 1;
 
 /** Default timeout for the whole-program builder call (large lift pools can exceed 120s). */
-const DEFAULT_BUILDER_TIMEOUT_MS = 240_000;
+const DEFAULT_BUILDER_TIMEOUT_MS = 480_000;
 
 /** Continues the builder chat with the model's prior JSON plus validation feedback. */
 export interface ProgramBuilderRetryContext {
@@ -388,12 +388,10 @@ function toDayPlans(parsed: { days?: unknown }, context: GenerationContext): Day
         aim: Number(b.aim ?? 0),
       }))
       : [],
-    patternSlots: Array.isArray(day.patternSlots)
-      ? (day.patternSlots as Array<Record<string, unknown>>).map((s) => ({
+    suggestedPatterns: Array.isArray(day.suggestedPatterns)
+      ? (day.suggestedPatterns as Array<Record<string, unknown>>).map((s) => ({
         pattern: String(s.pattern ?? ""),
         muscleFocus: String(s.muscleFocus ?? ""),
-        minSets: Number(s.minSets ?? 1),
-        maxSets: Number(s.maxSets ?? 6),
       }))
       : [],
   }));

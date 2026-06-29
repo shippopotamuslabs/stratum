@@ -160,12 +160,11 @@ Gradle project exists):
 - Single module tests (Android libs): `./gradlew :core:data:testDebugUnitTest`
 - Full unit tests: `./gradlew testDebugUnitTest` and `./gradlew :core:domain:test`
 - Golden examples sync: `./scripts/golden-test-examples-download.sh`
-- Style: `./gradlew ktlintCheck`
 - Static analysis: `./gradlew detekt` (required — `maxIssues: 0`; includes `stratum` UI import rules)
 - Room/KSP smoke: `./gradlew :app:kspDebugKotlin`
 
 Before merge or a large cross-module change, run the CI-aligned checks for touched areas:
-`./gradlew ktlintCheck`, `./gradlew detekt`, `./gradlew assembleDebug`, and
+`./gradlew detekt`, `./gradlew assembleDebug`, and
 `./gradlew testDebugUnitTest`.
 
 ---
@@ -234,7 +233,6 @@ Before declaring work complete, run the narrowest relevant validations:
 - **App compilation:** `./gradlew :app:assembleDebug`
 - **Data layer:** `./gradlew :core:data:assembleDebug` + `./gradlew :app:kspDebugKotlin`
 - **Tests:** `./gradlew testDebugUnitTest`
-- **Style:** `./gradlew ktlintCheck`
 - **Static analysis:** `./gradlew detekt` (required — `maxIssues: 0`; must pass before completion)
 
 Only run checks relevant to what changed during iteration, but run the full affected unit

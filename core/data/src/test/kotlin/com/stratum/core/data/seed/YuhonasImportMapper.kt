@@ -77,13 +77,14 @@ object YuhonasImportMapper {
      *
      * - Push patterns → [MuscleGroup.AnteriorDeltoid] (front delts drive pressing).
      * - [MovementPattern.HorizontalPull] → [MuscleGroup.PosteriorDeltoid] (rows hit rear delts).
-     * - [MovementPattern.DeltIso] → [MuscleGroup.LateralDeltoid] (lateral raises isolate the
-     *   side head — the classifier routes "lateral raise" names here).
+     * - The delt-iso patterns each map to their own head.
      * - Otherwise → [MuscleGroup.AnteriorDeltoid] (default).
      */
     fun mapShoulderMuscle(pattern: MovementPattern): MuscleGroup = when (pattern) {
         MovementPattern.HorizontalPull -> MuscleGroup.PosteriorDeltoid
-        MovementPattern.DeltIso -> MuscleGroup.LateralDeltoid
+        MovementPattern.LateralDeltIso -> MuscleGroup.LateralDeltoid
+        MovementPattern.RearDeltIso -> MuscleGroup.PosteriorDeltoid
+        MovementPattern.AnteriorDeltIso -> MuscleGroup.AnteriorDeltoid
         else -> MuscleGroup.AnteriorDeltoid
     }
 
@@ -129,7 +130,7 @@ object YuhonasImportMapper {
     @Suppress("CyclomaticComplexMethod")
     private fun nameBasedPattern(lowerName: String): MovementPattern? = when {
         // --- Direct isolation movements by name ---
-        lowerName.contains("lateral raise") || lowerName.contains("side raise") -> MovementPattern.DeltIso
+        lowerName.contains("lateral raise") || lowerName.contains("side raise") -> MovementPattern.LateralDeltIso
         lowerName.contains("shrug") -> MovementPattern.TrapIso
         containsAny(lowerName, "wrist", "forearm curl", "reverse curl") -> MovementPattern.ForearmIso
         containsAny(lowerName, "crunch", "sit-up", "hanging leg raise") -> MovementPattern.AbIso
@@ -215,17 +216,18 @@ object YuhonasImportMapper {
         // --- Kettlebell sumo high pull (upright row variant — TrapIso) ---
         lowerName.contains("sumo high pull") -> MovementPattern.TrapIso
 
-        // --- Iron cross (lateral raise hold — DeltIso) ---
-        lowerName.contains("iron cross") -> MovementPattern.DeltIso
+        // --- Iron cross (lateral raise hold — LateralDeltIso) ---
+        lowerName.contains("iron cross") -> MovementPattern.LateralDeltIso
 
-        // --- Front raise (DeltIso) ---
-        lowerName.contains("front raise") || lowerName.contains("dumbbell raise") -> MovementPattern.DeltIso
+        // --- Front raise (AnteriorDeltIso); generic "dumbbell raise" defaults to lateral ---
+        lowerName.contains("front raise") -> MovementPattern.AnteriorDeltIso
+        lowerName.contains("dumbbell raise") -> MovementPattern.LateralDeltIso
 
         // --- Carries / sled drags (forearm/trap dominant, but LegPush is the closest slot) ---
         containsAny(lowerName, "farmer", "rickshaw", "yoke", "sled drag", "sled push") -> MovementPattern.LegPush
 
-        // --- Rotator cuff / shoulder rehab ---
-        containsAny(lowerName, "internal rotation", "external rotation") -> MovementPattern.DeltIso
+        // --- Rotator cuff / shoulder rehab (rear-delt/external-rotator biased — RearDeltIso) ---
+        containsAny(lowerName, "internal rotation", "external rotation") -> MovementPattern.RearDeltIso
 
         // --- Strongman lifts (hip-dominant pulls) ---
         containsAny(lowerName, "tire flip", "sandbag load", "backward drag", "conan") -> MovementPattern.HipHinge
@@ -233,8 +235,8 @@ object YuhonasImportMapper {
         // --- Battling ropes (conditioning — AbIso is closest) ---
         lowerName.contains("battling rope") -> MovementPattern.AbIso
 
-        // --- Kettlebell pirate ships (lateral raise variant — DeltIso) ---
-        lowerName.contains("pirate ship") -> MovementPattern.DeltIso
+        // --- Kettlebell pirate ships (lateral raise variant — LateralDeltIso) ---
+        lowerName.contains("pirate ship") -> MovementPattern.LateralDeltIso
 
         // --- Rack delivery (strongman overhead — VerticalPush) ---
         lowerName.contains("rack delivery") -> MovementPattern.VerticalPush
@@ -303,7 +305,9 @@ object YuhonasImportMapper {
         MuscleGroup.Bicep -> MovementPattern.BicepIso
         MuscleGroup.Tricep -> MovementPattern.TricepIso
         MuscleGroup.Chest -> MovementPattern.ChestIso
-        MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid, MuscleGroup.PosteriorDeltoid -> MovementPattern.DeltIso
+        MuscleGroup.AnteriorDeltoid -> MovementPattern.AnteriorDeltIso
+        MuscleGroup.LateralDeltoid -> MovementPattern.LateralDeltIso
+        MuscleGroup.PosteriorDeltoid -> MovementPattern.RearDeltIso
         MuscleGroup.Trap -> MovementPattern.TrapIso
         MuscleGroup.Glute -> MovementPattern.GluteIso
         MuscleGroup.Abductor, MuscleGroup.Adductor -> MovementPattern.GluteIso

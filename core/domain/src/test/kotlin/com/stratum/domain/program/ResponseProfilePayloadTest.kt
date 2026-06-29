@@ -344,6 +344,7 @@ class LoadProgramGenerationPayloadUseCaseTest {
         assertTrue(json.contains("\"volumeLandmarks\":["))
         assertTrue(json.contains("\"estimatedMev\""))
         assertTrue(json.contains("\"estimatedMrv\""))
+        assertTrue(json.contains("\"literatureVolumeLandmarks\":["))
         kotlinx.serialization.json.Json.parseToJsonElement(json)
     }
 

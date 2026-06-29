@@ -1,16 +1,16 @@
 /**
  * Deterministic Phase 0 split allocation (OS-7 v2).
  *
- * Produces a `DayPlan[]` skeleton that fully constrains the per-workout builders: per-muscle
- * hard-set budgets that sum to the weekly targets, per-day time budgets, and per-pattern slots
- * that enforce frequency + push/pull balance by construction. Used directly for 2–4 day
- * programs; for 5–6 day programs it is both the fallback and the constraint set handed to the
- * LLM split planner.
+ * Produces a `DayPlan[]` skeleton that hands the LLM builder the hard constraints (per-muscle
+ * hard-set budgets that sum to the weekly targets, per-day time budgets) plus a light
+ * `suggestedPatterns` advisory — the movement patterns a balanced day for this theme would cover
+ * and the muscle each one would drive. The builder OWNS exercise selection, set distribution
+ * across lifts, and ordering; these suggestions keep it honest without rigidly slotting one lift
+ * per pattern (which collapsed specialized muscles into a single exercise and mislabeled muscle
+ * focus via catalog-order-dependent pattern selection).
  *
- * The allocator never emits a `patternSlot` for a pattern the user has no enabled lift for
- * (feasibility guard). When a theme's expected pattern is unavailable, it relaxes to the next
- * best available pattern for the same muscle, or marks that muscle Omit for the day and
- * redistributes its sets to the remaining day(s) for that muscle.
+ * The deterministic allocator is used directly for 2–4 day programs; for 5–6 day programs it is
+ * both the fallback and the constraint set handed to the LLM split planner.
  */
 import {
   type GenerationContext,
@@ -36,12 +36,14 @@ export interface MuscleBudget {
   aim: number;
 }
 
-/** A pre-allocated movement-pattern slot the builder must fill with one lift. */
-export interface PatternSlot {
+/**
+ * A movement pattern a balanced day for this theme would cover, with the muscle it would primarily
+ * drive. ADVISORY ONLY — the builder is free to pick more or fewer lifts per pattern and to
+ * distribute sets across multiple lifts. No set bounds: the muscle budgets are the constraint.
+ */
+export interface SuggestedPattern {
   pattern: string;
   muscleFocus: string;
-  minSets: number;
-  maxSets: number;
 }
 
 /** A fully constrained day plan handed to a workout builder. */
@@ -53,31 +55,95 @@ export interface DayPlan {
   /** Hard-set cap for the day (sessionLength × tolerance ÷ minutes-per-set), or null if no limit. */
   timeBudgetHardSets: number | null;
   muscleBudgets: MuscleBudget[];
-  patternSlots: PatternSlot[];
+  /**
+   * Movement patterns a balanced day of this theme typically covers, with the muscle each drives.
+   * Advisory — the builder owns lift selection and set distribution. Patterns are filtered to those
+   * the user has at least one enabled lift for, so every suggestion is fillable.
+   */
+  suggestedPatterns: SuggestedPattern[];
 }
 
 /** A split template: one day descriptor per training day. */
 interface SplitDayTemplate {
   theme: string;
   name: string;
-  /** Muscles this day is primarily responsible for (drives budget allocation + slot generation). */
+  /** Muscles this day is primarily responsible for (drives budget allocation). */
   primaryMuscles: string[];
   /** Optional accessory muscles this day can absorb if it has slack time. */
   accessoryMuscles?: string[];
+  /**
+   * Movement patterns a balanced day of this theme typically covers, with the muscle each drives.
+   * Order = the order a coach would program them (compound → isolation). The builder may deviate.
+   */
+  suggestedPatterns: SuggestedPatternTemplate[];
 }
+
+interface SuggestedPatternTemplate {
+  pattern: string;
+  muscleFocus: string;
+}
+
+const UPPER_PATTERNS: SuggestedPatternTemplate[] = [
+  { pattern: "HorizontalPush", muscleFocus: "Chest" },
+  { pattern: "VerticalPull", muscleFocus: "Back" },
+  { pattern: "InclinePush", muscleFocus: "Chest" },
+  { pattern: "HorizontalPull", muscleFocus: "Back" },
+  { pattern: "LateralDeltIso", muscleFocus: "LateralDeltoid" },
+  { pattern: "BicepIso", muscleFocus: "Bicep" },
+  { pattern: "TricepIso", muscleFocus: "Tricep" },
+];
+
+const LOWER_PATTERNS: SuggestedPatternTemplate[] = [
+  { pattern: "LegPush", muscleFocus: "Quad" },
+  { pattern: "HipHinge", muscleFocus: "Hamstring" },
+  { pattern: "QuadIso", muscleFocus: "Quad" },
+  { pattern: "HamstringIso", muscleFocus: "Hamstring" },
+  { pattern: "Calves", muscleFocus: "Calf" },
+  { pattern: "AbIso", muscleFocus: "Ab" },
+];
+
+const FULL_BODY_PATTERNS: SuggestedPatternTemplate[] = [
+  { pattern: "LegPush", muscleFocus: "Quad" },
+  { pattern: "HorizontalPush", muscleFocus: "Chest" },
+  { pattern: "HorizontalPull", muscleFocus: "Back" },
+  { pattern: "HipHinge", muscleFocus: "Hamstring" },
+];
+
+const PUSH_PATTERNS: SuggestedPatternTemplate[] = [
+  { pattern: "HorizontalPush", muscleFocus: "Chest" },
+  { pattern: "VerticalPush", muscleFocus: "AnteriorDeltoid" },
+  { pattern: "InclinePush", muscleFocus: "Chest" },
+  { pattern: "LateralDeltIso", muscleFocus: "LateralDeltoid" },
+  { pattern: "TricepIso", muscleFocus: "Tricep" },
+];
+
+const PULL_PATTERNS: SuggestedPatternTemplate[] = [
+  { pattern: "VerticalPull", muscleFocus: "Back" },
+  { pattern: "HorizontalPull", muscleFocus: "Back" },
+  { pattern: "RearDeltIso", muscleFocus: "PosteriorDeltoid" },
+  { pattern: "BicepIso", muscleFocus: "Bicep" },
+];
+
+const LEGS_PATTERNS: SuggestedPatternTemplate[] = [
+  { pattern: "LegPush", muscleFocus: "Quad" },
+  { pattern: "HipHinge", muscleFocus: "Hamstring" },
+  { pattern: "QuadIso", muscleFocus: "Quad" },
+  { pattern: "HamstringIso", muscleFocus: "Hamstring" },
+  { pattern: "Calves", muscleFocus: "Calf" },
+];
 
 /** Lookup of split templates by training-days-per-week. */
 const SPLIT_TEMPLATES: Record<number, SplitDayTemplate[]> = {
   // Full body ×2: every major muscle both days.
   2: [
-    { theme: "Full Body A", name: "Full Body A", primaryMuscles: allMajorMuscles() },
-    { theme: "Full Body B", name: "Full Body B", primaryMuscles: allMajorMuscles() },
+    { theme: "Full Body A", name: "Full Body A", primaryMuscles: [...MAJOR_MUSCLES], accessoryMuscles: ["Ab"], suggestedPatterns: FULL_BODY_PATTERNS },
+    { theme: "Full Body B", name: "Full Body B", primaryMuscles: [...MAJOR_MUSCLES], accessoryMuscles: ["Ab"], suggestedPatterns: FULL_BODY_PATTERNS },
   ],
   // Full body ×3: every major muscle all three days.
   3: [
-    { theme: "Full Body A", name: "Full Body A", primaryMuscles: allMajorMuscles() },
-    { theme: "Full Body B", name: "Full Body B", primaryMuscles: allMajorMuscles() },
-    { theme: "Full Body C", name: "Full Body C", primaryMuscles: allMajorMuscles() },
+    { theme: "Full Body A", name: "Full Body A", primaryMuscles: [...MAJOR_MUSCLES], accessoryMuscles: ["Ab"], suggestedPatterns: FULL_BODY_PATTERNS },
+    { theme: "Full Body B", name: "Full Body B", primaryMuscles: [...MAJOR_MUSCLES], accessoryMuscles: ["Ab"], suggestedPatterns: FULL_BODY_PATTERNS },
+    { theme: "Full Body C", name: "Full Body C", primaryMuscles: [...MAJOR_MUSCLES], accessoryMuscles: ["Ab"], suggestedPatterns: FULL_BODY_PATTERNS },
   ],
   // Upper / Lower ×2.
   4: [
@@ -95,6 +161,12 @@ const SPLIT_TEMPLATES: Record<number, SplitDayTemplate[]> = {
       name: "Arms + Chest touch",
       primaryMuscles: ["Bicep", "Tricep", "Chest", "LateralDeltoid"],
       accessoryMuscles: ["AnteriorDeltoid"],
+      suggestedPatterns: [
+        { pattern: "HorizontalPush", muscleFocus: "Chest" },
+        { pattern: "BicepIso", muscleFocus: "Bicep" },
+        { pattern: "TricepIso", muscleFocus: "Tricep" },
+        { pattern: "LateralDeltIso", muscleFocus: "LateralDeltoid" },
+      ],
     },
     lowerTemplate("Lower B"),
     upperTemplate("Upper B"),
@@ -110,16 +182,13 @@ const SPLIT_TEMPLATES: Record<number, SplitDayTemplate[]> = {
   ],
 };
 
-function allMajorMuscles(): string[] {
-  return [...MAJOR_MUSCLES];
-}
-
 function upperTemplate(name: string): SplitDayTemplate {
   return {
     theme: name,
     name,
     primaryMuscles: ["Chest", "Back", "LateralDeltoid", "Bicep", "Tricep", "PosteriorDeltoid"],
     accessoryMuscles: ["AnteriorDeltoid", "Ab"],
+    suggestedPatterns: UPPER_PATTERNS,
   };
 }
 
@@ -129,6 +198,7 @@ function lowerTemplate(name: string): SplitDayTemplate {
     name,
     primaryMuscles: ["Quad", "Hamstring", "Glute", "Calf"],
     accessoryMuscles: ["Ab", "LowerBack"],
+    suggestedPatterns: LOWER_PATTERNS,
   };
 }
 
@@ -138,6 +208,7 @@ function pushTemplate(name: string): SplitDayTemplate {
     name,
     primaryMuscles: ["Chest", "Tricep", "LateralDeltoid", "AnteriorDeltoid"],
     accessoryMuscles: ["Ab"],
+    suggestedPatterns: PUSH_PATTERNS,
   };
 }
 
@@ -147,6 +218,7 @@ function pullTemplate(name: string): SplitDayTemplate {
     name,
     primaryMuscles: ["Back", "Bicep", "PosteriorDeltoid"],
     accessoryMuscles: ["LowerBack", "Trap"],
+    suggestedPatterns: PULL_PATTERNS,
   };
 }
 
@@ -156,6 +228,7 @@ function legsTemplate(name: string): SplitDayTemplate {
     name,
     primaryMuscles: ["Quad", "Hamstring", "Glute", "Calf"],
     accessoryMuscles: ["Ab", "LowerBack"],
+    suggestedPatterns: LEGS_PATTERNS,
   };
 }
 
@@ -211,15 +284,15 @@ function daysTargetingMuscle(
 }
 
 /**
- * Allocates weekly volume targets across training days into per-day muscle budgets, then
- * derives per-pattern slots. Guarantees:
+ * Allocates weekly volume targets across training days into per-day muscle budgets, then attaches
+ * the theme's suggested movement patterns (filtered to available lifts). Guarantees:
  *  - every non-Omit major muscle appears on ≥2 days (frequency by construction for 3+ days),
  *  - per-day set credits respect the time budget,
- *  - no patternSlot is emitted for a pattern with zero enabled candidates (feasibility guard).
+ *  - every suggested pattern has ≥1 enabled lift (feasibility guard).
  *
  * When the user's enabled lifts cannot satisfy a template (e.g. a "Legs" day with no leg lifts),
  * the unsatisfiable muscles are dropped for that day and their weekly budget is redistributed to
- * the remaining day(s) that target them; if no day targets them, the muscle receives no slots
+ * the remaining day(s) that target them; if no day targets them, the muscle receives no budget
  * (Phase 2 will surface the MEV miss as a validation issue rather than failing generation).
  */
 export function allocateDayPlans(
@@ -232,6 +305,7 @@ export function allocateDayPlans(
     return [];
   }
   const patternsByMuscle = availablePatternsByMuscle(context);
+  const availablePatternSet = availablePatterns(context);
   const timeBudget = timeBudgetForDay(context);
 
   // Frequency per muscle: how many days target it as a primary.
@@ -261,8 +335,17 @@ export function allocateDayPlans(
       });
     }
 
+    // Scale down primary budgets if they exceed the day's time budget (Upper-day paradox fix).
+    let usedCredits = sumPrimaryCredits(muscleBudgets);
+    if (timeBudget != null && usedCredits > timeBudget) {
+      const scale = timeBudget / usedCredits;
+      for (const budget of muscleBudgets) {
+        budget.sets = Math.max(2, Math.round(budget.sets * scale * 2) / 2);
+      }
+      usedCredits = sumPrimaryCredits(muscleBudgets);
+    }
+
     // Accessory spillover: if the day has time slack, pull accessory muscle volume here.
-    const usedCredits = sumPrimaryCredits(muscleBudgets);
     let slack = timeBudget != null ? Math.max(0, timeBudget - usedCredits) : 0;
     if (slack > 0) {
       for (const muscle of accessories) {
@@ -280,8 +363,8 @@ export function allocateDayPlans(
       }
     }
 
-    // Pattern slots: for each primary muscle budget, pick a pattern the user has available.
-    const patternSlots = derivePatternSlots(muscleBudgets, patternsByMuscle, timeBudget);
+    // Suggested patterns for the theme, filtered to those the user can actually fill.
+    const suggestedPatterns = deriveSuggestedPatterns(template.suggestedPatterns, availablePatternSet);
 
     return {
       dayIndex,
@@ -290,7 +373,7 @@ export function allocateDayPlans(
       theme: template.theme,
       timeBudgetHardSets: timeBudget,
       muscleBudgets,
-      patternSlots,
+      suggestedPatterns,
     };
   });
 }
@@ -323,40 +406,34 @@ function sumPrimaryCredits(budgets: MuscleBudget[]): number {
 }
 
 /**
- * Derive pattern slots from the day's muscle budgets. For each muscle, picks the first available
- * pattern the user has an enabled lift for. Splits a muscle's budget into minSets/maxSets bounds
- * for the slot. Never emits a slot for a muscle with no available pattern (feasibility guard).
+ * The set of every movement pattern the user has at least one enabled lift for. Used by the
+ * suggested-pattern feasibility guard so the builder is never pointed at a pattern it can't fill.
  */
-function derivePatternSlots(
-  budgets: MuscleBudget[],
-  patternsByMuscle: Map<string, string[]>,
-  timeBudget: number | null,
-): PatternSlot[] {
-  const slots: PatternSlot[] = [];
-  for (const budget of budgets) {
-    const patterns = patternsByMuscle.get(budget.muscle) ?? [];
-    if (patterns.length === 0) continue; // feasibility guard
-    // Prefer the first available pattern (deterministic). A richer version would prefer compound
-    // patterns for large budgets, but that's a v2 refinement; the builders pick the lift anyway.
-    const pattern = patterns[0];
-    const sets = Math.max(1, Math.round(budget.sets));
-    slots.push({
-      pattern,
-      muscleFocus: budget.muscle,
-      minSets: Math.max(1, Math.floor(sets * 0.75)),
-      maxSets: sets,
-    });
+function availablePatterns(context: GenerationContext): Set<string> {
+  const set = new Set<string>();
+  for (const lift of context.liftsById.values()) {
+    set.add(lift.movementPattern);
   }
-  // If time budget is tight, trim the total slot maxSets to fit.
-  if (timeBudget != null) {
-    const total = slots.reduce((s, slot) => s + slot.maxSets, 0);
-    if (total > timeBudget) {
-      const scale = timeBudget / total;
-      for (const slot of slots) {
-        slot.maxSets = Math.max(1, Math.floor(slot.maxSets * scale));
-        slot.minSets = Math.min(slot.minSets, slot.maxSets);
-      }
-    }
+  return set;
+}
+
+/**
+ * Filters a theme's suggested patterns to those the user has ≥1 enabled lift for, so every
+ * suggestion is fillable. This is the feasibility guard: the builder is never pointed at a
+ * pattern it cannot select a lift for.
+ */
+function deriveSuggestedPatterns(
+  templates: SuggestedPatternTemplate[],
+  available: Set<string>,
+): SuggestedPattern[] {
+  const seen = new Set<string>();
+  const out: SuggestedPattern[] = [];
+  for (const t of templates) {
+    if (!available.has(t.pattern)) continue;
+    const key = `${t.pattern}|${t.muscleFocus}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ pattern: t.pattern, muscleFocus: t.muscleFocus });
   }
-  return slots;
+  return out;
 }

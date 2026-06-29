@@ -13,6 +13,7 @@ internal data class OnboardingEphemeralState(
     val hasCompletedHistoricalImport: Boolean = false,
     val importInsightsSummary: ImportInsightsSummaryUi? = null,
     val generateState: GenerateState = GenerateState.Idle,
+    val generateProgress: ProgramGenerationProgressUi? = null,
     val generateErrorMessage: String? = null,
     val presetApplyError: String? = null,
 ) {

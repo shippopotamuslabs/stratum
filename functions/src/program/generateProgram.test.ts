@@ -37,7 +37,7 @@ const PAYLOAD = JSON.stringify({
     { id: "front-squat", name: "Front Squat", movementPattern: "LegPush", primaryMuscles: ["Quad"], secondaryMuscles: ["Glute"] },
     { id: "rdl", name: "RDL", movementPattern: "HipHinge", primaryMuscles: ["Hamstring"], secondaryMuscles: ["Glute"] },
     { id: "gm", name: "Good Morning", movementPattern: "HipHinge", primaryMuscles: ["Hamstring"], secondaryMuscles: ["LowerBack"] },
-    { id: "lat-raise", name: "Lateral Raise", movementPattern: "DeltIso", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
+    { id: "lat-raise", name: "Lateral Raise", movementPattern: "LateralDeltIso", primaryMuscles: ["LateralDeltoid"], secondaryMuscles: [] },
     { id: "curl", name: "Curl", movementPattern: "BicepIso", primaryMuscles: ["Bicep"], secondaryMuscles: [] },
     { id: "tricep-ext", name: "Tricep Extension", movementPattern: "TricepIso", primaryMuscles: ["Tricep"], secondaryMuscles: [] },
     { id: "calf-raise", name: "Calf Raise", movementPattern: "Calves", primaryMuscles: ["Calf"], secondaryMuscles: [] },
@@ -65,7 +65,7 @@ const NORMALIZATION_REQUEST: ProgramNormalizationRequest = {
     ["row", "HorizontalPull"], ["seated-row", "HorizontalPull"],
     ["squat", "LegPush"], ["front-squat", "LegPush"],
     ["rdl", "HipHinge"], ["gm", "HipHinge"],
-    ["lat-raise", "DeltIso"], ["curl", "BicepIso"], ["tricep-ext", "TricepIso"],
+    ["lat-raise", "LateralDeltIso"], ["curl", "BicepIso"], ["tricep-ext", "TricepIso"],
     ["calf-raise", "Calves"], ["seated-calf", "Calves"],
   ]),
 };

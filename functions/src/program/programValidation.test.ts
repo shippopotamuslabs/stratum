@@ -6,7 +6,9 @@ import {
   validateMuscleFrequency,
   validateNoDuplicateLifts,
   validateProgramMetrics,
+  validateWeeklyMuscleVolume,
   validateWorkoutDuration,
+  weeklyVolumeToleranceBand,
 } from "./programValidation";
 
 const CONTEXT = parseGenerationContext(
@@ -61,7 +63,7 @@ describe("programValidation", () => {
           workoutLifts: [
             {
               liftId: "bench",
-              workoutLiftSets: Array.from({ length: 20 }, (_, i) => ({ position: i })),
+              workoutLiftSets: Array.from({ length: 22 }, (_, i) => ({ position: i })),
             },
           ],
         },
@@ -76,7 +78,7 @@ describe("programValidation", () => {
     assert.ok(issues.some((issue) => issue.code === "MUSCLE_FREQUENCY_LOW"));
   });
 
-  it("flags stacked same-primary exercises", () => {
+  it("flags stacked same-primary exercises as a warning", () => {
     const program = {
       workouts: [
         {
@@ -90,7 +92,9 @@ describe("programValidation", () => {
       ],
     };
     const issues = validateExerciseOrdering(program, CONTEXT);
-    assert.ok(issues.some((issue) => issue.code === "EXERCISE_ORDER_STACKED"));
+    const stacked = issues.find((issue) => issue.code === "EXERCISE_ORDER_STACKED");
+    assert.ok(stacked);
+    assert.equal(stacked!.severity, "warning");
   });
 
   it("flags a workout with a duplicate liftId (Bug 1 defense-in-depth)", () => {
@@ -142,5 +146,17 @@ describe("programValidation", () => {
     );
     assert.ok(report.summary.weeklyMuscleVolume.Chest >= 3);
     assert.ok(typeof report.pass === "boolean");
+  });
+
+  it("weekly volume within fuzzy band passes without error", () => {
+    const band = weeklyVolumeToleranceBand({ min: 8, aim: 14, max: 20 });
+    assert.ok(band.minFloor <= 5.5);
+    const issues = validateWeeklyMuscleVolume({ Back: 5.5 }, CONTEXT);
+    assert.ok(!issues.some((issue) => issue.code === "WEEKLY_VOLUME_BELOW_TARGET"));
+  });
+
+  it("weekly volume materially below fuzzy band still errors", () => {
+    const issues = validateWeeklyMuscleVolume({ Back: 2 }, CONTEXT);
+    assert.ok(issues.some((issue) => issue.code === "WEEKLY_VOLUME_BELOW_TARGET"));
   });
 });

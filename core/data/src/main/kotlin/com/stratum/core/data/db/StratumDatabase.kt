@@ -35,7 +35,7 @@ import androidx.room.TypeConverters
         WorkoutLiftEntity::class,
         LiftSetEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(WeekdaySetConverter::class, EnumConverters::class)

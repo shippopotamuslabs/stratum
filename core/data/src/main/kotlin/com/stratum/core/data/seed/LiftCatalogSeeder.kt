@@ -80,6 +80,8 @@ class LiftCatalogSeeder(
             equipment = dto.equipment,
             isCustom = false,
             enabled = false,
+            description = dto.description,
+            imageUrisCsv = dto.imageUris.joinToString(","),
         )
         val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).mapIndexed { _, t ->
             IncrementTierEntity(

@@ -22,7 +22,7 @@ object ImportStubLiftGuesser {
                 InferredCustomLiftMetadata(
                     exerciseNameRaw = name,
                     movementPattern = pattern,
-                    primaryMuscles = guessPrimaryMuscles(name, pattern),
+                    primaryMuscles = guessPrimaryMuscles(pattern),
                     secondaryMuscles = emptySet(),
                 ),
             )
@@ -48,11 +48,11 @@ object ImportStubLiftGuesser {
         movementPattern: MovementPattern,
     ): Set<MuscleGroup> {
         if (isRecoverableStub(lift)) {
-            return guessPrimaryMuscles(lift.name, movementPattern)
+            return guessPrimaryMuscles(movementPattern)
         }
         if (lift.primaryMuscles.isNotEmpty()) return lift.primaryMuscles
         if (!lift.isCustom) return lift.primaryMuscles
-        return guessPrimaryMuscles(lift.name, movementPattern)
+        return guessPrimaryMuscles(movementPattern)
     }
 
     /**
@@ -62,7 +62,7 @@ object ImportStubLiftGuesser {
     private fun isRecoverableStub(lift: Lift): Boolean {
         if (!lift.isCustom) return false
         val guessedPattern = guessMovementPattern(lift.name) ?: return false
-        val guessedPrimary = guessPrimaryMuscles(lift.name, guessedPattern)
+        val guessedPrimary = guessPrimaryMuscles(guessedPattern)
         return lift.movementPattern != guessedPattern || lift.primaryMuscles != guessedPrimary
     }
 
@@ -75,7 +75,9 @@ object ImportStubLiftGuesser {
             containsAny(normalized, "pulldown", "pullup", "pull up", "chinup", "chin up") ->
                 MovementPattern.VerticalPull
             containsAny(normalized, "shrug") -> MovementPattern.TrapIso
-            isDeltIsolationName(normalized) -> MovementPattern.DeltIso
+            isRearDeltName(normalized) -> MovementPattern.RearDeltIso
+            isFrontDeltName(normalized) -> MovementPattern.AnteriorDeltIso
+            isLateralDeltName(normalized) -> MovementPattern.LateralDeltIso
             containsAny(normalized, "row", "pullover") -> MovementPattern.HorizontalPull
             containsAny(normalized, "bench press", "benchpress", "pushup", "push up", "dip", "fly") ->
                 MovementPattern.HorizontalPush
@@ -93,14 +95,11 @@ object ImportStubLiftGuesser {
         }
     }
 
-    internal fun guessPrimaryMuscles(name: String, pattern: MovementPattern): Set<MuscleGroup> {
-        if (pattern == MovementPattern.DeltIso) {
-            return setOf(guessDeltPrimary(ImportExerciseNameNormalizer.normalizeForMatching(name)))
-        }
+    internal fun guessPrimaryMuscles(pattern: MovementPattern): Set<MuscleGroup> {
         return patternPrimaryMuscles(pattern)
     }
 
-    private fun isDeltIsolationName(normalized: String): Boolean =
+    private fun isRearDeltName(normalized: String): Boolean =
         containsAny(
             normalized,
             "rear delt",
@@ -109,28 +108,32 @@ object ImportStubLiftGuesser {
             "reverse pec",
             "face pull",
             "facepull",
+            "bent over",
+            "bent-over",
+        )
+
+    private fun isFrontDeltName(normalized: String): Boolean =
+        containsAny(normalized, "front raise", "frontraise", "front delt")
+
+    private fun isLateralDeltName(normalized: String): Boolean =
+        containsAny(
+            normalized,
             "lateral raise",
             "side raise",
+            "side lateral",
             "cuffed lateral",
             "y raise",
             "iron cross",
-            "front raise",
         )
-
-    private fun guessDeltPrimary(normalized: String): MuscleGroup =
-        when {
-            containsAny(normalized, "rear delt", "reardelt", "reverse fly", "reverse pec", "face pull", "facepull") ->
-                MuscleGroup.PosteriorDeltoid
-            containsAny(normalized, "front raise") -> MuscleGroup.AnteriorDeltoid
-            else -> MuscleGroup.LateralDeltoid
-        }
 
     private fun patternPrimaryMuscles(pattern: MovementPattern): Set<MuscleGroup> =
         when (pattern) {
             MovementPattern.BicepIso -> setOf(MuscleGroup.Bicep)
             MovementPattern.TricepIso -> setOf(MuscleGroup.Tricep)
             MovementPattern.ChestIso -> setOf(MuscleGroup.Chest)
-            MovementPattern.DeltIso -> setOf(MuscleGroup.LateralDeltoid)
+            MovementPattern.LateralDeltIso -> setOf(MuscleGroup.LateralDeltoid)
+            MovementPattern.RearDeltIso -> setOf(MuscleGroup.PosteriorDeltoid)
+            MovementPattern.AnteriorDeltIso -> setOf(MuscleGroup.AnteriorDeltoid)
             MovementPattern.HorizontalPull,
             MovementPattern.VerticalPull,
             -> setOf(MuscleGroup.Back)

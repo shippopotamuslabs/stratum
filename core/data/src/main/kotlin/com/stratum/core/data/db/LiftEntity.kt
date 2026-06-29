@@ -38,4 +38,6 @@ data class LiftEntity(
     val equipment: String? = null,
     val isCustom: Boolean,
     val enabled: Boolean,
+    val description: String? = null,
+    val imageUrisCsv: String? = null,
 )

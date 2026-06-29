@@ -10,7 +10,9 @@ export const MOVEMENT_PATTERNS = [
   "ChestIso",
   "TricepIso",
   "BicepIso",
-  "DeltIso",
+  "LateralDeltIso",
+  "RearDeltIso",
+  "AnteriorDeltIso",
   "GluteIso",
   "ForearmIso",
   "TrapIso",
@@ -91,9 +93,9 @@ For each exercise name, infer:
 - equipment: short optional label (e.g. "barbell", "dumbbell", "cable", "machine", "bodyweight")
 
 Use only the provided enum values. Prefer isolation patterns (TricepIso, BicepIso, etc.) for single-joint accessories.
-Lateral raises, side raises, and Y-raises: movementPattern DeltIso, primaryMuscles ["LateralDeltoid"].
-Rear delt fly, reverse fly, and face pulls: movementPattern DeltIso, primaryMuscles ["PosteriorDeltoid"].
-Front raises: movementPattern DeltIso, primaryMuscles ["AnteriorDeltoid"].
+Lateral raises, side raises, and Y-raises: movementPattern LateralDeltIso, primaryMuscles ["LateralDeltoid"].
+Rear delt fly, reverse fly, and face pulls: movementPattern RearDeltIso, primaryMuscles ["PosteriorDeltoid"].
+Front raises: movementPattern AnteriorDeltIso, primaryMuscles ["AnteriorDeltoid"].
 If the name mentions a brand or variant (e.g. "Katana Triceps Extension"), classify by the underlying movement.
 Return one row per input exercise; keep the name exactly as provided.`;
 
