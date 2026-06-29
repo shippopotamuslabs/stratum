@@ -26,9 +26,10 @@ object ImportStubLiftGuesser {
                     secondaryMuscles = emptySet(),
                 ),
             )
+        val patterns = setOf(normalized.movementPattern) + normalized.movementPattern.secondaryPatterns
         return CustomLiftDefinition(
             name = name,
-            movementPattern = normalized.movementPattern,
+            movementPatterns = patterns,
             primaryMuscles = normalized.primaryMuscles,
             secondaryMuscles = normalized.secondaryMuscles,
             equipment = null,
@@ -38,9 +39,9 @@ object ImportStubLiftGuesser {
 
     fun effectiveMovementPattern(lift: Lift): MovementPattern {
         if (isRecoverableStub(lift)) {
-            return guessMovementPattern(lift.name) ?: lift.movementPattern
+            return guessMovementPattern(lift.name) ?: (lift.movementPatterns.firstOrNull() ?: MovementPattern.SquatPattern)
         }
-        return lift.movementPattern
+        return lift.movementPatterns.firstOrNull() ?: MovementPattern.SquatPattern
     }
 
     fun effectivePrimaryMuscles(
@@ -63,7 +64,8 @@ object ImportStubLiftGuesser {
         if (!lift.isCustom) return false
         val guessedPattern = guessMovementPattern(lift.name) ?: return false
         val guessedPrimary = guessPrimaryMuscles(guessedPattern)
-        return lift.movementPattern != guessedPattern || lift.primaryMuscles != guessedPrimary
+        val primaryPattern = lift.movementPatterns.firstOrNull() ?: MovementPattern.SquatPattern
+        return primaryPattern != guessedPattern || lift.primaryMuscles != guessedPrimary
     }
 
     internal fun guessMovementPattern(name: String): MovementPattern? {
@@ -152,6 +154,8 @@ object ImportStubLiftGuesser {
             MovementPattern.ScapularElevation -> setOf(MuscleGroup.Trap)
             MovementPattern.WristFlexionExtension -> setOf(MuscleGroup.Forearm)
             MovementPattern.SpinalFlexion -> setOf(MuscleGroup.Ab)
+            MovementPattern.HipAbduction -> setOf(MuscleGroup.Abductor)
+            MovementPattern.HipAdduction -> setOf(MuscleGroup.Adductor)
         }
 
     private fun containsAny(haystack: String, vararg needles: String): Boolean =

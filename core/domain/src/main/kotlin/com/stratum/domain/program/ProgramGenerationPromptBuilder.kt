@@ -101,12 +101,13 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
         } ?: ""
         val id = lift.id.value.quoteJson()
         val name = lift.name.quoteJson()
-        val pattern = lift.movementPattern.name.quoteJson()
+        val patterns =
+            lift.movementPatterns.joinToString(",") { pattern -> pattern.name.quoteJson() }
         val primaryMuscles =
             lift.primaryMuscles.joinToString(",") { muscle -> muscle.name.quoteJson() }
         val secondaryMuscles =
             lift.secondaryMuscles.joinToString(",") { muscle -> muscle.name.quoteJson() }
-        return """{"id":$id,"name":$name,"movementPattern":$pattern,"proven":$proven,""" +
+        return """{"id":$id,"name":$name,"movementPatterns":[$patterns],"proven":$proven,""" +
             """"primaryMuscles":[$primaryMuscles],"secondaryMuscles":[$secondaryMuscles]$insightsJson}"""
     }
 

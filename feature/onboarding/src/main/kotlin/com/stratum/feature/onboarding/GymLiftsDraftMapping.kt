@@ -2,6 +2,7 @@ package com.stratum.feature.onboarding
 
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 
 internal fun GymPreset.toPresetOptionUi(): GymPresetOptionUi = GymPresetOptionUi(
@@ -46,7 +47,7 @@ internal fun List<Lift>.toGymLiftsDraft(
 internal fun Lift.toSummary(): LiftSummaryUi = LiftSummaryUi(
     id = id.value,
     name = name,
-    patternLabel = movementPattern.displayName,
+    patternLabel = (movementPatterns.firstOrNull() ?: MovementPattern.SquatPattern).displayName,
     muscleSummary = muscleSummary(primaryMuscles, secondaryMuscles),
     enabled = enabled,
 )

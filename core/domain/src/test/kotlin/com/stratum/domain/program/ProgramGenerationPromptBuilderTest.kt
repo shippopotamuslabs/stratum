@@ -337,7 +337,7 @@ class ProgramGenerationPromptBuilderTest {
         Lift(
             id = id,
             name = name,
-            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = emptySet(),
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),

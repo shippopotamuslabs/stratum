@@ -184,7 +184,7 @@ class OnboardingGenerateViewModelTest {
                     com.stratum.domain.lift.Lift(
                         id = com.stratum.domain.lift.identity.LiftId("back-squat"),
                         name = "Back Squat",
-                        movementPattern = com.stratum.domain.lift.MovementPattern.SquatPattern,
+                        movementPatterns = setOf(com.stratum.domain.lift.MovementPattern.SquatPattern),
                         primaryMuscles = emptySet(),
                         secondaryMuscles = emptySet(),
                         allowWeightChangeBetweenSets = false,

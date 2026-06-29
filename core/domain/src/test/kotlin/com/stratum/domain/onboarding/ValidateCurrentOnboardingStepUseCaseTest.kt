@@ -96,7 +96,7 @@ class ValidateCurrentOnboardingStepUseCaseTest {
     private fun enabledLift(): Lift = Lift(
         id = LiftId("squat"),
         name = "Squat",
-        movementPattern = MovementPattern.SquatPattern,
+        movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
         allowWeightChangeBetweenSets = false,

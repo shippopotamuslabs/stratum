@@ -19,7 +19,7 @@ class MuscleVolumeCreditTest {
             Lift(
                 id = LiftId("bench"),
                 name = "Bench Press",
-                movementPattern = MovementPattern.HorizontalPress,
+                movementPatterns = setOf(MovementPattern.HorizontalPress),
                 primaryMuscles = setOf(MuscleGroup.Chest),
                 secondaryMuscles = setOf(MuscleGroup.Tricep, MuscleGroup.Chest),
                 allowWeightChangeBetweenSets = true,
@@ -47,7 +47,7 @@ class MuscleVolumeCreditTest {
             Lift(
                 id = LiftId("row"),
                 name = "Cable Row",
-                movementPattern = MovementPattern.HorizontalPull,
+                movementPatterns = setOf(MovementPattern.HorizontalPull),
                 primaryMuscles = setOf(MuscleGroup.Back),
                 secondaryMuscles = emptySet(),
                 allowWeightChangeBetweenSets = true,
@@ -75,7 +75,7 @@ class MuscleVolumeCreditTest {
             Lift(
                 id = LiftId("press"),
                 name = "Machine Chest Press",
-                movementPattern = MovementPattern.HorizontalPress,
+                movementPatterns = setOf(MovementPattern.HorizontalPress),
                 primaryMuscles = setOf(MuscleGroup.Chest),
                 secondaryMuscles = emptySet(),
                 allowWeightChangeBetweenSets = true,
@@ -104,7 +104,7 @@ class MuscleVolumeCreditTest {
             Lift(
                 id = LiftId("row"),
                 name = "Iso-Lateral Row",
-                movementPattern = MovementPattern.SquatPattern,
+                movementPatterns = setOf(MovementPattern.SquatPattern),
                 primaryMuscles = emptySet(),
                 secondaryMuscles = emptySet(),
                 allowWeightChangeBetweenSets = false,

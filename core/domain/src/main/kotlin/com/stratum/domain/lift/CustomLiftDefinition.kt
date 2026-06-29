@@ -7,7 +7,7 @@ import com.stratum.domain.onboarding.MuscleGroup
  */
 data class CustomLiftDefinition(
     val name: String,
-    val movementPattern: MovementPattern,
+    val movementPatterns: Set<MovementPattern>,
     val primaryMuscles: Set<MuscleGroup>,
     val secondaryMuscles: Set<MuscleGroup> = emptySet(),
     val equipment: String? = null,

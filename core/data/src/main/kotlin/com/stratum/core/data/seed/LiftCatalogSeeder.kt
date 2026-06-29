@@ -65,7 +65,8 @@ class LiftCatalogSeeder(
         }
 
     private fun mapDto(dto: LiftSeedDto): MappedLift? {
-        val pattern = enumValueOfOrNull<MovementPattern>(dto.movementPattern) ?: return null
+        val patterns = dto.movementPatterns.mapNotNull { enumValueOfOrNull<MovementPattern>(it) }.toSet()
+        if (patterns.isEmpty()) return null
         val primary = dto.primaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
         val secondary = dto.secondaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
         val tags = dto.presetTags.mapNotNull { enumValueOfOrNull<GymPreset>(it) }.toSet()
@@ -74,7 +75,7 @@ class LiftCatalogSeeder(
         val lift = LiftEntity(
             id = id,
             name = dto.name,
-            movementPattern = pattern,
+            movementPatterns = patterns,
             primaryMusclesBitmask = primary.toBitmask(),
             secondaryMusclesBitmask = secondary.toBitmask(),
             allowWeightChangeBetweenSets = dto.allowWeightChangeBetweenSets,

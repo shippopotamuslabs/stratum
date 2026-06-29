@@ -31,7 +31,7 @@ import com.stratum.domain.lift.identity.LiftId
 data class LiftEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: LiftId,
     val name: String,
-    val movementPattern: MovementPattern,
+    val movementPatterns: Set<MovementPattern>,
     val primaryMusclesBitmask: Int,
     val secondaryMusclesBitmask: Int,
     val allowWeightChangeBetweenSets: Boolean,

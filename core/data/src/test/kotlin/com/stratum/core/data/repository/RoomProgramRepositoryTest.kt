@@ -147,7 +147,7 @@ class RoomProgramRepositoryTest {
     private fun minimalLift(id: LiftId, pattern: MovementPattern): LiftEntity = LiftEntity(
         id = id,
         name = id.value,
-        movementPattern = pattern,
+        movementPatterns = setOf(pattern),
         primaryMusclesBitmask = 0,
         secondaryMusclesBitmask = 0,
         allowWeightChangeBetweenSets = false,

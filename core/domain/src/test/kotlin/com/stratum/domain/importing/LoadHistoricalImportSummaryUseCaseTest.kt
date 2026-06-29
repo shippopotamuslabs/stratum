@@ -199,7 +199,7 @@ class LoadHistoricalImportSummaryUseCaseTest {
         Lift(
             id = LiftId(slug),
             name = slug.replace('-', ' ').replaceFirstChar { it.uppercase() },
-            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,

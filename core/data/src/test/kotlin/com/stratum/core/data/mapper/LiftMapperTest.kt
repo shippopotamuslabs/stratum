@@ -22,7 +22,7 @@ class LiftMapperTest {
         val lift = Lift(
             id = LiftId("bench-press"),
             name = "Bench Press",
-            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = setOf(MuscleGroup.Tricep, MuscleGroup.AnteriorDeltoid),
             allowWeightChangeBetweenSets = false,
@@ -48,7 +48,7 @@ class LiftMapperTest {
         val lift = Lift(
             id = LiftId("squat"),
             name = "Back Squat",
-            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,
@@ -80,7 +80,7 @@ class LiftMapperTest {
         val lift = Lift(
             id = LiftId("leg-press"),
             name = "Leg Press",
-            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = true,
@@ -100,7 +100,7 @@ class LiftMapperTest {
         val lift = Lift(
             id = LiftId("x"),
             name = "X",
-            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = emptySet(),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,
@@ -117,7 +117,7 @@ class LiftMapperTest {
         val lift = Lift(
             id = LiftId("chest-press"),
             name = "Machine Chest Press",
-            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = true,
@@ -140,7 +140,7 @@ class LiftMapperTest {
         val lift = Lift(
             id = LiftId("squat"),
             name = "Back Squat",
-            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,

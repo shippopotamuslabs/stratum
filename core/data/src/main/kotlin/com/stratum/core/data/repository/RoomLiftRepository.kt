@@ -92,7 +92,7 @@ class RoomLiftRepository @Inject constructor(
             definition =
                 CustomLiftDefinition(
                     name = name,
-                    movementPattern = MovementPattern.SquatPattern,
+                    movementPatterns = setOf(MovementPattern.SquatPattern),
                     primaryMuscles = emptySet(),
                     secondaryMuscles = emptySet(),
                     equipment = null,
@@ -116,7 +116,7 @@ class RoomLiftRepository @Inject constructor(
             Lift(
                 id = id,
                 name = definition.name,
-                movementPattern = definition.movementPattern,
+                movementPatterns = definition.movementPatterns,
                 primaryMuscles = definition.primaryMuscles,
                 secondaryMuscles = definition.secondaryMuscles,
                 allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,

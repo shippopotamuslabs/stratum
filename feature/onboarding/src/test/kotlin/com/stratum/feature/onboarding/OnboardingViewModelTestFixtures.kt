@@ -339,7 +339,7 @@ internal object OnboardingViewModelTestFixtures {
     ): Lift = Lift(
         id = LiftId(slug),
         name = slug.replace('-', ' ').replaceFirstChar { it.uppercase() },
-        movementPattern = MovementPattern.SquatPattern,
+        movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
         allowWeightChangeBetweenSets = false,
