@@ -11,6 +11,7 @@
  * the builder actually needs (dropping `estimatedOneRm`/`sessionCount` from the builder payload).
  */
 import type { GenerationContext, LiftContext } from "./programPayloadContext";
+import { liftCatalogQualityAdjustment } from "./liftCatalogQuality";
 import type { DayPlan } from "./splitAllocator";
 import { MAJOR_COMPOUND_PATTERNS } from "./programRules";
 
@@ -27,6 +28,7 @@ export interface LiftCandidate {
    *  [MAJOR_COMPOUND_PATTERNS]. Surfaced to the builder so it can order compounds before
    *  isolation/accessory work. */
   isCompound: boolean;
+  mainstream?: boolean;
   primaryMuscles: string[];
   secondaryMuscles: string[];
   /** Trimmed insights: only fatigue decay + progress trend. Undefined when the lift has no insights. */
@@ -65,12 +67,15 @@ export function mainstreamNameScore(name: string): number {
     return 1.0;
   }
   if (
-    /^(bench press|squat|deadlift|chin-up|chin up|pull-up|pull up|lat pulldown|leg press|romanian deadlift|seated row|cable row|overhead press|military press|hip thrust|leg curl|leg extension|calf raise|barbell row|incline bench|decline bench|\bdips?\b)/.test(
+    /^(bench press|squat|deadlift|chin-up|chin up|pull-up|pull up|lat pulldown|leg press|romanian deadlift|seated row|cable row|overhead press|military press|hip thrust|leg curl|leg extension|calf raise|barbell row|incline bench|\bdips?\b)/.test(
       n,
     )
   ) {
     return 1.0;
   }
+  if (/\bdecline bench\b/.test(n)) return 0.45;
+  if (/\bbehind.?neck\b/.test(n) || /\bbehind the neck\b/.test(n)) return 0.2;
+  if (/\bone.?leg\b/.test(n) && /\bsquat\b/.test(n)) return 0.25;
   if (/\bbarbell\b/.test(n)) return 0.9;
   if (/\b(machine|smith machine|smith)\b/.test(n)) return 0.85;
   if (/\b(dumbbell|db)\b/.test(n)) return 0.8;
@@ -79,11 +84,17 @@ export function mainstreamNameScore(name: string): number {
   return 0.3;
 }
 
-/** Sort comparator for [LiftCandidate]s: priority desc, then mainstream name, then stable name. */
+/** Sort comparator for [LiftCandidate]s: proven first, mainstream second, priority desc third. */
 export function compareLiftCandidates(a: LiftCandidate, b: LiftCandidate): number {
+  const aProven = a.priorityTier === "proven" ? 1 : 0;
+  const bProven = b.priorityTier === "proven" ? 1 : 0;
+  if (bProven !== aProven) return bProven - aProven;
+
+  const aMain = a.mainstream === true ? 1 : 0;
+  const bMain = b.mainstream === true ? 1 : 0;
+  if (bMain !== aMain) return bMain - aMain;
+
   if (b.priority !== a.priority) return b.priority - a.priority;
-  const mainstream = mainstreamNameScore(b.name) - mainstreamNameScore(a.name);
-  if (mainstream !== 0) return mainstream;
   return a.name.localeCompare(b.name);
 }
 
@@ -125,7 +136,7 @@ export function scoreLift(lift: LiftContext, context: GenerationContext): number
 
   const hasInsights = lift.sessionCount != null || lift.progressTrend != null ? 1.0 : 0.3;
 
-  const mainstream = mainstreamNameScore(lift.name);
+  const mainstream = lift.mainstream === true ? 1.0 : mainstreamNameScore(lift.name);
 
   return (
     0.30 * provenTier +
@@ -184,7 +195,8 @@ export function buildDayCandidates(
 
 /** Maps a [LiftContext] to a [LiftCandidate], trimming insights to the builder-relevant fields. */
 function toCandidate(lift: LiftContext, context: GenerationContext): LiftCandidate {
-  const priority = scoreLift(lift, context);
+  const quality = liftCatalogQualityAdjustment(lift);
+  const priority = Math.max(0, Math.min(1, scoreLift(lift, context) + quality));
   const insights = trimInsights(lift);
   return {
     liftId: lift.id,
@@ -193,6 +205,7 @@ function toCandidate(lift: LiftContext, context: GenerationContext): LiftCandida
     priority: Math.round(priority * 1000) / 1000,
     priorityTier: lift.proven === true ? "proven" : "available",
     isCompound: MAJOR_COMPOUND_PATTERNS.has(lift.movementPattern),
+    mainstream: lift.mainstream === true,
     primaryMuscles: lift.primaryMuscles,
     secondaryMuscles: lift.secondaryMuscles,
     ...(insights ? { trainingInsights: insights } : {}),
@@ -219,4 +232,46 @@ function trimInsights(lift: LiftContext): LiftCandidate["trainingInsights"] {
   if (lift.fatigueDecaySlope != null) out.fatigueDecaySlope = lift.fatigueDecaySlope;
   if (lift.fatigueDecayIntercept != null) out.fatigueDecayIntercept = lift.fatigueDecayIntercept;
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
+ * Builds the global candidate lift list for the entire program: enabled lifts that train any of
+ * the targeted muscles across all days, sorted and capped to [CANDIDATES_PER_SLOT] per pattern.
+ */
+export function buildGlobalCandidates(
+  dayPlans: DayPlan[],
+  context: GenerationContext,
+): LiftCandidate[] {
+  const targetedMuscles = new Set<string>();
+  for (const plan of dayPlans) {
+    for (const b of plan.muscleBudgets) {
+      targetedMuscles.add(b.muscle);
+    }
+  }
+
+  const byPattern = new Map<string, LiftCandidate[]>();
+  const seenLiftIds = new Set<string>();
+
+  for (const lift of context.liftsById.values()) {
+    const trainsTarget =
+      lift.primaryMuscles.some((m) => targetedMuscles.has(m)) ||
+      lift.secondaryMuscles.some((m) => targetedMuscles.has(m));
+    if (!trainsTarget) continue;
+    if (seenLiftIds.has(lift.id)) continue;
+    seenLiftIds.add(lift.id);
+    const candidate = toCandidate(lift, context);
+    let bucket = byPattern.get(lift.movementPattern);
+    if (!bucket) {
+      bucket = [];
+      byPattern.set(lift.movementPattern, bucket);
+    }
+    bucket.push(candidate);
+  }
+
+  const out: LiftCandidate[] = [];
+  for (const bucket of byPattern.values()) {
+    bucket.sort(compareLiftCandidates);
+    out.push(...bucket.slice(0, CANDIDATES_PER_SLOT));
+  }
+  return out;
 }

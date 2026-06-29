@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildOpenRouterChatCompletionExtras,
+  buildProgramGenerationChatCompletionExtras,
   customLiftInferenceSessionId,
   importAgentSessionId,
   OPENROUTER_SESSION_ID_MAX,
@@ -36,5 +37,13 @@ describe("openrouterSession", () => {
     assert.equal(extras.session_id, "stratum-import:user:job");
     assert.equal(extras.provider.sort, undefined);
     assert.equal(extras.provider.require_parameters, false);
+  });
+
+  it("program generation uses price sort with throughput floor", () => {
+    const extras = buildProgramGenerationChatCompletionExtras("stratum-program-generate:user-1");
+    assert.equal(extras.session_id, "stratum-program-generate:user-1");
+    assert.equal(extras.provider.sort, "price");
+    assert.equal(extras.provider.require_parameters, true);
+    assert.deepEqual(extras.provider.preferred_min_throughput, { p90: 50 });
   });
 });

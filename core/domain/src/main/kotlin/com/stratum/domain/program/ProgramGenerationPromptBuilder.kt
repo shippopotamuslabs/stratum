@@ -107,9 +107,15 @@ class ProgramGenerationPromptBuilder @Inject constructor() {
             lift.primaryMuscles.joinToString(",") { muscle -> muscle.name.quoteJson() }
         val secondaryMuscles =
             lift.secondaryMuscles.joinToString(",") { muscle -> muscle.name.quoteJson() }
-        return """{"id":$id,"name":$name,"movementPatterns":[$patterns],"proven":$proven,""" +
-            """"primaryMuscles":[$primaryMuscles],"secondaryMuscles":[$secondaryMuscles]$insightsJson}"""
+        return """{"id":$id,"name":$name,"movementPatterns":[$patterns],"proven":$proven,"mainstream":${lift.mainstream},""" +
+            """"primaryMuscles":[$primaryMuscles],"secondaryMuscles":[$secondaryMuscles],""" +
+            """"muscleLengthBias":${lift.muscleLengthBias.name.quoteJson()}""" +
+            equipmentJson(lift.equipment) +
+            insightsJson + "}"
     }
+
+    private fun equipmentJson(equipment: String?): String =
+        if (equipment.isNullOrBlank()) "" else ""","equipment":${equipment.quoteJson()}"""
 
     private fun SupersetAffinity.toJson(): String {
         val liftA = liftA.value.quoteJson()

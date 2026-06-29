@@ -42,4 +42,5 @@ data class LiftEntity(
     val description: String? = null,
     val imageUrisCsv: String? = null,
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
+    val mainstream: Boolean = false,
 )

@@ -4,6 +4,7 @@ import {
   clampBackOffRir,
   MAJOR_COMPOUND_PATTERNS,
   schemeForTrainingAge,
+  sessionExerciseCapForTheme,
   TOP_SET_RIR,
 } from "./programRules";
 
@@ -14,12 +15,12 @@ describe("programRules", () => {
         [...MAJOR_COMPOUND_PATTERNS].sort(),
         [
           "HipHinge",
-          "HorizontalPull",
           "HorizontalPress",
+          "HorizontalPull",
           "InclinePress",
           "SquatPattern",
-          "VerticalPull",
           "VerticalPress",
+          "VerticalPull",
         ],
       );
     });
@@ -54,6 +55,15 @@ describe("programRules", () => {
 
     it("returns 0 for non-compound lifts regardless of proposal", () => {
       assert.equal(clampBackOffRir(false, 3), 0);
+    });
+  });
+
+  describe("sessionExerciseCapForTheme", () => {
+    it("matches commercial 4-day upper/lower session sizes", () => {
+      assert.equal(sessionExerciseCapForTheme("Upper A"), 8);
+      assert.equal(sessionExerciseCapForTheme("Lower B"), 5);
+      assert.equal(sessionExerciseCapForTheme("Legs A"), 5);
+      assert.equal(sessionExerciseCapForTheme("Full Body A"), 6);
     });
   });
 });

@@ -44,12 +44,12 @@ export interface GenerationMarkerSnapshot {
  * fall through to the deterministic fallback; a global re-gen is attempted once if final
  * validation fails; if that also fails, every workout is rebuilt from the deterministic fallback.
  *
- * Abuse boundary: exactly one bounded generation per onboarding completion (per-uid). No
- * follow-up turns, no open chat.
- * routing.
+ * OpenRouter routing for LLM calls is configured in the pipeline via
+ * `buildProgramGenerationChatCompletionExtras`: sort by price, then deprioritize providers below
+ * 50 tps (p90) at the same price tier.
  *
- * Abuse boundary: exactly one bounded generation per onboarding completion (per-uid). No follow-up
- * turns, no open chat.
+ * Abuse boundary: one in-flight generation per uid (concurrent duplicates abort). Regeneration
+ * overwrites a prior completed marker. No follow-up turns, no open chat.
  */
 export const generateProgram = onCall(
   {
@@ -79,21 +79,11 @@ export const generateProgram = onCall(
     const normalizationRequest = parseProgramGenerationPayload(payload);
     const uid = request.auth.uid;
 
-    const cachedProgram = await loadCachedProgram(uid);
-    if (cachedProgram != null) {
-      return { program: cachedProgram };
-    }
-
     try {
       await claimGenerationSlot(uid);
     } catch (error) {
-      if (error instanceof HttpsError && error.code === "already-exists") {
-        const racedCache = await loadCachedProgram(uid);
-        if (racedCache != null) {
-          return { program: racedCache };
-        }
-      }
-      throw error;
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError("internal", "Rate-limit check failed.");
     }
     try {
       const markerRef = generationMarkerRef(uid);
@@ -137,6 +127,7 @@ export async function generateProgramWithDeps(
   options?: {
     skipSplitPlanner?: boolean;
     skipFinalValidation?: boolean;
+    skipLiftSwap?: boolean;
     markerRef?: ProgramGenerationMarkerRef;
   },
 ): Promise<unknown> {
@@ -144,6 +135,7 @@ export async function generateProgramWithDeps(
   return generateProgramPipeline(client, model, payload, sessionId, normalizationRequest, {
     skipSplitPlanner: options?.skipSplitPlanner,
     skipFinalValidation: options?.skipFinalValidation,
+    skipLiftSwap: options?.skipLiftSwap,
     progress: async (phase) => {
       if (!markerRef) return;
       const message =
@@ -201,21 +193,15 @@ export function isStalePendingMarker(
 
 /**
  * Guards the Firestore generation slot before claiming `pending`. Rejects concurrent in-flight
- * duplicates (`aborted`). Completed markers with a cached [GenerationMarkerSnapshot.program] should
- * be served via [cachedProgramFromMarker] before claiming. Completed markers without a cache (or
- * stale `pending`) are reclaimable so a timed-out client can retry.
+ * duplicates (`aborted`). Completed markers (with or without a cached program) are reclaimable so
+ * the user can regenerate after editing onboarding. Stale `pending` markers are reclaimable after
+ * a client timeout.
  */
 export function assertCanClaimGenerationSlot(
   snapshot: GenerationMarkerSnapshot,
   nowMs: number = Date.now(),
 ): void {
   if (!snapshot.exists) return;
-  if (cachedProgramFromMarker(snapshot) != null) {
-    throw new HttpsError(
-      "already-exists",
-      "Program generation already completed for this user.",
-    );
-  }
   if (snapshot.status === "completed") {
     return;
   }
@@ -255,12 +241,6 @@ async function claimGenerationSlot(uid: string): Promise<void> {
     await admin.firestore().runTransaction(async (txn) => {
       const doc = await txn.get(generationRef);
       const snapshot = snapshotFromDoc(doc);
-      if (cachedProgramFromMarker(snapshot) != null) {
-        throw new HttpsError(
-          "already-exists",
-          "Program generation already completed for this user.",
-        );
-      }
       assertCanClaimGenerationSlot(snapshot);
       if (snapshot.exists) {
         txn.delete(generationRef);

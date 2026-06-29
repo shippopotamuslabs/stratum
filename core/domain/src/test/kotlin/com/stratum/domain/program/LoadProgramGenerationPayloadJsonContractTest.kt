@@ -279,7 +279,8 @@ class LoadProgramGenerationPayloadJsonContractTest {
             val obj = entry.jsonObject
             val id = LiftId(obj.getValue("id").jsonPrimitive.content)
             val name = obj.getValue("name").jsonPrimitive.content
-            val pattern = MovementPattern.valueOf(obj.getValue("movementPattern").jsonPrimitive.content)
+            val patterns = obj.getValue("movementPatterns").jsonArray.map { MovementPattern.valueOf(it.jsonPrimitive.content) }
+            val pattern = patterns.first()
             val presets =
                 obj["presetTags"]?.let { tags ->
                     tags.toString()

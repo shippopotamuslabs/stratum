@@ -86,6 +86,7 @@ class LiftCatalogSeeder(
             description = dto.description,
             imageUrisCsv = dto.imageUris.joinToString(","),
             muscleLengthBias = bias,
+            mainstream = dto.mainstream,
         )
         val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).mapIndexed { _, t ->
             IncrementTierEntity(

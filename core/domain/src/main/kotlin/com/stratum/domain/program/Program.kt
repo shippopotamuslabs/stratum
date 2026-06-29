@@ -20,6 +20,8 @@ data class Program(
     val id: ProgramId,
     val name: String,
     val createdAt: Instant,
+    /** Sessions in one full training cycle before repeating (may exceed workouts trained per calendar week). */
+    val cycleLength: Int,
     val workouts: List<Workout>,
 )
 

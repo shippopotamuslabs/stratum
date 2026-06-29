@@ -34,10 +34,12 @@ internal object ProgramResponseParser {
         val workouts = (programMap["workouts"] as? List<*>).orEmpty()
             .mapIndexedNotNull { index, w -> parseWorkout(w, programId, index) }
         if (workouts.isEmpty()) error("Malformed program response: no workouts")
+        val cycleLength = (programMap["cycleLength"] as? Number)?.toInt() ?: workouts.size
         return Program(
             id = programId,
             name = programMap["name"] as? String ?: "Program",
             createdAt = Instant.now(),
+            cycleLength = cycleLength,
             workouts = workouts,
         )
     }

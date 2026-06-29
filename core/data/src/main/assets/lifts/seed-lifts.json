@@ -22,7 +22,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "SpinalFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "alternate-incline-dumbbell-curl",
@@ -47,7 +48,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "arnold-dumbbell-press",
@@ -73,7 +75,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "back-extension",
@@ -100,7 +103,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "barbell-ab-rollout",
@@ -125,7 +129,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "SpinalFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "barbell-ab-rollout-on-knees",
@@ -150,7 +155,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "SpinalFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "barbell-back-squat",
@@ -178,7 +184,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-bench-press",
@@ -204,7 +211,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-curl",
@@ -229,7 +237,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-deadlift",
@@ -261,7 +270,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-front-squat",
@@ -288,7 +298,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "barbell-glute-bridge",
@@ -313,7 +324,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-guillotine-bench-press",
@@ -339,7 +351,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-hack-squat",
@@ -366,7 +379,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-hip-thrust",
@@ -391,7 +405,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-incline-bench-press",
@@ -417,7 +432,8 @@
     "movementPatterns": [
       "InclinePress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-lunge",
@@ -444,7 +460,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "barbell-rack-pull",
@@ -472,7 +489,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "barbell-rear-delt-row",
@@ -499,7 +517,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-rollout-from-bench",
@@ -526,7 +545,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "SpinalFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "barbell-romanian-deadlift",
@@ -553,7 +573,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-shrug",
@@ -575,7 +596,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ScapularElevation"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-shrug-behind-the-back",
@@ -601,7 +623,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ScapularElevation"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-side-split-squat",
@@ -628,7 +651,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-stiff-legged-deadlift",
@@ -654,7 +678,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-sumo-deadlift",
@@ -685,7 +710,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "barbell-walking-lunge",
@@ -712,7 +738,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "bench-dips",
@@ -737,7 +764,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "bent-arm-barbell-pullover",
@@ -764,7 +792,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "bent-over-barbell-row",
@@ -791,7 +820,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "bent-over-dumbbell-rear-delt-raise-with-head-on-bench",
@@ -813,7 +843,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ShoulderHorizontalAbduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "bent-over-two-dumbbell-row",
@@ -841,7 +872,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "bent-over-two-dumbbell-row-with-palms-in",
@@ -868,7 +900,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "bodyweight-flyes",
@@ -895,7 +928,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "bodyweight-squat",
@@ -921,7 +955,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "bodyweight-walking-lunge",
@@ -949,7 +984,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "box-squat",
@@ -978,7 +1014,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "bulgarian-split-squat",
@@ -1005,7 +1042,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-chest-fly",
@@ -1026,7 +1064,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-chest-press",
@@ -1052,7 +1091,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-crossover",
@@ -1076,7 +1116,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-incline-pushdown",
@@ -1097,7 +1138,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-incline-triceps-extension",
@@ -1118,7 +1160,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-one-arm-tricep-extension",
@@ -1139,7 +1182,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "cable-rear-delt-fly",
@@ -1160,7 +1204,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-rope-hammer-curl",
@@ -1181,7 +1226,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-rope-overhead-triceps-extension",
@@ -1202,7 +1248,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-rope-rear-delt-rows",
@@ -1228,7 +1275,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "cable-rope-triceps-pushdown",
@@ -1249,7 +1297,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-shoulder-press",
@@ -1274,7 +1323,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-shrugs",
@@ -1295,7 +1345,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ScapularElevation"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "cable-triceps-pushdown",
@@ -1316,7 +1367,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-v-bar-triceps-pushdown",
@@ -1337,7 +1389,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-wrist-curl",
@@ -1358,7 +1411,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "WristFlexionExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cable-y-raise",
@@ -1381,7 +1435,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ShoulderAbduction"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "calf-press",
@@ -1404,7 +1459,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "chain-handle-extension",
@@ -1426,7 +1482,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "chain-press",
@@ -1452,7 +1509,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "chair-squat",
@@ -1480,7 +1538,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "chin-up",
@@ -1507,7 +1566,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "close-grip-barbell-bench-press",
@@ -1533,7 +1593,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "close-grip-dumbbell-press",
@@ -1560,7 +1621,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "close-grip-ez-bar-curl",
@@ -1585,7 +1647,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "close-grip-ez-bar-press",
@@ -1611,7 +1674,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "close-grip-front-lat-pulldown",
@@ -1638,7 +1702,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "close-grip-standing-barbell-curl",
@@ -1663,7 +1728,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "cross-body-hammer-curl",
@@ -1688,7 +1754,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "decline-barbell-bench-press",
@@ -1714,7 +1781,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "decline-dumbbell-fly",
@@ -1736,7 +1804,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "decline-dumbbell-triceps-extension",
@@ -1758,7 +1827,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "decline-ez-bar-triceps-extension",
@@ -1780,7 +1850,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "decline-push-up",
@@ -1807,7 +1878,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "decline-smith-press",
@@ -1833,7 +1905,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "deficit-deadlift",
@@ -1863,7 +1936,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dip-machine",
@@ -1888,7 +1962,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dips-chest-version",
@@ -1914,7 +1989,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dips-triceps-version",
@@ -1939,7 +2015,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "donkey-calf-raise",
@@ -1961,7 +2038,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "PlantarFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dumbbell-bench-press-with-neutral-grip",
@@ -1988,7 +2066,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dumbbell-concentration-curl",
@@ -2013,7 +2092,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-fly",
@@ -2035,7 +2115,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dumbbell-hammer-curl",
@@ -2057,7 +2138,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dumbbell-incline-curl",
@@ -2079,7 +2161,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-incline-row",
@@ -2108,7 +2191,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-lateral-raise",
@@ -2130,7 +2214,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ShoulderAbduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dumbbell-lying-rear-lateral-raise",
@@ -2152,7 +2237,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ShoulderHorizontalAbduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dumbbell-one-arm-shoulder-press",
@@ -2178,7 +2264,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dumbbell-one-arm-triceps-extension",
@@ -2200,7 +2287,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "dumbbell-one-arm-upright-row",
@@ -2227,7 +2315,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-prone-incline-curl",
@@ -2249,7 +2338,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-rear-lunge",
@@ -2277,7 +2367,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-spider-curl",
@@ -2299,7 +2390,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-squat",
@@ -2328,7 +2420,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-squat-to-a-bench",
@@ -2357,7 +2450,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-step-ups",
@@ -2385,7 +2479,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "dumbbell-tricep-extension-pronated-grip",
@@ -2407,7 +2502,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "elevated-back-lunge",
@@ -2433,7 +2529,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "ez-bar-curl",
@@ -2455,7 +2552,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "ez-bar-skull-crusher",
@@ -2480,7 +2578,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "face-pull",
@@ -2506,7 +2605,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "flat-bench-lying-leg-raise",
@@ -2529,7 +2629,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "floor-press",
@@ -2555,7 +2656,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "front-plate-raise",
@@ -2577,7 +2679,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ShoulderFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "full-range-of-motion-lat-pulldown",
@@ -2604,7 +2707,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "glute-ham-raise",
@@ -2631,7 +2735,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "goblet-squat",
@@ -2660,7 +2765,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "good-morning",
@@ -2687,7 +2793,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "handstand-push-ups",
@@ -2712,7 +2819,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "hanging-leg-raise",
@@ -2734,7 +2842,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "SpinalFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "high-cable-curls",
@@ -2755,7 +2864,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "incline-bench-pull",
@@ -2782,7 +2892,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "incline-cable-chest-press",
@@ -2808,7 +2919,8 @@
     "movementPatterns": [
       "InclinePress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "incline-cable-fly",
@@ -2832,7 +2944,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "incline-dumbbell-press",
@@ -2859,7 +2972,8 @@
     "movementPatterns": [
       "InclinePress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "incline-hammer-curls",
@@ -2881,7 +2995,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "incline-inner-biceps-curl",
@@ -2903,7 +3018,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "incline-push-up",
@@ -2929,7 +3045,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "jefferson-squats",
@@ -2958,7 +3075,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "jm-press",
@@ -2984,7 +3102,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "katana-triceps-extension",
@@ -3005,7 +3124,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "kneeling-cable-triceps-extension",
@@ -3026,7 +3146,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "kneeling-high-pulley-row",
@@ -3053,7 +3174,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "kneeling-single-arm-high-pulley-row",
@@ -3080,7 +3202,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "kneeling-squat",
@@ -3107,7 +3230,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "leg-lift",
@@ -3132,7 +3256,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "leg-over-floor-press",
@@ -3159,7 +3284,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "leverage-chest-press",
@@ -3186,7 +3312,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "leverage-decline-chest-press",
@@ -3213,7 +3340,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "leverage-high-row",
@@ -3240,7 +3368,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "leverage-iso-row",
@@ -3267,7 +3396,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "low-cable-crossover",
@@ -3291,7 +3421,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "low-cable-triceps-extension",
@@ -3312,7 +3443,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "low-pulley-row-to-neck",
@@ -3340,7 +3472,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "lunge-pass-through",
@@ -3368,7 +3501,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "lying-close-grip-barbell-triceps-extension-behind-the-head",
@@ -3390,7 +3524,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "lying-close-grip-barbell-triceps-press-to-chin",
@@ -3412,7 +3547,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "lying-dumbbell-tricep-extension",
@@ -3438,7 +3574,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "lying-t-bar-row",
@@ -3465,7 +3602,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "machine-bicep-curl",
@@ -3486,7 +3624,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "machine-leg-extension",
@@ -3507,7 +3646,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "KneeExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "machine-lying-leg-curl",
@@ -3528,7 +3668,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "KneeFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "machine-shoulder-military-press",
@@ -3553,7 +3694,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "machine-triceps-extension",
@@ -3574,7 +3716,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "narrow-stance-leg-press",
@@ -3601,7 +3744,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "neck-press",
@@ -3627,7 +3771,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "one-arm-chin-up",
@@ -3655,7 +3800,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "one-arm-dumbbell-bench-press",
@@ -3682,7 +3828,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "one-arm-dumbbell-preacher-curl",
@@ -3704,7 +3851,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "one-arm-dumbbell-row",
@@ -3732,7 +3880,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "one-arm-floor-press",
@@ -3758,7 +3907,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "one-arm-lat-pulldown",
@@ -3784,7 +3934,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "one-arm-long-bar-row",
@@ -3810,7 +3961,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "one-arm-side-deadlift",
@@ -3840,7 +3992,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "one-leg-barbell-squat",
@@ -3867,7 +4020,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "one-legged-cable-kickback",
@@ -3891,7 +4045,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "overhead-cable-curl",
@@ -3912,7 +4067,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "palms-down-wrist-curl-over-a-bench",
@@ -3934,7 +4090,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "WristFlexionExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "palms-up-barbell-wrist-curl-over-a-bench",
@@ -3956,7 +4113,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "WristFlexionExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "parallel-bar-dip",
@@ -3982,7 +4140,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "pec-deck-fly",
@@ -4003,7 +4162,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "pin-presses",
@@ -4032,7 +4192,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "plank",
@@ -4054,7 +4215,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "SpinalFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "plie-dumbbell-squat",
@@ -4083,7 +4245,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "preacher-curl",
@@ -4105,7 +4268,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "preacher-hammer-dumbbell-curl",
@@ -4130,7 +4294,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "pull-through",
@@ -4157,7 +4322,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "pull-up",
@@ -4183,7 +4349,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "push-up-to-side-plank",
@@ -4209,7 +4376,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "SpinalFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "pushups",
@@ -4235,7 +4403,8 @@
     "movementPatterns": [
       "HorizontalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "reverse-barbell-preacher-curls",
@@ -4260,7 +4429,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "reverse-cable-curl",
@@ -4284,7 +4454,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "reverse-flyes",
@@ -4306,7 +4477,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "reverse-grip-bent-over-rows",
@@ -4333,7 +4505,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "reverse-triceps-bench-press",
@@ -4358,7 +4531,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "rope-straight-arm-pulldown",
@@ -4381,7 +4555,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "scapular-pull-up",
@@ -4407,7 +4582,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ScapularElevation"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "seated-band-hamstring-curl",
@@ -4429,7 +4605,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "KneeFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "seated-cable-rows",
@@ -4456,7 +4633,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "seated-calf-raise",
@@ -4478,7 +4656,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "PlantarFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "seated-close-grip-concentration-barbell-curl",
@@ -4500,7 +4679,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "seated-dumbbell-press",
@@ -4526,7 +4706,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "seated-one-arm-cable-pulley-rows",
@@ -4553,7 +4734,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "seated-triceps-press",
@@ -4575,7 +4757,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "side-to-side-chins",
@@ -4604,7 +4787,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "single-arm-cable-crossover",
@@ -4625,7 +4809,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "single-leg-glute-bridge",
@@ -4650,7 +4835,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "single-leg-high-box-squat",
@@ -4677,7 +4863,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "single-leg-leg-extension",
@@ -4699,7 +4886,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "KneeExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "sled-leg-press",
@@ -4726,7 +4914,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "smith-machine-behind-the-back-shrug",
@@ -4750,7 +4939,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ScapularElevation"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "smith-machine-overhead-shoulder-press",
@@ -4775,7 +4965,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "speed-box-squat",
@@ -4802,7 +4993,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "speed-squats",
@@ -4830,7 +5022,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "split-squat-with-dumbbells",
@@ -4857,7 +5050,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "squat-with-plate-movers",
@@ -4886,7 +5080,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "standing-alternating-dumbbell-press",
@@ -4912,7 +5107,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "standing-barbell-press-behind-neck",
@@ -4937,7 +5133,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "standing-biceps-cable-curl",
@@ -4958,7 +5155,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "standing-inner-biceps-curl",
@@ -4980,7 +5178,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "standing-low-pulley-one-arm-triceps-extension",
@@ -5006,7 +5205,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "standing-military-press",
@@ -5031,7 +5231,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "standing-one-arm-cable-curl",
@@ -5052,7 +5253,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "standing-overhead-barbell-triceps-extension",
@@ -5077,7 +5279,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "standing-palm-in-one-arm-dumbbell-press",
@@ -5103,7 +5306,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "standing-palms-in-dumbbell-press",
@@ -5129,7 +5333,8 @@
     "movementPatterns": [
       "VerticalPress",
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "step-up-with-knee-raise",
@@ -5155,7 +5360,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "straight-arm-dumbbell-pullover",
@@ -5182,7 +5388,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ShoulderAdduction"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "straight-arm-pulldown",
@@ -5205,7 +5412,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "straight-bar-bench-mid-rows",
@@ -5231,7 +5439,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "t-bar-row-with-handle",
@@ -5257,7 +5466,8 @@
     "movementPatterns": [
       "HorizontalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "tate-press",
@@ -5283,7 +5493,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "trap-bar-deadlift",
@@ -5310,7 +5521,8 @@
     "movementPatterns": [
       "HipHinge",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "tricep-dumbbell-kickback",
@@ -5332,7 +5544,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "triceps-overhead-extension-with-rope",
@@ -5354,7 +5567,8 @@
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "two-arm-dumbbell-preacher-curl",
@@ -5376,7 +5590,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "underhand-cable-pulldowns",
@@ -5403,7 +5618,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "upright-cable-row",
@@ -5428,7 +5644,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "v-bar-pulldown",
@@ -5456,7 +5673,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "v-bar-pullup",
@@ -5483,7 +5701,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "weighted-bench-dip",
@@ -5509,7 +5728,8 @@
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "ElbowExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "weighted-pull-ups",
@@ -5536,7 +5756,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "weighted-sissy-squat",
@@ -5563,7 +5784,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "wide-grip-lat-pulldown",
@@ -5590,7 +5812,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "wide-grip-pulldown-behind-the-neck",
@@ -5618,7 +5841,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "wide-grip-rear-pull-up",
@@ -5645,7 +5869,8 @@
     "movementPatterns": [
       "VerticalPull",
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "wide-grip-standing-barbell-curl",
@@ -5667,7 +5892,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ElbowFlexion"
-    ]
+    ],
+    "mainstream": true
   },
   {
     "id": "wide-stance-barbell-squat",
@@ -5695,7 +5921,8 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "wrist-roller",
@@ -5720,7 +5947,8 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "WristFlexionExtension"
-    ]
+    ],
+    "mainstream": false
   },
   {
     "id": "zercher-squats",
@@ -5747,6 +5975,7 @@
     "movementPatterns": [
       "SquatPattern",
       "HipExtension"
-    ]
+    ],
+    "mainstream": false
   }
 ]

@@ -14,6 +14,7 @@ import {
   SECONDARY_SET_CREDIT,
 } from "./programPayloadContext";
 import { resolveMuscleWeeklyTarget as resolveVolumeTarget } from "./volumeTargetPlanner";
+import { frequencyTierForWeeklySets, SESSION_MUSCLE_SET_CAP, sessionDurationBudgetMinutes } from "./rpReferenceTables";
 
 // Re-export so existing imports of `resolveVolumeTarget` (if any) keep working during the
 // pipeline migration. Prefer importing from [volumeTargetPlanner] in new code.
@@ -43,6 +44,7 @@ export interface ValidationReport {
 
 export interface ProgramDraft {
   name?: string;
+  cycleLength?: number;
   workouts: ProgramWorkoutDraft[];
 }
 
@@ -61,7 +63,7 @@ export interface ProgramLiftDraft {
 
 /** Split allocator / repair use a tight time cap; validation accepts a wider fuzzy band. */
 const DURATION_TOLERANCE_RATIO = 1.08;
-/** Validation-only session overrun allowance (~18% over stated session length). */
+/** Validation session overrun allowance: at most [SESSION_DURATION_SLACK_MINUTES] over stated length. */
 export const DURATION_VALIDATION_RATIO = 1.18;
 /** Relative weekly-volume slack below min / above max (≈ practical programming noise). */
 export const VOLUME_RELATIVE_TOLERANCE = 0.2;
@@ -88,7 +90,8 @@ export function validateProgramMetrics(
     ...validateWorkoutDuration(draft, context, estimatedWorkoutMinutes),
     ...validateWeeklyMuscleVolume(weeklyMuscleVolume, context),
     ...validateWorkoutMuscleVolume(draft, context, weeklyMuscleVolume),
-    ...validateMuscleFrequency(muscleWeeklyFrequency, context),
+    ...validateSessionMuscleVolumeCap(draft, context),
+    ...validateMuscleFrequency(muscleWeeklyFrequency, weeklyMuscleVolume, context),
     ...validateNoDuplicateLifts(draft),
     ...validateExerciseOrdering(draft, context),
     ...validatePushPullBalance(pushSets, pullSets, context),
@@ -120,7 +123,7 @@ export function validateWorkoutDuration(
   const minutes =
     estimatedMinutes ??
     program.workouts.map((workout) => countWorkoutHardSets(workout) * MINUTES_PER_HARD_SET);
-  const budget = context.sessionLengthMinutes * DURATION_VALIDATION_RATIO;
+  const budget = sessionDurationBudgetMinutes(context.sessionLengthMinutes);
   const issues: ValidationIssue[] = [];
   program.workouts.forEach((workout, index) => {
     const estimate = minutes[index] ?? 0;
@@ -234,23 +237,47 @@ export function validateWorkoutMuscleVolume(
   return issues;
 }
 
-export function validateMuscleFrequency(
-  muscleWeeklyFrequency: Record<string, number>,
+export function validateSessionMuscleVolumeCap(
+  program: ProgramDraft,
   context: GenerationContext,
 ): ValidationIssue[] {
-  if (context.trainingDaysPerWeek < 3) return [];
-  const requiredFrequency = context.trainingDaysPerWeek >= 4 ? 2 : 2;
+  const issues: ValidationIssue[] = [];
+  program.workouts.forEach((workout, workoutIndex) => {
+    const workoutVolume = computeWorkoutMuscleVolume(workout, context);
+    for (const [muscle, credits] of Object.entries(workoutVolume)) {
+      if (credits > SESSION_MUSCLE_SET_CAP + 0.01) {
+        issues.push({
+          code: "SESSION_MUSCLE_VOLUME_HIGH",
+          severity: "error",
+          message: `${muscle}: ${credits.toFixed(1)} fractional sets in workout "${workout.name ?? workoutIndex}" exceeds ${SESSION_MUSCLE_SET_CAP} session cap.`,
+          details: { muscle, workoutIndex, credits, cap: SESSION_MUSCLE_SET_CAP },
+        });
+      }
+    }
+  });
+  return issues;
+}
+
+export function validateMuscleFrequency(
+  muscleWeeklyFrequency: Record<string, number>,
+  weeklyMuscleVolume: Record<string, number>,
+  context: GenerationContext,
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   for (const muscle of MAJOR_MUSCLES) {
     const level = context.specialization[muscle] ?? "Maintenance";
     if (level === "Omit") continue;
     const frequency = muscleWeeklyFrequency[muscle] ?? 0;
-    if (frequency < requiredFrequency) {
+    const weeklyAim = weeklyMuscleVolume[muscle] ?? 0;
+    if (weeklyAim <= 0) continue;
+    const tier = frequencyTierForWeeklySets(weeklyAim);
+    const minRequired = tier === 1 ? 1 : tier === 2 ? 2 : 3;
+    if (frequency < minRequired) {
       issues.push({
         code: "MUSCLE_FREQUENCY_LOW",
         severity: level === "Specialize" ? "error" : "warning",
-        message: `${muscle} is trained ${frequency}×/week; prefer ≥${requiredFrequency}× for ${context.trainingDaysPerWeek} training days.`,
-        details: { muscle, frequency, requiredFrequency },
+        message: `${muscle} is trained ${frequency}× per cycle; prefer ≥${minRequired}× for ${weeklyAim.toFixed(0)} weekly sets (TABLE 7.6).`,
+        details: { muscle, frequency, minRequired, weeklyAim },
       });
     }
   }
@@ -422,7 +449,8 @@ function computeWeeklyMuscleVolume(
   return totals;
 }
 
-function computeWorkoutMuscleVolume(
+/** Fractional hard-set credits per muscle in one workout (primary 1.0, secondary 0.5). */
+export function computeWorkoutMuscleVolume(
   workout: ProgramWorkoutDraft,
   context: GenerationContext,
 ): Record<string, number> {

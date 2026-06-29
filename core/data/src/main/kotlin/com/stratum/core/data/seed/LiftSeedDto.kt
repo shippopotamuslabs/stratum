@@ -41,6 +41,7 @@ data class LiftSeedDto(
     val description: String? = null,
     val imageUris: List<String> = emptyList(),
     val muscleLengthBias: String? = null,
+    val mainstream: Boolean = false,
 )
 
 @Serializable

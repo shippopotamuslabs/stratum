@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 import { parseGenerationContext } from "./programPayloadContext";
 import { computeAllWeeklyTargets } from "./volumeTargetPlanner";
 import { allocateDayPlans } from "./splitAllocator";
-import { buildDayCandidates } from "./liftPriority";
 import { repBandsForLifts } from "./repBandPlanner";
+import { buildGlobalCandidates } from "./liftPriority";
 import {
   buildProgramBuilderInput,
   buildProgramBuilderRetryMessage,
@@ -33,9 +33,11 @@ function ctxFor(days = 4) {
 }
 
 describe("programBuilderPrompt", () => {
-  it("system prompt is version 3 and instructs target-driven whole-program building + sibling variety, no tools, JSON-only", () => {
-    assert.equal(PROGRAM_BUILDER_PROMPT_VERSION, 3);
+  it("system prompt is version 4 and instructs target-driven whole-program building + session caps", () => {
+    assert.equal(PROGRAM_BUILDER_PROMPT_VERSION, 4);
     assert.ok(/HIT THE MUSCLE BUDGETS/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
+    assert.ok(/targetExerciseCount/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
+    assert.ok(/suggestedPatterns are COVERAGE HINTS/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/VARY lift selection across sibling days/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/Never reuse the same liftId more than once within a single workout/.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
     assert.ok(/interleave antagonists/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT));
@@ -51,12 +53,12 @@ describe("programBuilderPrompt", () => {
     assert.ok(/deadlift.*last|squat.*last/i.test(PROGRAM_BUILDER_SYSTEM_PROMPT), "prompt should explicitly forbid deadlift/squat last");
   });
 
-  it("buildProgramBuilderInput contains all days + candidates + constraints, no landmarks/responseProfile/profile", () => {
+  it("buildProgramBuilderInput contains all days + a global candidates list + constraints, no landmarks/responseProfile/profile", () => {
     const ctx = ctxFor(4);
     const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
-    const candidatesByDay = plans.map((p) => buildDayCandidates(p, ctx));
-    const repBandsByDay = candidatesByDay.map((c) => repBandsForLifts(c.map((x) => x.liftId), ctx));
-    const input = buildProgramBuilderInput(plans, candidatesByDay, repBandsByDay, "Double");
+    const globalCandidates = buildGlobalCandidates(plans, ctx);
+    const globalRepBands = repBandsForLifts(globalCandidates.map((c) => c.liftId), ctx);
+    const input = buildProgramBuilderInput(plans, globalCandidates, globalRepBands, "Double");
     const inputJson = JSON.stringify(input);
 
     // Has the essentials for a whole-program call.
@@ -69,15 +71,16 @@ describe("programBuilderPrompt", () => {
     assert.ok(/bench/.test(inputJson), "candidate liftId should appear");
 
     // Each day carries muscle budgets (the hard constraint) + suggested patterns (advisory).
-    const firstDay = (input as { days: Array<{ muscleBudgets: unknown[]; suggestedPatterns: unknown[] }> }).days[0];
+    const firstDay = (input as { days: Array<{ muscleBudgets: unknown[]; suggestedPatterns: unknown[]; targetExerciseCount: number }> }).days[0];
     assert.ok(firstDay.muscleBudgets.length > 0, "day should carry muscle budgets");
     assert.ok(firstDay.suggestedPatterns.length > 0, "day should carry suggested patterns");
+    assert.equal(firstDay.targetExerciseCount, 8, "4-day upper day should cap at 8 exercises");
 
-    // isCompound is denormalized onto each candidate (bench=HorizontalPress → true).
-    const firstDayCandidates = (input as { days: Array<{ candidates: Array<{ liftId: string; isCompound: boolean }> }> }).days[0].candidates;
-    assert.ok(firstDayCandidates.length > 0);
-    assert.ok(firstDayCandidates.every((c) => typeof c.isCompound === "boolean"), "every candidate should carry an isCompound boolean");
-    const bench = firstDayCandidates.find((c) => c.liftId === "bench");
+    // Candidates live at the root (a single global pool), not nested per-day.
+    const candidates = (input as { candidates: Array<{ liftId: string; isCompound: boolean }> }).candidates;
+    assert.ok(Array.isArray(candidates) && candidates.length > 0, "global candidates should be a non-empty root array");
+    assert.ok(candidates.every((c) => typeof c.isCompound === "boolean"), "every candidate should carry an isCompound boolean");
+    const bench = candidates.find((c) => c.liftId === "bench");
     assert.ok(bench, "bench should be a candidate");
     assert.equal(bench!.isCompound, true, "bench (HorizontalPress) should be isCompound: true");
 
@@ -92,13 +95,12 @@ describe("programBuilderPrompt", () => {
   it("candidates carry a denormalized repBand and progressionScheme", () => {
     const ctx = ctxFor(4);
     const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
-    const plan = plans.find((p) => p.theme.startsWith("Upper"))!;
-    const candidates = buildDayCandidates(plan, ctx);
-    const repBands = repBandsForLifts(candidates.map((c) => c.liftId), ctx);
-    const input = buildProgramBuilderInput([plan], [candidates], [repBands], "Double");
-    const firstDay = (input as { days: Array<{ candidates: Array<{ repBand: { repMin: number; repMax: number }; progressionScheme: string }> }> }).days[0];
-    assert.ok(firstDay.candidates.length > 0);
-    const firstCandidate = firstDay.candidates[0];
+    const globalCandidates = buildGlobalCandidates(plans, ctx);
+    const globalRepBands = repBandsForLifts(globalCandidates.map((c) => c.liftId), ctx);
+    const input = buildProgramBuilderInput(plans, globalCandidates, globalRepBands, "Double");
+    const candidates = (input as { candidates: Array<{ repBand: { repMin: number; repMax: number }; progressionScheme: string }> }).candidates;
+    assert.ok(candidates.length > 0);
+    const firstCandidate = candidates[0];
     assert.ok(firstCandidate.repBand.repMin > 0);
     assert.ok(firstCandidate.repBand.repMax > 0);
     assert.equal(firstCandidate.progressionScheme, "Double");

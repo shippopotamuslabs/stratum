@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import {
   buildOpenRouterProviderRouting,
+  buildProgramGenerationProviderRouting,
   type OpenRouterRoutingOptions,
 } from "./openrouterRouting";
 
@@ -61,5 +62,20 @@ export function buildOpenRouterChatCompletionExtras(
       stickySession: true,
       ...routingOptions,
     }),
+  };
+}
+
+/**
+ * OpenRouter extras for one-shot program generation: sort by price, deprioritize providers
+ * below 50 tps (p90), require structured-output parameters. Keeps session_id for tracing but
+ * does not omit sort (stickySession=false).
+ */
+export function buildProgramGenerationChatCompletionExtras(sessionId: string): {
+  session_id: string;
+  provider: ReturnType<typeof buildProgramGenerationProviderRouting>;
+} {
+  return {
+    session_id: sanitizeOpenRouterSessionId(sessionId),
+    provider: buildProgramGenerationProviderRouting({ requireParameters: true }),
   };
 }

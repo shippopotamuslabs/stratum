@@ -48,6 +48,7 @@ class FirebaseProgramGeneratorTest {
             // Fixture: bench-press (2 sets) + lat-pulldown (1 set) = 3 sets total.
             assertEquals(3, program.workouts[0].workoutLifts.flatMap { it.sets }.size)
             assertEquals("Upper/Lower", program.name)
+            assertEquals(1, program.cycleLength)
         }
     }
 
@@ -129,6 +130,7 @@ class FirebaseProgramGeneratorTest {
     private fun responseMap(weekday: String?): Map<String, Any?> = mapOf(
         "program" to mapOf(
             "name" to "Upper/Lower",
+            "cycleLength" to 1,
             "workouts" to listOf(
                 mapOf(
                     "name" to "Upper A",

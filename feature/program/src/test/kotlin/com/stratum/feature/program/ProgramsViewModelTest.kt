@@ -3,11 +3,14 @@ package com.stratum.feature.program
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.OnboardingStep
+import com.stratum.domain.onboarding.ReopenOnboardingWizardUseCase
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
@@ -23,6 +26,7 @@ import com.stratum.feature.program.ui.ProgramsUiState
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -107,7 +111,35 @@ class ProgramsViewModelTest {
             }
     }
 
-    private fun buildViewModel(initial: Program?): ProgramsViewModel {
+    @Nested
+    @DisplayName("PROG-GEN-404 back to onboarding reopens the wizard")
+    inner class BackToOnboarding {
+        @Test
+        fun `backToOnboarding clears completion and invokes navigation`() = runTest {
+            val onboardingRepo =
+                FakeOnboardingRepository(
+                    initial =
+                        com.stratum.domain.onboarding.OnboardingProgress(
+                            currentStep = OnboardingStep.Generate,
+                            startedAt = FakeOnboardingRepository.STARTED_AT,
+                            completedAt = FakeOnboardingRepository.COMPLETED_AT,
+                        ),
+                )
+            var navigated = false
+            val viewModel = buildViewModel(initial = PROGRAM_PPL, onboardingRepo = onboardingRepo)
+
+            viewModel.backToOnboarding { navigated = true }
+
+            assertTrue(navigated)
+            assertNull(onboardingRepo.current.completedAt)
+            assertEquals(OnboardingStep.Review, onboardingRepo.current.currentStep)
+        }
+    }
+
+    private fun buildViewModel(
+        initial: Program?,
+        onboardingRepo: FakeOnboardingRepository = FakeOnboardingRepository(),
+    ): ProgramsViewModel {
         repository = FakeProgramRepository(initial)
         val liftRepository =
             FakeLiftRepository(
@@ -119,6 +151,7 @@ class ProgramsViewModelTest {
         return ProgramsViewModel(
             observeProgram = com.stratum.domain.program.ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(onboardingRepo),
         )
     }
 
@@ -140,6 +173,7 @@ class ProgramsViewModelTest {
             id = ProgramId("p-1"),
             name = "Push/Pull/Legs",
             createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+            cycleLength = 1,
             workouts = listOf(
                 Workout(
                     id = WorkoutId("w-1"),

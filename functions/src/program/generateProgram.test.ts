@@ -70,70 +70,26 @@ const NORMALIZATION_REQUEST: ProgramNormalizationRequest = {
   ]),
 };
 
-/** A single set spec for [liftId]. */
-function sets(liftId: string): unknown[] {
-  void liftId;
-  return [
-    { position: 0, setType: "Standard", repMin: 6, repMax: 8, rirGoal: 2, isTopSet: true },
-    { position: 1, setType: "Standard", repMin: 6, repMax: 8, rirGoal: 2, isTopSet: false },
-    { position: 2, setType: "Standard", repMin: 6, repMax: 8, rirGoal: 2, isTopSet: false },
-  ];
-}
+const PIPELINE_OPTS = { skipFinalValidation: true, skipLiftSwap: true } as const;
 
-/** A valid whole-program builder response: 4 workouts with sibling days varying their lifts. */
-function validProgramJson(): string {
-  return JSON.stringify({
-    program: {
-      name: "Upper/Lower",
-      workouts: [
-        { name: "Upper A", weekday: "Monday", position: 0, workoutLifts: [
-          { liftId: "bench", position: 0, workoutLiftSets: sets("bench") },
-          { liftId: "row", position: 1, workoutLiftSets: sets("row") },
-        ] },
-        { name: "Lower A", weekday: "Tuesday", position: 1, workoutLifts: [
-          { liftId: "squat", position: 0, workoutLiftSets: sets("squat") },
-          { liftId: "rdl", position: 1, workoutLiftSets: sets("rdl") },
-        ] },
-        { name: "Upper B", weekday: "Thursday", position: 2, workoutLifts: [
-          { liftId: "db-press", position: 0, workoutLiftSets: sets("db-press") },
-          { liftId: "seated-row", position: 1, workoutLiftSets: sets("seated-row") },
-        ] },
-        { name: "Lower B", weekday: "Friday", position: 3, workoutLifts: [
-          { liftId: "front-squat", position: 0, workoutLiftSets: sets("front-squat") },
-          { liftId: "gm", position: 1, workoutLiftSets: sets("gm") },
-        ] },
-      ],
-    },
-  });
-}
-
-/**
- * Fake client that routes by response_format schema name. "program_generation" responses come from
- * the queue (one per whole-program builder call); "split_planner" returns null; anything else null.
- */
-function fakeClient(
-  builderResponses: Array<string | null>,
-): { client: ChatCompletionLike; builderCallCount: () => number } {
-  let builderCalls = 0;
-  const queue = [...builderResponses];
+function fakeClient(): { client: ChatCompletionLike; llmCallCount: () => number } {
+  let llmCalls = 0;
   const client: ChatCompletionLike = {
     chat: {
       completions: {
         create: async (params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming) => {
+          llmCalls++;
           const schemaName =
             (params.response_format as { json_schema?: { name?: string } } | undefined)?.json_schema?.name;
-          if (schemaName === "program_generation") {
-            builderCalls++;
-            const content = queue.shift() ?? null;
-            return { choices: [{ message: { content } }] } as OpenAI.Chat.Completions.ChatCompletion;
+          if (schemaName === "lift_swap") {
+            return { choices: [{ message: { content: '{"swaps":[]}' } }] } as OpenAI.Chat.Completions.ChatCompletion;
           }
-          // split_planner or anything else: return null (4-day path doesn't call the planner).
           return { choices: [{ message: { content: null } }] } as OpenAI.Chat.Completions.ChatCompletion;
         },
       },
     },
   };
-  return { client, builderCallCount: () => builderCalls };
+  return { client, llmCallCount: () => llmCalls };
 }
 
 describe("generateProgram", () => {
@@ -154,22 +110,23 @@ describe("generateProgram", () => {
     });
   });
 
-  describe("PROG-GEN-702b a valid program is returned from a single whole-program call", () => {
-    it("returns a normalized program with 4 workouts from ONE builder call", async () => {
-      const { client, builderCallCount } = fakeClient([validProgramJson()]);
+  describe("PROG-GEN-702b deterministic pipeline returns a valid program without whole-program LLM", () => {
+    it("returns a normalized program with 4 workouts without a whole-program builder call", async () => {
+      const { client, llmCallCount } = fakeClient();
       const result = await generateProgramWithDeps(
         client, MODEL, PAYLOAD, NORMALIZATION_REQUEST, SESSION_ID,
-        { skipFinalValidation: true },
-      ) as { name: string; workouts: unknown[] };
-      assert.equal(builderCallCount(), 1, "whole-program path makes a single builder call");
+        PIPELINE_OPTS,
+      ) as { name: string; cycleLength: number; workouts: unknown[] };
+      assert.equal(llmCallCount(), 0, "deterministic path must not call whole-program LLM builder");
+      assert.equal(result.cycleLength, 4);
       assert.ok(result.workouts.length === 4);
     });
 
     it("sibling days (Upper A/B, Lower A/B) have differing lift sets", async () => {
-      const { client } = fakeClient([validProgramJson()]);
+      const { client } = fakeClient();
       const result = await generateProgramWithDeps(
         client, MODEL, PAYLOAD, NORMALIZATION_REQUEST, SESSION_ID,
-        { skipFinalValidation: true },
+        PIPELINE_OPTS,
       ) as { workouts: Array<{ name: string; workoutLifts?: Array<{ liftId?: string }> }> };
       const byName = new Map(result.workouts.map((w) => [w.name, new Set((w.workoutLifts ?? []).map((l) => l.liftId))]));
       const upperA = byName.get("Upper A");
@@ -182,36 +139,11 @@ describe("generateProgram", () => {
       );
     });
 
-    it("no duplicate liftId appears within a single workout (dedup applied)", async () => {
-      // Feed a program where Upper A repeats bench in two slots — repair must collapse it.
-      const duped = JSON.stringify({
-        program: {
-          name: "Upper/Lower",
-          workouts: [
-            { name: "Upper A", weekday: "Monday", position: 0, workoutLifts: [
-              { liftId: "bench", position: 0, workoutLiftSets: sets("bench") },
-              { liftId: "bench", position: 1, workoutLiftSets: sets("bench") },
-              { liftId: "row", position: 2, workoutLiftSets: sets("row") },
-            ] },
-            { name: "Lower A", weekday: "Tuesday", position: 1, workoutLifts: [
-              { liftId: "squat", position: 0, workoutLiftSets: sets("squat") },
-              { liftId: "rdl", position: 1, workoutLiftSets: sets("rdl") },
-            ] },
-            { name: "Upper B", weekday: "Thursday", position: 2, workoutLifts: [
-              { liftId: "row", position: 0, workoutLiftSets: sets("row") },
-              { liftId: "lat-raise", position: 1, workoutLiftSets: sets("lat-raise") },
-            ] },
-            { name: "Lower B", weekday: "Friday", position: 3, workoutLifts: [
-              { liftId: "rdl", position: 0, workoutLiftSets: sets("rdl") },
-              { liftId: "calf-raise", position: 1, workoutLiftSets: sets("calf-raise") },
-            ] },
-          ],
-        },
-      });
-      const { client } = fakeClient([duped]);
+    it("no duplicate liftId appears within a single workout", async () => {
+      const { client } = fakeClient();
       const result = await generateProgramWithDeps(
         client, MODEL, PAYLOAD, NORMALIZATION_REQUEST, SESSION_ID,
-        { skipFinalValidation: true },
+        PIPELINE_OPTS,
       ) as { workouts: Array<{ name: string; workoutLifts?: Array<{ liftId?: string }> }> };
       for (const workout of result.workouts) {
         const ids = (workout.workoutLifts ?? []).map((l) => l.liftId);
@@ -219,27 +151,22 @@ describe("generateProgram", () => {
       }
     });
 
-    it("the whole-program builder returns invalid JSON → every day falls back deterministically", async () => {
-      const { client } = fakeClient(["not json"]);
+    it("invalid lift-swap JSON does not break deterministic program generation", async () => {
+      const client: ChatCompletionLike = {
+        chat: {
+          completions: {
+            create: async () =>
+              ({ choices: [{ message: { content: "not json" } }] }) as OpenAI.Chat.Completions.ChatCompletion,
+          },
+        },
+      };
       const result = await generateProgramWithDeps(
         client, MODEL, PAYLOAD, NORMALIZATION_REQUEST, SESSION_ID,
         { skipFinalValidation: true },
       ) as { workouts: Array<{ workoutLifts?: unknown[] }> };
-      assert.ok(result.workouts.length === 4);
+      assert.equal(result.workouts.length, 4);
       for (const workout of result.workouts) {
-        assert.ok((workout.workoutLifts?.length ?? 0) > 0, "failed builder call should yield non-empty fallback workouts");
-      }
-    });
-
-    it("the whole-program builder returns null → full deterministic fallback produces a valid program", async () => {
-      const { client } = fakeClient([null]);
-      const result = await generateProgramWithDeps(
-        client, MODEL, PAYLOAD, NORMALIZATION_REQUEST, SESSION_ID,
-        { skipFinalValidation: true },
-      ) as { workouts: Array<{ workoutLifts?: unknown[] }> };
-      assert.ok(result.workouts.length === 4);
-      for (const workout of result.workouts) {
-        assert.ok((workout.workoutLifts?.length ?? 0) > 0, "fallback workout should be non-empty");
+        assert.ok((workout.workoutLifts?.length ?? 0) > 0);
       }
     });
   });
@@ -290,19 +217,13 @@ describe("generateProgram", () => {
       );
     });
 
-    it("rejects claiming when generation completed with a cached program", () => {
-      assert.throws(
-        () =>
-          assertCanClaimGenerationSlot({
-            exists: true,
-            status: "completed",
-            program: CACHED_PROGRAM,
-          }),
-        (err: unknown) => {
-          assert.ok(err instanceof HttpsError);
-          assert.equal(err.code, "already-exists");
-          return true;
-        },
+    it("allows reclaiming a completed marker that has a cached program (regeneration)", () => {
+      assert.doesNotThrow(() =>
+        assertCanClaimGenerationSlot({
+          exists: true,
+          status: "completed",
+          program: CACHED_PROGRAM,
+        }),
       );
     });
 
