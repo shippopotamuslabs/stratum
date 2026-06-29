@@ -4,6 +4,7 @@ import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.pipeline.PipelinePhase
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
@@ -52,12 +53,17 @@ class GenerateProgramUseCase @Inject constructor(
                             progress = { phase -> onProgress(phase.toDomainProgress()) },
                         ),
                 )
-            val program =
+            var program =
                 normalized.toDomainProgram()
                     .retainOnlyKnownLifts(knownLiftIds)
             require(program.workouts.isNotEmpty()) {
                 "Generated program has no workouts with known lift references"
             }
+            val trainingWeekdays =
+                context.weekdays.mapNotNull { weekday ->
+                    runCatching { Weekday.valueOf(weekday) }.getOrNull()
+                }
+            program = assignProgramSchedule(program, trainingWeekdays)
             onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram))
             repository.saveProgram(program)
             val profile = profileRepository.observeProfile().first() ?: UserTrainingProfile.Empty

@@ -92,6 +92,7 @@ fun ImportInsightsSummaryCard(
         )
 
         StratumSegmentedControl(
+            modifier = Modifier.fillMaxWidth(),
             segments = tabLabels,
             selectedIndex = selectedTab,
             onSelectedIndexChange = { selectedTab = it },

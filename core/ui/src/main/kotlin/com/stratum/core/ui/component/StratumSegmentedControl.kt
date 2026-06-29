@@ -37,10 +37,10 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  */
 @Composable
 fun StratumSegmentedControl(
+    modifier: Modifier = Modifier,
     segments: List<String>,
     selectedIndex: Int?,
     onSelectedIndexChange: (Int) -> Unit,
-    modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
     require(segments.isNotEmpty()) { "StratumSegmentedControl requires at least one segment." }
@@ -76,7 +76,7 @@ fun StratumToggleGroup(
     options: List<String>,
     selectedOptions: Set<String>,
     onOptionToggle: (String) -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.fillMaxWidth(),
     enabled: Boolean = true,
 ) {
     require(options.isNotEmpty()) { "StratumToggleGroup requires at least one option." }
@@ -109,7 +109,6 @@ private fun ConnectedSegmentBar(
 
     Box(
         modifier = modifier
-            .fillMaxWidth()
             .height(MinSegmentHeight)
             .border(shapes.borderWidth, colors.borderSubtle, outerShape)
             .clip(outerShape),

@@ -80,6 +80,7 @@ fun ScheduleScreen(
                 SESSION_LENGTH_KEYS.indexOf(selection).takeIf { it >= 0 }
             }
             StratumSegmentedControl(
+                modifier = Modifier.fillMaxWidth(),
                 segments = sessionLengthLabels,
                 selectedIndex = selectedSessionIndex,
                 onSelectedIndexChange = { index ->

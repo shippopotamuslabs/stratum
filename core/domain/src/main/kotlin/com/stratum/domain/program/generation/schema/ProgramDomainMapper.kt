@@ -55,6 +55,7 @@ fun NormalizedProgram.toDomainProgram(createdAt: Instant = Instant.now()): Progr
         name = name,
         createdAt = createdAt,
         cycleLength = cycleLength,
+        trainingWeekdays = emptySet(),
         workouts = workouts,
     )
 }
