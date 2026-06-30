@@ -1,4 +1,4 @@
-@file:Suppress("MagicNumber", "ReturnCount", "MaxLineLength")
+@file:Suppress("MagicNumber", "ReturnCount", "MaxLineLength", "SwallowedException")
 
 package com.stratum.domain.solver
 
@@ -62,7 +62,7 @@ class CpSatSlotSetAllocator(
     }
 
     private companion object {
-        const val DEFAULT_DEADLINE_MILLIS = 500L
+        const val DEFAULT_DEADLINE_MILLIS = 2000L
         const val MILLISECONDS_PER_SECOND = 1000.0
 
         @Volatile
@@ -71,7 +71,20 @@ class CpSatSlotSetAllocator(
         @Synchronized
         private fun ensureNativeLibrariesLoaded() {
             if (!nativeLoaded) {
-                Loader.loadNativeLibraries()
+                try {
+                    // Try the standard OR-Tools desktop Loader (works on JVM/desktop/unit tests)
+                    Loader.loadNativeLibraries()
+                } catch (t: Throwable) {
+                    // Fallback for Android where Loader.loadNativeLibraries() throws because the
+                    // class loader lacks desktop resource directories (e.g. android-aarch64).
+                    // Dynamically load the NDK-built libortools.so and libjniortools.so.
+                    try {
+                        System.loadLibrary("ortools")
+                    } catch (e: UnsatisfiedLinkError) {
+                        // libortools might be statically linked into libjniortools, which is fine.
+                    }
+                    System.loadLibrary("jniortools")
+                }
                 nativeLoaded = true
             }
         }

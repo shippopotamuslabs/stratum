@@ -20,6 +20,8 @@ fun ProgramsRoute(
     onStartEmptyWorkoutClick: () -> Unit = {},
     onStartWorkoutClick: (String) -> Unit = {},
     onSkipWorkoutCheckedChange: (String, Boolean) -> Unit = { _, _ -> },
+    // TEMP: back-to-onboarding for regeneration testing
+    onBackToGenerateClick: () -> Unit = {},
 ) {
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
     ProgramsScreen(
@@ -33,5 +35,6 @@ fun ProgramsRoute(
         onStartWorkoutClick = onStartWorkoutClick,
         onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
         modifier = modifier,
+        onBackToGenerateClick = onBackToGenerateClick,
     )
 }

@@ -42,7 +42,14 @@ fun StratumNavHost() {
                 },
             )
             entry<MainTabKey> {
-                MainTabShell()
+                // TEMP: back-to-onboarding for regeneration testing
+                MainTabShell(
+                    onBackToGenerateClick = {
+                        statusViewModel.reopenOnboarding()
+                        backStack.removeAll { it is MainTabKey }
+                        backStack.add(OnboardingKey)
+                    },
+                )
             }
         },
     )

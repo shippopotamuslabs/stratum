@@ -38,7 +38,11 @@ private enum class MainTab(val index: Int) {
 }
 
 @Composable
-fun MainTabShell(modifier: Modifier = Modifier) {
+fun MainTabShell(
+    modifier: Modifier = Modifier,
+    // TEMP: back-to-onboarding for regeneration testing
+    onBackToGenerateClick: () -> Unit = {},
+) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
     val items =
         listOf(
@@ -78,7 +82,7 @@ fun MainTabShell(modifier: Modifier = Modifier) {
         ) {
             when (MainTab.fromIndex(selectedTabIndex)) {
                 MainTab.Dashboard -> DashboardPlaceholder()
-                MainTab.Program -> ProgramsRoute()
+                MainTab.Program -> ProgramsRoute(onBackToGenerateClick = onBackToGenerateClick)
                 MainTab.Gym -> GymPlaceholder()
             }
         }

@@ -47,4 +47,18 @@ subprojects {
             )
         }
     }
+
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        val buildTypeAttr = Attribute.of("com.android.build.api.attributes.BuildTypeAttr", String::class.java)
+        val artifactTypeAttr = Attribute.of("artifactType", String::class.java)
+        configurations.all {
+            if (isCanBeResolved) {
+                attributes {
+                    attribute(buildTypeAttr, "debug")
+                    attribute(artifactTypeAttr, "jar")
+                }
+            }
+        }
+    }
 }
+

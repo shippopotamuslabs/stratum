@@ -6,6 +6,7 @@ import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.domain.onboarding.ObserveOnboardingCompleteUseCase
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
+import com.stratum.domain.onboarding.ReopenOnboardingWizardUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -35,6 +36,7 @@ class OnboardingStatusViewModelTest {
     private fun buildViewModel(): OnboardingStatusViewModel =
         OnboardingStatusViewModel(
             observeComplete = ObserveOnboardingCompleteUseCase(fakeRepository),
+            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(fakeRepository),
         )
 
     @Test
@@ -91,6 +93,28 @@ class OnboardingStatusViewModelTest {
             fakeRepository.markComplete()
 
             assertEquals(true, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given completed onboarding when reopenOnboarding is called then resets isComplete to false")
+    fun reopenOnboardingResetsIsComplete() = runTest {
+        fakeRepository.seed(
+            OnboardingProgress(
+                currentStep = OnboardingStep.Welcome,
+                startedAt = FakeOnboardingRepository.STARTED_AT,
+                completedAt = FakeOnboardingRepository.COMPLETED_AT,
+            ),
+        )
+        subject = buildViewModel()
+
+        subject.isComplete.test {
+            assertEquals(true, awaitItem())
+
+            subject.reopenOnboarding()
+
+            assertEquals(false, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }
