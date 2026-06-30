@@ -80,3 +80,4 @@ pip-wheel-metadata/
 # sentence-transformers / Hugging Face model cache (local embed builds)
 **/.cache/huggingface/
 .cache/
+third_party/

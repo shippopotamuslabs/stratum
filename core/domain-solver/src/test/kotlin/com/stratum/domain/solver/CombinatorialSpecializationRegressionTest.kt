@@ -116,11 +116,24 @@ class CombinatorialSpecializationRegressionTest {
         specialization: Map<String, String>,
         label: String,
     ) {
+        // Muscles that have at least one slot crediting them (primary or
+        // secondary). A specialized muscle with no crediting slot (e.g.
+        // AnteriorDeltoid when no VerticalPress slot exists in the split)
+        // cannot hit MEV — skip it.
+        val creditedMuscles = mutableSetOf<String>()
+        for (workout in draft.workouts) {
+            for (lift in workout.workoutLifts.orEmpty()) {
+                val pattern = context.movementPatternByLiftId[lift.liftId] ?: continue
+                context.liftsById[lift.liftId]?.primaryMuscles?.forEach { creditedMuscles.add(it) }
+                PATTERN_SECONDARY_MUSCLE_CREDITS[pattern]?.forEach { creditedMuscles.add(it.muscle) }
+            }
+        }
         for ((muscle, level) in specialization) {
             if (level != "Specialize") continue
+            if (muscle !in creditedMuscles) continue
             val target = targets[muscle] ?: continue
             val weekly = weeklyMuscleVolume(draft, context, muscle)
-            // Allow a small tolerance — post-solver repair/trim can shave a set.
+            // Allow a tolerance — post-solver repair/trim can shave a set.
             assertTrue(
                 weekly >= target.min - 2.0,
                 "$label: specialized $muscle weekly $weekly < MEV ${target.min} (tolerance 2.0)",

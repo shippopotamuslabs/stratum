@@ -129,34 +129,35 @@ the fallback in debug builds. The greedy path is retained as
 
 ---
 
-## Native packaging note (Phase 4)
+## Native packaging — Phase 4 status
 
-`com.google.ortools:ortools-java` (latest 9.14.6206) publishes **no Android native
-artifacts** — Maven Central carries only `ortools-darwin-*`, `ortools-linux-*`,
-`ortools-win32-x86-64`. There is no `android-arm64` / `android-x86_64` and no
-maintained third-party Android port. So the on-device leg requires building
-`libortools.so` (CP-SAT + its deps: abseil, re2, protobuf, etc.) from the
-`github.com/google/or-tools` C++ source via the Android NDK toolchain.
+`com.google.ortools:ortools-java` (9.14.6206) publishes **no Android native
+artifacts**. The on-device leg builds `libortools.so` + `libjniortools.so`
+from the `github.com/google/or-tools` C++ source via the Android NDK.
 
-Pattern follows pocket-crew (`~/Code/pocket-crew`):
+**Completed:**
+- `:core:domain-solver` converted from JVM library to **Android library**
+  (`com.android.library`, `namespace = "com.stratum.domain.solver"`,
+  `minSdk 34`, `ndkVersion 28.2.13676358`, `abiFilters arm64-v8a`).
+- CMake scaffold at `src/main/cpp/CMakeLists.txt` — `add_subdirectory` of
+  `third_party/or-tools` with `BUILD_JAVA=ON`, `USE_COINOR/SCIP/HIGHS=OFF`.
+- CMake build gated behind `-PbuildOrToolsNatives` Gradle property so the
+  default build stays green when SWIG or the OR-Tools checkout is absent.
+- Hilt `SolverModule` in `:app` binds `SlotSetAllocationPort` to
+  `CpSatSlotSetAllocator`.
+- `CpSatSlotSetAllocator` gracefully returns `Fallback` when native libs
+  can't load (before the CMake build is run, or wrong ABI).
+- `:app:assembleDebug` succeeds with the solver module wired in.
 
-- `:core:domain-solver` becomes an **Android library** with
-  `externalNativeBuild { cmake { path = ...; version = "3.22.1" } }`.
-- `third_party/or-tools` checked out as a git submodule; the module's
-  `src/main/cpp/CMakeLists.txt` does `add_subdirectory(${ORTOOLS_DIR} ortools-build)`
-  with the NDK CMake toolchain (`CMAKE_TOOLCHAIN_FILE`, `ANDROID_ABI=arm64-v8a`).
-- `ndkVersion = "28.2.13676358"`, `ndk { abiFilters += listOf("arm64-v8a") }`,
-  `minSdk 34` (match ARCHITECTURE §8 + pocket-crew).
-- OR-Tools' own CMake fetches abseil/protobuf/re2 via FetchContent; the NDK
-  toolchain makes them cross-compile. `ortools-java`'s JNI wrapper (`com.google.ortools.Loader`)
-  loads `libortools.so` + `libjniortools.so` at runtime — the CMake target must
-  produce both with the loader's expected sonames.
-- A `verifyOrToolsPackaging` Gradle task (mirror pocket-crew's
-  `verifyLlamaJniPackaging`) confirms the merged native libs contain the
-  expected `.so` files.
-
-A build spike in Phase 4 confirms the exact CMake flags and sonames; the model
-and JVM phases (0–3) are unaffected and proceed on `ortools-java` as-is.
+**Remaining (requires SWIG on the host):**
+- Install SWIG: `apt install swig` (or `brew install swig`).
+- Clone OR-Tools: `git clone --depth 1 --branch v9.14 https://github.com/google/or-tools.git third_party/or-tools`
+- Build natives: `./gradlew :core:domain-solver:assembleDebug -PbuildOrToolsNatives`
+  (first build: 10–20 min — fetches & compiles abseil/protobuf/re2).
+- Verify the `.so` files land in the APK's `jniLibs/arm64-v8a/`.
+- On-device smoke test: confirm `Loader.loadNativeLibraries()` resolves and
+  the solver returns `Success` (not `Fallback`).
+- APK size check; consider ABI splits if bloat is unacceptable.
 
 ## Risks and mitigations
 

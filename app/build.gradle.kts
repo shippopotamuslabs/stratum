@@ -41,10 +41,25 @@ android {
         compose = true
         buildConfig = true
     }
+    packaging {
+        resources {
+            excludes += listOf(
+                "META-INF/AL2.0",
+                "META-INF/LGPL2.1",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/*.kotlin_module",
+            )
+        }
+    }
 }
 
 dependencies {
     implementation(project(":core:domain"))
+    implementation(project(":core:domain-solver"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
     implementation(project(":core:inference"))
