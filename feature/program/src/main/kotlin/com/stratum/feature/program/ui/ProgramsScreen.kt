@@ -30,6 +30,7 @@ import com.stratum.core.ui.component.StratumDropdownMenu
 import com.stratum.core.ui.component.StratumDropdownMenuItem
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumMuscleVolumeRow
+import com.stratum.core.ui.component.StratumVolumeBodyTier
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
@@ -173,9 +174,15 @@ private fun LoadedProgramContent(
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
 ) {
     if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
+        val initialTier = if (state.upperVolumeByMuscle.isEmpty() && state.lowerVolumeByMuscle.isNotEmpty()) {
+            StratumVolumeBodyTier.Lower
+        } else {
+            StratumVolumeBodyTier.Upper
+        }
         StratumMuscleVolumeRow(
             upperCards = state.upperVolumeByMuscle,
             lowerCards = state.lowerVolumeByMuscle,
+            initialTier = initialTier,
         )
     }
 

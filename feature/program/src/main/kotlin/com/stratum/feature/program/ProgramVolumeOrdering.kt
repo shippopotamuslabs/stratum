@@ -12,6 +12,9 @@ internal val upperVolumeMuscleOrder: List<MuscleGroup> =
         MuscleGroup.Bicep,
         MuscleGroup.LateralDeltoid,
         MuscleGroup.PosteriorDeltoid,
+        MuscleGroup.AnteriorDeltoid,
+        MuscleGroup.Trap,
+        MuscleGroup.Forearm,
         MuscleGroup.Ab,
     )
 
@@ -21,6 +24,9 @@ internal val lowerVolumeMuscleOrder: List<MuscleGroup> =
         MuscleGroup.Hamstring,
         MuscleGroup.Glute,
         MuscleGroup.Calf,
+        MuscleGroup.LowerBack,
+        MuscleGroup.Abductor,
+        MuscleGroup.Adductor,
     )
 
 internal fun List<MuscleVolumeSummary>.toUpperVolumeCards(): List<StratumMuscleVolumeCardState> =
