@@ -173,11 +173,17 @@ internal class VolumeAllocationModel(
 
     /**
      * Penalizes the absolute weekly-credit difference between every pair of
-     * co-specialized muscles. This is the global generalization of
-     * `DualArmSpecBalancer`: when two muscles are both Specialized, the solver
-     * should not fill one to MRV while leaving the other short. Encoded as
-     * `|credit_a - credit_b| = diffAbs`, `diffAbs = diffOver - diffUnder` with
-     * both slacks ≥ 0, penalized at [CO_SPECIALIZATION_BALANCE_WEIGHT].
+     * co-specialized muscles that share the same `aim`. This is the global
+     * generalization of `DualArmSpecBalancer`: when two muscles are both
+     * Specialized and target the same weekly volume (e.g. bicep/tricep with
+     * identical landmarks), the solver should not fill one to MRV while
+     * leaving the other short. Pairs with *different* aims (e.g. Quad/Glute)
+     * are left to the per-muscle deviation objective — forcing them toward a
+     * shared midpoint would under-serve the higher-aim muscle.
+     *
+     * Encoded as `|credit_a - credit_b| = diffAbs`,
+     * `diffAbs = diffOver - diffUnder` with both slacks ≥ 0, penalized at
+     * [CO_SPECIALIZATION_BALANCE_WEIGHT].
      */
     private fun addCoSpecializationBalance(
         model: CpModel,
@@ -189,6 +195,10 @@ internal class VolumeAllocationModel(
         if (specializedMuscles.size < 2) return
         for (i in specializedMuscles.indices) {
             for (j in (i + 1) until specializedMuscles.size) {
+                val aimA = weeklyTargets[specializedMuscles[i]]?.aim ?: continue
+                val aimB = weeklyTargets[specializedMuscles[j]]?.aim ?: continue
+                // Only balance pairs with (near-)identical aims.
+                if (kotlin.math.abs(aimA - aimB) > AIM_EQUALITY_TOLERANCE) continue
                 val creditA = weeklyCreditExpr(specializedMuscles[i]) ?: continue
                 val creditB = weeklyCreditExpr(specializedMuscles[j]) ?: continue
                 val diffOver = model.newIntVar(0L, MAX_OVER, "diffOver_${specializedMuscles[i]}_${specializedMuscles[j]}")
@@ -228,13 +238,16 @@ internal class VolumeAllocationModel(
         // Objective weights (long, scaled). Specialize prioritized over Maintenance.
         const val SPECIALIZE_WEIGHT = 10L
         const val MAINTENANCE_WEIGHT = 3L
-        // Penalty for weekly-credit imbalance between co-specialized muscles.
-        // Must exceed SPECIALIZE_WEIGHT so the solver prefers balancing
-        // co-specialized muscles over hitting an individual aim exactly —
-        // secondary-credit asymmetry (e.g. tricep gets credit from 3 press
-        // patterns vs bicep's 2 pull patterns) would otherwise force a 1-set
-        // imbalance that the deviation term alone won't correct.
+        // Penalty for weekly-credit imbalance between co-specialized muscles
+        // with (near-)identical aims. Must exceed SPECIALIZE_WEIGHT so the
+        // solver prefers balancing co-specialized muscles over hitting an
+        // individual aim exactly — secondary-credit asymmetry (e.g. tricep
+        // gets credit from 3 press patterns vs bicep's 2 pull patterns)
+        // would otherwise force a 1-set imbalance that the deviation term
+        // alone won't correct.
         const val CO_SPECIALIZATION_BALANCE_WEIGHT = 15L
+        // Aims within this tolerance are treated as equal for balance purposes.
+        const val AIM_EQUALITY_TOLERANCE = 0.5
         // Upper bound on over/under slack: ample headroom for any realistic weekly set count.
         const val MAX_OVER = 1000L
     }
