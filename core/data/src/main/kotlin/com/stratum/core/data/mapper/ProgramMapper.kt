@@ -19,6 +19,7 @@ internal fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
     id = id,
     name = name,
     createdAt = Instant.parse(createdAt),
+    cycleLength = cycleLength,
     workouts = workouts,
 )
 
@@ -55,6 +56,7 @@ internal fun Program.toEntity(): ProgramEntity = ProgramEntity(
     id = id,
     name = name,
     createdAt = createdAt.toString(),
+    cycleLength = cycleLength,
 )
 
 internal fun Workout.toEntity(): WorkoutEntity = WorkoutEntity(

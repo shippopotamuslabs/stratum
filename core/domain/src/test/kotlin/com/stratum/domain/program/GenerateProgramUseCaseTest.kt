@@ -154,6 +154,7 @@ class GenerateProgramUseCaseTest {
             id = ProgramId("p-1"),
             name = "Full Body",
             createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+            cycleLength = 1,
             workouts = listOf(
                 Workout(
                     id = WorkoutId("w-1"),

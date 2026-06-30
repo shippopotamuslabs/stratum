@@ -44,7 +44,12 @@ fun StratumNavHost() {
                     backStack.add(ProgramsKey)
                 },
             )
-            programsEntry()
+            programsEntry(
+                onBackToOnboarding = {
+                    backStack.removeAll { it is ProgramsKey }
+                    backStack.add(OnboardingKey)
+                },
+            )
             entry<HomeKey> { HomePlaceholder() }
         },
     )

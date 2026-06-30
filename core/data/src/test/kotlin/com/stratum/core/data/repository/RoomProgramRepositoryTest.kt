@@ -87,6 +87,7 @@ class RoomProgramRepositoryTest {
             val loaded = repository.getProgram()
 
             assertEquals(PROGRAM_P1, loaded)
+            assertEquals(1, loaded!!.cycleLength)
             assertEquals(1, loaded!!.workouts.size)
             assertEquals(1, loaded.workouts[0].workoutLifts.size)
             assertEquals(2, loaded.workouts[0].workoutLifts[0].sets.size)
@@ -161,6 +162,7 @@ class RoomProgramRepositoryTest {
             id = ProgramId("p-1"),
             name = "Push/Pull/Legs",
             createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+            cycleLength = 1,
             workouts = listOf(
                 Workout(
                     id = WorkoutId("w-1"),
@@ -195,6 +197,7 @@ class RoomProgramRepositoryTest {
             id = ProgramId("p-2"),
             name = "Minimal",
             createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+            cycleLength = 1,
             workouts = listOf(
                 Workout(
                     id = WorkoutId("w-2"),

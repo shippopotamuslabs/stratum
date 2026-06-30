@@ -257,6 +257,7 @@ class OnboardingGenerateViewModelTest {
                 id = ProgramId("p-1"),
                 name = "Generated Program",
                 createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+                cycleLength = 1,
                 workouts =
                     listOf(
                         com.stratum.domain.program.Workout(

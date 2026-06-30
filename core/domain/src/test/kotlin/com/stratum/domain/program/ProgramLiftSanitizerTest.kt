@@ -18,6 +18,7 @@ class ProgramLiftSanitizerTest {
                 id = ProgramId("p-1"),
                 name = "Test",
                 createdAt = Instant.EPOCH,
+                cycleLength = 2,
                 workouts =
                     listOf(
                         Workout(
@@ -57,6 +58,7 @@ class ProgramLiftSanitizerTest {
                 id = ProgramId("p-1"),
                 name = "Test",
                 createdAt = Instant.EPOCH,
+                cycleLength = 1,
                 workouts =
                     listOf(
                         Workout(

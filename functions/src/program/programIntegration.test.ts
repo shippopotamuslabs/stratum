@@ -10,7 +10,9 @@ import {
   mergeWorkouts,
   repairWeeklyVolume,
   repairWorkout,
-  type WorkoutBuilderResult,
+      trimSessionMuscleCreditCaps,
+      trimWorkoutsToSessionDuration,
+      type WorkoutBuilderResult,
 } from "./programIntegration";
 import { validateProgramMetrics } from "./programValidation";
 
@@ -249,6 +251,118 @@ describe("programIntegration", () => {
       const liftIds = fallback.workoutLifts!.map((lift) => lift.liftId);
       assert.equal(new Set(liftIds).size, liftIds.length, "fallback should not duplicate liftIds within one workout");
     });
+
+    it("fills a 75-minute advanced upper day with arm specialization (volume + variety)", () => {
+      const weekdays = "Monday,Tuesday,Thursday,Friday";
+      const ctx = parseGenerationContext(
+        JSON.stringify({
+          profile: {
+            trainingAge: "Advanced",
+            sessionLengthMinutes: 75,
+            weekdays,
+            trainingDaysPerWeek: 4,
+          },
+          specialization: { Bicep: "Specialize", Tricep: "Specialize" },
+          provenLifts: LIFT_CATALOG,
+          availableLifts: [],
+          literatureVolumeLandmarks: LANDMARKS,
+        }),
+      );
+      const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
+      const upper = plans.find((p) => p.theme === "Upper A")!;
+      const candidates = buildDayCandidates(upper, ctx);
+      const repBands = repBandsForLifts(candidates.map((c) => c.liftId), ctx);
+      const fallback = deterministicFallbackWorkout(upper, candidates, repBands, ctx, plans, 0);
+      const program = mergeWorkouts(
+        plans.map((plan, index) => ({
+          dayPlan: plan,
+          dayIndex: index,
+          allDayPlans: plans,
+          candidates: buildDayCandidates(plan, ctx),
+          repBands: repBandsForLifts(buildDayCandidates(plan, ctx).map((c) => c.liftId), ctx),
+          raw: null,
+        })),
+        ctx,
+      );
+      const upperWorkout = program.workouts.find((w) => w.name === "Upper A")!;
+      const exerciseCount = upperWorkout.workoutLifts?.length ?? 0;
+      const totalSets = (upperWorkout.workoutLifts ?? []).reduce(
+        (sum, lift) => sum + (lift.workoutLiftSets?.length ?? 0),
+        0,
+      );
+      const liftIds = (upperWorkout.workoutLifts ?? []).map((l) => l.liftId);
+      const armLifts = liftIds.filter((id) => id === "curl" || id === "tricep-ext");
+      assert.ok(exerciseCount >= 5 && exerciseCount <= 8, `expected 5–8 exercises, got ${exerciseCount}`);
+      assert.ok(totalSets >= 15, `upper fallback should use most of the session (${totalSets} sets)`);
+      assert.ok(armLifts.length >= 2, "arm specialization should surface both curl and tricep work");
+      assert.ok(
+        (fallback.workoutLifts ?? []).some((l) => {
+          const sets = l.workoutLiftSets as Array<{ repMin: number; repMax: number }>;
+          return sets[0].repMin <= 8 && sets[0].repMax >= 10;
+        }),
+        "compounds should use lower rep ranges than isolations",
+      );
+    });
+
+    it("collapses an over-generated LLM-style upper workout to commercial size", () => {
+      const ctx = parseGenerationContext(
+        JSON.stringify({
+          profile: {
+            trainingAge: "Advanced",
+            sessionLengthMinutes: 75,
+            weekdays: "Monday,Tuesday,Thursday,Friday",
+            trainingDaysPerWeek: 4,
+          },
+          specialization: { Bicep: "Specialize", Tricep: "Specialize" },
+          provenLifts: LIFT_CATALOG,
+          availableLifts: [],
+          literatureVolumeLandmarks: LANDMARKS,
+        }),
+      );
+      const plan = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx)).find((p) => p.theme === "Upper A")!;
+      const candidates = buildDayCandidates(plan, ctx);
+      const repBands = repBandsForLifts(candidates.map((c) => c.liftId), ctx);
+      const threeSets = [{ position: 0, repMin: 8, repMax: 12, rirGoal: 2, isTopSet: true }, { position: 1, repMin: 8, repMax: 12, rirGoal: 0, isTopSet: false }, { position: 2, repMin: 8, repMax: 12, rirGoal: 0, isTopSet: false }];
+      const bloated = {
+        name: plan.name,
+        workoutLifts: [
+          "bench", "row", "db-press", "lat-raise", "curl", "tricep-ext", "seated-row", "crunch",
+        ].map((liftId, position) => ({ liftId, position, workoutLiftSets: threeSets })),
+      };
+      const repaired = repairWorkout(bloated as never, plan, candidates, repBands, ctx);
+      assert.ok(
+        (repaired.workoutLifts?.length ?? 0) <= plan.targetExerciseCount,
+        `repair should cap LLM bloat (got ${repaired.workoutLifts?.length})`,
+      );
+      const hingeLike = (repaired.workoutLifts ?? []).filter((l) => /deadlift|romanian|stiff/i.test(l.liftId ?? ""));
+      assert.equal(hingeLike.length, 0, "upper day should not contain hip-hinge deadlift variants");
+    });
+
+    it("does not stack two hip-hinge compounds on the same lower day", () => {
+      const ctx = contextFor(4);
+      const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
+      for (const plan of plans.filter((p) => p.theme.startsWith("Lower"))) {
+        const candidates = buildDayCandidates(plan, ctx);
+        const repBands = repBandsForLifts(candidates.map((c) => c.liftId), ctx);
+        const program = mergeWorkouts(
+          [{
+            dayPlan: plan,
+            dayIndex: plan.dayIndex,
+            allDayPlans: plans,
+            candidates,
+            repBands,
+            raw: null,
+          }],
+          ctx,
+        );
+        const workout = program.workouts[0];
+        const hingeCount = (workout.workoutLifts ?? []).filter((l) => {
+          const c = candidates.find((x) => x.liftId === l.liftId);
+          return c != null && (c.pattern === "HipHinge" || /deadlift|romanian|stiff-?leg|good-morning/i.test(c.liftId));
+        }).length;
+        assert.ok(hingeCount <= 1, `${plan.name} should have at most one hip-hinge lift`);
+      }
+    });
   });
 
   describe("mergeWorkouts", () => {
@@ -280,6 +394,23 @@ describe("programIntegration", () => {
       // Every workout should be non-empty (fallback fills it).
       for (const workout of program.workouts) {
         assert.ok((workout.workoutLifts?.length ?? 0) > 0, "fallback workout should be non-empty");
+        assert.ok(
+          (workout.workoutLifts?.length ?? 0) <= (plans[workout.position ?? 0].targetExerciseCount),
+          `fallback should cap exercises per session (got ${workout.workoutLifts?.length})`,
+        );
+        const totalSets = (workout.workoutLifts ?? []).reduce(
+          (sum, lift) => sum + (lift.workoutLiftSets?.length ?? 0),
+          0,
+        );
+        const plan = plans[workout.position ?? 0];
+        const timeBudget = plan.timeBudgetHardSets ?? 0;
+        const minSets = plan.theme.toLowerCase().includes("lower")
+          ? Math.min(12, Math.floor(timeBudget * 0.55))
+          : Math.floor(timeBudget * 0.65);
+        assert.ok(
+          totalSets >= minSets,
+          `fallback should fill a sensible session (${totalSets}/${timeBudget} sets, min ${minSets})`,
+        );
       }
     });
   });
@@ -301,6 +432,65 @@ describe("programIntegration", () => {
       const repaired = repairWeeklyVolume(program as never, targets, ctx);
       const after = validateProgramMetrics(repaired, ctx).summary.weeklyMuscleVolume.Chest ?? 0;
       assert.ok(after > before, `Chest ${after} should exceed ${before} after backfill`);
+    });
+
+    it("trimSessionMuscleCreditCaps removes excess fractional credits without exceeding session cap", () => {
+      const ctx = contextFor(4);
+      const program = {
+        name: "Test",
+        workouts: [{
+          name: "Upper",
+          position: 0,
+          weekday: null,
+          workoutLifts: [
+            { liftId: "bench", position: 0, workoutLiftSets: Array.from({ length: 5 }, (_, i) => ({ position: i, repMin: 8, repMax: 12, rirGoal: 2, isTopSet: i === 0 })) },
+            { liftId: "tricep-ext", position: 1, workoutLiftSets: Array.from({ length: 6 }, (_, i) => ({ position: i, repMin: 10, repMax: 15, rirGoal: 1, isTopSet: i === 0 })) },
+          ],
+        }],
+      };
+      trimSessionMuscleCreditCaps(program, ctx);
+      const report = validateProgramMetrics(program, ctx);
+      const sessionHigh = report.issues.filter((i) => i.code === "SESSION_MUSCLE_VOLUME_HIGH");
+      assert.equal(sessionHigh.length, 0);
+    });
+
+    it("trimWorkoutsToSessionDuration keeps workouts within session length + 5 minutes", () => {
+      const ctx = contextFor(4);
+      const ctx30 = parseGenerationContext(
+        JSON.stringify({
+          profile: {
+            trainingAge: "Advanced",
+            sessionLengthMinutes: 30,
+            weekdays: "Monday,Tuesday,Thursday,Friday",
+            trainingDaysPerWeek: 4,
+          },
+          specialization: { Bicep: "Specialize", Tricep: "Specialize" },
+          provenLifts: LIFT_CATALOG,
+          availableLifts: [],
+          literatureVolumeLandmarks: [
+            { muscle: "Chest", estimatedMev: 8, estimatedMav: 14, estimatedMrv: 20, estimatedPv: 11 },
+            { muscle: "Back", estimatedMev: 8, estimatedMav: 14, estimatedMrv: 20, estimatedPv: 11 },
+            { muscle: "Bicep", estimatedMev: 4, estimatedMav: 8, estimatedMrv: 14, estimatedPv: 6 },
+            { muscle: "Tricep", estimatedMev: 4, estimatedMav: 8, estimatedMrv: 14, estimatedPv: 6 },
+          ],
+        }),
+      );
+      const program = {
+        name: "Test",
+        workouts: [{
+          name: "Upper",
+          position: 0,
+          weekday: null,
+          workoutLifts: [
+            { liftId: "bench", position: 0, workoutLiftSets: Array.from({ length: 6 }, (_, i) => ({ position: i })) },
+            { liftId: "curl", position: 1, workoutLiftSets: Array.from({ length: 6 }, (_, i) => ({ position: i })) },
+            { liftId: "tricep-ext", position: 2, workoutLiftSets: Array.from({ length: 6 }, (_, i) => ({ position: i })) },
+          ],
+        }],
+      };
+      trimWorkoutsToSessionDuration(program, ctx30);
+      const report = validateProgramMetrics(program, ctx30);
+      assert.ok(report.summary.estimatedWorkoutMinutes[0]! <= 35);
     });
   });
 });

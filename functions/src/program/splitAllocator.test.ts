@@ -132,6 +132,12 @@ describe("splitAllocator", () => {
       assert.equal(plans.length, 4);
       assert.equal(plans[0].weekday, "Monday");
       assert.equal(plans[3].weekday, "Thursday");
+      const upper = plans.find((p) => p.theme.startsWith("Upper"))!;
+      const lower = plans.find((p) => p.theme.startsWith("Lower"))!;
+      assert.equal(upper.targetExerciseCount, 8);
+      assert.equal(lower.targetExerciseCount, 5);
+      assert.ok(upper.suggestedPatterns.length <= 6, "upper advisory patterns should stay lean");
+      assert.ok(lower.suggestedPatterns.length <= 5, "lower advisory patterns should stay lean");
     });
 
     it("every non-Omit major muscle appears on ≥2 days for a 4-day split", () => {

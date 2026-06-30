@@ -5,6 +5,7 @@ import { computeAllWeeklyTargets } from "./volumeTargetPlanner";
 import { allocateDayPlans } from "./splitAllocator";
 import {
   buildDayCandidates,
+  buildGlobalCandidates,
   CANDIDATES_PER_SLOT,
   compareLiftCandidates,
   mainstreamNameScore,
@@ -206,7 +207,7 @@ describe("liftPriority", () => {
       assert.ok(mainstreamNameScore("Bench Press") > mainstreamNameScore("Alternating Floor Press"));
     });
 
-    it("compareLiftCandidates breaks priority ties with mainstream names", () => {
+    it("compareLiftCandidates breaks priority ties with the mainstream flag", () => {
       const a = {
         liftId: "alt",
         name: "Alternating Kettlebell Row",
@@ -214,6 +215,7 @@ describe("liftPriority", () => {
         priority: 0.4,
         priorityTier: "available" as const,
         isCompound: true,
+        mainstream: false,
         primaryMuscles: ["Back"],
         secondaryMuscles: [],
       };
@@ -224,10 +226,62 @@ describe("liftPriority", () => {
         priority: 0.4,
         priorityTier: "available" as const,
         isCompound: true,
+        mainstream: true,
         primaryMuscles: ["Back"],
         secondaryMuscles: [],
       };
-      assert.ok(compareLiftCandidates(b, a) < 0, "barbell row should sort ahead of alternating row");
+      assert.ok(compareLiftCandidates(b, a) < 0, "mainstream barbell row should sort ahead of non-mainstream alternating row");
+    });
+  });
+
+  describe("buildGlobalCandidates", () => {
+    it("unifies candidates across all days and dedupes by liftId", () => {
+      const ctx = contextWith({ days: 4 });
+      const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
+      const global = buildGlobalCandidates(plans, ctx);
+      const ids = global.map((c) => c.liftId);
+      assert.equal(new Set(ids).size, ids.length, "global pool must not duplicate a liftId");
+
+      // bench appears on Upper days; the global pool must include it (it trains a targeted muscle).
+      assert.ok(ids.includes("bench"), "bench should be in the global pool");
+    });
+
+    it("excludes lifts that train none of any day's targeted muscles", () => {
+      // Add an Ab-only lift; with a 4-day Upper/Lower split Ab is not a targeted muscle, so it
+      // should not surface in the global pool.
+      const ctx = contextWith({
+        provenLifts: [
+          { id: "bench", name: "Bench Press", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: ["Tricep"], trainingInsights: { sessionCount: 12, progressTrend: "Improving" } },
+          { id: "row", name: "Barbell Row", movementPattern: "HorizontalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep"], trainingInsights: { sessionCount: 10, progressTrend: "Stagnant" } },
+          { id: "crunch", name: "Crunch", movementPattern: "SpinalFlexion", primaryMuscles: ["Ab"], secondaryMuscles: [] },
+        ],
+        availableLifts: [],
+        days: 4,
+      });
+      const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
+      const global = buildGlobalCandidates(plans, ctx);
+      assert.ok(!global.some((c) => c.liftId === "crunch"), "Ab-only lift should not appear when Ab is never targeted");
+    });
+
+    it("caps each pattern to CANDIDATES_PER_SLOT", () => {
+      const ctx = contextWith({
+        provenLifts: [
+          { id: "h1", name: "H1", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 20, progressTrend: "Improving" } },
+          { id: "h2", name: "H2", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 15, progressTrend: "Improving" } },
+          { id: "h3", name: "H3", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 10, progressTrend: "Stagnant" } },
+          { id: "h4", name: "H4", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 8, progressTrend: "Stagnant" } },
+          { id: "h5", name: "H5", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [], trainingInsights: { sessionCount: 5, progressTrend: "Regressing" } },
+          { id: "h6", name: "H6", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+          { id: "h7", name: "H7", movementPattern: "HorizontalPress", primaryMuscles: ["Chest"], secondaryMuscles: [] },
+          { id: "row", name: "Barbell Row", movementPattern: "HorizontalPull", primaryMuscles: ["Back"], secondaryMuscles: ["Bicep"] },
+        ],
+        availableLifts: [],
+        days: 4,
+      });
+      const plans = allocateDayPlans(ctx, computeAllWeeklyTargets(ctx));
+      const global = buildGlobalCandidates(plans, ctx);
+      const hpush = global.filter((c) => c.pattern === "HorizontalPress");
+      assert.ok(hpush.length <= CANDIDATES_PER_SLOT, `got ${hpush.length} > ${CANDIDATES_PER_SLOT}`);
     });
   });
 });

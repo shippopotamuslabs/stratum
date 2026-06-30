@@ -1,0 +1,58 @@
+{
+  "defaults": {
+    "trainingAge": "Advanced",
+    "sessionLengthMinutes": 75,
+    "lastTrained": "WithinLastMonth",
+    "liftCatalog": "commercial"
+  },
+  "scenarios": [
+    {
+      "id": "3d-maintenance",
+      "label": "3-day maintenance",
+      "trainingDaysPerWeek": 3,
+      "specialization": {}
+    },
+    {
+      "id": "4d-arms",
+      "label": "4-day arm specialization",
+      "trainingDaysPerWeek": 4,
+      "specialization": { "Bicep": "Specialize", "Tricep": "Specialize" }
+    },
+    {
+      "id": "4d-chest",
+      "label": "4-day chest specialization",
+      "trainingDaysPerWeek": 4,
+      "specialization": { "Chest": "Specialize" }
+    },
+    {
+      "id": "4d-back",
+      "label": "4-day back specialization",
+      "trainingDaysPerWeek": 4,
+      "specialization": { "Back": "Specialize" }
+    },
+    {
+      "id": "5d-arms",
+      "label": "5-day arm specialization",
+      "trainingDaysPerWeek": 5,
+      "specialization": { "Bicep": "Specialize", "Tricep": "Specialize" }
+    },
+    {
+      "id": "5d-glutes",
+      "label": "5-day glute specialization",
+      "trainingDaysPerWeek": 5,
+      "specialization": { "Glute": "Specialize" }
+    },
+    {
+      "id": "6d-arms",
+      "label": "6-day arm specialization",
+      "trainingDaysPerWeek": 6,
+      "specialization": { "Bicep": "Specialize", "Tricep": "Specialize" }
+    },
+    {
+      "id": "6d-shoulders",
+      "label": "6-day shoulder specialization",
+      "trainingDaysPerWeek": 6,
+      "specialization": { "LateralDeltoid": "Specialize", "AnteriorDeltoid": "Specialize" }
+    }
+  ]
+}

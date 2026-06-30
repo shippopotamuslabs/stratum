@@ -35,6 +35,7 @@ export function programJsonSchema() {
           additionalProperties: false,
           properties: {
             name: { type: "string" },
+            cycleLength: { type: "integer" },
             workouts: {
               type: "array",
               items: {
@@ -99,7 +100,7 @@ export function programJsonSchema() {
               },
             },
           },
-          required: ["name", "workouts"],
+          required: ["name", "cycleLength", "workouts"],
         },
       },
       required: ["program"],
@@ -128,7 +129,7 @@ export function parseAndNormalizeProgram(
   if (!program || typeof program !== "object") {
     throw new Error("Malformed program payload: missing program");
   }
-  const prog = program as { name?: unknown; workouts?: unknown };
+  const prog = program as { name?: unknown; cycleLength?: unknown; workouts?: unknown };
   const name = typeof prog.name === "string" ? prog.name : "Program";
   const rawWorkouts = Array.isArray(prog.workouts) ? prog.workouts : [];
   const scheme = schemeForTrainingAge(request.trainingAge);
@@ -149,7 +150,11 @@ export function parseAndNormalizeProgram(
   if (workouts.length === 0) {
     throw new Error("No valid workouts after normalization");
   }
-  return { name, workouts };
+  const cycleLength =
+    typeof prog.cycleLength === "number" && prog.cycleLength >= 1
+      ? prog.cycleLength
+      : workouts.length;
+  return { name, cycleLength, workouts };
 }
 
 /** Lift ids present in the model draft but not in the enabled catalog (silently dropped by normalization). */

@@ -21,6 +21,7 @@ import {
   availablePatternsByMuscle,
   type WeeklyVolumeTargets,
 } from "./volumeTargetPlanner";
+import { sessionExerciseCapForTheme } from "./programRules";
 
 /** Session-time tolerance applied when computing the per-day hard-set cap (matches the validators). */
 const DURATION_TOLERANCE_RATIO = 1.08;
@@ -61,6 +62,8 @@ export interface DayPlan {
    * the user has at least one enabled lift for, so every suggestion is fillable.
    */
   suggestedPatterns: SuggestedPattern[];
+  /** Hard cap on distinct exercises for this session (commercial UL templates: 5 lower, 8 upper). */
+  targetExerciseCount: number;
 }
 
 /** A split template: one day descriptor per training day. */
@@ -86,7 +89,6 @@ interface SuggestedPatternTemplate {
 const UPPER_PATTERNS: SuggestedPatternTemplate[] = [
   { pattern: "HorizontalPress", muscleFocus: "Chest" },
   { pattern: "VerticalPull", muscleFocus: "Back" },
-  { pattern: "InclinePress", muscleFocus: "Chest" },
   { pattern: "HorizontalPull", muscleFocus: "Back" },
   { pattern: "ShoulderAbduction", muscleFocus: "LateralDeltoid" },
   { pattern: "ElbowFlexion", muscleFocus: "Bicep" },
@@ -99,7 +101,6 @@ const LOWER_PATTERNS: SuggestedPatternTemplate[] = [
   { pattern: "KneeExtension", muscleFocus: "Quad" },
   { pattern: "KneeFlexion", muscleFocus: "Hamstring" },
   { pattern: "PlantarFlexion", muscleFocus: "Calf" },
-  { pattern: "SpinalFlexion", muscleFocus: "Ab" },
 ];
 
 const FULL_BODY_PATTERNS: SuggestedPatternTemplate[] = [
@@ -374,6 +375,7 @@ export function allocateDayPlans(
       timeBudgetHardSets: timeBudget,
       muscleBudgets,
       suggestedPatterns,
+      targetExerciseCount: sessionExerciseCapForTheme(template.theme),
     };
   });
 }

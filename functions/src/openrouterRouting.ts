@@ -6,6 +6,10 @@
  */
 export type OpenRouterProviderSort = "price" | "throughput" | "latency";
 
+export type OpenRouterThroughputPreference =
+  | number
+  | { p50?: number; p75?: number; p90?: number; p99?: number };
+
 export type OpenRouterDataCollectionPolicy = "allow" | "deny";
 
 export type OpenRouterProviderRouting = {
@@ -15,6 +19,7 @@ export type OpenRouterProviderRouting = {
   require_parameters?: boolean;
   data_collection?: OpenRouterDataCollectionPolicy;
   zdr?: boolean;
+  preferred_min_throughput?: OpenRouterThroughputPreference;
 };
 
 export type OpenRouterRoutingOptions = {
@@ -24,8 +29,17 @@ export type OpenRouterRoutingOptions = {
   requireParameters?: boolean;
   dataCollection?: OpenRouterDataCollectionPolicy;
   zeroDataRetention?: boolean;
-  /** Omit provider.sort so OpenRouter session_id sticky routing is not overridden. */
+  preferredMinThroughput?: OpenRouterThroughputPreference;
+  /**
+   * Omit provider.sort so OpenRouter session_id sticky routing is not overridden.
+   * Program generation sets this false so price/throughput preferences apply.
+   */
   stickySession?: boolean;
+};
+
+/** Deprioritize sub-50 tps providers when sorting by price (OpenRouter p90 window). */
+export const PROGRAM_GENERATION_PREFERRED_MIN_THROUGHPUT: OpenRouterThroughputPreference = {
+  p90: 50,
 };
 
 export function buildOpenRouterProviderRouting(
@@ -43,6 +57,10 @@ export function buildOpenRouterProviderRouting(
     zdr: pinnedProvider ? false : (options.zeroDataRetention ?? false),
   };
 
+  if (options.preferredMinThroughput != null) {
+    routing.preferred_min_throughput = options.preferredMinThroughput;
+  }
+
   if (hasPreferred) {
     routing.order = [preferredProvider!];
   } else if (!options.stickySession) {
@@ -50,4 +68,19 @@ export function buildOpenRouterProviderRouting(
   }
 
   return routing;
+}
+
+/** Program generation: cheapest provider first, then fastest among ties (OpenRouter Use Case 2). */
+export function buildProgramGenerationProviderRouting(
+  options: Pick<OpenRouterRoutingOptions, "requireParameters" | "preferredMinThroughput"> = {},
+): OpenRouterProviderRouting {
+  return buildOpenRouterProviderRouting({
+    sort: "price",
+    allowFallbacks: true,
+    requireParameters: options.requireParameters ?? true,
+    dataCollection: "deny",
+    preferredMinThroughput:
+      options.preferredMinThroughput ?? PROGRAM_GENERATION_PREFERRED_MIN_THROUGHPUT,
+    stickySession: false,
+  });
 }

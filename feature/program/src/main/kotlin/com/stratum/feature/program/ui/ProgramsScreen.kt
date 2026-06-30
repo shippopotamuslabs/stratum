@@ -2,6 +2,7 @@ package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,12 +29,30 @@ import com.stratum.feature.program.R
 @Composable
 fun ProgramsScreen(
     state: ProgramsUiState,
+    onBackToOnboarding: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            StratumTopBar(title = stringResource(R.string.programs_screen_title))
+            StratumTopBar(
+                title = stringResource(R.string.programs_screen_title),
+                navigationIcon =
+                    if (state is ProgramsUiState.Loaded && onBackToOnboarding != null) {
+                        {
+                            StratumText(
+                                text = stringResource(R.string.programs_back_to_onboarding),
+                                modifier =
+                                    Modifier
+                                        .clickable(onClick = onBackToOnboarding)
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                style = StratumThemeAccessor.typography.bodyLarge,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+            )
         },
     ) { padding ->
         Column(

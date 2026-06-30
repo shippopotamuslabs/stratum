@@ -73,8 +73,8 @@ describe("programValidation", () => {
     assert.ok(issues.some((issue) => issue.code === "WORKOUT_DURATION_EXCEEDED"));
   });
 
-  it("flags low muscle frequency on 4-day programs", () => {
-    const issues = validateMuscleFrequency({ Chest: 1 }, CONTEXT);
+  it("flags low muscle frequency for high-volume muscles in cycle", () => {
+    const issues = validateMuscleFrequency({ Chest: 1 }, { Chest: 18 }, CONTEXT);
     assert.ok(issues.some((issue) => issue.code === "MUSCLE_FREQUENCY_LOW"));
   });
 

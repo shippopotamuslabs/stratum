@@ -43,3 +43,15 @@ export function clampBackOffRir(isMajorCompound: boolean, proposed: number): num
   }
   return 2;
 }
+
+/**
+ * Maximum distinct exercises per session for a day theme. Matches commercial 4-day upper/lower
+ * templates (≈5 lower, ≈7–8 upper) rather than filling every advisory movement pattern.
+ */
+export function sessionExerciseCapForTheme(theme: string): number {
+  const t = theme.toLowerCase();
+  if (t.includes("lower") || t.includes("legs")) return 5;
+  if (t.includes("upper") || t.includes("push") || t.includes("pull")) return 8;
+  if (t.includes("arms")) return 6;
+  return 6;
+}

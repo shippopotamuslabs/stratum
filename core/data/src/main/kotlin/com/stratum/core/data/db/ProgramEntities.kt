@@ -30,6 +30,7 @@ data class ProgramEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: ProgramId,
     val name: String,
     @ColumnInfo(name = "created_at") val createdAt: String,
+    @ColumnInfo(name = "cycle_length") val cycleLength: Int,
 )
 
 @Entity(

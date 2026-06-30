@@ -9,6 +9,7 @@ export interface LiftContext {
   movementPatterns: string[];
   primaryMuscles: string[];
   secondaryMuscles: string[];
+  mainstream?: boolean;
   progressTrend?: string;
   /** Whether the lift is in the proven tier (matched from logged history) vs the available pool. */
   proven?: boolean;
@@ -22,6 +23,8 @@ export interface LiftContext {
   fatigueDecaySlope?: number;
   /** Within-session fatigue decay intercept from trainingInsights. */
   fatigueDecayIntercept?: number;
+  muscleLengthBias?: "Lengthened" | "Shortened" | "MidRange";
+  equipment?: string;
 }
 
 export interface VolumeLandmarkContext {
@@ -113,6 +116,8 @@ function readLift(raw: unknown, provenTier: boolean): LiftContext | null {
     insights && typeof insights.fatigueDecaySlope === "number" ? insights.fatigueDecaySlope : undefined;
   const fatigueDecayIntercept =
     insights && typeof insights.fatigueDecayIntercept === "number" ? insights.fatigueDecayIntercept : undefined;
+  const muscleLengthBias = readMuscleLengthBias(lift.muscleLengthBias);
+  const equipment = typeof lift.equipment === "string" ? lift.equipment : undefined;
   return {
     id,
     name,
@@ -122,10 +127,18 @@ function readLift(raw: unknown, provenTier: boolean): LiftContext | null {
     secondaryMuscles,
     progressTrend,
     proven: provenTier || (lift.proven === true),
+    mainstream: lift.mainstream === true,
     sessionCount,
     fatigueDecaySlope,
     fatigueDecayIntercept,
+    muscleLengthBias,
+    equipment,
   };
+}
+
+function readMuscleLengthBias(value: unknown): LiftContext["muscleLengthBias"] | undefined {
+  if (value === "Lengthened" || value === "Shortened" || value === "MidRange") return value;
+  return undefined;
 }
 
 function readStringArray(value: unknown): string[] {
