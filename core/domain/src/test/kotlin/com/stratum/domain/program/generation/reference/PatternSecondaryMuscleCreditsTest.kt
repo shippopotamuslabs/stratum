@@ -18,6 +18,13 @@ class PatternSecondaryMuscleCreditsTest {
     }
 
     @Test
+    fun hipExtensionCreditsHamstringForRecoveryScheduling() {
+        val hipExtension = PATTERN_SECONDARY_MUSCLE_CREDITS.getValue("HipExtension")
+        assertTrue(hipExtension.any { credit -> credit.muscle == "Hamstring" })
+        assertEquals(SECONDARY_SET_CREDIT, hipExtension.first { it.muscle == "Hamstring" }.creditPerSet)
+    }
+
+    @Test
     fun pressAndPullPatternsCreditTypicalSecondaryMuscles() {
         val horizontalPress = PATTERN_SECONDARY_MUSCLE_CREDITS.getValue("HorizontalPress")
         assertTrue(horizontalPress.any { it.muscle == "Tricep" })
