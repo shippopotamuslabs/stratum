@@ -58,25 +58,6 @@ private const val COMPOUND_SETS_PER_SLOT_CAP = 4
 /** Minimum sets on anchor compounds (squat/hinge/press) when the slot is active. */
 private const val ANCHOR_MIN_SETS = 3
 
-/** Minimum direct arm isolation on a dedicated push/pull day when compounds also train that arm. */
-private const val MIN_ARM_ISO_ON_SPLIT_DAY = 3
-
-/** Minimum sets on a secondary compound (e.g. vertical press) when the session is active. */
-private const val SECONDARY_COMPOUND_MIN_SETS = 2
-
-/** Max set-count spread between sibling lower days before rebalancing. */
-private const val LOWER_SESSION_SPREAD_TARGET = 3
-
-private val LOWER_SLOT_BALANCE_ORDER = listOf("squat", "hinge", "quad-iso", "ham-iso", "calf")
-
-private val LOWER_FILL_PATTERN_ORDER = listOf(
-    "SquatPattern",
-    "HipHinge",
-    "KneeExtension",
-    "KneeFlexion",
-    "PlantarFlexion",
-)
-
 private fun WorkoutSlotTemplate.toFilledSlot(setCount: Int = 0): FilledSlot =
     FilledSlot(
         slotId = slotId,
@@ -131,12 +112,37 @@ fun allocateSlotSetCounts(
     if (port != null) {
         val plans = buildEmptySessionPlans(sessions, context)
         val result = port.allocate(plans, weeklyTargets, context)
-        if (result is SlotSetAllocationResult.Success) return result.plans
+        if (result is SlotSetAllocationResult.Success) {
+            // Post-solver safety net: the solver owns caps, minimums, and
+            // co-specialization balance, but push/pull structural balance and
+            // full-body short-session layout are not modeled. Run the cheap
+            // passes the solver does not subsume, then enforce caps again.
+            return applyPostSolverSafety(result.plans, context)
+        }
         // Fallback: solver reported infeasible/timeout — rebuild empty plans
         // (the solver may have mutated setCount before failing) and run greedy.
         return allocateSlotSetCountsGreedy(buildEmptySessionPlans(sessions, context), weeklyTargets, context)
     }
     return allocateSlotSetCountsGreedy(buildEmptySessionPlans(sessions, context), weeklyTargets, context)
+}
+
+/**
+ * Post-solver safety passes: push/pull + leg pair balance, upper-day pull
+ * minimum, anchor floor, session/muscle cap enforcement, and full-body
+ * short-session layout. The CP-SAT solver does not model push/pull structural
+ * balance or the fixed 30-min full-body override, so these run after every
+ * successful solver result. Cheap and idempotent when the solver already
+ * satisfied them.
+ */
+private fun applyPostSolverSafety(
+    plans: List<SessionSlotPlan>,
+    context: ProgramGenerationContext,
+): List<SessionSlotPlan> {
+    balanceSessionSlotSets(plans, context)
+    ensureAnchorMinimumSets(plans)
+    enforceSessionCaps(plans, context)
+    applyFullBodyShortSessionLayout(plans, context)
+    return plans
 }
 
 /**
@@ -176,9 +182,6 @@ private fun allocateSlotSetCountsGreedy(
     }
 
     balanceSessionSlotSets(plans, context)
-    rebalanceArmSpecSplitSessions(plans, context)
-    balanceLowerSessionSpread(plans, context)
-    fillLowerSessionsToSessionCap(plans, weeklyTargets, context)
     ensureAnchorMinimumSets(plans)
     enforceSessionCaps(plans, context)
     applyFullBodyShortSessionLayout(plans, context)
@@ -372,9 +375,6 @@ private fun shouldIncludeOptional(slot: WorkoutSlotTemplate, context: ProgramGen
     return context.sessionLengthMinutes >= 60
 }
 
-private fun findSlot(plan: SessionSlotPlan, slotId: String): FilledSlot? =
-    plan.filledSlots.find { it.slotId == slotId }
-
 private fun findSlotByPattern(
     plan: SessionSlotPlan,
     pattern: String,
@@ -434,88 +434,6 @@ private fun balanceLegPair(plan: SessionSlotPlan) {
     if (move > 0) transferSets(squat, hinge, move)
 }
 
-private fun perSlotSetCap(slot: FilledSlot): Int =
-    if (slot.role == SlotRole.Anchor || slot.role == SlotRole.SecondaryCompound) {
-        COMPOUND_SETS_PER_SLOT_CAP
-    } else {
-        SPECIALIZED_SETS_PER_SLOT_CAP
-    }
-
-private fun minSetsForSlot(slot: FilledSlot): Int =
-    if (slot.role == SlotRole.Anchor) ANCHOR_MIN_SETS else 0
-
-private fun weeklyPrimarySetsForMuscle(plans: List<SessionSlotPlan>, muscle: String): Int {
-    var total = 0
-    for (plan in plans) {
-        for (slot in plan.filledSlots) {
-            if (slot.primaryMuscle == muscle) total += slot.setCount
-        }
-    }
-    return total
-}
-
-/** Even out Lower A / Lower B totals — arm specialization does not affect leg weekly targets. */
-private fun balanceLowerSessionSpread(plans: List<SessionSlotPlan>, context: ProgramGenerationContext) {
-    val cap = sessionHardSetCap(context)
-    val lowerPlans = plans.filter { it.sessionType == SessionTypeId.Lower }
-    if (lowerPlans.size < 2 || cap == null) return
-
-    repeat(100) {
-        val totals = lowerPlans.map { sessionTotalSets(it) }
-        val maxTotal = totals.maxOrNull() ?: return
-        val minTotal = totals.minOrNull() ?: return
-        if (maxTotal - minTotal <= LOWER_SESSION_SPREAD_TARGET) return
-
-        val maxPlan = lowerPlans[totals.indexOf(maxTotal)]
-        val minPlan = lowerPlans[totals.indexOf(minTotal)]
-        if (minTotal >= cap) return
-
-        var moved = false
-        for (slotId in LOWER_SLOT_BALANCE_ORDER) {
-            val from = findSlot(maxPlan, slotId) ?: continue
-            val to = findSlot(minPlan, slotId) ?: continue
-            if (from.setCount <= minSetsForSlot(from)) continue
-            if (to.setCount >= perSlotSetCap(to)) continue
-            from.setCount -= 1
-            to.setCount += 1
-            moved = true
-            break
-        }
-        if (!moved) return
-    }
-}
-
-/** Top up under-filled lower days toward the session set cap without exceeding weekly muscle max. */
-private fun fillLowerSessionsToSessionCap(
-    plans: List<SessionSlotPlan>,
-    weeklyTargets: WeeklyVolumeTargets,
-    context: ProgramGenerationContext,
-) {
-    val cap = sessionHardSetCap(context) ?: return
-
-    for (plan in plans.filter { it.sessionType == SessionTypeId.Lower }) {
-        repeat(200) {
-            if (sessionTotalSets(plan) >= cap) return@repeat
-            var added = false
-            for (pattern in LOWER_FILL_PATTERN_ORDER) {
-                val slot = findSlotByPattern(plan, pattern) ?: continue
-                if (slot.setCount >= perSlotSetCap(slot)) continue
-
-                val target = weeklyTargets[slot.primaryMuscle]
-                if (target != null && weeklyPrimarySetsForMuscle(plans, slot.primaryMuscle) >= target.max) {
-                    continue
-                }
-                if (muscleCreditsInSession(plan, slot.primaryMuscle) >= SESSION_MUSCLE_SET_CAP) continue
-
-                slot.setCount += 1
-                added = true
-                break
-            }
-            if (!added) return@repeat
-        }
-    }
-}
-
 private fun armsSpecializedInContext(context: ProgramGenerationContext): Boolean =
     (context.specialization["Bicep"] ?: "Maintenance") == "Specialize" ||
         (context.specialization["Tricep"] ?: "Maintenance") == "Specialize"
@@ -556,153 +474,4 @@ private fun ensureUpperDayPullMinimum(plan: SessionSlotPlan) {
     if (press.setCount == 0 || pull.setCount >= 2) return
     if (press.setCount <= 2) return
     transferSets(press, pull, minOf(2 - pull.setCount, press.setCount - 2))
-}
-
-/**
- * On push/pull split days, direct arm isolation can consume the whole per-session muscle
- * credit budget and zero out compounds (presses credit triceps; rows credit biceps).
- * Reserve compound minimums first, then cap arm isolation to remaining headroom.
- */
-private fun rebalanceArmSpecSplitSessions(plans: List<SessionSlotPlan>, context: ProgramGenerationContext) {
-    val dualArmSpecOnUpper =
-        (context.specialization["Bicep"] ?: "Maintenance") == "Specialize" &&
-            (context.specialization["Tricep"] ?: "Maintenance") == "Specialize"
-
-    for (plan in plans) {
-        when {
-            plan.sessionType == SessionTypeId.UpperPush &&
-                (context.specialization["Tricep"] ?: "Maintenance") == "Specialize" ->
-                rebalanceUpperPushArmSpec(plan, context)
-            plan.sessionType == SessionTypeId.UpperPull &&
-                (context.specialization["Bicep"] ?: "Maintenance") == "Specialize" ->
-                rebalanceUpperPullArmSpec(plan, context)
-            plan.sessionType == SessionTypeId.Upper ->
-                rebalanceCombinedUpperArmSpec(plan, context)
-        }
-    }
-
-    if (dualArmSpecOnUpper) {
-        balanceDualArmSpecAcrossUpperPlans(plans)
-    }
-}
-
-internal fun secondaryCreditsForMuscle(plan: SessionSlotPlan, muscle: String): Double {
-    var total = 0.0
-    for (slot in plan.filledSlots) {
-        if (slot.setCount <= 0 || slot.primaryMuscle == muscle) continue
-        for (secondary in PATTERN_SECONDARY_MUSCLE_CREDITS[slot.pattern].orEmpty()) {
-            if (secondary.muscle == muscle) {
-                total += slot.setCount * secondary.creditPerSet
-            }
-        }
-    }
-    return total
-}
-
-private fun transferToReachMinimum(
-    from: FilledSlot?,
-    to: FilledSlot?,
-    minimum: Int,
-    floorForDonor: Int,
-) {
-    if (from == null || to == null) return
-    val needed = minimum - to.setCount
-    if (needed <= 0) return
-    transferSets(from, to, minOf(needed, maxOf(0, from.setCount - floorForDonor)))
-}
-
-private fun capDirectArmIsolation(
-    plan: SessionSlotPlan,
-    armMuscle: String,
-    isolationPattern: String,
-) {
-    val isolation = findSlotByPattern(plan, isolationPattern, SlotRole.Isolation) ?: return
-    if (isolation.setCount <= 0) return
-
-    val maxDirect = kotlin.math.floor(SESSION_MUSCLE_SET_CAP - secondaryCreditsForMuscle(plan, armMuscle)).toInt()
-    if (maxDirect <= 0) {
-        isolation.setCount = 0
-        return
-    }
-    isolation.setCount = minOf(isolation.setCount, maxDirect)
-}
-
-private fun rebalanceUpperPushArmSpec(plan: SessionSlotPlan, context: ProgramGenerationContext) {
-    val tricep = findSlotByPattern(plan, "ElbowExtension", SlotRole.Isolation)
-    val hPress = findSlotByPattern(plan, "HorizontalPress")
-    val incline = findSlotByPattern(plan, "InclinePress")
-    val vPress = findSlotByPattern(plan, "VerticalPress")
-    val latRaise = findSlotByPattern(plan, "ShoulderAbduction", SlotRole.Isolation)
-
-    transferToReachMinimum(tricep, hPress, ANCHOR_MIN_SETS, MIN_ARM_ISO_ON_SPLIT_DAY)
-    transferToReachMinimum(tricep, incline, SECONDARY_COMPOUND_MIN_SETS, MIN_ARM_ISO_ON_SPLIT_DAY)
-    transferToReachMinimum(tricep, vPress, SECONDARY_COMPOUND_MIN_SETS, MIN_ARM_ISO_ON_SPLIT_DAY)
-    transferToReachMinimum(tricep, latRaise, SECONDARY_COMPOUND_MIN_SETS, MIN_ARM_ISO_ON_SPLIT_DAY)
-
-    capDirectArmIsolation(plan, "Tricep", "ElbowExtension")
-
-    val cap = sessionHardSetCap(context)
-    if (cap != null) {
-        while (sessionTotalSets(plan) > cap) {
-            val drop = slotToDropForSessionTimeCap(plan, context)
-            if (drop == null || drop.setCount <= 0) break
-            drop.setCount -= 1
-        }
-    }
-}
-
-private fun rebalanceUpperPullArmSpec(plan: SessionSlotPlan, context: ProgramGenerationContext) {
-    val bicep = findSlotByPattern(plan, "ElbowFlexion", SlotRole.Isolation)
-    val vPull = findSlotByPattern(plan, "VerticalPull")
-    val hPull = findSlotByPattern(plan, "HorizontalPull")
-    val rearDelt = findSlotByPattern(plan, "ShoulderHorizontalAbduction", SlotRole.Isolation)
-
-    transferToReachMinimum(bicep, vPull, ANCHOR_MIN_SETS, MIN_ARM_ISO_ON_SPLIT_DAY)
-    transferToReachMinimum(bicep, hPull, SECONDARY_COMPOUND_MIN_SETS, MIN_ARM_ISO_ON_SPLIT_DAY)
-    transferToReachMinimum(bicep, rearDelt, SECONDARY_COMPOUND_MIN_SETS, MIN_ARM_ISO_ON_SPLIT_DAY)
-
-    capDirectArmIsolation(plan, "Bicep", "ElbowFlexion")
-
-    val cap = sessionHardSetCap(context)
-    if (cap != null) {
-        while (sessionTotalSets(plan) > cap) {
-            val drop = slotToDropForSessionTimeCap(plan, context)
-            if (drop == null || drop.setCount <= 0) break
-            drop.setCount -= 1
-        }
-    }
-}
-
-private fun rebalanceCombinedUpperArmSpec(plan: SessionSlotPlan, context: ProgramGenerationContext) {
-    val bicepSpec = (context.specialization["Bicep"] ?: "Maintenance") == "Specialize"
-    val tricepSpec = (context.specialization["Tricep"] ?: "Maintenance") == "Specialize"
-    if (!bicepSpec && !tricepSpec) return
-
-    val bicep = findSlotByPattern(plan, "ElbowFlexion", SlotRole.Isolation)
-    val tricep = findSlotByPattern(plan, "ElbowExtension", SlotRole.Isolation)
-    val vPull = findSlotByPattern(plan, "VerticalPull")
-    val hPull = findSlotByPattern(plan, "HorizontalPull")
-    val hPress = findSlotByPattern(plan, "HorizontalPress")
-
-    val armDonorFloor = MIN_ARM_ISO_ON_SPLIT_DAY
-    if (bicepSpec && tricepSpec) {
-        ensureUpperDayPullMinimum(plan)
-        transferToReachMinimum(bicep, vPull, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
-        transferToReachMinimum(tricep, hPress, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
-        transferToReachMinimum(bicep, hPull, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
-        capDirectArmIsolation(plan, "Bicep", "ElbowFlexion")
-        capDirectArmIsolation(plan, "Tricep", "ElbowExtension")
-        balanceDualArmSpecIsolationInSession(bicep, tricep, plan)
-    } else {
-        if (bicepSpec) {
-            transferToReachMinimum(bicep, vPull, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
-            transferToReachMinimum(bicep, hPull, SECONDARY_COMPOUND_MIN_SETS, armDonorFloor)
-            capDirectArmIsolation(plan, "Bicep", "ElbowFlexion")
-        }
-        if (tricepSpec) {
-            transferToReachMinimum(tricep, hPress, ANCHOR_MIN_SETS, armDonorFloor)
-            capDirectArmIsolation(plan, "Tricep", "ElbowExtension")
-        }
-        ensureUpperDayPullMinimum(plan)
-    }
 }
