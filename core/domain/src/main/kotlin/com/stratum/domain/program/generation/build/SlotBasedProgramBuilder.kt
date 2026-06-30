@@ -26,7 +26,7 @@ data class BuildProgramResult(
 fun buildProgramWithSelections(
     context: ProgramGenerationContext,
     weeklyTargets: WeeklyVolumeTargets? = null,
-    slotSetAllocationPort: SlotSetAllocationPort? = null,
+    slotSetAllocationPort: SlotSetAllocationPort,
 ): BuildProgramResult {
     val targets = weeklyTargets ?: planWeeklyVolume(context)
     val resolved = resolveSplit(context, targets)
@@ -73,4 +73,5 @@ fun buildProgramWithSelections(
 fun buildProgramFromSlots(
     context: ProgramGenerationContext,
     weeklyTargets: WeeklyVolumeTargets? = null,
-): BuiltProgram = buildProgramWithSelections(context, weeklyTargets).program
+    slotSetAllocationPort: SlotSetAllocationPort,
+): BuiltProgram = buildProgramWithSelections(context, weeklyTargets, slotSetAllocationPort).program

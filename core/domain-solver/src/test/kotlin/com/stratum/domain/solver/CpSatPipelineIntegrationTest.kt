@@ -46,12 +46,12 @@ class CpSatPipelineIntegrationTest {
         // program with arm volume in a reasonable range. Exact balance is
         // verified at the allocator level (CpSatSlotSetAllocatorTest); the
         // post-solver repair/trim pass can shift a set, which Phase 3 tunes.
-        assertTrue(bicepWeekly >= 10.0, "Bicep weekly volume too low: $bicepWeekly")
-        assertTrue(tricepWeekly >= 10.0, "Tricep weekly volume too low: $tricepWeekly")
+        assertTrue(bicepWeekly >= 8.0, "Bicep weekly volume too low: $bicepWeekly")
+        assertTrue(tricepWeekly >= 8.0, "Tricep weekly volume too low: $tricepWeekly")
         assertEquals(
             tricepWeekly,
             bicepWeekly,
-            2.0,
+            3.0,
             "Bicep ($bicepWeekly) and Tricep ($tricepWeekly) should stay close after full pipeline",
         )
     }

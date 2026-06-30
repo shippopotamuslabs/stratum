@@ -14,7 +14,6 @@ import com.stratum.domain.program.generation.split.SlotRole
 import com.stratum.domain.program.generation.split.resolveSplit
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -176,21 +175,21 @@ class CpSatSlotSetAllocatorTest {
     }
 
     @Test
-    @DisplayName("infeasible model (impossible MEV floor) returns Fallback, not an exception")
-    fun infeasibleModelReturnsFallback() {
+    @DisplayName("tight session (MEV infeasible) still solves via soft penalties")
+    fun tightSessionStillSolvesViaSoftPenalties() {
         val context = parseScenarioContext(
             scenarioPayload(3, mapOf("Bicep" to "Specialize", "Tricep" to "Specialize")),
-        ).copy(sessionLengthMinutes = 10) // 10-min session → ~4 sets/session cap → MEV infeasible
+        ).copy(sessionLengthMinutes = 10) // 10-min session → ~4 sets/session cap
         val targets = planWeeklyVolume(context)
         val resolved = resolveSplit(context, targets)
         val plans = buildEmptySessionPlans(resolved.sessions, context)
 
         val result = allocator.allocate(plans, targets, context)
 
-        // Either the solver finds a feasible solution within the tiny budget
-        // (acceptable) or it returns Fallback. The key assertion: no exception,
-        // and the result is a valid sealed-instance.
-        assertNotNull(result)
+        // The model is always feasible (hard constraints are upper bounds
+        // only). MEV floors and role minimums are soft penalties — the solver
+        // gets as close as the caps allow.
+        assertTrue(result is SlotSetAllocationResult.Success, "Expected Success but got $result")
     }
 
     // ---- helpers (mirror muscleCreditsInSession semantics) ----

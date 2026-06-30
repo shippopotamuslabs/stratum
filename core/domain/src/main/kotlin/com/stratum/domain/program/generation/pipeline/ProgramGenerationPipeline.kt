@@ -31,7 +31,7 @@ class ProgramGenerationPipeline @Inject constructor(
     private val planWeeklyVolume: PlanWeeklyVolumeUseCase,
     private val buildProgramWorkouts: BuildProgramWorkoutsUseCase,
     private val integrateAndValidate: IntegrateAndValidateProgramUseCase,
-    private val slotSetAllocationPort: SlotSetAllocationPort? = null,
+    private val slotSetAllocationPort: SlotSetAllocationPort,
 ) {
     suspend fun generate(
         context: ProgramGenerationContext,

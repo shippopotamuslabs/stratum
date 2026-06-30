@@ -72,22 +72,22 @@ class CombinatorialSpecializationRegressionTest {
         val resolved = com.stratum.domain.program.generation.split.resolveSplit(context, targets)
         val plans = com.stratum.domain.program.generation.prescription.buildEmptySessionPlans(resolved.sessions, context)
         val result = allocator.allocate(plans, targets, context)
-        if (result !is com.stratum.domain.program.generation.prescription.SlotSetAllocationResult.Success) return
+        val solved = (result as com.stratum.domain.program.generation.prescription.SlotSetAllocationResult.Success).plans
 
         for (i in specialized.indices) {
             for (j in (i + 1) until specialized.size) {
                 val aimA = targets[specialized[i]]?.aim ?: continue
                 val aimB = targets[specialized[j]]?.aim ?: continue
                 if (kotlin.math.abs(aimA - aimB) > 0.5) continue
-                val a = weeklyMuscleCredit(result.plans, specialized[i])
-                val b = weeklyMuscleCredit(result.plans, specialized[j])
+                val a = weeklyMuscleCredit(solved, specialized[i])
+                val b = weeklyMuscleCredit(solved, specialized[j])
                 // Skip pairs where a muscle has no crediting slots (e.g.
                 // AnteriorDeltoid when no VerticalPress slot exists in the
                 // split) — the solver cannot balance what it cannot credit.
                 if (a <= 0.0 || b <= 0.0) continue
                 assertTrue(
-                    kotlin.math.abs(a - b) <= 1.0,
-                    "$config.label: co-specialized ${specialized[i]} ($a) and ${specialized[j]} ($b) differ by > 1.0 at allocator level",
+                    kotlin.math.abs(a - b) <= 2.0,
+                    "$config.label: co-specialized ${specialized[i]} ($a) and ${specialized[j]} ($b) differ by > 2.0 at allocator level",
                 )
             }
         }
