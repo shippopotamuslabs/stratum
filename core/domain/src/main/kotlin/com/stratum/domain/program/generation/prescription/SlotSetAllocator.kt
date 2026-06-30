@@ -126,20 +126,30 @@ fun allocateSlotSetCounts(
     sessions: List<ResolvedSessionPlan>,
     weeklyTargets: WeeklyVolumeTargets,
     context: ProgramGenerationContext,
+    port: SlotSetAllocationPort? = null,
 ): List<SessionSlotPlan> {
-    val plans = sessions.map { session ->
-        SessionSlotPlan(
-            sessionType = session.sessionType,
-            name = session.name,
-            slots = session.slots,
-            siblingIndex = session.siblingIndex,
-            position = session.position,
-            filledSlots = session.slots
-                .filter { s -> s.role != SlotRole.Optional || shouldIncludeOptional(s, context) }
-                .map { it.toFilledSlot(0) }
-                .toMutableList(),
-        )
+    if (port != null) {
+        val plans = buildEmptySessionPlans(sessions, context)
+        val result = port.allocate(plans, weeklyTargets, context)
+        if (result is SlotSetAllocationResult.Success) return result.plans
+        // Fallback: solver reported infeasible/timeout — rebuild empty plans
+        // (the solver may have mutated setCount before failing) and run greedy.
+        return allocateSlotSetCountsGreedy(buildEmptySessionPlans(sessions, context), weeklyTargets, context)
     }
+    return allocateSlotSetCountsGreedy(buildEmptySessionPlans(sessions, context), weeklyTargets, context)
+}
+
+/**
+ * Greedy muscle-by-muscle round-robin allocator with structural rebalancing.
+ * Used as the [allocateSlotSetCounts] fallback when no CP-SAT port is wired or
+ * the solver reports infeasibility. Receives already-built [SessionSlotPlan]s
+ * (optional slots filtered, `setCount = 0`) and mutates them in place.
+ */
+private fun allocateSlotSetCountsGreedy(
+    plans: List<SessionSlotPlan>,
+    weeklyTargets: WeeklyVolumeTargets,
+    context: ProgramGenerationContext,
+): List<SessionSlotPlan> {
 
     for ((muscle, target) in allocationOrder(weeklyTargets, context)) {
         if (target.aim <= 0) continue
@@ -174,6 +184,30 @@ fun allocateSlotSetCounts(
     applyFullBodyShortSessionLayout(plans, context)
     return plans
 }
+
+/**
+ * Builds [SessionSlotPlan]s from resolved sessions with optional slots filtered
+ * via [shouldIncludeOptional] and every [FilledSlot] instantiated at
+ * `setCount = 0`. Shared by [allocateSlotSetCounts] (greedy) and the CP-SAT
+ * solver port so both start from identical plan structures.
+ */
+fun buildEmptySessionPlans(
+    sessions: List<ResolvedSessionPlan>,
+    context: ProgramGenerationContext,
+): List<SessionSlotPlan> =
+    sessions.map { session ->
+        SessionSlotPlan(
+            sessionType = session.sessionType,
+            name = session.name,
+            slots = session.slots,
+            siblingIndex = session.siblingIndex,
+            position = session.position,
+            filledSlots = session.slots
+                .filter { s -> s.role != SlotRole.Optional || shouldIncludeOptional(s, context) }
+                .map { it.toFilledSlot(0) }
+                .toMutableList(),
+        )
+    }
 
 private data class SlotTarget(val plan: SessionSlotPlan, val slot: FilledSlot)
 
