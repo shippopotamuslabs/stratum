@@ -42,6 +42,7 @@ class CalendarAdjacentMuscleExposureValidationTest {
         assertEquals(1, issues.size)
         val issue = issues.single()
         assertEquals("CALENDAR_ADJACENT_MUSCLE_EXPOSURE", issue.code)
+        assertEquals(ValidationSeverity.Warning, issue.severity)
         assertEquals("Hamstring", issue.details?.get("muscle"))
         assertEquals("Monday", issue.details?.get("earlierDay"))
         assertEquals("Tuesday", issue.details?.get("laterDay"))
@@ -50,6 +51,37 @@ class CalendarAdjacentMuscleExposureValidationTest {
         )
         assertTrue(
             (issue.details?.get("laterDose") as Double) >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE,
+        )
+    }
+
+    @Test
+    fun adjacentExposureDoesNotFailProgramMetricValidation() {
+        val context =
+            parseScenarioContext(
+                scenarioPayload(
+                    days = 4,
+                    specialization = mapOf("Glute" to "Specialize"),
+                    weekdayLayout = "sequential",
+                ),
+            )
+        val program =
+            ProgramDraft(
+                name = "Test",
+                cycleLength = 4,
+                workouts =
+                    listOf(
+                        adjacentWorkout("Lower A", "Monday", "hip-thrust", sets = 4),
+                        adjacentWorkout("Lower B", "Tuesday", "rdl", sets = 3),
+                        adjacentWorkout("Upper A", "Wednesday", "bench", sets = 4),
+                        adjacentWorkout("Upper B", "Thursday", "row", sets = 4),
+                    ),
+            )
+
+        val report = validateProgramMetrics(program, context)
+
+        assertTrue(report.pass, report.issues.joinToString { it.message })
+        assertTrue(
+            report.issues.any { it.code == "CALENDAR_ADJACENT_MUSCLE_EXPOSURE" },
         )
     }
 

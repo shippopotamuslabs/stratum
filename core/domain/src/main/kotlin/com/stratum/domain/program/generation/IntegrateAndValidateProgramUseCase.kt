@@ -73,12 +73,7 @@ class IntegrateAndValidateProgramUseCase @Inject constructor(
         val normalized = parseAndNormalizeProgram(draft, normalizationRequest)
         if (!options.skipFinalValidation) {
             val report = validateProgramMetrics(normalized.toDraft(), context)
-            val blockingCodes =
-                setOf(
-                    "UNSELECTED_ACTIVE_SLOT",
-                    "DUPLICATE_LIFT_IN_WORKOUT",
-                    "CALENDAR_ADJACENT_MUSCLE_EXPOSURE",
-                )
+            val blockingCodes = setOf("UNSELECTED_ACTIVE_SLOT", "DUPLICATE_LIFT_IN_WORKOUT")
             val blocking =
                 report.issues.filter { issue ->
                     issue.severity == ValidationSeverity.Error &&

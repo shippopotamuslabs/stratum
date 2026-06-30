@@ -7,7 +7,25 @@ import org.junit.jupiter.api.Test
 
 class VolumeBudgetPlannerTest {
     @Test
-    fun `trims maintenance toward MV before touching specialized MRV aims`() {
+    fun `calf and tricep specialization on five sixty minute days keeps chest and back at PV aim`() {
+        val context =
+            GenerationContextTestFixtures.volumePlannerContext(
+                profileOverrides =
+                    mapOf(
+                        "sessionLengthMinutes" to 60,
+                        "trainingDaysPerWeek" to 5,
+                        "weekdays" to listOf("Monday", "Tuesday", "Wednesday", "Friday", "Saturday"),
+                    ),
+                specialization = mapOf("Calf" to "Specialize", "Tricep" to "Specialize"),
+            )
+        val trimmed = planWeeklyVolume(context)
+
+        assertEquals(11.0, trimmed.getValue("Chest").aim)
+        assertEquals(11.0, trimmed.getValue("Back").aim)
+    }
+
+    @Test
+    fun `trims maintenance toward PV before MV while preserving specialized MRV aims`() {
         val context =
             GenerationContextTestFixtures.volumePlannerContext(
                 profileOverrides = mapOf("sessionLengthMinutes" to 45),
@@ -23,7 +41,7 @@ class VolumeBudgetPlannerTest {
 
         assertEquals(14.0, trimmed.getValue("Bicep").aim)
         assertEquals(14.0, trimmed.getValue("Tricep").aim)
-        assertTrue(trimmed.getValue("Chest").aim < unscaled.getValue("Chest").aim)
-        assertTrue(trimmed.getValue("Chest").aim >= trimmed.getValue("Chest").min)
+        assertTrue(trimmed.getValue("Chest").aim <= unscaled.getValue("Chest").aim)
+        assertTrue(trimmed.getValue("Chest").aim >= maintenancePvGoal(context.volumeLandmarksByMuscle["Chest"], 8.0))
     }
 }

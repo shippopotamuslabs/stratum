@@ -44,6 +44,7 @@ suspend fun buildProgramWithSelections(
     val lastUsedSession = mutableMapOf<String, Int>()
     val minCycleGap = 2
     val selectionState = LiftSelectionState()
+    val runningWeeklyVolume = mutableMapOf<String, Double>()
 
     val selectionsBySession =
         sessionPlans.mapIndexed { sessionIndex, plan ->
@@ -61,6 +62,7 @@ suspend fun buildProgramWithSelections(
                         sessionIndex = sessionIndex,
                         lastUsedSession = lastUsedSession,
                         selectionState = selectionState,
+                        runningWeeklyVolume = runningWeeklyVolume,
                     )
                 if (sel != null) selections.add(sel)
             }

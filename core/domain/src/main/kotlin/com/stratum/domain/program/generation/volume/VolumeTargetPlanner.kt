@@ -5,10 +5,8 @@ package com.stratum.domain.program.generation.volume
 import com.stratum.domain.program.generation.context.MAJOR_MUSCLES
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import kotlin.math.max
-import kotlin.math.min
-
 /** Per-muscle weekly hard-set credit target. `min` is MV for maintenance, max(mev, mav−tolerance) for Specialize;
- * `aim` is MAV (maintenance) or MRV (specialize); `max` is MRV ceiling. */
+ * `aim` is PV (maintenance) or MRV (specialize); `max` is MAV ceiling (maintenance) or MRV (specialize). */
 data class WeeklyVolumeTarget(
     val min: Double,
     val aim: Double,
@@ -37,12 +35,6 @@ internal fun resolveUnscaledTarget(
     val mrv = landmark?.estimatedMrv ?: 20.0
     val pv = landmark?.estimatedPv ?: 11.0
 
-    val lastTrained = context.lastTrained
-    val conservative =
-        lastTrained == "SixToTwelveMonthsAgo" ||
-            lastTrained == "MoreThanAYearAgo" ||
-            lastTrained == "Never"
-
     if (specializationLevel == "Specialize") {
         return WeeklyVolumeTarget(
             min = max(mev, mav - VOLUME_TOLERANCE_SETS),
@@ -57,10 +49,7 @@ internal fun resolveUnscaledTarget(
     }
 
     val mv = maintenanceMvFloor(landmark, mev)
-    if (conservative) {
-        return WeeklyVolumeTarget(min = mv, aim = pv, max = mav)
-    }
-    return WeeklyVolumeTarget(min = mv, aim = mav, max = mrv)
+    return WeeklyVolumeTarget(min = mv, aim = pv, max = mav)
 }
 
 internal fun trainableMuscles(context: ProgramGenerationContext): List<String> {

@@ -36,7 +36,7 @@ class VolumeTargetPlannerTest {
         }
 
         @Test
-        fun `Maintenance on a non-conservative profile targets MAV with MV floor`() {
+        fun `Maintenance targets PV with MV floor`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf(
@@ -46,12 +46,12 @@ class VolumeTargetPlannerTest {
             )
             val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
             assertEquals(4.0, target.min)
-            assertEquals(14.0, target.aim)
-            assertEquals(20.0, target.max)
+            assertEquals(11.0, target.aim)
+            assertEquals(14.0, target.max)
         }
 
         @Test
-        fun `Maintenance on a conservative return-to-training profile targets PV with MV floor`() {
+        fun `Maintenance on a conservative return-to-training profile also targets PV with MV floor`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf(
@@ -77,8 +77,8 @@ class VolumeTargetPlannerTest {
             )
             val target = resolveUnscaledTarget("Hamstring", "Maintenance", ctx)
             assertEquals(3.6, target.min)
-            assertEquals(14.0, target.aim)
-            assertEquals(20.0, target.max)
+            assertEquals(11.0, target.aim)
+            assertEquals(14.0, target.max)
         }
     }
 
@@ -133,7 +133,7 @@ class VolumeTargetPlannerTest {
             )
             val targets = computeAllWeeklyTargets(ctx)
             assertTrue(targets.containsKey("Calf"))
-            assertEquals(10.0, targets.getValue("Calf").aim)
+            assertEquals(8.0, targets.getValue("Calf").aim)
         }
     }
 

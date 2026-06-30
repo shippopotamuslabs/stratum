@@ -31,14 +31,14 @@ class VolumePlannerTest {
     }
 
     @Test
-    fun `maintenance muscles floor at MV and aim at MAV`() {
+    fun `maintenance muscles floor at MV and aim at PV`() {
         val targets = planWeeklyVolume(
             GenerationContextTestFixtures.volumePlannerContext(
                 specialization = mapOf("Chest" to "Maintenance"),
             ),
         )
         assertEquals(4.0, targets.getValue("Chest").min)
-        assertEquals(14.0, targets.getValue("Chest").aim)
+        assertEquals(11.0, targets.getValue("Chest").aim)
     }
 
     @Test
@@ -87,20 +87,20 @@ class VolumePlannerTest {
         )
         assertEquals(14.0, armAndCalfSpec.getValue("Bicep").aim)
         assertEquals(14.0, armAndCalfSpec.getValue("Tricep").aim)
-        assertTrue(armAndCalfSpec.getValue("Chest").aim <= 14.0)
+        assertTrue(armAndCalfSpec.getValue("Chest").aim <= 11.0)
         assertTrue(armAndCalfSpec.getValue("Chest").aim >= armAndCalfSpec.getValue("Chest").min)
-        assertEquals(14.0, armAndCalfSpec.getValue("Quad").aim)
+        assertEquals(11.0, armAndCalfSpec.getValue("Quad").aim)
     }
 
     @Test
-    fun `dual arm specialization keeps maintenance chest and back aiming at MAV when budget allows`() {
+    fun `dual arm specialization keeps maintenance chest and back aiming at PV when budget allows`() {
         val armSpec = planWeeklyVolume(
             GenerationContextTestFixtures.volumePlannerContext(
                 specialization = mapOf("Bicep" to "Specialize", "Tricep" to "Specialize"),
             ),
         )
-        assertEquals(14.0, armSpec.getValue("Back").aim)
-        assertEquals(14.0, armSpec.getValue("Chest").aim)
+        assertEquals(11.0, armSpec.getValue("Back").aim)
+        assertEquals(11.0, armSpec.getValue("Chest").aim)
     }
 
     @Test

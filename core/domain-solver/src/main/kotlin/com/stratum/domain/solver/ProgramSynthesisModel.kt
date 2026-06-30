@@ -740,13 +740,9 @@ internal class ProgramSynthesisModel(
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
         val sessionCap = sessionHardSetCapForLength(context.sessionLengthMinutes)?.toLong() ?: return
-        val perSessionShare = sessionCap / plans.size.coerceAtLeast(1)
-        val targetSets =
-            maxOf(
-                MIN_SESSION_HARD_SETS.toLong(),
-                perSessionShare,
-                (sessionCap * 2 / (plans.size + 1)),
-            )
+        val fillTarget =
+            kotlin.math.round(sessionCap * SESSION_FILL_TARGET_RATIO).toLong().coerceAtMost(sessionCap)
+        val targetSets = maxOf(MIN_SESSION_HARD_SETS.toLong(), fillTarget)
         val byPlan = _slots.groupBy { it.plan }
         plans.forEach { plan ->
             val slotVars = byPlan[plan].orEmpty()
@@ -1027,6 +1023,8 @@ internal class ProgramSynthesisModel(
         const val CONSECUTIVE_EXPOSURE_PENALTY = 10_000L
         const val MIN_SESSION_HARD_SETS = 8
         const val MIN_ACTIVE_LIFTS_PER_SESSION = 4
+        /** Fraction of per-session hard-set cap to target (65% of 20 → 13 sets on 60 min days). */
+        const val SESSION_FILL_TARGET_RATIO = 0.65
         val LOWER_LEG_ANCHOR_PATTERNS = setOf("SquatPattern", "HipHinge")
         val ANTAGONIST_MAINTENANCE_PAIRS =
             listOf(
