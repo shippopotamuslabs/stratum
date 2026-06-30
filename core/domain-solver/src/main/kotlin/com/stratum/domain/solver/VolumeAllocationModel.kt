@@ -9,8 +9,12 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS
-import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
+import com.stratum.domain.program.generation.reference.MIN_TOUCH_DIRECT_SETS
+import com.stratum.domain.program.generation.reference.RpRepProfile
+import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
+import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
+import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.split.SlotRole
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
@@ -28,9 +32,14 @@ internal class VolumeAllocationModel(
     private val weeklyTargets: WeeklyVolumeTargets,
     private val context: ProgramGenerationContext,
 ) {
-    /** Per-slot cap: 4 for compounds (Anchor/SecondaryCompound), 6 otherwise. */
-    private fun perSlotCap(role: SlotRole): Int =
-        if (role == SlotRole.Anchor || role == SlotRole.SecondaryCompound) COMPOUND_SETS_PER_SLOT_CAP else SPECIALIZED_SETS_PER_SLOT_CAP
+    /** Per-slot cap: 4 for compounds; 5 for isolation / isolation-style anchors. */
+    private fun perSlotCap(slot: FilledSlot): Int =
+        when {
+            slot.role == SlotRole.SecondaryCompound -> COMPOUND_SETS_PER_SLOT_CAP
+            slot.role == SlotRole.Anchor && slot.repProfile != RpRepProfile.Isolation ->
+                COMPOUND_SETS_PER_SLOT_CAP
+            else -> SETS_PER_LIFT_CAP
+        }
 
     /** Slot decision variables and their owning plan, in the order added. */
     data class SlotVar(val plan: SessionSlotPlan, val slot: FilledSlot, val x: IntVar)
@@ -62,7 +71,7 @@ internal class VolumeAllocationModel(
         // Decision variables x[s] ∈ [0, perSlotCap].
         plans.forEach { plan ->
             plan.filledSlots.forEach { slot ->
-                val x = model.newIntVar(0L, perSlotCap(slot.role).toLong(), "x_${slot.slotId}")
+                val x = model.newIntVar(0L, perSlotCap(slot).toLong(), "x_${slot.slotId}")
                 _slots.add(SlotVar(plan, slot, x))
             }
         }
@@ -155,10 +164,10 @@ internal class VolumeAllocationModel(
                 LinearExpr.weightedSum(arrayOf(weekly, over, under), longArrayOf(1L, -1L, 1L)),
                 aimScaled,
             )
-            val weight = if ((context.specialization[muscle] ?: "Maintenance") == "Specialize") {
-                SPECIALIZE_WEIGHT
-            } else {
-                MAINTENANCE_WEIGHT
+            val weight = when (context.specialization[muscle] ?: "Maintenance") {
+                "Specialize" -> SPECIALIZE_WEIGHT
+                "MinimumVolume" -> MINIMUM_VOLUME_WEIGHT
+                else -> MAINTENANCE_AIM_WEIGHT
             }
             weightedTerms.add(over to weight)
             weightedTerms.add(under to weight)
@@ -171,7 +180,7 @@ internal class VolumeAllocationModel(
                     LinearExpr.weightedSum(arrayOf(weekly, mevUnder), longArrayOf(1L, 1L)),
                     minScaled,
                 )
-                weightedTerms.add(mevUnder to MEV_FLOOR_WEIGHT)
+                weightedTerms.add(mevUnder to MV_FLOOR_WEIGHT)
             }
         }
 
@@ -199,10 +208,13 @@ internal class VolumeAllocationModel(
         SlotRole.Anchor -> ANCHOR_MIN_SETS
         SlotRole.SecondaryCompound -> SECONDARY_COMPOUND_MIN_SETS
         SlotRole.Isolation ->
-            if ((context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize") {
-                MIN_SPECIALIZED_DIRECT_SETS
-            } else {
-                null
+            when {
+                slot.isCrossDomainTouch &&
+                    (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize" ->
+                    MIN_TOUCH_DIRECT_SETS
+                (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize" ->
+                    MIN_SPECIALIZED_DIRECT_SETS
+                else -> null
             }
         SlotRole.Optional -> null
     }
@@ -268,15 +280,15 @@ internal class VolumeAllocationModel(
 
     private companion object {
         const val COMPOUND_SETS_PER_SLOT_CAP = 4
-        const val SPECIALIZED_SETS_PER_SLOT_CAP = 6
         const val ANCHOR_MIN_SETS = 3
         const val SECONDARY_COMPOUND_MIN_SETS = 2
-        // Objective weights (long, scaled). Specialize prioritized over Maintenance.
-        const val SPECIALIZE_WEIGHT = 10L
-        const val MAINTENANCE_WEIGHT = 3L
-        // MEV floor shortfall penalty — high enough to push the solver toward
-        // meeting MEV when caps allow, but soft so short sessions don't go infeasible.
-        const val MEV_FLOOR_WEIGHT = 8L
+        // Objective weights (long, scaled). Specialize → MRV first; maintenance MV floor
+        // before MAV aim.
+        const val SPECIALIZE_WEIGHT = 12L
+        const val MAINTENANCE_AIM_WEIGHT = 3L
+        const val MINIMUM_VOLUME_WEIGHT = 5L
+        // MV / MEV floor shortfall — above maintenance aim, below specialize MRV.
+        const val MV_FLOOR_WEIGHT = 8L
         // Role-minimum shortfall penalty — pushes anchor/compound/spec-isolation
         // slots toward their floors. Soft so tight session budgets don't break feasibility.
         const val ROLE_MIN_WEIGHT = 6L

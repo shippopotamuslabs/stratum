@@ -5,6 +5,7 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.VolumeLandmarkContext
 import com.stratum.domain.program.generation.context.VolumeLandmarkSource
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
+import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
 import com.stratum.domain.program.generation.split.resolveSplit
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import com.stratum.domain.solver.CpSatSlotSetAllocator
@@ -19,7 +20,9 @@ class SlotSetAllocatorTest {
         LiftContext("squat", "Squat", "SquatPattern", listOf("SquatPattern"), listOf("Quad"), listOf("Glute"), proven = true),
         LiftContext("rdl", "RDL", "HipHinge", listOf("HipHinge"), listOf("Hamstring"), listOf("Glute"), proven = true),
         LiftContext("curl", "Curl", "ElbowFlexion", listOf("ElbowFlexion"), listOf("Bicep"), emptyList(), proven = true),
+        LiftContext("hammer-curl", "Hammer Curl", "ElbowFlexion", listOf("ElbowFlexion"), listOf("Bicep"), emptyList(), proven = true),
         LiftContext("tricep-ext", "Tricep Extension", "ElbowExtension", listOf("ElbowExtension"), listOf("Tricep"), emptyList(), proven = true),
+        LiftContext("tricep-pushdown", "Tricep Pushdown", "ElbowExtension", listOf("ElbowExtension"), listOf("Tricep"), emptyList(), proven = true),
         LiftContext("leg-ext", "Leg Extension", "KneeExtension", listOf("KneeExtension"), listOf("Quad"), emptyList(), proven = true),
         LiftContext("leg-curl", "Leg Curl", "KneeFlexion", listOf("KneeFlexion"), listOf("Hamstring"), emptyList(), proven = true),
         LiftContext("lat-raise", "Lateral Raise", "ShoulderAbduction", listOf("ShoulderAbduction"), listOf("LateralDeltoid"), emptyList(), proven = true),
@@ -90,6 +93,13 @@ class SlotSetAllocatorTest {
                 assertTrue(
                     primaryMuscleCreditsInSession(plan, muscle) <= SESSION_MUSCLE_SET_CAP,
                     "${plan.name} exceeds cap for $muscle",
+                )
+            }
+            for (slot in plan.filledSlots) {
+                if (slot.setCount <= 0) continue
+                assertTrue(
+                    slot.setCount <= SETS_PER_LIFT_CAP,
+                    "${plan.name} slot ${slot.slotId} has ${slot.setCount} sets (cap $SETS_PER_LIFT_CAP)",
                 )
             }
         }

@@ -16,6 +16,10 @@ data class SpecializationPreference(
     val specializedMuscles: Set<MuscleGroup>
         get() = levels.filterValues { it == SpecializationLevel.Specialize }.keys
 
+    /** Muscles held at maintenance volume (MV) — bare minimum to retain size. */
+    val minimumVolumeMuscles: Set<MuscleGroup>
+        get() = levels.filterValues { it == SpecializationLevel.MinimumVolume }.keys
+
     /**
      * The level for [muscle], defaulting to [SpecializationLevel.Maintenance] when unset.
      * Absence is meaningful: a non-specified muscle is on maintenance.

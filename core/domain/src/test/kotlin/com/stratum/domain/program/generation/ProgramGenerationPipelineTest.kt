@@ -47,14 +47,23 @@ class ProgramGenerationPipelineTest {
         context.weekdays.mapNotNull { weekday ->
             runCatching { Weekday.valueOf(weekday) }.getOrNull()
         }
-    val program = assignProgramSchedule(normalized.toDomainProgram(), trainingWeekdays)
+    val draft = normalized.toDraft()
+    val program = assignProgramSchedule(
+        normalized.toDomainProgram(),
+        trainingWeekdays,
+        draft.workouts.map { computeWorkoutMuscleVolume(it, context) },
+    )
     assertEquals(config.days, program.cycleLength)
     assertEquals(config.days, program.workouts.size)
     for (workout in program.workouts) {
       assertTrue(workout.weekday != null)
       val ids = workout.workoutLifts.map { it.liftId }
       assertEquals(ids.size, ids.toSet().size, "${workout.name} has duplicate liftIds")
-      assertTrue(ids.size >= 3, "${workout.name} should have enough exercises to fill a session")
+      val hardSets = workout.workoutLifts.sumOf { lift -> lift.sets.size }
+      assertTrue(
+        ids.size >= 3 || hardSets >= 8,
+        "${workout.name} should have enough exercises to fill a session",
+      )
     }
   }
 
@@ -68,22 +77,26 @@ class ProgramGenerationPipelineTest {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
-  @DisplayName("weekly volume targets from landmarks (not time-budget scaled)")
+  @DisplayName("weekly volume targets from landmarks with session-budget precedence")
   fun weeklyVolumeTargetsFromLandmarks(config: ScenarioConfig) = runTest {
     val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
     val context = parseScenarioContext(scenarioPayload(config.days, specialization))
     val targets = planWeeklyVolume(context)
 
     if (specialization["Chest"] == "Specialize") {
-      assertTrue((targets["Chest"]?.aim ?: 0.0) >= 14.0)
+      assertEquals(20.0, targets["Chest"]?.aim)
     } else if (specialization["Back"] != "Specialize") {
-      assertEquals(14.0, targets["Back"]?.aim)
+      val back = targets.getValue("Back")
+      assertTrue(back.aim >= back.min)
+      assertTrue(back.aim <= 14.0)
     }
 
     if (specialization["Back"] == "Specialize") {
-      assertTrue((targets["Back"]?.aim ?: 0.0) >= 14.0)
+      assertEquals(20.0, targets["Back"]?.aim)
     } else if (specialization["Chest"] != "Specialize") {
-      assertEquals(14.0, targets["Chest"]?.aim)
+      val chest = targets.getValue("Chest")
+      assertTrue(chest.aim >= chest.min)
+      assertTrue(chest.aim <= 14.0)
     }
 
     if (specialization["Bicep"] == "Specialize" || specialization["Tricep"] == "Specialize") {
@@ -92,10 +105,12 @@ class ProgramGenerationPipelineTest {
       )
       val neutral = planWeeklyVolume(neutralContext)
       if (specialization["Bicep"] == "Specialize") {
-        assertTrue((targets["Bicep"]?.aim ?: 0.0) > (neutral["Bicep"]?.aim ?: 0.0))
+        assertEquals(14.0, targets.getValue("Bicep").aim)
+        assertTrue(targets.getValue("Bicep").aim > neutral.getValue("Bicep").aim)
       }
       if (specialization["Tricep"] == "Specialize") {
-        assertTrue((targets["Tricep"]?.aim ?: 0.0) > (neutral["Tricep"]?.aim ?: 0.0))
+        assertEquals(14.0, targets.getValue("Tricep").aim)
+        assertTrue(targets.getValue("Tricep").aim > neutral.getValue("Tricep").aim)
       }
     }
   }
@@ -110,12 +125,16 @@ class ProgramGenerationPipelineTest {
   }
 
   @Test
-  @DisplayName("4-day arm specialization: back weekly target ~14, split across upper days")
+  @DisplayName("4-day arm specialization: specialized arms target MRV, maintenance back respects budget")
   fun fourDayArmSpecializationBackVolume() = runTest {
     val config = ScenarioConfig(days = 4, preset = "arms", label = "4-day arms")
     val (program, context) = generateScenario(config)
     val targets = planWeeklyVolume(context)
-    assertEquals(14.0, targets["Back"]?.aim)
+    assertEquals(14.0, targets.getValue("Bicep").aim)
+    assertEquals(14.0, targets.getValue("Tricep").aim)
+    val back = targets.getValue("Back")
+    assertTrue(back.aim >= back.min)
+    assertTrue(back.aim <= 14.0)
 
     val draft = program.toDraft()
     val upperWorkouts = draft.workouts.filter { (it.name).orEmpty().contains("upper", ignoreCase = true) }
@@ -127,6 +146,28 @@ class ProgramGenerationPipelineTest {
       assertTrue(backSets <= SESSION_MUSCLE_SET_CAP, "${workout.name} back sets $backSets")
     }
     assertTrue(totalBack >= 8, "back should accumulate meaningful weekly volume across upper days")
+  }
+
+  @Test
+  @DisplayName("5-day arm specialization: direct arm sets on at least one lower session")
+  fun fiveDayArmSpecializationTouchOnLower() = runTest {
+    val config = ScenarioConfig(days = 5, preset = "arms", label = "5-day arms")
+    val (program, context) = generateScenario(config)
+    val draft = program.toDraft()
+    val lowerWorkouts = draft.workouts.filter { (it.name).orEmpty().contains("lower", ignoreCase = true) }
+    assertTrue(lowerWorkouts.isNotEmpty(), "expected lower sessions in 5-day split")
+    var lowerBicep = 0
+    var lowerTricep = 0
+    for (workout in lowerWorkouts) {
+      val primary = primarySetsByMuscleInWorkout(workout, context)
+      lowerBicep += primary["Bicep"] ?: 0
+      lowerTricep += primary["Tricep"] ?: 0
+    }
+    assertTrue(
+      lowerBicep > 0 || lowerTricep > 0,
+      "specialized arms should receive direct touch volume on a lower day",
+    )
+    assertWeightologySessionCaps(draft, context, config.label)
   }
 
   @ParameterizedTest

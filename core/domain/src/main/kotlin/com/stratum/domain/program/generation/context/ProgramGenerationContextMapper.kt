@@ -91,6 +91,7 @@ object ProgramGenerationContextMapper {
                     estimatedMav = literature.estimatedMav,
                     estimatedMrv = literature.estimatedMrv,
                     estimatedPv = literature.estimatedPv,
+                    estimatedMv = literature.estimatedMv,
                     source = VolumeLandmarkSource.Literature,
                 ),
                 preferPersonal = false,

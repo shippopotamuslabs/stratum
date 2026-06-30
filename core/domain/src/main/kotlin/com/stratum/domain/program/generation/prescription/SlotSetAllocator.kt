@@ -5,8 +5,10 @@ package com.stratum.domain.program.generation.prescription
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
+import com.stratum.domain.program.generation.reference.MIN_TOUCH_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
+import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.split.MuscleLengthBiasPreference
@@ -25,6 +27,7 @@ data class FilledSlot(
     val repProfile: RpRepProfile,
     val lengthBiasPreference: MuscleLengthBiasPreference? = null,
     val siblingVariant: SiblingVariant? = null,
+    val isCrossDomainTouch: Boolean = false,
     var setCount: Int,
 ) {
     fun toWorkoutSlotTemplate(): WorkoutSlotTemplate =
@@ -36,6 +39,7 @@ data class FilledSlot(
             repProfile = repProfile,
             lengthBiasPreference = lengthBiasPreference,
             siblingVariant = siblingVariant,
+            isCrossDomainTouch = isCrossDomainTouch,
         )
 }
 
@@ -54,6 +58,11 @@ private const val COMPOUND_SETS_PER_SLOT_CAP = 4
 /** Minimum sets on anchor compounds (squat/hinge/press) when the slot is active. */
 private const val ANCHOR_MIN_SETS = 3
 
+private val LOWER_DOMAIN_SESSIONS =
+    setOf(SessionTypeId.Lower, SessionTypeId.QuadsCalves, SessionTypeId.GlutesHams)
+
+private val LOWER_LEG_ANCHOR_PATTERNS = setOf("SquatPattern", "HipHinge")
+
 private fun WorkoutSlotTemplate.toFilledSlot(setCount: Int = 0): FilledSlot =
     FilledSlot(
         slotId = slotId,
@@ -63,6 +72,7 @@ private fun WorkoutSlotTemplate.toFilledSlot(setCount: Int = 0): FilledSlot =
         repProfile = repProfile,
         lengthBiasPreference = lengthBiasPreference,
         siblingVariant = siblingVariant,
+        isCrossDomainTouch = isCrossDomainTouch,
         setCount = setCount,
     )
 
@@ -116,8 +126,13 @@ private fun applyPostSolverSafety(
 ): List<SessionSlotPlan> {
     balanceSessionSlotSets(plans, context)
     ensureAnchorMinimumSets(plans)
+    ensureCrossDomainTouchSets(plans, context)
+    enforceSessionCaps(plans, context)
+    ensureMinimumSessionExercises(plans, context)
+    redistributeOversizedDirectSets(plans)
     enforceSessionCaps(plans, context)
     applyFullBodyShortSessionLayout(plans, context)
+    ensureLowerSessionLegAnchors(plans, context)
     return plans
 }
 
@@ -152,6 +167,160 @@ private fun ensureAnchorMinimumSets(plans: List<SessionSlotPlan>) {
                 slot.setCount = ANCHOR_MIN_SETS
             }
         }
+    }
+}
+
+private fun ensureCrossDomainTouchSets(
+    plans: List<SessionSlotPlan>,
+    context: ProgramGenerationContext,
+) {
+    val specialized = specializedMuscles(context)
+    val sessionCap = sessionHardSetCap(context)
+    for (muscle in specialized) {
+        val touchSlots = plans.flatMap { plan ->
+            plan.filledSlots.filter { it.isCrossDomainTouch && it.primaryMuscle == muscle }
+        }
+        if (touchSlots.isEmpty() || touchSlots.any { it.setCount >= MIN_TOUCH_DIRECT_SETS }) continue
+        for (plan in plans) {
+            val slot = plan.filledSlots.find { it.isCrossDomainTouch && it.primaryMuscle == muscle } ?: continue
+            while (slot.setCount < MIN_TOUCH_DIRECT_SETS) {
+                if (sessionCap != null && plan.filledSlots.sumOf { it.setCount } >= sessionCap) break
+                slot.setCount += 1
+            }
+            if (slot.setCount >= MIN_TOUCH_DIRECT_SETS) break
+        }
+    }
+}
+
+/**
+ * Spreads direct volume across paired in-domain slots when post-solver passes
+ * stack more than [SETS_PER_LIFT_CAP] sets on one exercise.
+ */
+private fun redistributeOversizedDirectSets(plans: List<SessionSlotPlan>) {
+    for (plan in plans) {
+        val groups =
+            plan.filledSlots.groupBy { slot ->
+                Triple(slot.primaryMuscle, slot.pattern, slot.isCrossDomainTouch)
+            }
+        for (group in groups.values) {
+            if (group.size < 2) {
+                group.firstOrNull()?.let { slot ->
+                    if (slot.setCount > SETS_PER_LIFT_CAP) slot.setCount = SETS_PER_LIFT_CAP
+                }
+                continue
+            }
+            var guard = 0
+            while (guard++ < 50) {
+                val overloaded = group.filter { it.setCount > SETS_PER_LIFT_CAP }
+                if (overloaded.isEmpty()) break
+                var movedAny = false
+                for (slot in overloaded) {
+                    val partner =
+                        group.find { candidate ->
+                            candidate !== slot && candidate.setCount < SETS_PER_LIFT_CAP
+                        } ?: continue
+                    val move =
+                        minOf(
+                            slot.setCount - SETS_PER_LIFT_CAP,
+                            SETS_PER_LIFT_CAP - partner.setCount,
+                        )
+                    if (move > 0) {
+                        transferSets(slot, partner, move)
+                        movedAny = true
+                    }
+                }
+                if (!movedAny) {
+                    overloaded.forEach { slot -> slot.setCount = SETS_PER_LIFT_CAP }
+                    break
+                }
+            }
+        }
+    }
+}
+
+private const val MIN_SESSION_EXERCISES = 3
+private const val MIN_SESSION_HARD_SETS = 8
+
+/** Keeps each session from collapsing to only one or two lifts after volume rebalancing. */
+private fun ensureMinimumSessionExercises(
+    plans: List<SessionSlotPlan>,
+    context: ProgramGenerationContext,
+) {
+    val sessionCap = sessionHardSetCap(context)
+    for (plan in plans) {
+        activateUntilMinimumExercises(plan, sessionCap)
+        ensureMinimumSessionHardSets(plan, sessionCap)
+    }
+}
+
+private fun activateUntilMinimumExercises(plan: SessionSlotPlan, sessionCap: Int?) {
+    var guard = 0
+    while (guard++ < 50) {
+        val active =
+            plan.filledSlots.count { slot ->
+                slot.setCount > 0 && !slot.isCrossDomainTouch
+            }
+        if (active >= MIN_SESSION_EXERCISES) return
+        val candidate = plan.filledSlots
+            .filter { it.setCount == 0 && !it.isCrossDomainTouch }
+            .sortedBy { if (it.role == SlotRole.Anchor) 0 else 1 }
+            .firstOrNull() ?: return
+        if (sessionCap != null && sessionTotalSets(plan) >= sessionCap) return
+        candidate.setCount = when (candidate.role) {
+            SlotRole.Anchor -> minOf(ANCHOR_MIN_SETS, 2)
+            SlotRole.SecondaryCompound -> 2
+            else -> 1
+        }
+    }
+}
+
+/**
+ * Squat/hinge anchors must stay active on lower days. Cross-domain touches and
+ * calf iso can satisfy [MIN_SESSION_EXERCISES] while leaving leg compounds at zero.
+ */
+private fun ensureLowerSessionLegAnchors(
+    plans: List<SessionSlotPlan>,
+    context: ProgramGenerationContext,
+) {
+    val sessionCap = sessionHardSetCap(context)
+    for (plan in plans) {
+        if (plan.sessionType !in LOWER_DOMAIN_SESSIONS) continue
+        for (pattern in LOWER_LEG_ANCHOR_PATTERNS) {
+            val anchor =
+                findSlotByPattern(plan, pattern, SlotRole.Anchor)
+                    ?: findSlotByPattern(plan, pattern)
+                    ?: continue
+            var guard = 0
+            while (guard++ < 30 && anchor.setCount < ANCHOR_MIN_SETS) {
+                if (sessionCap != null && sessionTotalSets(plan) >= sessionCap) {
+                    val donor = slotToStealForLowerLegAnchor(plan, context) ?: break
+                    if (donor.setCount <= 0) break
+                    transferSets(donor, anchor, 1)
+                } else {
+                    anchor.setCount += 1
+                }
+            }
+        }
+    }
+}
+
+private fun isProtectedLowerLegAnchor(slot: FilledSlot, plan: SessionSlotPlan): Boolean {
+    if (plan.sessionType !in LOWER_DOMAIN_SESSIONS) return false
+    return slot.pattern in LOWER_LEG_ANCHOR_PATTERNS &&
+        slot.setCount <= ANCHOR_MIN_SETS &&
+        !slot.isCrossDomainTouch
+}
+
+/** Two-lift sessions with low set counts fail pipeline smoke checks — top up toward 8 hard sets. */
+private fun ensureMinimumSessionHardSets(plan: SessionSlotPlan, sessionCap: Int?) {
+    var guard = 0
+    while (guard++ < 50 && sessionTotalSets(plan) < MIN_SESSION_HARD_SETS) {
+        val bump =
+            plan.filledSlots
+                .filter { it.setCount > 0 && it.setCount < SETS_PER_LIFT_CAP }
+                .maxByOrNull { it.setCount } ?: break
+        if (sessionCap != null && sessionTotalSets(plan) >= sessionCap) break
+        bump.setCount += 1
     }
 }
 
@@ -193,46 +362,76 @@ private fun specializedMuscles(context: ProgramGenerationContext): Set<String> {
     return out
 }
 
-private fun slotToDropForSessionTimeCap(
+/**
+ * Steals sets for lower-day squat/hinge anchors when the session is at its hard-set
+ * cap. Unlike [slotToDropForSessionTimeCap], this may trim specialized calf iso at the
+ * [MIN_SPECIALIZED_DIRECT_SETS] floor and cross-domain touches at [MIN_TOUCH_DIRECT_SETS].
+ */
+private fun slotToStealForLowerLegAnchor(
     plan: SessionSlotPlan,
     context: ProgramGenerationContext,
 ): FilledSlot? {
     val specialized = specializedMuscles(context)
-    val optional = plan.filledSlots.find {
-        it.role == SlotRole.Optional && it.setCount > 0 && it.primaryMuscle !in specialized
-    }
-    if (optional != null) return optional
+    val ordered = mutableListOf<FilledSlot>()
 
-    val specializedOptional = plan.filledSlots.find {
+    fun addFirst(predicate: (FilledSlot) -> Boolean) {
+        plan.filledSlots.firstOrNull(predicate)?.let { slot ->
+            if (slot !in ordered) ordered.add(slot)
+        }
+    }
+
+    addFirst { it.isCrossDomainTouch && it.setCount > 0 }
+    addFirst { it.slotId.endsWith("-alt") && it.primaryMuscle in specialized && it.setCount > 0 }
+    addFirst { it.role == SlotRole.Isolation && it.primaryMuscle in specialized && it.setCount > 2 }
+    addFirst { it.role == SlotRole.Isolation && it.primaryMuscle in specialized && it.setCount > 0 }
+    addFirst { it.role == SlotRole.Optional && it.setCount > 0 }
+    addFirst { it.role == SlotRole.Isolation && it.setCount > 0 && it.primaryMuscle !in specialized }
+    addFirst { it.role == SlotRole.SecondaryCompound && it.setCount > 0 }
+    plan.filledSlots.asReversed().firstOrNull {
+        it.setCount > 0 && it.role == SlotRole.Anchor && it.pattern !in LOWER_LEG_ANCHOR_PATTERNS
+    }?.let { slot -> if (slot !in ordered) ordered.add(slot) }
+
+    return ordered.firstOrNull { candidate -> !isProtectedLowerLegAnchor(candidate, plan) }
+}
+
+private fun slotToDropForSessionTimeCap(
+    plan: SessionSlotPlan,
+    context: ProgramGenerationContext,
+): FilledSlot? =
+    buildSessionTimeCapDropCandidates(plan, context)
+        .firstOrNull { candidate -> !isProtectedLowerLegAnchor(candidate, plan) }
+
+private fun buildSessionTimeCapDropCandidates(
+    plan: SessionSlotPlan,
+    context: ProgramGenerationContext,
+): List<FilledSlot> {
+    val specialized = specializedMuscles(context)
+    val ordered = mutableListOf<FilledSlot>()
+
+    fun addFirst(predicate: (FilledSlot) -> Boolean) {
+        plan.filledSlots.firstOrNull(predicate)?.let { if (it !in ordered) ordered.add(it) }
+    }
+
+    addFirst { it.isCrossDomainTouch && it.setCount > MIN_TOUCH_DIRECT_SETS }
+    addFirst { it.role == SlotRole.Optional && it.setCount > 0 && it.primaryMuscle !in specialized }
+    addFirst {
         it.role == SlotRole.Optional &&
             it.setCount > MIN_SPECIALIZED_DIRECT_SETS &&
             it.primaryMuscle in specialized
     }
-    if (specializedOptional != null) return specializedOptional
-
-    val maintenanceIso = plan.filledSlots.find {
-        it.role == SlotRole.Isolation && it.setCount > 0 && it.primaryMuscle !in specialized
-    }
-    if (maintenanceIso != null) return maintenanceIso
-
-    val maintenanceSecondary = plan.filledSlots
-        .asReversed()
-        .find {
-            it.setCount > 0 && it.role == SlotRole.SecondaryCompound && it.primaryMuscle !in specialized
-        }
-    if (maintenanceSecondary != null) return maintenanceSecondary
-
-    val specializedAboveMin = plan.filledSlots.find {
+    addFirst { it.role == SlotRole.Isolation && it.setCount > 0 && it.primaryMuscle !in specialized }
+    plan.filledSlots.asReversed().firstOrNull {
+        it.setCount > 0 && it.role == SlotRole.SecondaryCompound && it.primaryMuscle !in specialized
+    }?.let { if (it !in ordered) ordered.add(it) }
+    addFirst {
         it.setCount > MIN_SPECIALIZED_DIRECT_SETS &&
             it.primaryMuscle in specialized &&
             (it.role == SlotRole.Isolation || it.role == SlotRole.Anchor)
     }
-    if (specializedAboveMin != null) return specializedAboveMin
+    addFirst { it.role == SlotRole.Anchor && it.setCount > 1 }
+    plan.filledSlots.firstOrNull { it.setCount > 0 }?.let { if (it !in ordered) ordered.add(it) }
 
-    val anchorWithSets = plan.filledSlots.find { it.role == SlotRole.Anchor && it.setCount > 1 }
-    if (anchorWithSets != null) return anchorWithSets
-
-    return plan.filledSlots.find { it.setCount > 0 }
+    return ordered
 }
 
 private fun slotToTrimForMuscleCap(
@@ -257,6 +456,7 @@ private fun trimScore(slot: FilledSlot, muscle: String, isSpecializedMuscle: Boo
 
     if (isSpecializedMuscle) {
         if (isSecondary) return 0
+        if (isPrimary && slot.isCrossDomainTouch) return 1
         if (isPrimary && slot.role == SlotRole.Isolation) return 3
         if (isPrimary && slot.role == SlotRole.Anchor) return 5
         return 2

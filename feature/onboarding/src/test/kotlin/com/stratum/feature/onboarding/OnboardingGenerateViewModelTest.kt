@@ -151,6 +151,7 @@ class OnboardingGenerateViewModelTest {
             validateProfileStep = com.stratum.domain.onboarding.ValidateProfileStepUseCase(),
             validateScheduleStep = com.stratum.domain.onboarding.ValidateScheduleStepUseCase(),
             validateSpecializationStep = com.stratum.domain.onboarding.ValidateSpecializationStepUseCase(),
+            validateMinimumVolumeStep = com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase(),
             validateGymLiftsStep = com.stratum.domain.lift.ValidateGymLiftsStepUseCase(),
         )
         val rollbackHistoricalImport = com.stratum.domain.importing.RollbackHistoricalImportUseCase(

@@ -8,6 +8,9 @@ import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 /** Max hard sets per muscle per workout before junk-volume territory (Stratum default). */
 const val SESSION_MUSCLE_SET_CAP = 8
 
+/** Max hard sets on a single exercise in one session — avoids repetitive high-volume stacks. */
+const val SETS_PER_LIFT_CAP = 5
+
 /** Session time tolerance when computing per-day hard-set budget (legacy ratio — prefer sessionHardSetCapForLength). */
 const val DURATION_TOLERANCE_RATIO = 1.08
 
@@ -105,3 +108,6 @@ val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<String, List<PatternSecondaryMuscleCre
 
 /** Minimum direct (primary) sets for a specialized muscle's isolation slot in one session. */
 const val MIN_SPECIALIZED_DIRECT_SETS = 4
+
+/** Minimum direct sets for a cross-domain touch isolation slot (supplementary volume). */
+const val MIN_TOUCH_DIRECT_SETS = 2

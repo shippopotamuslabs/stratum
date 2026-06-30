@@ -12,6 +12,7 @@ enum class OnboardingStep {
     Profile,
     Schedule,
     Specialization,
+    MinimumVolume,
     GymAndLifts,
     Review,
     Generate,

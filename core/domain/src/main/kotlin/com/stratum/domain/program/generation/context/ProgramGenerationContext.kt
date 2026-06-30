@@ -45,6 +45,7 @@ data class VolumeLandmarkContext(
     val estimatedMrv: Double,
     val estimatedPv: Double,
     val source: VolumeLandmarkSource,
+    val estimatedMv: Double = kotlin.math.max(2.0, estimatedMev * 0.5),
 )
 
 data class VolumeResponseContext(

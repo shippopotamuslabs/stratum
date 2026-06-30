@@ -1,0 +1,100 @@
+package com.stratum.domain.program.generation.selection
+
+import com.stratum.core.testing.program.parseScenarioContext
+import com.stratum.core.testing.program.scenarioPayload
+import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.program.generation.context.LiftContext
+import com.stratum.domain.program.generation.context.MuscleLengthBias
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.context.VolumeLandmarkContext
+import com.stratum.domain.program.generation.context.VolumeLandmarkSource
+import com.stratum.domain.program.generation.pipeline.PipelineOptions
+import com.stratum.domain.program.generation.schema.toDraft
+import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
+class LiftVarietyIntegrationTest {
+
+    @Test
+    fun sixDayCycleSpreadsCalfAndSquatLiftsAcrossLowerDays() = runTest {
+        val context = richLowerBodyCatalog()
+        val program =
+            testProgramGenerationPipeline().generate(
+                context = context,
+                normalizationRequest = context.toProgramNormalizationRequest(),
+                options = PipelineOptions(skipLiftSwap = true),
+            )
+        val draft = program.toDraft()
+        val lowerLiftIds =
+            draft.workouts
+                .filter { it.name.orEmpty().startsWith("Lower") }
+                .flatMap { workout -> workout.workoutLifts.orEmpty().mapNotNull { it.liftId } }
+        val calfLifts =
+            lowerLiftIds.filter { liftId ->
+                val meta = context.liftsById[liftId] ?: return@filter false
+                meta.movementPattern == "PlantarFlexion"
+            }
+        val squatLifts =
+            lowerLiftIds.filter { liftId ->
+                val meta = context.liftsById[liftId] ?: return@filter false
+                meta.movementPattern == "SquatPattern"
+            }
+        assertTrue(
+            calfLifts.toSet().size >= 2,
+            "Expected ≥2 distinct calf lifts across lower days, got $calfLifts",
+        )
+        assertTrue(
+            squatLifts.toSet().size >= 2,
+            "Expected ≥2 distinct squat-pattern lifts across lower days, got $squatLifts",
+        )
+    }
+
+    private fun richLowerBodyCatalog(): ProgramGenerationContext {
+        val base = parseScenarioContext(
+            scenarioPayload(
+                days = 6,
+                specialization = mapOf("Calf" to "Specialize", "Bicep" to "Specialize", "Tricep" to "Specialize"),
+            ),
+        )
+        val extraLifts =
+            listOf(
+                lift("donkey-calf", "Donkey Calf Raise", "PlantarFlexion", listOf("Calf")),
+                lift("seated-calf-machine", "Seated Calf Raise Machine", "PlantarFlexion", listOf("Calf")),
+                lift("standing-calf", "Standing Calf Raise", "PlantarFlexion", listOf("Calf")),
+                lift("front-squat-bb", "Barbell Front Squat", "SquatPattern", listOf("Quad"), listOf("Glute")),
+                lift("back-squat", "Barbell Back Squat", "SquatPattern", listOf("Quad"), listOf("Glute")),
+                lift("hack-squat", "Hack Squat", "SquatPattern", listOf("Quad")),
+            )
+        val liftsById = base.liftsById.toMutableMap()
+        val enabled = base.enabledLiftIds.toMutableSet()
+        for (lift in extraLifts) {
+            liftsById[lift.id] = lift
+            enabled += lift.id
+        }
+        return base.copy(
+            liftsById = liftsById,
+            enabledLiftIds = enabled,
+            movementPatternByLiftId = liftsById.mapValues { (_, lift) -> lift.movementPattern },
+        )
+    }
+
+    private fun lift(
+        id: String,
+        name: String,
+        pattern: String,
+        primary: List<String>,
+        secondary: List<String> = emptyList(),
+    ): LiftContext =
+        LiftContext(
+            id = id,
+            name = name,
+            movementPattern = pattern,
+            movementPatterns = listOf(pattern),
+            primaryMuscles = primary,
+            secondaryMuscles = secondary,
+            proven = true,
+            mainstream = true,
+        )
+}

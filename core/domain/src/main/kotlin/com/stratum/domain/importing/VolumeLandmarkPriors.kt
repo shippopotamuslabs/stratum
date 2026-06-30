@@ -26,6 +26,8 @@ data class VolumeLandmarkPrior(
     val mrvMid: Double get() = (mrvLow + mrvHigh) / 2.0
     val mavMid: Double get() = (mevHigh + mrvLow) / 2.0
     val pvMid: Double get() = mevMid + 0.6 * (mavMid - mevMid)
+    /** Maintenance volume — bare minimum to retain muscle (below MEV productive range). */
+    val mvMid: Double get() = kotlin.math.max(2.0, mevMid * 0.45)
 }
 
 object VolumeLandmarkPriors {

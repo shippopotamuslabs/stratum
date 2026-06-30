@@ -9,7 +9,14 @@ import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.pipeline.PipelinePhase
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.domain.program.generation.schema.toDomainProgram
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.draft.ProgramDraft
+import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
+import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
+import com.stratum.domain.program.generation.integration.resolveAdjacentCalendarLiftCollisions
+import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
@@ -53,17 +60,35 @@ class GenerateProgramUseCase @Inject constructor(
                             progress = { phase -> onProgress(phase.toDomainProgress()) },
                         ),
                 )
+            val draft = normalized.toDraft()
             var program =
                 normalized.toDomainProgram()
                     .retainOnlyKnownLifts(knownLiftIds)
             require(program.workouts.isNotEmpty()) {
                 "Generated program has no workouts with known lift references"
             }
+            val muscleExposures =
+                computeScheduleMuscleExposures(
+                    program = program,
+                    draft = draft,
+                    knownLiftIds = knownLiftIds,
+                    context = context,
+                )
             val trainingWeekdays =
                 context.weekdays.mapNotNull { weekday ->
                     runCatching { Weekday.valueOf(weekday) }.getOrNull()
                 }
-            program = assignProgramSchedule(program, trainingWeekdays)
+            val recoveryPriorityMuscles = recoveryPriorityMuscles(context)
+            program = assignProgramSchedule(
+                program = program,
+                trainingWeekdays = trainingWeekdays,
+                workoutMuscleExposures = muscleExposures,
+                recoveryPriorityMuscles = recoveryPriorityMuscles,
+            )
+            program = resolveAdjacentCalendarLiftCollisions(
+                program = program,
+                context = context,
+            )
             onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram))
             repository.saveProgram(program)
             val profile = profileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
@@ -84,3 +109,37 @@ private fun PipelinePhase.toDomainProgress(): ProgramGenerationProgress =
                 PipelinePhase.Integrating -> ProgramGenerationProgressPhase.Integrating
             },
     )
+
+private fun computeScheduleMuscleExposures(
+    program: Program,
+    draft: ProgramDraft,
+    knownLiftIds: Set<LiftId>,
+    context: ProgramGenerationContext,
+): List<Map<String, Double>> {
+    val knownLiftIdStrings = knownLiftIds.map { it.value }.toSet()
+    val draftByName = draft.workouts.associateBy { workout -> workout.name }
+    return program.workouts.sortedBy { workout -> workout.position }.map { workout ->
+        val draftWorkout =
+            draftByName[workout.name]
+                ?: error("Missing draft workout for ${workout.name}")
+        computeWorkoutMuscleVolume(
+            workout = draftWorkout.retainOnlyKnownLifts(knownLiftIdStrings),
+            context = context,
+        )
+    }
+}
+
+private fun ProgramWorkoutDraft.retainOnlyKnownLifts(knownLiftIds: Set<String>): ProgramWorkoutDraft =
+    copy(
+        workoutLifts =
+            workoutLifts.orEmpty()
+                .filter { lift -> lift.liftId.orEmpty() in knownLiftIds }
+                .toMutableList(),
+    )
+
+private fun recoveryPriorityMuscles(
+    context: ProgramGenerationContext,
+): Set<String> =
+    context.specialization
+        .filterValues { level -> level == "Specialize" || level == "MinimumVolume" }
+        .keys

@@ -84,7 +84,11 @@ val GENERATION_SCENARIOS: List<ScenarioConfig> = buildList {
 fun scenarioContext(days: Int, specialization: Map<String, String>): ProgramGenerationContext =
     parseScenarioContext(scenarioPayload(days, specialization))
 
-fun scenarioPayload(days: Int, specialization: Map<String, String>): String {
+fun scenarioPayload(
+    days: Int,
+    specialization: Map<String, String>,
+    sessionLengthMinutes: Int = 75,
+): String {
     val weekdays = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
         .take(days)
         .joinToString(",")
@@ -94,7 +98,7 @@ fun scenarioPayload(days: Int, specialization: Map<String, String>): String {
             mapOf(
                 "profile" to jsonObj(
                     "trainingAge" to JsonPrimitive("Advanced"),
-                    "sessionLengthMinutes" to JsonPrimitive(75),
+                    "sessionLengthMinutes" to JsonPrimitive(sessionLengthMinutes),
                     "weekdays" to JsonPrimitive(weekdays),
                     "trainingDaysPerWeek" to JsonPrimitive(days),
                 ),

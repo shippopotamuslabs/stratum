@@ -5,10 +5,10 @@ package com.stratum.domain.program.generation.volume
 import com.stratum.domain.program.generation.context.MAJOR_MUSCLES
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import kotlin.math.max
-import kotlin.math.round
+import kotlin.math.min
 
-/** Per-muscle weekly hard-set credit target. `min` is MEV (or MAV−tolerance for Specialize),
- * `aim` is the productive target, `max` is the MRV ceiling. */
+/** Per-muscle weekly hard-set credit target. `min` is MV for maintenance, max(mev, mav−tolerance) for Specialize;
+ * `aim` is MAV (maintenance) or MRV (specialize); `max` is MRV ceiling. */
 data class WeeklyVolumeTarget(
     val min: Double,
     val aim: Double,
@@ -43,26 +43,24 @@ internal fun resolveUnscaledTarget(
             lastTrained == "MoreThanAYearAgo" ||
             lastTrained == "Never"
 
-    val volumeResponse = context.volumeResponsesByMuscle[muscle]
-    val respondsToVolume =
-        volumeResponse != null &&
-            volumeResponse.correlationSlope > 0 &&
-            volumeResponse.evidence == "Proven"
-
     if (specializationLevel == "Specialize") {
-        val aim = if (respondsToVolume) mrv else minOf(mrv, mav + (mrv - mav) * 0.6)
         return WeeklyVolumeTarget(
             min = max(mev, mav - VOLUME_TOLERANCE_SETS),
-            aim = aim,
+            aim = mrv,
             max = mrv,
         )
     }
 
-    if (conservative) {
-        return WeeklyVolumeTarget(min = mev, aim = pv, max = mav)
+    if (specializationLevel == "MinimumVolume") {
+        val mv = maintenanceMvFloor(landmark, mev)
+        return WeeklyVolumeTarget(min = mv, aim = mv, max = mev)
     }
 
-    return WeeklyVolumeTarget(min = mev, aim = mav, max = mrv)
+    val mv = maintenanceMvFloor(landmark, mev)
+    if (conservative) {
+        return WeeklyVolumeTarget(min = mv, aim = pv, max = mav)
+    }
+    return WeeklyVolumeTarget(min = mv, aim = mav, max = mrv)
 }
 
 internal fun trainableMuscles(context: ProgramGenerationContext): List<String> {
@@ -77,34 +75,18 @@ fun resolveMuscleWeeklyTarget(
     specializationLevel: String,
     context: ProgramGenerationContext,
 ): WeeklyVolumeTarget {
-    val unscaled = resolveUnscaledTarget(muscle, specializationLevel, context)
-
-    val sessionLength = context.sessionLengthMinutes
-    if (sessionLength == null || sessionLength <= 0) {
-        return unscaled
-    }
-
-    val timeBudget = kotlin.math.floor((sessionLength * 1.08) / 3.5).toInt()
-    val weeklyTimeBudget = context.trainingDaysPerWeek * timeBudget
-
-    var totalUnscaledAim = 0.0
-    for (m in trainableMuscles(context)) {
-        val lvl = context.specialization[m] ?: "Maintenance"
-        val target = resolveUnscaledTarget(m, lvl, context)
-        totalUnscaledAim += target.aim
-    }
-
-    if (totalUnscaledAim > weeklyTimeBudget) {
-        val scale = weeklyTimeBudget / totalUnscaledAim
-        return WeeklyVolumeTarget(
-            min = max(2.0, round(unscaled.min * scale * 2) / 2.0),
-            aim = max(2.0, round(unscaled.aim * scale * 2) / 2.0),
-            max = max(2.0, round(unscaled.max * scale * 2) / 2.0),
-        )
-    }
-
-    return unscaled
+    val batch = computeAllWeeklyTargets(context)
+    return batch[muscle] ?: resolveUnscaledTarget(muscle, specializationLevel, context)
 }
+
+internal fun buildUnscaledWeeklyTargets(
+    muscles: List<String>,
+    context: ProgramGenerationContext,
+): WeeklyVolumeTargets =
+    muscles.associateWith { muscle ->
+        val level = context.specialization[muscle] ?: "Maintenance"
+        resolveUnscaledTarget(muscle, level, context)
+    }
 
 /**
  * The muscles Phase 0 must plan volume for: every major muscle, any muscle with a
@@ -125,12 +107,9 @@ internal fun targetableMuscles(context: ProgramGenerationContext): List<String> 
  * Consumed by the split allocator (Phase 0) and the LLM split planner (Phase 1, 5–6 days).
  */
 fun computeAllWeeklyTargets(context: ProgramGenerationContext): WeeklyVolumeTargets {
-    val targets = mutableMapOf<String, WeeklyVolumeTarget>()
-    for (muscle in targetableMuscles(context)) {
-        val level = context.specialization[muscle] ?: "Maintenance"
-        targets[muscle] = resolveMuscleWeeklyTarget(muscle, level, context)
-    }
-    return targets
+    val muscles = targetableMuscles(context)
+    val unscaled = buildUnscaledWeeklyTargets(muscles, context)
+    return applyWeeklyTimeBudgetPrecedence(unscaled, context)
 }
 
 /**

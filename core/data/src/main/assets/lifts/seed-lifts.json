@@ -1457,10 +1457,9 @@
     ],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
-      "SquatPattern",
-      "HipExtension"
+      "PlantarFlexion"
     ],
-    "mainstream": false
+    "mainstream": true
   },
   {
     "id": "chain-handle-extension",
@@ -4631,6 +4630,163 @@
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Calf_Raise/1.jpg"
     ],
     "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "smith-machine-calf-raise",
+    "name": "Smith Machine Calf Raise",
+    "primaryMuscles": [
+      "Calf"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Smith_Machine_Calf_Raise",
+    "description": "Smith Machine Calf Raise \u2014 plantar flexion for calf development.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Calf_Raise/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Calf_Raise/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "calf-press-leg-press",
+    "name": "Calf Raise on Leg Press",
+    "primaryMuscles": [
+      "Calf"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Calf_Press_On_The_Leg_Press_Machine",
+    "description": "Calf Raise on Leg Press \u2014 plantar flexion for calf development.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/1.jpg"
+    ],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "standing-calf-raise-machine",
+    "name": "Standing Calf Raise Machine",
+    "primaryMuscles": [
+      "Calf"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Standing_Calf_Raises",
+    "description": "Standing Calf Raise Machine \u2014 plantar flexion for calf development.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "standing-dumbbell-calf-raise",
+    "name": "Single Leg Dumbbell Calf Raise",
+    "primaryMuscles": [
+      "Calf"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Standing_Dumbbell_Calf_Raise",
+    "description": "Single Leg Dumbbell Calf Raise \u2014 plantar flexion for calf development.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Calf_Raise/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Calf_Raise/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "dumbbell-seated-one-leg-calf-raise",
+    "name": "Dumbbell Seated One-Leg Calf Raise",
+    "primaryMuscles": [
+      "Calf"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Dumbbell_Seated_One-Leg_Calf_Raise",
+    "description": "Dumbbell Seated One-Leg Calf Raise \u2014 plantar flexion for calf development.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Seated_One-Leg_Calf_Raise/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Seated_One-Leg_Calf_Raise/1.jpg"
+    ],
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "standing-barbell-calf-raise",
+    "name": "Standing Barbell Calf Raise",
+    "primaryMuscles": [
+      "Calf"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Standing_Barbell_Calf_Raise",
+    "description": "Standing Barbell Calf Raise \u2014 plantar flexion for calf development.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "PlantarFlexion"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "calf-raise-hack-squat",
+    "name": "Calf Raise on Hack Squat",
+    "primaryMuscles": [
+      "Calf"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Calf_Press_On_The_Leg_Press_Machine",
+    "description": "Stand on the hack squat foot plate with shoulders under pads (or use the hack squat calf block position). Perform calf raises through a lengthened range \u2014 same plantar flexion pattern as leg-press calf raises.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/1.jpg"
+    ],
+    "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "PlantarFlexion"
     ],

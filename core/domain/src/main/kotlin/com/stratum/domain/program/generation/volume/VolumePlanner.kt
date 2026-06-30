@@ -7,12 +7,7 @@ import com.stratum.domain.program.generation.reference.sessionHardSetCapForLengt
 import com.stratum.domain.program.generation.split.SessionTypeId
 import com.stratum.domain.program.generation.split.SplitTemplate
 import com.stratum.domain.program.generation.split.SPLIT_CATALOG
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.round
-
-private const val SPECIALIZATION_AIM_CAP = 20
-private const val VOLUME_TOLERANCE_SETS = 2
 
 private val LOWER_BODY_MUSCLES = setOf("Quad", "Hamstring", "Glute", "Calf", "LowerBack")
 
@@ -36,6 +31,9 @@ private val MIXED_SESSION_TYPES = setOf(
     SessionTypeId.FullBody,
     SessionTypeId.FullPush,
     SessionTypeId.FullPull,
+    SessionTypeId.CompoundPair,
+    SessionTypeId.AuxPair,
+    SessionTypeId.SingleAnchor,
 )
 
 enum class TrainingDomain {
@@ -108,66 +106,24 @@ fun domainWeeklyBudget(
     return round((dedicated + mixedShare) * perSession).toInt()
 }
 
-internal fun resolveUnscaled(
-    muscle: String,
-    level: String,
-    context: ProgramGenerationContext,
-): WeeklyVolumeTarget {
-    val landmark = context.volumeLandmarksByMuscle[muscle]
-    val mev = landmark?.estimatedMev ?: 8.0
-    val mav = landmark?.estimatedMav ?: 14.0
-    val mrv = landmark?.estimatedMrv ?: 20.0
-    val pv = landmark?.estimatedPv ?: 11.0
-
-    val conservative =
-        context.lastTrained == "SixToTwelveMonthsAgo" ||
-            context.lastTrained == "MoreThanAYearAgo" ||
-            context.lastTrained == "Never"
-
-    val volumeResponse = context.volumeResponsesByMuscle[muscle]
-    val respondsToVolume =
-        volumeResponse != null &&
-            volumeResponse.correlationSlope > 0 &&
-            volumeResponse.evidence == "Proven"
-
-    if (level == "Specialize") {
-        val aim = min(
-            SPECIALIZATION_AIM_CAP.toDouble(),
-            if (respondsToVolume) mrv else mav + (mrv - mav) * 0.6,
-        )
-        return WeeklyVolumeTarget(
-            min = max(mev, mav - VOLUME_TOLERANCE_SETS),
-            aim = round(aim),
-            max = mrv,
-        )
-    }
-    if (conservative) {
-        return WeeklyVolumeTarget(min = mev, aim = pv, max = mav)
-    }
-    return WeeklyVolumeTarget(min = mev, aim = mav, max = mrv)
-}
-
 internal fun volumePlannerTrainableMuscles(context: ProgramGenerationContext): List<String> {
     val patternsByMuscle = availablePatternsByMuscle(context)
     val muscles = mutableSetOf<String>()
     muscles.addAll(context.volumeLandmarksByMuscle.keys)
     muscles.addAll(context.specialization.keys)
-    return muscles.filter { m ->
-        if ((context.specialization[m] ?: "Maintenance") == "Omit") return@filter false
-        (patternsByMuscle[m]?.size ?: 0) > 0
+    return muscles.filter { muscle ->
+        if ((context.specialization[muscle] ?: "Maintenance") == "Omit") return@filter false
+        (patternsByMuscle[muscle]?.size ?: 0) > 0
     }
 }
 
 /**
- * Plans weekly volume per muscle from landmarks. Per-session caps and session-length limits
- * are applied in slot allocation — weekly maintenance targets are not scaled down for arm spec.
+ * Plans weekly volume per muscle from landmarks. Specialized muscles aim at landmark MRV;
+ * maintenance muscles floor at MV and aim at MAV. Session time trims maintenance toward MV
+ * before reducing specialized targets.
  */
 fun planWeeklyVolume(context: ProgramGenerationContext): WeeklyVolumeTargets {
     val muscles = volumePlannerTrainableMuscles(context)
-    val out = mutableMapOf<String, WeeklyVolumeTarget>()
-    for (muscle in muscles) {
-        val level = context.specialization[muscle] ?: "Maintenance"
-        out[muscle] = resolveUnscaled(muscle, level, context)
-    }
-    return out
+    val unscaled = buildUnscaledWeeklyTargets(muscles, context)
+    return applyWeeklyTimeBudgetPrecedence(unscaled, context)
 }

@@ -6,8 +6,10 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.program.generation.prescription.SlotSetAllocationPort
 import com.stratum.domain.program.generation.prescription.allocateSlotSetCounts
+import com.stratum.domain.program.generation.selection.LiftSelectionState
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
 import com.stratum.domain.program.generation.selection.selectLiftForSlot
+import com.stratum.domain.program.generation.validation.validateActiveSlotSelections
 import com.stratum.domain.program.generation.split.resolveSplit
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
@@ -32,25 +34,33 @@ fun buildProgramWithSelections(
     val resolved = resolveSplit(context, targets)
     val sessionPlans = allocateSlotSetCounts(resolved.sessions, targets, context, slotSetAllocationPort)
 
-    val usedLiftIds = mutableSetOf<String>()
     val lastUsedSession = mutableMapOf<String, Int>()
     val minCycleGap = 2
+    val selectionState = LiftSelectionState()
 
     val selectionsBySession = sessionPlans.mapIndexed { sessionIndex, plan ->
+        val sessionUsedLiftIds = mutableSetOf<String>()
+        selectionState.sessionPrimaryLiftByMusclePattern.clear()
         val selections = mutableListOf<SelectedSlotLift>()
         for (slot in plan.filledSlots) {
             val sel = selectLiftForSlot(
                 slot = slot,
                 context = context,
                 siblingIndex = plan.siblingIndex,
-                usedLiftIds = usedLiftIds,
+                usedLiftIds = sessionUsedLiftIds,
                 minCycleGap = minCycleGap,
                 sessionIndex = sessionIndex,
                 lastUsedSession = lastUsedSession,
+                selectionState = selectionState,
             )
             if (sel != null) selections.add(sel)
         }
         selections
+    }
+
+    val selectionIssues = validateActiveSlotSelections(sessionPlans, selectionsBySession, context)
+    check(selectionIssues.isEmpty()) {
+        selectionIssues.joinToString("\n") { issue -> issue.message }
     }
 
     val workouts = assembleWorkouts(sessionPlans, selectionsBySession, context)

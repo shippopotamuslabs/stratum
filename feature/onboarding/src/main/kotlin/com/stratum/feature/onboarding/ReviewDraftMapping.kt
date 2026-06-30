@@ -19,6 +19,9 @@ internal fun UserTrainingProfile.toReviewProfileSection(
     specialization = specialization.specializedMuscles
         .sortedBy { it.ordinal }
         .map { it.displayLabel },
+    minimumVolume = specialization.minimumVolumeMuscles
+        .sortedBy { it.ordinal }
+        .map { it.displayLabel },
     presetLabel = selectedPreset?.displayName,
     enabledLiftCount = lifts.count { it.enabled },
     sessionMinutes = sessionLengthMinutes,

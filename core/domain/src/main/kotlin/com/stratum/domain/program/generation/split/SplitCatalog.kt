@@ -232,6 +232,50 @@ val SPLIT_CATALOG: List<SplitTemplate> = listOf(
             SessionTypeId.FullPull,
         ),
     ),
+
+    // Tier-1 rotation templates (low volume / MV-heavy profiles)
+    SplitTemplate(
+        id = "2d-t1-fb-rot",
+        trainingDaysPerWeek = 2,
+        frequencyTier = FrequencyTier.One,
+        sessionTypes = listOf(SessionTypeId.FullBody, SessionTypeId.FullBody),
+    ),
+    SplitTemplate(
+        id = "4d-t1-main-carousel",
+        trainingDaysPerWeek = 4,
+        frequencyTier = FrequencyTier.One,
+        sessionTypes = listOf(
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+        ),
+    ),
+    SplitTemplate(
+        id = "5d-t1-micro",
+        trainingDaysPerWeek = 5,
+        frequencyTier = FrequencyTier.One,
+        sessionTypes = listOf(
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+            SessionTypeId.AuxPair,
+        ),
+    ),
+    SplitTemplate(
+        id = "6d-t1-micro",
+        trainingDaysPerWeek = 6,
+        frequencyTier = FrequencyTier.One,
+        sessionTypes = listOf(
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+            SessionTypeId.CompoundPair,
+            SessionTypeId.SingleAnchor,
+            SessionTypeId.SingleAnchor,
+        ),
+    ),
 )
 
 fun splitsForDaysAndTier(

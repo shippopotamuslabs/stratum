@@ -34,6 +34,8 @@ data class WorkoutSlotTemplate(
     val lengthBiasPreference: MuscleLengthBiasPreference? = null,
     /** Sibling B sessions may prefer alternate row flavor. */
     val siblingVariant: SiblingVariant? = null,
+    /** Supplementary direct work on a session outside the muscle's primary domain. */
+    val isCrossDomainTouch: Boolean = false,
 )
 
 enum class SessionTypeId {
@@ -52,6 +54,12 @@ enum class SessionTypeId {
     GlutesHams,
     ChestTris,
     BackBis,
+    /** Two-lift session: one anchor + one secondary from a different pattern family. */
+    CompoundPair,
+    /** Two secondary-tier lifts, no anchor (light rotation day). */
+    AuxPair,
+    /** Single anchor lift (micro maintenance day). */
+    SingleAnchor,
 }
 
 private val LOWER_SLOTS: List<WorkoutSlotTemplate> = listOf(
@@ -220,6 +228,27 @@ private val BACK_BIS_SLOTS: List<WorkoutSlotTemplate> =
             WorkoutSlotTemplate("bicep", SlotRole.Isolation, "ElbowFlexion", "Bicep", RpRepProfile.Isolation),
         )
 
+private val FULL_BODY_COMPLEMENT_B_SLOTS: List<WorkoutSlotTemplate> = listOf(
+    WorkoutSlotTemplate("hinge", SlotRole.Anchor, "HipHinge", "Hamstring", RpRepProfile.LowerFreeWeightCompound),
+    WorkoutSlotTemplate("v-press", SlotRole.SecondaryCompound, "VerticalPress", "AnteriorDeltoid", RpRepProfile.LowerMachineOrUpperPress),
+    WorkoutSlotTemplate("squat-aux", SlotRole.SecondaryCompound, "SquatPattern", "Quad", RpRepProfile.LowerFreeWeightCompound),
+    WorkoutSlotTemplate("incline", SlotRole.SecondaryCompound, "InclinePress", "Chest", RpRepProfile.LowerMachineOrUpperPress),
+)
+
+private val COMPOUND_PAIR_SLOTS: List<WorkoutSlotTemplate> = listOf(
+    WorkoutSlotTemplate("anchor", SlotRole.Anchor, "SquatPattern", "Quad", RpRepProfile.LowerFreeWeightCompound),
+    WorkoutSlotTemplate("secondary", SlotRole.SecondaryCompound, "HorizontalPress", "Chest", RpRepProfile.LowerMachineOrUpperPress),
+)
+
+private val AUX_PAIR_SLOTS: List<WorkoutSlotTemplate> = listOf(
+    WorkoutSlotTemplate("aux-a", SlotRole.SecondaryCompound, "HorizontalPress", "Chest", RpRepProfile.LowerMachineOrUpperPress),
+    WorkoutSlotTemplate("aux-b", SlotRole.SecondaryCompound, "HipHinge", "Hamstring", RpRepProfile.LowerFreeWeightCompound),
+)
+
+private val SINGLE_ANCHOR_SLOTS: List<WorkoutSlotTemplate> = listOf(
+    WorkoutSlotTemplate("anchor", SlotRole.Anchor, "VerticalPress", "AnteriorDeltoid", RpRepProfile.LowerMachineOrUpperPress),
+)
+
 private val SESSION_SLOTS: Map<SessionTypeId, List<WorkoutSlotTemplate>> = mapOf(
     SessionTypeId.Lower to LOWER_SLOTS,
     SessionTypeId.Upper to UPPER_SLOTS,
@@ -236,35 +265,30 @@ private val SESSION_SLOTS: Map<SessionTypeId, List<WorkoutSlotTemplate>> = mapOf
     SessionTypeId.GlutesHams to GLUTES_HAMS_SLOTS,
     SessionTypeId.ChestTris to CHEST_TRIS_SLOTS,
     SessionTypeId.BackBis to BACK_BIS_SLOTS,
+    SessionTypeId.CompoundPair to COMPOUND_PAIR_SLOTS,
+    SessionTypeId.AuxPair to AUX_PAIR_SLOTS,
+    SessionTypeId.SingleAnchor to SINGLE_ANCHOR_SLOTS,
 )
 
 fun slotsForSessionType(
     sessionType: SessionTypeId,
     context: ProgramGenerationContext? = null,
+    siblingIndex: Int = 0,
+    sessionPosition: Int? = null,
 ): List<WorkoutSlotTemplate> {
-    val base = SESSION_SLOTS.getValue(sessionType).map { it.copy() }.toMutableList()
+    val base = when {
+        sessionType == SessionTypeId.FullBody && siblingIndex % 2 == 1 ->
+            FULL_BODY_COMPLEMENT_B_SLOTS.map { it.copy() }.toMutableList()
+        else ->
+            SESSION_SLOTS.getValue(sessionType).map { it.copy() }.toMutableList()
+    }
     if (context == null) return base
 
     promoteSpecializedSlots(base, context)
-
-    if (sessionType == SessionTypeId.FullBody && armsSpecialized(context)) {
-        base.add(
-            WorkoutSlotTemplate("bicep-fb", SlotRole.Isolation, "ElbowFlexion", "Bicep", RpRepProfile.Isolation),
-        )
-        base.add(
-            WorkoutSlotTemplate("tricep-fb", SlotRole.Isolation, "ElbowExtension", "Tricep", RpRepProfile.Isolation),
-        )
-    }
-    if (sessionType == SessionTypeId.FullBody && calfSpecialized(context)) {
-        base.add(
-            WorkoutSlotTemplate("calf-fb", SlotRole.Isolation, "PlantarFlexion", "Calf", RpRepProfile.Isolation),
-        )
-    }
+    injectSpecializedVariantSlots(base, context)
+    injectCrossDomainTouchSlots(sessionType, base, context, sessionPosition)
     return base
 }
-
-internal fun calfSpecialized(context: ProgramGenerationContext): Boolean =
-    (context.specialization["Calf"] ?: "Maintenance") == "Specialize"
 
 internal fun promoteSpecializedSlots(
     slots: MutableList<WorkoutSlotTemplate>,
@@ -291,6 +315,8 @@ private val LETTERED_SESSION_TYPES = setOf(
     SessionTypeId.FullBody,
     SessionTypeId.FullPush,
     SessionTypeId.FullPull,
+    SessionTypeId.CompoundPair,
+    SessionTypeId.AuxPair,
 )
 
 fun displayNameForSessionType(sessionType: SessionTypeId, index: Int): String {
@@ -310,10 +336,13 @@ fun displayNameForSessionType(sessionType: SessionTypeId, index: Int): String {
         SessionTypeId.GlutesHams to "Glutes & Hams",
         SessionTypeId.ChestTris to "Chest & Tris",
         SessionTypeId.BackBis to "Back & Bis",
+        SessionTypeId.CompoundPair to "Compound Pair",
+        SessionTypeId.AuxPair to "Aux Pair",
+        SessionTypeId.SingleAnchor to "Single Anchor",
     )
     val base = labels.getValue(sessionType)
-    val letter = if (index % 2 == 0) "A" else "B"
     if (sessionType in LETTERED_SESSION_TYPES) {
+        val letter = ('A'.code + index.coerceAtMost(25)).toChar()
         return "$base $letter"
     }
     return base

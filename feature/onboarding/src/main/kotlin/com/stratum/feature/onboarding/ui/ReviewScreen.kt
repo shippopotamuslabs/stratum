@@ -82,7 +82,13 @@ fun ReviewScreen(
             SummaryRow(label = stringResource(R.string.review_label_focus), value = focus)
         }
 
-        ReviewCard(order = 4, title = stringResource(R.string.review_section_gym_lifts)) {
+        ReviewCard(order = 4, title = stringResource(R.string.review_section_minimum_volume)) {
+            val none = stringResource(R.string.review_minimum_volume_none)
+            val mv = draft.minimumVolume.joinToString(", ").ifEmpty { none }
+            SummaryRow(label = stringResource(R.string.review_label_minimum_volume), value = mv)
+        }
+
+        ReviewCard(order = 5, title = stringResource(R.string.review_section_gym_lifts)) {
             SummaryRow(
                 label = stringResource(R.string.review_label_gym_preset),
                 value = draft.presetLabel,

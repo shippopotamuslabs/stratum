@@ -15,16 +15,16 @@ class VolumeTargetPlannerTest {
     @Nested
     inner class ResolveMuscleWeeklyTarget {
         @Test
-        fun `Specialize without proven volume response aims between MAV and MRV`() {
+        fun `Specialize aims at landmark MRV`() {
             val ctx = GenerationContextTestFixtures.contextWith()
             val target = resolveMuscleWeeklyTarget("Chest", "Specialize", ctx)
             assertEquals(12.0, target.min)
+            assertEquals(20.0, target.aim)
             assertEquals(20.0, target.max)
-            assertTrue(target.aim > 14 && target.aim < 20, "aim ${target.aim} should sit between MAV and MRV")
         }
 
         @Test
-        fun `Specialize with proven positive volume response aims at MRV`() {
+        fun `Specialize with proven positive volume response still aims at MRV`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 volumeResponses = listOf(
                     VolumeResponseContext("Chest", 0.4, "Proven"),
@@ -36,25 +36,31 @@ class VolumeTargetPlannerTest {
         }
 
         @Test
-        fun `Maintenance on a non-conservative profile targets MAV`() {
+        fun `Maintenance on a non-conservative profile targets MAV with MV floor`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
-                profileOverrides = mapOf("lastTrained" to "WithinLastMonth"),
+                profileOverrides = mapOf(
+                    "lastTrained" to "WithinLastMonth",
+                    "sessionLengthMinutes" to null,
+                ),
             )
-            val target = resolveMuscleWeeklyTarget("Back", "Maintenance", ctx)
-            assertEquals(8.0, target.min)
+            val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
+            assertEquals(4.0, target.min)
             assertEquals(14.0, target.aim)
             assertEquals(20.0, target.max)
         }
 
         @Test
-        fun `Maintenance on a conservative return-to-training profile targets PV, caps at MAV`() {
+        fun `Maintenance on a conservative return-to-training profile targets PV with MV floor`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
-                profileOverrides = mapOf("lastTrained" to "MoreThanAYearAgo"),
+                profileOverrides = mapOf(
+                    "lastTrained" to "MoreThanAYearAgo",
+                    "sessionLengthMinutes" to null,
+                ),
             )
-            val target = resolveMuscleWeeklyTarget("Back", "Maintenance", ctx)
-            assertEquals(8.0, target.min)
+            val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
+            assertEquals(4.0, target.min)
             assertEquals(11.0, target.aim)
             assertEquals(14.0, target.max)
         }
@@ -63,11 +69,14 @@ class VolumeTargetPlannerTest {
         fun `falls back to coarse defaults when no landmark exists for a muscle`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
-                profileOverrides = mapOf("lastTrained" to "WithinLastMonth"),
+                profileOverrides = mapOf(
+                    "lastTrained" to "WithinLastMonth",
+                    "sessionLengthMinutes" to null,
+                ),
                 literatureVolumeLandmarks = emptyList(),
             )
-            val target = resolveMuscleWeeklyTarget("Hamstring", "Maintenance", ctx)
-            assertEquals(8.0, target.min)
+            val target = resolveUnscaledTarget("Hamstring", "Maintenance", ctx)
+            assertEquals(3.6, target.min)
             assertEquals(14.0, target.aim)
             assertEquals(20.0, target.max)
         }
@@ -117,6 +126,7 @@ class VolumeTargetPlannerTest {
         fun `includes a muscle that appears only via a literature landmark (not a major muscle)`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
+                profileOverrides = mapOf("sessionLengthMinutes" to null),
                 literatureVolumeLandmarks = listOf(
                     VolumeLandmarkContext("Calf", 6.0, 10.0, 16.0, 8.0, VolumeLandmarkSource.Literature),
                 ),
