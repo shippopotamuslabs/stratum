@@ -13,9 +13,12 @@ import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.draft.ProgramLiftDraft
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.program.generation.reference.FrequencyTier
+import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.frequencyTierForWeeklySets
 import com.stratum.domain.program.generation.reference.sessionDurationBudgetMinutes
+import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
+import com.stratum.domain.program.generation.split.trainingWeekdayIndices
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 import com.stratum.domain.program.generation.volume.resolveMuscleWeeklyTarget
 import kotlin.math.max
@@ -47,8 +50,9 @@ data class ValidationReport(
     val summary: ValidationSummary,
 )
 
-/** Validation session overrun allowance: at most [SESSION_DURATION_SLACK_MINUTES] over stated length. */
-const val DURATION_VALIDATION_RATIO = 1.18
+/** Mon=0 … Sun=6 weekday names aligned with [trainingWeekdayIndices]. */
+private val WEEKDAY_NAMES =
+    listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
 /** Relative weekly-volume slack below min / above max (≈ practical programming noise). */
 const val VOLUME_RELATIVE_TOLERANCE = 0.2
@@ -81,6 +85,7 @@ fun validateProgramMetrics(
         addAll(validateNoDuplicateLifts(draft))
         addAll(validateExerciseOrdering(draft, context))
         addAll(validatePushPullBalance(pushSets, pullSets))
+        addAll(validateCalendarAdjacentMuscleExposure(draft, context))
     }
 
     val hasErrors = issues.any { it.severity == ValidationSeverity.Error }
@@ -382,6 +387,70 @@ fun validateExerciseOrdering(
                 )
                 break
             }
+        }
+    }
+    return issues
+}
+
+/**
+ * Flags the same muscle meaningfully exposed on calendar-adjacent training days using lift
+ * metadata ([computeWorkoutMuscleVolume]) — i.e. what the user sees — so solver/pattern-credit
+ * drift cannot reach the final program undetected.
+ */
+fun validateCalendarAdjacentMuscleExposure(
+    program: ProgramDraft,
+    context: ProgramGenerationContext,
+): List<ValidationIssue> {
+    val exposuresByWorkoutName =
+        program.workouts.associate { workout ->
+            workout.name.orEmpty() to computeWorkoutMuscleVolume(workout, context)
+        }
+    val workoutByDayIndex =
+        program.workouts
+            .mapNotNull { workout ->
+                val weekday = workout.weekday ?: return@mapNotNull null
+                val dayIndex = trainingWeekdayIndices(listOf(weekday)).singleOrNull() ?: return@mapNotNull null
+                dayIndex to workout
+            }.toMap()
+    val adjacentPairs = calendarAdjacentTrainingDayPairs(trainingWeekdayIndices(context.weekdays))
+    val issues = mutableListOf<ValidationIssue>()
+    for ((earlierDayIndex, laterDayIndex) in adjacentPairs) {
+        val earlierWorkout = workoutByDayIndex[earlierDayIndex] ?: continue
+        val laterWorkout = workoutByDayIndex[laterDayIndex] ?: continue
+        val earlierExposure = exposuresByWorkoutName[earlierWorkout.name.orEmpty()].orEmpty()
+        val laterExposure = exposuresByWorkoutName[laterWorkout.name.orEmpty()].orEmpty()
+        for (muscle in earlierExposure.keys + laterExposure.keys) {
+            val earlierDose = earlierExposure[muscle] ?: 0.0
+            val laterDose = laterExposure[muscle] ?: 0.0
+            if (
+                earlierDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE ||
+                laterDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
+            ) {
+                continue
+            }
+            val earlierDay = WEEKDAY_NAMES.getOrElse(earlierDayIndex) { earlierDayIndex.toString() }
+            val laterDay = WEEKDAY_NAMES.getOrElse(laterDayIndex) { laterDayIndex.toString() }
+            val level = context.specialization[muscle] ?: "Maintenance"
+            issues +=
+                ValidationIssue(
+                    code = "CALENDAR_ADJACENT_MUSCLE_EXPOSURE",
+                    severity = ValidationSeverity.Error,
+                    message =
+                        "$muscle ($level) is meaningfully exposed on calendar-adjacent days " +
+                            "$earlierDay (${"%.1f".format(earlierDose)} credits) and " +
+                            "$laterDay (${"%.1f".format(laterDose)} credits).",
+                    details =
+                        mapOf(
+                            "muscle" to muscle,
+                            "level" to level,
+                            "earlierDay" to earlierDay,
+                            "laterDay" to laterDay,
+                            "earlierDose" to earlierDose,
+                            "laterDose" to laterDose,
+                            "earlierWorkout" to earlierWorkout.name,
+                            "laterWorkout" to laterWorkout.name,
+                        ),
+                )
         }
     }
     return issues

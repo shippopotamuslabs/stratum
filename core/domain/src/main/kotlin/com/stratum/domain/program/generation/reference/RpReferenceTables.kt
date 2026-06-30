@@ -105,6 +105,7 @@ val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<String, List<PatternSecondaryMuscleCre
             PatternSecondaryMuscleCredit("Glute", SECONDARY_SET_CREDIT),
             PatternSecondaryMuscleCredit("LowerBack", SECONDARY_SET_CREDIT),
         ),
+    "HipExtension" to listOf(PatternSecondaryMuscleCredit("Hamstring", SECONDARY_SET_CREDIT)),
     "VerticalPull" to listOf(PatternSecondaryMuscleCredit("Bicep", SECONDARY_SET_CREDIT)),
     "HorizontalPull" to
         listOf(
