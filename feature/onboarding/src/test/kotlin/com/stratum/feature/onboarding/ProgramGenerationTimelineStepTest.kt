@@ -12,11 +12,11 @@ class ProgramGenerationTimelineStepTest {
     }
 
     @Test
-    @DisplayName("Given integrating phase when mapped then timeline index matches pipeline order")
-    fun `integrating phase maps to expected index`() {
+    @DisplayName("Given finalizing phase when mapped then timeline index matches pipeline order")
+    fun `finalizing phase maps to expected index`() {
         assertEquals(
-            programGenerationTimelinePhases.indexOf(ProgramGenerationProgressPhaseUi.Integrating),
-            ProgramGenerationProgressPhaseUi.Integrating.activeTimelineIndex(),
+            programGenerationTimelinePhases.indexOf(ProgramGenerationProgressPhaseUi.FinalizingProgram),
+            ProgramGenerationProgressPhaseUi.FinalizingProgram.activeTimelineIndex(),
         )
     }
 
@@ -28,8 +28,8 @@ class ProgramGenerationTimelineStepTest {
             ProgramGenerationProgressPhaseUi.PreparingPayload.activeTimelineIndex(),
         )
         assertEquals(
-            ProgramGenerationProgressPhaseUi.SplitPlanning.activeTimelineIndex(),
-            programGenerationTimelinePhases.indexOf(ProgramGenerationProgressPhaseUi.SplitPlanning),
+            ProgramGenerationProgressPhaseUi.PlanningVolume.activeTimelineIndex(),
+            programGenerationTimelinePhases.indexOf(ProgramGenerationProgressPhaseUi.PlanningVolume),
         )
         assertEquals(
             ProgramGenerationProgressPhaseUi.SavingProgram.activeTimelineIndex(),
@@ -49,7 +49,7 @@ class ProgramGenerationTimelineStepTest {
     @Test
     @DisplayName("Given step index relative to active index when status resolved then prior steps complete")
     fun `timeline step status follows active index`() {
-        val activeIndex = ProgramGenerationProgressPhaseUi.BuildingWorkouts.activeTimelineIndex()
+        val activeIndex = ProgramGenerationProgressPhaseUi.SynthesizingProgram.activeTimelineIndex()
         assertEquals(
             ProgramGenerationTimelineStepStatus.Completed,
             timelineStepStatus(0, activeIndex),

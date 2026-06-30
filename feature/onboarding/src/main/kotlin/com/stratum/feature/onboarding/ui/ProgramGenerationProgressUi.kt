@@ -44,12 +44,18 @@ internal fun programGenerationPhaseStringRes(phase: ProgramGenerationProgressPha
             FeatureR.string.onboarding_generate_phase_preparing
         ProgramGenerationProgressPhaseUi.ReviewingProfile ->
             FeatureR.string.onboarding_generate_phase_reviewing
-        ProgramGenerationProgressPhaseUi.SplitPlanning ->
-            FeatureR.string.onboarding_generate_phase_split_planning
-        ProgramGenerationProgressPhaseUi.BuildingWorkouts ->
-            FeatureR.string.onboarding_generate_phase_building_workouts
-        ProgramGenerationProgressPhaseUi.Integrating ->
-            FeatureR.string.onboarding_generate_phase_integrating
+        ProgramGenerationProgressPhaseUi.PlanningVolume ->
+            FeatureR.string.onboarding_generate_phase_planning_volume
+        ProgramGenerationProgressPhaseUi.SynthesizingProgram ->
+            FeatureR.string.onboarding_generate_phase_synthesizing_program
+        ProgramGenerationProgressPhaseUi.EvaluatingSplits ->
+            FeatureR.string.onboarding_generate_phase_evaluating_splits
+        ProgramGenerationProgressPhaseUi.SelectingExercises ->
+            FeatureR.string.onboarding_generate_phase_selecting_exercises
+        ProgramGenerationProgressPhaseUi.PolishingProgram ->
+            FeatureR.string.onboarding_generate_phase_polishing_program
+        ProgramGenerationProgressPhaseUi.FinalizingProgram ->
+            FeatureR.string.onboarding_generate_phase_finalizing
         ProgramGenerationProgressPhaseUi.SavingProgram ->
             FeatureR.string.onboarding_generate_phase_saving
         ProgramGenerationProgressPhaseUi.Complete ->
@@ -66,5 +72,12 @@ internal fun programGenerationPhaseLabel(progress: ProgramGenerationProgressUi):
 internal fun programGenerationProgressSubtitle(
     progress: ProgramGenerationProgressUi,
     phaseLabel: String,
-): String? =
-    progress.detail?.let { detail -> distinctGenerationDetail(detail, phaseLabel) }
+): String? {
+    if (progress.phase == ProgramGenerationProgressPhaseUi.EvaluatingSplits && progress.detail != null) {
+        return stringResource(
+            FeatureR.string.onboarding_generate_phase_evaluating_splits_detail,
+            progress.detail,
+        )
+    }
+    return progress.detail?.let { detail -> distinctGenerationDetail(detail, phaseLabel) }
+}

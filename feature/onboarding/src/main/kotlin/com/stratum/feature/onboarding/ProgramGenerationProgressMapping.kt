@@ -15,12 +15,18 @@ private fun ProgramGenerationProgressPhase.toUi(): ProgramGenerationProgressPhas
             ProgramGenerationProgressPhaseUi.PreparingPayload
         ProgramGenerationProgressPhase.ReviewingProfile ->
             ProgramGenerationProgressPhaseUi.ReviewingProfile
-        ProgramGenerationProgressPhase.SplitPlanning ->
-            ProgramGenerationProgressPhaseUi.SplitPlanning
-        ProgramGenerationProgressPhase.BuildingWorkouts ->
-            ProgramGenerationProgressPhaseUi.BuildingWorkouts
-        ProgramGenerationProgressPhase.Integrating ->
-            ProgramGenerationProgressPhaseUi.Integrating
+        ProgramGenerationProgressPhase.PlanningVolume ->
+            ProgramGenerationProgressPhaseUi.PlanningVolume
+        ProgramGenerationProgressPhase.SynthesizingProgram ->
+            ProgramGenerationProgressPhaseUi.SynthesizingProgram
+        ProgramGenerationProgressPhase.EvaluatingSplits ->
+            ProgramGenerationProgressPhaseUi.EvaluatingSplits
+        ProgramGenerationProgressPhase.SelectingExercises ->
+            ProgramGenerationProgressPhaseUi.SelectingExercises
+        ProgramGenerationProgressPhase.PolishingProgram ->
+            ProgramGenerationProgressPhaseUi.PolishingProgram
+        ProgramGenerationProgressPhase.FinalizingProgram ->
+            ProgramGenerationProgressPhaseUi.FinalizingProgram
         ProgramGenerationProgressPhase.SavingProgram ->
             ProgramGenerationProgressPhaseUi.SavingProgram
         ProgramGenerationProgressPhase.Complete -> ProgramGenerationProgressPhaseUi.Complete
