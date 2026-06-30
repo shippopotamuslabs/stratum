@@ -82,17 +82,24 @@ class GenerateProgramUseCaseTest {
 
             useCase.invoke { progress -> phases.add(progress.phase) }
 
+            val collapsed =
+                phases.fold(mutableListOf<ProgramGenerationProgressPhase>()) { acc, phase ->
+                    if (acc.lastOrNull() != phase) acc.add(phase)
+                    acc
+                }
             assertEquals(
                 listOf(
                     ProgramGenerationProgressPhase.PreparingPayload,
                     ProgramGenerationProgressPhase.ReviewingProfile,
-                    ProgramGenerationProgressPhase.SplitPlanning,
-                    ProgramGenerationProgressPhase.BuildingWorkouts,
-                    ProgramGenerationProgressPhase.Integrating,
+                    ProgramGenerationProgressPhase.PlanningVolume,
+                    ProgramGenerationProgressPhase.SynthesizingProgram,
+                    ProgramGenerationProgressPhase.SelectingExercises,
+                    ProgramGenerationProgressPhase.PolishingProgram,
+                    ProgramGenerationProgressPhase.FinalizingProgram,
                     ProgramGenerationProgressPhase.SavingProgram,
                     ProgramGenerationProgressPhase.Complete,
                 ),
-                phases,
+                collapsed,
             )
         }
     }

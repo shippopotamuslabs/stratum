@@ -7,11 +7,13 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.LiftSetDraft
 import com.stratum.domain.program.generation.draft.ProgramLiftDraft
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.prescription.repRirForSlot
 import com.stratum.domain.program.generation.reference.ProgressionScheme
 import com.stratum.domain.program.generation.reference.schemeForTrainingAge
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
+import com.stratum.domain.program.generation.synthesis.relabelPlaceholderSessionNamesByWeekday
 
 private val ANTAGONIST_PAIRS: List<Pair<String, String>> = listOf(
     "Chest" to "Back",
@@ -172,20 +174,29 @@ private fun buildLiftDrafts(
         )
     }
 
+private val WEEKDAY_BY_INDEX = Weekday.entries
+
 fun assembleWorkouts(
     plans: List<SessionSlotPlan>,
     selectionsBySession: List<List<SelectedSlotLift>>,
     context: ProgramGenerationContext,
+    weekdayIndexByPosition: List<Int>? = null,
 ): List<ProgramWorkoutDraft> {
     val scheme = schemeForTrainingAge(context.trainingAge)
-    return plans.mapIndexed { idx, plan ->
-        val selections = orderSelections(selectionsBySession.getOrElse(idx) { emptyList() }, context)
-        ProgramWorkoutDraft(
-            name = plan.name,
-            weekday = null,
-            position = plan.position,
-            workoutLifts = buildLiftDrafts(selections, scheme).toMutableList(),
-        )
+    val workouts =
+        plans.mapIndexed { idx, plan ->
+            val selections = orderSelections(selectionsBySession.getOrElse(idx) { emptyList() }, context)
+            ProgramWorkoutDraft(
+                name = plan.name,
+                weekday = weekdayIndexByPosition?.getOrNull(plan.position)?.let { index -> WEEKDAY_BY_INDEX[index].name },
+                position = plan.position,
+                workoutLifts = buildLiftDrafts(selections, scheme).toMutableList(),
+            )
+        }
+    return if (weekdayIndexByPosition != null) {
+        relabelPlaceholderSessionNamesByWeekday(workouts)
+    } else {
+        workouts
     }
 }
 

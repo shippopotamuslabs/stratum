@@ -5,8 +5,6 @@ package com.stratum.domain.program.generation.volume
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.split.SessionTypeId
-import com.stratum.domain.program.generation.split.SplitTemplate
-import com.stratum.domain.program.generation.split.SPLIT_CATALOG
 import kotlin.math.round
 
 private val LOWER_BODY_MUSCLES = setOf("Quad", "Hamstring", "Glute", "Calf", "LowerBack")
@@ -52,43 +50,32 @@ internal fun sessionTrainingDomain(sessionType: SessionTypeId): TrainingDomain? 
         else -> TrainingDomain.Upper
     }
 
-internal fun defaultSplitTemplate(trainingDaysPerWeek: Int): SplitTemplate? {
-    val matches = SPLIT_CATALOG.filter { it.trainingDaysPerWeek == trainingDaysPerWeek }
-    if (matches.isEmpty()) return null
-    return matches.find { it.isDefault && it.frequencyTier.value == 2 }
-        ?: matches.find { it.isDefault }
-        ?: matches.firstOrNull()
-}
-
 data class WeeklySessionCountsByDomain(
     val lower: Double,
     val upper: Double,
     val mixed: Double,
 )
 
-/** Weekly session counts by domain, inferred from the default split for this training frequency. */
+/** Weekly session counts by domain for volume budgeting (typical U/L frequency heuristic). */
 fun weeklySessionCountsByDomain(context: ProgramGenerationContext): WeeklySessionCountsByDomain {
-    val template = defaultSplitTemplate(context.trainingDaysPerWeek)
-    if (template == null) {
-        return WeeklySessionCountsByDomain(
-            lower = 0.0,
-            upper = context.trainingDaysPerWeek.toDouble(),
-            mixed = 0.0,
-        )
+    val days = context.trainingDaysPerWeek
+    if (days <= 0) {
+        return WeeklySessionCountsByDomain(lower = 0.0, upper = 0.0, mixed = 0.0)
     }
-    val cycleLen = template.sessionTypes.size
-    val ratio = context.trainingDaysPerWeek.toDouble() / cycleLen
-    var lower = 0.0
-    var upper = 0.0
-    var mixed = 0.0
-    for (sessionType in template.sessionTypes) {
-        when (sessionTrainingDomain(sessionType)) {
-            TrainingDomain.Lower -> lower += ratio
-            TrainingDomain.Upper -> upper += ratio
-            null -> mixed += ratio
+    val lower =
+        when (days) {
+            2 -> 1.0
+            3 -> 1.0
+            4 -> 2.0
+            5 -> 2.0
+            6 -> 3.0
+            else -> (days / 2).toDouble()
         }
-    }
-    return WeeklySessionCountsByDomain(lower = lower, upper = upper, mixed = mixed)
+    return WeeklySessionCountsByDomain(
+        lower = lower,
+        upper = days - lower,
+        mixed = 0.0,
+    )
 }
 
 internal fun perSessionHardSetCap(context: ProgramGenerationContext): Int? =

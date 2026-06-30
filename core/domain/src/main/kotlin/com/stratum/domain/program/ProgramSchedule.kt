@@ -17,6 +17,28 @@ fun Program.effectiveTrainingWeekdays(): Set<Weekday> =
     trainingWeekdays.ifEmpty { workouts.mapNotNull { it.weekday }.toSet() }
 
 /**
+ * Binds workouts using CP-SAT weekday indices (Mon=0 … Sun=6) and renumbers session letters.
+ */
+fun assignProgramScheduleFromWeekdayIndices(
+    program: Program,
+    weekdayIndexByPosition: List<Int>,
+): Program {
+    val sortedWorkouts = program.workouts.sortedBy { workout -> workout.position }
+    require(sortedWorkouts.size == weekdayIndexByPosition.size) {
+        "Weekday index count ${weekdayIndexByPosition.size} must match workout count ${sortedWorkouts.size}."
+    }
+    val boundWorkouts =
+        sortedWorkouts.mapIndexed { index, workout ->
+            workout.copy(weekday = Weekday.entries[weekdayIndexByPosition[index]])
+        }
+    val trainingWeekdays = weekdayIndexByPosition.map { index -> Weekday.entries[index] }.toSet()
+    return program.copy(
+        trainingWeekdays = trainingWeekdays,
+        workouts = relabelWorkoutNamesByWeekday(boundWorkouts),
+    )
+}
+
+/**
  * Binds each workout in cycle order to a training weekday and persists [trainingWeekdays] on the
  * program. Rest days are the complement of the training set across the calendar week.
  *
@@ -176,6 +198,17 @@ private fun isBetterScheduleSummary(
     best: RecoveryScheduleSummary,
     bestScore: Int,
 ): Boolean {
+    if (isBetterRecoveryScheduleSummary(summary, best, priorityMuscles)) return true
+    if (isBetterRecoveryScheduleSummary(best, summary, priorityMuscles)) return false
+    return score > bestScore
+}
+
+/** Lexicographic recovery comparison used by schedule permutation and split evaluation. */
+internal fun isBetterRecoveryScheduleSummary(
+    summary: RecoveryScheduleSummary,
+    best: RecoveryScheduleSummary,
+    priorityMuscles: Set<String>,
+): Boolean {
     for (muscle in priorityMuscleComparisonOrder(priorityMuscles)) {
         val violations = summary.priorityViolationsByMuscle[muscle] ?: 0
         val bestViolationsForMuscle = best.priorityViolationsByMuscle[muscle] ?: 0
@@ -186,15 +219,19 @@ private fun isBetterScheduleSummary(
     return when {
         summary.maxPriorityConsecutiveExposureDays != best.maxPriorityConsecutiveExposureDays ->
             summary.maxPriorityConsecutiveExposureDays < best.maxPriorityConsecutiveExposureDays
+        summary.fullBodyLowerAdjacentCount != best.fullBodyLowerAdjacentCount ->
+            summary.fullBodyLowerAdjacentCount < best.fullBodyLowerAdjacentCount
+        summary.fullBodyFullBodyAdjacentCount != best.fullBodyFullBodyAdjacentCount ->
+            summary.fullBodyFullBodyAdjacentCount < best.fullBodyFullBodyAdjacentCount
+        summary.upperPullAdjacentLowerCount != best.upperPullAdjacentLowerCount ->
+            summary.upperPullAdjacentLowerCount < best.upperPullAdjacentLowerCount
         summary.violationCount != best.violationCount ->
             summary.violationCount < best.violationCount
         summary.prioritySeverityScore != best.prioritySeverityScore ->
             summary.prioritySeverityScore < best.prioritySeverityScore
         summary.severityScore != best.severityScore ->
             summary.severityScore < best.severityScore
-        summary.totalPenalty != best.totalPenalty ->
-            summary.totalPenalty < best.totalPenalty
-        else -> score > bestScore
+        else -> summary.totalPenalty < best.totalPenalty
     }
 }
 

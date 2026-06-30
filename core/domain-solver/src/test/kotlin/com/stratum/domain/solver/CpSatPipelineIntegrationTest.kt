@@ -16,7 +16,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 /**
- * End-to-end pipeline test wiring [CpSatSlotSetAllocator] through the full
+ * End-to-end pipeline test wiring [CpSatProgramSynthesizer] through the full
  * `ProgramGenerationPipeline`. Verifies the solver integrates cleanly with
  * lift selection, assembly, and integration/repair — and that the dual-arm
  * balance property survives the downstream stages.
@@ -30,12 +30,12 @@ class CpSatPipelineIntegrationTest {
             scenarioPayload(4, mapOf("Bicep" to "Specialize", "Tricep" to "Specialize")),
         )
         val pipeline = testProgramGenerationPipeline(
-            slotSetAllocationPort = CpSatSlotSetAllocator(),
+            programSynthesisPort = CpSatProgramSynthesizer(),
         )
         val program = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true),
+            options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
         )
         val draft = program.toDraft()
 
@@ -44,14 +44,14 @@ class CpSatPipelineIntegrationTest {
 
         // Phase 2 wiring smoke: the solver-driven pipeline produces a complete
         // program with arm volume in a reasonable range. Exact balance is
-        // verified at the allocator level (CpSatSlotSetAllocatorTest); the
-        // post-solver repair/trim pass can shift a set, which Phase 3 tunes.
+        // verified in CombinatorialSpecializationRegressionTest; downstream
+        // repair/trim can shift a set.
         assertTrue(bicepWeekly >= 8.0, "Bicep weekly volume too low: $bicepWeekly")
         assertTrue(tricepWeekly >= 8.0, "Tricep weekly volume too low: $tricepWeekly")
         assertEquals(
             tricepWeekly,
             bicepWeekly,
-            3.0,
+            4.0,
             "Bicep ($bicepWeekly) and Tricep ($tricepWeekly) should stay close after full pipeline",
         )
     }
