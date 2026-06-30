@@ -23,6 +23,7 @@ robolectric = "4.16.1"
 apterJunit5Robolectric = "0.9.0"
 androidxTestCore = "1.6.1"
 turbine = "1.2.0"
+ortools = "9.14.6206"
 firebaseBom = "34.13.0"
 androidxCredentials = "1.7.0-alpha02"
 googleid = "1.2.0"
@@ -73,6 +74,7 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 apter-junit5-robolectric-extension = { group = "tech.apter.junit5.jupiter", name = "robolectric-extension", version.ref = "apterJunit5Robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+ortools-java = { group = "com.google.ortools", name = "ortools-java", version.ref = "ortools" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-functions = { group = "com.google.firebase", name = "firebase-functions" }
