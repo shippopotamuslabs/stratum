@@ -11,12 +11,6 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
 
 /**
  * Thin Firebase Callable client for the `swapProgramLifts` endpoint. Sends the bounded lift-swap
@@ -47,77 +41,8 @@ class FirebaseLiftSwapAdapter @Inject constructor(
         checkNotNull(auth.currentUser) { "Sign-in required for lift swap." }
     }
 
-    private fun encodeRequest(request: LiftSwapRequest): Map<String, Any?> {
-        val review = request.reviewPayload
-        val programJson = buildJsonObject {
-            put("promptVersion", review.promptVersion)
-            putJsonObject("intent") {
-                put("trainingAge", review.intent.trainingAge)
-                review.intent.sessionLengthMinutes?.let { put("sessionLengthMinutes", it) }
-                put("trainingDaysPerWeek", review.intent.trainingDaysPerWeek)
-                put("cycleLength", review.intent.cycleLength)
-                putJsonObject("specialization") {
-                    review.intent.specialization.forEach { (muscle, level) ->
-                        put(muscle, level)
-                    }
-                }
-                putJsonArray("specializedMuscles") {
-                    review.intent.specializedMuscles.forEach { add(JsonPrimitive(it)) }
-                }
-            }
-            putJsonObject("program") {
-                put("cycleLength", review.program.cycleLength)
-                putJsonArray("workouts") {
-                    review.program.workouts.forEach { workout ->
-                        add(
-                            buildJsonObject {
-                                put("position", workout.position)
-                                put("name", workout.name)
-                                putJsonArray("workoutLifts") {
-                                    workout.workoutLifts.forEach { lift ->
-                                        add(
-                                            buildJsonObject {
-                                                put("position", lift.position)
-                                                put("liftId", lift.liftId)
-                                                put("name", lift.name)
-                                                put("movementPattern", lift.movementPattern)
-                                                putJsonArray("primaryMuscles") {
-                                                    lift.primaryMuscles.forEach { add(JsonPrimitive(it)) }
-                                                }
-                                                putJsonArray("secondaryMuscles") {
-                                                    lift.secondaryMuscles.forEach { add(JsonPrimitive(it)) }
-                                                }
-                                                put("setCount", lift.setCount)
-                                                lift.repMin?.let { put("repMin", it) }
-                                                lift.repMax?.let { put("repMax", it) }
-                                                putJsonArray("candidates") {
-                                                    lift.candidates.forEach { candidate ->
-                                                        add(
-                                                            buildJsonObject {
-                                                                put("liftId", candidate.liftId)
-                                                                put("name", candidate.name)
-                                                                put("movementPattern", candidate.movementPattern)
-                                                                putJsonArray("primaryMuscles") {
-                                                                    candidate.primaryMuscles.forEach {
-                                                                        add(JsonPrimitive(it))
-                                                                    }
-                                                                }
-                                                            },
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                        )
-                                    }
-                                }
-                            },
-                        )
-                    }
-                }
-            }
-        }
-        return mapOf("reviewPayload" to Json.parseToJsonElement(programJson.toString()))
-    }
+    private fun encodeRequest(request: LiftSwapRequest): Map<String, Any?> =
+        mapOf("reviewPayload" to FirebaseCallablePayloadEncoder.encodeSwapReviewPayload(request.reviewPayload))
 
     private companion object {
         private const val TAG = "StratumLiftSwap"
