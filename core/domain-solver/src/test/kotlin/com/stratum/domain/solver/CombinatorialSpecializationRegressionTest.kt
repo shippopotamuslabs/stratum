@@ -25,7 +25,7 @@ import org.junit.jupiter.params.provider.MethodSource
 
 /**
  * Combinatorial regression harness: runs the full `ProgramGenerationPipeline`
- * with [CpSatSlotSetAllocator] across every `GENERATION_SCENARIOS` combo
+ * with [CpSatProgramSynthesizer] across every `GENERATION_SCENARIOS` combo
  * (3/4/5/6-day × 7 specialization presets). Asserts:
  *  - No session muscle-credit cap violations (≤ [SESSION_MUSCLE_SET_CAP]).
  *  - Specialized muscles meet at least their MEV floor.
@@ -38,7 +38,7 @@ import org.junit.jupiter.params.provider.MethodSource
  */
 class CombinatorialSpecializationRegressionTest {
 
-    private val allocator = CpSatSlotSetAllocator()
+    private val synthesizer = CpSatProgramSynthesizer()
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("generationScenarios")
@@ -47,11 +47,11 @@ class CombinatorialSpecializationRegressionTest {
         val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
         val context = parseScenarioContext(scenarioPayload(config.days, specialization))
         val targets = planWeeklyVolume(context)
-        val pipeline = testProgramGenerationPipeline(slotSetAllocationPort = allocator)
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = synthesizer)
         val program = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true),
+            options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
         )
         val draft = program.toDraft()
 
@@ -61,18 +61,16 @@ class CombinatorialSpecializationRegressionTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("generationScenarios")
-    @DisplayName("CP-SAT allocator: co-specialized muscles with equal aims are balanced (pre-repair)")
-    fun coSpecializedMusclesBalancedAtAllocator(config: ScenarioConfig) {
+    @DisplayName("CP-SAT synthesis: co-specialized muscles with equal aims are balanced (pre-repair)")
+    fun coSpecializedMusclesBalancedAtSynthesizer(config: ScenarioConfig) {
         val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
         val specialized = specialization.filterValues { it == "Specialize" }.keys.toList()
         if (specialized.size < 2) return
 
         val context = parseScenarioContext(scenarioPayload(config.days, specialization))
         val targets = planWeeklyVolume(context)
-        val resolved = com.stratum.domain.program.generation.split.resolveSplit(context, targets)
-        val plans = com.stratum.domain.program.generation.prescription.buildEmptySessionPlans(resolved.sessions, context)
-        val result = allocator.allocate(plans, targets, context)
-        val solved = (result as com.stratum.domain.program.generation.prescription.SlotSetAllocationResult.Success).plans
+        val result = synthesizer.synthesize(targets, context)
+        val solved = result.plans
 
         for (i in specialized.indices) {
             for (j in (i + 1) until specialized.size) {
@@ -87,7 +85,7 @@ class CombinatorialSpecializationRegressionTest {
                 if (a <= 0.0 || b <= 0.0) continue
                 assertTrue(
                     kotlin.math.abs(a - b) <= 2.0,
-                    "$config.label: co-specialized ${specialized[i]} ($a) and ${specialized[j]} ($b) differ by > 2.0 at allocator level",
+                    "$config.label: co-specialized ${specialized[i]} ($a) and ${specialized[j]} ($b) differ by > 2.0 at synthesis level",
                 )
             }
         }

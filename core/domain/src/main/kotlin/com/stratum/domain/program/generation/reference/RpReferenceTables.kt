@@ -99,11 +99,33 @@ data class PatternSecondaryMuscleCredit(
 
 /** Typical secondary muscle credits by movement pattern (slot-level estimate during allocation). */
 val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<String, List<PatternSecondaryMuscleCredit>> = mapOf(
+    "SquatPattern" to listOf(PatternSecondaryMuscleCredit("Glute", SECONDARY_SET_CREDIT)),
+    "HipHinge" to
+        listOf(
+            PatternSecondaryMuscleCredit("Glute", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit("LowerBack", SECONDARY_SET_CREDIT),
+        ),
     "VerticalPull" to listOf(PatternSecondaryMuscleCredit("Bicep", SECONDARY_SET_CREDIT)),
-    "HorizontalPull" to listOf(PatternSecondaryMuscleCredit("Bicep", SECONDARY_SET_CREDIT)),
-    "HorizontalPress" to listOf(PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT)),
-    "InclinePress" to listOf(PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT)),
-    "VerticalPress" to listOf(PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT)),
+    "HorizontalPull" to
+        listOf(
+            PatternSecondaryMuscleCredit("Bicep", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit("PosteriorDeltoid", SECONDARY_SET_CREDIT),
+        ),
+    "HorizontalPress" to
+        listOf(
+            PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit("AnteriorDeltoid", SECONDARY_SET_CREDIT),
+        ),
+    "InclinePress" to
+        listOf(
+            PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit("AnteriorDeltoid", SECONDARY_SET_CREDIT),
+        ),
+    "VerticalPress" to
+        listOf(
+            PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit("AnteriorDeltoid", SECONDARY_SET_CREDIT),
+        ),
 )
 
 /** Minimum direct (primary) sets for a specialized muscle's isolation slot in one session. */

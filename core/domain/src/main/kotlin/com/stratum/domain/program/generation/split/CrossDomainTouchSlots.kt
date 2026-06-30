@@ -6,7 +6,6 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.volume.TrainingDomain
 import com.stratum.domain.program.generation.volume.availablePatternsByMuscle
-import com.stratum.domain.program.generation.volume.defaultSplitTemplate
 import com.stratum.domain.program.generation.volume.sessionTrainingDomain
 
 /** Preferred isolation movement patterns per muscle for cross-domain touch slots. */
@@ -36,16 +35,19 @@ internal fun injectCrossDomainTouchSlots(
     slots: MutableList<WorkoutSlotTemplate>,
     context: ProgramGenerationContext,
     sessionPosition: Int? = null,
+    composition: SessionComposition? = null,
 ) {
     val sessionPrimaries = slots.map { it.primaryMuscle }.toSet()
     val patternsByMuscle = availablePatternsByMuscle(context)
     var touchCount = slots.count { it.isCrossDomainTouch }
-    val touchBudget = maxTouchSlotsForSession(sessionType, slots, context)
+    val touchBudget = maxTouchSlotsForSession(sessionType, slots, context, composition)
 
     for ((muscle, level) in context.specialization) {
         if (level != "Specialize") continue
         if (muscle in sessionPrimaries) continue
-        if (muscle == "Calf" && !allowsCalfCrossDomainTouch(sessionType, sessionPosition, context)) continue
+        if (muscle == "Calf" && !allowsCalfCrossDomainTouch(sessionType, sessionPosition, context, composition)) {
+            continue
+        }
         if (touchCount >= touchBudget) break
         if (slots.any { it.isCrossDomainTouch && it.primaryMuscle == muscle }) continue
 
@@ -113,16 +115,14 @@ private fun allowsCalfCrossDomainTouch(
     sessionType: SessionTypeId,
     sessionPosition: Int?,
     context: ProgramGenerationContext,
+    composition: SessionComposition? = null,
 ): Boolean {
+    if (composition == SessionComposition.UpperSpecFocused) return true
     if (context.trainingDaysPerWeek < 5) return true
     if (sessionTrainingDomain(sessionType) != TrainingDomain.Upper) return true
-    val template = defaultSplitTemplate(context.trainingDaysPerWeek) ?: return true
-    val firstUpperPosition =
-        template.sessionTypes.indexOfFirst { type ->
-            sessionTrainingDomain(type) == TrainingDomain.Upper
-        }
-    if (firstUpperPosition < 0) return true
-    return sessionPosition == firstUpperPosition
+    if (sessionPosition == null) return true
+    // Alternating lower-first weekly cycles place the first upper at index 1.
+    return sessionPosition == 1
 }
 
 /**
@@ -133,7 +133,11 @@ internal fun maxTouchSlotsForSession(
     sessionType: SessionTypeId,
     slots: List<WorkoutSlotTemplate>,
     context: ProgramGenerationContext,
+    composition: SessionComposition? = null,
 ): Int {
+    if (composition == SessionComposition.LowerWithUpperTouch) {
+        return MAX_TOUCH_SLOTS_PER_SESSION
+    }
     if (sessionTrainingDomain(sessionType) != TrainingDomain.Lower) {
         return MAX_TOUCH_SLOTS_PER_SESSION
     }

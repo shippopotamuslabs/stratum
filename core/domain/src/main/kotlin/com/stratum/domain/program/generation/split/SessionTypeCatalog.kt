@@ -275,6 +275,7 @@ fun slotsForSessionType(
     context: ProgramGenerationContext? = null,
     siblingIndex: Int = 0,
     sessionPosition: Int? = null,
+    composition: SessionComposition? = null,
 ): List<WorkoutSlotTemplate> {
     val base = when {
         sessionType == SessionTypeId.FullBody && siblingIndex % 2 == 1 ->
@@ -285,8 +286,11 @@ fun slotsForSessionType(
     if (context == null) return base
 
     promoteSpecializedSlots(base, context)
-    injectSpecializedVariantSlots(base, context)
-    injectCrossDomainTouchSlots(sessionType, base, context, sessionPosition)
+    when (composition) {
+        SessionComposition.UpperSpecFocused -> applySpecFocusedUpperSlots(base, context)
+        else -> injectSpecializedVariantSlots(base, context)
+    }
+    injectCrossDomainTouchSlots(sessionType, base, context, sessionPosition, composition)
     return base
 }
 
@@ -318,6 +322,15 @@ private val LETTERED_SESSION_TYPES = setOf(
     SessionTypeId.CompoundPair,
     SessionTypeId.AuxPair,
 )
+
+internal fun siblingIndexForSessionType(sessionTypes: List<SessionTypeId>, index: Int): Int {
+    val type = sessionTypes[index]
+    var count = 0
+    for (i in 0 until index) {
+        if (sessionTypes[i] == type) count++
+    }
+    return count
+}
 
 fun displayNameForSessionType(sessionType: SessionTypeId, index: Int): String {
     val labels = mapOf(

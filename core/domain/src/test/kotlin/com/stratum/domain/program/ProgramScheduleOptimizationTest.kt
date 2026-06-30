@@ -48,6 +48,7 @@ class ProgramScheduleOptimizationTest {
             workouts = listOf(lower, push, pull),
             weekdayIndices = weekdayIndices,
             workoutMuscleExposures = exposures,
+            recoveryPriorityMuscles = setOf("Tricep"),
         )
         val exposureByName = mapOf(
             "Lower A" to exposures[0],

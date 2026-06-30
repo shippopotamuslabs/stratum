@@ -73,12 +73,28 @@ data class ScenarioConfig(
     val label: String,
 )
 
+val WEEKDAY_LAYOUTS: Map<String, List<String>> = mapOf(
+    "sequential" to listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"),
+    "mwf" to listOf("Monday", "Wednesday", "Friday"),
+    "spread5" to listOf("Monday", "Tuesday", "Thursday", "Friday", "Saturday"),
+    "mtwfs" to listOf("Monday", "Tuesday", "Wednesday", "Friday", "Saturday"),
+    "sean5" to listOf("Sunday", "Monday", "Wednesday", "Thursday", "Friday"),
+    "weird4" to listOf("Monday", "Tuesday", "Wednesday", "Friday"),
+)
+
 val GENERATION_SCENARIOS: List<ScenarioConfig> = buildList {
     for (days in listOf(3, 4, 5, 6)) {
         for (preset in SPECIALIZATION_PRESETS.keys) {
             add(ScenarioConfig(days = days, preset = preset, label = "$days-day $preset"))
         }
     }
+}
+
+/** Key presets across non-sequential weekday layouts for synthesis regression. */
+val WEEKDAY_LAYOUT_SCENARIOS: List<ScenarioConfig> = buildList {
+    add(ScenarioConfig(days = 3, preset = "arms", label = "3-day mwf arms"))
+    add(ScenarioConfig(days = 5, preset = "arms", label = "5-day spread5 arms"))
+    add(ScenarioConfig(days = 4, preset = "chest", label = "4-day spread5 chest"))
 }
 
 fun scenarioContext(days: Int, specialization: Map<String, String>): ProgramGenerationContext =
@@ -88,10 +104,20 @@ fun scenarioPayload(
     days: Int,
     specialization: Map<String, String>,
     sessionLengthMinutes: Int = 75,
+    weekdayLayout: String = "sequential",
 ): String {
-    val weekdays = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-        .take(days)
-        .joinToString(",")
+    val layoutDays = WEEKDAY_LAYOUTS[weekdayLayout] ?: WEEKDAY_LAYOUTS.getValue("sequential")
+    val weekdays =
+        if (layoutDays.size >= days) {
+            layoutDays.take(days)
+        } else {
+            val padded = layoutDays.toMutableList()
+            val sequential = WEEKDAY_LAYOUTS.getValue("sequential")
+            while (padded.size < days) {
+                padded += sequential[padded.size]
+            }
+            padded.take(days)
+        }.joinToString(",")
     return Json.encodeToString(
         JsonObject.serializer(),
         JsonObject(

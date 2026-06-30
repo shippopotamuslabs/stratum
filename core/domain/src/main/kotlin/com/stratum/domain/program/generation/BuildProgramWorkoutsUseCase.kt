@@ -5,14 +5,23 @@ package com.stratum.domain.program.generation
 import com.stratum.domain.program.generation.build.BuildProgramResult
 import com.stratum.domain.program.generation.build.buildProgramWithSelections
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.prescription.SlotSetAllocationPort
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import javax.inject.Inject
 
 class BuildProgramWorkoutsUseCase @Inject constructor() {
-    operator fun invoke(
+    suspend operator fun invoke(
         context: ProgramGenerationContext,
         weeklyTargets: WeeklyVolumeTargets? = null,
-        slotSetAllocationPort: SlotSetAllocationPort,
-    ): BuildProgramResult = buildProgramWithSelections(context, weeklyTargets, slotSetAllocationPort)
+        programSynthesisPort: ProgramSynthesisPort,
+        onSynthesizingProgram: suspend () -> Unit = {},
+        onSelectingExercises: suspend () -> Unit = {},
+    ): BuildProgramResult =
+        buildProgramWithSelections(
+            context = context,
+            weeklyTargets = weeklyTargets,
+            programSynthesisPort = programSynthesisPort,
+            onSynthesizingProgram = onSynthesizingProgram,
+            onSelectingExercises = onSelectingExercises,
+        )
 }

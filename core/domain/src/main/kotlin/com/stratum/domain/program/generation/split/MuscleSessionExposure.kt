@@ -19,13 +19,14 @@ data class MuscleSessionExposure(
 internal fun estimatedMuscleDosesForSessionType(
     sessionType: SessionTypeId,
     context: ProgramGenerationContext,
+    siblingIndex: Int = 0,
+    sessionPosition: Int? = null,
+    composition: SessionComposition? = null,
 ): Map<String, Double> {
     val doses = mutableMapOf<String, Double>()
-    for (siblingIndex in 0..1) {
-        for (slot in slotsForSessionType(sessionType, context, siblingIndex)) {
-            val dose = estimatedDoseForSlot(slot, context)
-            doses[slot.primaryMuscle] = maxOf(doses[slot.primaryMuscle] ?: 0.0, dose)
-        }
+    for (slot in slotsForSessionType(sessionType, context, siblingIndex, sessionPosition, composition)) {
+        val dose = estimatedDoseForSlot(slot, context, composition)
+        doses[slot.primaryMuscle] = maxOf(doses[slot.primaryMuscle] ?: 0.0, dose)
     }
     return doses
 }
@@ -33,12 +34,14 @@ internal fun estimatedMuscleDosesForSessionType(
 private fun estimatedDoseForSlot(
     slot: WorkoutSlotTemplate,
     context: ProgramGenerationContext,
+    composition: SessionComposition? = null,
 ): Double {
     if (slot.isCrossDomainTouch) return 2.0
     val level = context.specialization[slot.primaryMuscle] ?: "Maintenance"
-    return when (level) {
-        "Specialize" -> 8.0
-        "MinimumVolume" -> 3.0
+    return when {
+        composition == SessionComposition.UpperSpecFocused && level == "Specialize" -> 10.0
+        level == "Specialize" -> 8.0
+        level == "MinimumVolume" -> 3.0
         else -> 5.0
     }
 }
@@ -61,6 +64,8 @@ data class RecoveryScheduleSummary(
     val severityScore: Int,
     val prioritySeverityScore: Int,
     val upperPullAdjacentLowerCount: Int = 0,
+    val fullBodyLowerAdjacentCount: Int = 0,
+    val fullBodyFullBodyAdjacentCount: Int = 0,
 )
 
 internal fun recoveryScheduleSummary(
@@ -68,7 +73,7 @@ internal fun recoveryScheduleSummary(
     priorityMuscles: Set<String> = emptySet(),
 ): RecoveryScheduleSummary {
     if (exposures.isEmpty()) {
-        return RecoveryScheduleSummary(0, 0, emptyMap(), 0, 0, 0, 0, 0)
+        return RecoveryScheduleSummary(0, 0, emptyMap(), 0, 0, 0, 0, 0, 0, 0)
     }
     val byMuscle = exposures.groupBy { it.muscle }
     var violationCount = 0
@@ -116,16 +121,24 @@ internal fun recoveryScheduleSummary(
         }
     }
     val pullLowerAdjacency = upperPullAdjacentLowerCount(exposures)
+    val fullBodyLowerAdjacency = fullBodyLowerAdjacentCount(exposures)
+    val fullBodyFullBodyAdjacency = fullBodyFullBodyAdjacentCount(exposures)
     return RecoveryScheduleSummary(
         violationCount = violationCount,
         priorityViolationCount = priorityViolationCount,
         priorityViolationsByMuscle = priorityViolationsByMuscle,
         maxPriorityConsecutiveExposureDays =
             maxPriorityConsecutiveExposureDays(exposures, priorityMuscles),
-        totalPenalty = totalPenalty + pullLowerAdjacency * UPPER_PULL_LOWER_ADJACENCY_PENALTY,
+        totalPenalty =
+            totalPenalty +
+                pullLowerAdjacency * UPPER_PULL_LOWER_ADJACENCY_PENALTY +
+                fullBodyLowerAdjacency * FULL_BODY_LOWER_ADJACENCY_PENALTY +
+                fullBodyFullBodyAdjacency * FULL_BODY_FULL_BODY_ADJACENCY_PENALTY,
         severityScore = severityScore,
         prioritySeverityScore = prioritySeverityScore,
         upperPullAdjacentLowerCount = pullLowerAdjacency,
+        fullBodyLowerAdjacentCount = fullBodyLowerAdjacency,
+        fullBodyFullBodyAdjacentCount = fullBodyFullBodyAdjacency,
     )
 }
 
@@ -134,26 +147,51 @@ internal fun recoveryScheduleSummary(
  */
 /** Penalty weight per upper-pull / lower calendar adjacency. */
 private const val UPPER_PULL_LOWER_ADJACENCY_PENALTY = 60
+private const val FULL_BODY_LOWER_ADJACENCY_PENALTY = 250
+private const val FULL_BODY_FULL_BODY_ADJACENCY_PENALTY = 120
 
-internal fun upperPullAdjacentLowerCount(exposures: List<MuscleSessionExposure>): Int {
-    val sessionTypesByDay =
-        exposures
-            .filter { exposure -> exposure.sessionType != null }
-            .distinctBy { exposure -> exposure.weekdayIndex to exposure.workoutName }
-            .groupBy { exposure -> exposure.weekdayIndex }
-            .mapValues { (_, dayExposures) -> dayExposures.mapNotNull { it.sessionType }.toSet() }
+internal fun sessionTypesByWeekdayIndex(
+    exposures: List<MuscleSessionExposure>,
+): Map<Int, Set<SessionTypeId>> =
+    exposures
+        .filter { exposure -> exposure.sessionType != null }
+        .distinctBy { exposure -> exposure.weekdayIndex to exposure.workoutName }
+        .groupBy { exposure -> exposure.weekdayIndex }
+        .mapValues { (_, dayExposures) -> dayExposures.mapNotNull { it.sessionType }.toSet() }
+
+internal fun countAdjacentSessionTypePairs(
+    exposures: List<MuscleSessionExposure>,
+    predicate: (today: Set<SessionTypeId>, tomorrow: Set<SessionTypeId>) -> Boolean,
+): Int {
+    val sessionTypesByDay = sessionTypesByWeekdayIndex(exposures)
     var count = 0
     for (dayIndex in sessionTypesByDay.keys) {
         val today = sessionTypesByDay[dayIndex].orEmpty()
         val tomorrow = sessionTypesByDay[dayIndex + 1].orEmpty()
-        val pullThenLower = SessionTypeId.UpperPull in today && SessionTypeId.Lower in tomorrow
-        val lowerThenPull = SessionTypeId.Lower in today && SessionTypeId.UpperPull in tomorrow
-        if (pullThenLower || lowerThenPull) {
+        if (tomorrow.isEmpty()) continue
+        if (predicate(today, tomorrow)) {
             count++
         }
     }
     return count
 }
+
+internal fun upperPullAdjacentLowerCount(exposures: List<MuscleSessionExposure>): Int =
+    countAdjacentSessionTypePairs(exposures) { today, tomorrow ->
+        (SessionTypeId.UpperPull in today && SessionTypeId.Lower in tomorrow) ||
+            (SessionTypeId.Lower in today && SessionTypeId.UpperPull in tomorrow)
+    }
+
+internal fun fullBodyLowerAdjacentCount(exposures: List<MuscleSessionExposure>): Int =
+    countAdjacentSessionTypePairs(exposures) { today, tomorrow ->
+        (SessionTypeId.FullBody in today && SessionTypeId.Lower in tomorrow) ||
+            (SessionTypeId.Lower in today && SessionTypeId.FullBody in tomorrow)
+    }
+
+internal fun fullBodyFullBodyAdjacentCount(exposures: List<MuscleSessionExposure>): Int =
+    countAdjacentSessionTypePairs(exposures) { today, tomorrow ->
+        SessionTypeId.FullBody in today && SessionTypeId.FullBody in tomorrow
+    }
 
 /** @deprecated Use [upperPullAdjacentLowerCount]; retained for penalty weighting. */
 internal fun upperPullAdjacentLowerPenalty(exposures: List<MuscleSessionExposure>): Int =
@@ -269,7 +307,8 @@ internal fun exposuresFromSessionTypes(
     val out = mutableListOf<MuscleSessionExposure>()
     sessionTypes.forEachIndexed { sessionIdx, sessionType ->
         val weekdayIdx = weekdayIndices.getOrElse(sessionIdx) { sessionIdx }
-        for ((muscle, dose) in estimatedMuscleDosesForSessionType(sessionType, context)) {
+        val siblingIndex = siblingIndexForSessionType(sessionTypes, sessionIdx)
+        for ((muscle, dose) in estimatedMuscleDosesForSessionType(sessionType, context, siblingIndex, sessionIdx)) {
             out.add(
                 MuscleSessionExposure(
                     muscle = muscle,

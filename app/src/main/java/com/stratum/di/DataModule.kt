@@ -15,7 +15,8 @@ import com.stratum.core.data.repository.RoomOnboardingRepository
 import com.stratum.core.data.repository.RoomSpecializationPreferenceRepository
 import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
 import com.stratum.core.data.seed.LiftCatalogSeeder
-import com.stratum.domain.program.generation.prescription.SlotSetAllocationPort
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
@@ -199,8 +200,8 @@ object DatabaseModule {
 object SolverModule {
     @Provides
     @Singleton
-    fun provideSlotSetAllocationPort(): SlotSetAllocationPort =
-        com.stratum.domain.solver.CpSatSlotSetAllocator()
+    fun provideProgramSynthesisPort(): ProgramSynthesisPort =
+        CpSatProgramSynthesizer()
 }
 
 @Module

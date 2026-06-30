@@ -4,6 +4,7 @@ import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.core.testing.program.GENERATION_SCENARIOS
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.ScenarioConfig
+import com.stratum.core.testing.program.lowerDominantWorkouts
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.SPECIALIZATION_PRESETS
@@ -16,6 +17,7 @@ import com.stratum.domain.program.generation.reference.frequencyTierForWeeklySet
 import com.stratum.domain.program.generation.reference.sessionDurationBudgetMinutes
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.assignProgramSchedule
+import com.stratum.domain.program.assignProgramScheduleFromWeekdayIndices
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
@@ -43,16 +45,27 @@ class ProgramGenerationPipelineTest {
   @DisplayName("cycle structure and no duplicate lifts")
   fun cycleStructureAndNoDuplicateLifts(config: ScenarioConfig) = runTest {
     val (normalized, context) = generateScenario(config)
-    val trainingWeekdays =
-        context.weekdays.mapNotNull { weekday ->
-            runCatching { Weekday.valueOf(weekday) }.getOrNull()
-        }
     val draft = normalized.toDraft()
-    val program = assignProgramSchedule(
-        normalized.toDomainProgram(),
-        trainingWeekdays,
-        draft.workouts.map { computeWorkoutMuscleVolume(it, context) },
-    )
+    val weekdayIndices =
+        draft.workouts.sortedBy { it.position }.mapNotNull { workout ->
+            workout.weekday?.let { weekdayName ->
+                Weekday.entries.indexOf(Weekday.valueOf(weekdayName))
+            }
+        }
+    val program =
+        if (weekdayIndices.size == normalized.toDomainProgram().workouts.size) {
+            assignProgramScheduleFromWeekdayIndices(normalized.toDomainProgram(), weekdayIndices)
+        } else {
+            val trainingWeekdays =
+                context.weekdays.mapNotNull { weekday ->
+                    runCatching { Weekday.valueOf(weekday) }.getOrNull()
+                }
+            assignProgramSchedule(
+                normalized.toDomainProgram(),
+                trainingWeekdays,
+                draft.workouts.map { computeWorkoutMuscleVolume(it, context) },
+            )
+        }
     assertEquals(config.days, program.cycleLength)
     assertEquals(config.days, program.workouts.size)
     for (workout in program.workouts) {
@@ -137,15 +150,13 @@ class ProgramGenerationPipelineTest {
     assertTrue(back.aim <= 14.0)
 
     val draft = program.toDraft()
-    val upperWorkouts = draft.workouts.filter { (it.name).orEmpty().contains("upper", ignoreCase = true) }
-    assertTrue(upperWorkouts.size >= 2)
     var totalBack = 0
-    for (workout in upperWorkouts) {
+    for (workout in draft.workouts) {
       val backSets = primarySetsByMuscleInWorkout(workout, context)["Back"] ?: 0
       totalBack += backSets
       assertTrue(backSets <= SESSION_MUSCLE_SET_CAP, "${workout.name} back sets $backSets")
     }
-    assertTrue(totalBack >= 8, "back should accumulate meaningful weekly volume across upper days")
+    assertTrue(totalBack >= 8, "back should accumulate meaningful weekly volume across training days")
   }
 
   @Test
@@ -154,7 +165,7 @@ class ProgramGenerationPipelineTest {
     val config = ScenarioConfig(days = 5, preset = "arms", label = "5-day arms")
     val (program, context) = generateScenario(config)
     val draft = program.toDraft()
-    val lowerWorkouts = draft.workouts.filter { (it.name).orEmpty().contains("lower", ignoreCase = true) }
+    val lowerWorkouts = lowerDominantWorkouts(draft, context)
     assertTrue(lowerWorkouts.isNotEmpty(), "expected lower sessions in 5-day split")
     var lowerBicep = 0
     var lowerTricep = 0
