@@ -8,6 +8,7 @@ import com.stratum.domain.program.generation.IntegrateAndValidateProgramUseCase
 import com.stratum.domain.program.generation.PlanWeeklyVolumeUseCase
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramDraft
+import com.stratum.domain.program.generation.prescription.SlotSetAllocationPort
 import com.stratum.domain.program.generation.schema.NormalizedProgram
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
 import javax.inject.Inject
@@ -30,6 +31,7 @@ class ProgramGenerationPipeline @Inject constructor(
     private val planWeeklyVolume: PlanWeeklyVolumeUseCase,
     private val buildProgramWorkouts: BuildProgramWorkoutsUseCase,
     private val integrateAndValidate: IntegrateAndValidateProgramUseCase,
+    private val slotSetAllocationPort: SlotSetAllocationPort? = null,
 ) {
     suspend fun generate(
         context: ProgramGenerationContext,
@@ -40,7 +42,7 @@ class ProgramGenerationPipeline @Inject constructor(
         val weeklyTargets = planWeeklyVolume(context)
 
         options.progress(PipelinePhase.BuildingWorkouts)
-        val buildResult = buildProgramWorkouts(context, weeklyTargets)
+        val buildResult = buildProgramWorkouts(context, weeklyTargets, slotSetAllocationPort)
 
         options.progress(PipelinePhase.Integrating)
         val draft = ProgramDraft(

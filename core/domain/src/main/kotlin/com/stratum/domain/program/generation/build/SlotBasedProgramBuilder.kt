@@ -4,6 +4,7 @@ package com.stratum.domain.program.generation.build
 
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
+import com.stratum.domain.program.generation.prescription.SlotSetAllocationPort
 import com.stratum.domain.program.generation.prescription.allocateSlotSetCounts
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
 import com.stratum.domain.program.generation.selection.selectLiftForSlot
@@ -25,10 +26,11 @@ data class BuildProgramResult(
 fun buildProgramWithSelections(
     context: ProgramGenerationContext,
     weeklyTargets: WeeklyVolumeTargets? = null,
+    slotSetAllocationPort: SlotSetAllocationPort? = null,
 ): BuildProgramResult {
     val targets = weeklyTargets ?: planWeeklyVolume(context)
     val resolved = resolveSplit(context, targets)
-    val sessionPlans = allocateSlotSetCounts(resolved.sessions, targets, context)
+    val sessionPlans = allocateSlotSetCounts(resolved.sessions, targets, context, slotSetAllocationPort)
 
     val usedLiftIds = mutableSetOf<String>()
     val lastUsedSession = mutableMapOf<String, Int>()
