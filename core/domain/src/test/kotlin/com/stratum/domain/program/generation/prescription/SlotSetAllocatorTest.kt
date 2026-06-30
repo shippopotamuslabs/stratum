@@ -7,6 +7,7 @@ import com.stratum.domain.program.generation.context.VolumeLandmarkSource
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.split.resolveSplit
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
+import com.stratum.domain.solver.CpSatSlotSetAllocator
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -82,7 +83,7 @@ class SlotSetAllocatorTest {
         val context = contextFor(4)
         val targets = planWeeklyVolume(context)
         val resolved = resolveSplit(context, targets)
-        val plans = allocateSlotSetCounts(resolved.sessions, targets, context)
+        val plans = allocateSlotSetCounts(resolved.sessions, targets, context, CpSatSlotSetAllocator())
         for (plan in plans) {
             val muscles = plan.filledSlots.map { it.primaryMuscle }.toSet()
             for (muscle in muscles) {

@@ -13,6 +13,6 @@ class BuildProgramWorkoutsUseCase @Inject constructor() {
     operator fun invoke(
         context: ProgramGenerationContext,
         weeklyTargets: WeeklyVolumeTargets? = null,
-        slotSetAllocationPort: SlotSetAllocationPort? = null,
+        slotSetAllocationPort: SlotSetAllocationPort,
     ): BuildProgramResult = buildProgramWithSelections(context, weeklyTargets, slotSetAllocationPort)
 }

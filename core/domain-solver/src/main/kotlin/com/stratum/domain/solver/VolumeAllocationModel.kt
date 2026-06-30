@@ -43,9 +43,18 @@ internal class VolumeAllocationModel(
     private val _muscles = mutableListOf<String>()
 
     /**
-     * Builds decision variables, all hard constraints, and the objective from
-     * the given [plans] (whose `filledSlots` are already at `setCount = 0`).
-     * Returns the model ready to solve.
+     * Builds decision variables, hard constraints (upper bounds only — always
+     * feasible), and the objective (deficit-weighted fill + role-minimum and
+     * MEV-floor soft penalties) from the given [plans] (whose `filledSlots`
+     * are already at `setCount = 0`). Returns the model ready to solve.
+     *
+     * **Hard constraints** (always satisfiable — set all x[s] = 0):
+     * per-slot upper cap, per-session muscle credit ≤ cap, session time cap,
+     * MRV ceiling.
+     *
+     * **Soft penalties** (in the objective): deviation from per-muscle aim,
+     * co-specialization balance, MEV floor shortfall, role-minimum shortfall.
+     * The solver gets as close to these as the hard constraints allow.
      */
     fun buildModel(plans: List<SessionSlotPlan>): CpModel {
         val model = CpModel()
@@ -67,10 +76,11 @@ internal class VolumeAllocationModel(
         }
         _muscles.addAll(muscleSet)
 
+        // Hard constraints (upper bounds only — always feasible).
         addPerSessionMuscleCaps(model)
         addSessionTimeCaps(model)
-        addRoleMinimums(model)
-        addTargetBounds(model)
+        addMrvCeilings(model)
+        // Objective (soft penalties for aims, MEV floors, role minimums, balance).
         buildObjective(model)
         return model
     }
@@ -105,54 +115,44 @@ internal class VolumeAllocationModel(
         }
     }
 
-    /** Anchor ≥ 3, secondary compound ≥ 2, specialized isolation ≥ [MIN_SPECIALIZED_DIRECT_SETS]. */
-    private fun addRoleMinimums(model: CpModel) {
-        _slots.forEach { sv ->
-            when (sv.slot.role) {
-                SlotRole.Anchor -> model.addGreaterOrEqual(sv.x, ANCHOR_MIN_SETS.toLong())
-                SlotRole.SecondaryCompound -> model.addGreaterOrEqual(sv.x, SECONDARY_COMPOUND_MIN_SETS.toLong())
-                SlotRole.Isolation -> {
-                    if ((context.specialization[sv.slot.primaryMuscle] ?: "Maintenance") == "Specialize") {
-                        model.addGreaterOrEqual(sv.x, MIN_SPECIALIZED_DIRECT_SETS.toLong())
-                    }
-                }
-                SlotRole.Optional -> Unit
-            }
-        }
-    }
-
-    /** `credit(m) ≤ target.max` (MRV, hard) and `credit(m) ≥ target.min` (MEV, hard where defined). */
-    private fun addTargetBounds(model: CpModel) {
+    /** `credit(m) ≤ target.max` (MRV ceiling — hard upper bound). */
+    private fun addMrvCeilings(model: CpModel) {
         _muscles.forEach { muscle ->
             val target = weeklyTargets[muscle] ?: return@forEach
             val weekly = weeklyCreditExpr(muscle) ?: return@forEach
             model.addLessOrEqual(weekly, (target.max * VolumeAllocationCoefficients.SCALE).toLong())
-            if (target.min > 0.0) {
-                model.addGreaterOrEqual(weekly, (target.min * VolumeAllocationCoefficients.SCALE).toLong())
-            }
         }
     }
 
     /**
-     * Deficit-weighted fill objective. For each muscle with a target:
-     * `credit(m) - aim(m) = over_m - under_m`, minimize
-     * `Σ w(m) × (over_m + under_m)` with Specialize weighted higher than
-     * Maintenance.
+     * Objective: deficit-weighted fill + MEV-floor shortfall + role-minimum
+     * shortfall + co-specialization balance. All terms are soft penalties —
+     * the model is always feasible (x[s] = 0 for all slots satisfies every
+     * hard upper-bound constraint). The solver gets as close to aims, MEV
+     * floors, and role minimums as the caps allow.
+     *
+     * **Per-muscle deviation:** `credit(m) - aim(m) = over_m - under_m`,
+     * penalized at SPECIALIZE_WEIGHT (10) or MAINTENANCE_WEIGHT (3).
+     *
+     * **MEV floor shortfall:** `credit(m) - min(m) = mevOver - mevUnder`,
+     * penalized at MEV_FLOOR_WEIGHT (8) — only the shortfall (mevUnder) is
+     * penalized, so surplus above MEV is free.
+     *
+     * **Role-minimum shortfall:** `x[s] - min(s) = roleOver - roleUnder`,
+     * penalized at ROLE_MIN_WEIGHT (6) — only the shortfall (roleUnder).
      */
     private fun buildObjective(model: CpModel) {
         val weightedTerms = mutableListOf<Pair<IntVar, Long>>()
+
         _muscles.forEach { muscle ->
             val target = weeklyTargets[muscle] ?: return@forEach
             val weekly = weeklyCreditExpr(muscle) ?: return@forEach
+            // Aim deviation (over + under).
             val aimScaled = (target.aim * VolumeAllocationCoefficients.SCALE).toLong()
             val over = model.newIntVar(0L, MAX_OVER, "over_$muscle")
             val under = model.newIntVar(0L, MAX_OVER, "under_$muscle")
-            // credit - aim = over - under  ⟺  credit - aim - over + under = 0
             model.addEquality(
-                LinearExpr.weightedSum(
-                    arrayOf(weekly, over, under),
-                    longArrayOf(1L, -1L, 1L),
-                ),
+                LinearExpr.weightedSum(arrayOf(weekly, over, under), longArrayOf(1L, -1L, 1L)),
                 aimScaled,
             )
             val weight = if ((context.specialization[muscle] ?: "Maintenance") == "Specialize") {
@@ -162,13 +162,49 @@ internal class VolumeAllocationModel(
             }
             weightedTerms.add(over to weight)
             weightedTerms.add(under to weight)
+
+            // MEV floor shortfall (only under is penalized).
+            if (target.min > 0.0) {
+                val minScaled = (target.min * VolumeAllocationCoefficients.SCALE).toLong()
+                val mevUnder = model.newIntVar(0L, MAX_OVER, "mevUnder_$muscle")
+                model.addGreaterOrEqual(
+                    LinearExpr.weightedSum(arrayOf(weekly, mevUnder), longArrayOf(1L, 1L)),
+                    minScaled,
+                )
+                weightedTerms.add(mevUnder to MEV_FLOOR_WEIGHT)
+            }
         }
+
+        // Role-minimum shortfalls (only under is penalized).
+        _slots.forEach { sv ->
+            val minSets = roleMinimum(sv.slot) ?: return@forEach
+            val roleUnder = model.newIntVar(0L, MAX_OVER, "roleUnder_${sv.slot.slotId}")
+            model.addGreaterOrEqual(
+                LinearExpr.weightedSum(arrayOf(sv.x, roleUnder), longArrayOf(1L, 1L)),
+                minSets.toLong(),
+            )
+            weightedTerms.add(roleUnder to ROLE_MIN_WEIGHT)
+        }
+
         addCoSpecializationBalance(model, weightedTerms)
         val objective = LinearExpr.weightedSum(
             weightedTerms.map { it.first }.toTypedArray(),
             weightedTerms.map { it.second }.toLongArray(),
         )
         model.minimize(objective)
+    }
+
+    /** Role minimum for a slot: 3 (anchor), 2 (secondary compound), 4 (specialized isolation), else null. */
+    private fun roleMinimum(slot: FilledSlot): Int? = when (slot.role) {
+        SlotRole.Anchor -> ANCHOR_MIN_SETS
+        SlotRole.SecondaryCompound -> SECONDARY_COMPOUND_MIN_SETS
+        SlotRole.Isolation ->
+            if ((context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize") {
+                MIN_SPECIALIZED_DIRECT_SETS
+            } else {
+                null
+            }
+        SlotRole.Optional -> null
     }
 
     /**
@@ -238,6 +274,12 @@ internal class VolumeAllocationModel(
         // Objective weights (long, scaled). Specialize prioritized over Maintenance.
         const val SPECIALIZE_WEIGHT = 10L
         const val MAINTENANCE_WEIGHT = 3L
+        // MEV floor shortfall penalty — high enough to push the solver toward
+        // meeting MEV when caps allow, but soft so short sessions don't go infeasible.
+        const val MEV_FLOOR_WEIGHT = 8L
+        // Role-minimum shortfall penalty — pushes anchor/compound/spec-isolation
+        // slots toward their floors. Soft so tight session budgets don't break feasibility.
+        const val ROLE_MIN_WEIGHT = 6L
         // Penalty for weekly-credit imbalance between co-specialized muscles
         // with (near-)identical aims. Must exceed SPECIALIZE_WEIGHT so the
         // solver prefers balancing co-specialized muscles over hitting an

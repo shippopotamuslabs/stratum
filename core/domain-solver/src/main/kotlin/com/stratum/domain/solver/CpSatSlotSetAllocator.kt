@@ -1,4 +1,4 @@
-@file:Suppress("MagicNumber", "ReturnCount", "MaxLineLength", "SwallowedException")
+@file:Suppress("MagicNumber", "ReturnCount", "MaxLineLength")
 
 package com.stratum.domain.solver
 
@@ -15,13 +15,18 @@ import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
  * CP-SAT implementation of [SlotSetAllocationPort]. Builds a
  * [VolumeAllocationModel], solves it within [deadlineMillis], and maps the
  * solution onto the [com.stratum.domain.program.generation.prescription.FilledSlot.setCount]
- * of each included slot. Returns [SlotSetAllocationResult.Fallback] when the
- * model is infeasible or the solver does not find a feasible solution in time.
+ * of each included slot.
  *
- * The native OR-Tools libraries are loaded once on first use via
- * [Loader.loadNativeLibraries]. On JVM hosts this resolves the platform
- * `libortools.so`/`libjniortools.so` from the `ortools-java` jar; on Android
- * (Phase 4) they are bundled as jniLibs by `:core:domain-solver`.
+ * The model uses only hard upper-bound constraints (per-slot cap, per-session
+ * muscle cap, session time cap, MRV ceiling) plus soft objective penalties
+ * (aim deviation, MEV floor shortfall, role-minimum shortfall, co-specialization
+ * balance). This guarantees feasibility — setting all `x[s] = 0` satisfies every
+ * hard constraint. The solver always returns [SlotSetAllocationResult.Success].
+ *
+ * **Native libs:** [Loader.loadNativeLibraries] is called once on first use.
+ * On JVM hosts this resolves the platform `.so`/`.dylib`/`.dll` from the
+ * `ortools-java` jar. On Android the CMake-built `libortools.so` is bundled.
+ * If native libs cannot load, the call throws — there is no silent fallback.
  */
 class CpSatSlotSetAllocator(
     private val deadlineMillis: Long = DEFAULT_DEADLINE_MILLIS,
@@ -33,7 +38,8 @@ class CpSatSlotSetAllocator(
         context: ProgramGenerationContext,
     ): SlotSetAllocationResult {
         ensureNativeLibrariesLoaded()
-        if (nativeLoadFailed) return SlotSetAllocationResult.Fallback
+        plans.forEach { plan -> plan.filledSlots.forEach { it.setCount = 0 } }
+
         val modelBuilder = VolumeAllocationModel(weeklyTargets, context)
         val model = modelBuilder.buildModel(plans)
         val solver = CpSolver().apply {
@@ -41,7 +47,13 @@ class CpSatSlotSetAllocator(
         }
         val status = solver.solve(model)
         if (status != CpSolverStatus.OPTIMAL && status != CpSolverStatus.FEASIBLE) {
-            return SlotSetAllocationResult.Fallback
+            // Should not happen — the hard constraints are always feasible
+            // (x[s] = 0 satisfies all upper bounds). If we reach here, the
+            // deadline was too short to find even a trivial feasible solution.
+            throw SlotSetAllocationException(
+                "CP-SAT solver returned $status — the model should always be feasible " +
+                    "(hard constraints are upper bounds only). Try increasing the deadline.",
+            )
         }
         modelBuilder.slots.forEach { sv ->
             sv.slot.setCount = solver.value(sv.x).toInt()
@@ -55,23 +67,20 @@ class CpSatSlotSetAllocator(
 
         @Volatile
         private var nativeLoaded = false
-        @Volatile
-        private var nativeLoadFailed = false
 
         @Synchronized
         private fun ensureNativeLibrariesLoaded() {
             if (!nativeLoaded) {
-                try {
-                    Loader.loadNativeLibraries()
-                    nativeLoaded = true
-                } catch (t: Throwable) {
-                    // Native libs unavailable (e.g. on Android before the
-                    // CMake-built libortools.so is bundled, or wrong ABI).
-                    // The caller falls back to the greedy allocator.
-                    // Intentionally not rethrown — Fallback is the safe path.
-                    nativeLoadFailed = true
-                }
+                Loader.loadNativeLibraries()
+                nativeLoaded = true
             }
         }
     }
 }
+
+/**
+ * Thrown when the CP-SAT solver cannot find a feasible solution. Should not
+ * happen under normal operation — the hard constraints are always satisfiable.
+ * Indicates the deadline was too short or an internal solver error.
+ */
+class SlotSetAllocationException(message: String) : RuntimeException(message)

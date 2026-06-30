@@ -15,7 +15,6 @@ import com.stratum.domain.program.generation.split.SessionTypeId
 import com.stratum.domain.program.generation.split.SiblingVariant
 import com.stratum.domain.program.generation.split.SlotRole
 import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
-import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 
 data class FilledSlot(
@@ -48,9 +47,6 @@ data class SessionSlotPlan(
     val position: Int,
     val filledSlots: MutableList<FilledSlot>,
 )
-
-/** Max sets on one isolation slot per session — spreads specialized volume across sessions. */
-private const val SPECIALIZED_SETS_PER_SLOT_CAP = 6
 
 /** Max sets on one compound slot — prevents 6-set bench stacks on a single lift. */
 private const val COMPOUND_SETS_PER_SLOT_CAP = 4
@@ -90,40 +86,20 @@ internal fun muscleCreditsInSession(plan: SessionSlotPlan, muscle: String): Doub
     return total
 }
 
-private fun allocationOrder(
-    weeklyTargets: WeeklyVolumeTargets,
-    context: ProgramGenerationContext,
-): List<Pair<String, WeeklyVolumeTarget>> =
-    weeklyTargets.entries.sortedWith { (muscleA, _), (muscleB, _) ->
-        val aSpec = (context.specialization[muscleA] ?: "Maintenance") == "Specialize"
-        val bSpec = (context.specialization[muscleB] ?: "Maintenance") == "Specialize"
-        when {
-            aSpec != bSpec -> if (aSpec) -1 else 1
-            else -> muscleA.compareTo(muscleB)
-        }
-    }.map { it.key to it.value }
-
 fun allocateSlotSetCounts(
     sessions: List<ResolvedSessionPlan>,
     weeklyTargets: WeeklyVolumeTargets,
     context: ProgramGenerationContext,
-    port: SlotSetAllocationPort? = null,
+    port: SlotSetAllocationPort,
 ): List<SessionSlotPlan> {
-    if (port != null) {
-        val plans = buildEmptySessionPlans(sessions, context)
-        val result = port.allocate(plans, weeklyTargets, context)
-        if (result is SlotSetAllocationResult.Success) {
-            // Post-solver safety net: the solver owns caps, minimums, and
-            // co-specialization balance, but push/pull structural balance and
-            // full-body short-session layout are not modeled. Run the cheap
-            // passes the solver does not subsume, then enforce caps again.
-            return applyPostSolverSafety(result.plans, context)
-        }
-        // Fallback: solver reported infeasible/timeout — rebuild empty plans
-        // (the solver may have mutated setCount before failing) and run greedy.
-        return allocateSlotSetCountsGreedy(buildEmptySessionPlans(sessions, context), weeklyTargets, context)
-    }
-    return allocateSlotSetCountsGreedy(buildEmptySessionPlans(sessions, context), weeklyTargets, context)
+    val plans = buildEmptySessionPlans(sessions, context)
+    val result = port.allocate(plans, weeklyTargets, context)
+    // The solver always returns Success (progressive MEV relaxation guarantees
+    // feasibility) or throws. Apply the post-solver safety cascade for
+    // push/pull structural balance and full-body short-session layout — the
+    // solver does not model these.
+    val solved = (result as SlotSetAllocationResult.Success).plans
+    return applyPostSolverSafety(solved, context)
 }
 
 /**
@@ -146,53 +122,10 @@ private fun applyPostSolverSafety(
 }
 
 /**
- * Greedy muscle-by-muscle round-robin allocator with structural rebalancing.
- * Used as the [allocateSlotSetCounts] fallback when no CP-SAT port is wired or
- * the solver reports infeasibility. Receives already-built [SessionSlotPlan]s
- * (optional slots filtered, `setCount = 0`) and mutates them in place.
- */
-private fun allocateSlotSetCountsGreedy(
-    plans: List<SessionSlotPlan>,
-    weeklyTargets: WeeklyVolumeTargets,
-    context: ProgramGenerationContext,
-): List<SessionSlotPlan> {
-
-    for ((muscle, target) in allocationOrder(weeklyTargets, context)) {
-        if (target.aim <= 0) continue
-        val isSpecialized = (context.specialization[muscle] ?: "Maintenance") == "Specialize"
-        val slotsWithMuscle = mutableListOf<Triple<SessionSlotPlan, FilledSlot, Int>>()
-        plans.forEach { plan ->
-            plan.filledSlots.forEachIndexed { idx, slot ->
-                if (slot.primaryMuscle == muscle) {
-                    slotsWithMuscle.add(Triple(plan, slot, idx))
-                }
-            }
-        }
-        if (slotsWithMuscle.isEmpty()) continue
-
-        var remaining = kotlin.math.round(target.aim).toInt()
-        val primarySlots = slotsWithMuscle.filter { it.second.primaryMuscle == muscle }
-        val targets = if (primarySlots.isNotEmpty()) primarySlots else slotsWithMuscle
-
-        if (isSpecialized) {
-            distributeWithPerSlotCap(targets, remaining, SPECIALIZED_SETS_PER_SLOT_CAP, muscle)
-        } else {
-            distributeWithPerSlotCap(targets, remaining, COMPOUND_SETS_PER_SLOT_CAP, muscle)
-        }
-    }
-
-    balanceSessionSlotSets(plans, context)
-    ensureAnchorMinimumSets(plans)
-    enforceSessionCaps(plans, context)
-    applyFullBodyShortSessionLayout(plans, context)
-    return plans
-}
-
-/**
  * Builds [SessionSlotPlan]s from resolved sessions with optional slots filtered
  * via [shouldIncludeOptional] and every [FilledSlot] instantiated at
- * `setCount = 0`. Shared by [allocateSlotSetCounts] (greedy) and the CP-SAT
- * solver port so both start from identical plan structures.
+ * `setCount = 0`. Used by [allocateSlotSetCounts] to construct the plans handed
+ * to the CP-SAT solver port.
  */
 fun buildEmptySessionPlans(
     sessions: List<ResolvedSessionPlan>,
@@ -211,40 +144,6 @@ fun buildEmptySessionPlans(
                 .toMutableList(),
         )
     }
-
-private data class SlotTarget(val plan: SessionSlotPlan, val slot: FilledSlot)
-
-private fun distributeWithPerSlotCap(
-    targets: List<Triple<SessionSlotPlan, FilledSlot, Int>>,
-    remaining: Int,
-    perSlotCap: Int,
-    muscle: String,
-) {
-    var slotIdx = 0
-    var guard = 0
-    var left = remaining
-    val slotTargets = targets.map { SlotTarget(it.first, it.second) }
-    while (left > 0 && slotTargets.isNotEmpty() && guard < slotTargets.size * 40) {
-        guard++
-        val entry = slotTargets[slotIdx % slotTargets.size]
-        if (muscleCreditsInSession(entry.plan, muscle) >= SESSION_MUSCLE_SET_CAP) {
-            slotIdx++
-            continue
-        }
-        val headroom = minOf(
-            perSlotCap - entry.slot.setCount,
-            (SESSION_MUSCLE_SET_CAP - muscleCreditsInSession(entry.plan, muscle)).toInt(),
-        )
-        if (headroom <= 0) {
-            slotIdx++
-            continue
-        }
-        val add = minOf(left, headroom)
-        entry.slot.setCount += add
-        left -= add
-        slotIdx++
-    }
-}
 
 private fun ensureAnchorMinimumSets(plans: List<SessionSlotPlan>) {
     for (plan in plans) {
