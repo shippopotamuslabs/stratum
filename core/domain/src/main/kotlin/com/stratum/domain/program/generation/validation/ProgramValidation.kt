@@ -290,6 +290,44 @@ fun validateMuscleFrequency(
     return issues
 }
 
+fun validateActiveSlotSelections(
+    sessionPlans: List<com.stratum.domain.program.generation.prescription.SessionSlotPlan>,
+    selectionsBySession: List<List<com.stratum.domain.program.generation.selection.SelectedSlotLift>>,
+    context: ProgramGenerationContext,
+): List<ValidationIssue> {
+    val issues = mutableListOf<ValidationIssue>()
+    sessionPlans.forEachIndexed { sessionIndex, plan ->
+        val selectedSlotIds = selectionsBySession.getOrElse(sessionIndex) { emptyList() }
+            .map { selection -> selection.slot.slotId }
+            .toSet()
+        for (slot in plan.filledSlots) {
+            if (slot.setCount <= 0) continue
+            if (slot.slotId in selectedSlotIds) continue
+            val candidateCount =
+                com.stratum.domain.program.generation.selection.candidatesForSlot(
+                    slot.toWorkoutSlotTemplate(),
+                    context,
+                ).size
+            issues +=
+                ValidationIssue(
+                    code = "UNSELECTED_ACTIVE_SLOT",
+                    severity = ValidationSeverity.Error,
+                    message =
+                        "Workout \"${plan.name}\" slot \"${slot.slotId}\" has ${slot.setCount} sets " +
+                            "but no lift was selected ($candidateCount catalog candidates).",
+                    details =
+                        mapOf(
+                            "sessionIndex" to sessionIndex,
+                            "slotId" to slot.slotId,
+                            "pattern" to slot.pattern,
+                            "candidateCount" to candidateCount,
+                        ),
+                )
+        }
+    }
+    return issues
+}
+
 fun validateNoDuplicateLifts(program: ProgramDraft): List<ValidationIssue> {
     val issues = mutableListOf<ValidationIssue>()
     program.workouts.forEachIndexed { workoutIndex, workout ->

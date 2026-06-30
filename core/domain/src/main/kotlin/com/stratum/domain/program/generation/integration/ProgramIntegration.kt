@@ -3,6 +3,7 @@
 package com.stratum.domain.program.generation.integration
 
 import com.stratum.domain.program.SetType
+import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.LiftSetDraft
 import com.stratum.domain.program.generation.draft.ProgramDraft
@@ -11,11 +12,16 @@ import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
+import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.selection.liftCatalogQualityAdjustment
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.validation.validateProgramMetrics
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
+
+private const val LOWER_ANCHOR_MIN_SETS = 3
+
+private val LOWER_LEG_ANCHOR_PATTERNS = setOf("SquatPattern", "HipHinge")
 
 private val ISOLATION_PATTERNS = setOf(
     "ElbowFlexion",
@@ -77,6 +83,16 @@ fun trimSessionMuscleCreditCaps(
 private fun workoutHardSetCount(workout: ProgramWorkoutDraft): Int =
     workout.workoutLifts.orEmpty().sumOf { it.workoutLiftSets?.size ?: 0 }
 
+private fun isProtectedLowerAnchorLift(
+    workout: ProgramWorkoutDraft,
+    meta: LiftContext,
+    setCount: Int,
+): Boolean {
+    if (!workout.name.orEmpty().contains("Lower", ignoreCase = true)) return false
+    if (meta.movementPattern !in LOWER_LEG_ANCHOR_PATTERNS) return false
+    return setCount <= LOWER_ANCHOR_MIN_SETS
+}
+
 private fun trimWorkoutToSessionDuration(
     workout: ProgramWorkoutDraft,
     setCap: Int,
@@ -107,6 +123,7 @@ private fun liftIndexToDropForSessionDuration(
             val sets = lift.workoutLiftSets.orEmpty()
             if (sets.isEmpty()) return@forEachIndexed
             val meta = context.liftsById[lift.liftId.orEmpty()] ?: return@forEachIndexed
+            if (isProtectedLowerAnchorLift(workout, meta, sets.size)) return@forEachIndexed
 
             val primarySpecialized = meta.primaryMuscles.any { it in specialized }
             val score = when {
@@ -149,6 +166,7 @@ private fun trimWorkoutMuscleCredits(
                 val isPrimary = muscle in meta.primaryMuscles
                 val isSecondary = !isPrimary && muscle in meta.secondaryMuscles
                 if (!isPrimary && !isSecondary) return@forEachIndexed
+                if (isProtectedLowerAnchorLift(workout, meta, sets.size)) return@forEachIndexed
 
                 if (isSpecializedMuscle && isPrimary && meta.movementPattern in ISOLATION_PATTERNS) {
                     if (sets.size <= MIN_SPECIALIZED_DIRECT_SETS) return@forEachIndexed
@@ -221,7 +239,7 @@ private fun addSetsForMuscle(
     var current = program
     var remaining = count
     var idx = 0
-    val maxSetsPerLift = 4
+    val maxSetsPerLift = SETS_PER_LIFT_CAP
     while (remaining > 0 && candidates.isNotEmpty() && idx < candidates.size * 8) {
         val entry = candidates[idx % candidates.size]
         val workout = current.workouts[entry.workoutIndex]

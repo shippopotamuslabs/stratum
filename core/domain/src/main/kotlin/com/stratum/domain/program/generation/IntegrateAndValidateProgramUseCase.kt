@@ -14,6 +14,8 @@ import com.stratum.domain.program.generation.swap.LiftSwapPort
 import com.stratum.domain.program.generation.swap.LiftSwapResult
 import com.stratum.domain.program.generation.swap.applySwaps
 import com.stratum.domain.program.generation.swap.buildLiftSwapRequest
+import com.stratum.domain.program.generation.validation.ProgramGenerationValidationException
+import com.stratum.domain.program.generation.validation.ValidationSeverity
 import com.stratum.domain.program.generation.validation.validateProgramMetrics
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import javax.inject.Inject
@@ -50,7 +52,16 @@ class IntegrateAndValidateProgramUseCase @Inject constructor(
 
         val normalized = parseAndNormalizeProgram(draft, normalizationRequest)
         if (!options.skipFinalValidation) {
-            validateProgramMetrics(normalized.toDraft(), context)
+            val report = validateProgramMetrics(normalized.toDraft(), context)
+            val blockingCodes = setOf("UNSELECTED_ACTIVE_SLOT", "DUPLICATE_LIFT_IN_WORKOUT")
+            val blocking =
+                report.issues.filter { issue ->
+                    issue.severity == ValidationSeverity.Error &&
+                        issue.code in blockingCodes
+                }
+            if (blocking.isNotEmpty()) {
+                throw ProgramGenerationValidationException(report)
+            }
         }
         return normalized
     }

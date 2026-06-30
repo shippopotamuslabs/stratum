@@ -19,6 +19,8 @@ package com.stratum.domain.onboarding
 enum class SpecializationLevel {
     Specialize,
     Maintenance,
+    /** Bare minimum weekly volume to maintain muscle size (MV landmark), below MAV hypertrophy dose. */
+    MinimumVolume,
     Omit,
     ;
 }

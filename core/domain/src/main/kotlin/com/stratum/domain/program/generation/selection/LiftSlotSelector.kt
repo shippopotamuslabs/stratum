@@ -16,8 +16,22 @@ data class SelectedSlotLift(
     val candidates: List<LiftContext>,
 )
 
-private fun matchesPattern(lift: LiftContext, pattern: String): Boolean =
-    lift.movementPattern == pattern || pattern in lift.movementPatterns
+private fun matchesPattern(lift: LiftContext, pattern: String, strictPrimaryPattern: Boolean = false): Boolean =
+    if (strictPrimaryPattern) {
+        lift.movementPattern == pattern
+    } else {
+        lift.movementPattern == pattern || pattern in lift.movementPatterns
+    }
+
+/** Cross-domain touch slots for arms/calves must pick true isolation lifts only. */
+private val STRICT_ISOLATION_TOUCH_PATTERNS = setOf(
+    "ElbowFlexion",
+    "ElbowExtension",
+    "PlantarFlexion",
+)
+
+private fun isStrictIsolationTouch(slot: WorkoutSlotTemplate): Boolean =
+    slot.isCrossDomainTouch && slot.pattern in STRICT_ISOLATION_TOUCH_PATTERNS
 
 private fun slotRoleBonus(slot: WorkoutSlotTemplate, lift: LiftContext): Double {
     var bonus = 0.0
@@ -85,13 +99,17 @@ fun candidatesForSlot(
     val out = mutableListOf<LiftContext>()
     for (lift in context.liftsById.values) {
         if (lift.id !in context.enabledLiftIds) continue
-        if (!matchesPattern(lift, slot.pattern)) continue
+        if (!matchesPattern(lift, slot.pattern, strictPrimaryPattern = isStrictIsolationTouch(slot))) continue
         if (slot.primaryMuscle.isNotEmpty()) {
             val primaryMatch = slot.primaryMuscle in lift.primaryMuscles
-            if (slot.role == SlotRole.Isolation || slot.role == SlotRole.Anchor) {
-                if (!primaryMatch) continue
-            } else if (!primaryMatch && slot.primaryMuscle !in lift.secondaryMuscles) {
-                continue
+            when {
+                slot.isCrossDomainTouch -> {
+                    if (!primaryMatch) continue
+                }
+                slot.role == SlotRole.Isolation || slot.role == SlotRole.Anchor -> {
+                    if (!primaryMatch) continue
+                }
+                !primaryMatch && slot.primaryMuscle !in lift.secondaryMuscles -> continue
             }
         }
         out.add(lift)
@@ -107,17 +125,26 @@ fun selectLiftForSlot(
     minCycleGap: Int,
     sessionIndex: Int,
     lastUsedSession: MutableMap<String, Int>,
+    selectionState: LiftSelectionState,
 ): SelectedSlotLift? {
     if (slot.setCount <= 0) return null
 
-    val ranked = candidatesForSlot(slot.toWorkoutSlotTemplate(), context)
-        .filter { lift ->
-            val last = lastUsedSession[lift.id]
-            last == null || sessionIndex - last >= minCycleGap || lift.id !in usedLiftIds
-        }
-        .sortedWith { a, b ->
-            val sa = scoreLiftForSlot(a, slot.toWorkoutSlotTemplate(), context, siblingIndex)
-            val sb = scoreLiftForSlot(b, slot.toWorkoutSlotTemplate(), context, siblingIndex)
+    val slotTemplate = slot.toWorkoutSlotTemplate()
+    val allCandidates = candidatesForSlot(slotTemplate, context)
+    if (allCandidates.isEmpty()) return null
+
+    val avoidLiftIds = selectionState.avoidLiftIdsForSlot(
+        pattern = slot.pattern,
+        primaryMuscle = slot.primaryMuscle,
+        slotId = slot.slotId,
+    )
+
+    fun rankCandidates(candidates: List<LiftContext>): List<LiftContext> =
+        candidates.sortedWith { a, b ->
+            val sa = scoreLiftForSlot(a, slotTemplate, context, siblingIndex) +
+                cycleVarietyBonus(a.id, slot.pattern, selectionState)
+            val sb = scoreLiftForSlot(b, slotTemplate, context, siblingIndex) +
+                cycleVarietyBonus(b.id, slot.pattern, selectionState)
             if (sb != sa) {
                 return@sortedWith when {
                     sb > sa -> 1
@@ -149,11 +176,57 @@ fun selectLiftForSlot(
             )
         }
 
-    val topCandidates = ranked.take(5)
-    val pick = topCandidates.firstOrNull { it.id !in usedLiftIds } ?: topCandidates.firstOrNull()
-        ?: return null
+    val gapEligible =
+        allCandidates.filter { lift ->
+            lift.id !in avoidLiftIds &&
+                run {
+                    val last = lastUsedSession[lift.id]
+                    last == null || sessionIndex - last >= minCycleGap
+                }
+        }
+    val ranked = rankCandidates(gapEligible.ifEmpty { allCandidates.filter { it.id !in avoidLiftIds } })
+    val pick =
+        pickWithCycleVariety(
+            ranked = ranked,
+            pattern = slot.pattern,
+            usedLiftIds = usedLiftIds,
+            selectionState = selectionState,
+            allowAnchorReuse = slot.role == SlotRole.Anchor && slot.setCount > 0,
+        ) ?: return null
 
     usedLiftIds.add(pick.id)
     lastUsedSession[pick.id] = sessionIndex
-    return SelectedSlotLift(slot = slot, lift = pick, candidates = topCandidates)
+    selectionState.recordSelection(
+        pattern = slot.pattern,
+        primaryMuscle = slot.primaryMuscle,
+        liftId = pick.id,
+        isVariantAlt = slot.slotId.endsWith("-alt"),
+    )
+    return SelectedSlotLift(slot = slot, lift = pick, candidates = ranked.take(5))
+}
+
+private fun cycleVarietyBonus(
+    liftId: String,
+    pattern: String,
+    selectionState: LiftSelectionState,
+): Double {
+    val used = selectionState.cycleUsedLiftIdsByPattern[pattern].orEmpty()
+    return if (liftId in used) -0.35 else 0.2
+}
+
+private fun pickWithCycleVariety(
+    ranked: List<LiftContext>,
+    pattern: String,
+    usedLiftIds: Set<String>,
+    selectionState: LiftSelectionState,
+    allowAnchorReuse: Boolean,
+): LiftContext? {
+    val sessionEligible = ranked.filter { it.id !in usedLiftIds }
+    val cycleFresh = sessionEligible.filter {
+        it.id !in selectionState.cycleUsedLiftIdsByPattern[pattern].orEmpty()
+    }
+    return cycleFresh.firstOrNull()
+        ?: sessionEligible.firstOrNull()
+        ?: ranked.firstOrNull { it.id !in usedLiftIds }
+        ?: if (allowAnchorReuse) ranked.firstOrNull() else null
 }

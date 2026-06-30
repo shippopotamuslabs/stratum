@@ -5,6 +5,7 @@ package com.stratum.domain.program.generation.split
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.FrequencyTier
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
+import com.stratum.domain.program.generation.volume.aggregateWeeklyAim
 import com.stratum.domain.program.generation.volume.requiredFrequencyTier
 import com.stratum.domain.program.generation.volume.validateCycleFrequency
 
@@ -47,24 +48,12 @@ internal fun minWeekdayGap(weekdays: List<String>): Int {
     return minOf(minGap, wrap)
 }
 
-internal fun recoveryScore(sessionTypes: List<SessionTypeId>, weekdays: List<String>): Int {
-    val minGap = minWeekdayGap(weekdays)
-    val musclePositions = mutableMapOf<String, MutableList<Int>>()
-    sessionTypes.forEachIndexed { idx, st ->
-        for (muscle in primaryMusclesForSessionType(st)) {
-            musclePositions.getOrPut(muscle) { mutableListOf() }.add(idx)
-        }
-    }
-    var penalty = 0
-    for (positions in musclePositions.values) {
-        if (positions.size < 2) continue
-        for (i in 1 until positions.size) {
-            val gap = positions[i] - positions[i - 1]
-            if (gap < minGap) penalty += (minGap - gap) * 2
-        }
-    }
-    return 100 - penalty
-}
+internal fun recoveryScore(
+    sessionTypes: List<SessionTypeId>,
+    weekdays: List<String>,
+    context: ProgramGenerationContext,
+): Int =
+    calendarRecoveryScore(sessionTypes, sortedWeekdayIndices(weekdays), context)
 
 internal fun volumeFitScore(
     template: SplitTemplate,
@@ -83,9 +72,63 @@ internal fun scoreTemplate(
     context: ProgramGenerationContext,
     weeklyTargets: WeeklyVolumeTargets,
 ): Int =
-    recoveryScore(template.sessionTypes, context.weekdays) +
+    recoveryScore(template.sessionTypes, context.weekdays, context) +
         volumeFitScore(template, weeklyTargets, context) +
+        rotationTemplateScore(template, context, weeklyTargets) +
         if (template.isDefault) 5 else 0
+
+internal fun rotationTemplateScore(
+    template: SplitTemplate,
+    context: ProgramGenerationContext,
+    weeklyTargets: WeeklyVolumeTargets,
+): Int {
+    if (context.specialization.values.any { it == "Specialize" }) return 0
+
+    var score = 0
+    val mvCount = context.specialization.count { (_, level) -> level == "MinimumVolume" }
+    val aggregateAim = aggregateWeeklyAim(weeklyTargets)
+    val isTier1Profile = requiredFrequencyTier(weeklyTargets) == FrequencyTier.One &&
+        (mvCount >= 3 || aggregateAim <= context.trainingDaysPerWeek * 12.0)
+    val isRotationTemplate = template.id.contains("t1-") &&
+        (template.id.contains("micro") || template.id.contains("carousel") || template.id.contains("fb-rot"))
+    if (isTier1Profile && isRotationTemplate) score += 12
+
+    val avgSlots = template.sessionTypes.map { slotsForSessionType(it).size }.average()
+    if (context.trainingDaysPerWeek >= 5 &&
+        (context.sessionLengthMinutes ?: 60) <= 45 &&
+        avgSlots <= 2.5
+    ) {
+        score += 8
+    }
+  if (violatesLiftFamilySeparation(template)) score -= 10
+    return score
+}
+
+/** Penalize same-day anchor + aux from the same pattern family on rotation templates. */
+internal fun violatesLiftFamilySeparation(template: SplitTemplate): Boolean {
+    val familyPatterns = mapOf(
+        "squat" to setOf("SquatPattern", "KneeExtension"),
+        "press" to setOf("HorizontalPress", "InclinePress", "VerticalPress"),
+        "hinge" to setOf("HipHinge", "KneeFlexion"),
+    )
+    for (sessionType in template.sessionTypes) {
+        val slots = slotsForSessionType(sessionType)
+        val anchors = slots.filter { it.role == SlotRole.Anchor }
+        val others = slots.filter { it.role != SlotRole.Anchor }
+        for (anchor in anchors) {
+            val anchorFamily = familyPatterns.entries.firstOrNull { (_, patterns) ->
+                anchor.pattern in patterns
+            }?.key ?: continue
+            if (others.any { slot ->
+                    familyPatterns[anchorFamily]?.contains(slot.pattern) == true
+                }
+            ) {
+                return true
+            }
+        }
+    }
+    return false
+}
 
 internal fun siblingIndexForSessionType(sessionTypes: List<SessionTypeId>, index: Int): Int {
     val type = sessionTypes[index]
@@ -108,7 +151,7 @@ internal fun buildSessions(
         ResolvedSessionPlan(
             sessionType = sessionType,
             name = displayNameForSessionType(sessionType, siblingIndex),
-            slots = slotsForSessionType(sessionType, context).map { it.copy() },
+            slots = slotsForSessionType(sessionType, context, siblingIndex, sessionPosition = position).map { it.copy() },
             siblingIndex = siblingIndex,
             position = position,
         )
@@ -128,7 +171,12 @@ fun resolveSplit(
         error("No split template for ${context.trainingDaysPerWeek} training days")
     }
 
-    val ranked = candidates.sortedByDescending { scoreTemplate(it, context, weeklyTargets) }
+    val viable =
+        candidates.filter { template ->
+            volumeFitScore(template, weeklyTargets, context) > 0
+        }
+    val pool = viable.ifEmpty { candidates }
+    val ranked = pool.sortedByDescending { scoreTemplate(it, context, weeklyTargets) }
     val template = ranked.first()
     val sessions = buildSessions(template, context)
     return ResolvedSplit(

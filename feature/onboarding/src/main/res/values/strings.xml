@@ -62,6 +62,10 @@
     <!-- Specialization -->
     <string name="specialization_intro">Tap up to %1$d muscle groups on the body to prioritize. Skip to keep a balanced program.</string>
 
+    <!-- Minimum volume -->
+    <string name="minimum_volume_intro">Optionally pick up to %1$d muscle groups to hold at maintenance volume — the bare minimum to keep size. This frees volume for your focus muscles.</string>
+    <string name="minimum_volume_suggestions_heading">Suggested from your import (low historical volume)</string>
+
     <!-- Gym & Lifts -->
     <string name="gym_lifts_intro">Choose a gym preset, or import past logs instead. Import lets us mine your history for a sharper first program.</string>
     <string name="gym_lifts_error_no_preset">Choose a gym preset or import your training data to continue.</string>
@@ -153,12 +157,15 @@
     <string name="review_section_profile">Profile</string>
     <string name="review_section_schedule">Schedule</string>
     <string name="review_section_specialization">Specialization</string>
+    <string name="review_section_minimum_volume">Maintenance volume</string>
     <string name="review_section_gym_lifts">Gym &amp; lifts</string>
     <string name="review_label_training_age">Training age</string>
     <string name="review_label_last_trained">Last trained</string>
     <string name="review_label_days">Days</string>
     <string name="review_label_session_length">Session length</string>
     <string name="review_label_focus">Focus</string>
+    <string name="review_label_minimum_volume">At maintenance volume</string>
+    <string name="review_minimum_volume_none">None (all muscles at balanced growth)</string>
     <string name="review_label_gym_preset">Gym preset</string>
     <string name="review_label_lifts_enabled">Lifts enabled</string>
     <string name="review_focus_balanced">Balanced</string>

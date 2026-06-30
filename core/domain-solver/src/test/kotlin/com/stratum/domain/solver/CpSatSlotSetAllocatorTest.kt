@@ -7,6 +7,7 @@ import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 import com.stratum.domain.program.generation.prescription.SlotSetAllocationResult
+import com.stratum.domain.program.generation.prescription.allocateSlotSetCounts
 import com.stratum.domain.program.generation.prescription.buildEmptySessionPlans
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS
@@ -149,12 +150,7 @@ class CpSatSlotSetAllocatorTest {
         )
         val targets = planWeeklyVolume(context)
         val resolved = resolveSplit(context, targets)
-        val plans = buildEmptySessionPlans(resolved.sessions, context)
-
-        val result = allocator.allocate(plans, targets, context)
-
-        assertTrue(result is SlotSetAllocationResult.Success, "Expected Success but got $result")
-        val solved = (result as SlotSetAllocationResult.Success).plans
+        val solved = allocateSlotSetCounts(resolved.sessions, targets, context, allocator)
 
         for (plan in solved) {
             for (slot in plan.filledSlots) {
