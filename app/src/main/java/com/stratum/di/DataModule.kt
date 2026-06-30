@@ -15,6 +15,7 @@ import com.stratum.core.data.repository.RoomOnboardingRepository
 import com.stratum.core.data.repository.RoomSpecializationPreferenceRepository
 import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
 import com.stratum.core.data.seed.LiftCatalogSeeder
+import com.stratum.domain.program.generation.prescription.SlotSetAllocationPort
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
@@ -191,6 +192,15 @@ object DatabaseModule {
     fun provideLiftEquipmentCatalog(
         @ApplicationContext context: Context,
     ): LiftEquipmentCatalogPort = AssetLiftEquipmentCatalog(context)
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object SolverModule {
+    @Provides
+    @Singleton
+    fun provideSlotSetAllocationPort(): SlotSetAllocationPort =
+        com.stratum.domain.solver.CpSatSlotSetAllocator()
 }
 
 @Module

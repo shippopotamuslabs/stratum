@@ -1,4 +1,4 @@
-@file:Suppress("MagicNumber", "ReturnCount", "MaxLineLength")
+@file:Suppress("MagicNumber", "ReturnCount", "MaxLineLength", "SwallowedException")
 
 package com.stratum.domain.solver
 
@@ -33,6 +33,7 @@ class CpSatSlotSetAllocator(
         context: ProgramGenerationContext,
     ): SlotSetAllocationResult {
         ensureNativeLibrariesLoaded()
+        if (nativeLoadFailed) return SlotSetAllocationResult.Fallback
         val modelBuilder = VolumeAllocationModel(weeklyTargets, context)
         val model = modelBuilder.buildModel(plans)
         val solver = CpSolver().apply {
@@ -54,12 +55,22 @@ class CpSatSlotSetAllocator(
 
         @Volatile
         private var nativeLoaded = false
+        @Volatile
+        private var nativeLoadFailed = false
 
         @Synchronized
         private fun ensureNativeLibrariesLoaded() {
             if (!nativeLoaded) {
-                Loader.loadNativeLibraries()
-                nativeLoaded = true
+                try {
+                    Loader.loadNativeLibraries()
+                    nativeLoaded = true
+                } catch (t: Throwable) {
+                    // Native libs unavailable (e.g. on Android before the
+                    // CMake-built libortools.so is bundled, or wrong ABI).
+                    // The caller falls back to the greedy allocator.
+                    // Intentionally not rethrown — Fallback is the safe path.
+                    nativeLoadFailed = true
+                }
             }
         }
     }
