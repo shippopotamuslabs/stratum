@@ -52,6 +52,11 @@ android {
                 "META-INF/NOTICE",
                 "META-INF/NOTICE.txt",
                 "META-INF/*.kotlin_module",
+                "ortools-linux-x86-64/**",
+                "ortools-darwin-x86-64/**",
+                "ortools-win32-x86-64/**",
+                "ortools-darwin-aarch64/**",
+                "ortools-linux-aarch64/**",
             )
         }
     }

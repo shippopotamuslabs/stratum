@@ -53,6 +53,8 @@ fun ProgramsScreen(
     onStartWorkoutClick: (workoutName: String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    // TEMP: back-to-onboarding for regeneration testing
+    onBackToGenerateClick: () -> Unit = {},
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -71,6 +73,14 @@ fun ProgramsScreen(
                     }
                 },
                 actions = {
+                    // TEMP: back-to-onboarding for regeneration testing
+                    StratumIconButton(onClick = onBackToGenerateClick) {
+                        Icon(
+                            painter = painterResource(CoreUiR.drawable.ic_auto_awesome),
+                            contentDescription = stringResource(R.string.programs_back_to_generate_content_description),
+                            tint = StratumThemeAccessor.colors.textPrimary,
+                        )
+                    }
                     StratumIconButton(onClick = { menuExpanded = true }) {
                         Icon(
                             painter = painterResource(CoreUiR.drawable.ic_more_vert),
