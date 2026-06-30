@@ -101,7 +101,7 @@ class ProgramGenerationPipelineTest {
     } else if (specialization["Back"] != "Specialize") {
       val back = targets.getValue("Back")
       assertTrue(back.aim >= back.min)
-      assertTrue(back.aim <= 14.0)
+      assertTrue(back.aim <= 11.0)
     }
 
     if (specialization["Back"] == "Specialize") {
@@ -109,7 +109,7 @@ class ProgramGenerationPipelineTest {
     } else if (specialization["Chest"] != "Specialize") {
       val chest = targets.getValue("Chest")
       assertTrue(chest.aim >= chest.min)
-      assertTrue(chest.aim <= 14.0)
+      assertTrue(chest.aim <= 11.0)
     }
 
     if (specialization["Bicep"] == "Specialize" || specialization["Tricep"] == "Specialize") {
@@ -147,7 +147,7 @@ class ProgramGenerationPipelineTest {
     assertEquals(14.0, targets.getValue("Tricep").aim)
     val back = targets.getValue("Back")
     assertTrue(back.aim >= back.min)
-    assertTrue(back.aim <= 14.0)
+    assertTrue(back.aim <= 11.0)
 
     val draft = program.toDraft()
     var totalBack = 0
@@ -202,7 +202,7 @@ class ProgramGenerationPipelineTest {
       val name = program.workouts.getOrNull(index)?.name ?: "workout $index"
       assertTrue(
         minutes <= budget + 0.01,
-        "$name: ${"%.1f".format(minutes)} min exceeds $budget min budget (30 + 5 slack)",
+        "$name: ${"%.1f".format(minutes)} min exceeds $budget min budget (30 min @ 3 min/set)",
       )
     }
   }

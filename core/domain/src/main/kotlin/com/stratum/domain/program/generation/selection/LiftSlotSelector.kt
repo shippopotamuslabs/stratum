@@ -86,11 +86,19 @@ fun scoreLiftForSlot(
     slot: WorkoutSlotTemplate,
     context: ProgramGenerationContext,
     siblingIndex: Int,
+    setCount: Int,
+    runningWeeklyVolume: Map<String, Double> = emptyMap(),
 ): Double =
     scoreLift(lift, context) +
         slotRoleBonus(slot, lift) +
         lengthBiasBonus(slot, lift, siblingIndex) +
-        liftCatalogQualityAdjustment(lift, slot)
+        liftCatalogQualityAdjustment(lift, slot) +
+        AntagonistMetadataBalance.balanceBonus(
+            lift = lift,
+            setCount = setCount,
+            context = context,
+            runningWeeklyVolume = runningWeeklyVolume,
+        )
 
 fun candidatesForSlot(
     slot: WorkoutSlotTemplate,
@@ -126,6 +134,7 @@ fun selectLiftForSlot(
     sessionIndex: Int,
     lastUsedSession: MutableMap<String, Int>,
     selectionState: LiftSelectionState,
+    runningWeeklyVolume: MutableMap<String, Double> = mutableMapOf(),
 ): SelectedSlotLift? {
     if (slot.setCount <= 0) return null
 
@@ -141,9 +150,9 @@ fun selectLiftForSlot(
 
     fun rankCandidates(candidates: List<LiftContext>): List<LiftContext> =
         candidates.sortedWith { a, b ->
-            val sa = scoreLiftForSlot(a, slotTemplate, context, siblingIndex) +
+            val sa = scoreLiftForSlot(a, slotTemplate, context, siblingIndex, slot.setCount, runningWeeklyVolume) +
                 cycleVarietyBonus(a.id, slot.pattern, selectionState)
-            val sb = scoreLiftForSlot(b, slotTemplate, context, siblingIndex) +
+            val sb = scoreLiftForSlot(b, slotTemplate, context, siblingIndex, slot.setCount, runningWeeklyVolume) +
                 cycleVarietyBonus(b.id, slot.pattern, selectionState)
             if (sb != sa) {
                 return@sortedWith when {
@@ -202,6 +211,7 @@ fun selectLiftForSlot(
         liftId = pick.id,
         isVariantAlt = slot.slotId.endsWith("-alt"),
     )
+    AntagonistMetadataBalance.projectLiftMetadataVolume(pick, slot.setCount, runningWeeklyVolume)
     return SelectedSlotLift(slot = slot, lift = pick, candidates = ranked.take(5))
 }
 

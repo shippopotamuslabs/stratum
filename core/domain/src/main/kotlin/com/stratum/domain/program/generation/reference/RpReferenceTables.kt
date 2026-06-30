@@ -11,23 +11,14 @@ const val SESSION_MUSCLE_SET_CAP = 8
 /** Max hard sets on a single exercise in one session — avoids repetitive high-volume stacks. */
 const val SETS_PER_LIFT_CAP = 5
 
-/** Session time tolerance when computing per-day hard-set budget (legacy ratio — prefer sessionHardSetCapForLength). */
-const val DURATION_TOLERANCE_RATIO = 1.08
-
-/** Max estimated/allocated minutes above the user's stated session length. */
-const val SESSION_DURATION_SLACK_MINUTES = 5
-
-/** Hard-set cap for one workout from stated session length (+ slack). */
+/** Hard-set cap for one workout from stated session length (3 min per set). */
 fun sessionHardSetCapForLength(sessionLengthMinutes: Int?): Int? {
     if (sessionLengthMinutes == null || sessionLengthMinutes <= 0) return null
-    return kotlin.math.floor(
-        (sessionLengthMinutes + SESSION_DURATION_SLACK_MINUTES) / MINUTES_PER_HARD_SET,
-    ).toInt()
+    return kotlin.math.floor(sessionLengthMinutes / MINUTES_PER_HARD_SET).toInt()
 }
 
-/** Duration budget in minutes (session length + slack) for validation. */
-fun sessionDurationBudgetMinutes(sessionLengthMinutes: Int): Int =
-    sessionLengthMinutes + SESSION_DURATION_SLACK_MINUTES
+/** Duration budget in minutes for validation (matches the user's stated session length). */
+fun sessionDurationBudgetMinutes(sessionLengthMinutes: Int): Int = sessionLengthMinutes
 
 enum class FrequencyTier(val value: Int) {
     One(1),

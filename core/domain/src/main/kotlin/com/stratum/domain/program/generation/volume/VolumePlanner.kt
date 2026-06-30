@@ -106,8 +106,8 @@ internal fun volumePlannerTrainableMuscles(context: ProgramGenerationContext): L
 
 /**
  * Plans weekly volume per muscle from landmarks. Specialized muscles aim at landmark MRV;
- * maintenance muscles floor at MV and aim at MAV. Session time trims maintenance toward MV
- * before reducing specialized targets.
+ * maintenance muscles floor at MV and aim at PV. Session time trims maintenance toward PV
+ * before MV before reducing specialized targets.
  */
 fun planWeeklyVolume(context: ProgramGenerationContext): WeeklyVolumeTargets {
     val muscles = volumePlannerTrainableMuscles(context)

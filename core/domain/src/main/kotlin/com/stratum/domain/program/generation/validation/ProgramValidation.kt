@@ -393,9 +393,9 @@ fun validateExerciseOrdering(
 }
 
 /**
- * Flags the same muscle meaningfully exposed on calendar-adjacent training days using lift
- * metadata ([computeWorkoutMuscleVolume]) — i.e. what the user sees — so solver/pattern-credit
- * drift cannot reach the final program undetected.
+ * Advisory check: same muscle meaningfully exposed on calendar-adjacent training days using lift
+ * metadata ([computeWorkoutMuscleVolume]). Emitted as warnings only — users can edit the draft
+ * after generation rather than failing the pipeline.
  */
 fun validateCalendarAdjacentMuscleExposure(
     program: ProgramDraft,
@@ -434,7 +434,7 @@ fun validateCalendarAdjacentMuscleExposure(
             issues +=
                 ValidationIssue(
                     code = "CALENDAR_ADJACENT_MUSCLE_EXPOSURE",
-                    severity = ValidationSeverity.Error,
+                    severity = ValidationSeverity.Warning,
                     message =
                         "$muscle ($level) is meaningfully exposed on calendar-adjacent days " +
                             "$earlierDay (${"%.1f".format(earlierDose)} credits) and " +

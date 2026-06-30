@@ -96,7 +96,8 @@ val MAJOR_MUSCLES: List<String> = listOf(
 
 const val SECONDARY_SET_CREDIT = 0.5
 const val PRIMARY_SET_CREDIT = 1.0
-const val MINUTES_PER_HARD_SET = 3.5
+/** Wall-clock budget per working set (lift, rest, load changes) for session-cap math. */
+const val MINUTES_PER_HARD_SET = 3.0
 
 fun isPushPattern(pattern: String): Boolean = pattern in PUSH_PATTERNS
 
