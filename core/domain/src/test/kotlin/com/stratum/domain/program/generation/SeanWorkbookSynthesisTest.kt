@@ -10,7 +10,7 @@ import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -31,7 +31,7 @@ class SeanWorkbookSynthesisTest {
         )
 
     @Test
-    fun `unified synthesis matches Sean workbook shape and volume priorities`() = runTest {
+    fun `unified synthesis matches Sean workbook shape and volume priorities`() = runBlocking {
         val context = seanContext()
         val pipeline = testProgramGenerationPipeline()
         val normalized =

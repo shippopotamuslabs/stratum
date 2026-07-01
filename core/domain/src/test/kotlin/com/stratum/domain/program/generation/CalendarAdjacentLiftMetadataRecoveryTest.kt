@@ -13,7 +13,7 @@ import com.stratum.domain.program.generation.schema.toProgramNormalizationReques
 import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
 import com.stratum.domain.program.generation.split.trainingWeekdayIndices
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -42,7 +42,7 @@ class CalendarAdjacentLiftMetadataRecoveryTest {
     )
 
     @Test
-    fun finalDraftHasNoBackToBackSameMuscleExposure() = runTest {
+    fun finalDraftHasNoBackToBackSameMuscleExposure() = runBlocking {
         val scenarios =
             listOf(
                 Triple(5, "glutes", "sequential"),

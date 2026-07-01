@@ -9,7 +9,7 @@ import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test
  */
 class AntagonistMaintenanceBalanceTest {
     @Test
-    fun fiveDayArmCalfSpecBalancesMaintenanceAntagonistPairs() = runTest {
+    fun fiveDayArmCalfSpecBalancesMaintenanceAntagonistPairs() = runBlocking {
         val specialization =
             mapOf(
                 "Calf" to "Specialize",

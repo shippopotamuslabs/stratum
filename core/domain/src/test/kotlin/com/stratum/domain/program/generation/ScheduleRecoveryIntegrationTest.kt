@@ -19,14 +19,14 @@ import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.split.maxPriorityConsecutiveExposureDays
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ScheduleRecoveryIntegrationTest {
 
     @Test
-    fun fiveDayArmSpecScheduleAvoidsBackToBackTricepsWhenPossible() = runTest {
+    fun fiveDayArmSpecScheduleAvoidsBackToBackTricepsWhenPossible() = runBlocking {
         val context = parseScenarioContext(
             scenarioPayload(5, SPECIALIZATION_PRESETS.getValue("arms")),
         )
@@ -65,7 +65,7 @@ class ScheduleRecoveryIntegrationTest {
     }
 
     @Test
-    fun sixDayArmAndCalfSpecLimitsCalfStreakAndRedirectsUpperVolume() = runTest {
+    fun sixDayArmAndCalfSpecLimitsCalfStreakAndRedirectsUpperVolume() = runBlocking {
         val specialization =
             mapOf(
                 "Bicep" to "Specialize",

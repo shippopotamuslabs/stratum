@@ -9,7 +9,7 @@ import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -25,7 +25,7 @@ class CpSatPipelineIntegrationTest {
 
     @Test
     @DisplayName("full pipeline with CP-SAT allocator balances dual arm weekly volume")
-    fun fullPipelineWithCpSatBalancesDualArm() = runTest {
+    fun fullPipelineWithCpSatBalancesDualArm() = runBlocking {
         val context = parseScenarioContext(
             scenarioPayload(4, mapOf("Bicep" to "Specialize", "Tricep" to "Specialize")),
         )

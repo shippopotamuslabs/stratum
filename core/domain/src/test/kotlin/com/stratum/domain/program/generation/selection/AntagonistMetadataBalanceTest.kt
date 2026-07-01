@@ -10,7 +10,7 @@ import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -39,7 +39,7 @@ class AntagonistMetadataBalanceTest {
     }
 
     @Test
-    fun calfTricepFiveDaySixtyMinuteBalancesQuadAndHamMetadataVolume() = runTest {
+    fun calfTricepFiveDaySixtyMinuteBalancesQuadAndHamMetadataVolume() = runBlocking {
         val specialization = mapOf("Calf" to "Specialize", "Tricep" to "Specialize")
         val context =
             parseScenarioContext(

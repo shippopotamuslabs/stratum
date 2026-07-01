@@ -15,7 +15,7 @@ import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.params.ParameterizedTest
@@ -28,7 +28,7 @@ class ProgramSynthesisPropertyTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("coreScenarios")
     @DisplayName("synthesis: specialized muscles meet MEV and session caps hold")
-    fun specializedMusclesAndCaps(config: ScenarioConfig) = runTest {
+    fun specializedMusclesAndCaps(config: ScenarioConfig) = runBlocking {
         val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
         val context = parseScenarioContext(scenarioPayload(config.days, specialization))
         val targets = planWeeklyVolume(context)
@@ -57,7 +57,7 @@ class ProgramSynthesisPropertyTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("weekdayLayoutScenarios")
     @DisplayName("synthesis: alternate weekday layouts produce scheduled workouts")
-    fun weekdayLayoutsProduceSchedule(config: ScenarioConfig) = runTest {
+    fun weekdayLayoutsProduceSchedule(config: ScenarioConfig) = runBlocking {
         val layoutKey =
             when {
                 config.label.contains("mwf") -> "mwf"

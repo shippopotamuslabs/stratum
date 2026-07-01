@@ -17,7 +17,7 @@ import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGa
 import com.stratum.domain.program.generation.split.maxPriorityConsecutiveExposureDays
 import com.stratum.domain.program.buildScheduleMuscleExposures
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test
  */
 class FiveDayArmCalfMtwfsRecoveryTest {
     @Test
-    fun `mtwfs arm calf spec limits consecutive priority muscle exposure`() = runTest {
+    fun `mtwfs arm calf spec limits consecutive priority muscle exposure`() = runBlocking {
         val specialization =
             mapOf(
                 "Bicep" to "Specialize",

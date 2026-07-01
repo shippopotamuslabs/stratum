@@ -24,7 +24,7 @@ import com.stratum.domain.program.generation.schema.toProgramNormalizationReques
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.validation.validateProgramMetrics
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -43,7 +43,7 @@ class ProgramGenerationPipelineTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
   @DisplayName("cycle structure and no duplicate lifts")
-  fun cycleStructureAndNoDuplicateLifts(config: ScenarioConfig) = runTest {
+  fun cycleStructureAndNoDuplicateLifts(config: ScenarioConfig) = runBlocking {
     val (normalized, context) = generateScenario(config)
     val draft = normalized.toDraft()
     val weekdayIndices =
@@ -83,7 +83,7 @@ class ProgramGenerationPipelineTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
   @DisplayName("≤8 hard sets per muscle per session (primary + secondary credits)")
-  fun weightologySessionCaps(config: ScenarioConfig) = runTest {
+  fun weightologySessionCaps(config: ScenarioConfig) = runBlocking {
     val (program, context) = generateScenario(config)
     assertWeightologySessionCaps(program.toDraft(), context, config.label)
   }
@@ -91,7 +91,7 @@ class ProgramGenerationPipelineTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
   @DisplayName("weekly volume targets from landmarks with session-budget precedence")
-  fun weeklyVolumeTargetsFromLandmarks(config: ScenarioConfig) = runTest {
+  fun weeklyVolumeTargetsFromLandmarks(config: ScenarioConfig) = runBlocking {
     val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
     val context = parseScenarioContext(scenarioPayload(config.days, specialization))
     val targets = planWeeklyVolume(context)
@@ -131,7 +131,7 @@ class ProgramGenerationPipelineTest {
   @ParameterizedTest
   @MethodSource("maintenanceDayCounts")
   @DisplayName("muscles above 10 weekly sets trained ≥2× per cycle")
-  fun frequencyMatchesVolume(days: Int) = runTest {
+  fun frequencyMatchesVolume(days: Int) = runBlocking {
     val config = ScenarioConfig(days = days, preset = "maintenance", label = "$days-day maintenance")
     val (program, context) = generateScenario(config)
     assertFrequencyMatchesVolume(program.toDraft(), context, config.label)
@@ -139,7 +139,7 @@ class ProgramGenerationPipelineTest {
 
   @Test
   @DisplayName("4-day arm specialization: specialized arms target MRV, maintenance back respects budget")
-  fun fourDayArmSpecializationBackVolume() = runTest {
+  fun fourDayArmSpecializationBackVolume() = runBlocking {
     val config = ScenarioConfig(days = 4, preset = "arms", label = "4-day arms")
     val (program, context) = generateScenario(config)
     val targets = planWeeklyVolume(context)
@@ -161,7 +161,7 @@ class ProgramGenerationPipelineTest {
 
   @Test
   @DisplayName("5-day arm specialization: direct arm sets on at least one lower session")
-  fun fiveDayArmSpecializationTouchOnLower() = runTest {
+  fun fiveDayArmSpecializationTouchOnLower() = runBlocking {
     val config = ScenarioConfig(days = 5, preset = "arms", label = "5-day arms")
     val (program, context) = generateScenario(config)
     val draft = program.toDraft()
@@ -184,7 +184,7 @@ class ProgramGenerationPipelineTest {
   @ParameterizedTest
   @MethodSource("dayCounts")
   @DisplayName("30-minute sessions stay within session length + 5 minutes")
-  fun shortSessionsStayWithinBudget(days: Int) = runTest {
+  fun shortSessionsStayWithinBudget(days: Int) = runBlocking {
     val payload = scenarioPayload(days, mapOf("Bicep" to "Specialize", "Tricep" to "Specialize"))
     val body = Json.parseToJsonElement(payload).jsonObject.toMutableMap()
     val profile = body["profile"]!!.jsonObject.toMutableMap()
