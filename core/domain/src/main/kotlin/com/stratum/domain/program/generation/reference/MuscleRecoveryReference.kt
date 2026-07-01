@@ -12,17 +12,24 @@ package com.stratum.domain.program.generation.reference
  * Korak et al. 2015, Int J Exerc Sci). Twenty-four hours is consistently
  * insufficient for the same muscle group (McLester 2018; Jones et al. 2014).
  *
- * Single-joint / small muscles tolerate the same calendar spacing but may
- * tolerate lower per-session dose; multi-joint and large muscles warrant longer
- * gaps when weekly set dose is moderate or high (Korak et al. 2015; NSCA
- * Essentials 4th ed., ch. 15 recovery guidelines).
+ * The recovery driver is *movement type* (heavy barbell multi-joint + eccentric
+ * load in a lengthened position), not raw muscle size. In Korak et al. (2015),
+ * the military dumbbell press (an anterior-delt compound) recovered at 90% at
+ * 48h — identical to side raises and triceps extension, and far ahead of bench
+ * press (70%) and deadlift (60%). The laggards are specifically heavy barbell
+ * multi-joint lifts, not "large muscles" generically; NSCA's old upper-vs-lower
+ * split was not supported. Sousa, Zourdos, Storey & Helms (2024, J Human
+ * Kinetics) reaches the same conclusion: isolation and less-musculature
+ * movements recover fastest, and upper-body may recover in 24h or less for
+ * submaximal non-failure protocols. Single-joint / small muscles and the
+ * anterior delt therefore share one recovery tier; heavy barbell multi-joint
+ * movers (chest, back, quads, hams, glutes) warrant longer gaps when weekly
+ * set dose is moderate or high (Korak et al. 2015; NSCA Essentials 4th ed.,
+ * ch. 15 recovery guidelines).
  */
 enum class MuscleRecoveryClass {
-    /** Biceps, triceps, calves, rear/lateral delts — isolation-dominant. */
+    /** Biceps, triceps, calves, rear/lateral/anterior delts, and unmapped muscles. */
     SmallIsolation,
-
-    /** Anterior delt — often trained with compounds but smaller than chest/back/legs. */
-    Medium,
 
     /** Chest, back, quads, hams, glutes — large multi-joint movers. */
     LargeCompound,
@@ -46,20 +53,16 @@ const val MUSCLE_RECOVERY_HEAVY_DOSE = 12.0
 
 fun muscleRecoveryClass(muscle: String): MuscleRecoveryClass =
     when (muscle) {
-        "Bicep",
-        "Tricep",
-        "Calf",
-        "LateralDeltoid",
-        "PosteriorDeltoid",
-        -> MuscleRecoveryClass.SmallIsolation
-        "AnteriorDeltoid" -> MuscleRecoveryClass.Medium
         "Chest",
         "Back",
         "Quad",
         "Hamstring",
         "Glute",
         -> MuscleRecoveryClass.LargeCompound
-        else -> MuscleRecoveryClass.Medium
+        // All other muscles — biceps, triceps, calves, every delt head (including the
+        // anterior delt, which Korak 2015 shows recovers at the same 48h rate as side
+        // raises / triceps extension), traps, forearms, abs, etc. — share one tier.
+        else -> MuscleRecoveryClass.SmallIsolation
     }
 
 /**
@@ -83,12 +86,6 @@ fun minimumRecoveryCalendarGap(
             laterFractionalSets < MUSCLE_RECOVERY_LIGHT_DOSE
     return when (muscleRecoveryClass(muscle)) {
         MuscleRecoveryClass.SmallIsolation ->
-            when {
-                touchInvolved -> 2
-                peakDose >= MUSCLE_RECOVERY_HEAVY_DOSE -> 3
-                else -> 2
-            }
-        MuscleRecoveryClass.Medium ->
             when {
                 touchInvolved -> 2
                 peakDose >= MUSCLE_RECOVERY_HEAVY_DOSE -> 3

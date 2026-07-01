@@ -6,7 +6,8 @@
       "Ab"
     ],
     "secondaryMuscles": [
-      "AnteriorDeltoid"
+      "AnteriorDeltoid",
+      "Back"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -114,7 +115,8 @@
     ],
     "secondaryMuscles": [
       "LowerBack",
-      "AnteriorDeltoid"
+      "AnteriorDeltoid",
+      "Back"
     ],
     "presetTags": [
       "CommercialGym",
@@ -140,7 +142,8 @@
     ],
     "secondaryMuscles": [
       "LowerBack",
-      "AnteriorDeltoid"
+      "AnteriorDeltoid",
+      "Back"
     ],
     "presetTags": [
       "CommercialGym",
@@ -357,7 +360,10 @@
     ],
     "secondaryMuscles": [
       "Calf",
-      "Forearm"
+      "Forearm",
+      "Glute",
+      "Hamstring",
+      "LowerBack"
     ],
     "presetTags": [
       "CommercialGym",
@@ -487,7 +493,7 @@
     "id": "barbell-rear-delt-row",
     "name": "Barbell Rear Delt Row",
     "primaryMuscles": [
-      "AnteriorDeltoid"
+      "PosteriorDeltoid"
     ],
     "secondaryMuscles": [
       "Bicep",
@@ -587,7 +593,9 @@
       "ScapularElevation"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "barbell-shrug-behind-the-back",
@@ -624,7 +632,8 @@
     ],
     "secondaryMuscles": [
       "Calf",
-      "LowerBack"
+      "LowerBack",
+      "Glute"
     ],
     "presetTags": [
       "CommercialGym",
@@ -829,7 +838,9 @@
       "ShoulderHorizontalAbduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Back"
+    ]
   },
   {
     "id": "bent-over-two-dumbbell-row",
@@ -866,7 +877,8 @@
       "Back"
     ],
     "secondaryMuscles": [
-      "Bicep"
+      "Bicep",
+      "PosteriorDeltoid"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -1116,7 +1128,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Tricep"
+    ]
   },
   {
     "id": "cable-incline-triceps-extension",
@@ -1139,7 +1153,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "cable-one-arm-tricep-extension",
@@ -1162,13 +1178,15 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "cable-rear-delt-fly",
     "name": "Cable Rear Delt Fly",
     "primaryMuscles": [
-      "AnteriorDeltoid"
+      "PosteriorDeltoid"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -1182,10 +1200,12 @@
     ],
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
-      "ShoulderAdduction"
+      "ShoulderHorizontalAbduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Back"
+    ]
   },
   {
     "id": "cable-rope-hammer-curl",
@@ -1208,7 +1228,9 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "cable-rope-overhead-triceps-extension",
@@ -1231,13 +1253,15 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "cable-rope-rear-delt-rows",
     "name": "Cable Rope Rear-Delt Rows",
     "primaryMuscles": [
-      "AnteriorDeltoid"
+      "PosteriorDeltoid"
     ],
     "secondaryMuscles": [
       "Bicep",
@@ -1280,7 +1304,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "cable-shoulder-press",
@@ -1329,7 +1355,9 @@
       "ScapularElevation"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "cable-triceps-pushdown",
@@ -1352,7 +1380,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "cable-v-bar-triceps-pushdown",
@@ -1375,7 +1405,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "cable-wrist-curl",
@@ -1470,7 +1502,9 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "chain-press",
@@ -1668,8 +1702,7 @@
       "Back"
     ],
     "secondaryMuscles": [
-      "Bicep",
-      "AnteriorDeltoid"
+      "Bicep"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -1813,7 +1846,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "decline-ez-bar-triceps-extension",
@@ -1837,7 +1872,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "decline-push-up",
@@ -2128,7 +2165,9 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "dumbbell-incline-curl",
@@ -2152,7 +2191,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "dumbbell-incline-row",
@@ -2280,7 +2321,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "dumbbell-one-arm-upright-row",
@@ -2331,7 +2374,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "dumbbell-rear-lunge",
@@ -2382,7 +2427,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "dumbbell-squat",
@@ -2489,7 +2536,9 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "elevated-back-lunge",
@@ -2538,7 +2587,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "ez-bar-skull-crusher",
@@ -2849,7 +2900,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "incline-bench-pull",
@@ -2858,7 +2911,7 @@
       "Back"
     ],
     "secondaryMuscles": [
-      "AnteriorDeltoid"
+      "PosteriorDeltoid"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -2980,7 +3033,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "incline-inner-biceps-curl",
@@ -3424,17 +3479,19 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "low-pulley-row-to-neck",
     "name": "Low Pulley Row To Neck",
     "primaryMuscles": [
-      "AnteriorDeltoid"
+      "PosteriorDeltoid",
+      "Back"
     ],
     "secondaryMuscles": [
       "Bicep",
-      "Back",
       "Trap"
     ],
     "allowWeightChangeBetweenSets": true,
@@ -3504,7 +3561,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "lying-close-grip-barbell-triceps-press-to-chin",
@@ -3528,7 +3587,9 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "lying-dumbbell-tricep-extension",
@@ -3605,7 +3666,9 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "machine-leg-extension",
@@ -3700,7 +3763,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "narrow-stance-leg-press",
@@ -3833,7 +3898,9 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "one-arm-dumbbell-row",
@@ -4045,7 +4112,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "palms-down-wrist-curl-over-a-bench",
@@ -4248,7 +4317,9 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "preacher-hammer-dumbbell-curl",
@@ -4439,7 +4510,7 @@
     "id": "reverse-flyes",
     "name": "Reverse Flyes",
     "primaryMuscles": [
-      "AnteriorDeltoid"
+      "PosteriorDeltoid"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -4454,10 +4525,12 @@
     ],
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
-      "ShoulderAdduction"
+      "ShoulderHorizontalAbduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Back"
+    ]
   },
   {
     "id": "reverse-grip-bent-over-rows",
@@ -4625,7 +4698,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Smith_Machine_Calf_Raise",
-    "description": "Smith Machine Calf Raise \u2014 plantar flexion for calf development.",
+    "description": "Smith Machine Calf Raise — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Calf_Raise/1.jpg"
@@ -4648,7 +4721,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Calf_Press_On_The_Leg_Press_Machine",
-    "description": "Calf Raise on Leg Press \u2014 plantar flexion for calf development.",
+    "description": "Calf Raise on Leg Press — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/1.jpg"
@@ -4671,7 +4744,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Standing_Calf_Raises",
-    "description": "Standing Calf Raise Machine \u2014 plantar flexion for calf development.",
+    "description": "Standing Calf Raise Machine — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/1.jpg"
@@ -4695,7 +4768,7 @@
       "GarageGym"
     ],
     "imageSlug": "Standing_Dumbbell_Calf_Raise",
-    "description": "Single Leg Dumbbell Calf Raise \u2014 plantar flexion for calf development.",
+    "description": "Single Leg Dumbbell Calf Raise — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Calf_Raise/1.jpg"
@@ -4719,7 +4792,7 @@
       "GarageGym"
     ],
     "imageSlug": "Dumbbell_Seated_One-Leg_Calf_Raise",
-    "description": "Dumbbell Seated One-Leg Calf Raise \u2014 plantar flexion for calf development.",
+    "description": "Dumbbell Seated One-Leg Calf Raise — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Seated_One-Leg_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Seated_One-Leg_Calf_Raise/1.jpg"
@@ -4743,7 +4816,7 @@
       "GarageGym"
     ],
     "imageSlug": "Standing_Barbell_Calf_Raise",
-    "description": "Standing Barbell Calf Raise \u2014 plantar flexion for calf development.",
+    "description": "Standing Barbell Calf Raise — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/1.jpg"
@@ -4766,7 +4839,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Calf_Press_On_The_Leg_Press_Machine",
-    "description": "Stand on the hack squat foot plate with shoulders under pads (or use the hack squat calf block position). Perform calf raises through a lengthened range \u2014 same plantar flexion pattern as leg-press calf raises.",
+    "description": "Stand on the hack squat foot plate with shoulders under pads (or use the hack squat calf block position). Perform calf raises through a lengthened range — same plantar flexion pattern as leg-press calf raises.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/1.jpg"
@@ -4800,7 +4873,9 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "seated-dumbbell-press",
@@ -4878,7 +4953,9 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "side-to-side-chins",
@@ -5039,9 +5116,7 @@
     "primaryMuscles": [
       "Trap"
     ],
-    "secondaryMuscles": [
-      "AnteriorDeltoid"
-    ],
+    "secondaryMuscles": [],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
@@ -5265,7 +5340,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "standing-inner-biceps-curl",
@@ -5289,7 +5366,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "standing-low-pulley-one-arm-triceps-extension",
@@ -5365,7 +5444,9 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "standing-overhead-barbell-triceps-extension",
@@ -5374,7 +5455,8 @@
       "Tricep"
     ],
     "secondaryMuscles": [
-      "AnteriorDeltoid"
+      "AnteriorDeltoid",
+      "Forearm"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -5678,7 +5760,9 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "two-arm-dumbbell-preacher-curl",
@@ -5702,7 +5786,9 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "underhand-cable-pulldowns",
@@ -5734,9 +5820,12 @@
     "id": "upright-cable-row",
     "name": "Upright Cable Row",
     "primaryMuscles": [
-      "Trap"
+      "Trap",
+      "LateralDeltoid"
     ],
-    "secondaryMuscles": [],
+    "secondaryMuscles": [
+      "Bicep"
+    ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
@@ -5987,7 +6076,9 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [
+      "Forearm"
+    ]
   },
   {
     "id": "wide-stance-barbell-squat",

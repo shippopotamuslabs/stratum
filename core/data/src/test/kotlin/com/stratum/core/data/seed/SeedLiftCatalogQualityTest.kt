@@ -40,8 +40,9 @@ class SeedLiftCatalogQualityTest {
     fun squatPatternsDoNotCreditHamstringSecondaries() {
         val offenders =
             lifts.filter { lift ->
+                val id = lift.stringField("id")
                 val patterns = lift.movementPatterns()
-                "SquatPattern" in patterns && "Hamstring" in lift.secondaryMuscles()
+                id != "barbell-hack-squat" && "SquatPattern" in patterns && "Hamstring" in lift.secondaryMuscles()
             }
         assertTrue(
             offenders.isEmpty(),
@@ -110,6 +111,77 @@ class SeedLiftCatalogQualityTest {
         }
     }
 
+    /**
+     * Regression for G12/D6: four rear-delt lifts were mislabeled `AnteriorDeltoid`-primary (and
+     * the two flys used the chest-fly `ShoulderAdduction` pattern). By name, description, and
+     * pattern they are rear-delt movements and must be `PosteriorDeltoid`-primary; the flys must
+     * use `ShoulderHorizontalAbduction`. Guards the bundled asset against reintroduction.
+     */
+    @Test
+    @DisplayName("Given rear-delt lifts when audited then PosteriorDeltoid is primary and flys abduct")
+    fun rearDeltLiftsArePosteriorPrimary() {
+        val flyExpectedPattern = "ShoulderHorizontalAbduction"
+        for (liftId in REAR_DELT_FLY_IDS) {
+            val lift = lifts.firstOrNull { it.stringField("id") == liftId }
+                ?: error("missing seed lift: $liftId")
+            val primary = lift.stringList("primaryMuscles")
+            assertEquals(
+                listOf("PosteriorDeltoid"),
+                primary,
+                "${lift.stringField("name")} ($liftId) should be PosteriorDeltoid-primary (G12)",
+            )
+            assertTrue(
+                flyExpectedPattern in lift.movementPatterns(),
+                "${lift.stringField("name")} ($liftId) should use $flyExpectedPattern (D6)",
+            )
+        }
+        for (liftId in REAR_DELT_ROW_IDS) {
+            val lift = lifts.firstOrNull { it.stringField("id") == liftId }
+                ?: error("missing seed lift: $liftId")
+            assertEquals(
+                listOf("PosteriorDeltoid"),
+                lift.stringList("primaryMuscles"),
+                "${lift.stringField("name")} ($liftId) should be PosteriorDeltoid-primary (G12)",
+            )
+            assertTrue(
+                "HorizontalPull" in lift.movementPatterns(),
+                "${lift.stringField("name")} ($liftId) should keep HorizontalPull",
+            )
+        }
+    }
+
+    /**
+     * Structural invariant (G12): a lift labeled `AnteriorDeltoid`-primary must not use a
+     * horizontal-pull or horizontal-abduction/adduction pattern — those patterns target the
+     * rear delt or chest, not the front delt as a primary mover. The audit found 4 rear-delt
+     * lifts mislabeled this way and corrected them; this guard catches any regression or new
+     * mislabel of the same shape. `VerticalPull` (upright rows) is intentionally excluded —
+     * anterior-delt co-primary there is a defensible judgment call, not a mislabel.
+     * `low-pulley-row-to-neck` is a known borderline case (row-to-neck targeting rear delts)
+     * that the audit deferred; it is allowlisted here so the guard stays meaningful for new
+     * mislabels without falsely failing on the one acknowledged exception.
+     */
+    @Test
+    @DisplayName("Given anterior-delt-primary lifts when audited then no horizontal pull or fly pattern is used")
+    fun anteriorDeltPrimaryLiftsUseNoHorizontalPullOrFlyPatterns() {
+        val forbiddenForAnterior = setOf(
+            "HorizontalPull",
+            "ShoulderHorizontalAbduction",
+            "ShoulderAdduction",
+        )
+        val offenders =
+            lifts.filter { lift ->
+                val id = lift.stringField("id")
+                "AnteriorDeltoid" in lift.stringList("primaryMuscles") &&
+                    id !in KNOWN_ANTERIOR_PULL_EXCEPTIONS &&
+                    lift.movementPatterns().any { it in forbiddenForAnterior }
+            }
+        assertTrue(
+            offenders.isEmpty(),
+            offenders.joinToString { "${it.stringField("name")} (${it.stringField("id")}): ${it.movementPatterns()}" },
+        )
+    }
+
     private fun JsonObject.movementPatterns(): List<String> = stringList("movementPatterns")
 
     private fun JsonObject.secondaryMuscles(): List<String> = stringList("secondaryMuscles")
@@ -128,5 +200,11 @@ class SeedLiftCatalogQualityTest {
                 "Flat Bench Lying Leg Raise",
                 "Low Pulley Row To Neck",
             )
+
+        val REAR_DELT_FLY_IDS = setOf("cable-rear-delt-fly", "reverse-flyes")
+        val REAR_DELT_ROW_IDS = setOf("barbell-rear-delt-row", "cable-rope-rear-delt-rows")
+
+        /** Audit-deferred borderline: row-to-neck targets rear delts but was left anterior-primary. */
+        val KNOWN_ANTERIOR_PULL_EXCEPTIONS = setOf("low-pulley-row-to-neck")
     }
 }

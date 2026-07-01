@@ -12,6 +12,7 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
+import com.stratum.domain.program.generation.reference.MIN_TOUCH_DIRECT_SETS
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
@@ -65,7 +66,12 @@ class ProgramSynthesisAcceptanceTest {
                 val isSpecializedPrimary = primary.any { context.specialization[it] == "Specialize" }
                 val pattern = meta.movementPattern
                 val isIsolationPattern = pattern !in COMPOUND_PATTERNS
-                if (isSpecializedPrimary && isIsolationPattern && sets < MIN_SPECIALIZED_DIRECT_SETS) {
+                // Per-lift floor is the cross-domain touch minimum: a specialized muscle may fill a
+                // touch slot on a session outside its primary domain, which legitimately carries
+                // MIN_TOUCH_DIRECT_SETS (light supplementary volume), not MIN_SPECIALIZED_DIRECT_SETS.
+                // The "≥ MIN_SPECIALIZED_DIRECT_SETS on the main in-domain session" guarantee is
+                // enforced separately by specializationHonored().
+                if (isSpecializedPrimary && isIsolationPattern && sets < MIN_TOUCH_DIRECT_SETS) {
                     underMinSpecialized += "${workout.name}/${meta.name}=$sets (primary=$primary)"
                 }
             }
@@ -73,7 +79,7 @@ class ProgramSynthesisAcceptanceTest {
         assertTrue(oneSetLifts.isEmpty(), "Active lifts with <2 sets: $oneSetLifts")
         assertTrue(
             underMinSpecialized.isEmpty(),
-            "Specialized isolations with < $MIN_SPECIALIZED_DIRECT_SETS sets: $underMinSpecialized",
+            "Specialized isolations with < $MIN_TOUCH_DIRECT_SETS sets (touch floor): $underMinSpecialized",
         )
     }
 
@@ -260,6 +266,108 @@ class ProgramSynthesisAcceptanceTest {
                 "6-day $preset synth weekday assignment incomplete",
             )
         }
+    }
+
+    /**
+     * G9 + G13 + G10: when chest and back are both Maintenance, weekly volume should stay close
+     * and favor the joint-safer direction (back ≥ chest). The prior model gated antagonist
+     * balance on equal tiers and set push/pull + closeness weights too low to matter, so chest
+     * could run away. Mirrors [AntagonistMaintenanceBalanceTest] via the UI-truth validator.
+     */
+    @Test
+    fun chestDoesNotOutpaceBackWhenBothMaintenance() = runBlocking {
+        val context = parseScenarioContext(
+            scenarioPayload(
+                days = 5,
+                specialization = mapOf("Calf" to "Specialize"), // chest/back both Maintenance
+                weekdayLayout = "mtwfs",
+            ),
+        )
+        val draft = generateDraft(context)
+        val weekly = weeklyMuscleVolume(draft, context)
+        val chest = weekly["Chest"] ?: 0.0
+        val back = weekly["Back"] ?: 0.0
+
+        assertTrue(
+            back + 1.0 >= chest,
+            "Back should lead or match chest when both Maintenance: chest=$chest back=$back (G9/G13)",
+        )
+        assertTrue(
+            kotlin.math.abs(chest - back) <= 6.0,
+            "Chest/back should stay within 6 sets when both Maintenance: chest=$chest back=$back (G13)",
+        )
+    }
+
+    /**
+     * G9 (the tier-mismatch case): with Back Specialize + Chest Maintenance, antagonist balance
+     * previously fired zero constraints, so maintenance chest could outpace specialized back.
+     * The fix drops the tier-equality gate so directional pressure applies. Specialized back is
+     * pulled toward MRV, so it should not be outpaced by maintenance chest.
+     */
+    @Test
+    fun chestDoesNotOutpaceBackWhenBackSpecialized() = runBlocking {
+        val context = parseScenarioContext(
+            scenarioPayload(
+                days = 5,
+                specialization = mapOf("Back" to "Specialize"),
+                weekdayLayout = "mtwfs",
+            ),
+        )
+        val draft = generateDraft(context)
+        val weekly = weeklyMuscleVolume(draft, context)
+        val chest = weekly["Chest"] ?: 0.0
+        val back = weekly["Back"] ?: 0.0
+
+        assertTrue(
+            back >= chest,
+            "Specialized back should not be outpaced by maintenance chest: chest=$chest back=$back (G9)",
+        )
+    }
+
+    /**
+     * G11: when AnteriorDeltoid is Maintenance (here, LateralDeltoid Specialize leaves anterior
+     * at default Maintenance), direct overhead (VerticalPress) anterior work is coach-unwanted —
+     * the low anterior aim is reachable via chest-press secondaries. The discouragement term
+     * biases the solver toward relying on those secondaries rather than churning direct sets.
+     */
+    @Test
+    fun minimalDirectAnteriorDeltWorkWhenLateralSpecialized() = runBlocking {
+        val context = parseScenarioContext(
+            scenarioPayload(
+                days = 5,
+                specialization = mapOf("LateralDeltoid" to "Specialize"),
+                weekdayLayout = "mtwfs",
+            ),
+        )
+        val draft = generateDraft(context)
+        var directAnteriorSets = 0
+        for (workout in draft.workouts) {
+            for (lift in workout.workoutLifts.orEmpty()) {
+                val meta = context.liftsById[lift.liftId.orEmpty()] ?: continue
+                if ("AnteriorDeltoid" in meta.primaryMuscles && meta.movementPattern == "VerticalPress") {
+                    directAnteriorSets += lift.workoutLiftSets?.size ?: 0
+                }
+            }
+        }
+        // Allow a small tolerance — the term is a soft discouragement (G11), not a hard forbid.
+        assertTrue(
+            directAnteriorSets <= 2,
+            "Direct VerticalPress anterior-delt work should be minimal when anterior is Maintenance: " +
+                "$directAnteriorSets sets (G11)",
+        )
+    }
+
+    private fun weeklyMuscleVolume(
+        draft: com.stratum.domain.program.generation.draft.ProgramDraft,
+        context: ProgramGenerationContext,
+    ): Map<String, Double> {
+        val totals = mutableMapOf<String, Double>()
+        for (workout in draft.workouts) {
+            for ((muscle, dose) in computeWorkoutMuscleVolume(workout, context)) {
+                totals[muscle] = (totals[muscle] ?: 0.0) + dose
+            }
+        }
+        return totals
     }
 
     private suspend fun generateDraft(context: ProgramGenerationContext): com.stratum.domain.program.generation.draft.ProgramDraft {

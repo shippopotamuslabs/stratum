@@ -30,4 +30,21 @@ class MuscleRecoveryReferenceTest {
     fun lightCalfGap() {
         assertEquals(2, minimumRecoveryCalendarGap("Calf", 2.0, 6.0))
     }
+
+    @Test
+    @DisplayName("anterior delts recover at the same 48h rate as small isolation (Korak 2015)")
+    fun anteriorDeltMatchesSmallIsolation() {
+        // Korak 2015: military dumbbell press recovered at 90% at 48h — identical to
+        // side raises and triceps extension. Anterior delts share the small-isolation tier.
+        assertEquals(2, minimumRecoveryCalendarGap("AnteriorDeltoid", 6.0, 8.0))
+        assertEquals(3, minimumRecoveryCalendarGap("AnteriorDeltoid", 14.0, 14.0))
+        assertEquals(2, minimumRecoveryCalendarGap("AnteriorDeltoid", 2.0, 6.0))
+    }
+
+    @Test
+    @DisplayName("unmapped muscles default to the small-isolation 48h tier")
+    fun unmappedMuscleDefaultsToSmallIsolation() {
+        assertEquals(2, minimumRecoveryCalendarGap("Trap", 6.0, 8.0))
+        assertEquals(2, minimumRecoveryCalendarGap("Forearm", 4.0, 4.0))
+    }
 }
