@@ -328,6 +328,7 @@ internal class ProgramSynthesisModel(
         }
 
         addOptionalSlotActivationPreferences(model, weightedTerms)
+        addMaintenanceAnteriorDirectDiscouragement(model, weightedTerms)
         addAntagonistMaintenanceBalance(model, weightedTerms)
         addCoSpecializationBalance(model, weightedTerms)
         val objective =
@@ -691,6 +692,13 @@ internal class ProgramSynthesisModel(
                 SessionTypeId.Lower to SessionTypeId.UpperPush,
                 SessionTypeId.UpperPull to SessionTypeId.UpperPush,
                 SessionTypeId.UpperPush to SessionTypeId.UpperPull,
+                // Same-domain upper sessions on adjacent days share chest/shoulder/tricep or
+                // back/bicep recovery (G15): two push-leaning or pull-leaning upper days get
+                // adjacency pressure the metadata repair does not catch.
+                SessionTypeId.UpperPush to SessionTypeId.UpperPush,
+                SessionTypeId.UpperPull to SessionTypeId.UpperPull,
+                SessionTypeId.FullPush to SessionTypeId.FullPush,
+                SessionTypeId.FullPull to SessionTypeId.FullPull,
             )
         for (i in plans.indices) {
             for (j in (i + 1) until plans.size) {
@@ -858,13 +866,18 @@ internal class ProgramSynthesisModel(
     }
 
     /**
-     * Balance antagonist pairs when both muscles share the same specialization tier.
-     * Skips when only one side is specialized (e.g. chest maintenance + back specialize).
+     * Balance antagonist pairs unless either side is Omit. Previously gated on `levelA == levelB`,
+     * which skipped the most common real-world config (Chest Maintenance + Back Specialize) and
+     * let chest run away with no directional pressure (G9). The equality constraint with slacks
+     * (see [addAntagonistMaintenanceBalance]) already permits any split, so firing on a tier
+     * mismatch applies directional pressure without forcing the Maintenance muscle to match the
+     * Specialize muscle's MRV.
      */
     private fun shouldBalanceAntagonistPair(muscleA: String, muscleB: String): Boolean {
         val levelA = context.specialization[muscleA] ?: "Maintenance"
         val levelB = context.specialization[muscleB] ?: "Maintenance"
-        return levelA == levelB
+        if (levelA == "Omit" || levelB == "Omit") return false
+        return true
     }
 
     private fun addCoSpecializationBalance(
@@ -920,6 +933,31 @@ internal class ProgramSynthesisModel(
             model.addEquality(inactivePenalty, 0).onlyEnforceIf(active)
             model.addEquality(inactivePenalty, 1).onlyEnforceIf(active.not())
             weightedTerms.add(inactivePenalty to SynthesisObjectiveWeights.OPTIONAL_SLOT_INACTIVE_PREFERENCE)
+        }
+    }
+
+    /**
+     * Discourage direct VerticalPress sets when AnteriorDeltoid is at Maintenance (G11): the
+     * anterior aim is reachable purely via chest-press secondaries (0.5/set), so direct overhead
+     * work (1.0/set + Tricep 0.5) is coach-unwanted multi-aim churning that inflates anterior
+     * volume beyond what a maintenance prescription calls for. Adds a per-set slack on each such
+     * slot; weight sits below [SynthesisObjectiveWeights.SLOT_ACTIVATION_COUNT] so it only biases
+     * tie-breaks toward "rely on secondaries" and never overrides a volume aim. AnteriorDeltoid
+     * Specialize is exempt — direct work is then wanted.
+     */
+    private fun addMaintenanceAnteriorDirectDiscouragement(
+        model: CpModel,
+        weightedTerms: MutableList<Pair<IntVar, Long>>,
+    ) {
+        val anteriorLevel = context.specialization["AnteriorDeltoid"] ?: "Maintenance"
+        if (anteriorLevel == "Specialize") return
+        _slots.forEach { sv ->
+            if (sv.slot.primaryMuscle != "AnteriorDeltoid") return@forEach
+            if (sv.slot.pattern != "VerticalPress") return@forEach
+            // Per-set slack: the full set count on this slot is discouraged at the soft weight.
+            val sets = model.newIntVar(0L, MAX_OVER, "antDirect_${sv.slot.slotId}")
+            model.addEquality(sets, sv.x)
+            weightedTerms.add(sets to SynthesisObjectiveWeights.MAINTENANCE_ANTERIOR_DIRECT_DISCOURAGE)
         }
     }
 
