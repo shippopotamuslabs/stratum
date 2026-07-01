@@ -17,8 +17,8 @@ import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBrea
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.MIN_TOUCH_DIRECT_SETS
-import com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS
 import com.stratum.domain.program.generation.reference.RpRepProfile
+import com.stratum.domain.program.generation.reference.computePatternSecondaryCredits
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
 import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGap
@@ -44,6 +44,8 @@ internal class ProgramSynthesisModel(
     private val weeklyTargets: WeeklyVolumeTargets,
     private val context: ProgramGenerationContext,
     private val unifiedUniverse: List<SynthesisSlot>? = null,
+    private val coefficients: VolumeAllocationCoefficients =
+        VolumeAllocationCoefficients(computePatternSecondaryCredits(context)),
 ) {
     data class SlotVar(
         val plan: SessionSlotPlan,
@@ -102,7 +104,7 @@ internal class ProgramSynthesisModel(
         muscleSet.addAll(weeklyTargets.keys)
         _slots.forEach { sv -> muscleSet.add(sv.slot.primaryMuscle) }
         _slots.forEach { sv ->
-            PATTERN_SECONDARY_MUSCLE_CREDITS[sv.slot.pattern]?.forEach { muscleSet.add(it.muscle) }
+            coefficients.musclesForPattern(sv.slot.pattern).forEach { muscleSet.add(it.muscle) }
         }
         _muscles.addAll(muscleSet)
 
@@ -218,13 +220,13 @@ internal class ProgramSynthesisModel(
     }
 
     private fun addPerSessionMuscleCaps(model: CpModel) {
-        val capScaled = SESSION_MUSCLE_SET_CAP * VolumeAllocationCoefficients.SCALE
+        val capScaled = SESSION_MUSCLE_SET_CAP * coefficients.scale
         val byPlan = _slots.groupBy { it.plan }
         byPlan.forEach { (_, slotVars) ->
             _muscles.forEach { muscle ->
                 val terms =
                     slotVars.mapNotNull { sv ->
-                        val c = VolumeAllocationCoefficients.scaledCoeff(sv.slot, muscle)
+                        val c = coefficients.scaledCoeff(sv.slot, muscle)
                         if (c == 0L) null else sv.x to c
                     }
                 if (terms.isEmpty()) return@forEach
@@ -251,7 +253,7 @@ internal class ProgramSynthesisModel(
         _muscles.forEach { muscle ->
             val target = weeklyTargets[muscle] ?: return@forEach
             val weekly = weeklyCreditExpr(muscle) ?: return@forEach
-            model.addLessOrEqual(weekly, (target.max * VolumeAllocationCoefficients.SCALE).toLong())
+            model.addLessOrEqual(weekly, (target.max * coefficients.scale).toLong())
         }
     }
 
@@ -285,7 +287,7 @@ internal class ProgramSynthesisModel(
             val target = weeklyTargets[muscle] ?: return@forEach
             val weekly = weeklyCreditExpr(muscle) ?: return@forEach
             val level = context.specialization[muscle] ?: "Maintenance"
-            val aimScaled = (target.aim * VolumeAllocationCoefficients.SCALE).toLong()
+            val aimScaled = (target.aim * coefficients.scale).toLong()
             val prefix =
                 when (level) {
                     "Specialize" -> "spec"
@@ -317,7 +319,7 @@ internal class ProgramSynthesisModel(
             weightedTerms.add(under to weight)
 
             if (target.min > 0.0 && level == "Specialize") {
-                val minScaled = (target.min * VolumeAllocationCoefficients.SCALE).toLong()
+                val minScaled = (target.min * coefficients.scale).toLong()
                 val mevUnder = trackSlack(model, "mevUnder_$muscle")
                 model.addGreaterOrEqual(
                     LinearExpr.weightedSum(arrayOf(weekly, mevUnder), longArrayOf(1L, 1L)),
@@ -559,7 +561,7 @@ internal class ProgramSynthesisModel(
         byMuscle[muscle]?.let { return it }
         val terms =
             _slots.filter { it.plan == plan }.mapNotNull { sv ->
-                val coeff = VolumeAllocationCoefficients.scaledCoeff(sv.slot, muscle)
+                val coeff = coefficients.scaledCoeff(sv.slot, muscle)
                 if (coeff == 0L) null else sv.x to coeff
             }
         if (terms.isEmpty()) return null
@@ -584,7 +586,7 @@ internal class ProgramSynthesisModel(
     ): Literal {
         meaningfulExposureBySessionMuscle[sessionPosition to muscle]?.let { return it }
         val minScaled =
-            (MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE * VolumeAllocationCoefficients.SCALE).toLong()
+            (MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE * coefficients.scale).toLong()
         val meaningful = model.newBoolVar("meaningful_${muscle}_${sessionPosition}")
         model.addGreaterOrEqual(credit, minScaled).onlyEnforceIf(meaningful)
         model.addLessOrEqual(credit, minScaled - 1).onlyEnforceIf(meaningful.not())
@@ -599,7 +601,7 @@ internal class ProgramSynthesisModel(
     ): List<String> {
         if (priorityMuscles.isEmpty()) return emptyList()
         val minScaled =
-            (MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE * VolumeAllocationCoefficients.SCALE).toLong()
+            (MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE * coefficients.scale).toLong()
         val trainingDays = trainingWeekdayIndices(context.weekdays).sorted()
         val violations = mutableListOf<String>()
         for ((d1, d2) in calendarAdjacentTrainingDayPairs(trainingDays)) {
@@ -954,14 +956,14 @@ internal class ProgramSynthesisModel(
         var total = 0L
         for (sv in _slots.filter { it.plan == plan }) {
             val cap = perSlotCap(sv.slot).toLong()
-            val coeff = VolumeAllocationCoefficients.scaledCoeff(sv.slot, muscle)
+            val coeff = coefficients.scaledCoeff(sv.slot, muscle)
             total += cap * coeff
         }
         return total
     }
 
     private fun peakSessionDose(plan: SessionSlotPlan, muscle: String): Double =
-        maxSessionCreditScaled(plan, muscle).toDouble() / VolumeAllocationCoefficients.SCALE
+        maxSessionCreditScaled(plan, muscle).toDouble() / coefficients.scale
 
     private fun addOptionalSlotActivationPreferences(
         model: CpModel,
@@ -1026,7 +1028,7 @@ internal class ProgramSynthesisModel(
     private fun weeklyCreditExpr(muscle: String): LinearExpr? {
         val terms =
             _slots.mapNotNull { sv ->
-                val c = VolumeAllocationCoefficients.scaledCoeff(sv.slot, muscle)
+                val c = coefficients.scaledCoeff(sv.slot, muscle)
                 if (c == 0L) null else sv.x to c
             }
         if (terms.isEmpty()) return null
