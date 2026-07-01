@@ -12,6 +12,7 @@ import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.integration.resolveAdjacentCalendarLiftCollisions
+import com.stratum.domain.di.DefaultDispatcher
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,7 @@ class GenerateProgramUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val profileRepository: UserTrainingProfileRepository,
-    private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    @DefaultDispatcher private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
         onProgress: ProgramGenerationProgressCallback = {},
