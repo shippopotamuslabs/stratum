@@ -1,10 +1,12 @@
-@file:Suppress("FunctionNaming")
+@file:Suppress("FunctionNaming", "MagicNumber")
 
 package com.stratum.domain.solver
 
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
@@ -66,14 +68,105 @@ class AntagonistMaintenanceBalanceTest {
         )
     }
 
+    @Test
+    fun fourDayMaintenanceExcludesDirectAnteriorAndPrioritizesArmsOverRearDelt() = runBlocking {
+        val context =
+            parseScenarioContext(
+                scenarioPayload(
+                    days = 4,
+                    specialization = emptyMap(),
+                ),
+            )
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
+        val normalized =
+            pipeline.generate(
+                context = context,
+                normalizationRequest = context.toProgramNormalizationRequest(),
+                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+            )
+        val draft = normalized.toDraft()
+
+        // G14a: No lift with primaryMuscle == AnteriorDeltoid should appear — anterior volume
+        // comes entirely from press secondaries when anterior is not Specialize.
+        val anteriorDirectLifts = directLiftsForMuscle(draft, context, "AnteriorDeltoid")
+        assertTrue(
+            anteriorDirectLifts.isEmpty(),
+            "Expected zero direct anterior lifts when AnteriorDeltoid is Maintenance, " +
+                "but found: ${anteriorDirectLifts.map { it.first }}",
+        )
+
+        // G14b: Rear-delt direct sets should not exceed bicep/tricep/lateral-delt direct sets —
+        // arms and lateral delts are direct-priority muscles; posterior gets partial coverage
+        // from row secondaries (0.5/set) and is deprioritized via the activation penalty.
+        val directSets = directSetsByMuscle(draft, context)
+        val rearDeltDirect = directSets["PosteriorDeltoid"] ?: 0
+        val bicepDirect = directSets["Bicep"] ?: 0
+        val tricepDirect = directSets["Tricep"] ?: 0
+        val lateralDirect = directSets["LateralDeltoid"] ?: 0
+
+        assertTrue(
+            rearDeltDirect <= bicepDirect,
+            "Bicep direct sets ($bicepDirect) should be ≥ rear-delt direct sets ($rearDeltDirect)",
+        )
+        assertTrue(
+            rearDeltDirect <= tricepDirect,
+            "Tricep direct sets ($tricepDirect) should be ≥ rear-delt direct sets ($rearDeltDirect)",
+        )
+        assertTrue(
+            rearDeltDirect <= lateralDirect,
+            "Lateral-delt direct sets ($lateralDirect) should be ≥ rear-delt direct sets ($rearDeltDirect)",
+        )
+    }
+
     private fun weeklyMuscleVolume(
-        draft: com.stratum.domain.program.generation.draft.ProgramDraft,
-        context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
+        draft: ProgramDraft,
+        context: ProgramGenerationContext,
     ): Map<String, Double> {
         val totals = mutableMapOf<String, Double>()
         for (workout in draft.workouts) {
             for ((muscle, dose) in computeWorkoutMuscleVolume(workout, context)) {
                 totals[muscle] = (totals[muscle] ?: 0.0) + dose
+            }
+        }
+        return totals
+    }
+
+    /** Returns (liftId, setCount) pairs where the lift's primaryMuscles include [muscle]. */
+    private fun directLiftsForMuscle(
+        draft: ProgramDraft,
+        context: ProgramGenerationContext,
+        muscle: String,
+    ): List<Pair<String, Int>> {
+        val result = mutableListOf<Pair<String, Int>>()
+        for (workout in draft.workouts) {
+            for (lift in workout.workoutLifts.orEmpty()) {
+                val liftId = lift.liftId.orEmpty()
+                val meta = context.liftsById[liftId] ?: continue
+                val setCount = lift.workoutLiftSets?.size ?: 0
+                if (setCount == 0) continue
+                if (muscle in meta.primaryMuscles) {
+                    result += liftId to setCount
+                }
+            }
+        }
+        return result
+    }
+
+    /** Total direct (primary-muscle) sets per muscle across all workouts. */
+    private fun directSetsByMuscle(
+        draft: ProgramDraft,
+        context: ProgramGenerationContext,
+    ): Map<String, Int> {
+        val totals = mutableMapOf<String, Int>()
+        for (workout in draft.workouts) {
+            for (lift in workout.workoutLifts.orEmpty()) {
+                val liftId = lift.liftId.orEmpty()
+                val meta = context.liftsById[liftId] ?: continue
+                val setCount = lift.workoutLiftSets?.size ?: 0
+                if (setCount == 0) continue
+                for (muscle in meta.primaryMuscles) {
+                    totals[muscle] = (totals[muscle] ?: 0) + setCount
+                }
             }
         }
         return totals

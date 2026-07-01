@@ -72,3 +72,23 @@ dependencies {
     testImplementation(project(":core:testing"))
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+// Slow-tagged tests (full combinatorial/property matrices) are excluded from the default test
+// task so the iteration loop stays fast. Run them explicitly via `testSlow` or `-PincludeSlow`.
+val includeSlow = project.hasProperty("includeSlow")
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform {
+        if (!includeSlow) {
+            excludeTags("slow")
+        }
+    }
+}
+
+// Runs only the slow-tagged tests (nightly / CI). Usage: ./gradlew :core:domain-solver:testSlow
+val testSlow by tasks.registering(Test::class) {
+    useJUnitPlatform {
+        includeTags("slow")
+    }
+    dependsOn("testDebugUnitTest")
+}

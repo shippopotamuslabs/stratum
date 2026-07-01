@@ -20,6 +20,7 @@ import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 
@@ -35,10 +36,14 @@ import org.junit.jupiter.params.provider.MethodSource
  * This locks in the Phase 3 rebalance deletion: the solver + post-solver
  * safety cascade must keep every scenario green without the old per-muscle
  * patches.
+ *
+ * Tagged `slow` — excluded from the default `testDebugUnitTest` run. Use
+ * `./gradlew :core:domain-solver:testSlow` or `-PincludeSlow` to run.
  */
+@Tag("slow")
 class CombinatorialSpecializationRegressionTest {
 
-    private val synthesizer = CpSatProgramSynthesizer()
+    private val synthesizer = CpSatProgramSynthesizer(deadlineMillis = SOLVER_DEADLINE_MILLIS)
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("generationScenarios")
@@ -174,6 +179,10 @@ class CombinatorialSpecializationRegressionTest {
     }
 
     companion object {
+        // 30s solver deadline: tight enough to catch constraint-blow-up regressions, generous
+        // enough that CP-SAT reaches a properly validated FEASIBLE/OPTIMAL incumbent.
+        const val SOLVER_DEADLINE_MILLIS = 30_000L
+
         @JvmStatic
         fun generationScenarios(): List<ScenarioConfig> = GENERATION_SCENARIOS
     }
