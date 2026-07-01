@@ -40,7 +40,7 @@ class GluteAdjacentRecoverySynthesisTest {
                 repProfile = RpRepProfile.LowerFreeWeightCompound,
                 setCount = 4,
             )
-        assertEquals(2.0, VolumeAllocationCoefficients.coeff(slot, "Glute") * slot.setCount)
+        assertEquals(2.0, VolumeAllocationCoefficients.Default.coeff(slot, "Glute") * slot.setCount)
     }
 
     @Test
@@ -192,7 +192,7 @@ class GluteAdjacentRecoverySynthesisTest {
         var total = 0.0
         for (slot in plan.filledSlots) {
             if (slot.setCount <= 0) continue
-            total += slot.setCount * VolumeAllocationCoefficients.coeff(slot, muscle)
+            total += slot.setCount * VolumeAllocationCoefficients.Default.coeff(slot, muscle)
         }
         return total
     }

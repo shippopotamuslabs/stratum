@@ -121,6 +121,58 @@ val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<String, List<PatternSecondaryMuscleCre
         ),
 )
 
+/**
+ * Computes per-pattern secondary muscle credits from the **actual enabled lift catalog**, averaging
+ * the secondary muscle tags across all enabled lifts that share each movement pattern. This makes the
+ * solver's volume accounting match the *expected realized* metadata volume (what the Programs UI shows)
+ * rather than a static idealization.
+ *
+ * Without this, patterns like `HipHinge` systematically undercount muscles that only some lifts tag.
+ * For example, `barbell-sumo-deadlift` (HipHinge) tags Quad as secondary, but the static table credits
+ * 0 Quad for HipHinge — so the solver allocates HipHinge sets thinking they cost 0 Quad, then the UI
+ * shows Quad volume inflated by the secondary credit the solver never saw.
+ *
+ * Falls back to [PATTERN_SECONDARY_MUSCLE_CREDITS] for any pattern with no enabled lifts, preserving
+ * the idealized estimate when the catalog provides no signal.
+ */
+fun computePatternSecondaryCredits(
+    context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
+): Map<String, List<PatternSecondaryMuscleCredit>> {
+    val liftsByPattern = mutableMapOf<String, MutableList<com.stratum.domain.program.generation.context.LiftContext>>()
+    for (lift in context.liftsById.values) {
+        if (lift.id !in context.enabledLiftIds) continue
+        for (pattern in lift.movementPatterns) {
+            liftsByPattern.getOrPut(pattern) { mutableListOf() }.add(lift)
+        }
+    }
+
+    val result = mutableMapOf<String, List<PatternSecondaryMuscleCredit>>()
+    for ((pattern, lifts) in liftsByPattern) {
+        if (lifts.isEmpty()) continue
+        val count = lifts.size.toDouble()
+        // Sum per-muscle: each lift contributes SECONDARY_SET_CREDIT for each secondary muscle
+        // (excluding its own primaries, matching computeWorkoutMuscleVolume / AntagonistMetadataBalance).
+        val muscleTotals = mutableMapOf<String, Double>()
+        for (lift in lifts) {
+            for (muscle in lift.secondaryMuscles) {
+                if (muscle in lift.primaryMuscles) continue
+                muscleTotals[muscle] = (muscleTotals[muscle] ?: 0.0) + SECONDARY_SET_CREDIT
+            }
+        }
+        val averaged = muscleTotals.map { (muscle, total) ->
+            PatternSecondaryMuscleCredit(muscle, total / count)
+        }
+        if (averaged.isNotEmpty()) {
+            result[pattern] = averaged
+        }
+    }
+
+    // Merge with static fallbacks: patterns not covered by the catalog keep the idealized estimate.
+    val merged = PATTERN_SECONDARY_MUSCLE_CREDITS.toMutableMap()
+    merged.putAll(result)
+    return merged
+}
+
 /** Minimum direct (primary) sets for a specialized muscle's isolation slot in one session. */
 const val MIN_SPECIALIZED_DIRECT_SETS = 4
 

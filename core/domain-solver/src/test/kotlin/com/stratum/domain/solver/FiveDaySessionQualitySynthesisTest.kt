@@ -160,7 +160,7 @@ class FiveDaySessionQualitySynthesisTest {
             com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS[slot.pattern]
                 ?.forEach { muscles += it.muscle }
             for (muscle in muscles) {
-                val coeff = VolumeAllocationCoefficients.coeff(slot, muscle)
+                val coeff = VolumeAllocationCoefficients.Default.coeff(slot, muscle)
                 if (coeff <= 0.0) continue
                 totals[muscle] = (totals[muscle] ?: 0.0) + slot.setCount * coeff
             }

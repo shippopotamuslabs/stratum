@@ -131,7 +131,11 @@ class ProgramSynthesisAcceptanceTest {
             val e2 = exposuresByWorkoutName[d2.name.orEmpty()].orEmpty()
             val e3 = exposuresByWorkoutName[d3.name.orEmpty()].orEmpty()
             for (muscle in e1.keys.intersect(e2.keys).intersect(e3.keys)) {
-                val directHere = e1[muscle]!! > 0.0 && e2[muscle]!! > 0.0 && e3[muscle]!! > 0.0
+                // Only flag direct (primary-muscle) exposure on 3 consecutive days — secondary
+                // exposure (e.g. Glute from squats/hinges) is ubiquitous and not a recovery concern.
+                val directHere = hasDirectPrimaryExposure(d1, muscle, context) &&
+                    hasDirectPrimaryExposure(d2, muscle, context) &&
+                    hasDirectPrimaryExposure(d3, muscle, context)
                 if (directHere) {
                     threeDayStacks += "${d1.weekday}/${d2.weekday}/${d3.weekday} $muscle"
                 }
@@ -368,6 +372,20 @@ class ProgramSynthesisAcceptanceTest {
             }
         }
         return totals
+    }
+
+    private fun hasDirectPrimaryExposure(
+        workout: com.stratum.domain.program.generation.draft.ProgramWorkoutDraft,
+        muscle: String,
+        context: ProgramGenerationContext,
+    ): Boolean {
+        for (lift in workout.workoutLifts.orEmpty()) {
+            val sets = lift.workoutLiftSets.orEmpty()
+            if (sets.isEmpty()) continue
+            val meta = context.liftsById[lift.liftId.orEmpty()] ?: continue
+            if (muscle in meta.primaryMuscles) return true
+        }
+        return false
     }
 
     private suspend fun generateDraft(context: ProgramGenerationContext): com.stratum.domain.program.generation.draft.ProgramDraft {

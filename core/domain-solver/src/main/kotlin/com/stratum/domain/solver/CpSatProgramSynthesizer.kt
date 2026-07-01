@@ -43,6 +43,10 @@ class CpSatProgramSynthesizer(
                 "CP-SAT synthesis returned $status — try relaxing specialization or adding a training day.",
             )
         }
+        // Instrumentation: log model size and solve time for capacity planning.
+        println(
+            "CpSatProgramSynthesizer: status=$status wallTime=${solver.wallTime()}s",
+        )
 
         val priorityMuscles = recoveryPriorityMuscles(context)
         val modelViolations = modelBuilder.findPriorityAdjacentExposureViolations(solver, plans, priorityMuscles)
