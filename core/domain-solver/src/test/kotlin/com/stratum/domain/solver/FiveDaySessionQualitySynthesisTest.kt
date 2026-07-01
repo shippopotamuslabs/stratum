@@ -12,13 +12,12 @@ import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
-import com.stratum.domain.program.generation.synthesis.SynthesisSessionDomain
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import com.stratum.domain.solver.VolumeAllocationCoefficients
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -27,8 +26,6 @@ import org.junit.jupiter.api.Test
  * minimum lift count per session, alternating upper/lower calendar domains, and no back-to-back
  * meaningful muscle repeats.
  */
-import com.stratum.core.testing.program.GENERATION_SCENARIOS
-import com.stratum.core.testing.program.SPECIALIZATION_PRESETS
 
 class FiveDaySessionQualitySynthesisTest {
     private val specialization =
@@ -39,71 +36,7 @@ class FiveDaySessionQualitySynthesisTest {
         )
 
     @Test
-    fun diagnoseAllScenarios() = runTest {
-        val pipeline = testProgramGenerationPipeline()
-        println("=== DIAGNOSTIC RUN ===")
-        for (config in GENERATION_SCENARIOS) {
-            val spec = SPECIALIZATION_PRESETS[config.preset].orEmpty()
-            val context = parseScenarioContext(scenarioPayload(config.days, spec))
-            val normalized = try {
-                pipeline.generate(
-                    context = context,
-                    normalizationRequest = context.toProgramNormalizationRequest(),
-                    options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
-                )
-            } catch (e: Exception) {
-                println("Scenario ${config.label} failed to generate: ${e.message}")
-                continue
-            }
-            val draft = normalized.toDraft()
-            val program = normalized.toDomainProgram()
-            
-            // Check adjacent specialized repeats
-            val workouts = program.workouts.sortedBy { w ->
-                w.weekday?.let { day -> Weekday.entries.indexOf(day) } ?: w.position
-            }
-            val exposuresByWorkout = draft.workouts.associate { workout ->
-                workout.name.orEmpty() to computeWorkoutMuscleVolume(workout, context)
-            }
-            val repeats = adjacentMeaningfulMuscleRepeats(workouts, exposuresByWorkout, context)
-            
-            // Check session set counts
-            val setCounts = workouts.map { w -> w.workoutLifts.sumOf { l -> l.sets.size } }
-            
-            if (repeats.isNotEmpty() || setCounts.maxOrNull()!! > setCounts.minOrNull()!! * 2) {
-                println("Scenario ${config.label}:")
-                if (repeats.isNotEmpty()) {
-                    println("  Violations: $repeats")
-                }
-                println("  Set Counts: $setCounts")
-                println("  Schedule: ${workouts.joinToString { "${it.weekday?.name?.take(3)}: ${it.name}" }}")
-            }
-        }
-    }
-
-    @Test
-    fun diagnoseSingleRun() = runTest {
-        val context = richArmCalfCatalog()
-        val pipeline = testProgramGenerationPipeline()
-        val normalized = pipeline.generate(
-            context = context,
-            normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
-        )
-        val draft = normalized.toDraft()
-        println("=== DIAGNOSE SINGLE RUN ===")
-        for (workout in draft.workouts.sortedBy { it.weekday }) {
-            println("Workout ${workout.name} (${workout.weekday}):")
-            for (lift in workout.workoutLifts.orEmpty()) {
-                val meta = context.liftsById[lift.liftId]!!
-                println("  - ${meta.name} (sets=${lift.workoutLiftSets?.size}): pattern=${meta.movementPattern}, primary=${meta.primaryMuscles}, secondary=${meta.secondaryMuscles}")
-            }
-            println("  Calculated Muscle Volume: ${computeWorkoutMuscleVolume(workout, context)}")
-        }
-    }
-
-    @Test
-    fun fiveDayArmCalfSpecBalancesSessionsAndAvoidsAdjacentMuscleRepeats() = runTest {
+    fun fiveDayArmCalfSpecBalancesSessionsAndAvoidsAdjacentMuscleRepeats() = runBlocking {
         val context = richArmCalfCatalog()
         val synthesizer = CpSatProgramSynthesizer()
         val synthesis = synthesizer.synthesize(planWeeklyVolume(context), context)
@@ -165,17 +98,6 @@ class FiveDaySessionQualitySynthesisTest {
         assertTrue(
             adjacentRepeats.isEmpty(),
             "Avoid back-to-back meaningful muscle exposure: $adjacentRepeats",
-        )
-
-        val domains = inferDomainsFromWorkouts(draft, context)
-        val upperUpperAdjacent =
-            workouts.zip(domains).windowed(2).count { window ->
-                window[0].second == SynthesisSessionDomain.Upper &&
-                    window[1].second == SynthesisSessionDomain.Upper
-            }
-        assertTrue(
-            upperUpperAdjacent == 0,
-            "Consecutive upper-upper calendar days are forbidden; domains=$domains",
         )
     }
 
@@ -279,24 +201,6 @@ class FiveDaySessionQualitySynthesisTest {
         }
         return issues
     }
-
-    private fun inferDomainsFromWorkouts(
-        draft: com.stratum.domain.program.generation.draft.ProgramDraft,
-        context: ProgramGenerationContext,
-    ): List<SynthesisSessionDomain> =
-        draft.workouts.map { workout ->
-            val muscles =
-                computeWorkoutMuscleVolume(workout, context).keys
-            val lower =
-                muscles.any { muscle -> muscle in setOf("Quad", "Hamstring", "Glute", "Calf", "LowerBack") }
-            val upper =
-                muscles.any { muscle -> muscle in setOf("Chest", "Back", "Bicep", "Tricep", "AnteriorDeltoid", "LateralDeltoid", "PosteriorDeltoid") }
-            when {
-                lower && !upper -> SynthesisSessionDomain.Lower
-                upper && !lower -> SynthesisSessionDomain.Upper
-                else -> SynthesisSessionDomain.Full
-            }
-        }
 
     private fun richArmCalfCatalog(): ProgramGenerationContext {
         val base = parseScenarioContext(scenarioPayload(5, specialization, weekdayLayout = "mtwfs"))

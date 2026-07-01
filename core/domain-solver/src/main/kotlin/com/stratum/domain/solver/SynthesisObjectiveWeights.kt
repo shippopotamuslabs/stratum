@@ -3,6 +3,13 @@ package com.stratum.domain.solver
 /**
  * Tiered objective weights. Each tier is separated by ~10× so lower tiers cannot
  * compensate for violations in higher tiers (lexicographic behavior in one sum).
+ *
+ * Role/specialization minimums and min-sets-per-active-slot are HARD constraints
+ * (see `addRoleMinimumConstraints` / `addMinSetsPerActiveSlot`), so they no longer
+ * appear as objective terms. Fill/imbalance sit strictly below `SPECIALIZED_MEV_SHORTFALL`
+ * so volume targets win over filling (G4). Specialize aim ≥ maintenance aim so
+ * specialized muscles are pushed toward MRV (G6). `SLOT_ACTIVATION_COUNT` consolidates
+ * equal-credit optima toward fewer, higher-set lifts (G5).
  */
 internal object SynthesisObjectiveWeights {
     const val RECOVERY_PRIORITY = 1_000_000L
@@ -16,13 +23,17 @@ internal object SynthesisObjectiveWeights {
     const val ANTAGONIST_WRONG_WAY_EXCESS = 8_000L
     /** Mild penalty when the preferred direction is heavier: back > chest, ham > quad. */
     const val ANTAGONIST_RIGHT_WAY_EXCESS = 300L
-    const val SPECIALIZE_AIM_DEVIATION = 100L
+    /** Specialized muscles are pushed toward MRV aim — ≥ maintenance so spec wins (G6). */
+    const val SPECIALIZE_AIM_DEVIATION = 2_000L
     const val MINIMUM_VOLUME_AIM_DEVIATION = 80L
     /** Maintenance PV targets must compete with session-fill and specialization slacks. */
     const val MAINTENANCE_AIM_DEVIATION = 2_000L
-    const val ROLE_MINIMUM_SHORTFALL = 50L
+    /** Consolidation: penalize each active slot so ties collapse to fewer, higher-set lifts (G5). */
+    const val SLOT_ACTIVATION_COUNT = 300L
     const val OPTIONAL_SLOT_INACTIVE_PREFERENCE = 20L
     const val PUSH_PULL_IMBALANCE = 1L
-    const val SESSION_FILL_SHORTFALL = 50_000L
-    const val SESSION_SET_IMBALANCE = 25_000L
+    /** Session fill sits below MEV so volume targets win over filling (G4). */
+    const val SESSION_FILL_SHORTFALL = 5_000L
+    /** Session set balance sits below MEV (G4). */
+    const val SESSION_SET_IMBALANCE = 2_500L
 }

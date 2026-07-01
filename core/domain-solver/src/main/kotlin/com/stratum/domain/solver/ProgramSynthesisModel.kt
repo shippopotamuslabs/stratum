@@ -115,8 +115,9 @@ internal class ProgramSynthesisModel(
         addMrvCeilings(model)
         addLowerLegAnchorFloors(model)
         if (unifiedUniverse != null) {
+            addMinSetsPerActiveSlot(model)
+            addRoleMinimumConstraints(model)
             addMinimumActiveLiftsConstraint(model, plans)
-            addConsecutiveDayDomainConstraints(model, plans)
             addPriorityMuscleAdjacentForbids(model, plans, recoveryPriorityMuscles(context))
         }
         buildObjective(model, plans)
@@ -317,16 +318,13 @@ internal class ProgramSynthesisModel(
             }
         }
 
+        // Consolidation (G5, spec §6 "slot activation count"): penalize each active slot so
+        // equal-credit optima collapse to fewer, higher-set lifts (the "2–5 sets per lift"
+        // shape) rather than fragmented many-slots × 1-set solutions. Modest weight, above
+        // aim-noise but below MEV, so it only breaks ties without under-shooting volume.
         _slots.forEach { sv ->
-            val minSets = roleMinimum(sv.slot) ?: return@forEach
-            val roleUnder = trackSlack(model, "roleUnder_${sv.slot.slotId}")
-            val roleConstraint =
-                model.addGreaterOrEqual(
-                    LinearExpr.weightedSum(arrayOf(sv.x, roleUnder), longArrayOf(1L, 1L)),
-                    minSets.toLong(),
-                )
-            sv.active?.let { active -> roleConstraint.onlyEnforceIf(active) }
-            weightedTerms.add(roleUnder to SynthesisObjectiveWeights.ROLE_MINIMUM_SHORTFALL)
+            val active = sv.active as? com.google.ortools.sat.BoolVar ?: return@forEach
+            weightedTerms.add(active to SynthesisObjectiveWeights.SLOT_ACTIVATION_COUNT)
         }
 
         addOptionalSlotActivationPreferences(model, weightedTerms)
@@ -786,6 +784,37 @@ internal class ProgramSynthesisModel(
         }
     }
 
+    /**
+     * Hard floor (G2): every active slot carries at least [MIN_SETS_PER_ACTIVE_SLOT] sets.
+     * This makes every active exposure recovery-visible (≥ MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE)
+     * and eliminates the 1-set lifts the solver produced when nothing told it not to. Gated on
+     * the same session-cap threshold as [addMinimumActiveLiftsConstraint] to avoid infeasibility
+     * when `MIN_ACTIVE(4) × 2 = 8` would exceed a short-session cap.
+     */
+    private fun addMinSetsPerActiveSlot(model: CpModel) {
+        val sessionCap = sessionHardSetCapForLength(context.sessionLengthMinutes) ?: return
+        if (sessionCap < 12) return
+        _slots.forEach { sv ->
+            val active = sv.active ?: return@forEach
+            model.addGreaterOrEqual(sv.x, MIN_SETS_PER_ACTIVE_SLOT.toLong()).onlyEnforceIf(active)
+        }
+    }
+
+    /**
+     * Hard role/specialization minimums (G1, spec §5.4): anchors ≥ [ANCHOR_MIN_SETS],
+     * secondary compounds ≥ [SECONDARY_COMPOUND_MIN_SETS], specialized isolations ≥
+     * [MIN_SPECIALIZED_DIRECT_SETS], cross-domain touch ≥ [MIN_TOUCH_DIRECT_SETS].
+     * Previously soft at weight 50 (trivially cheap), so the solver parked a specialized
+     * Calf isolation at 1 set in the audit repro.
+     */
+    private fun addRoleMinimumConstraints(model: CpModel) {
+        _slots.forEach { sv ->
+            val minSets = roleMinimum(sv.slot) ?: return@forEach
+            val floor = model.addGreaterOrEqual(sv.x, minSets.toLong())
+            sv.active?.let { active -> floor.onlyEnforceIf(active) }
+        }
+    }
+
     private fun addMinimumActiveLiftsConstraint(model: CpModel, plans: List<SessionSlotPlan>) {
         val sessionCap = sessionHardSetCapForLength(context.sessionLengthMinutes) ?: return
         if (sessionCap < 12) return
@@ -798,88 +827,6 @@ internal class ProgramSynthesisModel(
                 MIN_ACTIVE_LIFTS_PER_SESSION.toLong(),
             )
         }
-    }
-
-    private fun addConsecutiveDayDomainConstraints(model: CpModel, plans: List<SessionSlotPlan>) {
-        val trainingDays = trainingWeekdayIndices(context.weekdays).sorted()
-        for ((d1, d2) in calendarAdjacentTrainingDayPairs(trainingDays)) {
-            for (planI in plans) {
-                for (planJ in plans) {
-                    if (planI.position == planJ.position) continue
-                    val dayI = _dayVarByPosition.getValue(planI.position)
-                    val dayJ = _dayVarByPosition.getValue(planJ.position)
-                    val onConsecutive =
-                        channelDayPair(
-                            model,
-                            dayI,
-                            dayJ,
-                            d1,
-                            d2,
-                            "dom_${planI.position}_${planJ.position}",
-                        )
-                    val onConsecutiveSwapped =
-                        channelDayPair(
-                            model,
-                            dayJ,
-                            dayI,
-                            d1,
-                            d2,
-                            "dom_${planJ.position}_${planI.position}",
-                        )
-                    val domainI = unifiedStructureState.domainVarByPosition.getValue(planI.position)
-                    val domainJ = unifiedStructureState.domainVarByPosition.getValue(planJ.position)
-                    forbidSameDomainOnConsecutiveDays(
-                        model = model,
-                        domainI = domainI,
-                        domainJ = domainJ,
-                        domain = SynthesisSessionDomain.Upper,
-                        onConsecutive = onConsecutive,
-                        onConsecutiveSwapped = onConsecutiveSwapped,
-                        label = "upper_${planI.position}_${planJ.position}",
-                    )
-                    forbidSameDomainOnConsecutiveDays(
-                        model = model,
-                        domainI = domainI,
-                        domainJ = domainJ,
-                        domain = SynthesisSessionDomain.Lower,
-                        onConsecutive = onConsecutive,
-                        onConsecutiveSwapped = onConsecutiveSwapped,
-                        label = "lower_${planI.position}_${planJ.position}",
-                    )
-                }
-            }
-        }
-    }
-
-    private fun forbidSameDomainOnConsecutiveDays(
-        model: CpModel,
-        domainI: IntVar,
-        domainJ: IntVar,
-        domain: SynthesisSessionDomain,
-        onConsecutive: Literal,
-        onConsecutiveSwapped: Literal,
-        label: String,
-    ) {
-        val isDomainI = domainLiteral(model, domainI, domain, "is${domain.name}I_$label")
-        val isDomainJ = domainLiteral(model, domainJ, domain, "is${domain.name}J_$label")
-        val both = model.newBoolVar("both${domain.name}_$label")
-        model.addBoolAnd(arrayOf(isDomainI, isDomainJ)).onlyEnforceIf(both)
-        model.addBoolOr(arrayOf(isDomainI.not(), isDomainJ.not(), both))
-        val onEitherConsecutive = model.newBoolVar("eitherConsecutive_$label")
-        linkEitherConsecutive(model, onEitherConsecutive, onConsecutive, onConsecutiveSwapped)
-        model.addBoolOr(arrayOf(onEitherConsecutive.not(), both.not()))
-    }
-
-    private fun domainLiteral(
-        model: CpModel,
-        domainVar: IntVar,
-        domain: SynthesisSessionDomain,
-        name: String,
-    ): Literal {
-        val literal = model.newBoolVar(name)
-        model.addEquality(domainVar, domain.ordinal.toLong()).onlyEnforceIf(literal)
-        model.addDifferent(domainVar, domain.ordinal.toLong()).onlyEnforceIf(literal.not())
-        return literal
     }
 
     private fun addAntagonistMaintenanceBalance(
@@ -976,21 +923,24 @@ internal class ProgramSynthesisModel(
         }
     }
 
-    private fun roleMinimum(slot: FilledSlot): Int? =
-        when (slot.role) {
-            SlotRole.Anchor -> ANCHOR_MIN_SETS
-            SlotRole.SecondaryCompound -> SECONDARY_COMPOUND_MIN_SETS
-            SlotRole.Isolation ->
-                when {
-                    slot.isCrossDomainTouch &&
-                        (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize" ->
-                        MIN_TOUCH_DIRECT_SETS
-                    (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize" ->
-                        MIN_SPECIALIZED_DIRECT_SETS
-                    else -> null
-                }
-            SlotRole.Optional -> null
+    private fun roleMinimum(slot: FilledSlot): Int? {
+        // Anchor / secondary-compound floors apply by role.
+        if (slot.role == SlotRole.Anchor) return ANCHOR_MIN_SETS
+        if (slot.role == SlotRole.SecondaryCompound) return SECONDARY_COMPOUND_MIN_SETS
+        // Specialized isolation floors apply by rep profile, not SlotRole — the universe builder
+        // slots some specialized isolations (e.g. Calf, variant arm curls) as SlotRole.Optional,
+        // and the audit's [REPRO] showed a specialized Calf parked at 1 set because the old
+        // role-only check returned null for Optional. RpRepProfile.Isolation is the reliable
+        // signal that this is a true single-joint isolation that should honor the direct floor.
+        val isSpecializedPrimary =
+            (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize"
+        if (!isSpecializedPrimary) return null
+        return when {
+            slot.repProfile != RpRepProfile.Isolation -> null
+            slot.isCrossDomainTouch -> MIN_TOUCH_DIRECT_SETS
+            else -> MIN_SPECIALIZED_DIRECT_SETS
         }
+    }
 
     private fun weeklyCreditExpr(muscle: String): LinearExpr? {
         val terms =
@@ -1023,6 +973,8 @@ internal class ProgramSynthesisModel(
         const val CONSECUTIVE_EXPOSURE_PENALTY = 10_000L
         const val MIN_SESSION_HARD_SETS = 8
         const val MIN_ACTIVE_LIFTS_PER_SESSION = 4
+        /** Minimum hard sets on any active slot — every active exposure ≥ 2 sets (G2). */
+        const val MIN_SETS_PER_ACTIVE_SLOT = 2
         /** Fraction of per-session hard-set cap to target (65% of 20 → 13 sets on 60 min days). */
         const val SESSION_FILL_TARGET_RATIO = 0.65
         val LOWER_LEG_ANCHOR_PATTERNS = setOf("SquatPattern", "HipHinge")

@@ -9,14 +9,14 @@ import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** Locks calf + tricep 5-day specialization: PV maintenance delivery and session fill on 60 min days. */
 class CalfTricepSpecDiagnosticTest {
     @Test
-    fun calfTricepFiveDaySixtyMinuteDeliversPvMaintenanceAndFillsSessions() = runTest {
+    fun calfTricepFiveDaySixtyMinuteDeliversPvMaintenanceAndFillsSessions() = runBlocking {
         val specialization = mapOf("Calf" to "Specialize", "Tricep" to "Specialize")
         val context =
             parseScenarioContext(
@@ -67,7 +67,7 @@ class CalfTricepSpecDiagnosticTest {
     }
 
     @Test
-    fun armCalfTricepFiveDaySixtyMinuteKeepsMaintenanceNearPv() = runTest {
+    fun armCalfTricepFiveDaySixtyMinuteKeepsMaintenanceNearPv() = runBlocking {
         val specialization =
             mapOf(
                 "Calf" to "Specialize",

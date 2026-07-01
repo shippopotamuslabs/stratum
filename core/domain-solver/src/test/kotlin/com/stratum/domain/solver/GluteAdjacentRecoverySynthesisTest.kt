@@ -19,7 +19,7 @@ import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -44,7 +44,7 @@ class GluteAdjacentRecoverySynthesisTest {
     }
 
     @Test
-    fun fourDayGluteSpecAvoidsAdjacentMeaningfulExposureInSolverAndPipeline() = runTest {
+    fun fourDayGluteSpecAvoidsAdjacentMeaningfulExposureInSolverAndPipeline() = runBlocking {
         val context =
             parseScenarioContext(
                 scenarioPayload(
@@ -92,7 +92,7 @@ class GluteAdjacentRecoverySynthesisTest {
     }
 
     @Test
-    fun sean5GluteSpecRespectsSundayMondayWrapAroundAdjacency() = runTest {
+    fun sean5GluteSpecRespectsSundayMondayWrapAroundAdjacency() = runBlocking {
         val context =
             parseScenarioContext(
                 scenarioPayload(

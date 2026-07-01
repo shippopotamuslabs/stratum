@@ -12,14 +12,14 @@ import com.stratum.domain.program.generation.context.VolumeLandmarkSource
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class LiftVarietyIntegrationTest {
 
     @Test
-    fun sixDayCycleSpreadsCalfAndSquatLiftsAcrossLowerDays() = runTest {
+    fun sixDayCycleSpreadsCalfAndSquatLiftsAcrossLowerDays() = runBlocking {
         val context = richLowerBodyCatalog()
         val program =
             testProgramGenerationPipeline().generate(

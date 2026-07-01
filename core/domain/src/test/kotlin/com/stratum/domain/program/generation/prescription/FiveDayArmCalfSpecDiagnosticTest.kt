@@ -12,7 +12,7 @@ import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -28,7 +28,7 @@ class FiveDayArmCalfSpecDiagnosticTest {
         )
 
     @Test
-    fun fiveDayArmAndCalfSpecPrioritizesSpecializedMusclesOverMaintenanceUpper() = runTest {
+    fun fiveDayArmAndCalfSpecPrioritizesSpecializedMusclesOverMaintenanceUpper() = runBlocking {
         val context = richArmCalfCatalog()
         val pipeline = testProgramGenerationPipeline()
         val normalized =

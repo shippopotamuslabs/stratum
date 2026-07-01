@@ -8,14 +8,14 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class CalfSpecializationLowerDayTest {
 
     @Test
-    fun calfAndArmSpecLowerDaysRetainSquatAndHingeVolume() = runTest {
+    fun calfAndArmSpecLowerDaysRetainSquatAndHingeVolume() = runBlocking {
         val specialization =
             mapOf(
                 "Calf" to "Specialize",
@@ -27,7 +27,7 @@ class CalfSpecializationLowerDayTest {
     }
 
     @Test
-    fun sixDayCalfAndArmSpecLowerDaysRetainSquatAndHingeVolume() = runTest {
+    fun sixDayCalfAndArmSpecLowerDaysRetainSquatAndHingeVolume() = runBlocking {
         val specialization =
             mapOf(
                 "Calf" to "Specialize",
@@ -39,7 +39,7 @@ class CalfSpecializationLowerDayTest {
     }
 
     @Test
-    fun thirtyMinuteSessionCalfSpecLowerDaysRetainLegAnchors() = runTest {
+    fun thirtyMinuteSessionCalfSpecLowerDaysRetainLegAnchors() = runBlocking {
         val specialization =
             mapOf(
                 "Calf" to "Specialize",

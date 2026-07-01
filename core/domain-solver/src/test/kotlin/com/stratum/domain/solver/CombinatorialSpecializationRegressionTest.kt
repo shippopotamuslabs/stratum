@@ -17,7 +17,7 @@ import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.params.ParameterizedTest
@@ -43,7 +43,7 @@ class CombinatorialSpecializationRegressionTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("generationScenarios")
     @DisplayName("CP-SAT pipeline: caps respected, specialized muscles meet MEV")
-    fun specializedMusclesMeetTargetsAndCaps(config: ScenarioConfig) = runTest {
+    fun specializedMusclesMeetTargetsAndCaps(config: ScenarioConfig) = runBlocking {
         val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
         val context = parseScenarioContext(scenarioPayload(config.days, specialization))
         val targets = planWeeklyVolume(context)

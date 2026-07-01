@@ -15,6 +15,13 @@ class PatternSecondaryMuscleCreditsTest {
         val hingeSecondaries = PATTERN_SECONDARY_MUSCLE_CREDITS.getValue("HipHinge")
         assertTrue(hingeSecondaries.any { credit -> credit.muscle == "Glute" })
         assertTrue(hingeSecondaries.any { credit -> credit.muscle == "LowerBack" })
+        // G7a: hip hinges (RDL/stiff-leg) drive hamstring secondary credit so solver recovery
+        // accounting matches lift metadata — closes the credit-divergence gap.
+        assertTrue(hingeSecondaries.any { credit -> credit.muscle == "Hamstring" })
+        assertEquals(
+            SECONDARY_SET_CREDIT,
+            hingeSecondaries.first { it.muscle == "Hamstring" }.creditPerSet,
+        )
     }
 
     @Test
