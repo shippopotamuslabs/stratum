@@ -271,6 +271,127 @@ class AntagonistMaintenanceBalanceTest {
         )
     }
 
+    /**
+     * Upper-body maintenance parity: when all five upper-body muscles (Chest, Back, Bicep, Tricep,
+     * LateralDeltoid) are Maintenance on a 5-day split, no single muscle should float to its
+     * maintenance ceiling while the rest sit near PV. LateralDeltoid is the typical outlier — it
+     * has no secondary-credit path, so session-fill pressure used to push it to its 18.0 ceiling
+     * while Chest/Back sat at their 12.0 ceiling (spread 6.0). The parity term should pull the
+     * group within a tight cluster.
+     *
+     * Uses [lateralDivergenceCatalog] — a catalog where LateralDeltoid has a higher maintenance
+     * ceiling (18) than Chest/Back (12), reproducing the user-reported "lateral delts got 16,
+     * chest/back got 9" drift. The default scenario fixture (uniform literature snapshots) maxes
+     * every muscle at the same ceiling and so never triggers the divergence.
+     */
+    @Test
+    fun fiveDayMaintenanceKeepsUpperBodyGroupBalanced() = runBlocking {
+        val context = lateralDivergenceCatalog()
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
+        val normalized =
+            pipeline.generate(
+                context = context,
+                normalizationRequest = context.toProgramNormalizationRequest(),
+                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+            )
+        val draft = normalized.toDraft()
+        val weekly = weeklyMuscleVolume(draft, context)
+        val group = listOf("Chest", "Back", "Bicep", "Tricep", "LateralDeltoid")
+        val volumes = group.map { muscle -> weekly[muscle] ?: 0.0 }
+        val spread = (volumes.maxOrNull() ?: 0.0) - (volumes.minOrNull() ?: 0.0)
+        val chest = weekly["Chest"] ?: 0.0
+        val back = weekly["Back"] ?: 0.0
+        val lateral = weekly["LateralDeltoid"] ?: 0.0
+
+        assertTrue(
+            spread <= 3.0,
+            "Upper-body maintenance group should stay within a 3-set spread when all are Maintenance: " +
+                "spread=$spread volumes=${group.zip(volumes).toMap()} weekly=$weekly",
+        )
+        assertTrue(
+            lateral <= chest + 3.0,
+            "LateralDeltoid ($lateral) should not outrun Chest ($chest) by more than 3 sets " +
+                "when both are Maintenance: weekly=$weekly",
+        )
+        assertTrue(
+            lateral <= back + 3.0,
+            "LateralDeltoid ($lateral) should not outrun Back ($back) by more than 3 sets " +
+                "when both are Maintenance: weekly=$weekly",
+        )
+    }
+
+    /**
+     * Catalog where LateralDeltoid has a higher maintenance ceiling (18) than Chest/Back (12),
+     * reproducing the user-reported lateral-delt drift. Without the parity term, the solver pushes
+     * lateral to 18 (its ceiling) while Chest/Back sit at 12 — a 6-set spread. With the parity term,
+     * all five upper-body muscles cluster at 12.
+     */
+    private fun lateralDivergenceCatalog(): ProgramGenerationContext {
+        fun lift(id: String, name: String, pattern: String, primary: List<String>, secondary: List<String> = emptyList()) =
+            LiftContext(
+                id = id,
+                name = name,
+                movementPattern = pattern,
+                movementPatterns = listOf(pattern),
+                primaryMuscles = primary,
+                secondaryMuscles = secondary,
+                proven = true,
+            )
+        val lifts = listOf(
+            lift("bench", "Bench Press", "HorizontalPress", listOf("Chest"), listOf("Tricep", "AnteriorDeltoid")),
+            lift("inc-press", "Incline Press", "InclinePress", listOf("Chest"), listOf("AnteriorDeltoid", "Tricep")),
+            lift("row", "Barbell Row", "HorizontalPull", listOf("Back"), listOf("Bicep", "PosteriorDeltoid")),
+            lift("pullup", "Pullup", "VerticalPull", listOf("Back"), listOf("Bicep")),
+            lift("back-squat", "Barbell Back Squat", "SquatPattern", listOf("Quad"), listOf("Glute", "LowerBack")),
+            lift("front-squat", "Barbell Front Squat", "SquatPattern", listOf("Quad"), listOf("Glute")),
+            lift("leg-ext", "Leg Extension", "KneeExtension", listOf("Quad")),
+            lift("rdl", "Romanian Deadlift", "HipHinge", listOf("Hamstring"), listOf("Glute", "LowerBack")),
+            lift("leg-curl", "Leg Curl", "KneeFlexion", listOf("Hamstring")),
+            lift("hip-thrust", "Hip Thrust", "HipExtension", listOf("Glute"), listOf("Hamstring")),
+            lift("calf-raise", "Calf Raise", "PlantarFlexion", listOf("Calf")),
+            lift("lat-raise", "Lateral Raise", "ShoulderAbduction", listOf("LateralDeltoid")),
+            lift("ohp", "Overhead Press", "VerticalPress", listOf("AnteriorDeltoid"), listOf("Tricep")),
+            lift("curl", "Curl", "ElbowFlexion", listOf("Bicep")),
+            lift("tricep-ext", "Tricep Extension", "ElbowExtension", listOf("Tricep")),
+        )
+        val landmarks = listOf(
+            vlc("Chest", 8.0, 12.0, 20.0, 10.0),
+            vlc("Back", 8.0, 12.0, 20.0, 10.0),
+            vlc("Quad", 11.0, 14.0, 20.0, 12.8),
+            vlc("Hamstring", 6.0, 10.0, 16.0, 8.4),
+            vlc("Glute", 6.0, 10.0, 16.0, 8.4),
+            vlc("Calf", 8.0, 12.0, 22.0, 9.6),
+            vlc("Tricep", 6.0, 14.0, 18.0, 10.0),
+            vlc("Bicep", 6.0, 14.0, 22.0, 10.0),
+            vlc("LateralDeltoid", 6.0, 18.0, 18.0, 12.0),
+            vlc("PosteriorDeltoid", 6.0, 11.0, 18.0, 9.0),
+            vlc("AnteriorDeltoid", 6.0, 11.0, 18.0, 9.0),
+            vlc("LowerBack", 0.0, 8.0, 14.0, 4.0),
+        )
+        val liftsById = linkedMapOf<String, LiftContext>()
+        val enabledIds = mutableSetOf<String>()
+        val patternById = linkedMapOf<String, String>()
+        for (l in lifts) {
+            liftsById[l.id] = l
+            enabledIds += l.id
+            patternById[l.id] = l.movementPattern
+        }
+        return ProgramGenerationContext(
+            trainingAge = "Advanced",
+            lastTrained = null,
+            sessionLengthMinutes = 75,
+            trainingDaysPerWeek = 5,
+            weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday", "Saturday"),
+            specialization = emptyMap(),
+            liftsById = liftsById,
+            muscleVolumeSnapshotsByMuscle = landmarks.associateBy { it.muscle },
+            volumeCorrelationsByMuscle = emptyMap(),
+            enabledLiftIds = enabledIds,
+            movementPatternByLiftId = patternById,
+            liftEffectivenessByLiftId = emptyMap(),
+        )
+    }
+
     private fun weeklyMuscleVolume(
         draft: ProgramDraft,
         context: ProgramGenerationContext,
