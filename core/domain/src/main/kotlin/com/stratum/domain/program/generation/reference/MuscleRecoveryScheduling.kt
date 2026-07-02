@@ -42,18 +42,28 @@ fun dominantStressClassForWorkout(
 /**
  * Minimum calendar day-index gap between two meaningful sessions. Gates on both doses ≥
  * [MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE]; debt is priced from the earlier session's dose and class.
+ *
+ * @param muscle the muscle receiving the dose; passed through to the muscle-mass penalty so
+ *  isolation lifts on large compound muscles (Quad/Hamstring/Glute/Chest/Back) get the +12h
+ *  Low-tier surcharge. `null` keeps the pre-penalty baseline.
+ * @param earlierMuscleLengthBias length bias of the earlier session's contributing lift; drives
+ *  the lengthened-state surcharge on `KneeFlexion` (seated curl). `null` = no surcharge.
  */
 fun minimumRecoveryGapBetweenSessions(
     earlierDose: Double,
     laterDose: Double,
     earlierStressClass: LiftStressClass,
+    muscle: String? = null,
+    earlierMuscleLengthBias: String? = null,
 ): Int {
     if (earlierDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE ||
         laterDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
     ) {
         return 0
     }
-    return minimumRecoveryCalendarGap(MuscleSessionStress(earlierDose, earlierStressClass))
+    return minimumRecoveryCalendarGap(
+        MuscleSessionStress(earlierDose, earlierStressClass, muscle, earlierMuscleLengthBias),
+    )
 }
 
 /** Wrap-around calendar gap between weekday indices (Mon=0 … Sun=6). */
@@ -77,6 +87,8 @@ fun muscleRecoveryGapViolated(
         earlier.fractionalSets,
         laterDose,
         earlier.stressClass,
+        muscle = earlier.muscle,
+        earlierMuscleLengthBias = earlier.muscleLengthBias,
     )
     return required > 0 && calendarGap < required
 }

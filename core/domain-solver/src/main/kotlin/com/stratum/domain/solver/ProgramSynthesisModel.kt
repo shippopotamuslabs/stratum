@@ -28,6 +28,7 @@ import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
 import com.stratum.domain.program.generation.reference.calendarDayPairsWithMaxGap
 import com.stratum.domain.program.generation.reference.calendarGapBetweenDays
+import com.stratum.domain.program.generation.reference.isLargeCompoundMuscle
 import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGap
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.split.SlotRole
@@ -374,6 +375,21 @@ internal class ProgramSynthesisModel(
             // Per-raw-set weight: scale by the credit scale so it stays proportional to the
             // credit-denominated aim/min weights (scale-invariance across SCALE changes).
             weightedTerms.add(active to SynthesisObjectiveWeights.SLOT_ACTIVATION_COUNT * coefficients.scale)
+        }
+
+        // Lower-body anchor activation bonus: reward activating SquatPattern/HipHinge anchors so
+        // the solver prefers to fire them rather than leaving the compound slot inactive and
+        // letting the cheap `quad-iso`/`ham-iso` isolation slots carry all the muscle's volume
+        // (the Bug #2 symptom: Leg Extension as the sole quad work). The bonus outweighs the
+        // SLOT_ACTIVATION_COUNT penalty (net −150 × scale per lower anchor) so the solver actively
+        // wants them active, but stays far below recovery/aim weights so it won't override volume
+        // targets or force infeasible recovery spacing. Soft, not hard — the solver can still
+        // skip a lower anchor when recovery spacing genuinely can't accommodate it.
+        _slots.forEach { sv ->
+            if (sv.slot.role != SlotRole.Anchor) return@forEach
+            if (sv.slot.pattern !in LOWER_LEG_ANCHOR_PATTERNS) return@forEach
+            val active = sv.active as? com.google.ortools.sat.BoolVar ?: return@forEach
+            weightedTerms.add(active to SynthesisObjectiveWeights.LOWER_ANCHOR_ACTIVATION_BONUS * coefficients.scale)
         }
 
         addMaintenanceRearDeltDirectDiscouragement(model, weightedTerms)
@@ -833,16 +849,22 @@ internal class ProgramSynthesisModel(
             val moderateTier = moderateDoseTierLiteral(model, credit, muscle, plan.position)
             val highTier = highDoseLiteral(model, credit, muscle, plan.position)
             val gates =
-                listOf(
-                    reifyAndLiteral(model, moderateTier, isolationClass, "adj2d_isoMod_${muscle}_${plan.position}"),
-                    reifyAndLiteral(model, highTier, isolationClass, "adj2d_isoHi_${muscle}_${plan.position}"),
-                    reifyAndLiteral(model, lowTier, upperCompoundClass, "adj2d_ucLo_${muscle}_${plan.position}"),
-                    reifyAndLiteral(model, moderateTier, upperCompoundClass, "adj2d_ucMod_${muscle}_${plan.position}"),
-                    reifyAndLiteral(model, highTier, upperCompoundClass, "adj2d_ucHi_${muscle}_${plan.position}"),
-                    reifyAndLiteral(model, lowTier, heavyAxialClass, "adj2d_haLo_${muscle}_${plan.position}"),
-                    reifyAndLiteral(model, moderateTier, heavyAxialClass, "adj2d_haMod_${muscle}_${plan.position}"),
-                    reifyAndLiteral(model, highTier, heavyAxialClass, "adj2d_haHi_${muscle}_${plan.position}"),
-                )
+                buildList {
+                    // Muscle-mass penalty: Isolation Low on a large compound muscle (Quad/Hamstring/
+                    // Glute/Chest/Back) recovers in 36h → calendar gap 2 → adjacent-day forbid.
+                    // Small-muscle isolation Low (bicep curl, calf raise) stays at 24h / gap 1.
+                    if (isLargeCompoundMuscle(muscle)) {
+                        add(reifyAndLiteral(model, lowTier, isolationClass, "adj2d_isoLo_${muscle}_${plan.position}"))
+                    }
+                    add(reifyAndLiteral(model, moderateTier, isolationClass, "adj2d_isoMod_${muscle}_${plan.position}"))
+                    add(reifyAndLiteral(model, highTier, isolationClass, "adj2d_isoHi_${muscle}_${plan.position}"))
+                    add(reifyAndLiteral(model, lowTier, upperCompoundClass, "adj2d_ucLo_${muscle}_${plan.position}"))
+                    add(reifyAndLiteral(model, moderateTier, upperCompoundClass, "adj2d_ucMod_${muscle}_${plan.position}"))
+                    add(reifyAndLiteral(model, highTier, upperCompoundClass, "adj2d_ucHi_${muscle}_${plan.position}"))
+                    add(reifyAndLiteral(model, lowTier, heavyAxialClass, "adj2d_haLo_${muscle}_${plan.position}"))
+                    add(reifyAndLiteral(model, moderateTier, heavyAxialClass, "adj2d_haMod_${muscle}_${plan.position}"))
+                    add(reifyAndLiteral(model, highTier, heavyAxialClass, "adj2d_haHi_${muscle}_${plan.position}"))
+                }
             if (gates.isEmpty()) {
                 val absent = model.newBoolVar("reqTwoDay_${muscle}_${plan.position}")
                 model.addEquality(absent, 0)
@@ -912,7 +934,17 @@ internal class ProgramSynthesisModel(
         for ((index, spec) in penaltySpecs.withIndex()) {
             val required =
                 minimumRecoveryCalendarGap(
-                    MuscleSessionStress(spec.representativeDose, spec.stressClass),
+                    MuscleSessionStress(
+                        fractionalSets = spec.representativeDose,
+                        stressClass = spec.stressClass,
+                        // Muscle-aware soft penalty: applies the +12h Low-tier surcharge for
+                        // isolation lifts on large compound muscles (Quad/Hamstring/Glute/Chest/Back)
+                        // so e.g. Leg Extension at 2 sets prices at 36h, not 24h. The lengthened-state
+                        // surcharge is not priced here because this layer prices representative
+                        // dose-tier × stress-class combos without lift metadata; the hard-forbid and
+                        // post-solver repair paths carry the length bias directly.
+                        muscle = muscle,
+                    ),
                 )
             if (required <= 0 || calendarGap >= required) continue
             val shortfall = required - calendarGap

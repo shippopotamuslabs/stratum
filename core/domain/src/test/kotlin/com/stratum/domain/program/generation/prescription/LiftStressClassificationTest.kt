@@ -1,5 +1,6 @@
 package com.stratum.domain.program.generation.prescription
 
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.reference.LiftStressClass
 import com.stratum.domain.program.generation.reference.RpRepProfile
@@ -142,5 +143,96 @@ class LiftStressClassificationTest {
                 liftName = "Smith Machine Squat",
             ),
         )
+    }
+
+    // --- KinematicProfile → LiftStressClass mapping (Bug #2 refactor) ---
+
+    @Test
+    @DisplayName("kinematicProfileToStressClass maps AxialCompound to HeavyAxial")
+    fun axialCompoundMapsToHeavyAxial() {
+        assertEquals(LiftStressClass.HeavyAxial, kinematicProfileToStressClass(KinematicProfile.AxialCompound.name))
+    }
+
+    @Test
+    @DisplayName("kinematicProfileToStressClass maps NonAxialCompound to UpperCompound")
+    fun nonAxialCompoundMapsToUpperCompound() {
+        assertEquals(LiftStressClass.UpperCompound, kinematicProfileToStressClass(KinematicProfile.NonAxialCompound.name))
+    }
+
+    @Test
+    @DisplayName("kinematicProfileToStressClass maps Isolation to Isolation")
+    fun isolationMapsToIsolation() {
+        assertEquals(LiftStressClass.Isolation, kinematicProfileToStressClass(KinematicProfile.Isolation.name))
+    }
+
+    @Test
+    @DisplayName("kinematicProfileToStressClass defaults unknown string to Isolation")
+    fun unknownProfileDefaultsToIsolation() {
+        assertEquals(LiftStressClass.Isolation, kinematicProfileToStressClass("Unknown"))
+    }
+
+    @Test
+    @DisplayName("classifyLiftStressClass(LiftContext) uses kinematicProfile, not pattern/name heuristic")
+    fun classifyLiftStressClassByLiftContextUsesKinematicProfile() {
+        // Leg press is SquatPattern but NonAxialCompound — must classify as UpperCompound, not HeavyAxial.
+        val legPress = LiftContext(
+            id = "sled-leg-press",
+            name = "Sled Leg Press",
+            movementPattern = "SquatPattern",
+            movementPatterns = listOf("SquatPattern"),
+            primaryMuscles = listOf("Quad"),
+            secondaryMuscles = listOf("Calf", "Glute"),
+            proven = true,
+            kinematicProfile = KinematicProfile.NonAxialCompound.name,
+        )
+        assertEquals(LiftStressClass.UpperCompound, classifyLiftStressClass(legPress))
+    }
+
+    @Test
+    @DisplayName("classifyLiftStressClass(LiftContext) maps AxialCompound barbell squat to HeavyAxial")
+    fun classifyLiftStressClassByLiftContextAxialSquat() {
+        val backSquat = LiftContext(
+            id = "barbell-back-squat",
+            name = "Barbell Back Squat",
+            movementPattern = "SquatPattern",
+            movementPatterns = listOf("SquatPattern"),
+            primaryMuscles = listOf("Quad"),
+            secondaryMuscles = listOf("Calf", "Glute"),
+            proven = true,
+            kinematicProfile = KinematicProfile.AxialCompound.name,
+        )
+        assertEquals(LiftStressClass.HeavyAxial, classifyLiftStressClass(backSquat))
+    }
+
+    @Test
+    @DisplayName("classifyLiftStressClass(LiftContext) maps Isolation leg extension to Isolation")
+    fun classifyLiftStressClassByLiftContextIsolation() {
+        val legExtension = LiftContext(
+            id = "machine-leg-extension",
+            name = "Machine Leg Extension",
+            movementPattern = "KneeExtension",
+            movementPatterns = listOf("KneeExtension"),
+            primaryMuscles = listOf("Quad"),
+            secondaryMuscles = emptyList(),
+            proven = true,
+            kinematicProfile = KinematicProfile.Isolation.name,
+        )
+        assertEquals(LiftStressClass.Isolation, classifyLiftStressClass(legExtension))
+    }
+
+    @Test
+    @DisplayName("classifyLiftStressClass(LiftContext) defaults to Isolation when kinematicProfile is unset")
+    fun classifyLiftStressClassByLiftContextDefaultsToIsolation() {
+        // Legacy LiftContext without kinematicProfile (defaults to "Isolation")
+        val legacyLift = LiftContext(
+            id = "some-lift",
+            name = "Some Lift",
+            movementPattern = "SquatPattern",
+            movementPatterns = listOf("SquatPattern"),
+            primaryMuscles = listOf("Quad"),
+            secondaryMuscles = emptyList(),
+            proven = true,
+        )
+        assertEquals(LiftStressClass.Isolation, classifyLiftStressClass(legacyLift))
     }
 }

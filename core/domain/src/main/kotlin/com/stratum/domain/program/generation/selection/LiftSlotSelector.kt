@@ -107,7 +107,15 @@ fun candidatesForSlot(
     val out = mutableListOf<LiftContext>()
     for (lift in context.liftsById.values) {
         if (lift.id !in context.enabledLiftIds) continue
-        if (!matchesPattern(lift, slot.pattern, strictPrimaryPattern = isStrictIsolationTouch(slot))) continue
+        val patternMatch = matchesPattern(lift, slot.pattern, strictPrimaryPattern = isStrictIsolationTouch(slot))
+        // Kinematic-profile fallback: when the slot allows NonAxialCompound lifts (e.g. quad-iso
+        // admitting leg press/hack squat), a NonAxialCompound lift with the right primary muscle
+        // is a candidate even if its movement pattern doesn't match the slot's pattern. This is
+        // the explicit replacement for the old KneeExtension-pattern-overloading hack.
+        val kinematicMatch = slot.allowedKinematicProfiles != null &&
+            lift.kinematicProfile in slot.allowedKinematicProfiles &&
+            slot.primaryMuscle in lift.primaryMuscles
+        if (!patternMatch && !kinematicMatch) continue
         if (slot.primaryMuscle.isNotEmpty()) {
             val primaryMatch = slot.primaryMuscle in lift.primaryMuscles
             when {

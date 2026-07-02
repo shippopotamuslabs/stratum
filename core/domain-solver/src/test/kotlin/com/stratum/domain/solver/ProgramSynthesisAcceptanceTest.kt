@@ -86,6 +86,33 @@ class ProgramSynthesisAcceptanceTest {
     }
 
     /**
+     * #1b Lower-body anchor activation (Bug #2 fix): the squat anchor must fire on at least one
+     * session per cycle so Leg Extension is not the sole Quad work. The objective bonus
+     * ([LOWER_ANCHOR_ACTIVATION_BONUS]) should make the solver prefer activating the squat anchor
+     * over letting the cheap `quad-iso` isolation slot carry all Quad volume.
+     */
+    @Test
+    fun squatAnchorActivatesAtLeastOncePerCycle() = runBlocking {
+        val context = richArmCalfCatalog()
+        val draft = generateDraft(context)
+
+        val squatLiftIds = setOf("squat", "front-squat")
+        val squatSessions = mutableListOf<String>()
+        for (workout in draft.workouts) {
+            for (lift in workout.workoutLifts.orEmpty()) {
+                val liftId = lift.liftId.orEmpty()
+                if (liftId in squatLiftIds && (lift.workoutLiftSets?.size ?: 0) > 0) {
+                    squatSessions += "${workout.name}/${liftId}=${lift.workoutLiftSets?.size}"
+                }
+            }
+        }
+        assertTrue(
+            squatSessions.isNotEmpty(),
+            "Squat anchor never activated — Leg Extension was likely the sole Quad work. Sessions: $squatSessions",
+        )
+    }
+
+    /**
      * #2 Class-aware adjacent recovery (metadata): earlier-session stress class and dose tier
      * determine the minimum gap — isolation low-dose may repeat on calendar-adjacent days (24h lane).
      * Also forbids direct primary exposure on 3 consecutive training days (calf stack audit).
@@ -452,6 +479,12 @@ class ProgramSynthesisAcceptanceTest {
         pattern: String,
         primary: List<String>,
         secondary: List<String> = emptyList(),
+        kinematicProfile: String = when (pattern) {
+            "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) "AxialCompound" else "NonAxialCompound"
+            "HipExtension", "HorizontalPress", "VerticalPress", "InclinePress",
+            "HorizontalPull", "VerticalPull" -> "NonAxialCompound"
+            else -> "Isolation"
+        },
     ): LiftContext =
         LiftContext(
             id = id,
@@ -462,6 +495,7 @@ class ProgramSynthesisAcceptanceTest {
             secondaryMuscles = secondary,
             proven = true,
             mainstream = true,
+            kinematicProfile = kinematicProfile,
         )
 
     private companion object {

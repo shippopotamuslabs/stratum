@@ -8,6 +8,7 @@ import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
@@ -80,6 +81,7 @@ class LiftCatalogSeeder(
         val secondary = dto.secondaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
         val tags = dto.presetTags.mapNotNull { enumValueOfOrNull<GymPreset>(it) }.toSet()
         val bias = dto.muscleLengthBias?.let { enumValueOfOrNull<MuscleLengthBias>(it) } ?: MuscleLengthBias.MidRange
+        val profile = dto.kinematicProfile?.let { enumValueOfOrNull<KinematicProfile>(it) } ?: KinematicProfile.Isolation
         val id = LiftId(dto.id)
         val lift = LiftEntity(
             id = id,
@@ -96,6 +98,7 @@ class LiftCatalogSeeder(
             imageUrisCsv = dto.imageUris.joinToString(","),
             muscleLengthBias = bias,
             mainstream = dto.mainstream,
+            kinematicProfile = profile,
         )
         val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).mapIndexed { _, t ->
             IncrementTierEntity(

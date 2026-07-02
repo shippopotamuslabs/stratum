@@ -31,6 +31,8 @@ data class LiftContext(
     val fatigueDecayIntercept: Double? = null,
     val muscleLengthBias: MuscleLengthBias? = null,
     val equipment: String? = null,
+    /** Loading category — drives recovery classification (AxialCompound/NonAxialCompound/Isolation). */
+    val kinematicProfile: String = "Isolation",
 )
 
 enum class VolumeSnapshotSource {

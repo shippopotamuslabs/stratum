@@ -4,16 +4,17 @@ package com.stratum.domain.onboarding
  * Ordered steps of the first-time onboarding wizard.
  *
  * Locked for onboarding (see docs/onboarding-vertical-slices.md §1). Later slices fill
- * the screens for each step; the enum and ordering are stable from OS-1 so resume-after-kill
- * and navigation can rely on them.
+ * the screens for each step; the enum ordering is stable so resume-after-kill and navigation
+ * can rely on it. GymAndLifts precedes Specialization/MinimumVolume because those steps consume
+ * historical-import insights produced on the GymAndLifts step (suggestions + saturation warnings).
  */
 enum class OnboardingStep {
     Welcome,
     Profile,
     Schedule,
+    GymAndLifts,
     Specialization,
     MinimumVolume,
-    GymAndLifts,
     Review,
     Generate,
     ;

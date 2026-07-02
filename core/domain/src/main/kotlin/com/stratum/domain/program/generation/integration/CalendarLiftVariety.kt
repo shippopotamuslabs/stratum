@@ -173,6 +173,9 @@ private fun workoutMetadataMuscleSessionStress(
 ): Map<String, MuscleSessionStress> {
     val doses = workoutMetadataMuscleVolume(workout, context)
     val classContributors = mutableMapOf<String, MutableList<Pair<LiftStressClass, Double>>>()
+    // Length bias of the primary contributor for each muscle (drives the KneeFlexion
+    // lengthened-state surcharge). Secondary contributors do not override the primary's bias.
+    val lengthBiasByMuscle = mutableMapOf<String, String>()
     for (lift in workout.workoutLifts) {
         val setCount = lift.sets.size
         if (setCount == 0) continue
@@ -181,6 +184,7 @@ private fun workoutMetadataMuscleSessionStress(
         for (muscle in meta.primaryMuscles) {
             classContributors.getOrPut(muscle) { mutableListOf() }
                 .add(stressClass to setCount * PRIMARY_SET_CREDIT)
+            lengthBiasByMuscle.putIfAbsent(muscle, meta.muscleLengthBias?.name ?: "MidRange")
         }
         for (muscle in meta.secondaryMuscles) {
             if (muscle in meta.primaryMuscles) continue
@@ -189,7 +193,12 @@ private fun workoutMetadataMuscleSessionStress(
         }
     }
     return doses.mapValues { (muscle, dose) ->
-        MuscleSessionStress(dose, dominantStressClass(classContributors[muscle].orEmpty()))
+        MuscleSessionStress(
+            dose,
+            dominantStressClass(classContributors[muscle].orEmpty()),
+            muscle = muscle,
+            muscleLengthBias = lengthBiasByMuscle[muscle],
+        )
     }
 }
 
