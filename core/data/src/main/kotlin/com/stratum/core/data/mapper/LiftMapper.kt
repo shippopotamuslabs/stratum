@@ -44,6 +44,7 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
     imageUris = lift.imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
     muscleLengthBias = lift.muscleLengthBias,
     mainstream = lift.mainstream,
+    kinematicProfile = lift.kinematicProfile,
 )
 
 fun Lift.toEntity(): LiftEntity = LiftEntity(
@@ -61,6 +62,7 @@ fun Lift.toEntity(): LiftEntity = LiftEntity(
     imageUrisCsv = imageUris.joinToString(","),
     muscleLengthBias = muscleLengthBias,
     mainstream = mainstream,
+    kinematicProfile = kinematicProfile,
 )
 
 fun Lift.toTierEntities(): List<IncrementTierEntity> = incrementTiers.map { tier ->

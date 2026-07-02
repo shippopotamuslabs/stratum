@@ -36,6 +36,14 @@ data class WorkoutSlotTemplate(
     val siblingVariant: SiblingVariant? = null,
     /** Supplementary direct work on a session outside the muscle's primary domain. */
     val isCrossDomainTouch: Boolean = false,
+    /**
+     * When set, only lifts whose [com.stratum.domain.lift.KinematicProfile] is in this set are
+     * eligible candidates (in addition to the pattern/primary-muscle match). `null` = no
+     * kinematic-profile filter (all matching lifts are candidates). Used by isolation slots
+     * like `quad-iso`/`ham-iso` to also admit `NonAxialCompound` lifts (leg press, hack squat)
+     * alongside true `Isolation` lifts (leg extension, leg curl), so the slot has variety.
+     */
+    val allowedKinematicProfiles: Set<String>? = null,
 )
 
 enum class SessionTypeId {
@@ -65,8 +73,10 @@ enum class SessionTypeId {
 private val LOWER_SLOTS: List<WorkoutSlotTemplate> = listOf(
     WorkoutSlotTemplate("squat", SlotRole.Anchor, "SquatPattern", "Quad", RpRepProfile.LowerFreeWeightCompound),
     WorkoutSlotTemplate("hinge", SlotRole.Anchor, "HipHinge", "Hamstring", RpRepProfile.LowerFreeWeightCompound),
-    WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, "KneeExtension", "Quad", RpRepProfile.Isolation),
-    WorkoutSlotTemplate("ham-iso", SlotRole.Isolation, "KneeFlexion", "Hamstring", RpRepProfile.Isolation),
+    WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, "KneeExtension", "Quad", RpRepProfile.Isolation,
+        allowedKinematicProfiles = setOf("Isolation", "NonAxialCompound")),
+    WorkoutSlotTemplate("ham-iso", SlotRole.Isolation, "KneeFlexion", "Hamstring", RpRepProfile.Isolation,
+        allowedKinematicProfiles = setOf("Isolation", "NonAxialCompound")),
     WorkoutSlotTemplate("calf", SlotRole.Optional, "PlantarFlexion", "Calf", RpRepProfile.Isolation),
     // Glute-primary slot. Excluded from the universe for Maintenance users (Glute volume rides on
     // squat/hinge secondaries — see PATTERN_SECONDARY_MUSCLE_CREDITS); included only when the user
@@ -163,7 +173,8 @@ private val FULL_BODY_SLOTS: List<WorkoutSlotTemplate> = listOf(
 private val FULL_PUSH_SLOTS: List<WorkoutSlotTemplate> =
     UPPER_PUSH_SLOTS +
         listOf(
-            WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, "KneeExtension", "Quad", RpRepProfile.Isolation),
+            WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, "KneeExtension", "Quad", RpRepProfile.Isolation,
+                allowedKinematicProfiles = setOf("Isolation", "NonAxialCompound")),
             WorkoutSlotTemplate("calf", SlotRole.Optional, "PlantarFlexion", "Calf", RpRepProfile.Isolation),
         )
 
@@ -211,7 +222,8 @@ private val ARMS_SLOTS: List<WorkoutSlotTemplate> = listOf(
 
 private val QUADS_CALVES_SLOTS: List<WorkoutSlotTemplate> = listOf(
     WorkoutSlotTemplate("squat", SlotRole.Anchor, "SquatPattern", "Quad", RpRepProfile.LowerFreeWeightCompound),
-    WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, "KneeExtension", "Quad", RpRepProfile.Isolation),
+    WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, "KneeExtension", "Quad", RpRepProfile.Isolation,
+        allowedKinematicProfiles = setOf("Isolation", "NonAxialCompound")),
     WorkoutSlotTemplate("calf", SlotRole.Isolation, "PlantarFlexion", "Calf", RpRepProfile.Isolation),
 )
 

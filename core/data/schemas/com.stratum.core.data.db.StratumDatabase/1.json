@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "6339778f113e47068c9b4100a6931a02",
+    "identityHash": "240596d2b48b9352b021bb920bae3331",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -104,7 +104,7 @@
       },
       {
         "tableName": "lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatterns` TEXT NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `allowWeightChangeBetweenSets` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatterns` TEXT NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `allowWeightChangeBetweenSets` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -185,6 +185,12 @@
             "fieldPath": "mainstream",
             "columnName": "mainstream",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kinematicProfile",
+            "columnName": "kinematicProfile",
+            "affinity": "TEXT",
             "notNull": true
           }
         ],
@@ -1832,7 +1838,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6339778f113e47068c9b4100a6931a02')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '240596d2b48b9352b021bb920bae3331')"
     ]
   }
 }

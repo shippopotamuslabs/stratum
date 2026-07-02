@@ -56,6 +56,17 @@ internal object SynthesisObjectiveWeights {
     const val MAINTENANCE_AIM_DEVIATION = 2_000L
     /** Consolidation: penalize each active slot so ties collapse to fewer, higher-set lifts (G5). */
     const val SLOT_ACTIVATION_COUNT = 300L
+    /**
+     * Lower-body anchor activation bonus (Bug #2 fix): a NEGATIVE weight (reward) for activating
+     * SquatPattern/HipHinge anchor slots. Net cost of activating a lower anchor is
+     * [SLOT_ACTIVATION_COUNT] + [LOWER_ANCHOR_ACTIVATION_BONUS] = 300 − 450 = −150 (a net reward),
+     * so the solver prefers firing the squat/hinge anchor over letting the cheap `quad-iso`/`ham-iso`
+     * isolation slots carry all the muscle's volume. Stays in the tie-breaker tier (well below
+     * [MAINTENANCE_AIM_DEVIATION] / [SESSION_FILL_SHORTFALL]) so it never overrides volume or fill
+     * decisions — soft, not hard. The solver can still skip a lower anchor when recovery spacing
+     * genuinely can't accommodate it.
+     */
+    const val LOWER_ANCHOR_ACTIVATION_BONUS = -450L
     /** Push/pull balance breaks ties consolidation cares about (G10). Below [ANTAGONIST_PAIR_CLOSENESS]. */
     const val PUSH_PULL_IMBALANCE = 200L
     /**

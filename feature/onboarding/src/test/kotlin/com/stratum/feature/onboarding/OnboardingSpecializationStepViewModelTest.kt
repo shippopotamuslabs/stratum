@@ -147,6 +147,6 @@ class OnboardingSpecializationStepViewModelTest {
 
         val saved = OnboardingViewModelTestFixtures.fakeSpecializationRepository.current
         assertEquals(setOf(MuscleGroup.Chest), saved.specializedMuscles)
-        assertEquals(OnboardingStep.Schedule, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
+        assertEquals(OnboardingStep.GymAndLifts, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
     }
 }

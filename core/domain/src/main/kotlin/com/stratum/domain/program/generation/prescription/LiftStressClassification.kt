@@ -2,18 +2,24 @@
 
 package com.stratum.domain.program.generation.prescription
 
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.reference.LiftStressClass
 import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
 
-private val LOWER_FREE_WEIGHT_PATTERNS = setOf("SquatPattern", "HipHinge")
-
 /**
  * Classifies movement stress for recovery scheduling (literature-aligned three-tier model).
- * Priority: heavy free-weight axial compounds, then isolation, then remaining major compounds
- * as upper-body compounds, else isolation (conservative default for single-joint patterns).
+ *
+ * The lift-based overload reads the [LiftContext.kinematicProfile] — an explicit catalog property
+ * set in `seed-lifts.json` — instead of inferring the class from movement-pattern heuristics and
+ * lift-name regex. This means a leg press (`NonAxialCompound`) recovers as a compound, not as an
+ * isolation like a leg extension (`Isolation`), even though both are Quad-primary lower-body lifts.
+ *
+ * The slot-based overload (`classifyLiftStressClass(slot, lift)`) still uses the slot's `repProfile`
+ * and `movementPattern` because slots are templates, not specific lifts — the slot determines the
+ * *expected* recovery class, and the lift that fills it should match.
  */
 fun classifyLiftStressClass(
     repProfile: RpRepProfile,
@@ -40,13 +46,20 @@ fun classifyLiftStressClass(slot: WorkoutSlotTemplate, lift: LiftContext): LiftS
         liftName = lift.name,
     )
 
-/** Metadata-truth classification when no slot template is available (repairs, validation). */
+/**
+ * Metadata-truth classification when no slot template is available (repairs, validation).
+ * Uses the lift's explicit [LiftContext.kinematicProfile] — no pattern/name heuristics.
+ */
 fun classifyLiftStressClass(lift: LiftContext): LiftStressClass =
-    classifyLiftStressClass(
-        repProfile = inferRepProfileForStressClassification(lift),
-        movementPattern = lift.movementPattern,
-        liftName = lift.name,
-    )
+    kinematicProfileToStressClass(lift.kinematicProfile)
+
+/** Maps a [KinematicProfile] string (from [LiftContext.kinematicProfile]) to [LiftStressClass]. */
+fun kinematicProfileToStressClass(profile: String): LiftStressClass =
+    when (profile) {
+        KinematicProfile.AxialCompound.name -> LiftStressClass.HeavyAxial
+        KinematicProfile.NonAxialCompound.name -> LiftStressClass.UpperCompound
+        else -> LiftStressClass.Isolation
+    }
 
 internal fun inferRepProfileForStressClassification(lift: LiftContext): RpRepProfile {
     val pattern = lift.movementPattern
@@ -68,6 +81,15 @@ private val ISOLATION_MOVEMENT_PATTERNS =
         "ShoulderAbduction",
         "ShoulderHorizontalAbduction",
     )
+
+private val LOWER_FREE_WEIGHT_PATTERNS = setOf("SquatPattern", "HipHinge")
+
+internal fun isLowerFreeWeightLiftName(name: String): Boolean {
+    val normalized = name.lowercase()
+    if (Regex("""\b(machine|smith)\b""").containsMatchIn(normalized)) return false
+    return Regex("""\b(barbell|squat|deadlift|rdl|romanian)\b""").containsMatchIn(normalized) ||
+        Regex("""\bsquat\b""").containsMatchIn(normalized)
+}
 
 /**
  * Dominant stress class among contributors crediting ≥ 1.0 fractional sets to a muscle in one session.
@@ -97,10 +119,3 @@ fun recoveryStressClassForContributor(
     } else {
         liftStressClass
     }
-
-internal fun isLowerFreeWeightLiftName(name: String): Boolean {
-    val normalized = name.lowercase()
-    if (Regex("""\b(machine|smith)\b""").containsMatchIn(normalized)) return false
-    return Regex("""\b(barbell|squat|deadlift|rdl|romanian)\b""").containsMatchIn(normalized) ||
-        Regex("""\bsquat\b""").containsMatchIn(normalized)
-}

@@ -52,7 +52,7 @@ object ProgramGenerationContextMapper {
         )
     }
 
-    private fun LiftWithInsights.toLiftContext(proven: Boolean): LiftContext {
+        private fun LiftWithInsights.toLiftContext(proven: Boolean): LiftContext {
         val patterns = lift.movementPatterns.map { it.name }
         return LiftContext(
             id = lift.id.value,
@@ -69,6 +69,7 @@ object ProgramGenerationContextMapper {
             fatigueDecayIntercept = trainingInsights?.fatigueDecayIntercept,
             muscleLengthBias = lift.muscleLengthBias.toGenerationContext(),
             equipment = lift.equipment,
+            kinematicProfile = lift.kinematicProfile.name,
         )
     }
 

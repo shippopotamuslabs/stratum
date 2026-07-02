@@ -206,6 +206,12 @@ private fun lift(
     pattern: String,
     primary: List<String>,
     secondary: List<String> = emptyList(),
+    kinematicProfile: String = when (pattern) {
+        "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) "AxialCompound" else "NonAxialCompound"
+        "HipExtension", "HorizontalPress", "VerticalPress", "InclinePress",
+        "HorizontalPull", "VerticalPull" -> "NonAxialCompound"
+        else -> "Isolation"
+    },
 ): LiftContext = LiftContext(
     id = id,
     name = name,
@@ -214,6 +220,7 @@ private fun lift(
     primaryMuscles = primary,
     secondaryMuscles = secondary,
     proven = true,
+    kinematicProfile = kinematicProfile,
 )
 
 private fun com.stratum.domain.program.LiteratureVolumeDefaults.toScenarioSnapshot(): MuscleVolumeSnapshotContext =

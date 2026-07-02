@@ -24,7 +24,8 @@
     "movementPatterns": [
       "SpinalFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "alternate-incline-dumbbell-curl",
@@ -50,7 +51,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "arnold-dumbbell-press",
@@ -77,7 +79,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "back-extension",
@@ -105,7 +108,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-ab-rollout",
@@ -132,7 +136,8 @@
     "movementPatterns": [
       "SpinalFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "barbell-ab-rollout-on-knees",
@@ -159,7 +164,8 @@
     "movementPatterns": [
       "SpinalFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "barbell-back-squat",
@@ -186,7 +192,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "barbell-bench-press",
@@ -213,7 +220,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-curl",
@@ -239,7 +247,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "barbell-deadlift",
@@ -271,7 +280,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "barbell-front-squat",
@@ -297,7 +307,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "barbell-glute-bridge",
@@ -323,7 +334,8 @@
     "movementPatterns": [
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-guillotine-bench-press",
@@ -350,7 +362,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-hack-squat",
@@ -379,7 +392,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-hip-thrust",
@@ -405,7 +419,8 @@
     "movementPatterns": [
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-incline-bench-press",
@@ -432,7 +447,8 @@
       "InclinePress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-lunge",
@@ -458,7 +474,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-rack-pull",
@@ -487,7 +504,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "barbell-rear-delt-row",
@@ -513,7 +531,8 @@
     "movementPatterns": [
       "HorizontalPull"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-rollout-from-bench",
@@ -541,7 +560,8 @@
     "movementPatterns": [
       "SpinalFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "barbell-romanian-deadlift",
@@ -569,7 +589,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "barbell-shrug",
@@ -595,7 +616,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "barbell-shrug-behind-the-back",
@@ -622,7 +644,8 @@
     "movementPatterns": [
       "ScapularElevation"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "barbell-side-split-squat",
@@ -649,7 +672,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "barbell-stiff-legged-deadlift",
@@ -676,7 +700,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "barbell-sumo-deadlift",
@@ -708,7 +733,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "barbell-walking-lunge",
@@ -734,7 +760,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "bench-dips",
@@ -760,7 +787,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "bent-arm-barbell-pullover",
@@ -787,7 +815,8 @@
     "movementPatterns": [
       "ShoulderAdduction"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "bent-over-barbell-row",
@@ -814,7 +843,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "bent-over-dumbbell-rear-delt-raise-with-head-on-bench",
@@ -840,7 +870,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Back"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "bent-over-two-dumbbell-row",
@@ -868,7 +899,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "bent-over-two-dumbbell-row-with-palms-in",
@@ -896,7 +928,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "bodyweight-flyes",
@@ -924,7 +957,8 @@
     "movementPatterns": [
       "ShoulderAdduction"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "bodyweight-squat",
@@ -949,7 +983,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "bodyweight-walking-lunge",
@@ -976,7 +1011,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "box-squat",
@@ -1004,7 +1040,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "bulgarian-split-squat",
@@ -1030,7 +1067,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "cable-chest-fly",
@@ -1053,7 +1091,8 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-chest-press",
@@ -1080,7 +1119,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "cable-crossover",
@@ -1105,7 +1145,8 @@
     "movementPatterns": [
       "ShoulderAdduction"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-incline-pushdown",
@@ -1130,7 +1171,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Tricep"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-incline-triceps-extension",
@@ -1155,7 +1197,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-one-arm-tricep-extension",
@@ -1180,7 +1223,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-rear-delt-fly",
@@ -1205,7 +1249,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Back"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-rope-hammer-curl",
@@ -1230,7 +1275,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-rope-overhead-triceps-extension",
@@ -1255,7 +1301,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-rope-rear-delt-rows",
@@ -1281,7 +1328,8 @@
     "movementPatterns": [
       "HorizontalPull"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "cable-rope-triceps-pushdown",
@@ -1306,7 +1354,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-shoulder-press",
@@ -1332,7 +1381,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "cable-shrugs",
@@ -1357,7 +1407,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-triceps-pushdown",
@@ -1382,7 +1433,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-v-bar-triceps-pushdown",
@@ -1407,7 +1459,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-wrist-curl",
@@ -1430,7 +1483,8 @@
       "WristFlexionExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cable-y-raise",
@@ -1454,7 +1508,8 @@
     "movementPatterns": [
       "ShoulderAbduction"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "calf-press",
@@ -1478,7 +1533,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "chain-handle-extension",
@@ -1504,7 +1560,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "chain-press",
@@ -1531,7 +1588,8 @@
     "movementPatterns": [
       "ShoulderAdduction"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "chair-squat",
@@ -1558,7 +1616,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "chin-up",
@@ -1585,7 +1644,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "close-grip-barbell-bench-press",
@@ -1612,7 +1672,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "close-grip-dumbbell-press",
@@ -1640,7 +1701,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "close-grip-ez-bar-curl",
@@ -1666,7 +1728,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "close-grip-ez-bar-press",
@@ -1693,7 +1756,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "close-grip-front-lat-pulldown",
@@ -1719,7 +1783,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "close-grip-standing-barbell-curl",
@@ -1745,7 +1810,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "cross-body-hammer-curl",
@@ -1771,7 +1837,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "decline-barbell-bench-press",
@@ -1798,7 +1865,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "decline-dumbbell-fly",
@@ -1822,7 +1890,8 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "decline-dumbbell-triceps-extension",
@@ -1848,7 +1917,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "decline-ez-bar-triceps-extension",
@@ -1874,7 +1944,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "decline-push-up",
@@ -1902,7 +1973,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "decline-smith-press",
@@ -1929,7 +2001,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "deficit-deadlift",
@@ -1960,7 +2033,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dip-machine",
@@ -1986,7 +2060,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dips-chest-version",
@@ -2013,7 +2088,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dips-triceps-version",
@@ -2039,7 +2115,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "donkey-calf-raise",
@@ -2063,7 +2140,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-bench-press-with-neutral-grip",
@@ -2091,7 +2169,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-concentration-curl",
@@ -2117,7 +2196,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-fly",
@@ -2141,7 +2221,8 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-hammer-curl",
@@ -2167,7 +2248,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-incline-curl",
@@ -2193,7 +2275,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-incline-row",
@@ -2222,7 +2305,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-lateral-raise",
@@ -2246,7 +2330,8 @@
       "ShoulderAbduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-lying-rear-lateral-raise",
@@ -2270,7 +2355,8 @@
       "ShoulderHorizontalAbduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-one-arm-shoulder-press",
@@ -2297,7 +2383,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-one-arm-triceps-extension",
@@ -2323,7 +2410,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-one-arm-upright-row",
@@ -2350,7 +2438,8 @@
     "movementPatterns": [
       "VerticalPull"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-prone-incline-curl",
@@ -2376,7 +2465,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-rear-lunge",
@@ -2403,7 +2493,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-romanian-deadlift",
@@ -2428,7 +2519,8 @@
     "movementPatterns": [
       "HipHinge"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-spider-curl",
@@ -2454,7 +2546,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-squat",
@@ -2482,7 +2575,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-squat-to-a-bench",
@@ -2510,7 +2604,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-step-ups",
@@ -2537,7 +2632,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "dumbbell-tricep-extension-pronated-grip",
@@ -2563,7 +2659,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "elevated-back-lunge",
@@ -2588,7 +2685,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "ez-bar-curl",
@@ -2614,7 +2712,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "ez-bar-skull-crusher",
@@ -2640,7 +2739,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "face-pull",
@@ -2667,7 +2767,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "flat-bench-lying-leg-raise",
@@ -2691,7 +2792,8 @@
       "SpinalFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "floor-press",
@@ -2718,7 +2820,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "front-plate-raise",
@@ -2742,7 +2845,8 @@
       "ShoulderFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "full-range-of-motion-lat-pulldown",
@@ -2768,7 +2872,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "glute-ham-raise",
@@ -2796,7 +2901,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "goblet-squat",
@@ -2824,7 +2930,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "good-morning",
@@ -2852,7 +2959,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "handstand-push-ups",
@@ -2878,7 +2986,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "hanging-leg-raise",
@@ -2902,7 +3011,8 @@
       "SpinalFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "high-cable-curls",
@@ -2927,7 +3037,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "incline-bench-pull",
@@ -2954,7 +3065,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "incline-cable-chest-press",
@@ -2981,7 +3093,8 @@
       "InclinePress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "incline-cable-fly",
@@ -3006,7 +3119,8 @@
     "movementPatterns": [
       "ShoulderAdduction"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "incline-dumbbell-press",
@@ -3034,7 +3148,8 @@
       "InclinePress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "incline-hammer-curls",
@@ -3060,7 +3175,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "incline-inner-biceps-curl",
@@ -3084,7 +3200,8 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "incline-push-up",
@@ -3111,7 +3228,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "jefferson-squats",
@@ -3139,7 +3257,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "jm-press",
@@ -3166,7 +3285,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "katana-triceps-extension",
@@ -3189,7 +3309,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "kneeling-cable-triceps-extension",
@@ -3212,7 +3333,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "kneeling-high-pulley-row",
@@ -3239,7 +3361,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "kneeling-single-arm-high-pulley-row",
@@ -3266,7 +3389,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "kneeling-squat",
@@ -3292,7 +3416,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "leg-lift",
@@ -3318,7 +3443,8 @@
     "movementPatterns": [
       "HipExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "leg-over-floor-press",
@@ -3346,7 +3472,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "leverage-chest-press",
@@ -3374,7 +3501,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "leverage-decline-chest-press",
@@ -3402,7 +3530,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "leverage-high-row",
@@ -3429,7 +3558,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "leverage-iso-row",
@@ -3456,7 +3586,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "low-cable-crossover",
@@ -3481,7 +3612,8 @@
     "movementPatterns": [
       "ShoulderAdduction"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "low-cable-triceps-extension",
@@ -3506,7 +3638,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "low-pulley-row-to-neck",
@@ -3534,7 +3667,8 @@
     "movementPatterns": [
       "HorizontalPull"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "lunge-pass-through",
@@ -3562,7 +3696,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "lying-close-grip-barbell-triceps-extension-behind-the-head",
@@ -3588,7 +3723,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "lying-close-grip-barbell-triceps-press-to-chin",
@@ -3614,7 +3750,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "lying-dumbbell-tricep-extension",
@@ -3641,7 +3778,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "lying-t-bar-row",
@@ -3668,7 +3806,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "machine-bicep-curl",
@@ -3693,7 +3832,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "machine-glute-kickback",
@@ -3715,7 +3855,8 @@
     "movementPatterns": [
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "machine-leg-extension",
@@ -3738,7 +3879,8 @@
       "KneeExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "machine-lying-leg-curl",
@@ -3761,7 +3903,8 @@
       "KneeFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "machine-seated-leg-curl",
@@ -3781,7 +3924,8 @@
     "movementPatterns": [
       "KneeFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "machine-single-leg-press",
@@ -3802,10 +3946,10 @@
     "imageUris": [],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
-      "SquatPattern",
-      "KneeExtension"
+      "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "machine-standing-leg-curl",
@@ -3825,7 +3969,8 @@
     "movementPatterns": [
       "KneeFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "machine-shoulder-military-press",
@@ -3851,7 +3996,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "machine-triceps-extension",
@@ -3876,7 +4022,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "narrow-stance-leg-press",
@@ -3900,10 +4047,10 @@
     ],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
-      "SquatPattern",
-      "KneeExtension"
+      "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "neck-press",
@@ -3930,7 +4077,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "nordic-hamstring-curl",
@@ -3954,7 +4102,8 @@
     "movementPatterns": [
       "KneeFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "one-arm-chin-up",
@@ -3982,7 +4131,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "one-arm-dumbbell-bench-press",
@@ -4010,7 +4160,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "one-arm-dumbbell-preacher-curl",
@@ -4036,7 +4187,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "one-arm-dumbbell-row",
@@ -4064,7 +4216,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "one-arm-floor-press",
@@ -4091,7 +4244,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "one-arm-lat-pulldown",
@@ -4117,7 +4271,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "one-arm-long-bar-row",
@@ -4143,7 +4298,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "one-arm-side-deadlift",
@@ -4174,7 +4330,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "one-leg-barbell-squat",
@@ -4200,7 +4357,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "one-legged-cable-kickback",
@@ -4225,7 +4383,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "overhead-cable-curl",
@@ -4250,7 +4409,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "palms-down-wrist-curl-over-a-bench",
@@ -4274,7 +4434,8 @@
       "WristFlexionExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "palms-up-barbell-wrist-curl-over-a-bench",
@@ -4298,7 +4459,8 @@
       "WristFlexionExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "parallel-bar-dip",
@@ -4325,7 +4487,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "pec-deck-fly",
@@ -4348,7 +4511,8 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "pin-presses",
@@ -4377,7 +4541,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "plank",
@@ -4401,7 +4566,8 @@
       "SpinalFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "plie-dumbbell-squat",
@@ -4429,7 +4595,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "plate-loaded-hip-thrust",
@@ -4452,7 +4619,8 @@
     "movementPatterns": [
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "plate-loaded-single-leg-press",
@@ -4473,10 +4641,10 @@
     "imageUris": [],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
-      "SquatPattern",
-      "KneeExtension"
+      "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "preacher-curl",
@@ -4502,7 +4670,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "preacher-hammer-dumbbell-curl",
@@ -4528,7 +4697,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "pull-through",
@@ -4556,7 +4726,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "pull-up",
@@ -4582,7 +4753,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "push-up-to-side-plank",
@@ -4609,7 +4781,8 @@
     "movementPatterns": [
       "SpinalFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "pushups",
@@ -4636,7 +4809,8 @@
       "HorizontalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "reverse-barbell-preacher-curls",
@@ -4662,7 +4836,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "reverse-cable-curl",
@@ -4687,7 +4862,8 @@
     "movementPatterns": [
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "reverse-flyes",
@@ -4713,7 +4889,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Back"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "reverse-grip-bent-over-rows",
@@ -4740,7 +4917,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "reverse-triceps-bench-press",
@@ -4766,7 +4944,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "rope-straight-arm-pulldown",
@@ -4791,7 +4970,8 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "roman-chair-hip-hinge",
@@ -4815,7 +4995,8 @@
     "movementPatterns": [
       "HipHinge"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "scapular-pull-up",
@@ -4841,7 +5022,8 @@
     "movementPatterns": [
       "ScapularElevation"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "seated-cable-rows",
@@ -4868,7 +5050,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "seated-calf-raise",
@@ -4892,7 +5075,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "smith-machine-calf-raise",
@@ -4905,7 +5089,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Smith_Machine_Calf_Raise",
-    "description": "Smith Machine Calf Raise — plantar flexion for calf development.",
+    "description": "Smith Machine Calf Raise \u2014 plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Calf_Raise/1.jpg"
@@ -4915,7 +5099,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "calf-press-leg-press",
@@ -4928,7 +5113,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Calf_Press_On_The_Leg_Press_Machine",
-    "description": "Calf Raise on Leg Press — plantar flexion for calf development.",
+    "description": "Calf Raise on Leg Press \u2014 plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/1.jpg"
@@ -4938,7 +5123,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "standing-calf-raise-machine",
@@ -4951,7 +5137,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Standing_Calf_Raises",
-    "description": "Standing Calf Raise Machine — plantar flexion for calf development.",
+    "description": "Standing Calf Raise Machine \u2014 plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/1.jpg"
@@ -4961,7 +5147,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "standing-dumbbell-calf-raise",
@@ -4975,7 +5162,7 @@
       "GarageGym"
     ],
     "imageSlug": "Standing_Dumbbell_Calf_Raise",
-    "description": "Single Leg Dumbbell Calf Raise — plantar flexion for calf development.",
+    "description": "Single Leg Dumbbell Calf Raise \u2014 plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Calf_Raise/1.jpg"
@@ -4985,7 +5172,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "dumbbell-seated-one-leg-calf-raise",
@@ -4999,7 +5187,7 @@
       "GarageGym"
     ],
     "imageSlug": "Dumbbell_Seated_One-Leg_Calf_Raise",
-    "description": "Dumbbell Seated One-Leg Calf Raise — plantar flexion for calf development.",
+    "description": "Dumbbell Seated One-Leg Calf Raise \u2014 plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Seated_One-Leg_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Seated_One-Leg_Calf_Raise/1.jpg"
@@ -5009,7 +5197,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "standing-barbell-calf-raise",
@@ -5023,7 +5212,7 @@
       "GarageGym"
     ],
     "imageSlug": "Standing_Barbell_Calf_Raise",
-    "description": "Standing Barbell Calf Raise — plantar flexion for calf development.",
+    "description": "Standing Barbell Calf Raise \u2014 plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/1.jpg"
@@ -5033,7 +5222,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "calf-raise-hack-squat",
@@ -5046,7 +5236,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Calf_Press_On_The_Leg_Press_Machine",
-    "description": "Stand on the hack squat foot plate with shoulders under pads (or use the hack squat calf block position). Perform calf raises through a lengthened range — same plantar flexion pattern as leg-press calf raises.",
+    "description": "Stand on the hack squat foot plate with shoulders under pads (or use the hack squat calf block position). Perform calf raises through a lengthened range \u2014 same plantar flexion pattern as leg-press calf raises.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/1.jpg"
@@ -5056,7 +5246,8 @@
       "PlantarFlexion"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "seated-close-grip-concentration-barbell-curl",
@@ -5082,7 +5273,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "seated-dumbbell-press",
@@ -5109,7 +5301,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "seated-one-arm-cable-pulley-rows",
@@ -5136,7 +5329,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "seated-triceps-press",
@@ -5162,7 +5356,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "side-to-side-chins",
@@ -5190,7 +5385,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "single-arm-cable-crossover",
@@ -5213,7 +5409,8 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "single-leg-glute-bridge",
@@ -5239,7 +5436,8 @@
     "movementPatterns": [
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "single-leg-high-box-squat",
@@ -5265,7 +5463,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "single-leg-leg-extension",
@@ -5289,7 +5488,8 @@
       "KneeExtension"
     ],
     "mainstream": true,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "sled-leg-press",
@@ -5313,10 +5513,10 @@
     ],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
-      "SquatPattern",
-      "KneeExtension"
+      "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "smith-machine-back-squat",
@@ -5340,7 +5540,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "smith-machine-behind-the-back-shrug",
@@ -5363,7 +5564,8 @@
     "movementPatterns": [
       "ScapularElevation"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "smith-machine-front-foot-elevated-split-squat",
@@ -5383,10 +5585,10 @@
     "imageUris": [],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
-      "SquatPattern",
-      "KneeExtension"
+      "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "smith-machine-overhead-shoulder-press",
@@ -5412,7 +5614,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "speed-box-squat",
@@ -5438,7 +5641,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "speed-squats",
@@ -5465,7 +5669,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "split-squat-with-dumbbells",
@@ -5491,7 +5696,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "squat-with-plate-movers",
@@ -5519,7 +5725,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "standing-alternating-dumbbell-press",
@@ -5546,7 +5753,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "standing-barbell-press-behind-neck",
@@ -5572,7 +5780,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "standing-biceps-cable-curl",
@@ -5597,7 +5806,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "standing-inner-biceps-curl",
@@ -5623,7 +5833,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "standing-low-pulley-one-arm-triceps-extension",
@@ -5650,7 +5861,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "standing-military-press",
@@ -5676,7 +5888,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "standing-one-arm-cable-curl",
@@ -5701,7 +5914,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "standing-overhead-barbell-triceps-extension",
@@ -5728,7 +5942,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "standing-palm-in-one-arm-dumbbell-press",
@@ -5755,7 +5970,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "standing-palms-in-dumbbell-press",
@@ -5782,7 +5998,8 @@
       "VerticalPress",
       "ElbowExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "step-up-with-knee-raise",
@@ -5807,7 +6024,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "straight-arm-dumbbell-pullover",
@@ -5835,7 +6053,8 @@
     "movementPatterns": [
       "ShoulderAdduction"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "straight-arm-pulldown",
@@ -5860,7 +6079,8 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "straight-bar-bench-mid-rows",
@@ -5886,7 +6106,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "t-bar-row-with-handle",
@@ -5912,7 +6133,8 @@
       "HorizontalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "tate-press",
@@ -5939,7 +6161,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "trap-bar-deadlift",
@@ -5967,7 +6190,8 @@
       "HipHinge",
       "HipExtension"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "tricep-dumbbell-kickback",
@@ -5991,7 +6215,8 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "secondaryMuscles": []
+    "secondaryMuscles": [],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "triceps-overhead-extension-with-rope",
@@ -6017,7 +6242,8 @@
     "mainstream": false,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "two-arm-dumbbell-preacher-curl",
@@ -6043,7 +6269,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "underhand-cable-pulldowns",
@@ -6069,7 +6296,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "upright-cable-row",
@@ -6095,7 +6323,8 @@
     "movementPatterns": [
       "VerticalPull"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "v-bar-pulldown",
@@ -6122,7 +6351,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "v-bar-pullup",
@@ -6148,7 +6378,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "weighted-bench-dip",
@@ -6175,7 +6406,8 @@
     "movementPatterns": [
       "ElbowExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "weighted-pull-ups",
@@ -6202,7 +6434,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "weighted-sissy-squat",
@@ -6228,7 +6461,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "wide-grip-lat-pulldown",
@@ -6254,7 +6488,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "wide-grip-pulldown-behind-the-neck",
@@ -6281,7 +6516,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "wide-grip-rear-pull-up",
@@ -6307,7 +6543,8 @@
       "VerticalPull",
       "ElbowFlexion"
     ],
-    "mainstream": true
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   },
   {
     "id": "wide-grip-standing-barbell-curl",
@@ -6333,7 +6570,8 @@
     "mainstream": true,
     "secondaryMuscles": [
       "Forearm"
-    ]
+    ],
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "wide-stance-barbell-squat",
@@ -6360,7 +6598,8 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "AxialCompound"
   },
   {
     "id": "wrist-roller",
@@ -6386,7 +6625,8 @@
     "movementPatterns": [
       "WristFlexionExtension"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "zercher-squats",
@@ -6412,6 +6652,7 @@
     "movementPatterns": [
       "SquatPattern"
     ],
-    "mainstream": false
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound"
   }
 ]
