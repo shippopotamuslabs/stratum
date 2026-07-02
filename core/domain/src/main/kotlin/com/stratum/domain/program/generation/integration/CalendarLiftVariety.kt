@@ -10,7 +10,12 @@ import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
-import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
+import com.stratum.domain.program.generation.prescription.classifyLiftStressClass
+import com.stratum.domain.program.generation.prescription.dominantStressClass
+import com.stratum.domain.program.generation.reference.LiftStressClass
+import com.stratum.domain.program.generation.reference.MuscleSessionStress
+import com.stratum.domain.program.generation.reference.calendarDayIndexGap
+import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.swap.alternativesForLift
 import com.stratum.domain.program.generation.split.SessionTypeId
 import com.stratum.domain.program.generation.split.inferSessionTypeFromWorkoutName
@@ -24,7 +29,7 @@ private val LOWER_FORBIDDEN_PRIMARY_PATTERNS = setOf(
 )
 
 /**
- * Lift selection runs in generation cycle order, but [assignProgramSchedule] permutes workouts
+ * Lift selection runs in generation cycle order, but the CP-SAT solver assigns weekdays afterward.
  * onto weekdays afterward. Reconcile adjacent calendar sessions so the same exercise does not
  * appear on back-to-back training days (e.g. lat pulldown on Upper Pull then Lower).
  *
@@ -47,7 +52,8 @@ fun resolveAdjacentCalendarLiftCollisions(
 
     val updatedById = program.workouts.associateBy { it.id }.toMutableMap()
     var previousLiftIds = emptySet<String>()
-    var previousMuscleExposure: Map<String, Double> = emptyMap()
+    var previousWorkout: Workout? = null
+    var previousMuscleStress: Map<String, MuscleSessionStress> = emptyMap()
 
     for (workout in calendarOrder) {
         val current = updatedById.getValue(workout.id)
@@ -58,12 +64,14 @@ fun resolveAdjacentCalendarLiftCollisions(
         )
         val afterMetadataPass = resolveMetadataMuscleExposure(
             workout = afterIdPass,
-            previousMuscleExposure = previousMuscleExposure,
+            previousWorkout = previousWorkout,
+            previousMuscleStress = previousMuscleStress,
             context = context,
         )
         updatedById[workout.id] = afterMetadataPass
         previousLiftIds = afterMetadataPass.workoutLifts.map { lift -> lift.liftId.value }.toSet()
-        previousMuscleExposure = workoutMetadataMuscleVolume(afterMetadataPass, context)
+        previousWorkout = afterMetadataPass
+        previousMuscleStress = workoutMetadataMuscleSessionStress(afterMetadataPass, context)
     }
 
     return program.copy(workouts = program.workouts.map { workout -> updatedById.getValue(workout.id) })
@@ -101,22 +109,26 @@ private fun resolveWorkoutCollisions(
 }
 
 /**
- * For each muscle that is meaningfully exposed (≥ [MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE]) in both
- * the previous workout and this one, swap one contributing lift in this workout for an alternative
- * that does not meaningfully stress that muscle. Only the earlier-contributing lifts in this
- * workout are candidates for swap, preserving session structure as much as possible.
+ * For each muscle whose earlier-session recovery debt is violated by this workout's meaningful
+ * exposure, swap one contributing lift for an alternative that does not meaningfully stress that
+ * muscle. Only lifts in this workout are swap candidates.
  */
 private fun resolveMetadataMuscleExposure(
     workout: Workout,
-    previousMuscleExposure: Map<String, Double>,
+    previousWorkout: Workout?,
+    previousMuscleStress: Map<String, MuscleSessionStress>,
     context: ProgramGenerationContext,
 ): Workout {
-    if (previousMuscleExposure.isEmpty()) return workout
-    val currentExposure = workoutMetadataMuscleVolume(workout, context)
-    val conflictMuscles = previousMuscleExposure.keys
+    if (previousWorkout == null || previousMuscleStress.isEmpty()) return workout
+    val previousDayIndex = previousWorkout.weekday?.ordinal ?: return workout
+    val currentDayIndex = workout.weekday?.ordinal ?: return workout
+    val calendarGap = calendarDayIndexGap(previousDayIndex, currentDayIndex)
+    val currentStress = workoutMetadataMuscleSessionStress(workout, context)
+    val conflictMuscles = previousMuscleStress.keys
         .filter { muscle ->
-            (previousMuscleExposure[muscle] ?: 0.0) >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
-                (currentExposure[muscle] ?: 0.0) >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
+            val earlierStress = previousMuscleStress[muscle] ?: return@filter false
+            val laterDose = currentStress[muscle]?.fractionalSets ?: 0.0
+            muscleRecoveryGapViolated(earlierStress, laterDose, calendarGap)
         }
     if (conflictMuscles.isEmpty()) return workout
 
@@ -152,6 +164,33 @@ private fun resolveMetadataMuscleExposure(
 private fun replacementStressesMuscle(lift: LiftContext?, muscle: String): Boolean {
     if (lift == null) return true
     return muscle in lift.primaryMuscles || muscle in lift.secondaryMuscles
+}
+
+/** Metadata muscle session stress for a domain [Workout] (mirrors [computeWorkoutMuscleSessionStress]). */
+private fun workoutMetadataMuscleSessionStress(
+    workout: Workout,
+    context: ProgramGenerationContext,
+): Map<String, MuscleSessionStress> {
+    val doses = workoutMetadataMuscleVolume(workout, context)
+    val classContributors = mutableMapOf<String, MutableList<Pair<LiftStressClass, Double>>>()
+    for (lift in workout.workoutLifts) {
+        val setCount = lift.sets.size
+        if (setCount == 0) continue
+        val meta = context.liftsById[lift.liftId.value] ?: continue
+        val stressClass = classifyLiftStressClass(meta)
+        for (muscle in meta.primaryMuscles) {
+            classContributors.getOrPut(muscle) { mutableListOf() }
+                .add(stressClass to setCount * PRIMARY_SET_CREDIT)
+        }
+        for (muscle in meta.secondaryMuscles) {
+            if (muscle in meta.primaryMuscles) continue
+            classContributors.getOrPut(muscle) { mutableListOf() }
+                .add(stressClass to setCount * SECONDARY_SET_CREDIT)
+        }
+    }
+    return doses.mapValues { (muscle, dose) ->
+        MuscleSessionStress(dose, dominantStressClass(classContributors[muscle].orEmpty()))
+    }
 }
 
 /** Metadata muscle volume for a domain [Workout] (mirrors [computeWorkoutMuscleVolume] truth). */

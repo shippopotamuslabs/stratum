@@ -3,18 +3,13 @@ package com.stratum.domain.importing
 import com.stratum.domain.onboarding.MuscleGroup
 
 /**
- * Literature-informed weekly hard-set bands (primary-muscle counting) used to sanity-check
- * observational MEV/MRV/MAV/PV estimates. Observational stimulus includes secondary muscles at
- * [com.stratum.domain.response.MuscleVolumeCredit.SECONDARY_SET_CREDIT] and tertiary muscles at
- * [com.stratum.domain.response.MuscleVolumeCredit.TERTIARY_SET_CREDIT] per set; priors
- * remain primary-only population ranges.
+ * Literature-informed weekly **fractional** hard-set bands used to sanity-check observational
+ * MEV/MRV/MAV/PV estimates. Credits match program generation: 1.0 per primary muscle per set,
+ * 0.5 per secondary ([com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT] /
+ * [com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT]).
  *
- * MAV and PV have no separate literature low/high bands: MAV (Maximum Adaptive Volume) sits
- * between MEV and MRV — the volume of peak progress — and we derive [mavMid] as the midpoint of
- * the MEV-high and MRV-low bands (the "productive range" midpoint). PV (Pareto Volume) is the
- * ascending-limb volume reaching 80% of peak progress, so it sits between MEV and MAV; we derive
- * [pvMid] as MEV-mid + 0.6·(MAV-mid − MEV-mid). These derived mids feed the fallback path and
- * plausibility checks when the quadratic fit cannot run.
+ * MAV mid is (MEV-high + MRV-low) / 2. Literature [pvMid] is a maintenance dose prior at 85% of
+ * MAV-mid — not a fitted Pareto point (that requires personal dose–response data).
  */
 data class VolumeLandmarkPrior(
     val mevLow: Double,
@@ -25,7 +20,7 @@ data class VolumeLandmarkPrior(
     val mevMid: Double get() = (mevLow + mevHigh) / 2.0
     val mrvMid: Double get() = (mrvLow + mrvHigh) / 2.0
     val mavMid: Double get() = (mevHigh + mrvLow) / 2.0
-    val pvMid: Double get() = mevMid + 0.6 * (mavMid - mevMid)
+    val pvMid: Double get() = literatureMaintenanceVolumeFromMav(mavMid, mvMid)
     /** Maintenance volume — bare minimum to retain muscle (below MEV productive range). */
     val mvMid: Double get() = kotlin.math.max(2.0, mevMid * 0.45)
 }
@@ -33,75 +28,85 @@ data class VolumeLandmarkPrior(
 object VolumeLandmarkPriors {
     fun forMuscle(muscle: MuscleGroup): VolumeLandmarkPrior =
         when (muscle) {
+            // Fractional MEV 6, MAV 12–20, MRV 22+
             MuscleGroup.Chest ->
                 VolumeLandmarkPrior(
-                    VolumeLandmarkPriorBands.MEV_LOW_LARGE,
+                    VolumeLandmarkPriorBands.MEV_LOW_STANDARD,
                     VolumeLandmarkPriorBands.MEV_HIGH_LARGE,
-                    VolumeLandmarkPriorBands.MRV_LOW_MAJOR,
-                    VolumeLandmarkPriorBands.MRV_HIGH_MAJOR,
+                    VolumeLandmarkPriorBands.MRV_LOW_CHEST,
+                    VolumeLandmarkPriorBands.MRV_HIGH_CHEST,
                 )
+            // Fractional MEV 8, MAV 14–22, MRV 25+
             MuscleGroup.Back ->
                 VolumeLandmarkPrior(
                     VolumeLandmarkPriorBands.MEV_LOW_LARGE,
                     VolumeLandmarkPriorBands.MEV_HIGH_EXTENDED,
-                    VolumeLandmarkPriorBands.MRV_LOW_EXTENDED,
-                    VolumeLandmarkPriorBands.MRV_HIGH_QUAD,
+                    VolumeLandmarkPriorBands.MRV_LOW_BACK,
+                    VolumeLandmarkPriorBands.MRV_HIGH_BACK,
                 )
+            // Fractional MEV 6, MAV 12–18, MRV 20+
             MuscleGroup.Quad ->
                 VolumeLandmarkPrior(
-                    VolumeLandmarkPriorBands.MEV_LOW_LARGE,
-                    VolumeLandmarkPriorBands.MEV_HIGH_EXTENDED,
-                    VolumeLandmarkPriorBands.MRV_LOW_EXTENDED,
+                    VolumeLandmarkPriorBands.MEV_LOW_STANDARD,
+                    VolumeLandmarkPriorBands.MEV_HIGH_LARGE,
+                    VolumeLandmarkPriorBands.MRV_LOW_QUAD,
                     VolumeLandmarkPriorBands.MRV_HIGH_QUAD,
                 )
+            // Fractional MEV 4, MAV 10–16, MRV 18+
             MuscleGroup.Hamstring ->
                 VolumeLandmarkPrior(
                     VolumeLandmarkPriorBands.MEV_LOW_COMPACT,
-                    VolumeLandmarkPriorBands.MEV_HIGH_COMPACT,
-                    VolumeLandmarkPriorBands.MRV_LOW_LARGE,
-                    VolumeLandmarkPriorBands.MRV_HIGH_LARGE,
+                    VolumeLandmarkPriorBands.MEV_HIGH_STANDARD,
+                    VolumeLandmarkPriorBands.MRV_LOW_HAM,
+                    VolumeLandmarkPriorBands.MRV_HIGH_HAM,
                 )
+            // Fractional MEV 6, MAV 12–18, MRV 22+
             MuscleGroup.Glute ->
                 VolumeLandmarkPrior(
-                    VolumeLandmarkPriorBands.MEV_LOW_COMPACT,
-                    VolumeLandmarkPriorBands.MEV_HIGH_COMPACT,
-                    VolumeLandmarkPriorBands.MRV_LOW_LARGE,
-                    VolumeLandmarkPriorBands.MRV_HIGH_LARGE,
+                    VolumeLandmarkPriorBands.MEV_LOW_STANDARD,
+                    VolumeLandmarkPriorBands.MEV_HIGH_LARGE,
+                    VolumeLandmarkPriorBands.MRV_LOW_GLUTE,
+                    VolumeLandmarkPriorBands.MRV_HIGH_GLUTE,
                 )
+            // Fractional MEV 12, MAV 20–28, MRV 35+ (rear delts — heavy secondary credit)
             MuscleGroup.PosteriorDeltoid ->
                 VolumeLandmarkPrior(
-                    VolumeLandmarkPriorBands.MEV_LOW_COMPACT,
-                    VolumeLandmarkPriorBands.MEV_HIGH_COMPACT,
-                    VolumeLandmarkPriorBands.MRV_LOW_EXTENDED,
-                    VolumeLandmarkPriorBands.MRV_HIGH_EXTENDED,
+                    VolumeLandmarkPriorBands.MEV_LOW_FRAC_SECONDARY_HEAVY,
+                    VolumeLandmarkPriorBands.MEV_HIGH_FRAC_REAR_DELT,
+                    VolumeLandmarkPriorBands.MRV_LOW_FRAC_REAR_DELT,
+                    VolumeLandmarkPriorBands.MRV_HIGH_FRAC_REAR_DELT,
                 )
+            // Fractional MEV 6, MAV 12–20, MRV 26+ (side delts)
             MuscleGroup.LateralDeltoid ->
                 VolumeLandmarkPrior(
-                    VolumeLandmarkPriorBands.MEV_LOW_COMPACT,
-                    VolumeLandmarkPriorBands.MEV_HIGH_COMPACT,
-                    VolumeLandmarkPriorBands.MRV_LOW_EXTENDED,
-                    VolumeLandmarkPriorBands.MRV_HIGH_EXTENDED,
+                    VolumeLandmarkPriorBands.MEV_LOW_STANDARD,
+                    VolumeLandmarkPriorBands.MEV_HIGH_LARGE,
+                    VolumeLandmarkPriorBands.MRV_LOW_SIDE_DELT,
+                    VolumeLandmarkPriorBands.MRV_HIGH_SIDE_DELT,
                 )
+            // Fractional MEV 4, MAV 8–12, MRV 16+ (front delts)
             MuscleGroup.AnteriorDeltoid ->
                 VolumeLandmarkPrior(
                     VolumeLandmarkPriorBands.MEV_LOW_COMPACT,
                     VolumeLandmarkPriorBands.MEV_HIGH_COMPACT,
-                    VolumeLandmarkPriorBands.MRV_LOW_EXTENDED,
-                    VolumeLandmarkPriorBands.MRV_HIGH_EXTENDED,
+                    VolumeLandmarkPriorBands.MRV_LOW_FRONT_DELT,
+                    VolumeLandmarkPriorBands.MRV_HIGH_FRONT_DELT,
                 )
+            // Fractional MEV 12, MAV 18–26, MRV 30+ (includes press secondaries)
             MuscleGroup.Tricep ->
                 VolumeLandmarkPrior(
-                    VolumeLandmarkPriorBands.MEV_LOW_COMPACT,
-                    VolumeLandmarkPriorBands.MEV_HIGH_COMPACT,
-                    VolumeLandmarkPriorBands.MRV_LOW_EXTENDED,
-                    VolumeLandmarkPriorBands.MRV_HIGH_EXTENDED,
+                    VolumeLandmarkPriorBands.MEV_LOW_FRAC_SECONDARY_HEAVY,
+                    VolumeLandmarkPriorBands.MEV_HIGH_FRAC_ARM,
+                    VolumeLandmarkPriorBands.MRV_LOW_FRAC_ARM,
+                    VolumeLandmarkPriorBands.MRV_HIGH_FRAC_ARM,
                 )
+            // Fractional MEV 12, MAV 18–26, MRV 30+ (includes pull secondaries)
             MuscleGroup.Bicep ->
                 VolumeLandmarkPrior(
-                    VolumeLandmarkPriorBands.MEV_LOW_COMPACT,
-                    VolumeLandmarkPriorBands.MEV_HIGH_COMPACT,
-                    VolumeLandmarkPriorBands.MRV_LOW_LARGE,
-                    VolumeLandmarkPriorBands.MRV_HIGH_MAJOR,
+                    VolumeLandmarkPriorBands.MEV_LOW_FRAC_SECONDARY_HEAVY,
+                    VolumeLandmarkPriorBands.MEV_HIGH_FRAC_ARM,
+                    VolumeLandmarkPriorBands.MRV_LOW_FRAC_ARM,
+                    VolumeLandmarkPriorBands.MRV_HIGH_FRAC_ARM,
                 )
             MuscleGroup.Trap ->
                 VolumeLandmarkPrior(
@@ -110,10 +115,11 @@ object VolumeLandmarkPriors {
                     VolumeLandmarkPriorBands.MRV_LOW_LARGE,
                     VolumeLandmarkPriorBands.MRV_HIGH_LARGE,
                 )
+            // Direct-dominant; fractional ≈ primary (no secondary table row)
             MuscleGroup.Calf ->
                 VolumeLandmarkPrior(
                     VolumeLandmarkPriorBands.MEV_LOW_STANDARD,
-                    VolumeLandmarkPriorBands.MEV_HIGH_STANDARD,
+                    VolumeLandmarkPriorBands.MEV_HIGH_LARGE,
                     VolumeLandmarkPriorBands.MRV_LOW_CALF,
                     VolumeLandmarkPriorBands.MRV_HIGH_CALF,
                 )
@@ -128,8 +134,8 @@ object VolumeLandmarkPriors {
                 VolumeLandmarkPrior(
                     VolumeLandmarkPriorBands.MEV_LOW_NONE,
                     VolumeLandmarkPriorBands.MEV_HIGH_MINIMAL,
-                    VolumeLandmarkPriorBands.MRV_LOW_STANDARD,
-                    VolumeLandmarkPriorBands.MRV_HIGH_LARGE,
+                    VolumeLandmarkPriorBands.MRV_LOW_AB,
+                    VolumeLandmarkPriorBands.MRV_HIGH_AB,
                 )
             MuscleGroup.LowerBack ->
                 VolumeLandmarkPrior(

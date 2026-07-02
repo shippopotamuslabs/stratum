@@ -30,7 +30,7 @@ class CalendarAdjacentMuscleExposureValidationTest {
                 cycleLength = 4,
                 workouts =
                     listOf(
-                        adjacentWorkout("Lower A", "Monday", "hip-thrust", sets = 4),
+                        adjacentWorkout("Lower A", "Monday", "rdl", sets = 5),
                         adjacentWorkout("Lower B", "Tuesday", "rdl", sets = 3),
                         adjacentWorkout("Upper A", "Wednesday", "bench", sets = 4),
                         adjacentWorkout("Upper B", "Thursday", "row", sets = 4),
@@ -70,7 +70,7 @@ class CalendarAdjacentMuscleExposureValidationTest {
                 cycleLength = 4,
                 workouts =
                     listOf(
-                        adjacentWorkout("Lower A", "Monday", "hip-thrust", sets = 4),
+                        adjacentWorkout("Lower A", "Monday", "rdl", sets = 5),
                         adjacentWorkout("Lower B", "Tuesday", "rdl", sets = 3),
                         adjacentWorkout("Upper A", "Wednesday", "bench", sets = 4),
                         adjacentWorkout("Upper B", "Thursday", "row", sets = 4),

@@ -4,7 +4,10 @@ package com.stratum.domain.solver
 
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.prescription.FilledSlot
+import com.stratum.domain.program.generation.reference.LiftStressClass
+import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.PatternSecondaryMuscleCredit
+import com.stratum.domain.program.generation.reference.RpRepProfile
 import kotlin.math.round
 
 /**
@@ -42,6 +45,26 @@ class VolumeAllocationCoefficients(
 
     fun musclesForPattern(pattern: String): List<PatternSecondaryMuscleCredit> =
         credits[pattern].orEmpty()
+
+    /** Movement-stress class for a slot from its pre-classified [RpRepProfile] and pattern. */
+    fun slotLiftStressClass(slot: FilledSlot): LiftStressClass {
+        if (slot.repProfile == RpRepProfile.LowerFreeWeightCompound) {
+            return LiftStressClass.HeavyAxial
+        }
+        if (slot.repProfile == RpRepProfile.Isolation) {
+            return LiftStressClass.Isolation
+        }
+        if (slot.pattern in MAJOR_COMPOUND_PATTERNS) {
+            return LiftStressClass.UpperCompound
+        }
+        return LiftStressClass.Isolation
+    }
+
+    fun isHeavyAxialSlot(slot: FilledSlot): Boolean =
+        slotLiftStressClass(slot) == LiftStressClass.HeavyAxial
+
+    fun isUpperCompoundSlot(slot: FilledSlot): Boolean =
+        slotLiftStressClass(slot) == LiftStressClass.UpperCompound
 
     companion object {
         const val SCALE: Long = 100L

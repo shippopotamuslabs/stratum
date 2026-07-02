@@ -3,6 +3,7 @@
 **/.gradle/
 build/
 **/build/
+!**/src/**/build/
 .kotlin/
 **/.kotlin/
 .cxx/

@@ -6,18 +6,13 @@ import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.domain.onboarding.Weekday
-import com.stratum.domain.program.Workout
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.prescription.FilledSlot
-import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.schema.toDraft
-import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
-import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -57,11 +52,11 @@ class GluteAdjacentRecoverySynthesisTest {
 
         val synthesis = synthesizer.synthesize(planWeeklyVolume(context), context)
         val solverRepeats =
-            adjacentMeaningfulMuscleRepeats(
+            recoveryGapViolationsFromPlans(
                 plans = synthesis.plans,
                 weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
-                muscle = "Glute",
                 context = context,
+                muscleFilter = { muscle -> muscle == "Glute" },
             )
         assertTrue(
             solverRepeats.isEmpty(),
@@ -76,16 +71,14 @@ class GluteAdjacentRecoverySynthesisTest {
                 options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
             )
         val draft = normalized.toDraft()
-        val program = normalized.toDomainProgram()
-        val exposuresByWorkout =
-            draft.workouts.associate { workout ->
-                workout.name.orEmpty() to computeWorkoutMuscleVolume(workout, context)
-            }
-        val workouts =
-            program.workouts.sortedBy { workout ->
-                workout.weekday?.let { day -> Weekday.entries.indexOf(day) } ?: workout.position
-            }
-        val pipelineRepeats = adjacentMeaningfulMuscleRepeats(workouts, exposuresByWorkout, "Glute")
+        val pipelineRepeats =
+            recoveryGapViolationsFromDraftWorkouts(
+                workouts = draft.workouts.sortedBy { workout ->
+                    workout.weekday?.let { day -> Weekday.entries.indexOfFirst { it.name == day } } ?: workout.position
+                },
+                context = context,
+                muscleFilter = { muscle -> muscle == "Glute" },
+            )
         assertTrue(
             pipelineRepeats.isEmpty(),
             "Pipeline glute exposure must avoid calendar-adjacent meaningful dose: $pipelineRepeats",
@@ -105,11 +98,11 @@ class GluteAdjacentRecoverySynthesisTest {
         val synthesizer = CpSatProgramSynthesizer()
         val synthesis = synthesizer.synthesize(planWeeklyVolume(context), context)
         val repeats =
-            adjacentMeaningfulMuscleRepeats(
+            recoveryGapViolationsFromPlans(
                 plans = synthesis.plans,
                 weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
-                muscle = "Glute",
                 context = context,
+                muscleFilter = { muscle -> muscle == "Glute" },
             )
         assertTrue(
             repeats.isEmpty(),
@@ -117,94 +110,4 @@ class GluteAdjacentRecoverySynthesisTest {
                 "weekdays=${synthesis.weekdayIndexByPosition}",
         )
     }
-
-    private fun adjacentMeaningfulMuscleRepeats(
-        plans: List<SessionSlotPlan>,
-        weekdayIndexByPosition: List<Int>,
-        muscle: String,
-        context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
-    ): List<String> {
-        val ordered =
-            plans.sortedBy { plan -> weekdayIndexByPosition[plan.position] }
-        val issues = mutableListOf<String>()
-        for (index in 1 until ordered.size) {
-            val prevDay = Weekday.entries[weekdayIndexByPosition[ordered[index - 1].position]]
-            val currDay = Weekday.entries[weekdayIndexByPosition[ordered[index].position]]
-            if (currDay.ordinal - prevDay.ordinal != 1) continue
-            val prevDose = planMuscleCredits(ordered[index - 1], muscle, context)
-            val currDose = planMuscleCredits(ordered[index], muscle, context)
-            if (
-                prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
-                currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-            ) {
-                issues +=
-                    "p${ordered[index - 1].position}→p${ordered[index].position}: " +
-                    "$muscle ($prevDose, $currDose)"
-            }
-        }
-        val firstDay = Weekday.entries[weekdayIndexByPosition[ordered.first().position]]
-        val lastDay = Weekday.entries[weekdayIndexByPosition[ordered.last().position]]
-        if (firstDay == Weekday.Monday && lastDay == Weekday.Sunday) {
-            val prevDose = planMuscleCredits(ordered.last(), muscle, context)
-            val currDose = planMuscleCredits(ordered.first(), muscle, context)
-            if (
-                prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
-                currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-            ) {
-                issues += "p${ordered.last().position}→p${ordered.first().position}: $muscle ($prevDose, $currDose)"
-            }
-        }
-        return issues
-    }
-
-    private fun adjacentMeaningfulMuscleRepeats(
-        workouts: List<Workout>,
-        exposuresByWorkout: Map<String, Map<String, Double>>,
-        muscle: String,
-    ): List<String> {
-        val issues = mutableListOf<String>()
-        for (index in 1 until workouts.size) {
-            val prevDay = workouts[index - 1].weekday ?: continue
-            val currDay = workouts[index].weekday ?: continue
-            if (Weekday.entries.indexOf(currDay) - Weekday.entries.indexOf(prevDay) != 1) continue
-            val prevDose = exposuresByWorkout[workouts[index - 1].name].orEmpty()[muscle] ?: 0.0
-            val currDose = exposuresByWorkout[workouts[index].name].orEmpty()[muscle] ?: 0.0
-            if (
-                prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
-                currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-            ) {
-                issues += "${workouts[index - 1].name}→${workouts[index].name}: $muscle ($prevDose, $currDose)"
-            }
-        }
-        val first = workouts.firstOrNull()?.weekday
-        val last = workouts.lastOrNull()?.weekday
-        if (first == Weekday.Monday && last == Weekday.Sunday) {
-            val prevDose = exposuresByWorkout[workouts.last().name].orEmpty()[muscle] ?: 0.0
-            val currDose = exposuresByWorkout[workouts.first().name].orEmpty()[muscle] ?: 0.0
-            if (
-                prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
-                currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-            ) {
-                issues += "${workouts.last().name}→${workouts.first().name}: $muscle ($prevDose, $currDose)"
-            }
-        }
-        return issues
-    }
-
-    private fun planMuscleCredits(
-        plan: SessionSlotPlan,
-        muscle: String,
-        context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
-    ): Double {
-        val coefficients = VolumeAllocationCoefficients(
-            com.stratum.domain.program.generation.reference.computePatternSecondaryCredits(context),
-        )
-        var total = 0.0
-        for (slot in plan.filledSlots) {
-            if (slot.setCount <= 0) continue
-            total += slot.setCount * coefficients.coeff(slot, muscle)
-        }
-        return total
-    }
-
 }

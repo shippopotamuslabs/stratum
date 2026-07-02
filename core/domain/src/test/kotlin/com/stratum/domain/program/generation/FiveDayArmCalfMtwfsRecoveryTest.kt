@@ -13,10 +13,13 @@ import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
+import com.stratum.domain.program.generation.reference.MuscleSessionStress
+import com.stratum.domain.program.generation.reference.calendarDayIndexGap
 import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGap
+import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.split.maxPriorityConsecutiveExposureDays
 import com.stratum.domain.program.buildScheduleMuscleExposures
-import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
+import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSessionStress
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -52,7 +55,7 @@ class FiveDayArmCalfMtwfsRecoveryTest {
         val draft = normalized.toDraft()
         val exposuresByName =
             draft.workouts.associate { workout ->
-                workout.name.orEmpty() to computeWorkoutMuscleVolume(workout, context)
+                workout.name.orEmpty() to computeWorkoutMuscleSessionStress(workout, context)
             }
         val scheduled = normalized.toDomainProgram()
         val priority = setOf("Bicep", "Tricep", "Calf")
@@ -65,7 +68,10 @@ class FiveDayArmCalfMtwfsRecoveryTest {
                 workouts = scheduled.workouts,
                 weekdayIndices = weekdayIndices,
                 workoutMuscleExposures =
-                    scheduled.workouts.map { workout -> exposuresByName.getValue(workout.name) },
+                    scheduled.workouts.map { workout ->
+                        exposuresByName.getValue(workout.name)
+                            .mapValues { (_, stress) -> stress.fractionalSets }
+                    },
             )
         val maxStreak = maxPriorityConsecutiveExposureDays(exposures, priority)
 
@@ -82,7 +88,7 @@ class FiveDayArmCalfMtwfsRecoveryTest {
                 weekdaysInOrder(scheduled)
                     .mapNotNull { day ->
                         val workout = scheduled.workouts.find { it.weekday == day } ?: return@mapNotNull null
-                        val dose = exposuresByName[workout.name]?.get(muscle) ?: 0.0
+                        val dose = exposuresByName[workout.name]?.get(muscle)?.fractionalSets ?: 0.0
                         if (dose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) null else "${day.name.take(3)}=$dose"
                     }
                     .joinToString(", ")
@@ -121,7 +127,7 @@ class FiveDayArmCalfMtwfsRecoveryTest {
 
     private fun recoveryViolations(
         program: Program,
-        exposuresByName: Map<String, Map<String, Double>>,
+        exposuresByName: Map<String, Map<String, MuscleSessionStress>>,
     ): List<RecoveryViolation> {
         val weekdays = weekdaysInOrder(program)
         val workoutByWeekday =
@@ -133,16 +139,19 @@ class FiveDayArmCalfMtwfsRecoveryTest {
             val sessions =
                 weekdays.mapNotNull { day ->
                     val workout = workoutByWeekday[day] ?: return@mapNotNull null
-                    val dose = exposuresByName[workout.name]?.get(muscle) ?: 0.0
-                    if (dose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) return@mapNotNull null
-                    day to dose
+                    val stress = exposuresByName[workout.name]?.get(muscle) ?: return@mapNotNull null
+                    if (stress.fractionalSets < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) return@mapNotNull null
+                    day to stress
                 }
             for (i in 1 until sessions.size) {
-                val (earlierDay, earlierDose) = sessions[i - 1]
-                val (laterDay, laterDose) = sessions[i]
-                val gap = Weekday.entries.indexOf(laterDay) - Weekday.entries.indexOf(earlierDay)
-                val required = minimumRecoveryCalendarGap(muscle, earlierDose, laterDose)
-                if (gap < required) {
+                val (earlierDay, earlierStress) = sessions[i - 1]
+                val (laterDay, laterStress) = sessions[i]
+                val gap = calendarDayIndexGap(
+                    Weekday.entries.indexOf(earlierDay),
+                    Weekday.entries.indexOf(laterDay),
+                )
+                val required = minimumRecoveryCalendarGap(earlierStress)
+                if (muscleRecoveryGapViolated(earlierStress, laterStress.fractionalSets, gap)) {
                     violations.add(RecoveryViolation(muscle, earlierDay, laterDay, gap, required))
                 }
             }

@@ -1,7 +1,6 @@
 package com.stratum.domain.program.generation.split
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class FullBodyLowerAdjacencyTest {
@@ -26,7 +25,6 @@ class FullBodyLowerAdjacencyTest {
                 ),
             )
         assertEquals(1, fullBodyLowerAdjacentCount(exposures))
-        assertTrue(recoveryScheduleSummary(exposures).fullBodyLowerAdjacentCount == 1)
     }
 
     @Test

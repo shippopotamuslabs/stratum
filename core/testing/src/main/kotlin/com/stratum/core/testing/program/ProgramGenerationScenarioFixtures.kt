@@ -7,6 +7,7 @@ import com.stratum.domain.program.generation.context.MuscleLengthBias
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.VolumeLandmarkContext
 import com.stratum.domain.program.generation.context.VolumeLandmarkSource
+import com.stratum.domain.program.LiteratureVolumeLandmarks
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -43,19 +44,26 @@ val SCENARIO_LIFT_CATALOG: List<LiftContext> = listOf(
     lift("hip-thrust", "Hip Thrust", "HipExtension", listOf("Glute"), listOf("Hamstring")),
 )
 
-val SCENARIO_LANDMARKS: List<VolumeLandmarkContext> = listOf(
-    landmark("Chest", 8.0, 14.0, 20.0, 11.0),
-    landmark("Back", 8.0, 14.0, 20.0, 11.0),
-    landmark("Quad", 8.0, 14.0, 20.0, 11.0),
-    landmark("Hamstring", 6.0, 10.0, 16.0, 8.0),
-    landmark("Glute", 4.0, 8.0, 14.0, 6.0),
-    landmark("Calf", 6.0, 10.0, 16.0, 8.0),
-    landmark("Tricep", 4.0, 8.0, 14.0, 6.0),
-    landmark("Bicep", 4.0, 8.0, 14.0, 6.0),
-    landmark("LateralDeltoid", 4.0, 8.0, 14.0, 6.0),
-    landmark("PosteriorDeltoid", 4.0, 8.0, 14.0, 6.0),
-    landmark("AnteriorDeltoid", 4.0, 8.0, 14.0, 6.0),
-)
+private val SCENARIO_MUSCLE_NAMES =
+    setOf(
+        "Chest",
+        "Back",
+        "Quad",
+        "Hamstring",
+        "Glute",
+        "Calf",
+        "Tricep",
+        "Bicep",
+        "LateralDeltoid",
+        "PosteriorDeltoid",
+        "AnteriorDeltoid",
+    )
+
+/** Literature mids from [LiteratureVolumeLandmarks] — kept in sync with production priors. */
+val SCENARIO_LANDMARKS: List<VolumeLandmarkContext> =
+    LiteratureVolumeLandmarks.all()
+        .filter { literature -> literature.muscle.name in SCENARIO_MUSCLE_NAMES }
+        .map { literature -> literature.toScenarioLandmark() }
 
 val SPECIALIZATION_PRESETS: Map<String, Map<String, String>> = mapOf(
     "maintenance" to emptyMap(),
@@ -207,6 +215,17 @@ private fun lift(
     secondaryMuscles = secondary,
     proven = true,
 )
+
+private fun com.stratum.domain.program.LiteratureVolumeLandmark.toScenarioLandmark(): VolumeLandmarkContext =
+    VolumeLandmarkContext(
+        muscle = muscle.name,
+        estimatedMev = estimatedMev,
+        estimatedMav = estimatedMav,
+        estimatedMrv = estimatedMrv,
+        estimatedPv = estimatedPv,
+        estimatedMv = estimatedMv,
+        source = VolumeLandmarkSource.Literature,
+    )
 
 private fun landmark(
     muscle: String,

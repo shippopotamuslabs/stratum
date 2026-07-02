@@ -2,13 +2,10 @@ package com.stratum.domain.program
 
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.split.MuscleSessionExposure
-import com.stratum.domain.program.generation.split.RecoveryScheduleSummary
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-import com.stratum.domain.program.generation.split.recoveryScheduleSummary
 import com.stratum.domain.program.generation.split.inferSessionTypeFromWorkoutName
 import com.stratum.domain.program.generation.split.SessionTypeId
 import com.stratum.domain.program.generation.split.primaryMusclesForSessionType
-import com.stratum.domain.program.generation.split.sortedWeekdayIndicesFromWeekdays
 
 private const val MAX_SESSION_LETTER_INDEX = 25
 
@@ -41,15 +38,10 @@ fun assignProgramScheduleFromWeekdayIndices(
 /**
  * Binds each workout in cycle order to a training weekday and persists [trainingWeekdays] on the
  * program. Rest days are the complement of the training set across the calendar week.
- *
- * When multiple workouts exist, permutes workout-to-weekday assignment to maximize calendar
- * recovery between sessions using per-muscle fractional set exposure when provided.
  */
 fun assignProgramSchedule(
     program: Program,
     trainingWeekdays: List<Weekday>,
-    workoutMuscleExposures: List<Map<String, Double>>? = null,
-    recoveryPriorityMuscles: Set<String> = emptySet(),
 ): Program {
     val sorted =
         trainingWeekdays.distinct().sortedBy { weekday -> Weekday.entries.indexOf(weekday) }
@@ -58,16 +50,9 @@ fun assignProgramSchedule(
         "Workout count ${program.workouts.size} must match training days ${sorted.size}."
     }
     val workoutsByPosition = program.workouts.sortedBy { it.position }
-    val weekdayIndices = sortedWeekdayIndicesFromWeekdays(sorted)
-    val orderedWorkouts = optimizeWorkoutWeekdayAssignment(
-        workouts = workoutsByPosition,
-        weekdayIndices = weekdayIndices,
-        workoutMuscleExposures = workoutMuscleExposures,
-        recoveryPriorityMuscles = recoveryPriorityMuscles,
-    )
     val boundWorkouts =
         relabelWorkoutNamesByWeekday(
-            orderedWorkouts.mapIndexed { index, workout ->
+            workoutsByPosition.mapIndexed { index, workout ->
                 workout.copy(weekday = sorted[index])
             },
         )
@@ -78,7 +63,7 @@ fun assignProgramSchedule(
 }
 
 /**
- * After recovery-based permutation, session letters (A/B/C) still reflect generation order.
+ * After weekday binding, session letters (A/B/C) still reflect generation order.
  * Renumber each session family by calendar weekday so Mon→A, Wed→B, Fri→C reads naturally.
  */
 internal fun relabelWorkoutNamesByWeekday(workouts: List<Workout>): List<Workout> {
@@ -99,54 +84,6 @@ internal fun relabelWorkoutNamesByWeekday(workouts: List<Workout>): List<Workout
     return workouts.map { workout ->
         renameByPosition[workout.position]?.let { newName -> workout.copy(name = newName) } ?: workout
     }
-}
-
-internal fun optimizeWorkoutWeekdayAssignment(
-    workouts: List<Workout>,
-    weekdayIndices: List<Int>,
-    workoutMuscleExposures: List<Map<String, Double>>? = null,
-    recoveryPriorityMuscles: Set<String> = emptySet(),
-): List<Workout> {
-    if (workouts.size <= 1 || workouts.size != weekdayIndices.size) return workouts
-    val permutations = allPermutations(workouts.indices.toList())
-    var bestOrder = workouts
-    var bestSummary: RecoveryScheduleSummary? = null
-    var bestScore = Int.MIN_VALUE
-    for (perm in permutations) {
-        val permutedWorkouts = perm.map { workouts[it] }
-        val exposures = buildScheduleMuscleExposures(
-            workouts = permutedWorkouts,
-            weekdayIndices = weekdayIndices,
-            workoutMuscleExposures = perm.map { workoutMuscleExposures?.getOrNull(it) },
-        )
-        val summary = recoveryScheduleSummary(exposures, recoveryPriorityMuscles)
-        val score = 100 - summary.totalPenalty
-        if (
-            bestSummary == null ||
-                isBetterScheduleSummary(
-                    summary = summary,
-                    score = score,
-                    priorityMuscles = recoveryPriorityMuscles,
-                    best = bestSummary,
-                    bestScore = bestScore,
-                )
-        ) {
-            bestSummary = summary
-            bestScore = score
-            bestOrder = permutedWorkouts
-        }
-    }
-    return bestOrder
-}
-
-internal fun scheduleRecoveryScore(
-    workouts: List<Workout>,
-    weekdayIndices: List<Int>,
-    workoutMuscleExposures: List<Map<String, Double>?>? = null,
-    recoveryPriorityMuscles: Set<String> = emptySet(),
-): Int {
-    val exposures = buildScheduleMuscleExposures(workouts, weekdayIndices, workoutMuscleExposures)
-    return 100 - recoveryScheduleSummary(exposures, recoveryPriorityMuscles).totalPenalty
 }
 
 internal fun buildScheduleMuscleExposures(
@@ -189,79 +126,6 @@ internal fun buildScheduleMuscleExposures(
         }
     }
     return out
-}
-
-private fun isBetterScheduleSummary(
-    summary: RecoveryScheduleSummary,
-    score: Int,
-    priorityMuscles: Set<String>,
-    best: RecoveryScheduleSummary,
-    bestScore: Int,
-): Boolean {
-    if (isBetterRecoveryScheduleSummary(summary, best, priorityMuscles)) return true
-    if (isBetterRecoveryScheduleSummary(best, summary, priorityMuscles)) return false
-    return score > bestScore
-}
-
-/** Lexicographic recovery comparison used by schedule permutation and split evaluation. */
-internal fun isBetterRecoveryScheduleSummary(
-    summary: RecoveryScheduleSummary,
-    best: RecoveryScheduleSummary,
-    priorityMuscles: Set<String>,
-): Boolean {
-    for (muscle in priorityMuscleComparisonOrder(priorityMuscles)) {
-        val violations = summary.priorityViolationsByMuscle[muscle] ?: 0
-        val bestViolationsForMuscle = best.priorityViolationsByMuscle[muscle] ?: 0
-        if (violations != bestViolationsForMuscle) {
-            return violations < bestViolationsForMuscle
-        }
-    }
-    return when {
-        summary.maxPriorityConsecutiveExposureDays != best.maxPriorityConsecutiveExposureDays ->
-            summary.maxPriorityConsecutiveExposureDays < best.maxPriorityConsecutiveExposureDays
-        summary.fullBodyLowerAdjacentCount != best.fullBodyLowerAdjacentCount ->
-            summary.fullBodyLowerAdjacentCount < best.fullBodyLowerAdjacentCount
-        summary.fullBodyFullBodyAdjacentCount != best.fullBodyFullBodyAdjacentCount ->
-            summary.fullBodyFullBodyAdjacentCount < best.fullBodyFullBodyAdjacentCount
-        summary.upperPullAdjacentLowerCount != best.upperPullAdjacentLowerCount ->
-            summary.upperPullAdjacentLowerCount < best.upperPullAdjacentLowerCount
-        summary.violationCount != best.violationCount ->
-            summary.violationCount < best.violationCount
-        summary.prioritySeverityScore != best.prioritySeverityScore ->
-            summary.prioritySeverityScore < best.prioritySeverityScore
-        summary.severityScore != best.severityScore ->
-            summary.severityScore < best.severityScore
-        else -> summary.totalPenalty < best.totalPenalty
-    }
-}
-
-private fun priorityMuscleComparisonOrder(priorityMuscles: Set<String>): List<String> {
-    val preferred = listOf("Tricep", "Calf", "Bicep")
-    val ordered = preferred.filter { it in priorityMuscles }
-    return ordered + priorityMuscles.filter { it !in preferred }.sorted()
-}
-
-private fun <T> allPermutations(items: List<T>): List<List<T>> {
-    if (items.size <= 1) return listOf(items)
-    if (items.size > 6) {
-        return listOf(items)
-    }
-    val result = mutableListOf<List<T>>()
-    fun permute(current: MutableList<T>, remaining: MutableList<T>) {
-        if (remaining.isEmpty()) {
-            result.add(current.toList())
-            return
-        }
-        for (i in remaining.indices) {
-            val next = remaining.removeAt(i)
-            current.add(next)
-            permute(current, remaining)
-            current.removeAt(current.lastIndex)
-            remaining.add(i, next)
-        }
-    }
-    permute(mutableListOf(), items.toMutableList())
-    return result
 }
 
 /** Builds a Mon–Sun schedule list with explicit rest-day rows and workout rows. */

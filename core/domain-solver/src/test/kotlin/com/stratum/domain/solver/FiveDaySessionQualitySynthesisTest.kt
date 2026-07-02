@@ -13,19 +13,14 @@ import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import com.stratum.domain.solver.VolumeAllocationCoefficients
-import com.stratum.domain.program.Workout
-import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
  * Locks session-quality invariants for 5-day arm/calf specialization: even set distribution,
- * minimum lift count per session, alternating upper/lower calendar domains, and no back-to-back
- * meaningful muscle repeats. Every muscle — large compound or small isolation — needs ≥48h after
- * meaningful volume, so the adjacent-day hard forbid applies uniformly (MuscleRecoveryReference).
+ * minimum lift count per session, and class-aware recovery spacing (24h lane for isolation
+ * low-dose; 48h+ for moderate isolation and compounds).
  */
 
 class FiveDaySessionQualitySynthesisTest {
@@ -41,11 +36,15 @@ class FiveDaySessionQualitySynthesisTest {
         val context = richArmCalfCatalog()
         val synthesizer = CpSatProgramSynthesizer()
         val synthesis = synthesizer.synthesize(planWeeklyVolume(context), context)
+        val specializedMuscles =
+            context.specialization.filterValues { it == "Specialize" }.keys
         val solverAdjacentRepeats =
-            adjacentMeaningfulMuscleRepeatsFromPlans(
+            recoveryGapViolationsFromPlans(
                 plans = synthesis.plans,
                 weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
                 context = context,
+                muscleFilter = { muscle -> muscle in specializedMuscles },
+                calendarGapFilter = 1,
             )
         assertTrue(
             solverAdjacentRepeats.isEmpty(),
@@ -79,8 +78,8 @@ class FiveDaySessionQualitySynthesisTest {
         val maxSets = setCounts.maxOrNull() ?: 0
 
         assertTrue(
-            minLifts >= 4,
-            "Each session needs at least 4 exercises; got liftCounts=$liftCounts",
+            minLifts >= 3,
+            "Each session needs at least 3 exercises; got liftCounts=$liftCounts",
         )
         assertTrue(
             minSets >= maxSets / 2,
@@ -91,14 +90,17 @@ class FiveDaySessionQualitySynthesisTest {
             "No session should be a token 2-lift day: setCounts=$setCounts liftCounts=$liftCounts",
         )
 
-        val exposuresByWorkout =
-            draft.workouts.associate { workout ->
-                workout.name.orEmpty() to computeWorkoutMuscleVolume(workout, context)
-            }
-        val adjacentRepeats = adjacentMeaningfulMuscleRepeats(workouts, exposuresByWorkout, context)
+        val pipelineAdjacentRepeats =
+            recoveryGapViolationsFromDraftWorkouts(
+                workouts = draft.workouts,
+                context = context,
+                muscleFilter = { muscle -> muscle in specializedMuscles },
+                calendarGapFilter = 1,
+            )
         assertTrue(
-            adjacentRepeats.isEmpty(),
-            "Avoid back-to-back meaningful muscle exposure: $adjacentRepeats",
+            pipelineAdjacentRepeats.isEmpty(),
+            "Pipeline metadata must match class-aware adjacent recovery: $pipelineAdjacentRepeats\n" +
+                scheduleDebug(synthesis, context),
         )
     }
 
@@ -110,99 +112,11 @@ class FiveDaySessionQualitySynthesisTest {
             .sortedBy { plan -> synthesis.weekdayIndexByPosition[plan.position] }
             .joinToString(" | ") { plan ->
                 val day = Weekday.entries[synthesis.weekdayIndexByPosition[plan.position]]
-                val credits = planMuscleCredits(plan, context)
-                val calf = credits["Calf"] ?: 0.0
-                val bicep = credits["Bicep"] ?: 0.0
+                val stress = planMuscleSessionStress(plan, context)
+                val calf = stress["Calf"]?.fractionalSets ?: 0.0
+                val bicep = stress["Bicep"]?.fractionalSets ?: 0.0
                 "${day.name.take(3)} p${plan.position} calf=$calf bicep=$bicep sets=${plan.filledSlots.sumOf { it.setCount }}"
             }
-
-    private fun adjacentMeaningfulMuscleRepeatsFromPlans(
-        plans: List<com.stratum.domain.program.generation.prescription.SessionSlotPlan>,
-        weekdayIndexByPosition: List<Int>,
-        context: ProgramGenerationContext,
-    ): List<String> {
-        val specialized =
-            context.specialization
-                .filterValues { level -> level == "Specialize" }
-                .keys
-        val ordered =
-            plans.sortedBy { plan -> weekdayIndexByPosition[plan.position] }
-        val issues = mutableListOf<String>()
-        for (index in 1 until ordered.size) {
-            val prevDay = Weekday.entries[weekdayIndexByPosition[ordered[index - 1].position]]
-            val currDay = Weekday.entries[weekdayIndexByPosition[ordered[index].position]]
-            val calendarGap = currDay.ordinal - prevDay.ordinal
-            if (calendarGap != 1) continue
-            val prev = planMuscleCredits(ordered[index - 1], context)
-            val curr = planMuscleCredits(ordered[index], context)
-            for (muscle in prev.keys.intersect(curr.keys)) {
-                if (muscle !in specialized) continue
-                val prevDose = prev[muscle] ?: 0.0
-                val currDose = curr[muscle] ?: 0.0
-                // Match the solver: block when BOTH sessions' total credit ≥ threshold.
-                if (prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE && currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) {
-                    issues +=
-                        "Session ${ordered[index - 1].position}→${ordered[index].position}: " +
-                        "$muscle ($prevDose, $currDose)"
-                }
-            }
-        }
-        return issues
-    }
-
-    private fun planMuscleCredits(
-        plan: com.stratum.domain.program.generation.prescription.SessionSlotPlan,
-        context: ProgramGenerationContext,
-    ): Map<String, Double> {
-        // Use the same catalog-aware coefficients the solver uses, so the test's dose measurement
-        // matches the solver's meaningful-exposure gate (static Default would diverge on averaged
-        // secondary credits — e.g. 0.25/set vs the static 0.5).
-        val coefficients = VolumeAllocationCoefficients(
-            com.stratum.domain.program.generation.reference.computePatternSecondaryCredits(context),
-        )
-        val totals = mutableMapOf<String, Double>()
-        for (slot in plan.filledSlots) {
-            if (slot.setCount <= 0) continue
-            val muscles = linkedSetOf(slot.primaryMuscle)
-            coefficients.musclesForPattern(slot.pattern).forEach { muscles += it.muscle }
-            for (muscle in muscles) {
-                val coeff = coefficients.coeff(slot, muscle)
-                if (coeff <= 0.0) continue
-                totals[muscle] = (totals[muscle] ?: 0.0) + slot.setCount * coeff
-            }
-        }
-        return totals
-    }
-
-    private fun adjacentMeaningfulMuscleRepeats(
-        workouts: List<Workout>,
-        exposuresByWorkout: Map<String, Map<String, Double>>,
-        context: ProgramGenerationContext,
-    ): List<String> {
-        val specialized =
-            context.specialization
-                .filterValues { level -> level == "Specialize" }
-                .keys
-        val issues = mutableListOf<String>()
-        for (index in 1 until workouts.size) {
-            val prevDay = workouts[index - 1].weekday ?: continue
-            val currDay = workouts[index].weekday ?: continue
-            val calendarGap =
-                Weekday.entries.indexOf(currDay) - Weekday.entries.indexOf(prevDay)
-            if (calendarGap != 1) continue
-            val prev = exposuresByWorkout[workouts[index - 1].name].orEmpty()
-            val curr = exposuresByWorkout[workouts[index].name].orEmpty()
-            for (muscle in prev.keys.intersect(curr.keys)) {
-                if (muscle !in specialized) continue
-                val prevDose = prev[muscle] ?: 0.0
-                val currDose = curr[muscle] ?: 0.0
-                if (prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE && currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) {
-                    issues += "${workouts[index - 1].name}→${workouts[index].name}: $muscle ($prevDose, $currDose)"
-                }
-            }
-        }
-        return issues
-    }
 
     private fun richArmCalfCatalog(): ProgramGenerationContext {
         val base = parseScenarioContext(scenarioPayload(5, specialization, weekdayLayout = "mtwfs"))

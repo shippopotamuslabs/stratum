@@ -20,6 +20,26 @@ internal fun maintenancePvGoal(landmark: VolumeLandmarkContext?, mev: Double): D
  */
 internal const val WEEKLY_MUSCLE_AIM_OVERLAP_FACTOR = 1.35
 
+/** Major maintenance muscles trimmed last; mirrors solver antagonist preference (back/ham ahead). */
+internal val MAINTENANCE_VOLUME_ANCHORS = setOf("Chest", "Back", "Quad", "Hamstring")
+
+/**
+ * Lower value = trimmed earlier when maintenance must shrink. Matches solver antagonist weights:
+ * back leads chest, ham leads quad ([SynthesisObjectiveWeights.ANTAGONIST_WRONG_WAY_EXCESS]).
+ */
+internal fun maintenanceTrimPriority(muscle: String): Int {
+    if (muscle !in MAINTENANCE_VOLUME_ANCHORS) {
+        return if (muscleTrainingDomain(muscle) == TrainingDomain.Lower) 0 else 1
+    }
+    return when (muscle) {
+        "Quad" -> 2
+        "Chest" -> 3
+        "Hamstring" -> 4
+        "Back" -> 5
+        else -> 1
+    }
+}
+
 /**
  * When session time cannot fit every unscaled aim, preserve specialized [WeeklyVolumeTarget.aim]
  * values (MRV) and trim maintenance toward PV before MV.
@@ -54,27 +74,45 @@ internal fun applyWeeklyTimeBudgetPrecedence(
     }
 
     val trimmed = result.mapValues { (_, target) -> target.copy() }.toMutableMap()
-    repeat(100) {
-        if (maintenanceMuscles.sumOf { muscle -> trimmed.getValue(muscle).aim } <= maintenanceBudget + 0.01) {
-            return trimmed
-        }
-        val trimmedTowardPv =
-            trimMaintenanceExcess(
-                trimmed = trimmed,
-                maintenanceMuscles = maintenanceMuscles,
-                maintenanceBudget = maintenanceBudget,
-                trimFloor = { muscle -> maintenancePvTrimFloor(muscle, trimmed.getValue(muscle), context) },
-            )
-        if (trimmedTowardPv) return@repeat
-        trimMaintenanceExcess(
-            trimmed = trimmed,
-            maintenanceMuscles = maintenanceMuscles,
-            maintenanceBudget = maintenanceBudget,
-            trimFloor = { muscle -> trimmed.getValue(muscle).min },
-        )
-    }
+    trimMaintenanceMusclesToBudget(
+        trimmed = trimmed,
+        maintenanceMuscles = maintenanceMuscles,
+        maintenanceBudget = maintenanceBudget,
+        context = context,
+    )
     return trimmed
 }
+
+private fun trimMaintenanceMusclesToBudget(
+    trimmed: MutableMap<String, WeeklyVolumeTarget>,
+    maintenanceMuscles: List<String>,
+    maintenanceBudget: Double,
+    context: ProgramGenerationContext,
+) {
+    val ordered = maintenanceMuscles.sortedBy(::maintenanceTrimPriority)
+    repeat(100) {
+        if (maintenanceMuscles.sumOf { muscle -> trimmed.getValue(muscle).aim } <= maintenanceBudget + 0.01) {
+            return
+        }
+        val trimmedTowardPv =
+            trimMaintenanceExcessPrioritized(
+                trimmed = trimmed,
+                orderedMuscles = ordered,
+                maintenanceBudget = maintenanceBudget,
+                trimFloor = { muscle -> maintenanceTrimFloor(muscle, trimmed, context, towardPv = true) },
+            )
+        if (trimmedTowardPv) return@repeat
+        trimMaintenanceExcessPrioritized(
+            trimmed = trimmed,
+            orderedMuscles = ordered,
+            maintenanceBudget = maintenanceBudget,
+            trimFloor = { muscle -> maintenanceTrimFloor(muscle, trimmed, context, towardPv = false) },
+        )
+    }
+}
+
+/** Half-set rounding without float drift inflating aims (e.g. 13.8 must not become 14.0). */
+private fun roundToHalfSets(value: Double): Double = round(value * 2) / 2.0
 
 private fun maintenancePvTrimFloor(
     muscle: String,
@@ -86,37 +124,67 @@ private fun maintenancePvTrimFloor(
     return max(target.min, maintenancePvGoal(landmark, mev))
 }
 
-/** Returns true when any maintenance aim was reduced toward [trimFloor]. */
-private fun trimMaintenanceExcess(
+/**
+ * PV/MV trim floor with antagonist pairing: back stays at or above chest, ham at or above quad
+ * ([SynthesisObjectiveWeights.ANTAGONIST_WRONG_WAY_EXCESS]).
+ */
+private fun maintenanceTrimFloor(
+    muscle: String,
+    trimmed: Map<String, WeeklyVolumeTarget>,
+    context: ProgramGenerationContext,
+    towardPv: Boolean,
+): Double {
+    val target = trimmed.getValue(muscle)
+    val base =
+        if (towardPv) {
+            maintenancePvTrimFloor(muscle, target, context)
+        } else {
+            target.min
+        }
+    val antagonistPartner =
+        when (muscle) {
+            "Back" -> "Chest"
+            "Hamstring" -> "Quad"
+            else -> null
+        }
+    val partnerAim = antagonistPartner?.let { partner -> trimmed[partner]?.aim }
+    return if (partnerAim != null) max(base, partnerAim) else base
+}
+
+/**
+ * Trim from lowest-priority maintenance muscles first so back/ham stay ahead of chest/quad
+ * under budget pressure, matching solver antagonist balance.
+ */
+private fun trimMaintenanceExcessPrioritized(
     trimmed: MutableMap<String, WeeklyVolumeTarget>,
-    maintenanceMuscles: List<String>,
+    orderedMuscles: List<String>,
     maintenanceBudget: Double,
     trimFloor: (String) -> Double,
 ): Boolean {
-    val maintenanceTotal = maintenanceMuscles.sumOf { muscle -> trimmed.getValue(muscle).aim }
-    val reducible =
-        maintenanceMuscles.filter { muscle ->
-            trimmed.getValue(muscle).aim > trimFloor(muscle)
-        }
-    if (reducible.isEmpty()) return false
+    val maintenanceTotal = orderedMuscles.sumOf { muscle -> trimmed.getValue(muscle).aim }
     val excess = maintenanceTotal - maintenanceBudget
     if (excess <= 0.0) return false
-    val totalReducible =
-        reducible.sumOf { muscle ->
+
+    var remaining = excess
+    var progress = false
+    for (muscle in orderedMuscles) {
+        if (remaining > 1e-9) {
             val target = trimmed.getValue(muscle)
-            target.aim - trimFloor(muscle)
+            val floor = trimFloor(muscle)
+            val reducible = target.aim - floor
+            if (reducible > 0.0) {
+                val cut = minOf(reducible, remaining)
+                val newAim = roundToHalfSets(target.aim - cut).coerceIn(floor, target.aim)
+                val actualCut = target.aim - newAim
+                if (actualCut > 0.0) {
+                    trimmed[muscle] = target.copy(aim = newAim)
+                    remaining -= actualCut
+                    progress = true
+                }
+            }
         }
-    if (totalReducible <= 0.0) return false
-    for (muscle in reducible) {
-        val target = trimmed.getValue(muscle)
-        val floor = trimFloor(muscle)
-        val share = (target.aim - floor) / totalReducible * excess
-        trimmed[muscle] =
-            target.copy(
-                aim = max(floor, round((target.aim - share) * 2) / 2.0),
-            )
     }
-    return true
+    return progress
 }
 
 private fun specializationLevel(muscle: String, context: ProgramGenerationContext): String =
@@ -131,9 +199,9 @@ private fun proportionalScaleTargets(
     val scale = weeklyTimeBudget / totalAim
     return targets.mapValues { (_, target) ->
         WeeklyVolumeTarget(
-            min = max(2.0, round(target.min * scale * 2) / 2.0),
-            aim = max(2.0, round(target.aim * scale * 2) / 2.0),
-            max = max(2.0, round(target.max * scale * 2) / 2.0),
+            min = max(2.0, roundToHalfSets(target.min * scale)),
+            aim = max(2.0, roundToHalfSets(target.aim * scale)),
+            max = max(2.0, roundToHalfSets(target.max * scale)),
         )
     }
 }

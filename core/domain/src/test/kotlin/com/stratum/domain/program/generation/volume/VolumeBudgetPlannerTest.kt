@@ -1,11 +1,22 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureMrv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class VolumeBudgetPlannerTest {
+    @Test
+    fun `maintenance trim priority trims non anchors before quad chest ham back`() {
+        assertTrue(maintenanceTrimPriority("Glute") < maintenanceTrimPriority("Quad"))
+        assertTrue(maintenanceTrimPriority("Quad") < maintenanceTrimPriority("Chest"))
+        assertTrue(maintenanceTrimPriority("Chest") < maintenanceTrimPriority("Hamstring"))
+        assertTrue(maintenanceTrimPriority("Hamstring") < maintenanceTrimPriority("Back"))
+        assertTrue(maintenanceTrimPriority("Calf") < maintenanceTrimPriority("Bicep"))
+    }
+
     @Test
     fun `calf and tricep specialization on five sixty minute days keeps chest and back at PV aim`() {
         val context =
@@ -20,8 +31,8 @@ class VolumeBudgetPlannerTest {
             )
         val trimmed = planWeeklyVolume(context)
 
-        assertEquals(11.0, trimmed.getValue("Chest").aim)
-        assertEquals(11.0, trimmed.getValue("Back").aim)
+        assertEquals(literaturePv("Chest"), trimmed.getValue("Chest").aim)
+        assertEquals(literaturePv("Back"), trimmed.getValue("Back").aim)
     }
 
     @Test
@@ -39,9 +50,20 @@ class VolumeBudgetPlannerTest {
         val unscaled = buildUnscaledWeeklyTargets(muscles, context)
         val trimmed = applyWeeklyTimeBudgetPrecedence(unscaled, context)
 
-        assertEquals(14.0, trimmed.getValue("Bicep").aim)
-        assertEquals(14.0, trimmed.getValue("Tricep").aim)
+        assertEquals(literatureMrv("Bicep"), trimmed.getValue("Bicep").aim)
+        assertEquals(literatureMrv("Tricep"), trimmed.getValue("Tricep").aim)
         assertTrue(trimmed.getValue("Chest").aim <= unscaled.getValue("Chest").aim)
-        assertTrue(trimmed.getValue("Chest").aim >= maintenancePvGoal(context.volumeLandmarksByMuscle["Chest"], 8.0))
+        assertTrue(
+            trimmed.getValue("Back").aim >= trimmed.getValue("Chest").aim,
+            "Back should stay at or above chest under trim (solver antagonist preference)",
+        )
+        assertTrue(
+            trimmed.getValue("Hamstring").aim >= trimmed.getValue("Quad").aim,
+            "Hamstring should stay at or above quad under trim (solver antagonist preference)",
+        )
+        assertTrue(
+            trimmed.getValue("Quad").aim <= unscaled.getValue("Quad").aim,
+            "Quad trims before chest when anchors must shrink",
+        )
     }
 }

@@ -1,6 +1,8 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureMrv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -13,8 +15,9 @@ class VolumePlannerTest {
                 specialization = mapOf("Bicep" to "Specialize"),
             ),
         )
-        assertEquals(14.0, targets.getValue("Bicep").aim)
-        assertEquals(14.0, targets.getValue("Bicep").max)
+        val expectedMrv = literatureMrv("Bicep")
+        assertEquals(expectedMrv, targets.getValue("Bicep").aim)
+        assertEquals(expectedMrv, targets.getValue("Bicep").max)
     }
 
     @Test
@@ -37,8 +40,10 @@ class VolumePlannerTest {
                 specialization = mapOf("Chest" to "Maintenance"),
             ),
         )
-        assertEquals(4.0, targets.getValue("Chest").min)
-        assertEquals(11.0, targets.getValue("Chest").aim)
+        val chest = targets.getValue("Chest")
+        val landmark = GenerationContextTestFixtures.literatureLandmarkContext("Chest")
+        assertEquals(landmark.estimatedMv, chest.min)
+        assertEquals(literaturePv("Chest"), chest.aim)
     }
 
     @Test
@@ -53,8 +58,11 @@ class VolumePlannerTest {
                 ),
             ),
         )
-        assertEquals(11.0, targets.getValue("Chest").aim)
-        assertEquals(4.0, targets.getValue("Chest").min)
+        assertEquals(literaturePv("Chest"), targets.getValue("Chest").aim)
+        assertEquals(
+            GenerationContextTestFixtures.literatureLandmarkContext("Chest").estimatedMv,
+            targets.getValue("Chest").min,
+        )
     }
 
     @Test
@@ -85,11 +93,11 @@ class VolumePlannerTest {
                 ),
             ),
         )
-        assertEquals(14.0, armAndCalfSpec.getValue("Bicep").aim)
-        assertEquals(14.0, armAndCalfSpec.getValue("Tricep").aim)
-        assertTrue(armAndCalfSpec.getValue("Chest").aim <= 11.0)
+        assertEquals(literatureMrv("Bicep"), armAndCalfSpec.getValue("Bicep").aim)
+        assertEquals(literatureMrv("Tricep"), armAndCalfSpec.getValue("Tricep").aim)
+        assertTrue(armAndCalfSpec.getValue("Chest").aim <= literaturePv("Chest"))
         assertTrue(armAndCalfSpec.getValue("Chest").aim >= armAndCalfSpec.getValue("Chest").min)
-        assertEquals(11.0, armAndCalfSpec.getValue("Quad").aim)
+        assertEquals(literaturePv("Quad"), armAndCalfSpec.getValue("Quad").aim)
     }
 
     @Test
@@ -99,8 +107,8 @@ class VolumePlannerTest {
                 specialization = mapOf("Bicep" to "Specialize", "Tricep" to "Specialize"),
             ),
         )
-        assertEquals(11.0, armSpec.getValue("Back").aim)
-        assertEquals(11.0, armSpec.getValue("Chest").aim)
+        assertEquals(literaturePv("Back"), armSpec.getValue("Back").aim)
+        assertEquals(literaturePv("Chest"), armSpec.getValue("Chest").aim)
     }
 
     @Test

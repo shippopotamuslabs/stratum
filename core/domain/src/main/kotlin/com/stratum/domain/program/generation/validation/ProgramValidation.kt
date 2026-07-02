@@ -12,12 +12,20 @@ import com.stratum.domain.program.generation.context.isPushPattern
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.draft.ProgramLiftDraft
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
+import com.stratum.domain.program.generation.prescription.classifyLiftStressClass
+import com.stratum.domain.program.generation.prescription.dominantStressClass
+import com.stratum.domain.program.generation.prescription.recoveryStressClassForContributor
 import com.stratum.domain.program.generation.reference.FrequencyTier
+import com.stratum.domain.program.generation.reference.LiftStressClass
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
+import com.stratum.domain.program.generation.reference.MuscleSessionStress
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
+import com.stratum.domain.program.generation.reference.calendarDayIndexGap
+import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGap
+import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
+import com.stratum.domain.program.generation.reference.trainingDayPairsForRecoveryCheck
 import com.stratum.domain.program.generation.reference.frequencyTierForWeeklySets
 import com.stratum.domain.program.generation.reference.sessionDurationBudgetMinutes
-import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
 import com.stratum.domain.program.generation.split.trainingWeekdayIndices
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 import com.stratum.domain.program.generation.volume.resolveMuscleWeeklyTarget
@@ -401,17 +409,17 @@ fun validateExerciseOrdering(
 }
 
 /**
- * Advisory check: same muscle meaningfully exposed on calendar-adjacent training days using lift
- * metadata ([computeWorkoutMuscleVolume]). Emitted as warnings only — users can edit the draft
+ * Advisory check: class-aware recovery spacing violations on metadata-truth muscle exposure
+ * ([computeWorkoutMuscleSessionStress]). Emitted as warnings only — users can edit the draft
  * after generation rather than failing the pipeline.
  */
 fun validateCalendarAdjacentMuscleExposure(
     program: ProgramDraft,
     context: ProgramGenerationContext,
 ): List<ValidationIssue> {
-    val exposuresByWorkoutName =
+    val stressByWorkoutName =
         program.workouts.associate { workout ->
-            workout.name.orEmpty() to computeWorkoutMuscleVolume(workout, context)
+            workout.name.orEmpty() to computeWorkoutMuscleSessionStress(workout, context)
         }
     val workoutByDayIndex =
         program.workouts
@@ -420,33 +428,32 @@ fun validateCalendarAdjacentMuscleExposure(
                 val dayIndex = trainingWeekdayIndices(listOf(weekday)).singleOrNull() ?: return@mapNotNull null
                 dayIndex to workout
             }.toMap()
-    val adjacentPairs = calendarAdjacentTrainingDayPairs(trainingWeekdayIndices(context.weekdays))
+    val recoveryPairs = trainingDayPairsForRecoveryCheck(trainingWeekdayIndices(context.weekdays))
     val issues = mutableListOf<ValidationIssue>()
-    for ((earlierDayIndex, laterDayIndex) in adjacentPairs) {
+    for ((earlierDayIndex, laterDayIndex) in recoveryPairs) {
         val earlierWorkout = workoutByDayIndex[earlierDayIndex] ?: continue
         val laterWorkout = workoutByDayIndex[laterDayIndex] ?: continue
-        val earlierExposure = exposuresByWorkoutName[earlierWorkout.name.orEmpty()].orEmpty()
-        val laterExposure = exposuresByWorkoutName[laterWorkout.name.orEmpty()].orEmpty()
-        for (muscle in earlierExposure.keys + laterExposure.keys) {
-            val earlierDose = earlierExposure[muscle] ?: 0.0
-            val laterDose = laterExposure[muscle] ?: 0.0
-            if (
-                earlierDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE ||
-                laterDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-            ) {
-                continue
-            }
+        val earlierStressByMuscle = stressByWorkoutName[earlierWorkout.name.orEmpty()].orEmpty()
+        val laterStressByMuscle = stressByWorkoutName[laterWorkout.name.orEmpty()].orEmpty()
+        val calendarGap = calendarDayIndexGap(earlierDayIndex, laterDayIndex)
+        for (muscle in earlierStressByMuscle.keys + laterStressByMuscle.keys) {
+            val earlierStress = earlierStressByMuscle[muscle] ?: continue
+            val laterDose = laterStressByMuscle[muscle]?.fractionalSets ?: 0.0
+            if (!muscleRecoveryGapViolated(earlierStress, laterDose, calendarGap)) continue
+            val earlierDose = earlierStress.fractionalSets
             val earlierDay = WEEKDAY_NAMES.getOrElse(earlierDayIndex) { earlierDayIndex.toString() }
             val laterDay = WEEKDAY_NAMES.getOrElse(laterDayIndex) { laterDayIndex.toString() }
             val level = context.specialization[muscle] ?: "Maintenance"
+            val requiredGap = minimumRecoveryCalendarGap(earlierStress)
             issues +=
                 ValidationIssue(
                     code = "CALENDAR_ADJACENT_MUSCLE_EXPOSURE",
                     severity = ValidationSeverity.Warning,
                     message =
-                        "$muscle ($level) is meaningfully exposed on calendar-adjacent days " +
-                            "$earlierDay (${"%.1f".format(earlierDose)} credits) and " +
-                            "$laterDay (${"%.1f".format(laterDose)} credits).",
+                        "$muscle ($level) violates recovery spacing: $earlierDay " +
+                            "(${"%.1f".format(earlierDose)} credits, ${earlierStress.stressClass}) → " +
+                            "$laterDay (${"%.1f".format(laterDose)} credits); " +
+                            "gap $calendarGap < required $requiredGap.",
                     details =
                         mapOf(
                             "muscle" to muscle,
@@ -455,6 +462,9 @@ fun validateCalendarAdjacentMuscleExposure(
                             "laterDay" to laterDay,
                             "earlierDose" to earlierDose,
                             "laterDose" to laterDose,
+                            "earlierStressClass" to earlierStress.stressClass.name,
+                            "calendarGap" to calendarGap,
+                            "requiredGap" to requiredGap,
                             "earlierWorkout" to earlierWorkout.name,
                             "laterWorkout" to laterWorkout.name,
                         ),
@@ -585,6 +595,39 @@ fun computeWorkoutMuscleVolume(
         }
     }
     return totals
+}
+
+/** Per-muscle dose and dominant movement-stress class for one workout (metadata truth). */
+fun computeWorkoutMuscleSessionStress(
+    workout: ProgramWorkoutDraft,
+    context: ProgramGenerationContext,
+): Map<String, MuscleSessionStress> {
+    val doses = computeWorkoutMuscleVolume(workout, context)
+    val classContributors = mutableMapOf<String, MutableList<Pair<LiftStressClass, Double>>>()
+    for (lift in workout.workoutLifts.orEmpty()) {
+        val setCount = lift.workoutLiftSets?.size ?: 0
+        if (setCount == 0) continue
+        val meta = context.liftsById[lift.liftId.orEmpty()] ?: continue
+        val stressClass = classifyLiftStressClass(meta)
+        for (muscle in meta.primaryMuscles) {
+            classContributors.getOrPut(muscle) { mutableListOf() }
+                .add(
+                    recoveryStressClassForContributor(stressClass, isPrimaryContributor = true) to
+                        setCount * PRIMARY_SET_CREDIT,
+                )
+        }
+        for (muscle in meta.secondaryMuscles) {
+            if (muscle in meta.primaryMuscles) continue
+            classContributors.getOrPut(muscle) { mutableListOf() }
+                .add(
+                    recoveryStressClassForContributor(stressClass, isPrimaryContributor = false) to
+                        setCount * SECONDARY_SET_CREDIT,
+                )
+        }
+    }
+    return doses.mapValues { (muscle, dose) ->
+        MuscleSessionStress(dose, dominantStressClass(classContributors[muscle].orEmpty()))
+    }
 }
 
 private fun computeMuscleWeeklyFrequency(

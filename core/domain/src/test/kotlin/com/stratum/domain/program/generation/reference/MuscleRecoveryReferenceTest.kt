@@ -1,50 +1,79 @@
 package com.stratum.domain.program.generation.reference
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class MuscleRecoveryReferenceTest {
 
     @Test
-    @DisplayName("triceps require at least 2 calendar days between meaningful sessions")
-    fun tricepsMinimumGap() {
-        assertEquals(2, minimumRecoveryCalendarGap("Tricep", 2.0, 8.0))
-        assertEquals(2, minimumRecoveryCalendarGap("Tricep", 2.0, 2.0))
+    @DisplayName("isolation moderate dose requires two calendar days")
+    fun isolationModerateDoseRequiresTwoDays() {
+        assertEquals(2, minimumRecoveryCalendarGap(MuscleSessionStress(5.0, LiftStressClass.Isolation)))
+        assertEquals(1, minimumRecoveryCalendarGap(MuscleSessionStress(2.0, LiftStressClass.Isolation)))
     }
 
     @Test
-    @DisplayName("heavy quad work requires 3 calendar days before repeat")
-    fun heavyQuadGap() {
-        assertEquals(3, minimumRecoveryCalendarGap("Quad", 10.0, 10.0))
+    @DisplayName("heavy axial high dose requires four calendar days")
+    fun heavyAxialHighDoseRequiresFourDays() {
+        assertEquals(4, minimumRecoveryCalendarGap(MuscleSessionStress(10.0, LiftStressClass.HeavyAxial)))
     }
 
     @Test
-    @DisplayName("very heavy arm specialization prefers 3 calendar days")
-    fun veryHeavyArmGap() {
-        assertEquals(3, minimumRecoveryCalendarGap("Tricep", 14.0, 14.0))
+    @DisplayName("isolation high dose requires three calendar days")
+    fun isolationHighDoseRequiresThreeDays() {
+        assertEquals(3, minimumRecoveryCalendarGap(MuscleSessionStress(14.0, LiftStressClass.Isolation)))
     }
 
     @Test
-    @DisplayName("light calf touch still needs 2 calendar days before direct calf work")
-    fun lightCalfGap() {
-        assertEquals(2, minimumRecoveryCalendarGap("Calf", 2.0, 6.0))
+    @DisplayName("upper compound low dose requires two calendar days")
+    fun upperCompoundLowDoseRequiresTwoDays() {
+        assertEquals(2, minimumRecoveryCalendarGap(MuscleSessionStress(3.0, LiftStressClass.UpperCompound)))
     }
 
     @Test
-    @DisplayName("anterior delts recover at the same 48h rate as small isolation (Korak 2015)")
-    fun anteriorDeltMatchesSmallIsolation() {
-        // Korak 2015: military dumbbell press recovered at 90% at 48h — identical to
-        // side raises and triceps extension. Anterior delts share the small-isolation tier.
-        assertEquals(2, minimumRecoveryCalendarGap("AnteriorDeltoid", 6.0, 8.0))
-        assertEquals(3, minimumRecoveryCalendarGap("AnteriorDeltoid", 14.0, 14.0))
-        assertEquals(2, minimumRecoveryCalendarGap("AnteriorDeltoid", 2.0, 6.0))
+    @DisplayName("upper compound moderate dose requires three calendar days")
+    fun upperCompoundModerateDoseRequiresThreeDays() {
+        assertEquals(3, minimumRecoveryCalendarGap(MuscleSessionStress(6.0, LiftStressClass.UpperCompound)))
+        assertEquals(3, minimumRecoveryCalendarGap(MuscleSessionStress(8.0, LiftStressClass.UpperCompound)))
     }
 
     @Test
-    @DisplayName("unmapped muscles default to the small-isolation 48h tier")
-    fun unmappedMuscleDefaultsToSmallIsolation() {
-        assertEquals(2, minimumRecoveryCalendarGap("Trap", 6.0, 8.0))
-        assertEquals(2, minimumRecoveryCalendarGap("Forearm", 4.0, 4.0))
+    @DisplayName("unmapped muscles inherit isolation-class spacing when classified as isolation")
+    fun unmappedMuscleUsesIsolationClass() {
+        assertEquals(2, minimumRecoveryCalendarGap(MuscleSessionStress(6.0, LiftStressClass.Isolation)))
+        assertEquals(2, minimumRecoveryCalendarGap(MuscleSessionStress(4.0, LiftStressClass.Isolation)))
+    }
+
+    @Test
+    @DisplayName("muscleRecoveryGapViolated gates on earlier-session debt and later meaningfulness")
+    fun muscleRecoveryGapViolatedUsesEarlierSessionSemantics() {
+        val earlier = MuscleSessionStress(5.0, LiftStressClass.Isolation)
+        assertEquals(false, muscleRecoveryGapViolated(earlier, laterDose = 5.0, calendarGap = 2))
+        assertEquals(true, muscleRecoveryGapViolated(earlier, laterDose = 5.0, calendarGap = 1))
+        assertEquals(false, muscleRecoveryGapViolated(earlier, laterDose = 1.5, calendarGap = 1))
+    }
+
+    @Test
+    @DisplayName("minimumRecoveryGapBetweenSessions gates meaningful exposure on both sessions")
+    fun minimumRecoveryGapBetweenSessionsGatesBothSessions() {
+        assertEquals(
+            0,
+            minimumRecoveryGapBetweenSessions(5.0, 1.5, LiftStressClass.Isolation),
+        )
+        assertEquals(
+            2,
+            minimumRecoveryGapBetweenSessions(5.0, 5.0, LiftStressClass.Isolation),
+        )
+    }
+
+    @Test
+    @DisplayName("calendarDayPairsWithMaxGap includes gap-1 and gap-2 ordered pairs")
+    fun calendarDayPairsWithMaxGapCoversAdjacentAndGapTwo() {
+        val pairs = calendarDayPairsWithMaxGap(listOf(0, 2, 4), maxGap = 2)
+        assertTrue(pairs.contains(0 to 2))
+        assertTrue(pairs.contains(2 to 4))
+        assertTrue(pairs.none { calendarGapBetweenDays(it.first, it.second) > 2 })
     }
 }
