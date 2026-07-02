@@ -68,6 +68,10 @@ private val LOWER_SLOTS: List<WorkoutSlotTemplate> = listOf(
     WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, "KneeExtension", "Quad", RpRepProfile.Isolation),
     WorkoutSlotTemplate("ham-iso", SlotRole.Isolation, "KneeFlexion", "Hamstring", RpRepProfile.Isolation),
     WorkoutSlotTemplate("calf", SlotRole.Optional, "PlantarFlexion", "Calf", RpRepProfile.Isolation),
+    // Glute-primary slot. Excluded from the universe for Maintenance users (Glute volume rides on
+    // squat/hinge secondaries — see PATTERN_SECONDARY_MUSCLE_CREDITS); included only when the user
+    // Specializes Glute, so direct hip-thrust work becomes schedulable (gated in `isSlotRelevant`).
+    WorkoutSlotTemplate("glute", SlotRole.Anchor, "HipExtension", "Glute", RpRepProfile.LowerFreeWeightCompound),
 )
 
 private val UPPER_SLOTS: List<WorkoutSlotTemplate> = listOf(

@@ -97,10 +97,10 @@ class ProgramSynthesisAcceptanceTest {
             draft.workouts
                 .filter { it.weekday != null }
                 .associate { Weekday.entries.indexOf(Weekday.valueOf(it.weekday!!)) to it }
-        val exposuresByWorkoutName =
-            draft.workouts.associate { it.name.orEmpty() to computeWorkoutMuscleVolume(it, context) }
 
         val adjacentViolations = mutableListOf<String>()
+        val exposuresByWorkoutName =
+            draft.workouts.associate { it.name.orEmpty() to computeWorkoutMuscleVolume(it, context) }
         for ((d1, d2) in calendarAdjacentTrainingDayPairs(trainingWeekdayIndices(context.weekdays))) {
             val w1 = workoutByDayIndex[d1] ?: continue
             val w2 = workoutByDayIndex[d2] ?: continue
@@ -109,6 +109,9 @@ class ProgramSynthesisAcceptanceTest {
             for (muscle in e1.keys + e2.keys) {
                 val dose1 = e1[muscle] ?: 0.0
                 val dose2 = e2[muscle] ?: 0.0
+                // Match the solver: block when BOTH sessions' total credit ≥ MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
+                // (2.0 ≈ 2 hard sets, primary or secondary). A light sub-threshold day adjacent to a
+                // heavy one is allowed — that's the feasible path for non-overlapping back-to-back sessions.
                 if (dose1 >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE && dose2 >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) {
                     adjacentViolations += "${w1.weekday}/${w2.weekday} $muscle ($dose1, $dose2)"
                 }

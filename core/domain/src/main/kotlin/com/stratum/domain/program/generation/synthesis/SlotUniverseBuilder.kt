@@ -8,6 +8,7 @@ import com.stratum.domain.program.generation.split.SessionTypeId
 import com.stratum.domain.program.generation.split.SlotRole
 import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
 import com.stratum.domain.program.generation.split.slotsForSessionType
+import com.stratum.domain.program.generation.selection.candidatesForSlot
 import com.stratum.domain.program.generation.volume.TrainingDomain
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import com.stratum.domain.program.generation.volume.muscleTrainingDomain
@@ -18,6 +19,7 @@ private val LOWER_PRIMARY_PATTERNS =
     setOf(
         "SquatPattern",
         "HipHinge",
+        "HipExtension",
         "KneeExtension",
         "KneeFlexion",
         "PlantarFlexion",
@@ -89,10 +91,25 @@ private fun isSlotRelevant(
     ) {
         return false
     }
-    if (slot.primaryMuscle in relevantMuscles) return true
-    if ((context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize") return true
-    if (slot.role == SlotRole.Anchor) return true
-    return false
+    // Glute-primary slot (HipExtension) is excluded for Maintenance users — glute volume rides on
+    // squat/hinge secondaries, so a dedicated hip-thrust slot churns session time without aim-driven
+    // need. Included only when the user Specializes Glute (per the "keep out unless specializing"
+    // policy). Other lower anchors (squat/hinge) stay in regardless because they target Quad/Hamstring.
+    if (slot.pattern == "HipExtension" && slot.primaryMuscle == "Glute" &&
+        (context.specialization["Glute"] ?: "Maintenance") != "Specialize"
+    ) {
+        return false
+    }
+    val keepsByMuscleOrRole =
+        slot.primaryMuscle in relevantMuscles ||
+            (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize" ||
+            slot.role == SlotRole.Anchor
+    if (!keepsByMuscleOrRole) return false
+    // Candidate existence (audit §4.4): never include a slot with zero enabled catalog candidates.
+    // `candidatesForSlot` is stricter than `availablePatternsByMuscle` (strict primary-muscle match
+    // for Anchor/Isolation/touch), so a slot can look available-by-pattern yet have no realizable
+    // lift — activating it would yield a blocking `UNSELECTED_ACTIVE_SLOT` after a long solve.
+    return candidatesForSlot(slot, context).isNotEmpty()
 }
 
 private fun slotKey(slot: WorkoutSlotTemplate): String =

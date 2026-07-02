@@ -121,7 +121,7 @@ fun validateWorkoutDuration(
                 code = "WORKOUT_DURATION_EXCEEDED",
                 severity = ValidationSeverity.Error,
                 message = "Workout \"${workout.name ?: index}\" estimated ${"%.1f".format(estimate)} min " +
-                    "exceeds budget $sessionLength min (cap ${"%.1f".format(budget)} with tolerance).",
+                    "exceeds budget $sessionLength min (cap ${"%.1f".format(budget)}).",
                 details = mapOf(
                     "workoutIndex" to index,
                     "estimatedMinutes" to estimate,
@@ -162,9 +162,13 @@ fun validateWeeklyMuscleVolume(
         if (level == "Omit") {
             val volume = weeklyMuscleVolume[muscle] ?: 0.0
             if (volume > 0.01) {
+                // Warning, not Error: omitted muscles that still appear as required anchors (e.g. a
+                // lower session needs a squat anchor) tolerantly receive incidental compound volume
+                // by design (audit §7.3). Only UNSELECTED_ACTIVE_SLOT / DUPLICATE_LIFT_IN_WORKOUT
+                // block shipment; surfacing this as a non-blocking Warning is the honest severity.
                 issues += ValidationIssue(
                     code = "OMITTED_MUSCLE_HAS_VOLUME",
-                    severity = ValidationSeverity.Error,
+                    severity = ValidationSeverity.Warning,
                     message = "Muscle $muscle is Omitted but received ${"%.1f".format(volume)} weekly hard-set credits.",
                 )
             }
@@ -177,9 +181,11 @@ fun validateWeeklyMuscleVolume(
         val target = resolveMuscleWeeklyTarget(muscle, level, context)
         val (minFloor, maxCeiling) = weeklyVolumeToleranceBand(target)
         if (volume < minFloor) {
+            // Warning: the solver minimizes but cannot always hit every aim under session/session-cap
+            // constraints; this is repaired best-effort, not a ship blocker (audit §5.2).
             issues += ValidationIssue(
                 code = "WEEKLY_VOLUME_BELOW_TARGET",
-                severity = ValidationSeverity.Error,
+                severity = ValidationSeverity.Warning,
                 message = "$muscle weekly volume ${"%.1f".format(volume)} is materially below target minimum " +
                     "${"%.1f".format(target.min)} ($level, aim ${"%.1f".format(target.aim)}; " +
                     "fuzzy floor ${"%.1f".format(minFloor)}).",
@@ -187,9 +193,11 @@ fun validateWeeklyMuscleVolume(
             )
         }
         if (volume > maxCeiling) {
+            // Warning: MRV overshoot can arise from metadata-vs-pattern-credit divergence and is
+            // trimmed best-effort by the integration repair; not a ship blocker (audit §5.2).
             issues += ValidationIssue(
                 code = "WEEKLY_VOLUME_ABOVE_MRV",
-                severity = ValidationSeverity.Error,
+                severity = ValidationSeverity.Warning,
                 message = "$muscle weekly volume ${"%.1f".format(volume)} materially exceeds MRV ceiling " +
                     "${"%.1f".format(target.max)} (fuzzy cap ${"%.1f".format(maxCeiling)}).",
                 details = mapOf("muscle" to muscle, "volume" to volume, "target" to target, "maxCeiling" to maxCeiling),

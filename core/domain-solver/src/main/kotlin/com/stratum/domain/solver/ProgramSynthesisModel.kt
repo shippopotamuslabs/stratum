@@ -17,19 +17,18 @@ import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBrea
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.MIN_TOUCH_DIRECT_SETS
+import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MODERATE_DOSE
+import com.stratum.domain.program.generation.reference.MuscleRecoveryClass
+import com.stratum.domain.program.generation.reference.muscleRecoveryClass
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.reference.computePatternSecondaryCredits
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
 import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGap
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
-import com.stratum.domain.program.generation.split.SessionTypeId
 import com.stratum.domain.program.generation.split.SlotRole
 import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
 import com.stratum.domain.program.generation.split.trainingWeekdayIndices
-import com.stratum.domain.program.generation.split.trainingWeekdayIndicesInUserOrder
-import com.stratum.domain.program.generation.prescription.isSolverActivatableSlot
-import com.stratum.domain.program.generation.prescription.prefersSlotActivation
 import com.stratum.domain.program.generation.synthesis.SynthesisSessionDomain
 import com.stratum.domain.program.generation.synthesis.SynthesisSlot
 import com.stratum.domain.program.generation.synthesis.UnifiedSynthesisSolution
@@ -43,7 +42,7 @@ import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 internal class ProgramSynthesisModel(
     private val weeklyTargets: WeeklyVolumeTargets,
     private val context: ProgramGenerationContext,
-    private val unifiedUniverse: List<SynthesisSlot>? = null,
+    private val unifiedUniverse: List<SynthesisSlot>,
     private val coefficients: VolumeAllocationCoefficients =
         VolumeAllocationCoefficients(computePatternSecondaryCredits(context)),
 ) {
@@ -69,10 +68,17 @@ internal class ProgramSynthesisModel(
     private val sessionMuscleCredits = mutableMapOf<Int, MutableMap<String, IntVar>>()
     private val meaningfulExposureBySessionMuscle = mutableMapOf<Pair<Int, String>, Literal>()
     private val unifiedStructureState = UnifiedStructureState()
+    /** Cached `(session position, weekday) → isOnDay` literals, shared across all adjacency loops. */
+    private val isOnDayByPosition = mutableMapOf<Pair<Int, Int>, Literal>()
+    /** Cached `((posI, posJ), (d1, d2)) → both-on-days` literals, shared across recovery/forbid loops. */
+    private val bothOnDaysByKey = mutableMapOf<Pair<Pair<Int, Int>, Pair<Int, Int>>, Literal>()
 
     fun buildModel(plans: List<SessionSlotPlan>): CpModel {
         val model = CpModel()
         sessionMuscleCredits.clear()
+        isOnDayByPosition.clear()
+        bothOnDaysByKey.clear()
+        moderateDoseBySessionMuscle.clear()
         meaningfulExposureBySessionMuscle.clear()
         _slots.clear()
         _muscles.clear()
@@ -85,13 +91,10 @@ internal class ProgramSynthesisModel(
             plan.filledSlots.forEach { slot ->
                 val cap = perSlotCap(slot)
                 val x = model.newIntVar(0L, cap.toLong(), "x_${slot.slotId}")
-                val activatable = unifiedUniverse != null || isSolverActivatableSlot(slot)
-                val active =
-                    if (activatable) {
-                        model.newBoolVar("active_${slot.slotId}")
-                    } else {
-                        null
-                    }
+                // Unified mode: every slot is solver-activatable (gated by the universe). The legacy
+                // non-unified path (per-slot isSolverActivatableSlot) is gone — CpSatProgramSynthesizer
+                // always passes a universe.
+                val active = model.newBoolVar("active_${slot.slotId}")
                 val slotVar = SlotVar(plan, slot, x, active)
                 if (active != null) {
                     model.addEquality(x, 0).onlyEnforceIf(active.not())
@@ -109,19 +112,16 @@ internal class ProgramSynthesisModel(
         _muscles.addAll(muscleSet)
 
         addCalendarAssignment(model, plans)
-        if (unifiedUniverse != null) {
-            addUnifiedStructureConstraints(model, plans, unifiedUniverse, _slots, unifiedStructureState)
-        }
+        addUnifiedStructureConstraints(model, plans, unifiedUniverse, _slots, unifiedStructureState)
         addPerSessionMuscleCaps(model)
         addSessionTimeCaps(model)
         addMrvCeilings(model)
         addLowerLegAnchorFloors(model)
-        if (unifiedUniverse != null) {
-            addMinSetsPerActiveSlot(model)
-            addRoleMinimumConstraints(model)
+        addMinSetsPerActiveSlot(model)
+        addRoleMinimumConstraints(model)
             addMinimumActiveLiftsConstraint(model, plans)
-            addPriorityMuscleAdjacentForbids(model, plans, recoveryPriorityMuscles(context))
-        }
+                        addAdjacentMeaningfulExposureForbids(model, plans, _muscles.toSet())
+            addLargeCompoundSpacingForbids(model, plans)
         buildObjective(model, plans)
         return model
     }
@@ -147,14 +147,10 @@ internal class ProgramSynthesisModel(
                 solver.value(dayVarByPosition.getValue(plan.position)).toInt()
             }
         val domainBySession =
-            if (unifiedUniverse != null) {
-                plans.sortedBy { it.position }.map { plan ->
-                    val ordinal =
-                        solver.value(unifiedStructureState.domainVarByPosition.getValue(plan.position)).toInt()
-                    SynthesisSessionDomain.entries[ordinal]
-                }
-            } else {
-                emptyList()
+            plans.sortedBy { it.position }.map { plan ->
+                val ordinal =
+                    solver.value(unifiedStructureState.domainVarByPosition.getValue(plan.position)).toInt()
+                SynthesisSessionDomain.entries[ordinal]
             }
         return UnifiedSynthesisSolution(
             activeSlotIdsBySession =
@@ -203,9 +199,14 @@ internal class ProgramSynthesisModel(
         }
 
     private fun addCalendarAssignment(model: CpModel, plans: List<SessionSlotPlan>) {
+        val rawWeekdayCount = context.weekdays.distinct().size
+        require(context.weekdays.size == rawWeekdayCount) {
+            "Training weekdays contain duplicates: ${context.weekdays}. Each day must be distinct."
+        }
         val trainingDays = trainingWeekdayIndices(context.weekdays)
         require(trainingDays.size == plans.size) {
-            "Training day count ${trainingDays.size} must match session count ${plans.size}"
+            "Training day count ${trainingDays.size} must match session count ${plans.size} " +
+                "(weekdays=${context.weekdays})."
         }
         plans.sortedBy { it.position }.forEach { plan ->
             val day =
@@ -217,6 +218,14 @@ internal class ProgramSynthesisModel(
             _dayVarByPosition[plan.position] = day
         }
         model.addAllDifferent(_dayVars.toTypedArray())
+        // Symmetry breaking: in unified mode every session is structurally identical (same slot
+        // universe; only the assigned weekday differs). Without this, every solution has up to P!
+        // symmetric day-permutations, so the solver wastes the deadline exploring copies.
+        // Constraining day vars to strictly increase by session position canonicalizes the
+        // assignment; downstream re-sorts sessions by weekday anyway, so output is stable.
+        for (i in 1 until _dayVars.size) {
+            model.addLessThan(_dayVars[i - 1], _dayVars[i])
+        }
     }
 
     private fun addPerSessionMuscleCaps(model: CpModel) {
@@ -251,8 +260,19 @@ internal class ProgramSynthesisModel(
 
     private fun addMrvCeilings(model: CpModel) {
         _muscles.forEach { muscle ->
-            val target = weeklyTargets[muscle] ?: return@forEach
             val weekly = weeklyCreditExpr(muscle) ?: return@forEach
+            val level = context.specialization[muscle] ?: "Maintenance"
+            if (level == "Omit") {
+                // Omitted muscles are excluded from weeklyTargets, so without this they'd have no
+                // ceiling at all — yet a required anchor (e.g. squat on a lower session) still gives
+                // them volume. Cap incidental omitted-muscle volume at a conservative maintenance-MV
+                // band so it can't run away (audit §7.3). Uses the landmark MV when available.
+                val landmark = context.volumeLandmarksByMuscle[muscle]
+                val mvCeiling = landmark?.estimatedMv ?: OMITTED_MUSCLE_INCIDENTAL_CEILING
+                model.addLessOrEqual(weekly, (mvCeiling * coefficients.scale).toLong())
+                return@forEach
+            }
+            val target = weeklyTargets[muscle] ?: return@forEach
             model.addLessOrEqual(weekly, (target.max * coefficients.scale).toLong())
         }
     }
@@ -266,9 +286,7 @@ internal class ProgramSynthesisModel(
             if (sv.slot.pattern !in LOWER_LEG_ANCHOR_PATTERNS) return@forEach
             val floor =
                 model.addGreaterOrEqual(sv.x, ANCHOR_MIN_SETS.toLong())
-            if (unifiedUniverse != null) {
-                sv.active?.let { active -> floor.onlyEnforceIf(active) }
-            }
+            sv.active.let { active -> floor.onlyEnforceIf(active) }
         }
     }
 
@@ -277,8 +295,6 @@ internal class ProgramSynthesisModel(
         val priorityMuscles = recoveryPriorityMuscles(context)
 
         addRecoveryPenalties(model, plans, priorityMuscles, weightedTerms)
-        addConsecutiveTrainingDayExposurePenalties(model, plans, priorityMuscles, weightedTerms)
-        addSessionTypeAdjacencyPenalties(model, plans, weightedTerms)
         addPushPullBalance(model, weightedTerms)
         addSessionFillPenalties(model, plans, weightedTerms)
         addSessionSetBalancePenalties(model, plans, weightedTerms)
@@ -335,10 +351,11 @@ internal class ProgramSynthesisModel(
         // aim-noise but below MEV, so it only breaks ties without under-shooting volume.
         _slots.forEach { sv ->
             val active = sv.active as? com.google.ortools.sat.BoolVar ?: return@forEach
-            weightedTerms.add(active to SynthesisObjectiveWeights.SLOT_ACTIVATION_COUNT)
+            // Per-raw-set weight: scale by the credit scale so it stays proportional to the
+            // credit-denominated aim/MEV weights (scale-invariance across SCALE changes).
+            weightedTerms.add(active to SynthesisObjectiveWeights.SLOT_ACTIVATION_COUNT * coefficients.scale)
         }
 
-        addOptionalSlotActivationPreferences(model, weightedTerms)
         addMaintenanceRearDeltDirectDiscouragement(model, weightedTerms)
         addAntagonistMaintenanceBalance(model, weightedTerms)
         addCoSpecializationBalance(model, weightedTerms)
@@ -394,106 +411,85 @@ internal class ProgramSynthesisModel(
         trainingDays: List<Int>,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
+        // Iterate every ordered (earlier, later) day pair — including non-adjacent ones (gap ≥ 2) —
+        // so the 48–72h tier in `minimumRecoveryCalendarGap` is actually enforceable. Previously only
+        // gap-1 pairs were generated, so Mon→Wed (gap 2, required 3 for a large compound at moderate
+        // dose) was never penalized while the Sat→Mon wrap (also gap 2) was — an asymmetry.
+        // Each ordered pair is added once; channelDayPair covers both sessions' day assignments.
         val sortedDays = trainingDays.sorted()
-        for (index in 0 until sortedDays.lastIndex) {
-            val earlierDay = sortedDays[index]
-            val laterDay = sortedDays[index + 1]
-            if (laterDay - earlierDay != 1) continue
-            addGapPenalty(
-                model = model,
-                planI = planI,
-                planJ = planJ,
-                muscle = muscle,
-                weight = weight,
-                weightedTerms = weightedTerms,
-                earlierDay = earlierDay,
-                laterDay = laterDay,
-                calendarGap = 1,
-            )
-            addGapPenalty(
-                model = model,
-                planI = planJ,
-                planJ = planI,
-                muscle = muscle,
-                weight = weight,
-                weightedTerms = weightedTerms,
-                earlierDay = earlierDay,
-                laterDay = laterDay,
-                calendarGap = 1,
-            )
-        }
-        if (sortedDays.size >= 2) {
-            val wrapEarlier = sortedDays.last()
-            val wrapLater = sortedDays.first()
-            val wrapGap = 7 - wrapEarlier + wrapLater
-            addGapPenalty(
-                model = model,
-                planI = planI,
-                planJ = planJ,
-                muscle = muscle,
-                weight = weight,
-                weightedTerms = weightedTerms,
-                earlierDay = wrapEarlier,
-                laterDay = wrapLater,
-                calendarGap = wrapGap,
-            )
-            addGapPenalty(
-                model = model,
-                planI = planJ,
-                planJ = planI,
-                muscle = muscle,
-                weight = weight,
-                weightedTerms = weightedTerms,
-                earlierDay = wrapEarlier,
-                laterDay = wrapLater,
-                calendarGap = wrapGap,
-            )
+        for (earlier in sortedDays.indices) {
+            for (later in sortedDays.indices) {
+                if (earlier == later) continue
+                val earlierDay = sortedDays[earlier]
+                val laterDay = sortedDays[later]
+                val calendarGap = if (laterDay > earlierDay) laterDay - earlierDay else 7 - earlierDay + laterDay
+                addGapPenalty(
+                    model = model,
+                    planI = planI,
+                    planJ = planJ,
+                    muscle = muscle,
+                    weight = weight,
+                    weightedTerms = weightedTerms,
+                    earlierDay = earlierDay,
+                    laterDay = laterDay,
+                    calendarGap = calendarGap,
+                    sessionPosI = planI.position,
+                    sessionPosJ = planJ.position,
+                )
+            }
         }
     }
 
     /**
-     * Hard forbid: specialized muscles cannot be meaningfully exposed on two sessions
-     * assigned to calendar-adjacent training days (Mon→Tue, Tue→Wed, Fri→Sat, Sun→Mon, etc.).
+     * Hard forbid: no muscle may be meaningfully exposed on two sessions assigned to
+     * calendar-adjacent training days (Mon→Tue, Tue→Wed, Fri→Sat, Sun→Mon). The literature
+     * (MuscleRecoveryReference; McLester 2018; Jones 2014) is consistent that 24h is insufficient
+     * for the same muscle after meaningful volume — 48h is the minimum for *every* muscle, large
+     * compound or small isolation. Specialization tier is irrelevant: a Maintenance Bicep needs the
+     * same 48h as a Specialized Quad.
+     *
+     * The non-adjacent recovery gaps (e.g. a large compound at moderate dose preferring 72h but
+     * getting only 48h — a gap-2 pair) remain genuinely soft in [addRecoveryPenalties].
      */
-    private fun addPriorityMuscleAdjacentForbids(
+    private fun addAdjacentMeaningfulExposureForbids(
         model: CpModel,
         plans: List<SessionSlotPlan>,
-        priorityMuscles: Set<String>,
+        muscles: Set<String>,
     ) {
-        if (priorityMuscles.isEmpty()) return
+        if (muscles.isEmpty()) return
         val trainingDays = trainingWeekdayIndices(context.weekdays).sorted()
-        for ((d1, d2) in calendarAdjacentTrainingDayPairs(trainingDays)) {
-            for (muscle in priorityMuscles) {
-                val sessions = plans.filter { plan -> maxSessionCreditScaled(plan, muscle) > 0L }
-                for (planI in sessions) {
-                    for (planJ in sessions) {
-                        if (planI.position == planJ.position) continue
-                        val creditI = sessionMuscleCreditVar(model, planI, muscle) ?: continue
-                        val creditJ = sessionMuscleCreditVar(model, planJ, muscle) ?: continue
-                        val meaningfulI = meaningfulExposureLiteral(model, creditI, muscle, planI.position)
-                        val meaningfulJ = meaningfulExposureLiteral(model, creditJ, muscle, planJ.position)
-                        val dayI = _dayVarByPosition.getValue(planI.position)
-                        val dayJ = _dayVarByPosition.getValue(planJ.position)
-                        val onConsecutive =
-                            channelDayPair(model, dayI, dayJ, d1, d2, "hard_${muscle}_${planI.position}_${planJ.position}")
+        val adjacentPairs = calendarAdjacentTrainingDayPairs(trainingDays)
+        for (muscle in muscles) {
+            val sessions = plans.filter { plan -> maxSessionCreditScaled(plan, muscle) > 0L }
+            // Iterate unordered session pairs once; the both/swap channeling inside channelDayPair
+            // already covers both day assignments for the pair.
+            for (i in sessions.indices) {
+                for (j in (i + 1) until sessions.size) {
+                    val planI = sessions[i]
+                    val planJ = sessions[j]
+                    val creditI = sessionMuscleCreditVar(model, planI, muscle) ?: continue
+                    val creditJ = sessionMuscleCreditVar(model, planJ, muscle) ?: continue
+                    val meaningfulI = meaningfulExposureLiteral(model, creditI, muscle, planI.position)
+                    val meaningfulJ = meaningfulExposureLiteral(model, creditJ, muscle, planJ.position)
+                    for ((d1, d2) in adjacentPairs) {
+                        // Forbid when BOTH sessions are meaningfully exposed (total credit ≥ 2.0): the
+                        // prior day's meaningful dose creates a recovery debt, and repeating a
+                        // meaningful dose on the adjacent day violates it. Both primary and secondary
+                        // load count (a triceps set is a triceps set whether direct or a bench secondary),
+                        // so the gate uses total credit. A sub-threshold day (light/incidental tagging)
+                        // adjacent to a heavy one is allowed — that's the feasible path for back-to-back
+                        // full-body sessions that don't overlap on meaningful work.
+                        val onConsecutive = channelDayPair(model, planI.position, planJ.position, d1, d2)
                         val onConsecutiveSwapped =
-                            channelDayPair(
-                                model,
-                                dayJ,
-                                dayI,
-                                d1,
-                                d2,
-                                "hard_${muscle}_${planJ.position}_${planI.position}",
-                            )
-                        val onEitherConsecutive =
-                            model.newBoolVar("hardEither_${muscle}_${d1}_${d2}_${planI.position}_${planJ.position}")
-                        linkEitherConsecutive(model, onEitherConsecutive, onConsecutive, onConsecutiveSwapped)
+                            channelDayPair(model, planJ.position, planI.position, d1, d2)
+                        val onEither = model.newBoolVar(
+                            "hardEither_${muscle}_${d1}_${d2}_${planI.position}_${planJ.position}",
+                        )
+                        model.addBoolOr(arrayOf(onConsecutive, onConsecutiveSwapped)).onlyEnforceIf(onEither)
+                        model.addBoolAnd(arrayOf(onConsecutive.not(), onConsecutiveSwapped.not()))
+                            .onlyEnforceIf(onEither.not())
                         model.addBoolOr(
-                            arrayOf(
-                                onEitherConsecutive.not(),
-                                meaningfulI.not(),
-                                meaningfulJ.not(),
-                            ),
+                            arrayOf(onEither.not(), meaningfulI.not(), meaningfulJ.not()),
                         )
                     }
                 }
@@ -501,55 +497,61 @@ internal class ProgramSynthesisModel(
         }
     }
 
-    private fun linkEitherConsecutive(
-        model: CpModel,
-        onEither: Literal,
-        onConsecutive: Literal,
-        onConsecutiveSwapped: Literal,
-    ) {
-        model.addBoolOr(arrayOf(onConsecutive, onConsecutiveSwapped)).onlyEnforceIf(onEither)
-        model.addBoolAnd(arrayOf(onConsecutive.not(), onConsecutiveSwapped.not())).onlyEnforceIf(onEither.not())
-    }
-
     /**
-     * Extra penalty when a priority muscle is meaningfully exposed on two calendar-adjacent
-     * training days (e.g. Mon pull + Tue push both stressing biceps).
+     * Hard forbid the 48h repeat (gap-2 calendar days, e.g. Mon→Wed) for LARGE-COMPOUND muscles
+     * (chest/back/quad/ham/glute) at moderate-or-higher dose. Heavy barbell multi-joint lifts need
+     * ~72h (2 full rest days) to recover from axial loading, lengthened-state eccentric damage, and
+     * CNS fatigue (Sousa et al. 2024; Korak 2015). So a Mon squat at moderate volume forbids a Wed
+     * squat — it must move to Thu (gap 3) or later. Low-dose (touch) compound exposure is exempt and
+     * stays under the soft recovery penalty only.
+     *
+     * One-way lookback (matches [addAdjacentMeaningfulExposureForbids]): the EARLIER session's
+     * moderate dose drives the 72h recovery debt. The 48h adjacent-day forbid already covers gap-1
+     * for all muscles; this extends the hard line to gap-2 for moderate-dose compounds.
      */
-    private fun addConsecutiveTrainingDayExposurePenalties(
+    private fun addLargeCompoundSpacingForbids(
         model: CpModel,
         plans: List<SessionSlotPlan>,
-        priorityMuscles: Set<String>,
-        weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
         val trainingDays = trainingWeekdayIndices(context.weekdays).sorted()
-        for ((d1, d2) in calendarAdjacentTrainingDayPairs(trainingDays)) {
-            for (muscle in priorityMuscles) {
-                val sessions = plans.filter { plan -> maxSessionCreditScaled(plan, muscle) > 0L }
-                for (planI in sessions) {
-                    for (planJ in sessions) {
-                        if (planI.position == planJ.position) continue
-                        val creditI = sessionMuscleCreditVar(model, planI, muscle) ?: continue
-                        val creditJ = sessionMuscleCreditVar(model, planJ, muscle) ?: continue
-                        val meaningfulI = meaningfulExposureLiteral(model, creditI, muscle, planI.position)
-                        val meaningfulJ = meaningfulExposureLiteral(model, creditJ, muscle, planJ.position)
-                        val dayI = _dayVarByPosition.getValue(planI.position)
-                        val dayJ = _dayVarByPosition.getValue(planJ.position)
-                        val onConsecutiveDays =
-                            channelDayPair(model, dayI, dayJ, d1, d2, "${muscle}_adj_${planI.position}_${planJ.position}")
-                        val onConsecutiveDaysSwapped =
-                            channelDayPair(model, dayJ, dayI, d1, d2, "${muscle}_adj_${planJ.position}_${planI.position}")
-                        val onEitherConsecutive = model.newBoolVar("eitherAdj_${muscle}_${planI.position}_${planJ.position}")
-                        linkEitherConsecutive(model, onEitherConsecutive, onConsecutiveDays, onConsecutiveDaysSwapped)
-                        val slack = trackSlack(model, "rec_adj_${muscle}_${d1}_${d2}_${planI.position}_${planJ.position}")
-                        val penalty = model.addGreaterOrEqual(slack, CONSECUTIVE_EXPOSURE_PENALTY)
-                        penalty.onlyEnforceIf(onEitherConsecutive)
-                        penalty.onlyEnforceIf(meaningfulI)
-                        penalty.onlyEnforceIf(meaningfulJ)
-                        weightedTerms.add(slack to SynthesisObjectiveWeights.CONSECUTIVE_TRAINING_DAY_EXPOSURE)
+        // Gap-2 day pairs (48h apart, e.g. Mon→Wed), including the week wrap (Sat→Mon).
+        val gapTwoPairs = gapTwoDayPairs(trainingDays)
+        if (gapTwoPairs.isEmpty()) return
+        val largeCompounds = _muscles.filter { muscleRecoveryClass(it) == MuscleRecoveryClass.LargeCompound }
+        for (muscle in largeCompounds) {
+            val sessions = plans.filter { plan -> maxSessionCreditScaled(plan, muscle) > 0L }
+            for (i in sessions.indices) {
+                for (j in (i + 1) until sessions.size) {
+                    val planI = sessions[i]
+                    val planJ = sessions[j]
+                    val creditI = sessionMuscleCreditVar(model, planI, muscle) ?: continue
+                    val creditJ = sessionMuscleCreditVar(model, planJ, muscle) ?: continue
+                    val moderateI = moderateDoseLiteral(model, creditI, muscle, planI.position)
+                    val moderateJ = moderateDoseLiteral(model, creditJ, muscle, planJ.position)
+                    for ((d1, d2) in gapTwoPairs) {
+                        // One-way lookback (same semantics as the adjacent forbid): a moderate-or-higher
+                        // compound dose on the EARLIER day d1 creates a ~72h recovery debt, forbidding
+                        // the muscle on the later day d2 (48h later). The earlier dose drives the block.
+                        val earlierIsI = channelDayPair(model, planI.position, planJ.position, d1, d2)
+                        model.addBoolOr(arrayOf(earlierIsI.not(), moderateI.not()))
+                        val earlierIsJ = channelDayPair(model, planJ.position, planI.position, d1, d2)
+                        model.addBoolOr(arrayOf(earlierIsJ.not(), moderateJ.not()))
                     }
                 }
             }
         }
+    }
+
+    private fun gapTwoDayPairs(sortedDays: List<Int>): List<Pair<Int, Int>> {
+        val pairs = mutableListOf<Pair<Int, Int>>()
+        for (a in sortedDays) {
+            for (b in sortedDays) {
+                if (a == b) continue
+                val gap = if (b > a) b - a else 7 - a + b
+                if (gap == 2) pairs += a to b
+            }
+        }
+        return pairs
     }
 
     private fun sessionMuscleCreditVar(
@@ -578,6 +580,13 @@ internal class ProgramSynthesisModel(
         return credit
     }
 
+    /**
+     * Literal true iff the session's TOTAL credit for [muscle] (primary + secondary) reaches the
+     * meaningful threshold. Secondary load counts toward the muscle's fatigue — a triceps set is a
+     * triceps set whether it's a direct extension or a bench-press secondary — so the gate uses total
+     * credit, not direct-only. Threshold 2.0 (≈2 hard sets) is the low end of the 24–48h recovery
+     * band (Sousa et al. 2024): below this the exposure is incidental and may repeat the next day.
+     */
     private fun meaningfulExposureLiteral(
         model: CpModel,
         credit: IntVar,
@@ -585,8 +594,7 @@ internal class ProgramSynthesisModel(
         sessionPosition: Int,
     ): Literal {
         meaningfulExposureBySessionMuscle[sessionPosition to muscle]?.let { return it }
-        val minScaled =
-            (MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE * coefficients.scale).toLong()
+        val minScaled = (MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE * coefficients.scale).toLong()
         val meaningful = model.newBoolVar("meaningful_${muscle}_${sessionPosition}")
         model.addGreaterOrEqual(credit, minScaled).onlyEnforceIf(meaningful)
         model.addLessOrEqual(credit, minScaled - 1).onlyEnforceIf(meaningful.not())
@@ -594,41 +602,24 @@ internal class ProgramSynthesisModel(
         return meaningful
     }
 
-    internal fun findPriorityAdjacentExposureViolations(
-        solver: CpSolver,
-        plans: List<SessionSlotPlan>,
-        priorityMuscles: Set<String>,
-    ): List<String> {
-        if (priorityMuscles.isEmpty()) return emptyList()
-        val minScaled =
-            (MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE * coefficients.scale).toLong()
-        val trainingDays = trainingWeekdayIndices(context.weekdays).sorted()
-        val violations = mutableListOf<String>()
-        for ((d1, d2) in calendarAdjacentTrainingDayPairs(trainingDays)) {
-            for (muscle in priorityMuscles) {
-                for (planI in plans) {
-                    for (planJ in plans) {
-                        if (planI.position == planJ.position) continue
-                        val creditI = sessionMuscleCredits[planI.position]?.get(muscle) ?: continue
-                        val creditJ = sessionMuscleCredits[planJ.position]?.get(muscle) ?: continue
-                        val dayI = solver.value(_dayVarByPosition.getValue(planI.position)).toInt()
-                        val dayJ = solver.value(_dayVarByPosition.getValue(planJ.position)).toInt()
-                        val onAdjacent =
-                            dayI == d1 && dayJ == d2 || dayI == d2 && dayJ == d1
-                        if (!onAdjacent) continue
-                        val doseI = solver.value(creditI)
-                        val doseJ = solver.value(creditJ)
-                        if (doseI >= minScaled && doseJ >= minScaled) {
-                            violations +=
-                                "$muscle p${planI.position}(day=$dayI,dose=${doseI / 2.0})↔" +
-                                "p${planJ.position}(day=$dayJ,dose=${doseJ / 2.0})"
-                        }
-                    }
-                }
-            }
+    private val moderateDoseBySessionMuscle = mutableMapOf<Pair<Int, String>, Literal>()
+
+    /** Literal true iff the session's credit for [muscle] reaches the moderate-dose tier
+     *  (≥ [MUSCLE_RECOVERY_MODERATE_DOSE] fractional credits ≈ 4–7 hard sets). Used to gate the
+     *  large-compound 72h hard spacing forbid. */
+    private fun moderateDoseLiteral(
+        model: CpModel,
+        credit: IntVar,
+        muscle: String,
+        sessionPosition: Int,
+    ): Literal =
+        moderateDoseBySessionMuscle.getOrPut(sessionPosition to muscle) {
+            val moderateScaled = (MUSCLE_RECOVERY_MODERATE_DOSE * coefficients.scale).toLong()
+            val moderate = model.newBoolVar("moderate_${muscle}_${sessionPosition}")
+            model.addGreaterOrEqual(credit, moderateScaled).onlyEnforceIf(moderate)
+            model.addLessOrEqual(credit, moderateScaled - 1).onlyEnforceIf(moderate.not())
+            moderate
         }
-        return violations
-    }
 
     private fun addGapPenalty(
         model: CpModel,
@@ -640,11 +631,11 @@ internal class ProgramSynthesisModel(
         earlierDay: Int,
         laterDay: Int,
         calendarGap: Int,
+        sessionPosI: Int,
+        sessionPosJ: Int,
     ) {
-        val dayI = _dayVarByPosition.getValue(planI.position)
-        val dayJ = _dayVarByPosition.getValue(planJ.position)
-        val doseI = peakSessionDose(planI, muscle)
-        val doseJ = peakSessionDose(planJ, muscle)
+        val doseI = representativeSessionDose(planI, muscle)
+        val doseJ = representativeSessionDose(planJ, muscle)
         val required = minimumRecoveryCalendarGap(muscle, doseI, doseJ)
         if (required <= 0 || calendarGap >= required) return
         val creditI = sessionMuscleCreditVar(model, planI, muscle) ?: return
@@ -652,8 +643,7 @@ internal class ProgramSynthesisModel(
         val meaningfulI = meaningfulExposureLiteral(model, creditI, muscle, planI.position)
         val meaningfulJ = meaningfulExposureLiteral(model, creditJ, muscle, planJ.position)
         val shortfall = required - calendarGap
-        val channelLabel = "${muscle}_${earlierDay}_${laterDay}_${planI.position}_${planJ.position}"
-        val both = channelDayPair(model, dayI, dayJ, earlierDay, laterDay, channelLabel)
+        val both = channelDayPair(model, sessionPosI, sessionPosJ, earlierDay, laterDay)
         val calendarAdjacent = calendarGap == 1
         val penaltyScale = if (calendarAdjacent) CALENDAR_ADJACENT_PENALTY_MULTIPLIER else 1
         val maxPenalty =
@@ -661,79 +651,53 @@ internal class ProgramSynthesisModel(
                 .toLong()
                 .coerceAtMost(RECOVERY_SLACK_CAP)
         val prefix = if (weight == SynthesisObjectiveWeights.RECOVERY_PRIORITY) "rec_pri_" else "rec_gen_"
-        val slack = trackSlack(model, "${prefix}${muscle}_${earlierDay}_${laterDay}_$calendarGap")
+        // Recovery slacks get a wide domain (up to RECOVERY_SLACK_CAP) so the penalty is genuinely
+        // soft and can trade off against volume/aim terms. The name includes both session positions
+        // so every (muscle, day-pair, session-pair) gets its own IntVar — previously the position-
+        // less name collided across the session-pair loop, corrupting the objective breakdown.
+        val slack = trackSlack(
+            model,
+            "${prefix}${muscle}_${earlierDay}_${laterDay}_${calendarGap}_${sessionPosI}_$sessionPosJ",
+            RECOVERY_SLACK_CAP,
+        )
         val penalty = model.addGreaterOrEqual(slack, maxPenalty)
         penalty.onlyEnforceIf(both)
         penalty.onlyEnforceIf(meaningfulI)
         penalty.onlyEnforceIf(meaningfulJ)
-        if (calendarAdjacent && calendarGap < required) {
-            model.addBoolOr(arrayOf(both.not(), meaningfulI.not(), meaningfulJ.not()))
-        }
         weightedTerms.add(slack to weight)
     }
 
+    /**
+     * Literal that is true iff session [posI] is on weekday [d1] AND session [posJ] is on weekday [d2].
+     * The per-(position, day) `isOnDay` literals and the per-day-pair `both` literal are memoized, so
+     * the recovery/forbid loops — which call this across muscles × session-pairs × day-pairs — reuse
+     * the same reifications instead of minting hundreds of redundant boolean triples.
+     */
     private fun channelDayPair(
         model: CpModel,
-        dayI: IntVar,
-        dayJ: IntVar,
+        posI: Int,
+        posJ: Int,
         d1: Int,
         d2: Int,
-        muscle: String,
     ): Literal {
-        val onI = model.newBoolVar("onI_${muscle}_${d1}")
-        model.addEquality(dayI, d1.toLong()).onlyEnforceIf(onI)
-        model.addDifferent(dayI, d1.toLong()).onlyEnforceIf(onI.not())
-        val onJ = model.newBoolVar("onJ_${muscle}_${d2}")
-        model.addEquality(dayJ, d2.toLong()).onlyEnforceIf(onJ)
-        model.addDifferent(dayJ, d2.toLong()).onlyEnforceIf(onJ.not())
-        val both = model.newBoolVar("both_${muscle}_${d1}_${d2}")
-        model.addBoolAnd(arrayOf(onI, onJ)).onlyEnforceIf(both)
-        model.addBoolOr(arrayOf(onI.not(), onJ.not(), both))
-        return both
-    }
-
-    private fun addSessionTypeAdjacencyPenalties(
-        model: CpModel,
-        plans: List<SessionSlotPlan>,
-        weightedTerms: MutableList<Pair<IntVar, Long>>,
-    ) {
-        val trainingDays = trainingWeekdayIndices(context.weekdays)
-        val adjacencyPairs =
-            listOf(
-                SessionTypeId.Lower to SessionTypeId.UpperPush,
-                SessionTypeId.UpperPull to SessionTypeId.UpperPush,
-                SessionTypeId.UpperPush to SessionTypeId.UpperPull,
-                // Same-domain upper sessions on adjacent days share chest/shoulder/tricep or
-                // back/bicep recovery (G15): two push-leaning or pull-leaning upper days get
-                // adjacency pressure the metadata repair does not catch.
-                SessionTypeId.UpperPush to SessionTypeId.UpperPush,
-                SessionTypeId.UpperPull to SessionTypeId.UpperPull,
-                SessionTypeId.FullPush to SessionTypeId.FullPush,
-                SessionTypeId.FullPull to SessionTypeId.FullPull,
-            )
-        for (i in plans.indices) {
-            for (j in (i + 1) until plans.size) {
-                val planI = plans[i]
-                val planJ = plans[j]
-                val typePair = planI.sessionType to planJ.sessionType
-                val reversePair = planJ.sessionType to planI.sessionType
-                if (typePair !in adjacencyPairs && reversePair !in adjacencyPairs) continue
-                val dayI = _dayVarByPosition.getValue(planI.position)
-                val dayJ = _dayVarByPosition.getValue(planJ.position)
-                for (d1 in trainingDays) {
-                    for (d2 in trainingDays) {
-                        if (d1 == d2) continue
-                        val gap = kotlin.math.abs(d2 - d1)
-                        if (gap >= 2) continue
-                        val both = channelDayPair(model, dayI, dayJ, d1, d2, "adj_${planI.position}_${planJ.position}")
-                        val slack = trackSlack(model, "adj_${planI.position}_${planJ.position}_${d1}_${d2}")
-                        model.addGreaterOrEqual(slack, 500L).onlyEnforceIf(both)
-                        weightedTerms.add(slack to SynthesisObjectiveWeights.RECOVERY_PRIORITY)
-                    }
-                }
-            }
+        return bothOnDaysByKey.getOrPut((posI to posJ) to (d1 to d2)) {
+            val onI = isOnDayLiteral(model, posI, d1)
+            val onJ = isOnDayLiteral(model, posJ, d2)
+            val both = model.newBoolVar("both_${posI}_${posJ}_${d1}_${d2}")
+            model.addBoolAnd(arrayOf(onI, onJ)).onlyEnforceIf(both)
+            model.addBoolOr(arrayOf(onI.not(), onJ.not(), both))
+            both
         }
     }
+
+    private fun isOnDayLiteral(model: CpModel, position: Int, day: Int): Literal =
+        isOnDayByPosition.getOrPut(position to day) {
+            val dayVar = _dayVarByPosition.getValue(position)
+            val onDay = model.newBoolVar("onDay_${position}_$day")
+            model.addEquality(dayVar, day.toLong()).onlyEnforceIf(onDay)
+            model.addDifferent(dayVar, day.toLong()).onlyEnforceIf(onDay.not())
+            onDay
+        }
 
     private fun addPushPullBalance(model: CpModel, weightedTerms: MutableList<Pair<IntVar, Long>>) {
         val pushTerms = _slots.filter { sv -> isPushPattern(sv.slot.pattern) }
@@ -747,8 +711,10 @@ internal class ProgramSynthesisModel(
             LinearExpr.weightedSum(arrayOf(push, pull, over, under), longArrayOf(1L, -1L, -1L, 1L)),
             0L,
         )
-        weightedTerms.add(over to SynthesisObjectiveWeights.PUSH_PULL_IMBALANCE)
-        weightedTerms.add(under to SynthesisObjectiveWeights.PUSH_PULL_IMBALANCE)
+        // Push/pull slacks are in raw sets; scale the weight to match credit-denominated tiers.
+        val ppWeight = SynthesisObjectiveWeights.PUSH_PULL_IMBALANCE * coefficients.scale
+        weightedTerms.add(over to ppWeight)
+        weightedTerms.add(under to ppWeight)
     }
 
     private fun addSessionFillPenalties(
@@ -770,7 +736,7 @@ internal class ProgramSynthesisModel(
                 LinearExpr.weightedSum(arrayOf(total, under), longArrayOf(1L, 1L)),
                 targetSets,
             )
-            weightedTerms.add(under to SynthesisObjectiveWeights.SESSION_FILL_SHORTFALL)
+            weightedTerms.add(under to SynthesisObjectiveWeights.SESSION_FILL_SHORTFALL * coefficients.scale)
         }
     }
 
@@ -799,7 +765,7 @@ internal class ProgramSynthesisModel(
                 ),
                 0L,
             )
-            weightedTerms.add(under to SynthesisObjectiveWeights.SESSION_SET_IMBALANCE)
+            weightedTerms.add(under to SynthesisObjectiveWeights.SESSION_SET_IMBALANCE * coefficients.scale)
         }
     }
 
@@ -965,18 +931,21 @@ internal class ProgramSynthesisModel(
     private fun peakSessionDose(plan: SessionSlotPlan, muscle: String): Double =
         maxSessionCreditScaled(plan, muscle).toDouble() / coefficients.scale
 
-    private fun addOptionalSlotActivationPreferences(
-        model: CpModel,
-        weightedTerms: MutableList<Pair<IntVar, Long>>,
-    ) {
-        _slots.forEach { sv ->
-            val active = sv.active ?: return@forEach
-            if (!prefersSlotActivation(sv.slot, context)) return@forEach
-            val inactivePenalty = model.newIntVar(0L, 1L, "inactivePref_${sv.slot.slotId}")
-            model.addEquality(inactivePenalty, 0).onlyEnforceIf(active)
-            model.addEquality(inactivePenalty, 1).onlyEnforceIf(active.not())
-            weightedTerms.add(inactivePenalty to SynthesisObjectiveWeights.OPTIONAL_SLOT_INACTIVE_PREFERENCE)
+    /**
+     * Representative per-session dose used to *price* a recovery gap. The earlier [peakSessionDose]
+     * used the static "every slot at cap" maximum, which in unified mode (every session carries the
+     * whole universe) made every dose enormous — collapsing `minimumRecoveryCalendarGap` to its
+     * maximum tier and killing its dose-sensitive (touch/light-dose) branches. Using the weekly aim
+     * spread evenly across sessions gives a realistic expected dose: a muscle aimed at 10 credits
+     * over 3 sessions ≈ 3.3/session, engaging the light-dose tier when warranted.
+     */
+    private fun representativeSessionDose(plan: SessionSlotPlan, muscle: String): Double {
+        val target = weeklyTargets[muscle]
+        val sessionCount = _slots.map { it.plan }.distinct().size
+        if (target != null && sessionCount > 0) {
+            return target.aim / sessionCount
         }
+        return peakSessionDose(plan, muscle)
     }
 
     /**
@@ -1002,7 +971,12 @@ internal class ProgramSynthesisModel(
             if (sv.slot.primaryMuscle != "PosteriorDeltoid") return@forEach
             val sets = model.newIntVar(0L, MAX_OVER, "rearDirect_${sv.slot.slotId}")
             model.addEquality(sets, sv.x)
-            weightedTerms.add(sets to SynthesisObjectiveWeights.MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE)
+            // Scale the per-set discouragement by the credit scale so it stays proportional to the
+            // per-set posterior-under-aim benefit (which is in scaled credits). Without this, raising
+            // SCALE flips the rear-delt economics: a direct set saves 5000 fill + (SCALE × 500)
+            // posterior-aim but only costs the unscaled 5500, so the solver over-fills rear delts.
+            val scaledDiscourage = SynthesisObjectiveWeights.MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE * coefficients.scale
+            weightedTerms.add(sets to scaledDiscourage)
         }
     }
 
@@ -1038,8 +1012,17 @@ internal class ProgramSynthesisModel(
         )
     }
 
-    private fun trackSlack(model: CpModel, name: String): IntVar {
-        val slack = model.newIntVar(0L, MAX_OVER, name)
+    private fun trackSlack(model: CpModel, name: String): IntVar = trackSlack(model, name, MAX_OVER)
+
+    /**
+     * Slack in `[0, max]`. Set-based slacks (fill, balance, aim, role) use the small [MAX_OVER]
+     * domain; recovery slacks pass [RECOVERY_SLACK_CAP] so the quadratic gap penalty is genuinely
+     * soft instead of being clipped infeasible (the §1.1 bug — every slack was `[0, 1000]` while the
+     * enforced lower bound could reach `RECOVERY_SLACK_CAP = 10_000`, silently turning soft penalties
+     * into hard forbids).
+     */
+    private fun trackSlack(model: CpModel, name: String, max: Long): IntVar {
+        val slack = model.newIntVar(0L, max, name)
         objectiveSlacks[name] = slack
         return slack
     }
@@ -1053,9 +1036,10 @@ internal class ProgramSynthesisModel(
         const val RECOVERY_SLACK_CAP = 10_000L
         const val RECOVERY_GAP_PENALTY_BASE = 80
         const val CALENDAR_ADJACENT_PENALTY_MULTIPLIER = 10
-        const val CONSECUTIVE_EXPOSURE_PENALTY = 10_000L
         const val MIN_SESSION_HARD_SETS = 8
         const val MIN_ACTIVE_LIFTS_PER_SESSION = 4
+        /** Conservative weekly ceiling for an Omitted muscle that still receives incidental anchor volume. */
+        const val OMITTED_MUSCLE_INCIDENTAL_CEILING = 6.0
         /** Minimum hard sets on any active slot — every active exposure ≥ 2 sets (G2). */
         const val MIN_SETS_PER_ACTIVE_SLOT = 2
         /** Fraction of per-session hard-set cap to target (65% of 20 → 13 sets on 60 min days). */

@@ -61,6 +61,7 @@ class GluteAdjacentRecoverySynthesisTest {
                 plans = synthesis.plans,
                 weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
                 muscle = "Glute",
+                context = context,
             )
         assertTrue(
             solverRepeats.isEmpty(),
@@ -108,6 +109,7 @@ class GluteAdjacentRecoverySynthesisTest {
                 plans = synthesis.plans,
                 weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
                 muscle = "Glute",
+                context = context,
             )
         assertTrue(
             repeats.isEmpty(),
@@ -120,6 +122,7 @@ class GluteAdjacentRecoverySynthesisTest {
         plans: List<SessionSlotPlan>,
         weekdayIndexByPosition: List<Int>,
         muscle: String,
+        context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
     ): List<String> {
         val ordered =
             plans.sortedBy { plan -> weekdayIndexByPosition[plan.position] }
@@ -128,8 +131,8 @@ class GluteAdjacentRecoverySynthesisTest {
             val prevDay = Weekday.entries[weekdayIndexByPosition[ordered[index - 1].position]]
             val currDay = Weekday.entries[weekdayIndexByPosition[ordered[index].position]]
             if (currDay.ordinal - prevDay.ordinal != 1) continue
-            val prevDose = planMuscleCredits(ordered[index - 1], muscle)
-            val currDose = planMuscleCredits(ordered[index], muscle)
+            val prevDose = planMuscleCredits(ordered[index - 1], muscle, context)
+            val currDose = planMuscleCredits(ordered[index], muscle, context)
             if (
                 prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
                 currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
@@ -142,8 +145,8 @@ class GluteAdjacentRecoverySynthesisTest {
         val firstDay = Weekday.entries[weekdayIndexByPosition[ordered.first().position]]
         val lastDay = Weekday.entries[weekdayIndexByPosition[ordered.last().position]]
         if (firstDay == Weekday.Monday && lastDay == Weekday.Sunday) {
-            val prevDose = planMuscleCredits(ordered.last(), muscle)
-            val currDose = planMuscleCredits(ordered.first(), muscle)
+            val prevDose = planMuscleCredits(ordered.last(), muscle, context)
+            val currDose = planMuscleCredits(ordered.first(), muscle, context)
             if (
                 prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
                 currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
@@ -188,12 +191,20 @@ class GluteAdjacentRecoverySynthesisTest {
         return issues
     }
 
-    private fun planMuscleCredits(plan: SessionSlotPlan, muscle: String): Double {
+    private fun planMuscleCredits(
+        plan: SessionSlotPlan,
+        muscle: String,
+        context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
+    ): Double {
+        val coefficients = VolumeAllocationCoefficients(
+            com.stratum.domain.program.generation.reference.computePatternSecondaryCredits(context),
+        )
         var total = 0.0
         for (slot in plan.filledSlots) {
             if (slot.setCount <= 0) continue
-            total += slot.setCount * VolumeAllocationCoefficients.Default.coeff(slot, muscle)
+            total += slot.setCount * coefficients.coeff(slot, muscle)
         }
         return total
     }
+
 }
