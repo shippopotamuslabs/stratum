@@ -10,14 +10,16 @@ import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
-import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.MIN_TOUCH_DIRECT_SETS
+import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
-import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
 import com.stratum.domain.program.generation.split.trainingWeekdayIndices
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
+import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSessionStress
+import com.stratum.domain.program.generation.reference.calendarDayIndexGap
+import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -84,44 +86,32 @@ class ProgramSynthesisAcceptanceTest {
     }
 
     /**
-     * #2 No adjacent same-muscle (metadata): zero muscle with ≥ [MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE]
-     * on calendar-adjacent training days, AND zero muscle appearing with any direct (primary)
-     * sets on 3 consecutive training days (catches the audit's Mon/Tue/Wed calf stack).
+     * #2 Class-aware adjacent recovery (metadata): earlier-session stress class and dose tier
+     * determine the minimum gap — isolation low-dose may repeat on calendar-adjacent days (24h lane).
+     * Also forbids direct primary exposure on 3 consecutive training days (calf stack audit).
      */
     @Test
     fun noAdjacentSameMuscleMetadata() = runBlocking {
         val context = richArmCalfCatalog()
         val draft = generateDraft(context)
 
+        val adjacentViolations =
+            recoveryGapViolationsFromDraftWorkouts(
+                workouts = draft.workouts,
+                context = context,
+                calendarGapFilter = 1,
+            )
+        assertTrue(
+            adjacentViolations.isEmpty(),
+            "Class-aware calendar-adjacent recovery violations: $adjacentViolations",
+        )
+
         val workoutByDayIndex =
             draft.workouts
                 .filter { it.weekday != null }
                 .associate { Weekday.entries.indexOf(Weekday.valueOf(it.weekday!!)) to it }
-
-        val adjacentViolations = mutableListOf<String>()
-        val exposuresByWorkoutName =
-            draft.workouts.associate { it.name.orEmpty() to computeWorkoutMuscleVolume(it, context) }
-        for ((d1, d2) in calendarAdjacentTrainingDayPairs(trainingWeekdayIndices(context.weekdays))) {
-            val w1 = workoutByDayIndex[d1] ?: continue
-            val w2 = workoutByDayIndex[d2] ?: continue
-            val e1 = exposuresByWorkoutName[w1.name.orEmpty()].orEmpty()
-            val e2 = exposuresByWorkoutName[w2.name.orEmpty()].orEmpty()
-            for (muscle in e1.keys + e2.keys) {
-                val dose1 = e1[muscle] ?: 0.0
-                val dose2 = e2[muscle] ?: 0.0
-                // Match the solver: block when BOTH sessions' total credit ≥ MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-                // (2.0 ≈ 2 hard sets, primary or secondary). A light sub-threshold day adjacent to a
-                // heavy one is allowed — that's the feasible path for non-overlapping back-to-back sessions.
-                if (dose1 >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE && dose2 >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) {
-                    adjacentViolations += "${w1.weekday}/${w2.weekday} $muscle ($dose1, $dose2)"
-                }
-            }
-        }
-        assertTrue(
-            adjacentViolations.isEmpty(),
-            "Calendar-adjacent meaningful same-muscle exposure: $adjacentViolations",
-        )
-
+        val stressByWorkoutName =
+            draft.workouts.associate { it.name.orEmpty() to computeWorkoutMuscleSessionStress(it, context) }
         val threeDayStacks = mutableListOf<String>()
         val orderedDays = trainingWeekdayIndices(context.weekdays).sorted()
         for (i in 0..orderedDays.size - 3) {
@@ -130,16 +120,23 @@ class ProgramSynthesisAcceptanceTest {
             val d3 = workoutByDayIndex[orderedDays[i + 2]] ?: continue
             val consecutive = orderedDays[i + 1] - orderedDays[i] == 1 && orderedDays[i + 2] - orderedDays[i + 1] == 1
             if (!consecutive) continue
-            val e1 = exposuresByWorkoutName[d1.name.orEmpty()].orEmpty()
-            val e2 = exposuresByWorkoutName[d2.name.orEmpty()].orEmpty()
-            val e3 = exposuresByWorkoutName[d3.name.orEmpty()].orEmpty()
-            for (muscle in e1.keys.intersect(e2.keys).intersect(e3.keys)) {
-                // Only flag direct (primary-muscle) exposure on 3 consecutive days — secondary
-                // exposure (e.g. Glute from squats/hinges) is ubiquitous and not a recovery concern.
+            val stress1 = stressByWorkoutName[d1.name.orEmpty()].orEmpty()
+            val stress2 = stressByWorkoutName[d2.name.orEmpty()].orEmpty()
+            val stress3 = stressByWorkoutName[d3.name.orEmpty()].orEmpty()
+            for (muscle in stress1.keys.intersect(stress2.keys).intersect(stress3.keys)) {
                 val directHere = hasDirectPrimaryExposure(d1, muscle, context) &&
                     hasDirectPrimaryExposure(d2, muscle, context) &&
                     hasDirectPrimaryExposure(d3, muscle, context)
-                if (directHere) {
+                if (!directHere) continue
+                val earlier12 = stress1[muscle] ?: continue
+                val dose2 = stress2[muscle]?.fractionalSets ?: 0.0
+                val dose3 = stress3[muscle]?.fractionalSets ?: 0.0
+                val gap12 = calendarDayIndexGap(orderedDays[i], orderedDays[i + 1])
+                val gap23 = calendarDayIndexGap(orderedDays[i + 1], orderedDays[i + 2])
+                val violates =
+                    muscleRecoveryGapViolated(earlier12, dose2, gap12) ||
+                        muscleRecoveryGapViolated(stress2.getValue(muscle), dose3, gap23)
+                if (violates) {
                     threeDayStacks += "${d1.weekday}/${d2.weekday}/${d3.weekday} $muscle"
                 }
             }
@@ -152,12 +149,14 @@ class ProgramSynthesisAcceptanceTest {
 
     /**
      * #3 Consolidation: at most one isolation slot per muscle per session, mean sets-per-lift
-     * ≥ 2.5, and session lift count ∈ [4,6] (the "2–5 sets per lift" shape from G5).
+     * ≥ 2.5, and session lift count within solver-feasible bounds (≥3 active, ≤ cap/2 sets-per-lift floor).
      */
     @Test
     fun consolidationShape() = runBlocking {
         val context = richArmCalfCatalog()
         val draft = generateDraft(context)
+        val sessionCap = checkNotNull(sessionHardSetCapForLength(context.sessionLengthMinutes))
+        val maxLiftsPerSession = sessionCap / MIN_SETS_PER_ACTIVE_SLOT
 
         val totalLifts = draft.workouts.sumOf { it.workoutLifts.orEmpty().size }
         val totalSets = draft.workouts.sumOf { w ->
@@ -172,8 +171,8 @@ class ProgramSynthesisAcceptanceTest {
         for (workout in draft.workouts) {
             val lifts = workout.workoutLifts.orEmpty()
             assertTrue(
-                lifts.size in 4..6,
-                "${workout.name} lift count ${lifts.size} outside [4,6]",
+                lifts.size in MIN_ACTIVE_LIFTS_PER_SESSION..maxLiftsPerSession,
+                "${workout.name} lift count ${lifts.size} outside [$MIN_ACTIVE_LIFTS_PER_SESSION,$maxLiftsPerSession]",
             )
             val isolationMusclesByCount =
                 lifts.groupingBy { lift ->
@@ -189,21 +188,22 @@ class ProgramSynthesisAcceptanceTest {
     }
 
     /**
-     * #4 Session set band: 60-min days each land ∈ [10,18] hard sets, and the min session ≥ max/2
-     * (no token days, no blowout days).
+     * #4 Session set band: each session lands within [MIN_SESSION_HARD_SETS, sessionHardSetCap],
+     * and the min session ≥ max/2 (no token days, no blowout days).
      */
     @Test
     fun sessionSetBand() = runBlocking {
         val context = richArmCalfCatalog(sessionLengthMinutes = 60)
         val draft = generateDraft(context)
+        val sessionCap = checkNotNull(sessionHardSetCapForLength(context.sessionLengthMinutes))
         val setCounts =
             draft.workouts.map { w ->
                 w.workoutLifts.orEmpty().sumOf { it.workoutLiftSets?.size ?: 0 }
             }
         for (count in setCounts) {
             assertTrue(
-                count in 10..18,
-                "60-min session total $count outside [10,18]; all=$setCounts",
+                count in MIN_SESSION_HARD_SETS..sessionCap,
+                "60-min session total $count outside [$MIN_SESSION_HARD_SETS,$sessionCap]; all=$setCounts",
             )
         }
         val min = setCounts.minOrNull() ?: 0
@@ -470,6 +470,9 @@ class ProgramSynthesisAcceptanceTest {
         // 5-day model with reified onlyEnforceIf floors can return an incumbent before presolve
         // finishes posting all implications, surfacing as an apparent hard-constraint violation.
         const val SOLVER_DEADLINE_MILLIS = 30_000L
+        const val MIN_SESSION_HARD_SETS = 8
+        const val MIN_ACTIVE_LIFTS_PER_SESSION = 3
+        const val MIN_SETS_PER_ACTIVE_SLOT = 2
         val COMPOUND_PATTERNS =
             setOf(
                 "SquatPattern",

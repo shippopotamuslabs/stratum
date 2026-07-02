@@ -30,11 +30,11 @@ fun schemeForTrainingAge(trainingAge: String): ProgressionScheme =
 
 /**
  * Clamps a proposed back-off RIR to the §2.3 lift-class table: major compounds 1–2 (default 2 when
- * out of range); everything else 0.
+ * out of range); isolation / non-major compounds floor at 1 RIR (no failure back-offs).
  */
 fun clampBackOffRir(isMajorCompound: Boolean, proposed: Int): Int {
     if (!isMajorCompound) {
-        return 0
+        return proposed.coerceAtLeast(1)
     }
     // Major compound: 1..2; default 2 when the proposal is outside the range.
     if (proposed in 1..2) {

@@ -1,5 +1,6 @@
 package com.stratum.domain.program.generation
 
+import com.stratum.domain.program.LiteratureVolumeLandmarks
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.VolumeLandmarkContext
@@ -71,10 +72,33 @@ internal object GenerationContextTestFixtures {
         ),
     )
 
-    private fun defaultLiteratureLandmarks(): List<VolumeLandmarkContext> = listOf(
-        VolumeLandmarkContext("Chest", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Back", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-    )
+    private fun defaultLiteratureLandmarks(): List<VolumeLandmarkContext> =
+        listOf("Chest", "Back").map { muscle -> literatureLandmarkContext(muscle) }
+
+    internal fun literatureLandmarkContext(muscle: String): VolumeLandmarkContext {
+        val literature =
+            LiteratureVolumeLandmarks.all().single { entry -> entry.muscle.name == muscle }
+        return VolumeLandmarkContext(
+            muscle = literature.muscle.name,
+            estimatedMev = literature.estimatedMev,
+            estimatedMav = literature.estimatedMav,
+            estimatedMrv = literature.estimatedMrv,
+            estimatedPv = literature.estimatedPv,
+            estimatedMv = literature.estimatedMv,
+            source = VolumeLandmarkSource.Literature,
+        )
+    }
+
+    internal fun literatureMrv(muscle: String): Double =
+        LiteratureVolumeLandmarks.all().single { it.muscle.name == muscle }.estimatedMrv
+
+    internal fun literaturePv(muscle: String): Double =
+        LiteratureVolumeLandmarks.all().single { it.muscle.name == muscle }.estimatedPv
+
+    internal fun literatureSpecializeMin(muscle: String): Double {
+        val landmark = literatureLandmarkContext(muscle)
+        return kotlin.math.max(landmark.estimatedMev, landmark.estimatedMav - 2.0)
+    }
 
     val volumePlannerLifts: List<LiftContext> = listOf(
         LiftContext(
@@ -127,14 +151,23 @@ internal object GenerationContextTestFixtures {
         ),
     )
 
-    val volumePlannerLandmarks: List<VolumeLandmarkContext> = listOf(
-        VolumeLandmarkContext("Chest", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Back", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Quad", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Hamstring", 6.0, 10.0, 16.0, 8.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Bicep", 4.0, 8.0, 14.0, 6.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Tricep", 4.0, 8.0, 14.0, 6.0, VolumeLandmarkSource.Literature),
-    )
+    val volumePlannerLandmarks: List<VolumeLandmarkContext> =
+        LiteratureVolumeLandmarks.all()
+            .filter { literature ->
+                literature.muscle.name in
+                    setOf("Chest", "Back", "Quad", "Hamstring", "Bicep", "Tricep")
+            }
+            .map { literature ->
+                VolumeLandmarkContext(
+                    muscle = literature.muscle.name,
+                    estimatedMev = literature.estimatedMev,
+                    estimatedMav = literature.estimatedMav,
+                    estimatedMrv = literature.estimatedMrv,
+                    estimatedPv = literature.estimatedPv,
+                    estimatedMv = literature.estimatedMv,
+                    source = VolumeLandmarkSource.Literature,
+                )
+            }
 
     fun volumePlannerContext(
         profileOverrides: Map<String, Any?> = emptyMap(),

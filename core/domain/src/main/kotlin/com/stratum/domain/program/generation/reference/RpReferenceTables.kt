@@ -174,7 +174,7 @@ fun computePatternSecondaryCredits(
 }
 
 /** Minimum direct (primary) sets for a specialized muscle's isolation slot in one session. */
-const val MIN_SPECIALIZED_DIRECT_SETS = 4
+const val MIN_SPECIALIZED_DIRECT_SETS = 2
 
 /** Minimum direct sets for a cross-domain touch isolation slot (supplementary volume). */
 const val MIN_TOUCH_DIRECT_SETS = 2

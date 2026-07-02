@@ -1,9 +1,11 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureLandmarkContext
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureMrv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureSpecializeMin
 import com.stratum.domain.program.generation.context.LiftContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkSource
 import com.stratum.domain.program.generation.context.VolumeResponseContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -18,9 +20,9 @@ class VolumeTargetPlannerTest {
         fun `Specialize aims at landmark MRV`() {
             val ctx = GenerationContextTestFixtures.contextWith()
             val target = resolveMuscleWeeklyTarget("Chest", "Specialize", ctx)
-            assertEquals(12.0, target.min)
-            assertEquals(20.0, target.aim)
-            assertEquals(20.0, target.max)
+            assertEquals(literatureSpecializeMin("Chest"), target.min)
+            assertEquals(literatureMrv("Chest"), target.aim)
+            assertEquals(literatureMrv("Chest"), target.max)
         }
 
         @Test
@@ -31,8 +33,8 @@ class VolumeTargetPlannerTest {
                 ),
             )
             val target = resolveMuscleWeeklyTarget("Chest", "Specialize", ctx)
-            assertEquals(20.0, target.aim)
-            assertEquals(20.0, target.max)
+            assertEquals(literatureMrv("Chest"), target.aim)
+            assertEquals(literatureMrv("Chest"), target.max)
         }
 
         @Test
@@ -45,9 +47,10 @@ class VolumeTargetPlannerTest {
                 ),
             )
             val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
-            assertEquals(4.0, target.min)
-            assertEquals(11.0, target.aim)
-            assertEquals(14.0, target.max)
+            val landmark = literatureLandmarkContext("Back")
+            assertEquals(landmark.estimatedMv, target.min)
+            assertEquals(literaturePv("Back"), target.aim)
+            assertEquals(landmark.estimatedMav, target.max)
         }
 
         @Test
@@ -60,9 +63,10 @@ class VolumeTargetPlannerTest {
                 ),
             )
             val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
-            assertEquals(4.0, target.min)
-            assertEquals(11.0, target.aim)
-            assertEquals(14.0, target.max)
+            val landmark = literatureLandmarkContext("Back")
+            assertEquals(landmark.estimatedMv, target.min)
+            assertEquals(literaturePv("Back"), target.aim)
+            assertEquals(landmark.estimatedMav, target.max)
         }
 
         @Test
@@ -127,13 +131,11 @@ class VolumeTargetPlannerTest {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf("sessionLengthMinutes" to null),
-                literatureVolumeLandmarks = listOf(
-                    VolumeLandmarkContext("Calf", 6.0, 10.0, 16.0, 8.0, VolumeLandmarkSource.Literature),
-                ),
+                literatureVolumeLandmarks = listOf(GenerationContextTestFixtures.literatureLandmarkContext("Calf")),
             )
             val targets = computeAllWeeklyTargets(ctx)
             assertTrue(targets.containsKey("Calf"))
-            assertEquals(8.0, targets.getValue("Calf").aim)
+            assertEquals(literaturePv("Calf"), targets.getValue("Calf").aim)
         }
     }
 

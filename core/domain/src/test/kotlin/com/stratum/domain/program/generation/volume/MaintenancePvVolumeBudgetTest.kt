@@ -1,6 +1,8 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureMrv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -13,8 +15,8 @@ class MaintenancePvVolumeBudgetTest {
             )
         val targets = planWeeklyVolume(context)
 
-        assertEquals(14.0, targets.getValue("Bicep").aim)
-        assertEquals(11.0, targets.getValue("Chest").aim)
-        assertEquals(11.0, targets.getValue("Back").aim)
+        assertEquals(literatureMrv("Bicep"), targets.getValue("Bicep").aim)
+        assertEquals(literaturePv("Chest"), targets.getValue("Chest").aim)
+        assertEquals(literaturePv("Back"), targets.getValue("Back").aim)
     }
 }

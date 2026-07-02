@@ -2,6 +2,8 @@
 
 package com.stratum.domain.program.generation.reference
 
+import kotlin.math.ceil
+
 /**
  * Literature-informed minimum **calendar day-index gaps** between sessions that
  * meaningfully stress the same muscle.
@@ -12,21 +14,18 @@ package com.stratum.domain.program.generation.reference
  * Korak et al. 2015, Int J Exerc Sci). Twenty-four hours is consistently
  * insufficient for the same muscle group (McLester 2018; Jones et al. 2014).
  *
- * The recovery driver is *movement type* (heavy barbell multi-joint + eccentric
- * load in a lengthened position), not raw muscle size. In Korak et al. (2015),
- * the military dumbbell press (an anterior-delt compound) recovered at 90% at
- * 48h — identical to side raises and triceps extension, and far ahead of bench
- * press (70%) and deadlift (60%). The laggards are specifically heavy barbell
- * multi-joint lifts, not "large muscles" generically; NSCA's old upper-vs-lower
- * split was not supported. Sousa, Zourdos, Storey & Helms (2024, J Human
- * Kinetics) reaches the same conclusion: isolation and less-musculature
- * movements recover fastest, and upper-body may recover in 24h or less for
- * submaximal non-failure protocols. Single-joint / small muscles and the
- * anterior delt therefore share one recovery tier; heavy barbell multi-joint
- * movers (chest, back, quads, hams, glutes) warrant longer gaps when weekly
- * set dose is moderate or high (Korak et al. 2015; NSCA Essentials 4th ed.,
- * ch. 15 recovery guidelines).
+ * Phase 1 introduces [LiftStressClass] and an additive hours model whose outputs
+ * are calibrated to the literature matrix (see [recoveryHours]). The legacy
+ * muscle-name taxonomy ([MuscleRecoveryClass]) remains for existing solver forbids
+ * until phase 2+ migration.
  */
+enum class LiftStressClass {
+    Isolation,
+    UpperCompound,
+    HeavyAxial,
+}
+
+/** @deprecated Replaced by [LiftStressClass] in phase 2+. */
 enum class MuscleRecoveryClass {
     /** Biceps, triceps, calves, rear/lateral/anterior delts, and unmapped muscles. */
     SmallIsolation,
@@ -39,26 +38,23 @@ enum class MuscleRecoveryClass {
  * Fractional hard-set credits (primary 1.0, secondary 0.5) at or below which a session's exposure
  * counts as light "touch" volume — incidental cross-domain work (e.g. a few triceps sets from
  * pulldowns on a lower day) that does not by itself lock in the longer recovery window.
- *
- * Per Sousa et al. (2024), even 1–3 hard sets is a meaningful stimulus, but the recovery timeline
- * scales with dose: low volume (1–3 sets) recovers in 24–48h, moderate (4–7) in 48–72h, high (8+)
- * in 72–96h+. This constant marks the upper bound of the "low volume" tier.
  */
 const val MUSCLE_RECOVERY_LIGHT_DOSE = 3.0
+
+/** Upper bound of the low-volume tier in fractional credits (≈1–3 hard sets). */
+const val MUSCLE_RECOVERY_LOW_DOSE_MAX = 3.0
 
 /**
  * Minimum per-session fractional credits (primary 1.0/set, secondary 0.5/set) that count as a
  * *meaningful* stimulus requiring the adjacent-day (48h) recovery forbid — for ALL muscles.
- *
- * Set to 2.0 (≈2 hard sets): Sousa et al. (2024) place 1–3 sets in the 24–48h recovery window; 2.0
- * is the low end of that band — the dose at which a muscle's exposure is clearly more than
- * incidental tagging. Below this (e.g. a single set, or light secondary accumulation from one
- * compound) the exposure may repeat the next day. Both primary and secondary load count toward
- * the threshold: a triceps set is a triceps set whether it's a direct extension or a bench-press
- * secondary, so the gate uses total credit. In credit terms, 2.0 = two primary hard sets, or one
- * primary + two secondary-tagging compound sets, etc.
  */
 const val MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE = 2.0
+
+/**
+ * Upper bound of the moderate-volume tier in fractional credits (≈4–7 hard sets).
+ * Introduced for the class-aware model; the solver hard forbid still uses [MUSCLE_RECOVERY_MODERATE_DOSE].
+ */
+const val MUSCLE_RECOVERY_MODERATE_DOSE_MAX = 7.0
 
 /**
  * Moderate per-session dose — recovery shifts to the longer window: 48h minimum for small/isolation
@@ -70,6 +66,24 @@ const val MUSCLE_RECOVERY_MODERATE_DOSE = 8.0
 /** High per-session dose (≈8+ hard sets) — prefer 72h+ before repeating; recovery spills into 96h. */
 const val MUSCLE_RECOVERY_HEAVY_DOSE = 12.0
 
+const val RECOVERY_BASELINE_HOURS = 24
+const val RECOVERY_VOLUME_MODERATE_HOURS = 24
+const val RECOVERY_VOLUME_HIGH_HOURS = 48
+const val RECOVERY_CLASS_UPPER_COMPOUND_HOURS = 24
+const val RECOVERY_CLASS_HEAVY_AXIAL_HOURS = 48
+const val RECOVERY_FAILURE_HOURS = 24
+
+data class MuscleSessionStress(
+    val fractionalSets: Double,
+    val stressClass: LiftStressClass,
+)
+
+private enum class RecoveryVolumeTier {
+    Low,
+    Moderate,
+    High,
+}
+
 fun muscleRecoveryClass(muscle: String): MuscleRecoveryClass =
     when (muscle) {
         "Chest",
@@ -78,43 +92,69 @@ fun muscleRecoveryClass(muscle: String): MuscleRecoveryClass =
         "Hamstring",
         "Glute",
         -> MuscleRecoveryClass.LargeCompound
-        // All other muscles — biceps, triceps, calves, every delt head (including the
-        // anterior delt, which Korak 2015 shows recovers at the same 48h rate as side
-        // raises / triceps extension), traps, forearms, abs, etc. — share one tier.
         else -> MuscleRecoveryClass.SmallIsolation
     }
 
+/** Maps legacy muscle-name classes to [LiftStressClass] for transitional call sites. */
+fun legacyMuscleNameToStressClass(muscle: String): LiftStressClass =
+    when (muscleRecoveryClass(muscle)) {
+        MuscleRecoveryClass.LargeCompound -> LiftStressClass.HeavyAxial
+        MuscleRecoveryClass.SmallIsolation -> LiftStressClass.Isolation
+    }
+
 /**
- * Minimum difference in weekday indices before the same muscle should be trained
- * again. Returns 0 when neither session contributes meaningful dose.
- *
- * Uses the earlier and later session doses separately so light cross-domain touch
- * (e.g. 2 triceps sets on a lower day) still requires 48 h before a push session
- * even when that push session is high volume.
+ * Additive recovery hours from the end of the earlier session. The calibrated matrix in
+ * [calibratedRecoveryHours] is authoritative when it disagrees with raw constant sums.
  */
-fun minimumRecoveryCalendarGap(
-    muscle: String,
-    earlierFractionalSets: Double,
-    laterFractionalSets: Double,
+fun recoveryHours(
+    earlierDose: Double,
+    stressClass: LiftStressClass,
+    minRealizedRir: Int? = null,
 ): Int {
-    if (earlierFractionalSets <= 0.0 && laterFractionalSets <= 0.0) return 0
-    val peakDose = maxOf(earlierFractionalSets, laterFractionalSets)
-    if (peakDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) return 0
-    val touchInvolved =
-        earlierFractionalSets < MUSCLE_RECOVERY_LIGHT_DOSE ||
-            laterFractionalSets < MUSCLE_RECOVERY_LIGHT_DOSE
-    return when (muscleRecoveryClass(muscle)) {
-        MuscleRecoveryClass.SmallIsolation ->
-            when {
-                touchInvolved -> 2
-                peakDose >= MUSCLE_RECOVERY_HEAVY_DOSE -> 3
-                else -> 2
-            }
-        MuscleRecoveryClass.LargeCompound ->
-            when {
-                peakDose < MUSCLE_RECOVERY_LIGHT_DOSE -> 2
-                peakDose < MUSCLE_RECOVERY_MODERATE_DOSE -> 3
-                else -> 3
-            }
+    val tier = volumeTier(earlierDose) ?: return 0
+    val base = calibratedRecoveryHours(stressClass, tier)
+    val failure = if (minRealizedRir == 0) RECOVERY_FAILURE_HOURS else 0
+    return base + failure
+}
+
+/** Minimum day-index gap after [earlier] before the muscle is meaningfully loaded again. */
+fun minimumRecoveryCalendarGap(earlier: MuscleSessionStress, minRealizedRir: Int? = null): Int {
+    val hours = recoveryHours(earlier.fractionalSets, earlier.stressClass, minRealizedRir)
+    if (hours <= 0) return 0
+    return ceil(hours / 24.0).toInt()
+}
+
+private fun volumeTier(dose: Double): RecoveryVolumeTier? {
+    if (dose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) return null
+    return when {
+        dose <= MUSCLE_RECOVERY_LOW_DOSE_MAX -> RecoveryVolumeTier.Low
+        dose <= MUSCLE_RECOVERY_MODERATE_DOSE_MAX -> RecoveryVolumeTier.Moderate
+        else -> RecoveryVolumeTier.High
     }
 }
+
+/** Literature matrix contract — table wins over additive constant sums when they diverge. */
+private fun calibratedRecoveryHours(
+    stressClass: LiftStressClass,
+    tier: RecoveryVolumeTier,
+): Int =
+    when (stressClass) {
+        LiftStressClass.Isolation ->
+            when (tier) {
+                RecoveryVolumeTier.Low -> 24
+                RecoveryVolumeTier.Moderate -> 48
+                RecoveryVolumeTier.High -> 72
+            }
+        LiftStressClass.UpperCompound ->
+            when (tier) {
+                RecoveryVolumeTier.Low -> 48
+                RecoveryVolumeTier.Moderate -> 72
+                RecoveryVolumeTier.High -> 72
+            }
+        LiftStressClass.HeavyAxial ->
+            when (tier) {
+                RecoveryVolumeTier.Low -> 48
+                RecoveryVolumeTier.Moderate -> 72
+                RecoveryVolumeTier.High -> 96
+            }
+    }

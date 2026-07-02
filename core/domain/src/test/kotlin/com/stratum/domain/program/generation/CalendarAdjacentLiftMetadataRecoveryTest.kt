@@ -6,28 +6,21 @@ import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
-import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
+import com.stratum.domain.program.generation.reference.calendarDayIndexGap
+import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
-import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
 import com.stratum.domain.program.generation.split.trainingWeekdayIndices
-import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
+import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSessionStress
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
  * Reproduces the user-reported "same muscle on consecutive calendar training days" complaint
- * measured on the FINAL [com.stratum.domain.program.generation.draft.ProgramDraft] using lift
- * metadata ([computeWorkoutMuscleVolume]) — i.e. exactly what the UI schedule shows — rather
- * than the solver's pattern-credit accounting.
- *
- * Regression guard for the credit-accounting divergence (H1/H5): a selected lift can carry a
- * recovery-relevant secondary muscle (e.g. Hip Thrust → Hamstring) that is absent from
- * `PATTERN_SECONDARY_MUSCLE_CREDITS`, making the exposure invisible to every solver recovery
- * constraint and to the post-solve gate, so the final program stacks that muscle on
- * back-to-back days.
+ * measured on the FINAL draft using lift metadata and class-aware recovery (stress class × dose
+ * tier), i.e. exactly what the UI schedule shows.
  */
 class CalendarAdjacentLiftMetadataRecoveryTest {
 
@@ -68,26 +61,27 @@ class CalendarAdjacentLiftMetadataRecoveryTest {
                 )
             val draft = normalized.toDraft()
             val program = normalized.toDomainProgram()
-            val exposuresByName =
+            val stressByName =
                 draft.workouts.associate { workout ->
-                    workout.name.orEmpty() to computeWorkoutMuscleVolume(workout, context)
+                    workout.name.orEmpty() to computeWorkoutMuscleSessionStress(workout, context)
                 }
             val workoutByDayIndex =
                 program.workouts
                     .filter { it.weekday != null }
                     .associate { Weekday.entries.indexOf(it.weekday!!) to it }
-            val adjacentPairs = calendarAdjacentTrainingDayPairs(trainingWeekdayIndices(context.weekdays))
-            for ((d1, d2) in adjacentPairs) {
+            val orderedDays = trainingWeekdayIndices(context.weekdays).sorted()
+            for (index in 1 until orderedDays.size) {
+                val d1 = orderedDays[index - 1]
+                val d2 = orderedDays[index]
+                if (d2 - d1 != 1) continue
                 val w1 = workoutByDayIndex[d1] ?: continue
                 val w2 = workoutByDayIndex[d2] ?: continue
-                val e1 = exposuresByName[w1.name.orEmpty()].orEmpty()
-                val e2 = exposuresByName[w2.name.orEmpty()].orEmpty()
-                for (muscle in e1.keys + e2.keys) {
-                    val dose1 = e1[muscle] ?: 0.0
-                    val dose2 = e2[muscle] ?: 0.0
-                    if (dose1 >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
-                        dose2 >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-                    ) {
+                val stress1 = stressByName[w1.name.orEmpty()].orEmpty()
+                val stress2 = stressByName[w2.name.orEmpty()].orEmpty()
+                for (muscle in stress1.keys + stress2.keys) {
+                    val earlier = stress1[muscle] ?: continue
+                    val laterDose = stress2[muscle]?.fractionalSets ?: 0.0
+                    if (muscleRecoveryGapViolated(earlier, laterDose, calendarDayIndexGap(d1, d2))) {
                         violations +=
                             AdjacentViolation(
                                 scenario = "$days-day $preset $layout",
@@ -95,8 +89,8 @@ class CalendarAdjacentLiftMetadataRecoveryTest {
                                 level = context.specialization[muscle] ?: "Maintenance",
                                 earlierDay = w1.weekday!!,
                                 laterDay = w2.weekday!!,
-                                earlierDose = dose1,
-                                laterDose = dose2,
+                                earlierDose = earlier.fractionalSets,
+                                laterDose = laterDose,
                             )
                     }
                 }

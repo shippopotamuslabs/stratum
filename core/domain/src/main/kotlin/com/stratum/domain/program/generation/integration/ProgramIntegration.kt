@@ -12,12 +12,17 @@ import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
+import com.stratum.domain.program.generation.reference.calendarDayIndexGap
+import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
+import com.stratum.domain.program.generation.reference.trainingDayPairsForRecoveryCheck
+import com.stratum.domain.program.generation.split.trainingWeekdayIndices
+import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSessionStress
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.validation.validateProgramMetrics
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 
-private const val LOWER_ANCHOR_MIN_SETS = 3
+private const val LOWER_ANCHOR_MIN_SETS = 2
 private const val MIN_SETS_PER_LIFT = 2
 
 private val LOWER_LEG_ANCHOR_PATTERNS = setOf("SquatPattern", "HipHinge")
@@ -39,10 +44,17 @@ fun repairWeeklyVolume(
 ): ProgramDraft {
     // Volume is owned by the CP-SAT synthesizer; integration only enforces hard caps, duration,
     // and metadata-truth antagonist balance (the solver's pattern-credit accounting can diverge
-    // from actual lift metadata when a lift tags a muscle the pattern table doesn't credit).
+    // from actual lift metadata when a lift tags a muscle the pattern table doesn't credit). The
+    // final adjacent-recovery pass reconciles the same divergence against the recovery rule: a
+    // selected lift can tag a muscle the pattern-average under-credited, pushing realized metadata
+    // volume above the meaningful threshold on two adjacent days the solver never forbade.
+    // Antagonist rebalance runs last so recovery trims cannot leave chest > back (or quad > ham).
     return rebalanceAntagonistPairs(
-        trimWorkoutsToSessionDuration(
-            trimSessionMuscleCreditCaps(program, context),
+        enforceCalendarAdjacentRecovery(
+            trimWorkoutsToSessionDuration(
+                trimSessionMuscleCreditCaps(program, context),
+                context,
+            ),
             context,
         ),
         context,
@@ -375,4 +387,120 @@ private fun updateLiftAt(
         if (index == liftIndex) transform(lift) else lift
     }
     return workout.copy(workoutLifts = lifts.toMutableList())
+}
+
+/**
+ * Enforces class-aware recovery spacing on **metadata truth** (the realized program), closing the
+ * gap between the CP-SAT solver's pattern-credit approximation and the per-lift metadata volume the
+ * user sees. Evaluates every training-day pair whose calendar gap is shorter than
+ * [minimumRecoveryCalendarGap] for the earlier session's dose and dominant stress class.
+ *
+ * After lift selection and the per-session/antagonist repairs, this pass trims sets from the
+ * violating muscle's contributors — preferring the *later* day (the day that violates the prior
+ * day's recovery debt) and lifts where the muscle is a **secondary** contributor (trimming removes
+ * 0.5/set while preserving the lift's primary contribution). Reuses the trim-candidate scoring
+ * pattern from [trimAntagonistExcess] and [trimWorkoutMuscleCredits]. Pure trim — no redistribution,
+ * since moving a set within the same workout could re-introduce the violation or push another muscle
+ * over threshold.
+ */
+private fun enforceCalendarAdjacentRecovery(
+    program: ProgramDraft,
+    context: ProgramGenerationContext,
+): ProgramDraft {
+    val trainingDayIndices = trainingWeekdayIndices(context.weekdays)
+    val recoveryPairs = trainingDayPairsForRecoveryCheck(trainingDayIndices)
+
+    var current = program
+    var guard = 0
+    while (guard++ < 200) {
+        val dayIndexToWorkoutIndex = mutableMapOf<Int, Int>()
+        current.workouts.forEachIndexed { workoutIndex, workout ->
+            val weekday = workout.weekday ?: return@forEachIndexed
+            val dayIndex = trainingWeekdayIndices(listOf(weekday)).singleOrNull() ?: return@forEachIndexed
+            dayIndexToWorkoutIndex[dayIndex] = workoutIndex
+        }
+        val stressByWorkoutIndex = current.workouts.mapIndexed { index, workout ->
+            index to computeWorkoutMuscleSessionStress(workout, context)
+        }.toMap()
+
+        val violation = recoveryPairs.firstNotNullOfOrNull { (earlierDay, laterDay) ->
+            val earlierIndex = dayIndexToWorkoutIndex[earlierDay] ?: return@firstNotNullOfOrNull null
+            val laterIndex = dayIndexToWorkoutIndex[laterDay] ?: return@firstNotNullOfOrNull null
+            val earlierStressByMuscle = stressByWorkoutIndex[earlierIndex].orEmpty()
+            val laterStressByMuscle = stressByWorkoutIndex[laterIndex].orEmpty()
+            val calendarGap = calendarDayIndexGap(earlierDay, laterDay)
+            val muscle = (earlierStressByMuscle.keys + laterStressByMuscle.keys).firstOrNull { muscle ->
+                val earlierStress = earlierStressByMuscle[muscle] ?: return@firstOrNull false
+                val laterDose = laterStressByMuscle[muscle]?.fractionalSets ?: 0.0
+                muscleRecoveryGapViolated(earlierStress, laterDose, calendarGap)
+            } ?: return@firstNotNullOfOrNull null
+            AdjacentRecoveryViolation(earlierIndex, laterIndex, muscle)
+        } ?: return current
+
+        val laterTarget = adjacentRecoveryTrimIndex(current.workouts[violation.laterIndex], violation.muscle, context)
+        val target = if (laterTarget != null) {
+            violation.laterIndex to laterTarget
+        } else {
+            val earlierTarget =
+                adjacentRecoveryTrimIndex(current.workouts[violation.earlierIndex], violation.muscle, context)
+            if (earlierTarget == null) return current
+            violation.earlierIndex to earlierTarget
+        }
+        val (workoutIndex, liftIndex) = target
+        current = current.copy(
+            workouts = current.workouts.toMutableList().also { workouts ->
+                workouts[workoutIndex] = dropLastSetFromLiftAt(workouts[workoutIndex], liftIndex)
+            },
+        )
+    }
+    return current
+}
+
+private data class AdjacentRecoveryViolation(
+    val earlierIndex: Int,
+    val laterIndex: Int,
+    val muscle: String,
+)
+
+/**
+ * Selects the lift index in [workout] whose last set is the best candidate to trim in order to reduce
+ * [muscle]'s metadata volume below the meaningful threshold. Prefers lifts where the muscle is a
+ * **secondary** contributor (a single set costs 0.5 muscle credit while preserving the lift's primary
+ * contribution). Follows the scoring tiers of [trimAntagonistExcess] / [trimWorkoutMuscleCredits]:
+ * secondary first, then isolation primary, then compound primary, then everything else.
+ *
+ * The recovery rule is harder than the antagonist/credit trims but must still honour the project's
+ * no-one-set-lift invariant (≥2 sets per active lift), so this pass reuses [MIN_SETS_PER_LIFT] as its
+ * floor: a violation is cleared by trimming across multiple contributors on the same day rather
+ * than grinding a single lift to 1 set or removing it (0-set lifts are dropped on normalization,
+ * which can violate the solver's session lift-count band). When no trimmable candidate remains on
+ * either adjacent day, the violation is left for advisory validation. Lower-body anchors remain
+ * protected (squat/hinge at ≤3 sets).
+ */
+private fun adjacentRecoveryTrimIndex(
+    workout: ProgramWorkoutDraft,
+    muscle: String,
+    context: ProgramGenerationContext,
+): Int? {
+    data class Candidate(val index: Int, val score: Int)
+
+    val candidates = buildList {
+        workout.workoutLifts.orEmpty().forEachIndexed { index, lift ->
+            val sets = lift.workoutLiftSets.orEmpty()
+            if (sets.size <= MIN_SETS_PER_LIFT) return@forEachIndexed
+            val meta = context.liftsById[lift.liftId.orEmpty()] ?: return@forEachIndexed
+            val isPrimary = muscle in meta.primaryMuscles
+            val isSecondary = !isPrimary && muscle in meta.secondaryMuscles
+            if (!isPrimary && !isSecondary) return@forEachIndexed
+            if (isProtectedLowerAnchorLift(workout, meta, sets.size)) return@forEachIndexed
+            val score = when {
+                isSecondary -> 0
+                meta.movementPattern in ISOLATION_PATTERNS -> 1
+                meta.movementPattern in MAJOR_COMPOUND_PATTERNS -> 2
+                else -> 3
+            }
+            add(Candidate(index, score))
+        }
+    }
+    return candidates.minByOrNull { it.score }?.index
 }
