@@ -2406,6 +2406,31 @@
     "mainstream": false
   },
   {
+    "id": "dumbbell-romanian-deadlift",
+    "name": "Dumbbell Romanian Deadlift",
+    "primaryMuscles": [
+      "Hamstring"
+    ],
+    "secondaryMuscles": [
+      "Calf",
+      "Glute",
+      "LowerBack"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Dumbbell_Romanian_Deadlift",
+    "description": "Stand with your feet shoulder-width apart, holding a dumbbell in each hand in front of your thighs. Keep a slight bend in your knees, a flat back, and your core engaged. Lower the dumbbells towards the feet by hinging at the hips, pushing them back. Keep the dumbbells close to your shins, descending until you feel a stretch in your hamstrings. Contract the hamstrings and glutes to pull your torso back to the starting position.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge"
+    ],
+    "mainstream": true
+  },
+  {
     "id": "dumbbell-spider-curl",
     "name": "Dumbbell Spider Curl",
     "primaryMuscles": [
@@ -3671,6 +3696,28 @@
     ]
   },
   {
+    "id": "machine-glute-kickback",
+    "name": "Machine Glute Kickback",
+    "primaryMuscles": [
+      "Glute"
+    ],
+    "secondaryMuscles": [
+      "Hamstring"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Machine_Glute_Kickback",
+    "description": "Adjust the machine's chest pad and footplate to your height. Stand facing the machine, placing one foot onto the footplate and securing your chest/hips against the pad. Keeping your core tight, press the footplate backward and upward using your glutes. Extend your leg fully without arching your lower back. Hold the contraction for a second, then slowly return to the starting position.",
+    "imageUris": [],
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "HipExtension"
+    ],
+    "mainstream": true
+  },
+  {
     "id": "machine-leg-extension",
     "name": "Machine Leg Extension",
     "primaryMuscles": [
@@ -3715,6 +3762,70 @@
     ],
     "mainstream": true,
     "secondaryMuscles": []
+  },
+  {
+    "id": "machine-seated-leg-curl",
+    "name": "Machine Seated Leg Curl",
+    "primaryMuscles": [
+      "Hamstring"
+    ],
+    "secondaryMuscles": [],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Machine_Seated_Leg_Curl",
+    "description": "Sit on the machine with your back flat against the back support. Place the back of your lower legs on top of the padded lever (just below the calves) and secure the lap pad against your thighs. Grasp the handles. Curl your legs downward and backward towards your body by flexing the knees, holding the peak contraction briefly. Slowly return to the starting position.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "KneeFlexion"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "machine-single-leg-press",
+    "name": "Machine Single Leg Press",
+    "primaryMuscles": [
+      "Quad"
+    ],
+    "secondaryMuscles": [
+      "Calf",
+      "Glute"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Machine_Single_Leg_Press",
+    "description": "Sit in the leg press machine and place one foot on the platform. Disengage the safety locks. Lower the platform slowly by flexing the knee and hip of the working leg until the leg forms a 90-degree angle. Press the platform back up to the starting position using your quad, keeping the other leg resting or off the platform.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "KneeExtension"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "machine-standing-leg-curl",
+    "name": "Machine Standing Leg Curl",
+    "primaryMuscles": [
+      "Hamstring"
+    ],
+    "secondaryMuscles": [],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Machine_Standing_Leg_Curl",
+    "description": "Adjust the lever pad to rest just below your calf on the working leg. Stand facing the machine and place your other knee/shin on the support pad. Grasp the handles and lean forward slightly. Flex at the knee of the working leg to curl the pad upward towards your glutes. Hold the contraction, then slowly lower the leg back to the starting position.",
+    "imageUris": [],
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "KneeFlexion"
+    ],
+    "mainstream": true
   },
   {
     "id": "machine-shoulder-military-press",
@@ -3789,7 +3900,8 @@
     ],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
-      "SquatPattern"
+      "SquatPattern",
+      "KneeExtension"
     ],
     "mainstream": true
   },
@@ -3819,6 +3931,30 @@
       "ElbowExtension"
     ],
     "mainstream": false
+  },
+  {
+    "id": "nordic-hamstring-curl",
+    "name": "Nordic Hamstring Curl",
+    "primaryMuscles": [
+      "Hamstring"
+    ],
+    "secondaryMuscles": [
+      "Glute",
+      "LowerBack"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Nordic_Hamstring_Curl",
+    "description": "Kneel on the floor and anchor your ankles securely (under a loaded barbell or with a partner holding them). Keep your torso straight and align your hips. Slowly lower your torso towards the floor under control by extending your knees, resisting the gravity as long as possible using your hamstrings. Catch yourself with your hands on the floor in a pushup position, and push off slightly to help your hamstrings pull your body back to the starting kneeling position.",
+    "imageUris": [],
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "KneeFlexion"
+    ],
+    "mainstream": true
   },
   {
     "id": "one-arm-chin-up",
@@ -4296,6 +4432,53 @@
     "mainstream": false
   },
   {
+    "id": "plate-loaded-hip-thrust",
+    "name": "Plate Loaded Hip Thrust",
+    "primaryMuscles": [
+      "Glute"
+    ],
+    "secondaryMuscles": [
+      "Calf",
+      "Hamstring"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Plate_Loaded_Hip_Thrust",
+    "description": "Sit inside the plate loaded hip thrust machine, placing the lap belt/pad securely across your hips and your feet flat on the platform. Drive through your feet, extending your hips fully to lift the weight. Squeeze your glutes at the top of the movement, then lower back to the starting position.",
+    "imageUris": [],
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "HipExtension"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "plate-loaded-single-leg-press",
+    "name": "Plate Loaded Single Leg Press",
+    "primaryMuscles": [
+      "Quad"
+    ],
+    "secondaryMuscles": [
+      "Calf",
+      "Glute"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Plate_Loaded_Single_Leg_Press",
+    "description": "Sit on the plate loaded leg press machine, placing one foot on the platform. Release the safety handles. Under control, lower the sled towards your body by flexing the knee and hip of the working leg. Press the platform back up using your quad, keeping your back flat against the seat pad.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "KneeExtension"
+    ],
+    "mainstream": true
+  },
+  {
     "id": "preacher-curl",
     "name": "Preacher Curl",
     "primaryMuscles": [
@@ -4609,6 +4792,30 @@
     ],
     "mainstream": false,
     "secondaryMuscles": []
+  },
+  {
+    "id": "roman-chair-hip-hinge",
+    "name": "Roman Chair Hip Hinge",
+    "primaryMuscles": [
+      "Hamstring"
+    ],
+    "secondaryMuscles": [
+      "Glute",
+      "LowerBack"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Roman_Chair_Hip_Hinge",
+    "description": "Secure your feet under the foot pads of the Roman chair bench, with your hips aligned just off the edge of the upper pad. Start with your body in a straight line, arms crossed over your chest. Bend forward at the waist under control, hinging at the hips and keeping your spine neutral. Lower until you feel a deep stretch in the hamstrings, then contract your hamstrings and glutes to return to the starting position.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge"
+    ],
+    "mainstream": true
   },
   {
     "id": "scapular-pull-up",
@@ -5106,6 +5313,31 @@
     ],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
+      "SquatPattern",
+      "KneeExtension"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "smith-machine-back-squat",
+    "name": "Smith Machine Back Squat",
+    "primaryMuscles": [
+      "Quad"
+    ],
+    "secondaryMuscles": [
+      "Calf",
+      "Glute",
+      "LowerBack"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Smith_Machine_Back_Squat",
+    "description": "Set the bar in the Smith machine at shoulder height. Step under the bar, placing it across your upper back/shoulder muscles. Take a medium, pronated grip and unlock the bar. Position your feet shoulder-width apart, slightly in front of the bar. Lower your body by bending the knees and hips under control, keeping your back straight. Descend until your thighs are parallel to the floor, then press back up to the starting position.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
       "SquatPattern"
     ],
     "mainstream": true
@@ -5130,6 +5362,29 @@
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ScapularElevation"
+    ],
+    "mainstream": true
+  },
+  {
+    "id": "smith-machine-front-foot-elevated-split-squat",
+    "name": "Smith Machine Front Foot Elevated Split Squat",
+    "primaryMuscles": [
+      "Quad"
+    ],
+    "secondaryMuscles": [
+      "Glute"
+    ],
+    "allowWeightChangeBetweenSets": true,
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Smith_Machine_Front_Foot_Elevated_Split_Squat",
+    "description": "Place a low block or plate under the Smith machine bar. Step one foot forward onto the elevated platform, and place the other foot back on the floor. Step under the bar, placing it across your upper back, and unlock it. Keeping your chest up and core tight, bend both knees to lower your hips under control until your back knee is just above the floor. Drive back up through the front heel.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "SquatPattern",
+      "KneeExtension"
     ],
     "mainstream": true
   },
