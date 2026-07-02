@@ -33,15 +33,23 @@ internal object SynthesisObjectiveWeights {
     /** Consolidation: penalize each active slot so ties collapse to fewer, higher-set lifts (G5). */
     const val SLOT_ACTIVATION_COUNT = 300L
     const val OPTIONAL_SLOT_INACTIVE_PREFERENCE = 20L
-    /** Mild discouragement of direct VerticalPress sets when AnteriorDeltoid is Maintenance — the
-     *  anterior aim is reachable via chest-press secondaries (0.5/set), so direct overhead work
-     *  (1.0/set) is coach-unwanted multi-aim churning (G11). Sits between inactive-preference and
-     *  slot-activation so it only biases tie-breaks, never overrides volume aims. */
-    const val MAINTENANCE_ANTERIOR_DIRECT_DISCOURAGE = 150L
     /** Push/pull balance breaks ties consolidation cares about (G10). Below [ANTAGONIST_PAIR_CLOSENESS]. */
     const val PUSH_PULL_IMBALANCE = 200L
     /** Session fill sits below MEV so volume targets win over filling (G4). */
     const val SESSION_FILL_SHORTFALL = 5_000L
     /** Session set balance sits below MEV (G4). */
     const val SESSION_SET_IMBALANCE = 2_500L
+    /** G14: Deprioritize rear-delt direct work below bis/tris/lateral when maintenance — posterior
+     *  gets partial coverage from row secondaries (0.5/set), so direct work competes with arms/lateral
+     *  for limited session time. Per-set penalty that exceeds [MAINTENANCE_POSTERIOR_AIM_DEVIATION]
+     *  and [SESSION_FILL_SHORTFALL] so the solver accepts a posterior shortfall and a slightly less
+     *  filled session rather than burning sets on direct rear-delt work. Below
+     *  [MAINTENANCE_AIM_DEVIATION] so the arms/lateral aims still outrank posterior entirely. */
+    const val MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE = 5_500L
+    /** G14: Reduced aim-deviation weight for maintenance PosteriorDeltoid — the PV aim is partially
+     *  met by row secondaries (0.5/set), so the solver should tolerate a shortfall from direct work
+     *  rather than burning session time that bis/tris/lateral should win. Sits above
+     *  [SLOT_ACTIVATION_COUNT] but below [MAINTENANCE_AIM_DEVIATION] and far below
+     *  [MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE] so direct work is always a net cost. */
+    const val MAINTENANCE_POSTERIOR_AIM_DEVIATION = 500L
 }

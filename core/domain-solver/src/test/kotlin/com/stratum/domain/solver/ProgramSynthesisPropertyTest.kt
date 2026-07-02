@@ -18,12 +18,20 @@ import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 
+/**
+ * Tagged `slow` — excluded from the default `testDebugUnitTest` run. Use
+ * `./gradlew :core:domain-solver:testSlow` or `-PincludeSlow` to run.
+ */
+@Tag("slow")
 class ProgramSynthesisPropertyTest {
 
-    private val pipeline = testProgramGenerationPipeline()
+    private val pipeline = testProgramGenerationPipeline(
+        programSynthesisPort = CpSatProgramSynthesizer(deadlineMillis = SOLVER_DEADLINE_MILLIS),
+    )
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("coreScenarios")
@@ -83,6 +91,9 @@ class ProgramSynthesisPropertyTest {
     }
 
   companion object {
+        // 30s solver deadline: tight enough to catch regressions, generous enough for a valid incumbent.
+        const val SOLVER_DEADLINE_MILLIS = 30_000L
+
         @JvmStatic
         fun coreScenarios(): List<ScenarioConfig> = GENERATION_SCENARIOS
 

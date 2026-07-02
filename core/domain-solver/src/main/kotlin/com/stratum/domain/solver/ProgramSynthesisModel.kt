@@ -302,7 +302,16 @@ internal class ProgramSynthesisModel(
                 when (level) {
                     "Specialize" -> SynthesisObjectiveWeights.SPECIALIZE_AIM_DEVIATION
                     "MinimumVolume" -> SynthesisObjectiveWeights.MINIMUM_VOLUME_AIM_DEVIATION
-                    else -> SynthesisObjectiveWeights.MAINTENANCE_AIM_DEVIATION
+                    // G14: PosteriorDeltoid gets partial coverage from HorizontalPull secondaries
+                    // (0.5/set), so the PV aim is often unreachable from secondaries alone and
+                    // direct work competes with bicep/tricep/lateral for session time. A lower
+                    // aim-deviation weight lets the solver tolerate a posterior shortfall rather
+                    // than burning sets on direct rear-delt work that bis/tris/lateral should win.
+                    else -> if (muscle == "PosteriorDeltoid") {
+                        SynthesisObjectiveWeights.MAINTENANCE_POSTERIOR_AIM_DEVIATION
+                    } else {
+                        SynthesisObjectiveWeights.MAINTENANCE_AIM_DEVIATION
+                    }
                 }
             weightedTerms.add(over to weight)
             weightedTerms.add(under to weight)
@@ -328,7 +337,7 @@ internal class ProgramSynthesisModel(
         }
 
         addOptionalSlotActivationPreferences(model, weightedTerms)
-        addMaintenanceAnteriorDirectDiscouragement(model, weightedTerms)
+        addMaintenanceRearDeltDirectDiscouragement(model, weightedTerms)
         addAntagonistMaintenanceBalance(model, weightedTerms)
         addCoSpecializationBalance(model, weightedTerms)
         val objective =
@@ -837,6 +846,14 @@ internal class ProgramSynthesisModel(
         }
     }
 
+    private fun specializationTierValue(level: String): Int =
+        when (level) {
+            "Specialize" -> 2
+            "Maintenance" -> 1
+            "MinimumVolume" -> 0
+            else -> 1
+        }
+
     private fun addAntagonistMaintenanceBalance(
         model: CpModel,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
@@ -845,23 +862,47 @@ internal class ProgramSynthesisModel(
             if (!shouldBalanceAntagonistPair(pair.weaker, pair.stronger)) continue
             val weakerCredit = weeklyCreditExpr(pair.weaker) ?: continue
             val strongerCredit = weeklyCreditExpr(pair.stronger) ?: continue
-            val wrongWayExcess = trackSlack(model, "antWrong_${pair.label}")
-            val rightWayExcess = trackSlack(model, "antRight_${pair.label}")
-            model.addEquality(
-                LinearExpr.weightedSum(
-                    arrayOf(weakerCredit, strongerCredit, wrongWayExcess, rightWayExcess),
-                    longArrayOf(1L, -1L, -1L, 1L),
-                ),
-                0L,
-            )
-            val wrongWeight =
-                SynthesisObjectiveWeights.ANTAGONIST_WRONG_WAY_EXCESS +
-                    SynthesisObjectiveWeights.ANTAGONIST_PAIR_CLOSENESS
-            val rightWeight =
-                SynthesisObjectiveWeights.ANTAGONIST_RIGHT_WAY_EXCESS +
-                    SynthesisObjectiveWeights.ANTAGONIST_PAIR_CLOSENESS
-            weightedTerms.add(wrongWayExcess to wrongWeight)
-            weightedTerms.add(rightWayExcess to rightWeight)
+
+            val levelWeaker = context.specialization[pair.weaker] ?: "Maintenance"
+            val levelStronger = context.specialization[pair.stronger] ?: "Maintenance"
+            val valWeaker = specializationTierValue(levelWeaker)
+            val valStronger = specializationTierValue(levelStronger)
+
+            val (wrongWeight, rightWeight) = when {
+                valWeaker == valStronger -> {
+                    val wrong = SynthesisObjectiveWeights.ANTAGONIST_WRONG_WAY_EXCESS +
+                        SynthesisObjectiveWeights.ANTAGONIST_PAIR_CLOSENESS
+                    val right = SynthesisObjectiveWeights.ANTAGONIST_RIGHT_WAY_EXCESS +
+                        SynthesisObjectiveWeights.ANTAGONIST_PAIR_CLOSENESS
+                    wrong to right
+                }
+                valStronger > valWeaker -> {
+                    val wrong = SynthesisObjectiveWeights.ANTAGONIST_WRONG_WAY_EXCESS +
+                        SynthesisObjectiveWeights.ANTAGONIST_PAIR_CLOSENESS
+                    wrong to 0L
+                }
+                else -> {
+                    0L to 0L
+                }
+            }
+
+            if (wrongWeight > 0L || rightWeight > 0L) {
+                val wrongWayExcess = trackSlack(model, "antWrong_${pair.label}")
+                val rightWayExcess = trackSlack(model, "antRight_${pair.label}")
+                model.addEquality(
+                    LinearExpr.weightedSum(
+                        arrayOf(weakerCredit, strongerCredit, wrongWayExcess, rightWayExcess),
+                        longArrayOf(1L, -1L, -1L, 1L),
+                    ),
+                    0L,
+                )
+                if (wrongWeight > 0L) {
+                    weightedTerms.add(wrongWayExcess to wrongWeight)
+                }
+                if (rightWeight > 0L) {
+                    weightedTerms.add(rightWayExcess to rightWeight)
+                }
+            }
         }
     }
 
@@ -937,27 +978,29 @@ internal class ProgramSynthesisModel(
     }
 
     /**
-     * Discourage direct VerticalPress sets when AnteriorDeltoid is at Maintenance (G11): the
-     * anterior aim is reachable purely via chest-press secondaries (0.5/set), so direct overhead
-     * work (1.0/set + Tricep 0.5) is coach-unwanted multi-aim churning that inflates anterior
-     * volume beyond what a maintenance prescription calls for. Adds a per-set slack on each such
-     * slot; weight sits below [SynthesisObjectiveWeights.SLOT_ACTIVATION_COUNT] so it only biases
-     * tie-breaks toward "rely on secondaries" and never overrides a volume aim. AnteriorDeltoid
-     * Specialize is exempt — direct work is then wanted.
+     * Deprioritize rear-delt direct work when PosteriorDeltoid is at Maintenance (G14): posterior
+     * gets partial coverage from HorizontalPull secondaries (0.5/set), so direct rear-delt work
+     * competes with bicep/tricep/lateral-delt isolation for limited session time. Adds a per-set
+     * penalty on each PosteriorDeltoid slot; weight sits above
+     * [SynthesisObjectiveWeights.SLOT_ACTIVATION_COUNT] so the solver prefers filling
+     * bicep/tricep/lateral slots first, but below [SynthesisObjectiveWeights.MAINTENANCE_AIM_DEVIATION]
+     * so it never fully blocks rear-delt — if secondaries alone can't reach PV, the solver will still
+     * activate rear-delt rather than take the larger aim-deviation penalty. Per-set (not per-activation)
+     * so each rear-delt set is individually less valuable than a bicep/tricep/lateral set, flipping
+     * the solver's marginal-value ordering when posterior's gap is larger than the arms' gap.
+     * PosteriorDeltoid Specialize is exempt — direct work is then wanted.
      */
-    private fun addMaintenanceAnteriorDirectDiscouragement(
+    private fun addMaintenanceRearDeltDirectDiscouragement(
         model: CpModel,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
-        val anteriorLevel = context.specialization["AnteriorDeltoid"] ?: "Maintenance"
-        if (anteriorLevel == "Specialize") return
+        val posteriorLevel = context.specialization["PosteriorDeltoid"] ?: "Maintenance"
+        if (posteriorLevel == "Specialize") return
         _slots.forEach { sv ->
-            if (sv.slot.primaryMuscle != "AnteriorDeltoid") return@forEach
-            if (sv.slot.pattern != "VerticalPress") return@forEach
-            // Per-set slack: the full set count on this slot is discouraged at the soft weight.
-            val sets = model.newIntVar(0L, MAX_OVER, "antDirect_${sv.slot.slotId}")
+            if (sv.slot.primaryMuscle != "PosteriorDeltoid") return@forEach
+            val sets = model.newIntVar(0L, MAX_OVER, "rearDirect_${sv.slot.slotId}")
             model.addEquality(sets, sv.x)
-            weightedTerms.add(sets to SynthesisObjectiveWeights.MAINTENANCE_ANTERIOR_DIRECT_DISCOURAGE)
+            weightedTerms.add(sets to SynthesisObjectiveWeights.MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE)
         }
     }
 

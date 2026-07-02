@@ -78,6 +78,14 @@ object AntagonistMetadataBalance {
     private fun wrongWayExcess(weaker: Double, stronger: Double): Double =
         maxOf(0.0, weaker - stronger)
 
+    private fun specializationTierValue(level: String): Int =
+        when (level) {
+            "Specialize" -> 2
+            "Maintenance" -> 1
+            "MinimumVolume" -> 0
+            else -> 1
+        }
+
     private fun shouldBalancePair(
         weaker: String,
         stronger: String,
@@ -85,6 +93,9 @@ object AntagonistMetadataBalance {
     ): Boolean {
         val weakerLevel = context.specialization[weaker] ?: "Maintenance"
         val strongerLevel = context.specialization[stronger] ?: "Maintenance"
-        return weakerLevel == "Maintenance" && strongerLevel == "Maintenance"
+        if (weakerLevel == "Omit" || strongerLevel == "Omit") return false
+        val valWeaker = specializationTierValue(weakerLevel)
+        val valStronger = specializationTierValue(strongerLevel)
+        return valStronger >= valWeaker
     }
 }

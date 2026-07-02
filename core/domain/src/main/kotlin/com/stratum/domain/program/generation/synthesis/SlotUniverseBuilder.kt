@@ -81,6 +81,14 @@ private fun isSlotRelevant(
     relevantMuscles: Set<String>,
     context: ProgramGenerationContext,
 ): Boolean {
+    // G14: Exclude the direct VerticalPress/AnteriorDeltoid slot when anterior is not Specialize.
+    // Anterior PV is reachable via HorizontalPress/InclinePress secondaries (0.5/set); a dedicated
+    // overhead secondary churns session time the maintenance prescription should spend on arms/lateral.
+    if (slot.pattern == "VerticalPress" && slot.primaryMuscle == "AnteriorDeltoid" &&
+        (context.specialization["AnteriorDeltoid"] ?: "Maintenance") != "Specialize"
+    ) {
+        return false
+    }
     if (slot.primaryMuscle in relevantMuscles) return true
     if ((context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize") return true
     if (slot.role == SlotRole.Anchor) return true
