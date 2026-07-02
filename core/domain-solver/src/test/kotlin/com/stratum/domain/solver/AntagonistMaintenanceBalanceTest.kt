@@ -7,8 +7,8 @@ import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkSource
+import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
+import com.stratum.domain.program.generation.context.VolumeSnapshotSource
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
@@ -224,22 +224,24 @@ class AntagonistMaintenanceBalanceTest {
             weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday"),
             specialization = emptyMap(),
             liftsById = liftsById,
-            volumeLandmarksByMuscle = landmarks.associateBy { it.muscle },
-            volumeResponsesByMuscle = emptyMap(),
+            muscleVolumeSnapshotsByMuscle = landmarks.associateBy { it.muscle },
+            volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = enabledIds,
             movementPatternByLiftId = patternById,
             liftEffectivenessByLiftId = emptyMap(),
         )
     }
 
-    private fun vlc(muscle: String, mev: Double, mav: Double, mrv: Double, pv: Double) =
-        VolumeLandmarkContext(
+    private fun vlc(muscle: String, mv: Double, maintenanceCeiling: Double, rc: Double, pv: Double) =
+        MuscleVolumeSnapshotContext(
             muscle = muscle,
-            estimatedMev = mev,
-            estimatedMav = mav,
-            estimatedMrv = mrv,
-            estimatedPv = pv,
-            source = VolumeLandmarkSource.Literature,
+            retentionFloorMv = mv,
+            paretoVolumePv = pv,
+            recoverabilityCeilingRc = rc,
+            growthEntryFloor = 6.0,
+            maintenanceCeiling = maintenanceCeiling,
+            posture = null,
+            source = VolumeSnapshotSource.Literature,
         )
 
     private fun weeklyMuscleVolume(

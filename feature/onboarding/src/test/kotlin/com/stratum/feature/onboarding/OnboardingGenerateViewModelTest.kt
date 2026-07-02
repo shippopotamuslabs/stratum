@@ -174,7 +174,7 @@ class OnboardingGenerateViewModelTest {
                 com.stratum.core.testing.importing.FakeSupersetAffinityRepository(),
                 com.stratum.core.testing.response.FakeVolumeResponseObservationRepository(),
                 com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository(),
-                com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
+                com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository(),
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
             ),
         )

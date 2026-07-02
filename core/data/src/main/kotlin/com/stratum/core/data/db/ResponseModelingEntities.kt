@@ -6,7 +6,6 @@ import com.stratum.domain.importing.IntervalMethod
 import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.response.modeling.MrvSource
 import com.stratum.domain.response.modeling.OutcomeModelType
 
 @Entity(
@@ -72,30 +71,24 @@ data class MuscleDoseResponsePointEntity(
     val responseWindowWeeks: Int,
 )
 
-@Entity(tableName = "muscle_volume_landmark_estimates")
-data class MuscleVolumeLandmarkEstimateEntity(
+@Entity(tableName = "muscle_volume_response_snapshots")
+data class MuscleVolumeResponseSnapshotEntity(
     @PrimaryKey val muscle: MuscleGroup,
-    val estimatedMev: Double,
-    val estimatedMav: Double,
-    val estimatedMrv: Double,
-    val estimatedPv: Double,
-    val mevIntervalLow: Double,
-    val mevIntervalHigh: Double,
-    val mevIntervalMethod: IntervalMethod,
-    val mavIntervalLow: Double,
-    val mavIntervalHigh: Double,
-    val mavIntervalMethod: IntervalMethod,
-    val mrvIntervalLow: Double,
-    val mrvIntervalHigh: Double,
-    val mrvIntervalMethod: IntervalMethod,
+    val retentionFloorMv: Double,
+    val paretoVolumePv: Double,
+    val recoverabilityCeilingRc: Double,
+    val growthEntryFloor: Double,
+    val observedDoseMin: Double,
+    val observedDoseMax: Double,
+    val observedDoseMedian: Double,
+    val productiveBandMin: Double?,
+    val productiveBandMax: Double?,
+    val posture: com.stratum.domain.response.modeling.VolumePosture,
     val pvIntervalLow: Double,
     val pvIntervalHigh: Double,
     val pvIntervalMethod: IntervalMethod,
     val confidenceTier: LandmarkConfidenceTier,
     val outcomeModelType: OutcomeModelType,
-    val mrvSource: MrvSource,
-    val observedDoseMin: Double,
-    val observedDoseMax: Double,
     val diagnosticAnchorLiftId: String?,
 )
 

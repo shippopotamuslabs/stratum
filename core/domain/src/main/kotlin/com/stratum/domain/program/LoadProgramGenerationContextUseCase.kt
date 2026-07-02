@@ -4,7 +4,7 @@ import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
-import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
+import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.VolumeResponseObservationRepository
 import com.stratum.domain.response.modeling.toHighlights
@@ -26,7 +26,7 @@ class LoadProgramGenerationContextUseCase @Inject constructor(
     private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
     private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
     private val responseProfileMetadataRepository: ResponseProfileMetadataRepository,
-    private val muscleVolumeLandmarkEstimateRepository: MuscleVolumeLandmarkEstimateRepository,
+    private val muscleVolumeResponseSnapshotRepository: MuscleVolumeResponseSnapshotRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
 ) : ProgramGenerationContextLoader {
     override suspend fun load(): ProgramGenerationContext = invoke()
@@ -59,15 +59,15 @@ class LoadProgramGenerationContextUseCase @Inject constructor(
         val responseMetadata = responseProfileMetadataRepository.get() ?: return null
         val baselines = muscleVolumeBaselineRepository.getAll()
         val volumeResponses = volumeResponseObservationRepository.getAll()
-        val persistedLandmarks = muscleVolumeLandmarkEstimateRepository.getAll()
-        val volumeLandmarks =
-            persistedLandmarks
-                .filter { estimate -> baselines.any { it.muscle == estimate.muscle } }
+        val persistedSnapshots = muscleVolumeResponseSnapshotRepository.getAll()
+        val volumeSnapshots =
+            persistedSnapshots
+                .filter { snapshot -> baselines.any { it.muscle == snapshot.muscle } }
                 .toHighlights()
         return ResponseProfilePayload.fromObservations(
             volumeObservations = volumeResponses,
             effectivenessObservations = liftEffectivenessObservationRepository.getAll(),
-            volumeLandmarks = volumeLandmarks,
+            volumeSnapshots = volumeSnapshots,
             epochsAnalyzed = responseMetadata.epochsAnalyzed,
             analysisWindowStart = responseMetadata.analysisWindowStart,
             analysisWindowEnd = responseMetadata.analysisWindowEnd,

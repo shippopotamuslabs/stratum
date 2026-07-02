@@ -7,8 +7,6 @@ import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleLengthBias
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkSource
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest

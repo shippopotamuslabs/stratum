@@ -20,15 +20,16 @@ data class HistoricalImportSummary(
 
 data class MuscleVolumeHighlight(
     val muscle: MuscleGroup,
-    val estimatedMev: Double,
-    val estimatedMav: Double,
-    val estimatedMrv: Double,
-    val estimatedPv: Double,
-    val mevInterval: LandmarkConfidenceInterval,
-    val mavInterval: LandmarkConfidenceInterval,
-    val mrvInterval: LandmarkConfidenceInterval,
+    val retentionFloorMv: Double,
+    val paretoVolumePv: Double,
+    val recoverabilityCeilingRc: Double,
+    val observedDoseMin: Double,
+    val observedDoseMax: Double,
+    val observedDoseMedian: Double,
+    val posture: com.stratum.domain.response.modeling.VolumePosture,
     val pvInterval: LandmarkConfidenceInterval,
     val confidenceTier: LandmarkConfidenceTier,
+    val personalizedFromLogs: Boolean,
 )
 
 data class EffectiveLiftHighlight(

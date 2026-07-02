@@ -14,11 +14,12 @@ enum class OutcomeModelType {
     PriorOnly,
 }
 
-/** Whether MRV came from observed tolerance, bounded extrapolation, or priors. */
-enum class MrvSource {
-    Observed,
-    BoundedExtrapolation,
-    PriorDominant,
+/** Marginal-returns posture from passive dose–response history (not a measured optimum). */
+enum class VolumePosture {
+    RoomToGrow,
+    Holding,
+    Saturated,
+    Unclear,
 }
 
 data class MuscleWeeklyStimulus(
@@ -68,21 +69,21 @@ data class MuscleDoseResponsePoint(
     val responseWindowWeeks: Int,
 )
 
-data class MuscleVolumeLandmarkEstimate(
+data class MuscleVolumeResponseSnapshot(
     val muscle: MuscleGroup,
-    val estimatedMev: Double,
-    val estimatedMav: Double,
-    val estimatedMrv: Double,
-    val estimatedPv: Double,
-    val mevInterval: LandmarkConfidenceInterval,
-    val mavInterval: LandmarkConfidenceInterval,
-    val mrvInterval: LandmarkConfidenceInterval,
+    val retentionFloorMv: Double,
+    val paretoVolumePv: Double,
+    val recoverabilityCeilingRc: Double,
+    val growthEntryFloor: Double,
+    val observedDoseMin: Double,
+    val observedDoseMax: Double,
+    val observedDoseMedian: Double,
+    val productiveBandMin: Double?,
+    val productiveBandMax: Double?,
+    val posture: VolumePosture,
     val pvInterval: LandmarkConfidenceInterval,
     val confidenceTier: LandmarkConfidenceTier,
     val outcomeModelType: OutcomeModelType,
-    val mrvSource: MrvSource,
-    val observedDoseMin: Double,
-    val observedDoseMax: Double,
     val diagnosticAnchorLiftId: LiftId?,
 )
 
@@ -103,7 +104,7 @@ data class MuscleResponseModelDiagnostic(
 )
 
 data class MuscleResponseModelResult(
-    val landmarks: MuscleVolumeLandmarkEstimate,
+    val snapshot: MuscleVolumeResponseSnapshot,
     val diagnostics: MuscleResponseModelDiagnostic,
     val dosePoints: List<MuscleDoseResponsePoint>,
 )
@@ -112,7 +113,7 @@ data class ResponseModelingOutput(
     val weeklyStimulus: List<MuscleWeeklyStimulus>,
     val liftPerformance: List<LiftWeeklyPerformance>,
     val outcomeIndices: List<MuscleWeeklyOutcomeIndex>,
-    val landmarkEstimates: List<MuscleVolumeLandmarkEstimate>,
+    val volumeSnapshots: List<MuscleVolumeResponseSnapshot>,
     val diagnostics: List<MuscleResponseModelDiagnostic>,
     val dosePoints: List<MuscleDoseResponsePoint>,
 )

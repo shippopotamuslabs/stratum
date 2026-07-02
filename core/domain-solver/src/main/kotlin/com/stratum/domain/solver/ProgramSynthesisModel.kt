@@ -135,7 +135,7 @@ internal class ProgramSynthesisModel(
         addUnifiedStructureConstraints(model, plans, unifiedUniverse, _slots, unifiedStructureState)
         addPerSessionMuscleCaps(model)
         addSessionTimeCaps(model)
-        addMrvCeilings(model)
+        addWeeklyVolumeCeilings(model)
         addLowerLegAnchorFloors(model)
         addMinSetsPerActiveSlot(model)
         addRoleMinimumConstraints(model)
@@ -278,7 +278,7 @@ internal class ProgramSynthesisModel(
         }
     }
 
-    private fun addMrvCeilings(model: CpModel) {
+    private fun addWeeklyVolumeCeilings(model: CpModel) {
         _muscles.forEach { muscle ->
             val weekly = weeklyCreditExpr(muscle) ?: return@forEach
             val level = context.specialization[muscle] ?: "Maintenance"
@@ -287,8 +287,8 @@ internal class ProgramSynthesisModel(
                 // ceiling at all — yet a required anchor (e.g. squat on a lower session) still gives
                 // them volume. Cap incidental omitted-muscle volume at a conservative maintenance-MV
                 // band so it can't run away (audit §7.3). Uses the landmark MV when available.
-                val landmark = context.volumeLandmarksByMuscle[muscle]
-                val mvCeiling = landmark?.estimatedMv ?: OMITTED_MUSCLE_INCIDENTAL_CEILING
+                val snapshot = context.muscleVolumeSnapshotsByMuscle[muscle]
+                val mvCeiling = snapshot?.retentionFloorMv ?: OMITTED_MUSCLE_INCIDENTAL_CEILING
                 model.addLessOrEqual(weekly, (mvCeiling * coefficients.scale).toLong())
                 return@forEach
             }
@@ -356,23 +356,23 @@ internal class ProgramSynthesisModel(
 
             if (target.min > 0.0 && level == "Specialize") {
                 val minScaled = (target.min * coefficients.scale).toLong()
-                val mevUnder = trackSlack(model, "mevUnder_$muscle", CREDIT_DEVIATION_SLACK_MAX)
+                val minUnder = trackSlack(model, "minUnder_$muscle", CREDIT_DEVIATION_SLACK_MAX)
                 model.addGreaterOrEqual(
-                    LinearExpr.weightedSum(arrayOf(weekly, mevUnder), longArrayOf(1L, 1L)),
+                    LinearExpr.weightedSum(arrayOf(weekly, minUnder), longArrayOf(1L, 1L)),
                     minScaled,
                 )
-                weightedTerms.add(mevUnder to SynthesisObjectiveWeights.SPECIALIZED_MEV_SHORTFALL)
+                weightedTerms.add(minUnder to SynthesisObjectiveWeights.SPECIALIZED_MIN_SHORTFALL)
             }
         }
 
         // Consolidation (G5, spec §6 "slot activation count"): penalize each active slot so
         // equal-credit optima collapse to fewer, higher-set lifts (the "2–5 sets per lift"
         // shape) rather than fragmented many-slots × 1-set solutions. Modest weight, above
-        // aim-noise but below MEV, so it only breaks ties without under-shooting volume.
+        // aim-noise but below weekly min, so it only breaks ties without under-shooting volume.
         _slots.forEach { sv ->
             val active = sv.active as? com.google.ortools.sat.BoolVar ?: return@forEach
             // Per-raw-set weight: scale by the credit scale so it stays proportional to the
-            // credit-denominated aim/MEV weights (scale-invariance across SCALE changes).
+            // credit-denominated aim/min weights (scale-invariance across SCALE changes).
             weightedTerms.add(active to SynthesisObjectiveWeights.SLOT_ACTIVATION_COUNT * coefficients.scale)
         }
 
@@ -1155,7 +1155,7 @@ internal class ProgramSynthesisModel(
      * let chest run away with no directional pressure (G9). The equality constraint with slacks
      * (see [addAntagonistMaintenanceBalance]) already permits any split, so firing on a tier
      * mismatch applies directional pressure without forcing the Maintenance muscle to match the
-     * Specialize muscle's MRV.
+     * Specialize muscle's RC.
      */
     private fun shouldBalanceAntagonistPair(muscleA: String, muscleB: String): Boolean {
         val levelA = context.specialization[muscleA] ?: "Maintenance"
@@ -1271,7 +1271,7 @@ internal class ProgramSynthesisModel(
 
     /**
      * Slack in `[0, max]`. Recovery slacks pass [RECOVERY_SLACK_CAP]; weekly credit slacks
-     * (aim, MEV, antagonist, co-spec) pass [CREDIT_DEVIATION_SLACK_MAX] so volume targets stay
+     * (aim, weekly min, antagonist, co-spec) pass [CREDIT_DEVIATION_SLACK_MAX] so volume targets stay
      * genuinely soft. Set-based slacks (fill, balance) use [MAX_OVER].
      */
     private fun trackSlack(model: CpModel, name: String, max: Long): IntVar {
@@ -1293,7 +1293,7 @@ internal class ProgramSynthesisModel(
         const val AIM_EQUALITY_TOLERANCE = 0.5
         /** Raw-set slacks (session fill, push/pull). */
         const val MAX_OVER = 1000L
-        /** Weekly credit slacks — must exceed any realistic aim/MEV deviation (literature landmarks). */
+        /** Weekly credit slacks — must exceed any realistic aim/min deviation (MV/PV/RC targets). */
         const val CREDIT_DEVIATION_SLACK_MAX = 1_000_000L
         const val RECOVERY_SLACK_CAP = 10_000L
         const val RECOVERY_GAP_PENALTY_BASE = 80

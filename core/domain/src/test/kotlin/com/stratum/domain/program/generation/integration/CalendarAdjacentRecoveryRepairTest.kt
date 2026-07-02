@@ -404,8 +404,8 @@ class CalendarAdjacentRecoveryRepairTest {
             liftsById = mapOf(
                 "barbell-back-squat" to liftContext("barbell-back-squat", "SquatPattern", "Quad", emptyList()),
             ),
-            volumeLandmarksByMuscle = emptyMap(),
-            volumeResponsesByMuscle = emptyMap(),
+            muscleVolumeSnapshotsByMuscle = emptyMap(),
+            volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = setOf("barbell-back-squat"),
             movementPatternByLiftId = mapOf("barbell-back-squat" to "SquatPattern"),
             liftEffectivenessByLiftId = emptyMap(),
@@ -426,8 +426,8 @@ class CalendarAdjacentRecoveryRepairTest {
                 "back-squat" to liftContext("back-squat", "SquatPattern", "Quad", listOf("Glute")),
                 "hip-thrust" to liftContext("hip-thrust", "HipHinge", "Glute", emptyList()),
             ),
-            volumeLandmarksByMuscle = emptyMap(),
-            volumeResponsesByMuscle = emptyMap(),
+            muscleVolumeSnapshotsByMuscle = emptyMap(),
+            volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = setOf("barbell-curl", "lat-pulldown", "chin-up", "back-squat", "hip-thrust"),
             movementPatternByLiftId = mapOf(
                 "barbell-curl" to "ElbowFlexion",
@@ -450,8 +450,8 @@ class CalendarAdjacentRecoveryRepairTest {
             liftsById = mapOf(
                 "back-squat" to liftContext("back-squat", "SquatPattern", "Quad", listOf("Glute")),
             ),
-            volumeLandmarksByMuscle = emptyMap(),
-            volumeResponsesByMuscle = emptyMap(),
+            muscleVolumeSnapshotsByMuscle = emptyMap(),
+            volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = setOf("back-squat"),
             movementPatternByLiftId = mapOf("back-squat" to "SquatPattern"),
             liftEffectivenessByLiftId = emptyMap(),

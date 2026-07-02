@@ -138,7 +138,7 @@ internal object OnboardingViewModelTestFixtures {
                 fakeSupersetRepository,
                 fakeVolumeResponseRepository,
                 fakeEffectivenessRepository,
-                com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
+                com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository(),
                 fakeLiftRepository,
             ),
         )

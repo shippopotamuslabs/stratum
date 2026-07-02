@@ -6,7 +6,7 @@ import com.stratum.core.data.db.LiftEffectivenessObservationDao
 import com.stratum.core.data.db.LiftWeeklyPerformanceDao
 import com.stratum.core.data.db.MuscleDoseResponsePointDao
 import com.stratum.core.data.db.MuscleResponseModelDiagnosticDao
-import com.stratum.core.data.db.MuscleVolumeLandmarkEstimateDao
+import com.stratum.core.data.db.MuscleVolumeResponseSnapshotDao
 import com.stratum.core.data.db.MuscleWeeklyOutcomeIndexDao
 import com.stratum.core.data.db.MuscleWeeklyStimulusDao
 import com.stratum.core.data.db.ResponseEpochDao
@@ -21,14 +21,14 @@ import com.stratum.domain.response.ExperimentBlockRepository
 import com.stratum.domain.response.ExtractedResponseProfile
 import com.stratum.domain.response.LiftEffectivenessObservation
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
-import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
+import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.domain.response.ResponseEpochRepository
 import com.stratum.domain.response.ResponseProfileMetadata
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.VolumeResponseObservationRepository
-import com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate
+import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
 import javax.inject.Inject
 
 class RoomResponseProfilePersistenceRepository @Inject constructor(
@@ -42,7 +42,7 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
     private val liftPerformanceDao: LiftWeeklyPerformanceDao,
     private val outcomeIndexDao: MuscleWeeklyOutcomeIndexDao,
     private val dosePointDao: MuscleDoseResponsePointDao,
-    private val landmarkDao: MuscleVolumeLandmarkEstimateDao,
+    private val snapshotDao: MuscleVolumeResponseSnapshotDao,
     private val diagnosticDao: MuscleResponseModelDiagnosticDao,
 ) : ResponseProfilePersistencePort {
     override suspend fun replaceExtractedProfile(profile: ExtractedResponseProfile) {
@@ -55,7 +55,7 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
             liftPerformanceDao.deleteAll()
             outcomeIndexDao.deleteAll()
             dosePointDao.deleteAll()
-            landmarkDao.deleteAll()
+            snapshotDao.deleteAll()
             diagnosticDao.deleteAll()
             if (profile.epochs.isNotEmpty()) {
                 epochDao.insertAll(profile.epochs.map { it.toEntity() })
@@ -81,8 +81,8 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
             if (profile.dosePoints.isNotEmpty()) {
                 dosePointDao.insertAll(profile.dosePoints.map { it.toEntity() })
             }
-            if (profile.landmarkEstimates.isNotEmpty()) {
-                landmarkDao.insertAll(profile.landmarkEstimates.map { it.toEntity() })
+            if (profile.volumeSnapshots.isNotEmpty()) {
+                snapshotDao.insertAll(profile.volumeSnapshots.map { it.toEntity() })
             }
             if (profile.modelDiagnostics.isNotEmpty()) {
                 diagnosticDao.insertAll(profile.modelDiagnostics.map { it.toEntity() })
@@ -101,7 +101,7 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
             liftPerformanceDao.deleteAll()
             outcomeIndexDao.deleteAll()
             dosePointDao.deleteAll()
-            landmarkDao.deleteAll()
+            snapshotDao.deleteAll()
             diagnosticDao.deleteAll()
             metadataDao.deleteAll()
         }
@@ -180,17 +180,17 @@ class RoomResponseProfileMetadataRepository @Inject constructor(
     }
 }
 
-class RoomMuscleVolumeLandmarkEstimateRepository @Inject constructor(
+class RoomMuscleVolumeResponseSnapshotRepository @Inject constructor(
     private val database: StratumDatabase,
-    private val dao: MuscleVolumeLandmarkEstimateDao,
-) : MuscleVolumeLandmarkEstimateRepository {
-    override suspend fun replaceAll(estimates: List<MuscleVolumeLandmarkEstimate>) {
+    private val dao: MuscleVolumeResponseSnapshotDao,
+) : MuscleVolumeResponseSnapshotRepository {
+    override suspend fun replaceAll(snapshots: List<MuscleVolumeResponseSnapshot>) {
         database.withTransaction {
             dao.deleteAll()
-            if (estimates.isNotEmpty()) dao.insertAll(estimates.map { it.toEntity() })
+            if (snapshots.isNotEmpty()) dao.insertAll(snapshots.map { it.toEntity() })
         }
     }
 
-    override suspend fun getAll(): List<MuscleVolumeLandmarkEstimate> =
+    override suspend fun getAll(): List<MuscleVolumeResponseSnapshot> =
         dao.getAll().map { it.toDomain() }
 }

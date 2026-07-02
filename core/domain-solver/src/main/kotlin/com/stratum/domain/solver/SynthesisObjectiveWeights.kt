@@ -4,7 +4,7 @@ package com.stratum.domain.solver
  * Tiered objective weights. Each tier is separated by ~10× so lower tiers cannot
  * compensate for violations in higher tiers (lexicographic behavior in one sum).
  *
- * IMPORTANT — units & scale invariance: credit-based slacks (aims, MEV, antagonist,
+ * IMPORTANT — units & scale invariance: credit-based slacks (aims, weekly mins, antagonist,
  * co-specialization) are in SCALED credits and their weights are per-scaled-credit, so they are
  * scale-invariant. Set-based slacks (session fill, set balance, activation, rear-delt direct) are
  * in raw sets; their weights are MULTIPLIED by `coefficients.scale` at the term-addition site in
@@ -21,7 +21,7 @@ package com.stratum.domain.solver
 internal object SynthesisObjectiveWeights {
     const val RECOVERY_PRIORITY = 1_000_000L
     const val RECOVERY_GENERAL = 100_000L
-    const val SPECIALIZED_MEV_SHORTFALL = 10_000L
+    const val SPECIALIZED_MIN_SHORTFALL = 10_000L
     const val CO_SPECIALIZATION_BALANCE = 1_000L
     /**
      * Pull maintenance antagonist pairs (chest/back, quad/ham) toward parity. Sits just above
@@ -39,7 +39,7 @@ internal object SynthesisObjectiveWeights {
     /** Mild penalty when the preferred direction is heavier: back > chest, ham > quad. */
     const val ANTAGONIST_RIGHT_WAY_EXCESS = 300L
     /**
-     * Specialized muscles are pushed toward MRV aim — strictly greater than [MAINTENANCE_AIM_DEVIATION]
+     * Specialized muscles are pushed toward RC aim — strictly greater than [MAINTENANCE_AIM_DEVIATION]
      * (G6) so specialized muscles win ties under time pressure rather than leaving it to noise.
      */
     const val SPECIALIZE_AIM_DEVIATION = 2_500L
@@ -53,13 +53,13 @@ internal object SynthesisObjectiveWeights {
     /**
      * Session fill. NOTE (audit §2.2): at 5,000/set this EXCEEDS the effective maintenance-aim cost
      * (2,000/credit-scaled), so when a session is underfilled the solver pulls maintenance muscles UP
-     * from PV toward their MAV hard ceiling to fill it. This is the intended "push toward MAV but not
-     * MRV" behavior — the MAV ceiling (`WeeklyVolumeTarget.max` for maintenance) is enforced as a hard
-     * constraint by `addMrvCeilings`, so volume never exceeds MAV. The original G4 comment ("volume
+     * from PV toward their maintenance hard ceiling to fill it. This is the intended "push toward PV but not
+     * RC" behavior — the maintenance ceiling (`WeeklyVolumeTarget.max` for maintenance) is enforced as a hard
+     * constraint by `addWeeklyVolumeCeilings`, so volume never exceeds the maintenance max. The original G4 comment ("volume
      * targets win over filling") described the opposite and was wrong.
      */
     const val SESSION_FILL_SHORTFALL = 5_000L
-    /** Session set balance sits below MEV (G4). */
+    /** Session set balance sits below weekly min (G4). */
     const val SESSION_SET_IMBALANCE = 2_500L
     /**
      * G14: Per-set discouragement on direct rear-delt work when PosteriorDeltoid is Maintenance.

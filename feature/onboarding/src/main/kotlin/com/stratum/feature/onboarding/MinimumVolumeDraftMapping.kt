@@ -13,19 +13,19 @@ internal fun SpecializationPreference.toMinimumVolumeDraft(
     )
 
 /**
- * Suggests MV candidates from import landmarks when median weekly volume is below MEV.
+ * Suggests MV candidates when logged median weekly volume is below the retention floor (MV).
  */
 internal fun suggestMinimumVolumeMuscleLabels(
     importInsights: ImportInsightsSummaryUi?,
     preference: SpecializationPreference,
 ): Set<String> {
-    if (importInsights == null || !importInsights.hasVolumeLandmarks) return emptySet()
+    if (importInsights == null || !importInsights.hasVolumeSnapshots) return emptySet()
     val specialized = preference.specializedMuscles
-    return importInsights.volumeLandmarks.mapNotNull { landmark ->
-        val muscle = muscleGroupFromLabel(landmark.muscleLabel) ?: return@mapNotNull null
+    return importInsights.volumeSnapshots.mapNotNull { snapshot ->
+        val muscle = muscleGroupFromLabel(snapshot.muscleLabel) ?: return@mapNotNull null
         if (muscle in specialized || muscle in preference.minimumVolumeMuscles) return@mapNotNull null
-        val mev = parseWeeklySetsLabel(landmark.mevWeeklyHardSets) ?: return@mapNotNull null
-        if (mev <= 6.0) muscle.displayLabel else null
+        val mv = parseWeeklySetsLabel(snapshot.mvWeeklyHardSets) ?: return@mapNotNull null
+        if (snapshot.observedMedianWeeklyHardSets < mv) muscle.displayLabel else null
     }.toSet()
 }
 

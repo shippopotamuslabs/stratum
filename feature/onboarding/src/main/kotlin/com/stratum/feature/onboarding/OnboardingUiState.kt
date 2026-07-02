@@ -113,6 +113,7 @@ enum class GenerateState { Idle, Loading, Error }
  */
 data class SpecializationDraftUi(
     val selectedMuscleLabels: Set<String> = emptySet(),
+    val saturatedSpecializeWarningLabels: List<String> = emptyList(),
     val showErrors: Boolean = false,
 ) {
     val specializedCount: Int get() = selectedMuscleLabels.size

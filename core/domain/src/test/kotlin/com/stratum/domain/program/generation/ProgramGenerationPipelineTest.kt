@@ -9,7 +9,7 @@ import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.SPECIALIZATION_PRESETS
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureMrv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
 import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
@@ -98,7 +98,7 @@ class ProgramGenerationPipelineTest {
     val targets = planWeeklyVolume(context)
 
     if (specialization["Chest"] == "Specialize") {
-      assertEquals(literatureMrv("Chest"), targets["Chest"]?.aim)
+      assertEquals(literatureRc("Chest"), targets["Chest"]?.aim)
     } else if (specialization["Back"] != "Specialize") {
       val back = targets.getValue("Back")
       assertTrue(back.aim >= back.min)
@@ -106,7 +106,7 @@ class ProgramGenerationPipelineTest {
     }
 
     if (specialization["Back"] == "Specialize") {
-      assertEquals(literatureMrv("Back"), targets["Back"]?.aim)
+      assertEquals(literatureRc("Back"), targets["Back"]?.aim)
     } else if (specialization["Chest"] != "Specialize") {
       val chest = targets.getValue("Chest")
       assertTrue(chest.aim >= chest.min)
@@ -119,11 +119,11 @@ class ProgramGenerationPipelineTest {
       )
       val neutral = planWeeklyVolume(neutralContext)
       if (specialization["Bicep"] == "Specialize") {
-        assertEquals(literatureMrv("Bicep"), targets.getValue("Bicep").aim)
+        assertEquals(literatureRc("Bicep"), targets.getValue("Bicep").aim)
         assertTrue(targets.getValue("Bicep").aim > neutral.getValue("Bicep").aim)
       }
       if (specialization["Tricep"] == "Specialize") {
-        assertEquals(literatureMrv("Tricep"), targets.getValue("Tricep").aim)
+        assertEquals(literatureRc("Tricep"), targets.getValue("Tricep").aim)
         assertTrue(targets.getValue("Tricep").aim > neutral.getValue("Tricep").aim)
       }
     }
@@ -144,8 +144,8 @@ class ProgramGenerationPipelineTest {
     val config = ScenarioConfig(days = 4, preset = "arms", label = "4-day arms")
     val (program, context) = generateScenario(config)
     val targets = planWeeklyVolume(context)
-    assertEquals(literatureMrv("Bicep"), targets.getValue("Bicep").aim)
-    assertEquals(literatureMrv("Tricep"), targets.getValue("Tricep").aim)
+    assertEquals(literatureRc("Bicep"), targets.getValue("Bicep").aim)
+    assertEquals(literatureRc("Tricep"), targets.getValue("Tricep").aim)
     val back = targets.getValue("Back")
     assertTrue(back.aim >= back.min)
     assertTrue(back.aim <= literaturePv("Back"))

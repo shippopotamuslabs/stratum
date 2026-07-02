@@ -9,7 +9,7 @@ class FakeResponseProfilePersistencePort(
     val effectivenessRepository: FakeLiftEffectivenessObservationRepository = FakeLiftEffectivenessObservationRepository(),
     val experimentRepository: FakeExperimentBlockRepository = FakeExperimentBlockRepository(),
     val metadataRepository: FakeResponseProfileMetadataRepository = FakeResponseProfileMetadataRepository(),
-    val landmarkRepository: FakeMuscleVolumeLandmarkEstimateRepository = FakeMuscleVolumeLandmarkEstimateRepository(),
+    val snapshotRepository: FakeMuscleVolumeResponseSnapshotRepository = FakeMuscleVolumeResponseSnapshotRepository(),
 ) : ResponseProfilePersistencePort {
     override suspend fun replaceExtractedProfile(profile: ExtractedResponseProfile) {
         epochRepository.replaceAll(profile.epochs)
@@ -17,7 +17,7 @@ class FakeResponseProfilePersistencePort(
         effectivenessRepository.replaceAll(profile.liftEffectiveness)
         experimentRepository.replaceAll(profile.experimentBlocks)
         metadataRepository.save(profile.metadata)
-        landmarkRepository.replaceAll(profile.landmarkEstimates)
+        snapshotRepository.replaceAll(profile.volumeSnapshots)
     }
 
     override suspend fun clearAll() {
@@ -26,7 +26,7 @@ class FakeResponseProfilePersistencePort(
         effectivenessRepository.replaceAll(emptyList())
         experimentRepository.replaceAll(emptyList())
         metadataRepository.clear()
-        landmarkRepository.replaceAll(emptyList())
+        snapshotRepository.replaceAll(emptyList())
     }
 }
 

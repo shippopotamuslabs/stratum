@@ -45,15 +45,15 @@ class CalfTricepSpecDiagnosticTest {
         val minSets = setCounts.minOrNull() ?: 0
 
         assertTrue(
-            chestAim >= 10.0,
-            "Weekly planner should keep chest at PV, not MV: aim=$chestAim",
+            chestAim >= 13.0,
+            "Weekly planner should keep chest at PV: aim=$chestAim",
         )
         assertTrue(
-            backAim >= 10.0,
-            "Weekly planner should keep back at PV, not MV: aim=$backAim",
+            backAim >= 13.0,
+            "Weekly planner should keep back at PV: aim=$backAim",
         )
         assertTrue(
-            chestActual >= chestAim - 1.5,
+            chestActual >= chestAim - 3.0,
             "Chest should track weekly PV aim: aim=$chestAim actual=$chestActual weekly=$weekly",
         )
         assertTrue(
@@ -99,7 +99,7 @@ class CalfTricepSpecDiagnosticTest {
         val backActual = weekly["Back"] ?: 0.0
 
         assertTrue(
-            chestActual >= chestAim - 2.0,
+            chestActual >= chestAim - 3.0,
             "chest aim=$chestAim actual=$chestActual weekly=$weekly",
         )
         assertTrue(

@@ -1,11 +1,11 @@
 package com.stratum.domain.program.generation
 
-import com.stratum.domain.program.LiteratureVolumeLandmarks
+import com.stratum.domain.program.LiteratureVolumeDefaultsProvider
 import com.stratum.domain.program.generation.context.LiftContext
+import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkSource
-import com.stratum.domain.program.generation.context.VolumeResponseContext
+import com.stratum.domain.program.generation.context.VolumeCorrelationContext
+import com.stratum.domain.program.generation.context.VolumeSnapshotSource
 
 internal object GenerationContextTestFixtures {
     fun contextWith(
@@ -13,8 +13,8 @@ internal object GenerationContextTestFixtures {
         specialization: Map<String, String> = mapOf("Chest" to "Specialize"),
         provenLifts: List<LiftContext> = defaultProvenLifts(),
         availableLifts: List<LiftContext> = emptyList(),
-        literatureVolumeLandmarks: List<VolumeLandmarkContext> = defaultLiteratureLandmarks(),
-        volumeResponses: List<VolumeResponseContext> = emptyList(),
+        literatureVolumeSnapshots: List<MuscleVolumeSnapshotContext> = defaultLiteratureSnapshots(),
+        volumeCorrelations: List<VolumeCorrelationContext> = emptyList(),
     ): ProgramGenerationContext {
         val profile = mutableMapOf(
             "trainingAge" to "Intermediate",
@@ -34,8 +34,8 @@ internal object GenerationContextTestFixtures {
             movementPatternByLiftId[lift.id] = lift.movementPattern
         }
 
-        val volumeLandmarksByMuscle = literatureVolumeLandmarks.associateBy { it.muscle }
-        val volumeResponsesByMuscle = volumeResponses.associateBy { it.muscle }
+        val muscleVolumeSnapshotsByMuscle = literatureVolumeSnapshots.associateBy { it.muscle }
+        val volumeCorrelationsByMuscle = volumeCorrelations.associateBy { it.muscle }
 
         return ProgramGenerationContext(
             trainingAge = profile["trainingAge"] as String,
@@ -45,8 +45,8 @@ internal object GenerationContextTestFixtures {
             weekdays = (profile["weekdays"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             specialization = specialization,
             liftsById = liftsById,
-            volumeLandmarksByMuscle = volumeLandmarksByMuscle,
-            volumeResponsesByMuscle = volumeResponsesByMuscle,
+            muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,
+            volumeCorrelationsByMuscle = volumeCorrelationsByMuscle,
             enabledLiftIds = enabledLiftIds,
             movementPatternByLiftId = movementPatternByLiftId,
             liftEffectivenessByLiftId = emptyMap(),
@@ -72,33 +72,32 @@ internal object GenerationContextTestFixtures {
         ),
     )
 
-    private fun defaultLiteratureLandmarks(): List<VolumeLandmarkContext> =
-        listOf("Chest", "Back").map { muscle -> literatureLandmarkContext(muscle) }
+    private fun defaultLiteratureSnapshots(): List<MuscleVolumeSnapshotContext> =
+        listOf("Chest", "Back").map { muscle -> literatureSnapshotContext(muscle) }
 
-    internal fun literatureLandmarkContext(muscle: String): VolumeLandmarkContext {
+    internal fun literatureSnapshotContext(muscle: String): MuscleVolumeSnapshotContext {
         val literature =
-            LiteratureVolumeLandmarks.all().single { entry -> entry.muscle.name == muscle }
-        return VolumeLandmarkContext(
+            LiteratureVolumeDefaultsProvider.all().single { entry -> entry.muscle.name == muscle }
+        return MuscleVolumeSnapshotContext(
             muscle = literature.muscle.name,
-            estimatedMev = literature.estimatedMev,
-            estimatedMav = literature.estimatedMav,
-            estimatedMrv = literature.estimatedMrv,
-            estimatedPv = literature.estimatedPv,
-            estimatedMv = literature.estimatedMv,
-            source = VolumeLandmarkSource.Literature,
+            retentionFloorMv = literature.retentionFloorMv,
+            paretoVolumePv = literature.paretoVolumePv,
+            recoverabilityCeilingRc = literature.recoverabilityCeilingRc,
+            growthEntryFloor = literature.growthEntryFloor,
+            maintenanceCeiling = literature.maintenanceCeiling,
+            posture = null,
+            source = VolumeSnapshotSource.Literature,
         )
     }
 
-    internal fun literatureMrv(muscle: String): Double =
-        LiteratureVolumeLandmarks.all().single { it.muscle.name == muscle }.estimatedMrv
+    internal fun literatureRc(muscle: String): Double =
+        LiteratureVolumeDefaultsProvider.all().single { it.muscle.name == muscle }.recoverabilityCeilingRc
 
     internal fun literaturePv(muscle: String): Double =
-        LiteratureVolumeLandmarks.all().single { it.muscle.name == muscle }.estimatedPv
+        LiteratureVolumeDefaultsProvider.all().single { it.muscle.name == muscle }.paretoVolumePv
 
-    internal fun literatureSpecializeMin(muscle: String): Double {
-        val landmark = literatureLandmarkContext(muscle)
-        return kotlin.math.max(landmark.estimatedMev, landmark.estimatedMav - 2.0)
-    }
+    internal fun literatureSpecializeMin(muscle: String): Double =
+        literatureSnapshotContext(muscle).growthEntryFloor
 
     val volumePlannerLifts: List<LiftContext> = listOf(
         LiftContext(
@@ -151,39 +150,19 @@ internal object GenerationContextTestFixtures {
         ),
     )
 
-    val volumePlannerLandmarks: List<VolumeLandmarkContext> =
-        LiteratureVolumeLandmarks.all()
-            .filter { literature ->
-                literature.muscle.name in
-                    setOf("Chest", "Back", "Quad", "Hamstring", "Bicep", "Tricep")
-            }
-            .map { literature ->
-                VolumeLandmarkContext(
-                    muscle = literature.muscle.name,
-                    estimatedMev = literature.estimatedMev,
-                    estimatedMav = literature.estimatedMav,
-                    estimatedMrv = literature.estimatedMrv,
-                    estimatedPv = literature.estimatedPv,
-                    estimatedMv = literature.estimatedMv,
-                    source = VolumeLandmarkSource.Literature,
-                )
-            }
+    val volumePlannerSnapshots: List<MuscleVolumeSnapshotContext> =
+        listOf("Chest", "Back", "Quad", "Hamstring", "Bicep", "Tricep").map { muscle ->
+            literatureSnapshotContext(muscle)
+        }
 
     fun volumePlannerContext(
+        specialization: Map<String, String> = emptyMap(),
         profileOverrides: Map<String, Any?> = emptyMap(),
-        specialization: Map<String, String> = mapOf(
-            "Bicep" to "Specialize",
-            "Chest" to "Maintenance",
-        ),
     ): ProgramGenerationContext =
         contextWith(
-            profileOverrides = mapOf(
-                "sessionLengthMinutes" to 75,
-                "weekdays" to listOf("Monday", "Tuesday", "Thursday", "Friday"),
-                "trainingDaysPerWeek" to 4,
-            ) + profileOverrides,
-            specialization = specialization,
             provenLifts = volumePlannerLifts,
-            literatureVolumeLandmarks = volumePlannerLandmarks,
+            literatureVolumeSnapshots = volumePlannerSnapshots,
+            specialization = specialization,
+            profileOverrides = profileOverrides,
         )
 }

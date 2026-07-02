@@ -41,6 +41,10 @@ fun SpecializationScreen(
             muted = true,
         )
 
+        if (draft.saturatedSpecializeWarningLabels.isNotEmpty()) {
+            SaturatedSpecializeWarning(labels = draft.saturatedSpecializeWarningLabels)
+        }
+
         SelectionSummary(
             selectedLabels = draft.selectedMuscleLabels,
             onMuscleToggled = onMuscleToggled,
@@ -52,6 +56,20 @@ fun SpecializationScreen(
             enabled = !draft.atCap,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+@Composable
+private fun SaturatedSpecializeWarning(
+    labels: List<String>,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        labels.forEach { label ->
+            StratumText(
+                text = stringResource(R.string.specialization_saturated_warning, label),
+                muted = true,
+            )
+        }
     }
 }
 

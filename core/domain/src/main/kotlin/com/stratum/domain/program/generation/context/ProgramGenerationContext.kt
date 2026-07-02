@@ -33,22 +33,25 @@ data class LiftContext(
     val equipment: String? = null,
 )
 
-enum class VolumeLandmarkSource {
+enum class VolumeSnapshotSource {
     Personal,
     Literature,
 }
 
-data class VolumeLandmarkContext(
+/** Per-muscle MV / PV / RC resolved for program generation (population and/or import). */
+data class MuscleVolumeSnapshotContext(
     val muscle: String,
-    val estimatedMev: Double,
-    val estimatedMav: Double,
-    val estimatedMrv: Double,
-    val estimatedPv: Double,
-    val source: VolumeLandmarkSource,
-    val estimatedMv: Double = kotlin.math.max(2.0, estimatedMev * 0.5),
+    val retentionFloorMv: Double,
+    val paretoVolumePv: Double,
+    val recoverabilityCeilingRc: Double,
+    val growthEntryFloor: Double,
+    val maintenanceCeiling: Double,
+    val posture: String?,
+    val observedDoseMax: Double? = null,
+    val observedDoseMedian: Double? = null,
+    val source: VolumeSnapshotSource,
 )
-
-data class VolumeResponseContext(
+data class VolumeCorrelationContext(
     val muscle: String,
     val correlationSlope: Double,
     val evidence: String,
@@ -70,8 +73,8 @@ data class ProgramGenerationContext(
     val weekdays: List<String>,
     val specialization: Map<String, String>,
     val liftsById: Map<String, LiftContext>,
-    val volumeLandmarksByMuscle: Map<String, VolumeLandmarkContext>,
-    val volumeResponsesByMuscle: Map<String, VolumeResponseContext>,
+    val muscleVolumeSnapshotsByMuscle: Map<String, MuscleVolumeSnapshotContext>,
+    val volumeCorrelationsByMuscle: Map<String, VolumeCorrelationContext>,
     val enabledLiftIds: Set<String>,
     val movementPatternByLiftId: Map<String, String>,
     /** Per-lift effectiveness rank/evidence from responseProfile.liftEffectiveness, keyed by liftId. */
