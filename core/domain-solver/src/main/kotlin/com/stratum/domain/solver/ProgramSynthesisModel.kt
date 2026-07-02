@@ -395,6 +395,7 @@ internal class ProgramSynthesisModel(
         addMaintenanceRearDeltDirectDiscouragement(model, weightedTerms)
         addAntagonistMaintenanceBalance(model, weightedTerms)
         addSymmetricMaintenanceBalance(model, weightedTerms)
+        addUpperBodyMaintenanceParity(model, weightedTerms)
         addCoSpecializationBalance(model, weightedTerms)
         val objective =
             LinearExpr.weightedSum(
@@ -1243,6 +1244,54 @@ internal class ProgramSynthesisModel(
         return specializationTierValue(levelA) == specializationTierValue(levelB)
     }
 
+    /**
+     * Group parity for the upper-body maintenance cluster {Chest, Back, Bicep, Tricep, LateralDeltoid}.
+     * Pulls every pair toward parity so no single muscle — notably LateralDeltoid, which has no
+     * secondary-credit path and thus floats to its maintenance ceiling under session-fill pressure
+     * (SESSION_FILL_SHORTFALL > MAINTENANCE_AIM_DEVIATION) — outruns the group. Generalizes
+     * [addSymmetricMaintenanceBalance] from one fixed pair to all C(N,2) pairs in the group; same
+     * slack/equality encoding and the same tier ([SynthesisObjectiveWeights.UPPER_BODY_MAINTENANCE_PARITY]
+     * == [SynthesisObjectiveWeights.SYMMETRIC_PAIR_CLOSENESS]) so each group pair is weighed
+     * comparably to the bicep/tricep pair.
+     *
+     * Gated to Maintenance-only: Specialize muscles have a higher-priority RC aim (weight 2,500)
+     * that parity (1,500) must not fight, and MinimumVolume muscles are deliberately floored at MV
+     * and should not be inflated toward the group. Omit is always excluded. When a user specializes
+     * a group member (e.g. Bicep/Tricep), the group shrinks and the remaining maintenance muscles
+     * still balance — which is the correct behavior. Soft only: maintenance hard ceilings
+     * ([addWeeklyVolumeCeilings]) still bind, and recovery weights (100k–1M) dominate by 100×, so
+     * this never causes infeasibility — worst case the solver eats the parity penalty when recovery
+     * spacing genuinely can't accommodate convergence.
+     */
+    private fun addUpperBodyMaintenanceParity(
+        model: CpModel,
+        weightedTerms: MutableList<Pair<IntVar, Long>>,
+    ) {
+        val maintenanceMembers = UPPER_BODY_MAINTENANCE_PARITY_GROUP
+            .filter { muscle -> (context.specialization[muscle] ?: "Maintenance") == "Maintenance" }
+        if (maintenanceMembers.size < 2) return
+        for (i in maintenanceMembers.indices) {
+            for (j in (i + 1) until maintenanceMembers.size) {
+                val muscleA = maintenanceMembers[i]
+                val muscleB = maintenanceMembers[j]
+                val creditA = weeklyCreditExpr(muscleA) ?: continue
+                val creditB = weeklyCreditExpr(muscleB) ?: continue
+                val label = "${muscleA}_${muscleB}"
+                val excessA = trackSlack(model, "ubpOver_$label", CREDIT_DEVIATION_SLACK_MAX)
+                val excessB = trackSlack(model, "ubpUnder_$label", CREDIT_DEVIATION_SLACK_MAX)
+                model.addEquality(
+                    LinearExpr.weightedSum(
+                        arrayOf(creditA, creditB, excessA, excessB),
+                        longArrayOf(1L, -1L, -1L, 1L),
+                    ),
+                    0L,
+                )
+                weightedTerms.add(excessA to SynthesisObjectiveWeights.UPPER_BODY_MAINTENANCE_PARITY)
+                weightedTerms.add(excessB to SynthesisObjectiveWeights.UPPER_BODY_MAINTENANCE_PARITY)
+            }
+        }
+    }
+
     private fun addCoSpecializationBalance(
         model: CpModel,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
@@ -1393,6 +1442,16 @@ internal class ProgramSynthesisModel(
             listOf(
                 SymmetricMaintenancePair("Bicep", "Tricep", "bicep_tricep"),
             )
+        /**
+         * Upper-body maintenance group pulled toward pairwise parity by [addUpperBodyMaintenanceParity].
+         * LateralDeltoid is included despite having no secondary-credit path — that's exactly the
+         * muscle this term exists to anchor. Anterior/PosteriorDeltoid are excluded: anterior is
+         * met by press secondaries and posterior by pull secondaries (G14), so their aims don't
+         * cluster with the direct-work muscles and parity would fight their deliberately-reduced
+         * direct-work targets.
+         */
+        val UPPER_BODY_MAINTENANCE_PARITY_GROUP =
+            setOf("Chest", "Back", "Bicep", "Tricep", "LateralDeltoid")
     }
 
     private data class AntagonistMaintenancePair(

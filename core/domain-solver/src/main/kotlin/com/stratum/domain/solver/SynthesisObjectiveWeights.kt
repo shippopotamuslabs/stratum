@@ -47,6 +47,16 @@ internal object SynthesisObjectiveWeights {
      */
     const val SYMMETRIC_PAIR_CLOSENESS = 1_500L
     /**
+     * Pull the upper-body maintenance group {Chest, Back, Bicep, Tricep, LateralDeltoid} toward pairwise
+     * parity so no single muscle (notably LateralDeltoid, which has no secondary-credit path and thus
+     * floats to its maintenance ceiling under session-fill pressure) outruns the group. Same tier as
+     * [SYMMETRIC_PAIR_CLOSENESS] so each pair in the group is weighed comparably to the bicep/tricep
+     * pair. Per-pair: an outlier feels 4× this weight (one pair per peer); strong enough to reshape the
+     * maintenance distribution but well below recovery and hard ceilings. Only fires when both muscles
+     * are Maintenance (see gating in `ProgramSynthesisModel.addUpperBodyMaintenanceParity`).
+     */
+    const val UPPER_BODY_MAINTENANCE_PARITY = 1_500L
+    /**
      * Specialized muscles are pushed toward RC aim — strictly greater than [MAINTENANCE_AIM_DEVIATION]
      * (G6) so specialized muscles win ties under time pressure rather than leaving it to noise.
      */
