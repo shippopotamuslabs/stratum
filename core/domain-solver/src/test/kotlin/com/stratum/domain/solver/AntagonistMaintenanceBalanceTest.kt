@@ -98,22 +98,27 @@ class AntagonistMaintenanceBalanceTest {
                 "but found: ${anteriorDirectLifts.map { it.first }}",
         )
 
-        // G14b: Rear-delt direct sets should not exceed bicep/tricep/lateral-delt direct sets —
-        // arms and lateral delts are direct-priority muscles; posterior gets partial coverage
-        // from row secondaries (0.5/set) and is deprioritized via the activation penalty.
+        // G14b: Rear-delt should not outrank arms/lateral for direct work. Biceps/triceps receive
+        // substantial secondary coverage from pull/press compounds (0.5/set), so when their aim is
+        // met by secondaries the solver correctly skips direct arm work — comparing direct sets
+        // alone would penalize that correct behavior. Compare TOTAL weekly volume (direct + secondary)
+        // for bicep/tricep, and keep the lateral comparison direct-only (ShoulderAbduction has no
+        // secondary path, so lateral must be met by direct sets).
         val directSets = directSetsByMuscle(draft, context)
+        val weekly = weeklyMuscleVolume(draft, context)
         val rearDeltDirect = directSets["PosteriorDeltoid"] ?: 0
-        val bicepDirect = directSets["Bicep"] ?: 0
-        val tricepDirect = directSets["Tricep"] ?: 0
         val lateralDirect = directSets["LateralDeltoid"] ?: 0
+        val bicepTotal = weekly["Bicep"] ?: 0.0
+        val tricepTotal = weekly["Tricep"] ?: 0.0
+        val rearDeltTotal = weekly["PosteriorDeltoid"] ?: 0.0
 
         assertTrue(
-            rearDeltDirect <= bicepDirect,
-            "Bicep direct sets ($bicepDirect) should be ≥ rear-delt direct sets ($rearDeltDirect)",
+            bicepTotal >= rearDeltTotal,
+            "Bicep total volume ($bicepTotal, incl. pull secondaries) should be ≥ rear-delt total ($rearDeltTotal)",
         )
         assertTrue(
-            rearDeltDirect <= tricepDirect,
-            "Tricep direct sets ($tricepDirect) should be ≥ rear-delt direct sets ($rearDeltDirect)",
+            tricepTotal >= rearDeltTotal,
+            "Tricep total volume ($tricepTotal, incl. press secondaries) should be ≥ rear-delt total ($rearDeltTotal)",
         )
         assertTrue(
             rearDeltDirect <= lateralDirect,

@@ -35,20 +35,39 @@ enum class MuscleRecoveryClass {
     LargeCompound,
 }
 
-/** Fractional hard-set credits (primary 1.0, secondary 0.5) — touch / incidental dose. */
+/**
+ * Fractional hard-set credits (primary 1.0, secondary 0.5) at or below which a session's exposure
+ * counts as light "touch" volume — incidental cross-domain work (e.g. a few triceps sets from
+ * pulldowns on a lower day) that does not by itself lock in the longer recovery window.
+ *
+ * Per Sousa et al. (2024), even 1–3 hard sets is a meaningful stimulus, but the recovery timeline
+ * scales with dose: low volume (1–3 sets) recovers in 24–48h, moderate (4–7) in 48–72h, high (8+)
+ * in 72–96h+. This constant marks the upper bound of the "low volume" tier.
+ */
 const val MUSCLE_RECOVERY_LIGHT_DOSE = 3.0
 
 /**
- * Minimum per-session fractional credits that affect calendar spacing.
- * Incidental secondary volume below this (e.g. 1.0 triceps from pulldowns) is ignored
- * so optimizers can insert pull days between lower touch and push sessions.
+ * Minimum per-session fractional credits (primary 1.0/set, secondary 0.5/set) that count as a
+ * *meaningful* stimulus requiring the adjacent-day (48h) recovery forbid — for ALL muscles.
+ *
+ * Set to 2.0 (≈2 hard sets): Sousa et al. (2024) place 1–3 sets in the 24–48h recovery window; 2.0
+ * is the low end of that band — the dose at which a muscle's exposure is clearly more than
+ * incidental tagging. Below this (e.g. a single set, or light secondary accumulation from one
+ * compound) the exposure may repeat the next day. Both primary and secondary load count toward
+ * the threshold: a triceps set is a triceps set whether it's a direct extension or a bench-press
+ * secondary, so the gate uses total credit. In credit terms, 2.0 = two primary hard sets, or one
+ * primary + two secondary-tagging compound sets, etc.
  */
 const val MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE = 2.0
 
-/** Meaningful per-session dose — 48 h minimum for small muscles, 72 h for large. */
+/**
+ * Moderate per-session dose — recovery shifts to the longer window: 48h minimum for small/isolation
+ * muscles, 72h for large compounds (Sousa et al. 2024; ≈4–7 hard sets). At or above this dose the
+ * 72h tier for large compounds becomes a HARD calendar constraint (see addLargeCompoundSpacingForbids).
+ */
 const val MUSCLE_RECOVERY_MODERATE_DOSE = 8.0
 
-/** High per-session dose — prefer 72 h+ before repeating. */
+/** High per-session dose (≈8+ hard sets) — prefer 72h+ before repeating; recovery spills into 96h. */
 const val MUSCLE_RECOVERY_HEAVY_DOSE = 12.0
 
 fun muscleRecoveryClass(muscle: String): MuscleRecoveryClass =

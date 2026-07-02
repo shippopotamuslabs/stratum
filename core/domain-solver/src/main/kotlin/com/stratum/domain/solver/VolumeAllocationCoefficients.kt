@@ -5,23 +5,23 @@ package com.stratum.domain.solver
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.reference.PatternSecondaryMuscleCredit
+import kotlin.math.round
 
 /**
- * Credit contribution of one set of [slot] to [muscle], matching
- * `muscleCreditsInSession` (`SlotSetAllocator.kt:95`) exactly:
+ * Credit contribution of one set of [slot] to [muscle].
  *  - [PRIMARY_SET_CREDIT] (1.0) when `slot.primaryMuscle == muscle`,
- *  - the [PatternSecondaryMuscleCredit.creditPerSet] for each entry on `slot.pattern` that targets
- *    `muscle` in the [credits] table,
+ *  - the [PatternSecondaryMuscleCredit.creditPerSet] for each catalog entry on `slot.pattern`
+ *    that targets `muscle`,
  *  - 0 otherwise.
  *
- * CP-SAT linear expressions require integer coefficients, and credits use 0.5
- * increments, so the model scales every credit and target by [SCALE] (2×).
- * [scaledCoeff] returns the scaled integer coefficient; the caller
- * multiplies targets/caps by [SCALE] consistently.
+ * CP-SAT linear expressions require integer coefficients, but catalog-averaged secondary credits
+ * are fractional (e.g. 0.1875/set when 3 of 8 lifts tag a muscle). [SCALE] is therefore 100 (not 2)
+ * so those fractions survive scaling: `round(0.1875 * 100) = 19`. Callers multiply every credit,
+ * cap, and target by [scale] consistently, so raising [SCALE] shifts everything in lockstep.
  *
- * The [credits] table is typically [computePatternSecondaryCredits]-derived (catalog-aware) so the
- * solver's volume accounting matches the expected realized metadata volume rather than a static
- * idealization — see [computePatternSecondaryCredits] for why this matters.
+ * Note: `muscleCreditsInSession` (`SlotSetAllocator.kt`) uses the *static*
+ * `PATTERN_SECONDARY_MUSCLE_CREDITS` table, not this catalog-aware table — it is a separate,
+ * coarser volume model, kept for contexts without a lift catalog.
  */
 class VolumeAllocationCoefficients(
     private val credits: Map<String, List<PatternSecondaryMuscleCredit>>,
@@ -38,13 +38,13 @@ class VolumeAllocationCoefficients(
     }
 
     fun scaledCoeff(slot: FilledSlot, muscle: String): Long =
-        (coeff(slot, muscle) * SCALE).toLong()
+        round(coeff(slot, muscle) * SCALE).toLong()
 
     fun musclesForPattern(pattern: String): List<PatternSecondaryMuscleCredit> =
         credits[pattern].orEmpty()
 
     companion object {
-        const val SCALE: Long = 2L
+        const val SCALE: Long = 100L
 
         /** Static-table-only instance for tests/contexts without a lift catalog. */
         val Default: VolumeAllocationCoefficients =

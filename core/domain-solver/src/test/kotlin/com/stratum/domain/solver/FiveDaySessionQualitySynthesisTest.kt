@@ -24,7 +24,8 @@ import org.junit.jupiter.api.Test
 /**
  * Locks session-quality invariants for 5-day arm/calf specialization: even set distribution,
  * minimum lift count per session, alternating upper/lower calendar domains, and no back-to-back
- * meaningful muscle repeats.
+ * meaningful muscle repeats. Every muscle — large compound or small isolation — needs ≥48h after
+ * meaningful volume, so the adjacent-day hard forbid applies uniformly (MuscleRecoveryReference).
  */
 
 class FiveDaySessionQualitySynthesisTest {
@@ -50,7 +51,7 @@ class FiveDaySessionQualitySynthesisTest {
             solverAdjacentRepeats.isEmpty(),
             "Solver must forbid adjacent specialized muscle exposure: $solverAdjacentRepeats\n" +
                 "weekdays=${synthesis.weekdayIndexByPosition}\n" +
-                scheduleDebug(synthesis),
+                scheduleDebug(synthesis, context),
         )
 
         val pipeline = testProgramGenerationPipeline(programSynthesisPort = synthesizer)
@@ -103,12 +104,13 @@ class FiveDaySessionQualitySynthesisTest {
 
     private fun scheduleDebug(
         synthesis: com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult,
+        context: ProgramGenerationContext,
     ): String =
         synthesis.plans
             .sortedBy { plan -> synthesis.weekdayIndexByPosition[plan.position] }
             .joinToString(" | ") { plan ->
                 val day = Weekday.entries[synthesis.weekdayIndexByPosition[plan.position]]
-                val credits = planMuscleCredits(plan)
+                val credits = planMuscleCredits(plan, context)
                 val calf = credits["Calf"] ?: 0.0
                 val bicep = credits["Bicep"] ?: 0.0
                 "${day.name.take(3)} p${plan.position} calf=$calf bicep=$bicep sets=${plan.filledSlots.sumOf { it.setCount }}"
@@ -131,16 +133,14 @@ class FiveDaySessionQualitySynthesisTest {
             val currDay = Weekday.entries[weekdayIndexByPosition[ordered[index].position]]
             val calendarGap = currDay.ordinal - prevDay.ordinal
             if (calendarGap != 1) continue
-            val prev = planMuscleCredits(ordered[index - 1])
-            val curr = planMuscleCredits(ordered[index])
+            val prev = planMuscleCredits(ordered[index - 1], context)
+            val curr = planMuscleCredits(ordered[index], context)
             for (muscle in prev.keys.intersect(curr.keys)) {
                 if (muscle !in specialized) continue
                 val prevDose = prev[muscle] ?: 0.0
                 val currDose = curr[muscle] ?: 0.0
-                if (
-                    prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
-                    currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-                ) {
+                // Match the solver: block when BOTH sessions' total credit ≥ threshold.
+                if (prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE && currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) {
                     issues +=
                         "Session ${ordered[index - 1].position}→${ordered[index].position}: " +
                         "$muscle ($prevDose, $currDose)"
@@ -152,15 +152,21 @@ class FiveDaySessionQualitySynthesisTest {
 
     private fun planMuscleCredits(
         plan: com.stratum.domain.program.generation.prescription.SessionSlotPlan,
+        context: ProgramGenerationContext,
     ): Map<String, Double> {
+        // Use the same catalog-aware coefficients the solver uses, so the test's dose measurement
+        // matches the solver's meaningful-exposure gate (static Default would diverge on averaged
+        // secondary credits — e.g. 0.25/set vs the static 0.5).
+        val coefficients = VolumeAllocationCoefficients(
+            com.stratum.domain.program.generation.reference.computePatternSecondaryCredits(context),
+        )
         val totals = mutableMapOf<String, Double>()
         for (slot in plan.filledSlots) {
             if (slot.setCount <= 0) continue
             val muscles = linkedSetOf(slot.primaryMuscle)
-            com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS[slot.pattern]
-                ?.forEach { muscles += it.muscle }
+            coefficients.musclesForPattern(slot.pattern).forEach { muscles += it.muscle }
             for (muscle in muscles) {
-                val coeff = VolumeAllocationCoefficients.Default.coeff(slot, muscle)
+                val coeff = coefficients.coeff(slot, muscle)
                 if (coeff <= 0.0) continue
                 totals[muscle] = (totals[muscle] ?: 0.0) + slot.setCount * coeff
             }
@@ -190,12 +196,8 @@ class FiveDaySessionQualitySynthesisTest {
                 if (muscle !in specialized) continue
                 val prevDose = prev[muscle] ?: 0.0
                 val currDose = curr[muscle] ?: 0.0
-                if (
-                    prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE &&
-                    currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-                ) {
-                    issues +=
-                        "${workouts[index - 1].name}→${workouts[index].name}: $muscle ($prevDose, $currDose)"
+                if (prevDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE && currDose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) {
+                    issues += "${workouts[index - 1].name}→${workouts[index].name}: $muscle ($prevDose, $currDose)"
                 }
             }
         }

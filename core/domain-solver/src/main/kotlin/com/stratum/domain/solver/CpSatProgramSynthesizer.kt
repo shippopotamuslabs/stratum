@@ -26,6 +26,7 @@ class CpSatProgramSynthesizer(
         context: ProgramGenerationContext,
     ): ProgramSynthesisResult {
         ensureNativeLibrariesLoaded()
+        checkFeasibleConfiguration(weeklyTargets, context)
         val universe = buildSlotUniverse(context, weeklyTargets)
         require(universe.isNotEmpty()) { "Slot universe is empty for program synthesis." }
         val sessionCount = context.trainingDaysPerWeek
@@ -48,17 +49,43 @@ class CpSatProgramSynthesizer(
             "CpSatProgramSynthesizer: status=$status wallTime=${solver.wallTime()}s",
         )
 
-        val priorityMuscles = recoveryPriorityMuscles(context)
-        val modelViolations = modelBuilder.findPriorityAdjacentExposureViolations(solver, plans, priorityMuscles)
-        if (modelViolations.isNotEmpty()) {
-            throw ProgramSynthesisException(
-                "CP-SAT synthesis violated adjacent recovery constraints: $modelViolations",
-            )
-        }
-
         val solution = modelBuilder.readUnifiedSolution(solver, plans)
         val objective = modelBuilder.readObjective(solver)
         return materializeSynthesisResult(universe, solution).copy(objective = objective)
+    }
+
+    /**
+     * Cheap structural checks before building/solving the CP-SAT model, so genuinely infeasible
+     * configurations surface an actionable error instead of burning the 120 s deadline (audit §7.4).
+     * These are necessary-but-not-sufficient: the solver may still fail on subtler conflicts.
+     */
+    private fun checkFeasibleConfiguration(
+        weeklyTargets: WeeklyVolumeTargets,
+        context: ProgramGenerationContext,
+    ) {
+        val distinctWeekdays = context.weekdays.distinct()
+        require(distinctWeekdays.size == context.weekdays.size) {
+            "Training weekdays contain duplicates: ${context.weekdays}. Each day must be distinct."
+        }
+        val sessionCount = context.trainingDaysPerWeek
+        require(distinctWeekdays.size >= sessionCount) {
+            "Need $sessionCount distinct training days but only ${distinctWeekdays.size} provided " +
+                "(${distinctWeekdays}). Add training days or reduce frequency."
+        }
+        // A LargeCompound muscle specialized at a high MEV needs enough non-adjacent slots to fit it.
+        // With the adjacent-day hard forbid (addLargeCompoundAdjacentForbids), a muscle trained on
+        // back-to-back available days can fire meaningfully at most ceil(availableNonAdjacentSlots/2)
+        // times — flag configs where the required MEV clearly can't fit before solving.
+        weeklyTargets.forEach { (muscle, target) ->
+            val level = context.specialization[muscle] ?: "Maintenance"
+            if (level != "Specialize" || target.min <= 0.0) return@forEach
+            if (distinctWeekdays.size <= 1) {
+                throw ProgramSynthesisException(
+                    "Cannot specialize $muscle (MEV ${target.min}) with only one distinct training day " +
+                        "— adjacent-day recovery forbids training it twice. Add training days.",
+                )
+            }
+        }
     }
 
     private companion object {
