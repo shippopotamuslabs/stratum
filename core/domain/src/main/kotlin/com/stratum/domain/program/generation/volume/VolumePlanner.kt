@@ -96,7 +96,7 @@ fun domainWeeklyBudget(
 internal fun volumePlannerTrainableMuscles(context: ProgramGenerationContext): List<String> {
     val patternsByMuscle = availablePatternsByMuscle(context)
     val muscles = mutableSetOf<String>()
-    muscles.addAll(context.volumeLandmarksByMuscle.keys)
+    muscles.addAll(context.muscleVolumeSnapshotsByMuscle.keys)
     muscles.addAll(context.specialization.keys)
     return muscles.filter { muscle ->
         if ((context.specialization[muscle] ?: "Maintenance") == "Omit") return@filter false
@@ -105,7 +105,7 @@ internal fun volumePlannerTrainableMuscles(context: ProgramGenerationContext): L
 }
 
 /**
- * Plans weekly volume per muscle from landmarks. Specialized muscles aim at landmark MRV;
+ * Plans weekly volume per muscle from MV/PV/RC snapshots. Specialized muscles aim at RC;
  * maintenance muscles floor at MV and aim at PV. Session time trims maintenance toward PV
  * before MV before reducing specialized targets.
  */

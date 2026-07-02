@@ -2,11 +2,15 @@
 
 package com.stratum.domain.program.generation.volume
 
+import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.program.generation.context.MAJOR_MUSCLES
+import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.response.modeling.VolumePosture
 import kotlin.math.max
-/** Per-muscle weekly hard-set credit target. `min` is MV for maintenance, max(mev, mav−tolerance) for Specialize;
- * `aim` is PV (maintenance) or MRV (specialize); `max` is MAV ceiling (maintenance) or MRV (specialize). */
+import kotlin.math.min
+
+/** Per-muscle weekly fractional set target. See [resolveUnscaledTarget] for semantics. */
 data class WeeklyVolumeTarget(
     val min: Double,
     val aim: Double,
@@ -15,41 +19,46 @@ data class WeeklyVolumeTarget(
 
 typealias WeeklyVolumeTargets = Map<String, WeeklyVolumeTarget>
 
-/** Hard-set credit tolerance applied to MEV/MAV/MRV bounds (matches the validators). */
-private const val VOLUME_TOLERANCE_SETS = 2
-
 /**
- * Per-muscle weekly volume target for [muscle] given specialization, return-to-training
- * conservatism, and volume-response evidence. Extracted verbatim from the former private
- * `resolveVolumeTarget` in `programValidation.ts` — do not change behavior without
- * updating the matching validator tests.
+ * Per-muscle weekly volume target given specialization and import snapshots.
+ *
+ * - **MV** ([MuscleVolumeSnapshotContext.retentionFloorMv]): retention floor
+ * - **PV** ([MuscleVolumeSnapshotContext.paretoVolumePv]): growth aim for Maintenance
+ * - **RC** ([MuscleVolumeSnapshotContext.recoverabilityCeilingRc]): Specialize fill target and ceiling
  */
 internal fun resolveUnscaledTarget(
     muscle: String,
     specializationLevel: String,
     context: ProgramGenerationContext,
 ): WeeklyVolumeTarget {
-    val landmark = context.volumeLandmarksByMuscle[muscle]
-    val mev = landmark?.estimatedMev ?: 8.0
-    val mav = landmark?.estimatedMav ?: 14.0
-    val mrv = landmark?.estimatedMrv ?: 20.0
-    val pv = landmark?.estimatedPv ?: 11.0
+    val snapshot = context.muscleVolumeSnapshotsByMuscle[muscle]
+    val globals = GlobalVolumePriors.forTrainingAgeName(context.trainingAge)
+    val mv = snapshot?.retentionFloorMv ?: globals.retentionFloorMv
+    val pv = snapshot?.paretoVolumePv ?: globals.paretoVolumePv
+    val rc = snapshot?.recoverabilityCeilingRc ?: globals.recoverabilityCeilingRc
+    val entry = snapshot?.growthEntryFloor ?: globals.growthEntryFloor
+    val maintenanceMax = snapshot?.maintenanceCeiling ?: globals.maintenanceCeiling
 
-    if (specializationLevel == "Specialize") {
-        return WeeklyVolumeTarget(
-            min = max(mev, mav - VOLUME_TOLERANCE_SETS),
-            aim = mrv,
-            max = mrv,
-        )
+    return when (specializationLevel) {
+        "Specialize" ->
+            WeeklyVolumeTarget(
+                min = entry,
+                aim = rc,
+                max = rc,
+            )
+        "MinimumVolume" ->
+            WeeklyVolumeTarget(
+                min = mv,
+                aim = mv,
+                max = entry,
+            )
+        else ->
+            WeeklyVolumeTarget(
+                min = mv,
+                aim = pv,
+                max = maintenanceMax,
+            )
     }
-
-    if (specializationLevel == "MinimumVolume") {
-        val mv = maintenanceMvFloor(landmark, mev)
-        return WeeklyVolumeTarget(min = mv, aim = mv, max = mev)
-    }
-
-    val mv = maintenanceMvFloor(landmark, mev)
-    return WeeklyVolumeTarget(min = mv, aim = pv, max = mav)
 }
 
 internal fun trainableMuscles(context: ProgramGenerationContext): List<String> {
@@ -77,36 +86,21 @@ internal fun buildUnscaledWeeklyTargets(
         resolveUnscaledTarget(muscle, level, context)
     }
 
-/**
- * The muscles Phase 0 must plan volume for: every major muscle, any muscle with a
- * personal/literature landmark, and any muscle the user explicitly specialized or omitted.
- * Omitted muscles are excluded from targeting (they receive zero volume).
- */
 internal fun targetableMuscles(context: ProgramGenerationContext): List<String> {
     val muscles = MAJOR_MUSCLES.toMutableSet()
-    muscles.addAll(context.volumeLandmarksByMuscle.keys)
+    muscles.addAll(context.muscleVolumeSnapshotsByMuscle.keys)
     muscles.addAll(context.specialization.keys)
     return muscles.filter { muscle ->
         (context.specialization[muscle] ?: "Maintenance") != "Omit"
     }
 }
 
-/**
- * Computes the per-muscle weekly volume target for every non-Omitted muscle, keyed by muscle.
- * Consumed by the split allocator (Phase 0) and the LLM split planner (Phase 1, 5–6 days).
- */
 fun computeAllWeeklyTargets(context: ProgramGenerationContext): WeeklyVolumeTargets {
     val muscles = targetableMuscles(context)
     val unscaled = buildUnscaledWeeklyTargets(muscles, context)
     return applyWeeklyTimeBudgetPrecedence(unscaled, context)
 }
 
-/**
- * For each muscle, the movement patterns the user has at least one enabled lift for. Used by
- * the split allocator's feasibility guard (never plan a slot you can't fill) and the LLM split
- * planner (knows a "Chest touch" day is possible). Patterns are drawn from the payload's
- * proven/available lift pool — both tiers are already filtered to enabled lifts on the client.
- */
 fun availablePatternsByMuscle(context: ProgramGenerationContext): Map<String, List<String>> {
     val byMuscle = mutableMapOf<String, MutableSet<String>>()
     for (lift in context.liftsById.values) {
@@ -115,4 +109,14 @@ fun availablePatternsByMuscle(context: ProgramGenerationContext): Map<String, Li
         }
     }
     return byMuscle.mapValues { (_, patterns) -> patterns.toList() }
+}
+
+/** True when import data shows the muscle is already trained near population recoverability limits. */
+fun isSaturatedSpecializeRisk(muscle: String, context: ProgramGenerationContext): Boolean {
+    val snapshot = context.muscleVolumeSnapshotsByMuscle[muscle] ?: return false
+    if (snapshot.posture == VolumePosture.Saturated.name) return true
+    val observedMax = snapshot.observedDoseMax ?: return false
+    val observedMedian = snapshot.observedDoseMedian ?: return false
+    return observedMax >= GlobalVolumePriors.RECOVERABILITY_CEILING_RC * 0.9 &&
+        observedMedian >= GlobalVolumePriors.PARETO_VOLUME_PV * 0.85
 }

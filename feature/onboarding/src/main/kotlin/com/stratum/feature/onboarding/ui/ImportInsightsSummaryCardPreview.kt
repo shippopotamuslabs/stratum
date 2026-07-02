@@ -9,7 +9,7 @@ import com.stratum.domain.importing.UserEffectivenessTier
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.feature.onboarding.EffectiveLiftHighlightUi
 import com.stratum.feature.onboarding.ImportInsightsSummaryUi
-import com.stratum.feature.onboarding.MuscleVolumeLandmarkUi
+import com.stratum.feature.onboarding.MuscleVolumeSnapshotUi
 import com.stratum.feature.onboarding.VolumeResponseHighlightUi
 
 @Preview(name = "Import insights summary — dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
@@ -28,29 +28,33 @@ private fun ImportInsightsSummaryCardPreview() {
                     customLiftsCreated = 5,
                     liftsWithInsights = 33,
                     supersetPairs = 32,
-                    volumeLandmarks =
+                    volumeSnapshots =
                         listOf(
-                            MuscleVolumeLandmarkUi(
+                            MuscleVolumeSnapshotUi(
                                 muscleLabel = "Hamstrings",
-                                mevWeeklyHardSets = "6",
-                                mavWeeklyHardSets = "10",
-                                mrvWeeklyHardSets = "16",
-                                pvWeeklyHardSets = "9",
-                                mevIntervalLabel = "1–11",
-                                mavIntervalLabel = "6–16",
-                                mrvIntervalLabel = "14–24",
-                                pvIntervalLabel = "4–14",
+                                mvWeeklyHardSets = "4",
+                                pvWeeklyHardSets = "13",
+                                rcWeeklyHardSets = "20",
+                                isSaturatedPosture = false,
+                                personalizedFromLogs = false,
+                                observedMedianWeeklyHardSets = 3.0,
+                                observedMinWeeklyHardSets = "2",
+                                observedMedianWeeklyHardSetsLabel = "3",
+                                observedMaxWeeklyHardSets = "6",
+                                pvIntervalLabel = "9–16",
                                 confidenceTier = LandmarkConfidenceTier.Low,
                             ),
-                            MuscleVolumeLandmarkUi(
+                            MuscleVolumeSnapshotUi(
                                 muscleLabel = "Chest",
-                                mevWeeklyHardSets = "10",
-                                mavWeeklyHardSets = "15",
-                                mrvWeeklyHardSets = "18",
-                                pvWeeklyHardSets = "13",
-                                mevIntervalLabel = "8–12",
-                                mavIntervalLabel = "13–17",
-                                mrvIntervalLabel = "16–21",
+                                mvWeeklyHardSets = "4",
+                                pvWeeklyHardSets = "14",
+                                rcWeeklyHardSets = "20",
+                                isSaturatedPosture = false,
+                                personalizedFromLogs = true,
+                                observedMedianWeeklyHardSets = 12.0,
+                                observedMinWeeklyHardSets = "10",
+                                observedMedianWeeklyHardSetsLabel = "12",
+                                observedMaxWeeklyHardSets = "16",
                                 pvIntervalLabel = "11–15",
                                 confidenceTier = LandmarkConfidenceTier.High,
                             ),

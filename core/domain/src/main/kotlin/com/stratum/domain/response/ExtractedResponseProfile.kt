@@ -3,7 +3,7 @@ package com.stratum.domain.response
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleDoseResponsePoint
 import com.stratum.domain.response.modeling.MuscleResponseModelDiagnostic
-import com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate
+import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
 import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import com.stratum.domain.response.modeling.ResponseModelingConstants
@@ -18,7 +18,7 @@ data class ExtractedResponseProfile(
     val weeklyStimulus: List<MuscleWeeklyStimulus> = emptyList(),
     val liftPerformance: List<LiftWeeklyPerformance> = emptyList(),
     val outcomeIndices: List<MuscleWeeklyOutcomeIndex> = emptyList(),
-    val landmarkEstimates: List<MuscleVolumeLandmarkEstimate> = emptyList(),
+    val volumeSnapshots: List<MuscleVolumeResponseSnapshot> = emptyList(),
     val modelDiagnostics: List<MuscleResponseModelDiagnostic> = emptyList(),
     val dosePoints: List<MuscleDoseResponsePoint> = emptyList(),
 )

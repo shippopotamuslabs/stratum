@@ -1,7 +1,7 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureMrv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
 import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -50,8 +50,8 @@ class VolumeBudgetPlannerTest {
         val unscaled = buildUnscaledWeeklyTargets(muscles, context)
         val trimmed = applyWeeklyTimeBudgetPrecedence(unscaled, context)
 
-        assertEquals(literatureMrv("Bicep"), trimmed.getValue("Bicep").aim)
-        assertEquals(literatureMrv("Tricep"), trimmed.getValue("Tricep").aim)
+        assertEquals(literatureRc("Bicep"), trimmed.getValue("Bicep").aim)
+        assertEquals(literatureRc("Tricep"), trimmed.getValue("Tricep").aim)
         assertTrue(trimmed.getValue("Chest").aim <= unscaled.getValue("Chest").aim)
         assertTrue(
             trimmed.getValue("Back").aim >= trimmed.getValue("Chest").aim,

@@ -38,7 +38,7 @@ class CrossDomainTouchSlotsTest {
                 ),
                 specialization = mapOf("Calf" to "Specialize"),
                 provenLifts = touchTestLifts,
-                literatureVolumeLandmarks = GenerationContextTestFixtures.volumePlannerLandmarks,
+                literatureVolumeSnapshots = GenerationContextTestFixtures.volumePlannerSnapshots,
             )
         val firstUpper =
             slotsForSessionType(
@@ -63,7 +63,7 @@ class CrossDomainTouchSlotsTest {
             GenerationContextTestFixtures.contextWith(
                 specialization = mapOf("Calf" to "Specialize"),
                 provenLifts = touchTestLifts,
-                literatureVolumeLandmarks = GenerationContextTestFixtures.volumePlannerLandmarks,
+                literatureVolumeSnapshots = GenerationContextTestFixtures.volumePlannerSnapshots,
             )
         val upperPush =
             slotsForSessionType(
@@ -84,7 +84,7 @@ class CrossDomainTouchSlotsTest {
                     "Tricep" to "Specialize",
                 ),
                 provenLifts = touchTestLifts,
-                literatureVolumeLandmarks = GenerationContextTestFixtures.volumePlannerLandmarks,
+                literatureVolumeSnapshots = GenerationContextTestFixtures.volumePlannerSnapshots,
             )
         val lower = slotsForSessionType(sessionType = SessionTypeId.Lower, context = context)
         val touchSlots = lower.filter { it.isCrossDomainTouch }

@@ -3,7 +3,7 @@ package com.stratum.core.data.mapper
 import com.stratum.core.data.db.LiftWeeklyPerformanceEntity
 import com.stratum.core.data.db.MuscleDoseResponsePointEntity
 import com.stratum.core.data.db.MuscleResponseModelDiagnosticEntity
-import com.stratum.core.data.db.MuscleVolumeLandmarkEstimateEntity
+import com.stratum.core.data.db.MuscleVolumeResponseSnapshotEntity
 import com.stratum.core.data.db.MuscleWeeklyOutcomeIndexEntity
 import com.stratum.core.data.db.MuscleWeeklyStimulusEntity
 import com.stratum.domain.importing.LandmarkConfidenceInterval
@@ -12,7 +12,7 @@ import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleDoseResponsePoint
 import com.stratum.domain.response.modeling.MuscleResponseModelDiagnostic
-import com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate
+import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
 import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import java.time.Instant
@@ -119,49 +119,43 @@ internal fun MuscleDoseResponsePoint.toEntity(): MuscleDoseResponsePointEntity =
         responseWindowWeeks = responseWindowWeeks,
     )
 
-internal fun MuscleVolumeLandmarkEstimateEntity.toDomain(): MuscleVolumeLandmarkEstimate =
-    MuscleVolumeLandmarkEstimate(
+internal fun MuscleVolumeResponseSnapshotEntity.toDomain(): MuscleVolumeResponseSnapshot =
+    MuscleVolumeResponseSnapshot(
         muscle = muscle,
-        estimatedMev = estimatedMev,
-        estimatedMav = estimatedMav,
-        estimatedMrv = estimatedMrv,
-        estimatedPv = estimatedPv,
-        mevInterval = interval(mevIntervalLow, mevIntervalHigh, mevIntervalMethod),
-        mavInterval = interval(mavIntervalLow, mavIntervalHigh, mavIntervalMethod),
-        mrvInterval = interval(mrvIntervalLow, mrvIntervalHigh, mrvIntervalMethod),
+        retentionFloorMv = retentionFloorMv,
+        paretoVolumePv = paretoVolumePv,
+        recoverabilityCeilingRc = recoverabilityCeilingRc,
+        growthEntryFloor = growthEntryFloor,
+        observedDoseMin = observedDoseMin,
+        observedDoseMax = observedDoseMax,
+        observedDoseMedian = observedDoseMedian,
+        productiveBandMin = productiveBandMin,
+        productiveBandMax = productiveBandMax,
+        posture = posture,
         pvInterval = interval(pvIntervalLow, pvIntervalHigh, pvIntervalMethod),
         confidenceTier = confidenceTier,
         outcomeModelType = outcomeModelType,
-        mrvSource = mrvSource,
-        observedDoseMin = observedDoseMin,
-        observedDoseMax = observedDoseMax,
         diagnosticAnchorLiftId = diagnosticAnchorLiftId?.let(::LiftId),
     )
 
-internal fun MuscleVolumeLandmarkEstimate.toEntity(): MuscleVolumeLandmarkEstimateEntity =
-    MuscleVolumeLandmarkEstimateEntity(
+internal fun MuscleVolumeResponseSnapshot.toEntity(): MuscleVolumeResponseSnapshotEntity =
+    MuscleVolumeResponseSnapshotEntity(
         muscle = muscle,
-        estimatedMev = estimatedMev,
-        estimatedMav = estimatedMav,
-        estimatedMrv = estimatedMrv,
-        estimatedPv = estimatedPv,
-        mevIntervalLow = mevInterval.low,
-        mevIntervalHigh = mevInterval.high,
-        mevIntervalMethod = mevInterval.method,
-        mavIntervalLow = mavInterval.low,
-        mavIntervalHigh = mavInterval.high,
-        mavIntervalMethod = mavInterval.method,
-        mrvIntervalLow = mrvInterval.low,
-        mrvIntervalHigh = mrvInterval.high,
-        mrvIntervalMethod = mrvInterval.method,
+        retentionFloorMv = retentionFloorMv,
+        paretoVolumePv = paretoVolumePv,
+        recoverabilityCeilingRc = recoverabilityCeilingRc,
+        growthEntryFloor = growthEntryFloor,
+        observedDoseMin = observedDoseMin,
+        observedDoseMax = observedDoseMax,
+        observedDoseMedian = observedDoseMedian,
+        productiveBandMin = productiveBandMin,
+        productiveBandMax = productiveBandMax,
+        posture = posture,
         pvIntervalLow = pvInterval.low,
         pvIntervalHigh = pvInterval.high,
         pvIntervalMethod = pvInterval.method,
         confidenceTier = confidenceTier,
         outcomeModelType = outcomeModelType,
-        mrvSource = mrvSource,
-        observedDoseMin = observedDoseMin,
-        observedDoseMax = observedDoseMax,
         diagnosticAnchorLiftId = diagnosticAnchorLiftId?.value,
     )
 

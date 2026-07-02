@@ -12,11 +12,12 @@ import org.junit.jupiter.api.Test
 class MinimumVolumeDraftMappingTest {
 
     @Test
-    @DisplayName("suggestMinimumVolumeMuscleLabels includes low-MEV muscles from import")
-    fun suggestsLowMevMusclesFromImport() {
+    @DisplayName("suggestMinimumVolumeMuscleLabels includes low-MV muscles from import")
+    fun suggestsLowMvMusclesFromImport() {
         val insights = sampleImportInsights(
             muscleLabel = MuscleGroup.Calf.displayLabel,
-            mevWeeklyHardSets = "4 sets",
+            mvWeeklyHardSets = "4",
+            observedMedianWeeklyHardSets = 3.0,
         )
         val suggestions = suggestMinimumVolumeMuscleLabels(
             importInsights = insights,
@@ -30,7 +31,8 @@ class MinimumVolumeDraftMappingTest {
     fun excludesSpecializedMuscles() {
         val insights = sampleImportInsights(
             muscleLabel = MuscleGroup.Calf.displayLabel,
-            mevWeeklyHardSets = "4 sets",
+            mvWeeklyHardSets = "4",
+            observedMedianWeeklyHardSets = 3.0,
         )
         val preference = SpecializationPreference(
             levels = mapOf(MuscleGroup.Calf to SpecializationLevel.Specialize),
@@ -43,11 +45,12 @@ class MinimumVolumeDraftMappingTest {
     }
 
     @Test
-    @DisplayName("suggestMinimumVolumeMuscleLabels skips high-MEV muscles")
-    fun skipsHighMevMuscles() {
+    @DisplayName("suggestMinimumVolumeMuscleLabels skips high-MV muscles")
+    fun skipsHighMvMuscles() {
         val insights = sampleImportInsights(
             muscleLabel = MuscleGroup.Back.displayLabel,
-            mevWeeklyHardSets = "10 sets",
+            mvWeeklyHardSets = "10",
+            observedMedianWeeklyHardSets = 12.0,
         )
         val suggestions = suggestMinimumVolumeMuscleLabels(
             importInsights = insights,
@@ -58,7 +61,8 @@ class MinimumVolumeDraftMappingTest {
 
     private fun sampleImportInsights(
         muscleLabel: String,
-        mevWeeklyHardSets: String,
+        mvWeeklyHardSets: String,
+        observedMedianWeeklyHardSets: Double,
     ): ImportInsightsSummaryUi =
         ImportInsightsSummaryUi(
             totalSessions = 12,
@@ -69,16 +73,18 @@ class MinimumVolumeDraftMappingTest {
             customLiftsCreated = 0,
             liftsWithInsights = 6,
             supersetPairs = 0,
-            volumeLandmarks = listOf(
-                MuscleVolumeLandmarkUi(
+            volumeSnapshots = listOf(
+                MuscleVolumeSnapshotUi(
                     muscleLabel = muscleLabel,
-                    mevWeeklyHardSets = mevWeeklyHardSets,
-                    mavWeeklyHardSets = "12 sets",
-                    mrvWeeklyHardSets = "18 sets",
-                    pvWeeklyHardSets = "8 sets",
-                    mevIntervalLabel = "",
-                    mavIntervalLabel = "",
-                    mrvIntervalLabel = "",
+                    mvWeeklyHardSets = mvWeeklyHardSets,
+                    pvWeeklyHardSets = "12",
+                    rcWeeklyHardSets = "18",
+                    isSaturatedPosture = false,
+                    personalizedFromLogs = false,
+                    observedMinWeeklyHardSets = mvWeeklyHardSets,
+                    observedMedianWeeklyHardSets = observedMedianWeeklyHardSets,
+                    observedMedianWeeklyHardSetsLabel = observedMedianWeeklyHardSets.toInt().toString(),
+                    observedMaxWeeklyHardSets = mvWeeklyHardSets,
                     pvIntervalLabel = "",
                     confidenceTier = LandmarkConfidenceTier.Medium,
                 ),

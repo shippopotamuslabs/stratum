@@ -1,27 +1,27 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureMrv
 import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class VolumePlannerTest {
     @Test
-    fun `specialized muscles aim at landmark MRV`() {
+    fun `specialized muscles aim at recoverability ceiling RC`() {
         val targets = planWeeklyVolume(
             GenerationContextTestFixtures.volumePlannerContext(
                 specialization = mapOf("Bicep" to "Specialize"),
             ),
         )
-        val expectedMrv = literatureMrv("Bicep")
-        assertEquals(expectedMrv, targets.getValue("Bicep").aim)
-        assertEquals(expectedMrv, targets.getValue("Bicep").max)
+        val expectedRc = literatureRc("Bicep")
+        assertEquals(expectedRc, targets.getValue("Bicep").aim)
+        assertEquals(expectedRc, targets.getValue("Bicep").max)
     }
 
     @Test
-    fun `specialized muscles get higher weekly aim than maintenance for the same muscle landmarks`() {
+    fun `specialized muscles get higher weekly aim than maintenance for the same muscle snapshots`() {
         val specializedCtx = GenerationContextTestFixtures.volumePlannerContext(
             specialization = mapOf("Bicep" to "Specialize"),
         )
@@ -41,8 +41,8 @@ class VolumePlannerTest {
             ),
         )
         val chest = targets.getValue("Chest")
-        val landmark = GenerationContextTestFixtures.literatureLandmarkContext("Chest")
-        assertEquals(landmark.estimatedMv, chest.min)
+        val snapshot = GenerationContextTestFixtures.literatureSnapshotContext("Chest")
+        assertEquals(snapshot.retentionFloorMv, chest.min)
         assertEquals(literaturePv("Chest"), chest.aim)
     }
 
@@ -60,7 +60,7 @@ class VolumePlannerTest {
         )
         assertEquals(literaturePv("Chest"), targets.getValue("Chest").aim)
         assertEquals(
-            GenerationContextTestFixtures.literatureLandmarkContext("Chest").estimatedMv,
+            GenerationContextTestFixtures.literatureSnapshotContext("Chest").retentionFloorMv,
             targets.getValue("Chest").min,
         )
     }
@@ -83,7 +83,7 @@ class VolumePlannerTest {
     }
 
     @Test
-    fun `arm and calf specialization preserves specialized MRV aims while trimming maintenance upper`() {
+    fun `arm and calf specialization preserves specialized RC aims while trimming maintenance upper`() {
         val armAndCalfSpec = planWeeklyVolume(
             GenerationContextTestFixtures.volumePlannerContext(
                 specialization = mapOf(
@@ -93,8 +93,8 @@ class VolumePlannerTest {
                 ),
             ),
         )
-        assertEquals(literatureMrv("Bicep"), armAndCalfSpec.getValue("Bicep").aim)
-        assertEquals(literatureMrv("Tricep"), armAndCalfSpec.getValue("Tricep").aim)
+        assertEquals(literatureRc("Bicep"), armAndCalfSpec.getValue("Bicep").aim)
+        assertEquals(literatureRc("Tricep"), armAndCalfSpec.getValue("Tricep").aim)
         assertTrue(armAndCalfSpec.getValue("Chest").aim <= literaturePv("Chest"))
         assertTrue(armAndCalfSpec.getValue("Chest").aim >= armAndCalfSpec.getValue("Chest").min)
         assertEquals(literaturePv("Quad"), armAndCalfSpec.getValue("Quad").aim)
@@ -112,7 +112,7 @@ class VolumePlannerTest {
     }
 
     @Test
-    fun `minimum volume muscles aim at MV below maintenance for the same landmarks`() {
+    fun `minimum volume muscles aim at MV below maintenance for the same snapshots`() {
         val minimumCtx = GenerationContextTestFixtures.volumePlannerContext(
             specialization = mapOf("Bicep" to "MinimumVolume"),
         )

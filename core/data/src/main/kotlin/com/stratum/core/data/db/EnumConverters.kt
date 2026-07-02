@@ -29,8 +29,8 @@ import com.stratum.domain.response.ExperimentStatus
 import com.stratum.domain.response.OutcomeMetric
 import com.stratum.domain.response.identity.EpochId
 import com.stratum.domain.response.identity.ExperimentId
-import com.stratum.domain.response.modeling.MrvSource
 import com.stratum.domain.response.modeling.OutcomeModelType
+import com.stratum.domain.response.modeling.VolumePosture
 
 /**
  * Single source of truth for enum ↔ String and typed-id ↔ String persistence across the
@@ -238,11 +238,11 @@ class EnumConverters {
         value?.let { runCatching { OutcomeModelType.valueOf(it) }.getOrNull() }
 
     @TypeConverter
-    fun fromMrvSource(source: MrvSource?): String? = source?.name
+    fun fromVolumePosture(posture: VolumePosture?): String? = posture?.name
 
     @TypeConverter
-    fun toMrvSource(value: String?): MrvSource? =
-        value?.let { runCatching { MrvSource.valueOf(it) }.getOrNull() }
+    fun toVolumePosture(value: String?): VolumePosture? =
+        value?.let { runCatching { VolumePosture.valueOf(it) }.getOrNull() }
 
     // --- OS-7: program hierarchy enums + typed ids -------------------------------------
 

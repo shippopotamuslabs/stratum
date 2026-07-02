@@ -8,7 +8,7 @@ import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
 import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
-import com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository
+import com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.lift.identity.LiftId
@@ -159,7 +159,7 @@ class ExecuteHistoricalImportUseCaseTest {
                     FakeSupersetAffinityRepository(),
                     FakeVolumeResponseObservationRepository(),
                     FakeLiftEffectivenessObservationRepository(),
-                    FakeMuscleVolumeLandmarkEstimateRepository(),
+                    FakeMuscleVolumeResponseSnapshotRepository(),
                     liftRepo,
                 ),
             )

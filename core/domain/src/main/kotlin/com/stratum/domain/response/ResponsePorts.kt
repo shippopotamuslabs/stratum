@@ -1,5 +1,7 @@
 package com.stratum.domain.response
 
+import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
+
 interface ResponseEpochRepository {
     suspend fun replaceAll(epochs: List<Epoch>)
 
@@ -32,10 +34,10 @@ interface ResponseProfileMetadataRepository {
     suspend fun clear()
 }
 
-interface MuscleVolumeLandmarkEstimateRepository {
-    suspend fun replaceAll(estimates: List<com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate>)
+interface MuscleVolumeResponseSnapshotRepository {
+    suspend fun replaceAll(snapshots: List<MuscleVolumeResponseSnapshot>)
 
-    suspend fun getAll(): List<com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate>
+    suspend fun getAll(): List<MuscleVolumeResponseSnapshot>
 }
 
 interface ExperimentRegistry {

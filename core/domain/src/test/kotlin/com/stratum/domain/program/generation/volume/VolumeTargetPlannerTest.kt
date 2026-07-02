@@ -1,12 +1,13 @@
 package com.stratum.domain.program.generation.volume
 
+import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureLandmarkContext
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureMrv
 import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureSnapshotContext
 import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureSpecializeMin
 import com.stratum.domain.program.generation.context.LiftContext
-import com.stratum.domain.program.generation.context.VolumeResponseContext
+import com.stratum.domain.program.generation.context.VolumeCorrelationContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -17,24 +18,24 @@ class VolumeTargetPlannerTest {
     @Nested
     inner class ResolveMuscleWeeklyTarget {
         @Test
-        fun `Specialize aims at landmark MRV`() {
+        fun `Specialize aims at recoverability ceiling RC`() {
             val ctx = GenerationContextTestFixtures.contextWith()
             val target = resolveMuscleWeeklyTarget("Chest", "Specialize", ctx)
             assertEquals(literatureSpecializeMin("Chest"), target.min)
-            assertEquals(literatureMrv("Chest"), target.aim)
-            assertEquals(literatureMrv("Chest"), target.max)
+            assertEquals(literatureRc("Chest"), target.aim)
+            assertEquals(literatureRc("Chest"), target.max)
         }
 
         @Test
-        fun `Specialize with proven positive volume response still aims at MRV`() {
+        fun `Specialize with proven positive volume response still aims at RC`() {
             val ctx = GenerationContextTestFixtures.contextWith(
-                volumeResponses = listOf(
-                    VolumeResponseContext("Chest", 0.4, "Proven"),
+                volumeCorrelations = listOf(
+                    VolumeCorrelationContext("Chest", 0.4, "Proven"),
                 ),
             )
             val target = resolveMuscleWeeklyTarget("Chest", "Specialize", ctx)
-            assertEquals(literatureMrv("Chest"), target.aim)
-            assertEquals(literatureMrv("Chest"), target.max)
+            assertEquals(literatureRc("Chest"), target.aim)
+            assertEquals(literatureRc("Chest"), target.max)
         }
 
         @Test
@@ -47,10 +48,10 @@ class VolumeTargetPlannerTest {
                 ),
             )
             val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
-            val landmark = literatureLandmarkContext("Back")
-            assertEquals(landmark.estimatedMv, target.min)
+            val snapshot = literatureSnapshotContext("Back")
+            assertEquals(snapshot.retentionFloorMv, target.min)
             assertEquals(literaturePv("Back"), target.aim)
-            assertEquals(landmark.estimatedMav, target.max)
+            assertEquals(snapshot.maintenanceCeiling, target.max)
         }
 
         @Test
@@ -63,26 +64,27 @@ class VolumeTargetPlannerTest {
                 ),
             )
             val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
-            val landmark = literatureLandmarkContext("Back")
-            assertEquals(landmark.estimatedMv, target.min)
+            val snapshot = literatureSnapshotContext("Back")
+            assertEquals(snapshot.retentionFloorMv, target.min)
             assertEquals(literaturePv("Back"), target.aim)
-            assertEquals(landmark.estimatedMav, target.max)
+            assertEquals(snapshot.maintenanceCeiling, target.max)
         }
 
         @Test
-        fun `falls back to coarse defaults when no landmark exists for a muscle`() {
+        fun `falls back to coarse defaults when no snapshot exists for a muscle`() {
+            val globals = GlobalVolumePriors.forTrainingAgeName("Intermediate")
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf(
                     "lastTrained" to "WithinLastMonth",
                     "sessionLengthMinutes" to null,
                 ),
-                literatureVolumeLandmarks = emptyList(),
+                literatureVolumeSnapshots = emptyList(),
             )
             val target = resolveUnscaledTarget("Hamstring", "Maintenance", ctx)
-            assertEquals(3.6, target.min)
-            assertEquals(11.0, target.aim)
-            assertEquals(14.0, target.max)
+            assertEquals(globals.retentionFloorMv, target.min)
+            assertEquals(globals.paretoVolumePv, target.aim)
+            assertEquals(globals.maintenanceCeiling, target.max)
         }
     }
 
@@ -116,7 +118,7 @@ class VolumeTargetPlannerTest {
         }
 
         @Test
-        fun `specialized muscles get a higher aim than maintenance muscles with the same landmark`() {
+        fun `specialized muscles get a higher aim than maintenance muscles with the same snapshot`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = mapOf("Chest" to "Specialize", "Back" to "Maintenance"),
             )
@@ -127,11 +129,11 @@ class VolumeTargetPlannerTest {
         }
 
         @Test
-        fun `includes a muscle that appears only via a literature landmark (not a major muscle)`() {
+        fun `includes a muscle that appears only via a literature snapshot (not a major muscle)`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf("sessionLengthMinutes" to null),
-                literatureVolumeLandmarks = listOf(GenerationContextTestFixtures.literatureLandmarkContext("Calf")),
+                literatureVolumeSnapshots = listOf(GenerationContextTestFixtures.literatureSnapshotContext("Calf")),
             )
             val targets = computeAllWeeklyTargets(ctx)
             assertTrue(targets.containsKey("Calf"))

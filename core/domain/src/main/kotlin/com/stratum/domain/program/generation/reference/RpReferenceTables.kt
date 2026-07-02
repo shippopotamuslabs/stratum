@@ -6,7 +6,7 @@ import com.stratum.domain.program.generation.context.MINUTES_PER_HARD_SET
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 
 /** Max hard sets per muscle per workout before junk-volume territory (Stratum default). */
-const val SESSION_MUSCLE_SET_CAP = 8
+const val SESSION_MUSCLE_SET_CAP = 11
 
 /** Max hard sets on a single exercise in one session — avoids repetitive high-volume stacks. */
 const val SETS_PER_LIFT_CAP = 5

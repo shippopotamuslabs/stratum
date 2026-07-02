@@ -72,6 +72,7 @@ object ImportStubLiftGuesser {
         val normalized = ImportExerciseNameNormalizer.normalizeForMatching(name)
         return when {
             containsAny(normalized, "curl", "preacher") -> MovementPattern.ElbowFlexion
+            isChestFocusedDipName(normalized) -> MovementPattern.HorizontalPress
             containsAny(normalized, "tricep", "skull crusher", "skullcrusher", "pushdown") ->
                 MovementPattern.ElbowExtension
             containsAny(normalized, "pulldown", "pullup", "pull up", "chinup", "chin up") ->
@@ -157,6 +158,10 @@ object ImportStubLiftGuesser {
             MovementPattern.HipAbduction -> setOf(MuscleGroup.Abductor)
             MovementPattern.HipAdduction -> setOf(MuscleGroup.Adductor)
         }
+
+    private fun isChestFocusedDipName(normalized: String): Boolean =
+        containsAny(normalized, "dip") &&
+            !containsAny(normalized, "tricep", "triceps")
 
     private fun containsAny(haystack: String, vararg needles: String): Boolean =
         needles.any { haystack.contains(it) }

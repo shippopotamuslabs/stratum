@@ -2,17 +2,18 @@
 
 package com.stratum.domain.program.generation.volume
 
+import com.stratum.domain.importing.GlobalVolumePriors
+import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkContext
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import kotlin.math.max
 import kotlin.math.round
 
-internal fun maintenanceMvFloor(landmark: VolumeLandmarkContext?, mev: Double): Double =
-    landmark?.estimatedMv ?: max(2.0, mev * 0.45)
+internal fun maintenanceMvFloor(snapshot: MuscleVolumeSnapshotContext?): Double =
+    snapshot?.retentionFloorMv ?: GlobalVolumePriors.forTrainingAge(null).retentionFloorMv
 
-internal fun maintenancePvGoal(landmark: VolumeLandmarkContext?, mev: Double): Double =
-    landmark?.estimatedPv ?: max(maintenanceMvFloor(landmark, mev), mev * 0.75)
+internal fun maintenancePvGoal(snapshot: MuscleVolumeSnapshotContext?): Double =
+    snapshot?.paretoVolumePv ?: GlobalVolumePriors.PARETO_VOLUME_PV
 
 /**
  * Muscle-week aims sum above raw weekly hard-set slots because compounds credit multiple muscles
@@ -23,10 +24,6 @@ internal const val WEEKLY_MUSCLE_AIM_OVERLAP_FACTOR = 1.35
 /** Major maintenance muscles trimmed last; mirrors solver antagonist preference (back/ham ahead). */
 internal val MAINTENANCE_VOLUME_ANCHORS = setOf("Chest", "Back", "Quad", "Hamstring")
 
-/**
- * Lower value = trimmed earlier when maintenance must shrink. Matches solver antagonist weights:
- * back leads chest, ham leads quad ([SynthesisObjectiveWeights.ANTAGONIST_WRONG_WAY_EXCESS]).
- */
 internal fun maintenanceTrimPriority(muscle: String): Int {
     if (muscle !in MAINTENANCE_VOLUME_ANCHORS) {
         return if (muscleTrainingDomain(muscle) == TrainingDomain.Lower) 0 else 1
@@ -42,7 +39,7 @@ internal fun maintenanceTrimPriority(muscle: String): Int {
 
 /**
  * When session time cannot fit every unscaled aim, preserve specialized [WeeklyVolumeTarget.aim]
- * values (MRV) and trim maintenance toward PV before MV.
+ * values (RC) and trim maintenance toward PV before MV.
  */
 internal fun applyWeeklyTimeBudgetPrecedence(
     unscaled: Map<String, WeeklyVolumeTarget>,
@@ -111,7 +108,6 @@ private fun trimMaintenanceMusclesToBudget(
     }
 }
 
-/** Half-set rounding without float drift inflating aims (e.g. 13.8 must not become 14.0). */
 private fun roundToHalfSets(value: Double): Double = round(value * 2) / 2.0
 
 private fun maintenancePvTrimFloor(
@@ -119,15 +115,10 @@ private fun maintenancePvTrimFloor(
     target: WeeklyVolumeTarget,
     context: ProgramGenerationContext,
 ): Double {
-    val landmark = context.volumeLandmarksByMuscle[muscle]
-    val mev = landmark?.estimatedMev ?: 8.0
-    return max(target.min, maintenancePvGoal(landmark, mev))
+    val snapshot = context.muscleVolumeSnapshotsByMuscle[muscle]
+    return max(target.min, maintenancePvGoal(snapshot))
 }
 
-/**
- * PV/MV trim floor with antagonist pairing: back stays at or above chest, ham at or above quad
- * ([SynthesisObjectiveWeights.ANTAGONIST_WRONG_WAY_EXCESS]).
- */
 private fun maintenanceTrimFloor(
     muscle: String,
     trimmed: Map<String, WeeklyVolumeTarget>,
@@ -151,10 +142,6 @@ private fun maintenanceTrimFloor(
     return if (partnerAim != null) max(base, partnerAim) else base
 }
 
-/**
- * Trim from lowest-priority maintenance muscles first so back/ham stay ahead of chest/quad
- * under budget pressure, matching solver antagonist balance.
- */
 private fun trimMaintenanceExcessPrioritized(
     trimmed: MutableMap<String, WeeklyVolumeTarget>,
     orderedMuscles: List<String>,

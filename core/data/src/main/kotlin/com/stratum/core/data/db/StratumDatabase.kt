@@ -28,7 +28,7 @@ import androidx.room.TypeConverters
         LiftWeeklyPerformanceEntity::class,
         MuscleWeeklyOutcomeIndexEntity::class,
         MuscleDoseResponsePointEntity::class,
-        MuscleVolumeLandmarkEstimateEntity::class,
+        MuscleVolumeResponseSnapshotEntity::class,
         MuscleResponseModelDiagnosticEntity::class,
         ProgramEntity::class,
         WorkoutEntity::class,
@@ -84,7 +84,7 @@ abstract class StratumDatabase : RoomDatabase() {
 
     abstract fun muscleDoseResponsePointDao(): MuscleDoseResponsePointDao
 
-    abstract fun muscleVolumeLandmarkEstimateDao(): MuscleVolumeLandmarkEstimateDao
+    abstract fun muscleVolumeResponseSnapshotDao(): MuscleVolumeResponseSnapshotDao
 
     abstract fun muscleResponseModelDiagnosticDao(): MuscleResponseModelDiagnosticDao
 

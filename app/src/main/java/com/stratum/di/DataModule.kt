@@ -31,7 +31,7 @@ import com.stratum.core.data.db.LiftWeeklyPerformanceDao
 import com.stratum.core.data.db.MuscleDoseResponsePointDao
 import com.stratum.core.data.db.MuscleResponseModelDiagnosticDao
 import com.stratum.core.data.db.MuscleVolumeBaselineDao
-import com.stratum.core.data.db.MuscleVolumeLandmarkEstimateDao
+import com.stratum.core.data.db.MuscleVolumeResponseSnapshotDao
 import com.stratum.core.data.db.MuscleWeeklyOutcomeIndexDao
 import com.stratum.core.data.db.MuscleWeeklyStimulusDao
 import com.stratum.core.data.db.ResponseEpochDao
@@ -48,7 +48,7 @@ import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
 import com.stratum.core.data.repository.RoomImportJobRepository
 import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
-import com.stratum.core.data.repository.RoomMuscleVolumeLandmarkEstimateRepository
+import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.data.repository.RoomSupersetAffinityRepository
 import com.stratum.core.data.repository.RoomTrainingHistoryRepository
@@ -71,7 +71,7 @@ import com.stratum.domain.response.LiftEffectivenessObservationRepository
 import com.stratum.domain.response.ResponseEpochRepository
 import com.stratum.domain.response.ResponseObservationExtractor
 import com.stratum.domain.response.ResponseProfileMetadataRepository
-import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
+import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.VolumeResponseObservationRepository
 import com.stratum.core.data.seed.AssetLiftEmbeddingCatalog
@@ -264,8 +264,8 @@ object ResponseDatabaseModule {
         database.muscleDoseResponsePointDao()
 
     @Provides
-    fun provideMuscleVolumeLandmarkEstimateDao(database: StratumDatabase): MuscleVolumeLandmarkEstimateDao =
-        database.muscleVolumeLandmarkEstimateDao()
+    fun provideMuscleVolumeResponseSnapshotDao(database: StratumDatabase): MuscleVolumeResponseSnapshotDao =
+        database.muscleVolumeResponseSnapshotDao()
 
     @Provides
     fun provideMuscleResponseModelDiagnosticDao(database: StratumDatabase): MuscleResponseModelDiagnosticDao =
@@ -367,9 +367,9 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindMuscleVolumeLandmarkEstimateRepository(
-        impl: RoomMuscleVolumeLandmarkEstimateRepository,
-    ): MuscleVolumeLandmarkEstimateRepository
+    abstract fun bindMuscleVolumeResponseSnapshotRepository(
+        impl: RoomMuscleVolumeResponseSnapshotRepository,
+    ): MuscleVolumeResponseSnapshotRepository
 
     @Binds
     @Singleton

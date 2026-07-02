@@ -34,7 +34,8 @@ internal fun buildOnboardingUiState(
         canGoBack = capabilities.canGoBack,
         profileDraft = profile.toProfileDraft().copy(showErrors = ephemeral.showErrors),
         scheduleDraft = profile.toScheduleDraft(sessionLengthEdit).copy(showErrors = ephemeral.showErrors),
-        specializationDraft = specialization.toSpecializationDraft().copy(showErrors = ephemeral.showErrors),
+        specializationDraft = specialization.toSpecializationDraft(ephemeral.importInsightsSummary)
+            .copy(showErrors = ephemeral.showErrors),
         minimumVolumeDraft = specialization.toMinimumVolumeDraft(ephemeral.importInsightsSummary)
             .copy(showErrors = ephemeral.showErrors),
         gymLiftsDraft = lifts.toGymLiftsDraft(

@@ -18,7 +18,7 @@ class ResponseModelingPipelineTest {
         val modeling = output.modeling
 
         assertTrue(modeling != null)
-        assertTrue(modeling!!.landmarkEstimates.isNotEmpty())
+        assertTrue(modeling!!.volumeSnapshots.isNotEmpty())
         assertTrue(modeling.diagnostics.isNotEmpty())
         assertTrue(modeling.outcomeIndices.any { it.muscle == MuscleGroup.Quad })
         assertTrue(output.volumeResponses.isNotEmpty())

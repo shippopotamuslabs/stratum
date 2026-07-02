@@ -2,7 +2,11 @@ package com.stratum.domain.importing
 
 import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.Weight
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 data class ImportedHistoryChunk(
     val sourceLabel: String,
@@ -46,13 +50,41 @@ class MergeImportedHistoryUseCase @Inject constructor() {
                     )
                 }
         }
-        require(mergedSets.isNotEmpty()) {
+        val dedupedSets = dedupeOverlappingSets(mergedSets)
+        require(dedupedSets.isNotEmpty()) {
             "Import contained no valid training sets."
         }
-        return mergedSessions to mergedSets
+        return mergedSessions to dedupedSets
+    }
+
+    /**
+     * Drops duplicate working sets that appear in multiple exports (e.g. Strong + MacroFactor
+     * covering the same sessions). Keeps the first occurrence per fingerprint.
+     */
+    internal fun dedupeOverlappingSets(sets: List<LoggedSet>): List<LoggedSet> {
+        val seen = linkedSetOf<String>()
+        return sets.filter { set ->
+            seen.add(setFingerprint(set))
+        }
+    }
+
+    private fun setFingerprint(set: LoggedSet): String {
+        val minuteBucket = ChronoUnit.MINUTES.between(Instant.EPOCH, set.completedAt)
+        val weightKg =
+            when (set.weight.unit) {
+                Weight.WeightUnit.Kg -> set.weight.amount
+                Weight.WeightUnit.Lb -> set.weight.amount * LB_TO_KG
+            }
+        val weightKey = (weightKg * 100).roundToInt()
+        val exerciseKey = ImportExerciseNameNormalizer.normalizeForMatching(set.exerciseNameRaw)
+        return "$minuteBucket|$exerciseKey|$weightKey|${set.reps}"
     }
 
     private fun fileSlug(index: Int): String = "f$index"
 
     private fun namespacedId(slug: String, originalId: String): String = "$slug::$originalId"
+
+    private companion object {
+        private const val LB_TO_KG = 0.45359237
+    }
 }

@@ -68,7 +68,8 @@ class ProgramSynthesisAuditFixTest {
 
         // Verify at most one of the two sessions carries a meaningful Quad dose (>= 2.0 credits).
         val quadDoses = synthesis.plans.map { plan -> planMuscleCredits(plan, "Quad") }
-        val meaningfulDays = quadDoses.count { it >= 2.0 }
+        // Incidental secondary credits (e.g. ~3 sets from squat) do not count as meaningful exposure.
+        val meaningfulDays = quadDoses.count { it >= 4.0 }
         assertTrue(
             meaningfulDays <= 1,
             "Maintenance Quad must not be meaningfully trained on both adjacent days; doses=$quadDoses",
@@ -108,7 +109,7 @@ class ProgramSynthesisAuditFixTest {
             {"profile":{"trainingAge":"Intermediate","sessionLengthMinutes":75,
             "weekdays":"Monday,Monday,Wednesday","trainingDaysPerWeek":3},
             "specialization":{},"provenLifts":[],"availableLifts":[],
-            "literatureVolumeLandmarks":[]}
+            "literatureVolumeSnapshots":[]}
             """.trimIndent(),
         )
         val synthesizer = CpSatProgramSynthesizer()
