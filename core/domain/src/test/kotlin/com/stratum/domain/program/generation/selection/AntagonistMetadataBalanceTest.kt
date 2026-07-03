@@ -11,6 +11,7 @@ import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -36,6 +37,80 @@ class AntagonistMetadataBalanceTest {
         val hamBoost = AntagonistMetadataBalance.balanceBonus(legCurl, setCount = 4, context, running)
 
         assertTrue(quadHeavy < hamBoost, "quad=$quadHeavy ham=$hamBoost")
+    }
+
+    @Test
+    fun `penalizes biceps-heavy lift when triceps trails on metadata volume`() {
+        val context = maintenanceContext()
+        val running = mutableMapOf("Bicep" to 10.0, "Tricep" to 5.0)
+        val curl =
+            lift(
+                id = "curl",
+                pattern = "ElbowFlexion",
+                primary = listOf("Bicep"),
+            )
+        val pushdown =
+            lift(
+                id = "pushdown",
+                pattern = "ElbowExtension",
+                primary = listOf("Tricep"),
+            )
+
+        val bicepHeavy = AntagonistMetadataBalance.balanceBonus(curl, setCount = 4, context, running)
+        val tricepBoost = AntagonistMetadataBalance.balanceBonus(pushdown, setCount = 4, context, running)
+
+        assertTrue(bicepHeavy < tricepBoost, "biceps=$bicepHeavy triceps=$tricepBoost")
+    }
+
+    @Test
+    fun `symmetric pair has no directional preference when balanced`() {
+        val context = maintenanceContext()
+        val running = mutableMapOf("Bicep" to 5.0, "Tricep" to 5.0)
+        val curl =
+            lift(
+                id = "curl",
+                pattern = "ElbowFlexion",
+                primary = listOf("Bicep"),
+            )
+        val pushdown =
+            lift(
+                id = "pushdown",
+                pattern = "ElbowExtension",
+                primary = listOf("Tricep"),
+            )
+
+        val bicepScore = AntagonistMetadataBalance.balanceBonus(curl, setCount = 4, context, running)
+        val tricepScore = AntagonistMetadataBalance.balanceBonus(pushdown, setCount = 4, context, running)
+
+        assertEquals(
+            bicepScore,
+            tricepScore,
+            1e-9,
+            "Symmetric pair should not favor one side: biceps=$bicepScore triceps=$tricepScore",
+        )
+    }
+
+    @Test
+    fun `penalizes triceps-heavy lift when biceps trails on metadata volume`() {
+        val context = maintenanceContext()
+        val running = mutableMapOf("Bicep" to 5.0, "Tricep" to 10.0)
+        val curl =
+            lift(
+                id = "curl",
+                pattern = "ElbowFlexion",
+                primary = listOf("Bicep"),
+            )
+        val pushdown =
+            lift(
+                id = "pushdown",
+                pattern = "ElbowExtension",
+                primary = listOf("Tricep"),
+            )
+
+        val bicepBoost = AntagonistMetadataBalance.balanceBonus(curl, setCount = 4, context, running)
+        val tricepHeavy = AntagonistMetadataBalance.balanceBonus(pushdown, setCount = 4, context, running)
+
+        assertTrue(bicepBoost > tricepHeavy, "biceps=$bicepBoost triceps=$tricepHeavy")
     }
 
     @Test

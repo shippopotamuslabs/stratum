@@ -244,6 +244,33 @@ class AntagonistMaintenanceBalanceTest {
             source = VolumeSnapshotSource.Literature,
         )
 
+    @Test
+    fun fourDayMaintenanceKeepsBicepTricepRoughlyEven() = runBlocking {
+        val context =
+            parseScenarioContext(
+                scenarioPayload(
+                    days = 4,
+                    specialization = emptyMap(),
+                ),
+            )
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
+        val normalized =
+            pipeline.generate(
+                context = context,
+                normalizationRequest = context.toProgramNormalizationRequest(),
+                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+            )
+        val draft = normalized.toDraft()
+        val weekly = weeklyMuscleVolume(draft, context)
+        val bicep = weekly["Bicep"] ?: 0.0
+        val tricep = weekly["Tricep"] ?: 0.0
+
+        assertTrue(
+            kotlin.math.abs(bicep - tricep) <= 6.0,
+            "Bicep/tricep should stay within 6 sets when both are maintenance: bicep=$bicep tricep=$tricep weekly=$weekly",
+        )
+    }
+
     private fun weeklyMuscleVolume(
         draft: ProgramDraft,
         context: ProgramGenerationContext,

@@ -378,6 +378,7 @@ internal class ProgramSynthesisModel(
 
         addMaintenanceRearDeltDirectDiscouragement(model, weightedTerms)
         addAntagonistMaintenanceBalance(model, weightedTerms)
+        addSymmetricMaintenanceBalance(model, weightedTerms)
         addCoSpecializationBalance(model, weightedTerms)
         val objective =
             LinearExpr.weightedSum(
@@ -1164,6 +1165,52 @@ internal class ProgramSynthesisModel(
         return true
     }
 
+    /**
+     * Symmetric pair balance (bicep/tricep): pull weekly credits toward parity with no directional
+     * preference. Both directions are penalized equally at [SynthesisObjectiveWeights.SYMMETRIC_PAIR_CLOSENESS],
+     * matching the antagonist closeness tier so a bicep/tricep gap is weighed comparably to a
+     * chest/back gap. Unlike antagonist pairs there is no wrong-way/right-way split — neither side
+     * is preferred. Skipped only when either muscle is Omit; specialization tier is irrelevant
+     * because there is no preferred direction to gate on.
+     */
+    private fun addSymmetricMaintenanceBalance(
+        model: CpModel,
+        weightedTerms: MutableList<Pair<IntVar, Long>>,
+    ) {
+        for (pair in SYMMETRIC_MAINTENANCE_PAIRS) {
+            if (!shouldBalanceSymmetricPair(pair.muscleA, pair.muscleB)) continue
+            val creditA = weeklyCreditExpr(pair.muscleA) ?: continue
+            val creditB = weeklyCreditExpr(pair.muscleB) ?: continue
+
+            val excessA = trackSlack(model, "symOver_${pair.label}", CREDIT_DEVIATION_SLACK_MAX)
+            val excessB = trackSlack(model, "symUnder_${pair.label}", CREDIT_DEVIATION_SLACK_MAX)
+            model.addEquality(
+                LinearExpr.weightedSum(
+                    arrayOf(creditA, creditB, excessA, excessB),
+                    longArrayOf(1L, -1L, -1L, 1L),
+                ),
+                0L,
+            )
+            weightedTerms.add(excessA to SynthesisObjectiveWeights.SYMMETRIC_PAIR_CLOSENESS)
+            weightedTerms.add(excessB to SynthesisObjectiveWeights.SYMMETRIC_PAIR_CLOSENESS)
+        }
+    }
+
+    /**
+     * Symmetric pair balance fires only when both muscles share the same specialization tier. When
+     * tiers differ (e.g. Tricep Specialize + Bicep Maintenance) there is no preferred direction to
+     * absorb the gap, so balancing would either inflate the maintenance muscle past its ceiling or
+     * cap the specialized muscle below its RC aim — both harmful. Same-tier (notably both
+     * Maintenance, the common case) is where parity is both achievable and desirable. Omit always
+     * skips. Both-Specialize with equal aims is also handled by [addCoSpecializationBalance].
+     */
+    private fun shouldBalanceSymmetricPair(muscleA: String, muscleB: String): Boolean {
+        val levelA = context.specialization[muscleA] ?: "Maintenance"
+        val levelB = context.specialization[muscleB] ?: "Maintenance"
+        if (levelA == "Omit" || levelB == "Omit") return false
+        return specializationTierValue(levelA) == specializationTierValue(levelB)
+    }
+
     private fun addCoSpecializationBalance(
         model: CpModel,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
@@ -1310,11 +1357,21 @@ internal class ProgramSynthesisModel(
                 AntagonistMaintenancePair("Chest", "Back", "chest_back"),
                 AntagonistMaintenancePair("Quad", "Hamstring", "quad_ham"),
             )
+        val SYMMETRIC_MAINTENANCE_PAIRS =
+            listOf(
+                SymmetricMaintenancePair("Bicep", "Tricep", "bicep_tricep"),
+            )
     }
 
     private data class AntagonistMaintenancePair(
         val weaker: String,
         val stronger: String,
+        val label: String,
+    )
+
+    private data class SymmetricMaintenancePair(
+        val muscleA: String,
+        val muscleB: String,
         val label: String,
     )
 }

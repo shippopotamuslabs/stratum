@@ -39,6 +39,14 @@ internal object SynthesisObjectiveWeights {
     /** Mild penalty when the preferred direction is heavier: back > chest, ham > quad. */
     const val ANTAGONIST_RIGHT_WAY_EXCESS = 300L
     /**
+     * Pull symmetric pairs (bicep/tricep) toward parity with no directional preference. Sits BELOW
+     * [MAINTENANCE_AIM_DEVIATION] so each muscle hitting its own PV aim wins over exact parity —
+     * "roughly even" should not veto a both-at-aim solution that's slightly uneven. Both directions
+     * are penalized equally (no wrong-way/right-way split). Above [PUSH_PULL_IMBALANCE] so arm parity
+     * outweighs push/pull consolidation ties.
+     */
+    const val SYMMETRIC_PAIR_CLOSENESS = 1_500L
+    /**
      * Specialized muscles are pushed toward RC aim — strictly greater than [MAINTENANCE_AIM_DEVIATION]
      * (G6) so specialized muscles win ties under time pressure rather than leaving it to noise.
      */
