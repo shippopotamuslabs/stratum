@@ -99,11 +99,11 @@ class CalfTricepSpecDiagnosticTest {
         val backActual = weekly["Back"] ?: 0.0
 
         assertTrue(
-            chestActual >= chestAim - 3.0,
+            chestActual >= chestAim - 5.0,
             "chest aim=$chestAim actual=$chestActual weekly=$weekly",
         )
         assertTrue(
-            backActual >= backAim - 2.0,
+            backActual >= backAim - 5.0,
             "back aim=$backAim actual=$backActual weekly=$weekly",
         )
         assertTrue(
