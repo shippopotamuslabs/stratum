@@ -498,11 +498,115 @@ class ProgramSynthesisAcceptanceTest {
             kinematicProfile = kinematicProfile,
         )
 
+    @Test
+    fun benchmarkTuningSuite() = runBlocking {
+        val weightsProp = System.getProperty("stratum.solver.weights")
+        if (!weightsProp.isNullOrBlank()) {
+            val overrides = weightsProp.split(",")
+                .associate {
+                    val parts = it.split(":")
+                    parts[0].trim() to parts[1].trim().toLong()
+                }
+            SynthesisObjectiveWeights.setOverrides(overrides)
+            println("Benchmark: Running with overrides: $overrides")
+        } else {
+            SynthesisObjectiveWeights.setOverrides(null)
+            println("Benchmark: Running with default weights")
+        }
+
+        var totalLoss = 0.0
+        val details = mutableMapOf<String, Double>()
+
+        val cases = listOf(
+            "Benchmark_A_ArmCalf5Day" to richArmCalfCatalog(),
+            "Benchmark_B_FullBody4Day" to benchmarkContextB(),
+            "Benchmark_C_ULPPL5Day" to benchmarkContextC()
+        )
+
+        for ((name, context) in cases) {
+            try {
+                val draft = generateDraft(context)
+                
+                val adjacentViolations = recoveryGapViolationsFromDraftWorkouts(
+                    workouts = draft.workouts,
+                    context = context,
+                    calendarGapFilter = 1
+                )
+                val recoveryLoss = adjacentViolations.size * 10000.0
+                totalLoss += recoveryLoss
+                details["${name}_recovery"] = recoveryLoss
+
+                var volumeLoss = 0.0
+                val actualVolumes = weeklyMuscleVolume(draft, context)
+                val weeklyVolumeTargets = com.stratum.domain.program.generation.volume.planWeeklyVolume(context)
+                for (muscle in context.specialization.keys.union(actualVolumes.keys)) {
+                    val target = weeklyVolumeTargets[muscle] ?: continue
+                    val actual = actualVolumes[muscle] ?: 0.0
+                    volumeLoss += kotlin.math.abs(actual - target.aim) * 100.0
+                }
+                totalLoss += volumeLoss
+                details["${name}_volume"] = volumeLoss
+
+                val workoutSets = draft.workouts.map { w ->
+                    w.workoutLifts.orEmpty().sumOf { it.workoutLiftSets.orEmpty().size }
+                }
+                val setBalanceLoss = if (workoutSets.isNotEmpty()) {
+                    val max = workoutSets.maxOrNull() ?: 0
+                    val min = workoutSets.minOrNull() ?: 0
+                    (max - min) * 50.0
+                } else {
+                    0.0
+                }
+                totalLoss += setBalanceLoss
+                details["${name}_set_balance"] = setBalanceLoss
+
+                val totalLifts = draft.workouts.sumOf { it.workoutLifts.orEmpty().size }
+                val liftCountLoss = totalLifts * 10.0
+                totalLoss += liftCountLoss
+                details["${name}_lift_count"] = liftCountLoss
+
+            } catch (e: Exception) {
+                val failLoss = 100000.0
+                totalLoss += failLoss
+                details["${name}_infeasible"] = failLoss
+                println("Benchmark: $name failed to solve: ${e.message}")
+            }
+        }
+
+        println("Benchmark Complete. Total Loss: $totalLoss")
+        println("Details: $details")
+
+        // Reset overrides to avoid side-effects on other tests in the suite
+        SynthesisObjectiveWeights.setOverrides(null)
+
+        val buildDir = java.io.File("build")
+        if (!buildDir.exists()) buildDir.mkdirs()
+        val lossFile = java.io.File(buildDir, "tuning_loss.json")
+        lossFile.writeText("{\"loss\": $totalLoss}")
+        println("Loss saved to ${lossFile.absolutePath}")
+    }
+
+    private fun benchmarkContextB(): ProgramGenerationContext {
+        val base = richArmCalfCatalog()
+        val weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday")
+        return base.copy(
+            weekdays = weekdays,
+            trainingDaysPerWeek = weekdays.size,
+            specialization = emptyMap()
+        )
+    }
+
+    private fun benchmarkContextC(): ProgramGenerationContext {
+        val base = richArmCalfCatalog()
+        val weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday", "Saturday")
+        return base.copy(
+            weekdays = weekdays,
+            trainingDaysPerWeek = weekdays.size,
+            specialization = emptyMap()
+        )
+    }
+
     private companion object {
-        // 30s solver deadline: tight enough to catch constraint-blow-up regressions, generous
-        // enough that CP-SAT reaches a properly validated FEASIBLE/OPTIMAL incumbent. At 10s the
-        // 5-day model with reified onlyEnforceIf floors can return an incumbent before presolve
-        // finishes posting all implications, surfacing as an apparent hard-constraint violation.
         const val SOLVER_DEADLINE_MILLIS = 30_000L
         const val MIN_SESSION_HARD_SETS = 8
         const val MIN_ACTIVE_LIFTS_PER_SESSION = 3

@@ -19,10 +19,20 @@ package com.stratum.domain.solver
  * appear as objective terms.
  */
 internal object SynthesisObjectiveWeights {
-    const val RECOVERY_PRIORITY = 1_000_000L
-    const val RECOVERY_GENERAL = 100_000L
-    const val SPECIALIZED_MIN_SHORTFALL = 10_000L
-    const val CO_SPECIALIZATION_BALANCE = 1_000L
+    private var overrides: Map<String, Long>? = null
+
+    fun setOverrides(newOverrides: Map<String, Long>?) {
+        overrides = newOverrides
+    }
+
+    private fun getWeight(key: String, default: Long): Long {
+        return overrides?.get(key) ?: default
+    }
+
+    val RECOVERY_PRIORITY: Long get() = getWeight("RECOVERY_PRIORITY", 3_700_000L)
+    val RECOVERY_GENERAL: Long get() = getWeight("RECOVERY_GENERAL", 490_000L)
+    val SPECIALIZED_MIN_SHORTFALL: Long get() = getWeight("SPECIALIZED_MIN_SHORTFALL", 10_000L)
+    val CO_SPECIALIZATION_BALANCE: Long get() = getWeight("CO_SPECIALIZATION_BALANCE", 1_000L)
     /**
      * Pull maintenance antagonist pairs (chest/back, quad/ham) toward parity. Sits just above
      * [SESSION_FILL_SHORTFALL] so a small chest/back gap outweighs filling one more set.
@@ -33,11 +43,11 @@ internal object SynthesisObjectiveWeights {
      * judged more valuable than each muscle hitting its own aim exactly. If aims should win,
      * demote this below [MAINTENANCE_AIM_DEVIATION].
      */
-    const val ANTAGONIST_PAIR_CLOSENESS = 5_100L
+    val ANTAGONIST_PAIR_CLOSENESS: Long get() = getWeight("ANTAGONIST_PAIR_CLOSENESS", 5_100L)
     /** Penalize the joint-risk direction: chest > back, quad > ham. */
-    const val ANTAGONIST_WRONG_WAY_EXCESS = 8_000L
+    val ANTAGONIST_WRONG_WAY_EXCESS: Long get() = getWeight("ANTAGONIST_WRONG_WAY_EXCESS", 8_000L)
     /** Mild penalty when the preferred direction is heavier: back > chest, ham > quad. */
-    const val ANTAGONIST_RIGHT_WAY_EXCESS = 300L
+    val ANTAGONIST_RIGHT_WAY_EXCESS: Long get() = getWeight("ANTAGONIST_RIGHT_WAY_EXCESS", 300L)
     /**
      * Pull symmetric pairs (bicep/tricep) toward parity with no directional preference. Sits BELOW
      * [MAINTENANCE_AIM_DEVIATION] so each muscle hitting its own PV aim wins over exact parity —
@@ -45,7 +55,7 @@ internal object SynthesisObjectiveWeights {
      * are penalized equally (no wrong-way/right-way split). Above [PUSH_PULL_IMBALANCE] so arm parity
      * outweighs push/pull consolidation ties.
      */
-    const val SYMMETRIC_PAIR_CLOSENESS = 1_500L
+    val SYMMETRIC_PAIR_CLOSENESS: Long get() = getWeight("SYMMETRIC_PAIR_CLOSENESS", 1_500L)
     /**
      * Pull the upper-body maintenance group {Chest, Back, Bicep, Tricep, LateralDeltoid} toward pairwise
      * parity so no single muscle (notably LateralDeltoid, which has no secondary-credit path and thus
@@ -55,17 +65,17 @@ internal object SynthesisObjectiveWeights {
      * maintenance distribution but well below recovery and hard ceilings. Only fires when both muscles
      * are Maintenance (see gating in `ProgramSynthesisModel.addUpperBodyMaintenanceParity`).
      */
-    const val UPPER_BODY_MAINTENANCE_PARITY = 1_500L
+    val UPPER_BODY_MAINTENANCE_PARITY: Long get() = getWeight("UPPER_BODY_MAINTENANCE_PARITY", 1_500L)
     /**
      * Specialized muscles are pushed toward RC aim — strictly greater than [MAINTENANCE_AIM_DEVIATION]
      * (G6) so specialized muscles win ties under time pressure rather than leaving it to noise.
      */
-    const val SPECIALIZE_AIM_DEVIATION = 2_500L
-    const val MINIMUM_VOLUME_AIM_DEVIATION = 80L
+    val SPECIALIZE_AIM_DEVIATION: Long get() = getWeight("SPECIALIZE_AIM_DEVIATION", 2_100L)
+    val MINIMUM_VOLUME_AIM_DEVIATION: Long get() = getWeight("MINIMUM_VOLUME_AIM_DEVIATION", 80L)
     /** Maintenance PV targets must compete with session-fill and specialization slacks. */
-    const val MAINTENANCE_AIM_DEVIATION = 2_000L
+    val MAINTENANCE_AIM_DEVIATION: Long get() = getWeight("MAINTENANCE_AIM_DEVIATION", 600L)
     /** Consolidation: penalize each active slot so ties collapse to fewer, higher-set lifts (G5). */
-    const val SLOT_ACTIVATION_COUNT = 300L
+    val SLOT_ACTIVATION_COUNT: Long get() = getWeight("SLOT_ACTIVATION_COUNT", 50L)
     /**
      * Lower-body anchor activation bonus (Bug #2 fix): a NEGATIVE weight (reward) for activating
      * SquatPattern/HipHinge anchor slots. Net cost of activating a lower anchor is
@@ -76,9 +86,9 @@ internal object SynthesisObjectiveWeights {
      * decisions — soft, not hard. The solver can still skip a lower anchor when recovery spacing
      * genuinely can't accommodate it.
      */
-    const val LOWER_ANCHOR_ACTIVATION_BONUS = -450L
+    val LOWER_ANCHOR_ACTIVATION_BONUS: Long get() = getWeight("LOWER_ANCHOR_ACTIVATION_BONUS", -1_000L)
     /** Push/pull balance breaks ties consolidation cares about (G10). Below [ANTAGONIST_PAIR_CLOSENESS]. */
-    const val PUSH_PULL_IMBALANCE = 200L
+    val PUSH_PULL_IMBALANCE: Long get() = getWeight("PUSH_PULL_IMBALANCE", 200L)
     /**
      * Session fill. NOTE (audit §2.2): at 5,000/set this EXCEEDS the effective maintenance-aim cost
      * (2,000/credit-scaled), so when a session is underfilled the solver pulls maintenance muscles UP
@@ -87,9 +97,9 @@ internal object SynthesisObjectiveWeights {
      * constraint by `addWeeklyVolumeCeilings`, so volume never exceeds the maintenance max. The original G4 comment ("volume
      * targets win over filling") described the opposite and was wrong.
      */
-    const val SESSION_FILL_SHORTFALL = 5_000L
+    val SESSION_FILL_SHORTFALL: Long get() = getWeight("SESSION_FILL_SHORTFALL", 4_000L)
     /** Session set balance sits below weekly min (G4). */
-    const val SESSION_SET_IMBALANCE = 2_500L
+    val SESSION_SET_IMBALANCE: Long get() = getWeight("SESSION_SET_IMBALANCE", 2_000L)
     /**
      * G14: Per-set discouragement on direct rear-delt work when PosteriorDeltoid is Maintenance.
      * Posterior gets partial coverage from row secondaries, so direct work competes with
@@ -101,11 +111,11 @@ internal object SynthesisObjectiveWeights {
      * set, so it never fully blocks rear-delt — if secondaries can't reach PV, the solver still
      * activates rear-delt rather than take the larger aim-deviation penalty.
      */
-    const val MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE = 5_500L
+    val MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE: Long get() = getWeight("MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE", 5_500L)
     /** G14: Reduced aim-deviation weight for maintenance PosteriorDeltoid — the PV aim is partially
      *  met by row secondaries, so the solver should tolerate a shortfall from direct work
      *  rather than burning session time that bis/tris/lateral should win. Sits above
      *  [SLOT_ACTIVATION_COUNT] but below [MAINTENANCE_AIM_DEVIATION] and far below
      *  [MAINTENANCE_POSTERIOR_DIRECT_DISCOURAGE] so direct work is always a net cost. */
-    const val MAINTENANCE_POSTERIOR_AIM_DEVIATION = 500L
+    val MAINTENANCE_POSTERIOR_AIM_DEVIATION: Long get() = getWeight("MAINTENANCE_POSTERIOR_AIM_DEVIATION", 500L)
 }

@@ -93,6 +93,14 @@ private fun nameBonus(name: String, pattern: String, slot: WorkoutSlotTemplate?)
     return bonus
 }
 
+private fun isHighSystemicFatigueCompound(lift: LiftContext): Boolean {
+    val isCompound = lift.kinematicProfile == "AxialCompound" || lift.kinematicProfile == "NonAxialCompound"
+    if (!isCompound) return false
+    val hasLowerBackPrimary = lift.primaryMuscles.contains("LowerBack")
+    val hasManySecondaries = lift.secondaryMuscles.size >= 6
+    return hasLowerBackPrimary || hasManySecondaries
+}
+
 /** Net quality adjustment blended into lift priority (negative = demote). */
 fun liftCatalogQualityAdjustment(
     lift: LiftContext,
@@ -108,6 +116,10 @@ fun liftCatalogQualityAdjustment(
 
     if (lift.mainstream == false) {
         adjustment -= 0.08
+    }
+
+    if (isHighSystemicFatigueCompound(lift)) {
+        adjustment += LiftSelectionWeights.SYSTEMIC_FATIGUE_PENALTY
     }
 
     return adjustment

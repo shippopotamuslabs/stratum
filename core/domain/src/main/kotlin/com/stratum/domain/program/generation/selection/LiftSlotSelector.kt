@@ -38,22 +38,28 @@ private fun slotRoleBonus(slot: WorkoutSlotTemplate, lift: LiftContext): Double 
     val mainstream = if (lift.mainstream == true) 1.0 else mainstreamNameScore(lift.name)
     when (slot.role) {
         SlotRole.Anchor -> {
-            bonus += mainstream * 0.3
-            if (Regex("""\bbarbell\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.name)) bonus += 0.15
-            if (Regex("""\b(life fitness|hammer strength|nautilus|precor)\b""", RegexOption.IGNORE_CASE)
-                    .containsMatchIn(lift.name)
-            ) {
-                bonus -= 0.2
-            }
-            if (lift.equipment != null &&
-                Regex("""\b(machine|brand)\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.equipment)
-            ) {
-                bonus -= 0.1
+            bonus += mainstream * LiftSelectionWeights.ANCHOR_MAINSTREAM_BONUS
+            val isCompound = lift.kinematicProfile == "AxialCompound" || lift.kinematicProfile == "NonAxialCompound"
+            if (isCompound) {
+                if (Regex("""\bbarbell\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.name)) {
+                    bonus += LiftSelectionWeights.ANCHOR_BARBELL_BONUS
+                }
+            } else {
+                if (Regex("""\b(life fitness|hammer strength|nautilus|precor)\b""", RegexOption.IGNORE_CASE)
+                        .containsMatchIn(lift.name)
+                ) {
+                    bonus += LiftSelectionWeights.ANCHOR_BRAND_PENALTY
+                }
+                if (lift.equipment != null &&
+                    Regex("""\b(machine|brand)\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.equipment)
+                ) {
+                    bonus += LiftSelectionWeights.ANCHOR_MACHINE_PENALTY
+                }
             }
         }
         SlotRole.Isolation -> {
             if (Regex("""\b(cable|machine)\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.name)) {
-                bonus += 0.05
+                bonus += LiftSelectionWeights.ISOLATION_CABLE_MACHINE_BONUS
             }
         }
         else -> Unit
@@ -71,13 +77,13 @@ private fun lengthBiasBonus(
     val bias = lift.muscleLengthBias?.name ?: "MidRange"
     if (slot.siblingVariant == SiblingVariant.B && siblingIndex % 2 == 1) {
         return when (bias) {
-            "Lengthened" -> 0.1
-            "Shortened" -> -0.05
+            "Lengthened" -> LiftSelectionWeights.LENGTH_BIAS_BONUS
+            "Shortened" -> -0.5 * LiftSelectionWeights.LENGTH_BIAS_BONUS
             else -> 0.0
         }
     }
-    if (pref == MuscleLengthBiasPreference.Lengthened && bias == "Lengthened") return 0.1
-    if (pref == MuscleLengthBiasPreference.Shortened && bias == "Shortened") return 0.1
+    if (pref == MuscleLengthBiasPreference.Lengthened && bias == "Lengthened") return LiftSelectionWeights.LENGTH_BIAS_BONUS
+    if (pref == MuscleLengthBiasPreference.Shortened && bias == "Shortened") return LiftSelectionWeights.LENGTH_BIAS_BONUS
     return 0.0
 }
 
@@ -229,7 +235,11 @@ private fun cycleVarietyBonus(
     selectionState: LiftSelectionState,
 ): Double {
     val used = selectionState.cycleUsedLiftIdsByPattern[pattern].orEmpty()
-    return if (liftId in used) -0.35 else 0.2
+    return if (liftId in used) {
+        LiftSelectionWeights.CYCLE_VARIETY_USED_PENALTY
+    } else {
+        LiftSelectionWeights.CYCLE_VARIETY_FRESH_BONUS
+    }
 }
 
 private fun pickWithCycleVariety(
