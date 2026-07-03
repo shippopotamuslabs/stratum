@@ -3,6 +3,7 @@ package com.stratum.core.ui.component
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -33,6 +34,7 @@ fun StratumNumber(
     modifier: Modifier = Modifier,
     style: TextStyle = StratumThemeAccessor.typography.dataLarge,
     maxLines: Int = Int.MAX_VALUE,
+    onTextLayout: (TextLayoutResult) -> Unit = {},
 ) {
     Text(
         text = text,
@@ -41,5 +43,6 @@ fun StratumNumber(
         color = StratumThemeAccessor.colors.textData,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
+        onTextLayout = onTextLayout,
     )
 }
