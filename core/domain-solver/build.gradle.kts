@@ -64,37 +64,4 @@ android {
 dependencies {
     implementation(project(":core:domain"))
     implementation(libs.ortools.java)
-
-    testImplementation(libs.junit.jupiter)
-    testImplementation(libs.kotlin.test.junit5)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.kotlinx.serialization.json)
-    testImplementation(libs.turbine)
-    testImplementation(project(":core:testing"))
-    testRuntimeOnly(libs.junit.platform.launcher)
-}
-
-// Slow-tagged tests (full combinatorial/property matrices) are excluded from the default test
-// task so the iteration loop stays fast. Run them explicitly via `testSlow` or `-PincludeSlow`.
-val includeSlow = project.hasProperty("includeSlow")
-
-tasks.withType<Test>().configureEach {
-    useJUnitPlatform {
-        if (!includeSlow) {
-            excludeTags("slow")
-        }
-    }
-    systemProperty("stratum.solver.weights", System.getProperty("stratum.solver.weights") ?: "")
-    systemProperty("stratum.solver.deadline", System.getProperty("stratum.solver.deadline") ?: "")
-    // Forward the audit-harness gate so ProgramCandidateAuditTest only runs when
-    // explicitly invoked via -Dstratum.audit.run=true (off in normal CI runs).
-    systemProperty("stratum.audit.run", System.getProperty("stratum.audit.run") ?: "")
-}
-
-// Runs only the slow-tagged tests (nightly / CI). Usage: ./gradlew :core:domain-solver:testSlow
-val testSlow by tasks.registering(Test::class) {
-    useJUnitPlatform {
-        includeTags("slow")
-    }
-    dependsOn("testDebugUnitTest")
 }

@@ -29,7 +29,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.ui.GenerateScreen
-import com.stratum.feature.onboarding.ui.GymAndLiftsScreen
+import com.stratum.feature.onboarding.ui.GymAndLiftOnboardingSetupScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
@@ -156,7 +156,7 @@ private fun OnboardingWizard(
                         onMuscleToggled = minimumVolume.onMuscleToggled,
                         onSuggestedMuscleToggled = minimumVolume.onSuggestedMuscleToggled,
                     )
-                    WIZARD_STEP_GYM_AND_LIFTS -> GymAndLiftsScreen(
+                    WIZARD_STEP_GYM_AND_LIFTS -> GymAndLiftOnboardingSetupScreen(
                         draft = state.gymLiftsDraft,
                         presetOptions = state.presetOptions,
                         onPresetSelected = gymLifts.onPresetSelected,
@@ -187,7 +187,7 @@ private fun OnboardingWizard(
 @Composable
 private fun Stepper(steps: List<WizardStepUi>, currentStepId: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         steps.forEach { entry ->
@@ -214,7 +214,7 @@ private fun WizardControls(
     onNext: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(24.dp),
+        modifier = Modifier.fillMaxWidth().padding(12.dp),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {

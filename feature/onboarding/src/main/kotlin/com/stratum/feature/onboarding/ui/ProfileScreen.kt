@@ -32,7 +32,7 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Section(label = stringResource(R.string.profile_training_age_heading)) {

@@ -9,6 +9,7 @@ import com.stratum.domain.program.Program
 import com.stratum.domain.program.ScheduleDayItem
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.buildWeeklySchedule
 import com.stratum.feature.program.ui.ProgramViewState
 import com.stratum.feature.program.ui.ProgramsUiState
@@ -76,12 +77,15 @@ internal fun formatTopSetRpeSuffix(sets: List<LiftSet>): String {
  * RPE are computed by [formatRepRangeLabel] and [formatTopSetRpeSuffix].
  */
 internal fun buildLiftLineState(
+    workoutLiftId: WorkoutLiftId,
     liftId: LiftId,
     sets: List<LiftSet>,
     liftNamesById: Map<String, String>,
     position: Int,
 ): WorkoutLiftLineState =
     WorkoutLiftLineState(
+        workoutLiftId = workoutLiftId.value,
+        liftId = liftId.value,
         name = resolveLiftDisplayName(liftId.value, liftNamesById),
         setCount = sets.size,
         repRange = formatRepRangeLabel(sets),
@@ -112,6 +116,7 @@ private fun Workout.toViewState(liftNamesById: Map<String, String>, weekday: Wee
 
 private fun WorkoutLift.toViewState(liftNamesById: Map<String, String>): WorkoutLiftLineState =
     buildLiftLineState(
+        workoutLiftId = id,
         liftId = liftId,
         sets = sets.sortedBy { set -> set.position },
         liftNamesById = liftNamesById,

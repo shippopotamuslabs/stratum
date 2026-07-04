@@ -1,4 +1,6 @@
-package com.stratum.domain.program.generation
+@file:Suppress("MagicNumber")
+
+package com.stratum.core.testing.program
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
@@ -10,7 +12,7 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.VolumeCorrelationContext
 import com.stratum.domain.program.generation.context.VolumeSnapshotSource
 
-internal object GenerationContextTestFixtures {
+object GenerationContextTestFixtures {
     fun contextWith(
         profileOverrides: Map<String, Any?> = emptyMap(),
         specialization: Map<String, String> = mapOf("Chest" to "Specialize"),
@@ -86,7 +88,7 @@ internal object GenerationContextTestFixtures {
     private fun defaultLiteratureSnapshots(): List<MuscleVolumeSnapshotContext> =
         listOf("Chest", "Back").map { muscle -> literatureSnapshotContext(muscle) }
 
-    internal fun literatureSnapshotContext(muscle: String): MuscleVolumeSnapshotContext {
+    fun literatureSnapshotContext(muscle: String): MuscleVolumeSnapshotContext {
         val literature =
             LiteratureVolumeDefaultsProvider.all().single { entry -> entry.muscle.name == muscle }
         return MuscleVolumeSnapshotContext(
@@ -101,13 +103,13 @@ internal object GenerationContextTestFixtures {
         )
     }
 
-    internal fun literatureRc(muscle: String): Double =
+    fun literatureRc(muscle: String): Double =
         LiteratureVolumeDefaultsProvider.all().single { it.muscle.name == muscle }.recoverabilityCeilingRc
 
-    internal fun literaturePv(muscle: String): Double =
+    fun literaturePv(muscle: String): Double =
         LiteratureVolumeDefaultsProvider.all().single { it.muscle.name == muscle }.paretoVolumePv
 
-    internal fun literatureSpecializeMin(muscle: String): Double =
+    fun literatureSpecializeMin(muscle: String): Double =
         literatureSnapshotContext(muscle).growthEntryFloor
 
     val volumePlannerLifts: List<LiftContext> = listOf(

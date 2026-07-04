@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- StratumLiftSwapBottomSheet — shared lift swap UI -->
+    <string name="lift_swap_title">Swapping %1$s</string>
+    <string name="lift_swap_create_new_lift">Create New Lift</string>
+    <string name="lift_swap_reset_filters_content_description">Clear all filters</string>
+    <string name="lift_swap_filter_bias">Bias</string>
+    <string name="lift_swap_filter_lift_type">Lift Type</string>
+    <string name="lift_swap_filter_library">Library</string>
+    <string name="lift_swap_filter_any">Any</string>
+    <string name="lift_swap_filter_all">All</string>
+    <string name="lift_swap_bias_lengthened">Lengthened</string>
+    <string name="lift_swap_bias_mid">Mid</string>
+    <string name="lift_swap_bias_shortened">Shortened</string>
+    <string name="lift_swap_library_custom">Custom</string>
+    <string name="lift_swap_library_default">Stratum Default</string>
+    <string name="lift_swap_search_placeholder">Search lifts</string>
+    <string name="lift_swap_search_clear_content_description">Clear search</string>
+    <string name="lift_swap_empty">No lifts match your filters.</string>
+    <string name="lift_swap_match_indicator_content_description">Similarity match</string>
+</resources>

@@ -1,9 +1,9 @@
 package com.stratum.feature.program
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.feature.program.ui.ProgramsScreen
 import com.stratum.feature.program.ui.ProgramsUiState
@@ -20,8 +20,10 @@ fun ProgramsRoute(
     onStartEmptyWorkoutClick: () -> Unit = {},
     onStartWorkoutClick: (String) -> Unit = {},
     onSkipWorkoutCheckedChange: (String, Boolean) -> Unit = { _, _ -> },
-    // TEMP: back-to-onboarding for regeneration testing
-    onBackToGenerateClick: () -> Unit = {},
+    onSwapLiftClick: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
+    isPreviewMode: Boolean = false,
+    onKeepProgramClick: () -> Unit = {},
+    onDiscardProgramClick: () -> Unit = {},
 ) {
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
     ProgramsScreen(
@@ -34,7 +36,12 @@ fun ProgramsRoute(
         onStartEmptyWorkoutClick = onStartEmptyWorkoutClick,
         onStartWorkoutClick = onStartWorkoutClick,
         onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
+        onSwapLiftClick = { target ->
+            onSwapLiftClick(target.workoutLiftId, target.liftId, target.name)
+        },
         modifier = modifier,
-        onBackToGenerateClick = onBackToGenerateClick,
+        isPreviewMode = isPreviewMode,
+        onKeepProgramClick = onKeepProgramClick,
+        onDiscardProgramClick = onDiscardProgramClick,
     )
 }

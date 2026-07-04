@@ -2,7 +2,7 @@ package com.stratum.domain.program.generation.split
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.program.generation.GenerationContextTestFixtures
+import com.stratum.core.testing.program.GenerationContextTestFixtures
 import com.stratum.domain.program.generation.context.LiftContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

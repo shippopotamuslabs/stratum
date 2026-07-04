@@ -1,13 +1,9 @@
-package com.stratum.feature.program
+package com.stratum.core.ui.component
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 
-/**
- * User-facing display names for program-screen presentation. Keeps domain identifiers
- * (e.g. [MuscleGroup.Calf] → "PlantarFlexion" in domain) separate from gym-friendly labels.
- */
-internal fun MuscleGroup.toVolumeDisplayName(): String =
+fun MuscleGroup.toVolumeDisplayName(): String =
     when (this) {
         MuscleGroup.Chest -> "Chest"
         MuscleGroup.Back -> "Back"
@@ -28,8 +24,7 @@ internal fun MuscleGroup.toVolumeDisplayName(): String =
         MuscleGroup.Adductor -> "Adductors"
     }
 
-/** Program-screen label for a lift movement pattern (may differ from [MovementPattern.displayName]). */
-internal fun MovementPattern.toProgramDisplayName(): String =
+fun MovementPattern.toProgramDisplayName(): String =
     when (this) {
         MovementPattern.PlantarFlexion -> "Calves"
         else -> displayName

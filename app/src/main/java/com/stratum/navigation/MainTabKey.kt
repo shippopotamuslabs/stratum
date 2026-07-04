@@ -5,4 +5,4 @@ import kotlinx.serialization.Serializable
 
 /** Post-onboarding shell hosting Dashboard / Program / Gym bottom navigation. */
 @Serializable
-data object MainTabKey : NavKey
+data class MainTabKey(val isPreviewMode: Boolean = false) : NavKey

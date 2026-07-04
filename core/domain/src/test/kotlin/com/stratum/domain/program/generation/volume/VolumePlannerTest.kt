@@ -1,8 +1,8 @@
 package com.stratum.domain.program.generation.volume
 
-import com.stratum.domain.program.generation.GenerationContextTestFixtures
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
+import com.stratum.core.testing.program.GenerationContextTestFixtures
+import com.stratum.core.testing.program.GenerationContextTestFixtures.literaturePv
+import com.stratum.core.testing.program.GenerationContextTestFixtures.literatureRc
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
