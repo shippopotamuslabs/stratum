@@ -38,7 +38,7 @@ package com.stratum.domain.solver
  * The 11 coach-quality acceptance tests (recovery gaps, consolidation shape, session set band,
  * specialization honored, maintenance MV floor, antagonist balance) all pass at these weights.
  */
-internal object SynthesisObjectiveWeights {
+object SynthesisObjectiveWeights {
     private var overrides: Map<String, Long>? = null
 
     fun setOverrides(newOverrides: Map<String, Long>?) {

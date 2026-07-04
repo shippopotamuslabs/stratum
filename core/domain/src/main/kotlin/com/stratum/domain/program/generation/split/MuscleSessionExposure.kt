@@ -52,7 +52,7 @@ internal fun fullBodyFullBodyAdjacentCount(exposures: List<MuscleSessionExposure
         SessionTypeId.FullBody in today && SessionTypeId.FullBody in tomorrow
     }
 
-internal fun maxPriorityConsecutiveExposureDays(
+fun maxPriorityConsecutiveExposureDays(
     exposures: List<MuscleSessionExposure>,
     priorityMuscles: Set<String>,
 ): Int =
