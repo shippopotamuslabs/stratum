@@ -21,8 +21,9 @@ fun ProgramsRoute(
     onStartWorkoutClick: (String) -> Unit = {},
     onSkipWorkoutCheckedChange: (String, Boolean) -> Unit = { _, _ -> },
     onSwapLiftClick: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
-    // TEMP: back-to-onboarding for regeneration testing
-    onBackToGenerateClick: () -> Unit = {},
+    isPreviewMode: Boolean = false,
+    onKeepProgramClick: () -> Unit = {},
+    onDiscardProgramClick: () -> Unit = {},
 ) {
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
     ProgramsScreen(
@@ -39,6 +40,8 @@ fun ProgramsRoute(
             onSwapLiftClick(target.workoutLiftId, target.liftId, target.name)
         },
         modifier = modifier,
-        onBackToGenerateClick = onBackToGenerateClick,
+        isPreviewMode = isPreviewMode,
+        onKeepProgramClick = onKeepProgramClick,
+        onDiscardProgramClick = onDiscardProgramClick,
     )
 }

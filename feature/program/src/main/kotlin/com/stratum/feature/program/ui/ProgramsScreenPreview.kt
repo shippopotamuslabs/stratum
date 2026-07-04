@@ -30,8 +30,24 @@ fun ProgramsScreenLoadedDarkPreview() {
     }
 }
 
+@Preview(name = "Programs preview loaded light")
 @Composable
-private fun LoadedProgramsScreen() {
+fun ProgramsScreenPreviewLoadedPreview() {
+    StratumTheme {
+        LoadedProgramsScreen(isPreviewMode = true)
+    }
+}
+
+@Preview(name = "Programs preview loaded dark")
+@Composable
+fun ProgramsScreenPreviewLoadedDarkPreview() {
+    StratumTheme(darkTheme = true) {
+        LoadedProgramsScreen(isPreviewMode = true)
+    }
+}
+
+@Composable
+private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
     ProgramsScreen(
         state =
             ProgramsUiState.Loaded(
@@ -112,6 +128,7 @@ private fun LoadedProgramsScreen() {
         onStartWorkoutClick = {},
         onSkipWorkoutCheckedChange = { _, _ -> },
         onSwapLiftClick = {},
+        isPreviewMode = isPreviewMode,
     )
 }
 

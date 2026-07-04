@@ -30,7 +30,7 @@ fun StratumNavHost() {
         return
     }
     val startKey: NavKey = remember(isComplete) {
-        if (isComplete == true) MainTabKey else OnboardingKey
+        if (isComplete == true) MainTabKey(isPreviewMode = false) else OnboardingKey
     }
     val backStack = rememberNavBackStack(startKey)
 
@@ -40,16 +40,20 @@ fun StratumNavHost() {
             onboardingEntry(
                 onComplete = {
                     backStack.removeAll { it is OnboardingKey }
-                    backStack.add(MainTabKey)
+                    backStack.add(MainTabKey(isPreviewMode = true))
                 },
             )
-            entry<MainTabKey> {
-                // TEMP: back-to-onboarding for regeneration testing
+            entry<MainTabKey> { key ->
                 MainTabShell(
-                    onBackToGenerateClick = {
+                    isPreviewMode = key.isPreviewMode,
+                    onDiscardProgramClick = {
                         statusViewModel.reopenOnboarding()
                         backStack.removeAll { it is MainTabKey }
                         backStack.add(OnboardingKey)
+                    },
+                    onKeepProgramClick = {
+                        backStack.removeAll { it is MainTabKey }
+                        backStack.add(MainTabKey(isPreviewMode = false))
                     },
                     onNavigateToSwap = { workoutLiftId, id, name ->
                         backStack.add(LiftSwapKey(workoutLiftId, id, name))
