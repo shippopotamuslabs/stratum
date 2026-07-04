@@ -3,15 +3,18 @@ package com.stratum.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.onboarding.ObserveOnboardingCompleteUseCase
+import com.stratum.domain.onboarding.ReopenOnboardingWizardUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class OnboardingStatusViewModel @Inject constructor(
     observeComplete: ObserveOnboardingCompleteUseCase,
+    private val reopenOnboardingWizard: ReopenOnboardingWizardUseCase,
 ) : ViewModel() {
     /**
      * `null` until the first repository emission — callers must not route on `false` while
@@ -24,4 +27,11 @@ class OnboardingStatusViewModel @Inject constructor(
                 started = SharingStarted.Eagerly,
                 initialValue = null,
             )
+
+    fun reopenOnboarding() {
+        viewModelScope.launch {
+            reopenOnboardingWizard()
+        }
+    }
 }
+

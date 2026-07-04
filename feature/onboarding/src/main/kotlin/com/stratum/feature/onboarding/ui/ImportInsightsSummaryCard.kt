@@ -47,13 +47,13 @@ import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.importing.UserEffectivenessTier
 import com.stratum.feature.onboarding.EffectiveLiftHighlightUi
 import com.stratum.feature.onboarding.ImportInsightsSummaryUi
-import com.stratum.feature.onboarding.MuscleVolumeLandmarkUi
+import com.stratum.feature.onboarding.MuscleVolumeSnapshotUi
 import com.stratum.feature.onboarding.R
 import com.stratum.feature.onboarding.VolumeResponseHighlightUi
 
 private enum class ImportInsightsTab {
     Summary,
-    Landmarks,
+    DoseResponse,
     Efficacy,
 }
 
@@ -92,6 +92,7 @@ fun ImportInsightsSummaryCard(
         )
 
         StratumSegmentedControl(
+            modifier = Modifier.fillMaxWidth(),
             segments = tabLabels,
             selectedIndex = selectedTab,
             onSelectedIndexChange = { selectedTab = it },
@@ -99,7 +100,7 @@ fun ImportInsightsSummaryCard(
 
         when (ImportInsightsTab.entries[selectedTab]) {
             ImportInsightsTab.Summary -> ImportSummaryTabContent(summary = summary)
-            ImportInsightsTab.Landmarks -> ImportLandmarksTabContent(summary = summary)
+            ImportInsightsTab.DoseResponse -> ImportDoseResponseTabContent(summary = summary)
             ImportInsightsTab.Efficacy -> ImportEfficacyTabContent(summary = summary)
         }
     }
@@ -149,11 +150,11 @@ private fun ImportSummaryTabContent(
                 text = stringResource(R.string.gym_lifts_import_summary_extracted_title),
                 style = StratumThemeAccessor.typography.titleLarge,
             )
-            if (summary.hasVolumeLandmarks) {
+            if (summary.hasVolumeSnapshots) {
                 SummaryBullet(
                     text = stringResource(
                         R.string.gym_lifts_import_summary_extracted_landmarks,
-                        summary.landmarkCount,
+                        summary.snapshotCount,
                     ),
                 )
             }
@@ -178,27 +179,33 @@ private fun ImportSummaryTabContent(
 }
 
 @Composable
-private fun ImportLandmarksTabContent(
+private fun ImportDoseResponseTabContent(
     summary: ImportInsightsSummaryUi,
 ) {
     var expandedMuscleLabel by remember { mutableStateOf<String?>(null) }
-    var showGlossary by remember { mutableStateOf(false) }
+    var showGuide by remember { mutableStateOf(false) }
 
-    if (showGlossary) {
-        LandmarksGlossaryBottomSheet(onDismiss = { showGlossary = false })
+    if (showGuide) {
+        DoseResponseGuideBottomSheet(onDismiss = { showGuide = false })
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (summary.hasVolumeLandmarks) {
+        if (summary.hasVolumeSnapshots) {
             val learnMoreLabel = stringResource(R.string.gym_lifts_import_summary_landmarks_learn_more)
             StratumText(
                 text = stringResource(R.string.gym_lifts_import_summary_landmarks_intro),
                 muted = true,
             )
+            if (summary.usesMostlyPopulationDefaults) {
+                StratumText(
+                    text = stringResource(R.string.gym_lifts_import_summary_landmarks_defaults_note),
+                    muted = true,
+                )
+            }
             Row(
                 modifier =
                     Modifier
-                        .clickable(onClick = { showGlossary = true })
+                        .clickable(onClick = { showGuide = true })
                         .semantics { contentDescription = learnMoreLabel },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -215,17 +222,17 @@ private fun ImportLandmarksTabContent(
                 )
             }
             Spacer(Modifier.height(8.dp))
-            LandmarksTableHeader()
-            summary.volumeLandmarks.forEach { landmark ->
-                LandmarkAccordionRow(
-                    landmark = landmark,
-                    expanded = expandedMuscleLabel == landmark.muscleLabel,
+            DoseResponseTableHeader()
+            summary.volumeSnapshots.forEach { snapshot ->
+                DoseResponseAccordionRow(
+                    snapshot = snapshot,
+                    expanded = expandedMuscleLabel == snapshot.muscleLabel,
                     onToggle = {
                         expandedMuscleLabel =
-                            if (expandedMuscleLabel == landmark.muscleLabel) {
+                            if (expandedMuscleLabel == snapshot.muscleLabel) {
                                 null
                             } else {
-                                landmark.muscleLabel
+                                snapshot.muscleLabel
                             }
                     },
                 )
@@ -371,39 +378,35 @@ private fun SummaryBullet(text: String) {
 }
 
 @Composable
-private fun LandmarksTableHeader() {
+private fun DoseResponseTableHeader() {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Bottom,
     ) {
         StratumText(
             text = stringResource(R.string.gym_lifts_import_summary_landmarks_muscle_header),
-            modifier = Modifier.weight(LANDMARK_MUSCLE_WEIGHT),
+            modifier = Modifier.weight(DOSE_MUSCLE_WEIGHT),
             muted = true,
             style = StratumThemeAccessor.typography.sectionLabel,
         )
-        LandmarkHeaderLabel(
+        DoseResponseHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_mev_header),
-            modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            modifier = Modifier.weight(DOSE_VALUE_WEIGHT),
         )
-        LandmarkHeaderLabel(
+        DoseResponseHeaderLabel(
             label = stringResource(R.string.gym_lifts_import_summary_mav_header),
-            modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-        )
-        LandmarkHeaderLabel(
-            label = stringResource(R.string.gym_lifts_import_summary_mrv_header),
-            modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-        )
-        LandmarkHeaderLabel(
-            label = stringResource(R.string.gym_lifts_import_summary_pv_header),
-            modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            modifier = Modifier.weight(DOSE_VALUE_WEIGHT),
             emphasized = true,
+        )
+        DoseResponseHeaderLabel(
+            label = stringResource(R.string.gym_lifts_import_summary_mrv_header),
+            modifier = Modifier.weight(DOSE_VALUE_WEIGHT),
         )
     }
 }
 
 @Composable
-private fun LandmarkHeaderLabel(
+private fun DoseResponseHeaderLabel(
     label: String,
     modifier: Modifier = Modifier,
     emphasized: Boolean = false,
@@ -421,7 +424,7 @@ private fun LandmarkHeaderLabel(
 }
 
 @Composable
-private fun LandmarksGlossaryBottomSheet(
+private fun DoseResponseGuideBottomSheet(
     onDismiss: () -> Unit,
 ) {
     StratumBottomSheet(
@@ -441,15 +444,15 @@ private fun LandmarksGlossaryBottomSheet(
             muted = true,
         )
         StratumText(
-            text = stringResource(R.string.gym_lifts_import_summary_pv_tooltip),
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_fractional_note),
             muted = true,
         )
     }
 }
 
 @Composable
-private fun LandmarkAccordionRow(
-    landmark: MuscleVolumeLandmarkUi,
+private fun DoseResponseAccordionRow(
+    snapshot: MuscleVolumeSnapshotUi,
     expanded: Boolean,
     onToggle: () -> Unit,
 ) {
@@ -461,12 +464,12 @@ private fun LandmarkAccordionRow(
         if (expanded) {
             stringResource(
                 R.string.gym_lifts_import_summary_landmarks_collapse_a11y,
-                landmark.muscleLabel,
+                snapshot.muscleLabel,
             )
         } else {
             stringResource(
                 R.string.gym_lifts_import_summary_landmarks_expand_a11y,
-                landmark.muscleLabel,
+                snapshot.muscleLabel,
             )
         }
 
@@ -475,14 +478,14 @@ private fun LandmarkAccordionRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = LANDMARK_ROW_MIN_HEIGHT.dp)
+                    .heightIn(min = DOSE_ROW_MIN_HEIGHT.dp)
                     .clickable(onClick = onToggle)
                     .semantics { contentDescription = rowA11y }
                     .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                modifier = Modifier.weight(LANDMARK_MUSCLE_WEIGHT),
+                modifier = Modifier.weight(DOSE_MUSCLE_WEIGHT),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -495,24 +498,20 @@ private fun LandmarkAccordionRow(
                             .rotate(chevronRotation),
                     tint = StratumThemeAccessor.colors.textMuted,
                 )
-                StratumText(text = landmark.muscleLabel)
+                StratumText(text = snapshot.muscleLabel)
             }
-            LandmarkCollapsedValue(
-                value = landmark.mevWeeklyHardSets,
-                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            DoseResponseCollapsedValue(
+                value = snapshot.mvWeeklyHardSets,
+                modifier = Modifier.weight(DOSE_VALUE_WEIGHT),
             )
-            LandmarkCollapsedValue(
-                value = landmark.mavWeeklyHardSets,
-                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            DoseResponseCollapsedValue(
+                value = snapshot.pvWeeklyHardSets,
+                modifier = Modifier.weight(DOSE_VALUE_WEIGHT),
                 emphasized = true,
             )
-            LandmarkCollapsedValue(
-                value = landmark.mrvWeeklyHardSets,
-                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
-            )
-            LandmarkCollapsedValue(
-                value = landmark.pvWeeklyHardSets,
-                modifier = Modifier.weight(LANDMARK_VALUE_WEIGHT),
+            DoseResponseCollapsedValue(
+                value = snapshot.rcWeeklyHardSets,
+                modifier = Modifier.weight(DOSE_VALUE_WEIGHT),
             )
         }
 
@@ -521,13 +520,13 @@ private fun LandmarkAccordionRow(
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically(),
         ) {
-            LandmarkExpandedDetail(landmark = landmark)
+            DoseResponseExpandedDetail(snapshot = snapshot)
         }
     }
 }
 
 @Composable
-private fun LandmarkCollapsedValue(
+private fun DoseResponseCollapsedValue(
     value: String,
     modifier: Modifier = Modifier,
     emphasized: Boolean = false,
@@ -548,53 +547,41 @@ private fun LandmarkCollapsedValue(
 }
 
 @Composable
-private fun LandmarkExpandedDetail(
-    landmark: MuscleVolumeLandmarkUi,
+private fun DoseResponseExpandedDetail(
+    snapshot: MuscleVolumeSnapshotUi,
 ) {
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp)
+                .padding(start = 4.dp, end = 4.dp, bottom = 12.dp)
                 .background(
                     color = StratumThemeAccessor.colors.surfaceSunken,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        LandmarkDetailHeaderRow()
-        LandmarkDetailMetricRow(
-            metricLabel = stringResource(R.string.gym_lifts_import_summary_mev_header),
-            target = landmark.mevWeeklyHardSets,
-            rangeLabel = landmark.mevIntervalLabel,
+        StratumText(
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_logged_volume_title),
+            style = StratumThemeAccessor.typography.sectionLabel,
         )
-        LandmarkDetailMetricRow(
-            metricLabel = stringResource(R.string.gym_lifts_import_summary_mav_header),
-            target = landmark.mavWeeklyHardSets,
-            rangeLabel = landmark.mavIntervalLabel,
-        )
-        LandmarkDetailMetricRow(
-            metricLabel = stringResource(R.string.gym_lifts_import_summary_mrv_header),
-            target = landmark.mrvWeeklyHardSets,
-            rangeLabel = landmark.mrvIntervalLabel,
-        )
-        LandmarkDetailMetricRow(
-            metricLabel = stringResource(R.string.gym_lifts_import_summary_pv_header),
-            target = landmark.pvWeeklyHardSets,
-            rangeLabel = landmark.pvIntervalLabel,
-        )
+        DoseResponseLoggedVolumeTable(snapshot = snapshot)
 
-        Spacer(Modifier.height(4.dp))
+        if (snapshot.hasPvInterval) {
+            DoseResponsePvIntervalRow(
+                intervalLabel = snapshot.pvIntervalLabel,
+            )
+        }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             StratumConfidenceBars(
-                tier = landmark.confidenceTier,
-                contentDescription = confidenceBarsContentDescription(landmark.confidenceTier),
+                tier = snapshot.confidenceTier,
+                contentDescription = confidenceBarsContentDescription(snapshot.confidenceTier),
             )
             StratumText(
                 text = stringResource(R.string.gym_lifts_import_summary_landmarks_confidence_header),
@@ -606,26 +593,48 @@ private fun LandmarkExpandedDetail(
 }
 
 @Composable
-private fun LandmarkDetailHeaderRow() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        StratumText(
-            text = stringResource(R.string.gym_lifts_import_summary_landmarks_detail_metric_header),
-            modifier = Modifier.weight(LANDMARK_DETAIL_METRIC_WEIGHT),
-            muted = true,
-            style = StratumThemeAccessor.typography.sectionLabel,
+private fun DoseResponseLoggedVolumeTable(snapshot: MuscleVolumeSnapshotUi) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        DoseResponseLoggedVolumeHeaderRow()
+        DoseResponseLoggedVolumeDataRow(
+            label = stringResource(R.string.gym_lifts_import_summary_landmarks_logged_volume_total),
+            low = snapshot.observedMinWeeklyHardSets,
+            typical = snapshot.observedMedianWeeklyHardSetsLabel,
+            high = snapshot.observedMaxWeeklyHardSets,
         )
+    }
+}
+
+@Composable
+private fun DoseResponseLoggedVolumeHeaderRow() {
+    Row(modifier = Modifier.fillMaxWidth()) {
         StratumText(
-            text = stringResource(R.string.gym_lifts_import_summary_landmarks_detail_target_header),
-            modifier = Modifier.weight(LANDMARK_DETAIL_VALUE_WEIGHT),
-            muted = true,
-            style = StratumThemeAccessor.typography.sectionLabel.copy(textAlign = TextAlign.End),
+            text = "",
+            modifier = Modifier.weight(DOSE_LOGGED_LABEL_WEIGHT),
         )
+        DoseResponseLoggedVolumeHeaderCell(
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_logged_volume_low),
+            modifier = Modifier.weight(DOSE_LOGGED_VALUE_WEIGHT),
+        )
+        DoseResponseLoggedVolumeHeaderCell(
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_logged_volume_typical),
+            modifier = Modifier.weight(DOSE_LOGGED_VALUE_WEIGHT),
+        )
+        DoseResponseLoggedVolumeHeaderCell(
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_logged_volume_high),
+            modifier = Modifier.weight(DOSE_LOGGED_VALUE_WEIGHT),
+        )
+    }
+}
+
+@Composable
+private fun DoseResponseLoggedVolumeHeaderCell(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
         StratumText(
-            text = stringResource(R.string.gym_lifts_import_summary_landmarks_detail_range_header),
-            modifier = Modifier.weight(LANDMARK_DETAIL_RANGE_WEIGHT),
+            text = text,
             muted = true,
             style = StratumThemeAccessor.typography.sectionLabel.copy(textAlign = TextAlign.End),
         )
@@ -633,62 +642,52 @@ private fun LandmarkDetailHeaderRow() {
 }
 
 @Composable
-private fun LandmarkDetailMetricRow(
-    metricLabel: String,
-    target: String,
-    rangeLabel: String,
+private fun DoseResponseLoggedVolumeDataRow(
+    label: String,
+    low: String,
+    typical: String,
+    high: String,
 ) {
-    val rangeA11y = landmarkIntervalA11y(rangeLabel, metricLabel)
-    val displayRange =
-        rangeLabel.ifEmpty {
-            stringResource(R.string.gym_lifts_import_summary_landmarks_detail_range_unavailable)
-        }
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumText(
-            text = metricLabel,
-            modifier = Modifier.weight(LANDMARK_DETAIL_METRIC_WEIGHT),
+            text = label,
+            modifier = Modifier.weight(DOSE_LOGGED_LABEL_WEIGHT),
+            muted = true,
         )
-        Box(
-            modifier = Modifier.weight(LANDMARK_DETAIL_VALUE_WEIGHT),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            StratumNumber(text = target)
-        }
-        Box(
-            modifier =
-                Modifier
-                    .weight(LANDMARK_DETAIL_RANGE_WEIGHT)
-                    .semantics {
-                        if (rangeA11y.isNotEmpty()) {
-                            contentDescription = rangeA11y
-                        }
-                    },
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            StratumText(
-                text = displayRange,
-                muted = true,
-                style = StratumThemeAccessor.typography.bodyLarge.copy(textAlign = TextAlign.End),
-            )
-        }
+        DoseResponseLoggedVolumeValueCell(value = low, modifier = Modifier.weight(DOSE_LOGGED_VALUE_WEIGHT))
+        DoseResponseLoggedVolumeValueCell(value = typical, modifier = Modifier.weight(DOSE_LOGGED_VALUE_WEIGHT))
+        DoseResponseLoggedVolumeValueCell(value = high, modifier = Modifier.weight(DOSE_LOGGED_VALUE_WEIGHT))
     }
 }
 
-/** Build an a11y content description for an estimated-range label, or "" when there is no range. */
 @Composable
-private fun landmarkIntervalA11y(
-    intervalLabel: String,
-    landmarkName: String,
-): String =
-    if (intervalLabel.isEmpty()) {
-        ""
-    } else {
-        stringResource(R.string.gym_lifts_import_summary_landmark_interval_a11y, landmarkName, intervalLabel)
+private fun DoseResponseLoggedVolumeValueCell(
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        StratumText(text = value)
     }
+}
+
+@Composable
+private fun DoseResponsePvIntervalRow(intervalLabel: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumText(
+            text = stringResource(R.string.gym_lifts_import_summary_landmarks_pv_interval_label),
+            muted = true,
+            style = StratumThemeAccessor.typography.sectionLabel,
+        )
+        StratumText(text = intervalLabel)
+    }
+}
 
 @Composable
 fun AnimatedImportInsightsSummary(
@@ -705,13 +704,12 @@ fun AnimatedImportInsightsSummary(
     }
 }
 
-private const val LANDMARK_MUSCLE_WEIGHT = 2f
-private const val LANDMARK_VALUE_WEIGHT = 1f
-private const val LANDMARK_DETAIL_METRIC_WEIGHT = 0.8f
-private const val LANDMARK_DETAIL_VALUE_WEIGHT = 1f
-private const val LANDMARK_DETAIL_RANGE_WEIGHT = 1.8f
+private const val DOSE_MUSCLE_WEIGHT = 1.8f
+private const val DOSE_VALUE_WEIGHT = 0.85f
+private const val DOSE_LOGGED_LABEL_WEIGHT = 1.2f
+private const val DOSE_LOGGED_VALUE_WEIGHT = 0.7f
 private const val EFFICACY_MUSCLE_WEIGHT = 1.4f
 private const val EFFICACY_SIGNAL_WEIGHT = 1f
-private const val LANDMARK_ROW_MIN_HEIGHT = 40
+private const val DOSE_ROW_MIN_HEIGHT = 40
 private const val CHEVRON_ROTATION_COLLAPSED = 0f
 private const val CHEVRON_ROTATION_EXPANDED = 180f

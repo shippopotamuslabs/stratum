@@ -4,7 +4,7 @@ import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.domain.response.HYPOTHESIS_CONFIDENCE_PAYLOAD_MIN
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
-import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
+import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.domain.response.ResponseEvidenceMerger
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.VolumeResponseObservationRepository
@@ -20,7 +20,7 @@ class LoadHistoricalImportSummaryUseCase @Inject constructor(
     private val supersetAffinityRepository: SupersetAffinityRepository,
     private val volumeResponseObservationRepository: VolumeResponseObservationRepository,
     private val liftEffectivenessObservationRepository: LiftEffectivenessObservationRepository,
-    private val muscleVolumeLandmarkEstimateRepository: MuscleVolumeLandmarkEstimateRepository,
+    private val muscleVolumeResponseSnapshotRepository: MuscleVolumeResponseSnapshotRepository,
     private val liftRepository: LiftRepository,
 ) {
     suspend operator fun invoke(): HistoricalImportSummary? {
@@ -31,10 +31,10 @@ class LoadHistoricalImportSummaryUseCase @Inject constructor(
         val effectiveness = liftEffectivenessObservationRepository.getAll()
         val volumeResponses = volumeResponseObservationRepository.getAll()
         val volumeHighlights =
-            muscleVolumeLandmarkEstimateRepository.getAll()
-                .filter { estimate -> baselines.any { it.muscle == estimate.muscle && it.meanWeeklyHardSets > 0.0 } }
-                .sortedByDescending { estimate ->
-                    baselines.firstOrNull { it.muscle == estimate.muscle }?.meanWeeklyHardSets ?: 0.0
+            muscleVolumeResponseSnapshotRepository.getAll()
+                .filter { snapshot -> baselines.any { it.muscle == snapshot.muscle && it.meanWeeklyHardSets > 0.0 } }
+                .sortedByDescending { snapshot ->
+                    baselines.firstOrNull { it.muscle == snapshot.muscle }?.meanWeeklyHardSets ?: 0.0
                 }
                 .toHighlights()
 

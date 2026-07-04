@@ -139,4 +139,43 @@ class MergeImportedHistoryUseCaseTest {
             )
         }
     }
+
+    @Test
+    fun `duplicate sets across files are deduped by workout fingerprint`() {
+        fun duplicateSet(exercise: String): LoggedSet =
+            LoggedSet(
+                id = LoggedSetId("1"),
+                sessionId = HistoricalSessionId("1"),
+                exerciseNameRaw = exercise,
+                liftId = null,
+                setIndex = 0,
+                weight = Weight(100.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = null,
+                completedAt = Instant.parse("2025-01-01T12:00:00Z"),
+            )
+
+        val session =
+            HistoricalSession(
+                id = HistoricalSessionId("1"),
+                startedAt = Instant.parse("2025-01-01T12:00:00Z"),
+                endedAt = null,
+                sourceApp = null,
+            )
+        val set = duplicateSet("Bench Press")
+
+        val (_, sets) =
+            subject(
+                listOf(
+                    ImportedHistoryChunk("a.csv", listOf(session), listOf(set)),
+                    ImportedHistoryChunk(
+                        "b.csv",
+                        listOf(session.copy(id = HistoricalSessionId("1"))),
+                        listOf(set.copy(id = LoggedSetId("1"), setIndex = 2)),
+                    ),
+                ),
+            )
+
+        assertEquals(1, sets.size)
+    }
 }

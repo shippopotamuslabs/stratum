@@ -23,3 +23,8 @@ dependencies {
     testImplementation(project(":core:testing"))
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+    systemProperty("stratum.lift.weights", System.getProperty("stratum.lift.weights") ?: "")
+}

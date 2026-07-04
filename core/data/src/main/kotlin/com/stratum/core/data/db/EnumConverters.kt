@@ -5,6 +5,7 @@ import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.importing.IntervalMethod
 import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
@@ -29,8 +30,8 @@ import com.stratum.domain.response.ExperimentStatus
 import com.stratum.domain.response.OutcomeMetric
 import com.stratum.domain.response.identity.EpochId
 import com.stratum.domain.response.identity.ExperimentId
-import com.stratum.domain.response.modeling.MrvSource
 import com.stratum.domain.response.modeling.OutcomeModelType
+import com.stratum.domain.response.modeling.VolumePosture
 
 /**
  * Single source of truth for enum ↔ String and typed-id ↔ String persistence across the
@@ -97,22 +98,6 @@ class EnumConverters {
         value?.let { runCatching { MovementPattern.valueOf(it) }.getOrNull() }
 
     @TypeConverter
-    fun fromMovementPatternSet(patterns: Set<MovementPattern>?): String? =
-        patterns?.joinToString(",") { it.name }
-
-    @TypeConverter
-    fun toMovementPatternSet(value: String?): Set<MovementPattern>? {
-        if (value.isNullOrBlank()) return emptySet()
-        return value.split(",")
-            .mapNotNull { token ->
-                token.trim().takeIf { it.isNotEmpty() }?.let {
-                    runCatching { MovementPattern.valueOf(it) }.getOrNull()
-                }
-            }
-            .toSet()
-    }
-
-    @TypeConverter
     fun fromGymPreset(preset: GymPreset?): String? = preset?.name
 
     @TypeConverter
@@ -125,6 +110,13 @@ class EnumConverters {
     @TypeConverter
     fun toMuscleLengthBias(value: String?): MuscleLengthBias? =
         value?.let { runCatching { MuscleLengthBias.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromKinematicProfile(profile: KinematicProfile?): String? = profile?.name
+
+    @TypeConverter
+    fun toKinematicProfile(value: String?): KinematicProfile? =
+        value?.let { runCatching { KinematicProfile.valueOf(it) }.getOrNull() }
 
     /**
      * Unwraps a typed [LiftId] to its String `.value` for SQL, and re-wraps on the way back
@@ -238,11 +230,11 @@ class EnumConverters {
         value?.let { runCatching { OutcomeModelType.valueOf(it) }.getOrNull() }
 
     @TypeConverter
-    fun fromMrvSource(source: MrvSource?): String? = source?.name
+    fun fromVolumePosture(posture: VolumePosture?): String? = posture?.name
 
     @TypeConverter
-    fun toMrvSource(value: String?): MrvSource? =
-        value?.let { runCatching { MrvSource.valueOf(it) }.getOrNull() }
+    fun toVolumePosture(value: String?): VolumePosture? =
+        value?.let { runCatching { VolumePosture.valueOf(it) }.getOrNull() }
 
     // --- OS-7: program hierarchy enums + typed ids -------------------------------------
 

@@ -16,29 +16,36 @@ data class ImportInsightsSummaryUi(
     val customLiftsCreated: Int,
     val liftsWithInsights: Int,
     val supersetPairs: Int,
-    val volumeLandmarks: List<MuscleVolumeLandmarkUi>,
+    val volumeSnapshots: List<MuscleVolumeSnapshotUi>,
     val effectiveLifts: List<EffectiveLiftHighlightUi>,
     val volumeResponses: List<VolumeResponseHighlightUi>,
 ) {
-    val landmarkCount: Int get() = volumeLandmarks.size
-    val hasVolumeLandmarks: Boolean get() = volumeLandmarks.isNotEmpty()
+    val snapshotCount: Int get() = volumeSnapshots.size
+    val hasVolumeSnapshots: Boolean get() = volumeSnapshots.isNotEmpty()
     val hasEffectiveLifts: Boolean get() = effectiveLifts.isNotEmpty()
     val hasVolumeResponses: Boolean get() = volumeResponses.isNotEmpty()
+    val usesMostlyPopulationDefaults: Boolean
+        get() =
+            volumeSnapshots.isNotEmpty() &&
+                volumeSnapshots.count { !it.personalizedFromLogs } * 4 >= volumeSnapshots.size * 3
 }
 
-data class MuscleVolumeLandmarkUi(
+data class MuscleVolumeSnapshotUi(
     val muscleLabel: String,
-    val mevWeeklyHardSets: String,
-    val mavWeeklyHardSets: String,
-    val mrvWeeklyHardSets: String,
+    val mvWeeklyHardSets: String,
     val pvWeeklyHardSets: String,
-    /** Confidence-interval range label (e.g. "6–10 sets"), or "" when no range is available. */
-    val mevIntervalLabel: String,
-    val mavIntervalLabel: String,
-    val mrvIntervalLabel: String,
+    val rcWeeklyHardSets: String,
+    val isSaturatedPosture: Boolean,
+    val personalizedFromLogs: Boolean,
+    val observedMinWeeklyHardSets: String,
+    val observedMedianWeeklyHardSets: Double,
+    val observedMedianWeeklyHardSetsLabel: String,
+    val observedMaxWeeklyHardSets: String,
     val pvIntervalLabel: String,
     val confidenceTier: LandmarkConfidenceTier,
-)
+) {
+    val hasPvInterval: Boolean get() = pvIntervalLabel.isNotEmpty()
+}
 
 data class EffectiveLiftHighlightUi(
     val muscleLabel: String,

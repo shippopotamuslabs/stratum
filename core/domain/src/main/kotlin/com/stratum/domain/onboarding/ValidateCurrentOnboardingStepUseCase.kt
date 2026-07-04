@@ -14,6 +14,7 @@ class ValidateCurrentOnboardingStepUseCase @Inject constructor(
     private val validateProfileStep: ValidateProfileStepUseCase,
     private val validateScheduleStep: ValidateScheduleStepUseCase,
     private val validateSpecializationStep: ValidateSpecializationStepUseCase,
+    private val validateMinimumVolumeStep: ValidateMinimumVolumeStepUseCase,
     private val validateGymLiftsStep: ValidateGymLiftsStepUseCase,
 ) {
     operator fun invoke(
@@ -31,6 +32,8 @@ class ValidateCurrentOnboardingStepUseCase @Inject constructor(
                 validateScheduleStep(profile) is ScheduleValidationResult.Valid
             OnboardingStep.Specialization ->
                 validateSpecializationStep(specialization) is SpecializationValidationResult.Valid
+            OnboardingStep.MinimumVolume ->
+                validateMinimumVolumeStep(specialization) is MinimumVolumeValidationResult.Valid
             OnboardingStep.GymAndLifts ->
                 isGymLiftsStepValid(lifts, selectedPreset, usedHistoricalImport)
             else -> true

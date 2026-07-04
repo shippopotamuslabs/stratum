@@ -18,7 +18,7 @@ import com.stratum.feature.onboarding.activeTimelineIndex
 private fun GenerateScreenLoadingTonalPreview() {
     GenerateScreenPreviewGrid(
         family = StratumThemeId.Tonal,
-        phase = ProgramGenerationProgressPhaseUi.SplitPlanning,
+        phase = ProgramGenerationProgressPhaseUi.PlanningVolume,
     )
 }
 
@@ -27,7 +27,7 @@ private fun GenerateScreenLoadingTonalPreview() {
 private fun GenerateScreenLoadingNeoPreview() {
     GenerateScreenPreviewGrid(
         family = StratumThemeId.NeoBrutalist,
-        phase = ProgramGenerationProgressPhaseUi.BuildingWorkouts,
+        phase = ProgramGenerationProgressPhaseUi.EvaluatingSplits,
     )
 }
 

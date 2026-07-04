@@ -2,19 +2,31 @@
 
 package com.stratum.domain.program.generation.volume
 
-import com.stratum.domain.program.generation.context.MAJOR_MUSCLES
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.FrequencyTier
 import com.stratum.domain.program.generation.reference.frequencyTierForWeeklySets
+import com.stratum.domain.program.generation.volume.targetableMuscles
 
 fun requiredFrequencyTier(weeklyTargets: WeeklyVolumeTargets): FrequencyTier {
     var maxTier = FrequencyTier.One
     for ((_, target) in weeklyTargets) {
-        val tier = frequencyTierForWeeklySets(target.aim)
+        val tier = maxOf(
+            frequencyTierForWeeklySets(target.aim),
+            frequencyTierForSessionCap(target.aim),
+        )
         if (tier.value > maxTier.value) maxTier = tier
     }
     return maxTier
 }
+
+/** Minimum sessions so no workout exceeds [SESSION_MUSCLE_SET_CAP] primary credits. */
+internal fun frequencyTierForSessionCap(weeklyAim: Double): FrequencyTier =
+    when {
+        weeklyAim <= SESSION_MUSCLE_SET_CAP -> FrequencyTier.One
+        weeklyAim <= SESSION_MUSCLE_SET_CAP * 2 -> FrequencyTier.Two
+        else -> FrequencyTier.Three
+    }
 
 /** Sessions in cycle that train [muscle] as primary (from filled session plans). */
 fun muscleSessionsInCycle(
@@ -31,7 +43,10 @@ fun validateCycleFrequency(
     for (muscle in frequencyPlannerTrainableMuscles(context)) {
         val target = weeklyTargets[muscle] ?: continue
         if (target.aim <= 0) continue
-        val tier = frequencyTierForWeeklySets(target.aim)
+        val tier = maxOf(
+            frequencyTierForWeeklySets(target.aim),
+            frequencyTierForSessionCap(target.aim),
+        )
         val sessions = muscleSessionsInCycle(sessionMuscles, muscle)
         val minRequired = when (tier) {
             FrequencyTier.One -> 1
@@ -47,10 +62,8 @@ fun validateCycleFrequency(
 
 internal fun frequencyPlannerTrainableMuscles(context: ProgramGenerationContext): List<String> {
     val patternsByMuscle = availablePatternsByMuscle(context)
-    return MAJOR_MUSCLES.filter { m ->
-        val level = context.specialization[m] ?: "Maintenance"
-        if (level == "Omit") return@filter false
-        (patternsByMuscle[m]?.size ?: 0) > 0
+    return targetableMuscles(context).filter { muscle ->
+        (patternsByMuscle[muscle]?.size ?: 0) > 0
     }
 }
 

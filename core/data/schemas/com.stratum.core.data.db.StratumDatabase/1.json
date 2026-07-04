@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "08081c9cd06737cbafea453f9031b68a",
+    "identityHash": "fc66bd1b688df7d3e7ec0de428cae4ba",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -104,7 +104,7 @@
       },
       {
         "tableName": "lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatterns` TEXT NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `allowWeightChangeBetweenSets` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `allowWeightChangeBetweenSets` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -119,9 +119,9 @@
             "notNull": true
           },
           {
-            "fieldPath": "movementPatterns",
-            "columnName": "movementPatterns",
-            "affinity": "TEXT",
+            "fieldPath": "movementPatternsBitmask",
+            "columnName": "movementPatternsBitmask",
+            "affinity": "INTEGER",
             "notNull": true
           },
           {
@@ -185,6 +185,12 @@
             "fieldPath": "mainstream",
             "columnName": "mainstream",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kinematicProfile",
+            "columnName": "kinematicProfile",
+            "affinity": "TEXT",
             "notNull": true
           }
         ],
@@ -1355,8 +1361,8 @@
         }
       },
       {
-        "tableName": "muscle_volume_landmark_estimates",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `estimatedMev` REAL NOT NULL, `estimatedMav` REAL NOT NULL, `estimatedMrv` REAL NOT NULL, `estimatedPv` REAL NOT NULL, `mevIntervalLow` REAL NOT NULL, `mevIntervalHigh` REAL NOT NULL, `mevIntervalMethod` TEXT NOT NULL, `mavIntervalLow` REAL NOT NULL, `mavIntervalHigh` REAL NOT NULL, `mavIntervalMethod` TEXT NOT NULL, `mrvIntervalLow` REAL NOT NULL, `mrvIntervalHigh` REAL NOT NULL, `mrvIntervalMethod` TEXT NOT NULL, `pvIntervalLow` REAL NOT NULL, `pvIntervalHigh` REAL NOT NULL, `pvIntervalMethod` TEXT NOT NULL, `confidenceTier` TEXT NOT NULL, `outcomeModelType` TEXT NOT NULL, `mrvSource` TEXT NOT NULL, `observedDoseMin` REAL NOT NULL, `observedDoseMax` REAL NOT NULL, `diagnosticAnchorLiftId` TEXT, PRIMARY KEY(`muscle`))",
+        "tableName": "muscle_volume_response_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `retentionFloorMv` REAL NOT NULL, `paretoVolumePv` REAL NOT NULL, `recoverabilityCeilingRc` REAL NOT NULL, `growthEntryFloor` REAL NOT NULL, `observedDoseMin` REAL NOT NULL, `observedDoseMax` REAL NOT NULL, `observedDoseMedian` REAL NOT NULL, `productiveBandMin` REAL, `productiveBandMax` REAL, `posture` TEXT NOT NULL, `pvIntervalLow` REAL NOT NULL, `pvIntervalHigh` REAL NOT NULL, `pvIntervalMethod` TEXT NOT NULL, `confidenceTier` TEXT NOT NULL, `outcomeModelType` TEXT NOT NULL, `diagnosticAnchorLiftId` TEXT, PRIMARY KEY(`muscle`))",
         "fields": [
           {
             "fieldPath": "muscle",
@@ -1365,80 +1371,60 @@
             "notNull": true
           },
           {
-            "fieldPath": "estimatedMev",
-            "columnName": "estimatedMev",
+            "fieldPath": "retentionFloorMv",
+            "columnName": "retentionFloorMv",
             "affinity": "REAL",
             "notNull": true
           },
           {
-            "fieldPath": "estimatedMav",
-            "columnName": "estimatedMav",
+            "fieldPath": "paretoVolumePv",
+            "columnName": "paretoVolumePv",
             "affinity": "REAL",
             "notNull": true
           },
           {
-            "fieldPath": "estimatedMrv",
-            "columnName": "estimatedMrv",
+            "fieldPath": "recoverabilityCeilingRc",
+            "columnName": "recoverabilityCeilingRc",
             "affinity": "REAL",
             "notNull": true
           },
           {
-            "fieldPath": "estimatedPv",
-            "columnName": "estimatedPv",
+            "fieldPath": "growthEntryFloor",
+            "columnName": "growthEntryFloor",
             "affinity": "REAL",
             "notNull": true
           },
           {
-            "fieldPath": "mevIntervalLow",
-            "columnName": "mevIntervalLow",
+            "fieldPath": "observedDoseMin",
+            "columnName": "observedDoseMin",
             "affinity": "REAL",
             "notNull": true
           },
           {
-            "fieldPath": "mevIntervalHigh",
-            "columnName": "mevIntervalHigh",
+            "fieldPath": "observedDoseMax",
+            "columnName": "observedDoseMax",
             "affinity": "REAL",
             "notNull": true
           },
           {
-            "fieldPath": "mevIntervalMethod",
-            "columnName": "mevIntervalMethod",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "mavIntervalLow",
-            "columnName": "mavIntervalLow",
+            "fieldPath": "observedDoseMedian",
+            "columnName": "observedDoseMedian",
             "affinity": "REAL",
             "notNull": true
           },
           {
-            "fieldPath": "mavIntervalHigh",
-            "columnName": "mavIntervalHigh",
-            "affinity": "REAL",
-            "notNull": true
+            "fieldPath": "productiveBandMin",
+            "columnName": "productiveBandMin",
+            "affinity": "REAL"
           },
           {
-            "fieldPath": "mavIntervalMethod",
-            "columnName": "mavIntervalMethod",
-            "affinity": "TEXT",
-            "notNull": true
+            "fieldPath": "productiveBandMax",
+            "columnName": "productiveBandMax",
+            "affinity": "REAL"
           },
           {
-            "fieldPath": "mrvIntervalLow",
-            "columnName": "mrvIntervalLow",
-            "affinity": "REAL",
-            "notNull": true
-          },
-          {
-            "fieldPath": "mrvIntervalHigh",
-            "columnName": "mrvIntervalHigh",
-            "affinity": "REAL",
-            "notNull": true
-          },
-          {
-            "fieldPath": "mrvIntervalMethod",
-            "columnName": "mrvIntervalMethod",
+            "fieldPath": "posture",
+            "columnName": "posture",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -1470,24 +1456,6 @@
             "fieldPath": "outcomeModelType",
             "columnName": "outcomeModelType",
             "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "mrvSource",
-            "columnName": "mrvSource",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "observedDoseMin",
-            "columnName": "observedDoseMin",
-            "affinity": "REAL",
-            "notNull": true
-          },
-          {
-            "fieldPath": "observedDoseMax",
-            "columnName": "observedDoseMax",
-            "affinity": "REAL",
             "notNull": true
           },
           {
@@ -1592,7 +1560,7 @@
       },
       {
         "tableName": "programs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `created_at` TEXT NOT NULL, `cycle_length` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `created_at` TEXT NOT NULL, `cycle_length` INTEGER NOT NULL, `training_weekdays` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -1616,6 +1584,12 @@
             "fieldPath": "cycleLength",
             "columnName": "cycle_length",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trainingWeekdays",
+            "columnName": "training_weekdays",
+            "affinity": "TEXT",
             "notNull": true
           }
         ],
@@ -1864,7 +1838,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '08081c9cd06737cbafea453f9031b68a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'fc66bd1b688df7d3e7ec0de428cae4ba')"
     ]
   }
 }

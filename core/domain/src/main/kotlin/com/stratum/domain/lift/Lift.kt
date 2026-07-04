@@ -45,6 +45,7 @@ data class Lift(
     val imageUris: List<String> = emptyList(),
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val mainstream: Boolean = false,
+    val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
 ) {
     val isCompound: Boolean
         get() = movementPatterns.size > 1

@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Stratum</string>
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_program">Program</string>
+    <string name="tab_gym">Gym</string>
+    <string name="dashboard_placeholder_title">Dashboard</string>
+    <string name="dashboard_placeholder_subtitle">Training metrics land in a later slice.</string>
+    <string name="gym_placeholder_title">Gym</string>
+    <string name="gym_placeholder_subtitle">Lift catalog and history land in a later slice.</string>
 </resources>

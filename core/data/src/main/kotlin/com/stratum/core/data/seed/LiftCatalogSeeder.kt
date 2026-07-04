@@ -8,6 +8,7 @@ import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
@@ -34,6 +35,10 @@ class LiftCatalogSeeder(
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+        // Unknown enum names in the asset coerce to the enum's default rather than throwing —
+        // keeps a single stale entry from dropping the whole catalog. Degenerate results
+        // (e.g. an entry whose pattern coerced to an empty list) are filtered in mapDto.
+        coerceInputValues = true
     }
 
     /**
@@ -74,17 +79,18 @@ class LiftCatalogSeeder(
     }
 
     private fun mapDto(dto: LiftSeedDto): MappedLift? {
-        val patterns = dto.movementPatterns.mapNotNull { enumValueOfOrNull<MovementPattern>(it) }.toSet()
+        val patterns = dto.movementPatterns.toSet()
         if (patterns.isEmpty()) return null
-        val primary = dto.primaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
-        val secondary = dto.secondaryMuscles.mapNotNull { enumValueOfOrNull<MuscleGroup>(it) }.toSet()
+        val primary = dto.primaryMuscles.toSet()
+        val secondary = dto.secondaryMuscles.toSet()
         val tags = dto.presetTags.mapNotNull { enumValueOfOrNull<GymPreset>(it) }.toSet()
-        val bias = dto.muscleLengthBias?.let { enumValueOfOrNull<MuscleLengthBias>(it) } ?: MuscleLengthBias.MidRange
+        val bias = dto.muscleLengthBias ?: MuscleLengthBias.MidRange
+        val profile = dto.kinematicProfile ?: KinematicProfile.Isolation
         val id = LiftId(dto.id)
         val lift = LiftEntity(
             id = id,
             name = dto.name,
-            movementPatterns = patterns,
+            movementPatternsBitmask = patterns.toBitmask(),
             primaryMusclesBitmask = primary.toBitmask(),
             secondaryMusclesBitmask = secondary.toBitmask(),
             allowWeightChangeBetweenSets = dto.allowWeightChangeBetweenSets,
@@ -96,6 +102,7 @@ class LiftCatalogSeeder(
             imageUrisCsv = dto.imageUris.joinToString(","),
             muscleLengthBias = bias,
             mainstream = dto.mainstream,
+            kinematicProfile = profile,
         )
         val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).mapIndexed { _, t ->
             IncrementTierEntity(

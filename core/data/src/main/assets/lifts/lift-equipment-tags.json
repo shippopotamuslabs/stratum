@@ -347,7 +347,20 @@
   {
     "id": "calf-press",
     "equipment": [
-      "CableStation"
+      "LegPress",
+      "CalfRaiseMachine"
+    ]
+  },
+  {
+    "id": "calf-press-leg-press",
+    "equipment": [
+      "LegPress"
+    ]
+  },
+  {
+    "id": "calf-raise-hack-squat",
+    "equipment": [
+      "HackSquat"
     ]
   },
   {
@@ -569,6 +582,13 @@
     ]
   },
   {
+    "id": "dumbbell-seated-one-leg-calf-raise",
+    "equipment": [
+      "Dumbbell",
+      "Bench"
+    ]
+  },
+  {
     "id": "dumbbell-spider-curl",
     "equipment": [
       "Dumbbell"
@@ -666,12 +686,6 @@
     "equipment": [
       "Barbell",
       "PowerRack"
-    ]
-  },
-  {
-    "id": "handstand-push-ups",
-    "equipment": [
-      "Bodyweight"
     ]
   },
   {
@@ -1185,6 +1199,13 @@
     ]
   },
   {
+    "id": "smith-machine-calf-raise",
+    "equipment": [
+      "SmithMachine",
+      "CalfRaiseMachine"
+    ]
+  },
+  {
     "id": "smith-machine-overhead-shoulder-press",
     "equipment": [
       "SmithMachine"
@@ -1224,6 +1245,12 @@
     ]
   },
   {
+    "id": "standing-barbell-calf-raise",
+    "equipment": [
+      "Barbell"
+    ]
+  },
+  {
     "id": "standing-barbell-press-behind-neck",
     "equipment": [
       "Barbell"
@@ -1233,6 +1260,18 @@
     "id": "standing-biceps-cable-curl",
     "equipment": [
       "CableStation"
+    ]
+  },
+  {
+    "id": "standing-calf-raise-machine",
+    "equipment": [
+      "CalfRaiseMachine"
+    ]
+  },
+  {
+    "id": "standing-dumbbell-calf-raise",
+    "equipment": [
+      "Dumbbell"
     ]
   },
   {

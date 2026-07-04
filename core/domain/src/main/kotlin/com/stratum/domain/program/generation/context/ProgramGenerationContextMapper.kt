@@ -2,12 +2,16 @@
 
 package com.stratum.domain.program.generation.context
 
+import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.importing.MuscleVolumeHighlight
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.SpecializationPreference
+import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.program.LiftWithInsights
-import com.stratum.domain.program.LiteratureVolumeLandmarks
+import com.stratum.domain.program.LiteratureVolumeDefaultsProvider
 import com.stratum.domain.program.ResponseProfilePayload
+import com.stratum.domain.response.modeling.VolumePosture
 
 object ProgramGenerationContextMapper {
     fun map(
@@ -19,7 +23,7 @@ object ProgramGenerationContextMapper {
     ): ProgramGenerationContext {
         val liftsById = linkedMapOf<String, LiftContext>()
         val enabledLiftIds = mutableSetOf<String>()
-        val movementPatternByLiftId = linkedMapOf<String, String>()
+        val movementPatternByLiftId = linkedMapOf<String, MovementPattern?>()
         for (entry in provenLifts + availableLifts) {
             val ctx = entry.toLiftContext(proven = entry in provenLifts)
             liftsById[ctx.id] = ctx
@@ -27,36 +31,36 @@ object ProgramGenerationContextMapper {
             movementPatternByLiftId[ctx.id] = ctx.movementPattern
         }
 
-        val volumeLandmarksByMuscle = mergeVolumeLandmarks(responseProfile)
-        val volumeResponsesByMuscle = mergeVolumeResponses(responseProfile)
+        val trainingAge = profile.trainingAge
+        val muscleVolumeSnapshotsByMuscle = mergeVolumeSnapshots(responseProfile, trainingAge)
+        val volumeCorrelationsByMuscle = mergeVolumeCorrelations(responseProfile)
         val liftEffectivenessByLiftId = mergeLiftEffectiveness(responseProfile)
 
         return ProgramGenerationContext(
-            trainingAge = profile.trainingAge?.name.orEmpty(),
+            trainingAge = trainingAge?.name.orEmpty(),
             lastTrained = profile.lastTrained?.name,
             sessionLengthMinutes = profile.sessionLengthMinutes,
             trainingDaysPerWeek = profile.weekdays.size,
             weekdays = profile.weekdays.map { it.name },
-            specialization = specialization.levels.mapKeys { (muscle, _) -> muscle.name }
-                .mapValues { (_, level) -> level.name },
+            specialization = specialization.levels,
             liftsById = liftsById,
-            volumeLandmarksByMuscle = volumeLandmarksByMuscle,
-            volumeResponsesByMuscle = volumeResponsesByMuscle,
+            muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,
+            volumeCorrelationsByMuscle = volumeCorrelationsByMuscle,
             enabledLiftIds = enabledLiftIds,
             movementPatternByLiftId = movementPatternByLiftId,
             liftEffectivenessByLiftId = liftEffectivenessByLiftId,
         )
     }
 
-    private fun LiftWithInsights.toLiftContext(proven: Boolean): LiftContext {
-        val patterns = lift.movementPatterns.map { it.name }
+        private fun LiftWithInsights.toLiftContext(proven: Boolean): LiftContext {
+        val patterns = lift.movementPatterns
         return LiftContext(
             id = lift.id.value,
             name = lift.name,
-            movementPattern = patterns.firstOrNull().orEmpty(),
+            movementPattern = patterns.firstOrNull(),
             movementPatterns = patterns,
-            primaryMuscles = lift.primaryMuscles.map { it.name },
-            secondaryMuscles = lift.secondaryMuscles.map { it.name },
+            primaryMuscles = lift.primaryMuscles,
+            secondaryMuscles = lift.secondaryMuscles,
             mainstream = lift.mainstream,
             progressTrend = trainingInsights?.progressTrend?.name,
             proven = proven,
@@ -65,6 +69,7 @@ object ProgramGenerationContextMapper {
             fatigueDecayIntercept = trainingInsights?.fatigueDecayIntercept,
             muscleLengthBias = lift.muscleLengthBias.toGenerationContext(),
             equipment = lift.equipment,
+            kinematicProfile = lift.kinematicProfile,
         )
     }
 
@@ -75,63 +80,76 @@ object ProgramGenerationContextMapper {
             com.stratum.domain.lift.MuscleLengthBias.MidRange -> MuscleLengthBias.MidRange
         }
 
-    private fun mergeVolumeLandmarks(
+    private fun mergeVolumeSnapshots(
         responseProfile: ResponseProfilePayload?,
-    ): Map<String, VolumeLandmarkContext> {
-        val into = linkedMapOf<String, VolumeLandmarkContext>()
-        responseProfile?.volumeLandmarks.orEmpty().forEach { highlight ->
-            mergeLandmark(into, highlight.toPersonalLandmark(), preferPersonal = true)
-        }
-        LiteratureVolumeLandmarks.all().forEach { literature ->
-            mergeLandmark(
+        trainingAge: TrainingAge?,
+    ): Map<String, MuscleVolumeSnapshotContext> {
+        val globals = GlobalVolumePriors.forTrainingAge(trainingAge)
+        val into = linkedMapOf<String, MuscleVolumeSnapshotContext>()
+        LiteratureVolumeDefaultsProvider.all(trainingAge).forEach { literature ->
+            mergeSnapshot(
                 into,
-                VolumeLandmarkContext(
-                    muscle = literature.muscle.name,
-                    estimatedMev = literature.estimatedMev,
-                    estimatedMav = literature.estimatedMav,
-                    estimatedMrv = literature.estimatedMrv,
-                    estimatedPv = literature.estimatedPv,
-                    source = VolumeLandmarkSource.Literature,
-                ),
+                literature.toSnapshotContext(),
                 preferPersonal = false,
             )
+        }
+        responseProfile?.volumeSnapshots.orEmpty().forEach { highlight ->
+            mergeSnapshot(into, highlight.toPersonalSnapshot(globals), preferPersonal = true)
         }
         return into
     }
 
-    private fun MuscleVolumeHighlight.toPersonalLandmark(): VolumeLandmarkContext =
-        VolumeLandmarkContext(
+    private fun MuscleVolumeHighlight.toPersonalSnapshot(
+        globals: com.stratum.domain.importing.ResolvedGlobalVolumePriors,
+    ): MuscleVolumeSnapshotContext =
+        MuscleVolumeSnapshotContext(
             muscle = muscle.name,
-            estimatedMev = estimatedMev,
-            estimatedMav = estimatedMav,
-            estimatedMrv = estimatedMrv,
-            estimatedPv = estimatedPv,
-            source = VolumeLandmarkSource.Personal,
+            retentionFloorMv = retentionFloorMv,
+            paretoVolumePv = paretoVolumePv,
+            recoverabilityCeilingRc = recoverabilityCeilingRc,
+            growthEntryFloor = globals.growthEntryFloor,
+            maintenanceCeiling = globals.maintenanceCeiling,
+            posture = posture.name,
+            observedDoseMax = observedDoseMax,
+            observedDoseMedian = observedDoseMedian,
+            source = VolumeSnapshotSource.Personal,
         )
 
-    private fun mergeLandmark(
-        into: MutableMap<String, VolumeLandmarkContext>,
-        landmark: VolumeLandmarkContext,
+    private fun com.stratum.domain.program.LiteratureVolumeDefaults.toSnapshotContext(): MuscleVolumeSnapshotContext =
+        MuscleVolumeSnapshotContext(
+            muscle = muscle.name,
+            retentionFloorMv = retentionFloorMv,
+            paretoVolumePv = paretoVolumePv,
+            recoverabilityCeilingRc = recoverabilityCeilingRc,
+            growthEntryFloor = growthEntryFloor,
+            maintenanceCeiling = maintenanceCeiling,
+            posture = null,
+            source = VolumeSnapshotSource.Literature,
+        )
+
+    private fun mergeSnapshot(
+        into: MutableMap<String, MuscleVolumeSnapshotContext>,
+        snapshot: MuscleVolumeSnapshotContext,
         preferPersonal: Boolean,
     ) {
-        val existing = into[landmark.muscle]
+        val existing = into[snapshot.muscle]
         if (existing == null) {
-            into[landmark.muscle] = landmark
+            into[snapshot.muscle] = snapshot
             return
         }
-        if (preferPersonal && landmark.source == VolumeLandmarkSource.Personal) {
-            into[landmark.muscle] = landmark
-        } else if (existing.source != VolumeLandmarkSource.Personal) {
-            into[landmark.muscle] = landmark
+        if (preferPersonal && snapshot.source == VolumeSnapshotSource.Personal) {
+            into[snapshot.muscle] = snapshot
+        } else if (existing.source != VolumeSnapshotSource.Personal) {
+            into[snapshot.muscle] = snapshot
         }
     }
 
-    private fun mergeVolumeResponses(
+    private fun mergeVolumeCorrelations(
         responseProfile: ResponseProfilePayload?,
-    ): Map<String, VolumeResponseContext> {
+    ): Map<String, VolumeCorrelationContext> {
         if (responseProfile == null) return emptyMap()
         return responseProfile.volumeResponses.associate { influence ->
-            influence.muscle.name to VolumeResponseContext(
+            influence.muscle.name to VolumeCorrelationContext(
                 muscle = influence.muscle.name,
                 correlationSlope = influence.correlationSlope,
                 evidence = influence.evidence.name,
@@ -146,7 +164,7 @@ object ProgramGenerationContextMapper {
         return responseProfile.liftEffectiveness.associate { influence ->
             influence.liftId.value to LiftEffectivenessEntry(
                 liftId = influence.liftId.value,
-                pattern = influence.pattern.name,
+                pattern = influence.pattern,
                 rank = influence.rank,
                 effectivenessScore = influence.effectivenessScore,
                 evidence = influence.evidence.name,

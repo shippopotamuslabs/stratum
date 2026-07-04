@@ -7,9 +7,11 @@ internal val programGenerationTimelinePhases: List<ProgramGenerationProgressPhas
     listOf(
         ProgramGenerationProgressPhaseUi.PreparingPayload,
         ProgramGenerationProgressPhaseUi.ReviewingProfile,
-        ProgramGenerationProgressPhaseUi.SplitPlanning,
-        ProgramGenerationProgressPhaseUi.BuildingWorkouts,
-        ProgramGenerationProgressPhaseUi.Integrating,
+        ProgramGenerationProgressPhaseUi.PlanningVolume,
+        ProgramGenerationProgressPhaseUi.SynthesizingProgram,
+        ProgramGenerationProgressPhaseUi.SelectingExercises,
+        ProgramGenerationProgressPhaseUi.PolishingProgram,
+        ProgramGenerationProgressPhaseUi.FinalizingProgram,
         ProgramGenerationProgressPhaseUi.SavingProgram,
     )
 

@@ -33,6 +33,7 @@ import com.stratum.feature.onboarding.ui.GymAndLiftsScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
+import com.stratum.feature.onboarding.ui.MinimumVolumeScreen
 import com.stratum.feature.onboarding.ui.SpecializationScreen
 import com.stratum.feature.onboarding.ui.WelcomeScreen
 
@@ -71,12 +72,18 @@ fun OnboardingRoute(
         onNext = viewModel::next,
         onBack = viewModel::back,
         onGenerate = viewModel::generate,
-        onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
-        onLastTrainedSelected = viewModel::onLastTrainedSelected,
-        onWeekdayToggled = viewModel::onWeekdayToggled,
-        onSessionPresetSelected = viewModel::onSessionPresetSelected,
-        onCustomSessionMinutesChange = viewModel::onCustomSessionMinutesChange,
+        profileSchedule = ProfileScheduleHandlers(
+            onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
+            onLastTrainedSelected = viewModel::onLastTrainedSelected,
+            onWeekdayToggled = viewModel::onWeekdayToggled,
+            onSessionPresetSelected = viewModel::onSessionPresetSelected,
+            onCustomSessionMinutesChange = viewModel::onCustomSessionMinutesChange,
+        ),
         onMuscleToggled = viewModel::onMuscleToggled,
+        minimumVolume = MinimumVolumeHandlers(
+            onMuscleToggled = viewModel::onMinimumVolumeMuscleToggled,
+            onSuggestedMuscleToggled = viewModel::onSuggestedMinimumVolumeToggled,
+        ),
         gymLifts = GymLiftsHandlers(
             onPresetSelected = viewModel::onPresetSelected,
         ),
@@ -98,12 +105,9 @@ private fun OnboardingWizard(
     onNext: () -> Unit,
     onBack: () -> Unit,
     onGenerate: () -> Unit,
-    onTrainingAgeSelected: (String?) -> Unit,
-    onLastTrainedSelected: (String?) -> Unit,
-    onWeekdayToggled: (String) -> Unit,
-    onSessionPresetSelected: (String?) -> Unit,
-    onCustomSessionMinutesChange: (Int) -> Unit,
+    profileSchedule: ProfileScheduleHandlers,
     onMuscleToggled: (String) -> Unit,
+    minimumVolume: MinimumVolumeHandlers,
     gymLifts: GymLiftsHandlers,
     onImportClick: () -> Unit,
     onImportCancel: () -> Unit,
@@ -134,18 +138,23 @@ private fun OnboardingWizard(
                     WIZARD_STEP_WELCOME -> WelcomeScreen()
                     WIZARD_STEP_PROFILE -> ProfileScreen(
                         draft = state.profileDraft,
-                        onTrainingAgeSelected = onTrainingAgeSelected,
-                        onLastTrainedSelected = onLastTrainedSelected,
+                        onTrainingAgeSelected = profileSchedule.onTrainingAgeSelected,
+                        onLastTrainedSelected = profileSchedule.onLastTrainedSelected,
                     )
                     WIZARD_STEP_SCHEDULE -> ScheduleScreen(
                         draft = state.scheduleDraft,
-                        onWeekdayToggled = onWeekdayToggled,
-                        onSessionPresetSelected = onSessionPresetSelected,
-                        onCustomSessionMinutesChange = onCustomSessionMinutesChange,
+                        onWeekdayToggled = profileSchedule.onWeekdayToggled,
+                        onSessionPresetSelected = profileSchedule.onSessionPresetSelected,
+                        onCustomSessionMinutesChange = profileSchedule.onCustomSessionMinutesChange,
                     )
                     WIZARD_STEP_SPECIALIZATION -> SpecializationScreen(
                         draft = state.specializationDraft,
                         onMuscleToggled = onMuscleToggled,
+                    )
+                    WIZARD_STEP_MINIMUM_VOLUME -> MinimumVolumeScreen(
+                        draft = state.minimumVolumeDraft,
+                        onMuscleToggled = minimumVolume.onMuscleToggled,
+                        onSuggestedMuscleToggled = minimumVolume.onSuggestedMuscleToggled,
                     )
                     WIZARD_STEP_GYM_AND_LIFTS -> GymAndLiftsScreen(
                         draft = state.gymLiftsDraft,
@@ -222,6 +231,7 @@ private const val WIZARD_STEP_WELCOME = "Welcome"
 private const val WIZARD_STEP_PROFILE = "Profile"
 private const val WIZARD_STEP_SCHEDULE = "Schedule"
 private const val WIZARD_STEP_SPECIALIZATION = "Specialization"
+private const val WIZARD_STEP_MINIMUM_VOLUME = "MinimumVolume"
 private const val WIZARD_STEP_GYM_AND_LIFTS = "GymAndLifts"
 private const val WIZARD_STEP_REVIEW = "Review"
 private const val WIZARD_STEP_GENERATE = "Generate"

@@ -2,8 +2,18 @@
 <resources>
     <!-- Programs screen (OS-7 read-only overview) -->
     <string name="programs_screen_title">Program</string>
-    <string name="programs_title">Your Program</string>
     <string name="programs_empty">No program yet. Generate one from onboarding.</string>
-    <string name="programs_workout_sets">Sets</string>
-    <string name="programs_back_to_onboarding_content_description">Back to create program</string>
+    <string name="programs_start_next_workout">Start Next Workout</string>
+    <string name="programs_start_empty_workout">Start Empty Workout</string>
+    <string name="programs_rest_day">Rest Day</string>
+    <string name="programs_start_workout">Start Workout</string>
+    <string name="programs_menu_create_program">Create Program</string>
+    <string name="programs_menu_generate_program">Generate Program</string>
+    <string name="programs_menu_program_library">Program Library</string>
+    <string name="programs_calendar_content_description">Workout calendar</string>
+    <string name="programs_menu_content_description">Program options</string>
+    <string name="programs_skip_workout_content_description">Skip workout</string>
+
+    <!-- TEMP: back-to-onboarding for regeneration testing -->
+    <string name="programs_back_to_generate_content_description">Back to Generate</string>
 </resources>

@@ -41,7 +41,7 @@ object ResponseModelingPipeline {
                 cleanSets = cleanSets,
             )
         val muscles = input.lifts.flatMap { it.primaryMuscles + it.secondaryMuscles }.toSet()
-        val landmarkEstimates = mutableListOf<MuscleVolumeLandmarkEstimate>()
+        val volumeSnapshots = mutableListOf<MuscleVolumeResponseSnapshot>()
         val diagnostics = mutableListOf<MuscleResponseModelDiagnostic>()
         val dosePoints = mutableListOf<MuscleDoseResponsePoint>()
         val outcomeIndices = mutableListOf<MuscleWeeklyOutcomeIndex>()
@@ -60,7 +60,7 @@ object ResponseModelingPipeline {
                     stimulus = muscleStimulus,
                     diagnosticAnchorLiftId = anchor,
                 )
-            landmarkEstimates += result.landmarks
+            volumeSnapshots += result.snapshot
             diagnostics += result.diagnostics
             dosePoints += result.dosePoints
         }
@@ -69,7 +69,7 @@ object ResponseModelingPipeline {
             weeklyStimulus = weeklyStimulus,
             liftPerformance = liftPerformance,
             outcomeIndices = outcomeIndices,
-            landmarkEstimates = landmarkEstimates,
+            volumeSnapshots = volumeSnapshots,
             diagnostics = diagnostics,
             dosePoints = dosePoints,
         )
@@ -80,11 +80,11 @@ object ResponseModelingPipeline {
         epochs: List<Epoch>,
     ): List<VolumeResponseObservation> {
         val epoch = epochs.maxByOrNull { ChronoUnit.DAYS.between(it.start, it.end) } ?: return emptyList()
-        return modeling.landmarkEstimates.mapNotNull { landmark ->
-            val muscle = landmark.muscle
+        return modeling.volumeSnapshots.mapNotNull { snapshot ->
+            val muscle = snapshot.muscle
             val points = modeling.dosePoints.filter { it.muscle == muscle }
             if (points.size < 4) return@mapNotNull null
-            val anchor = landmark.diagnosticAnchorLiftId ?: return@mapNotNull null
+            val anchor = snapshot.diagnosticAnchorLiftId ?: return@mapNotNull null
             val regression = ResponseRegressionSupport.linearRegression(points.map { it.dose }, points.map { it.response })
                 ?: return@mapNotNull null
             val confidenceScore =

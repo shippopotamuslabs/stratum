@@ -15,6 +15,8 @@ import com.stratum.core.data.repository.RoomOnboardingRepository
 import com.stratum.core.data.repository.RoomSpecializationPreferenceRepository
 import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
 import com.stratum.core.data.seed.LiftCatalogSeeder
+import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
@@ -29,7 +31,7 @@ import com.stratum.core.data.db.LiftWeeklyPerformanceDao
 import com.stratum.core.data.db.MuscleDoseResponsePointDao
 import com.stratum.core.data.db.MuscleResponseModelDiagnosticDao
 import com.stratum.core.data.db.MuscleVolumeBaselineDao
-import com.stratum.core.data.db.MuscleVolumeLandmarkEstimateDao
+import com.stratum.core.data.db.MuscleVolumeResponseSnapshotDao
 import com.stratum.core.data.db.MuscleWeeklyOutcomeIndexDao
 import com.stratum.core.data.db.MuscleWeeklyStimulusDao
 import com.stratum.core.data.db.ResponseEpochDao
@@ -46,7 +48,7 @@ import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
 import com.stratum.core.data.repository.RoomImportJobRepository
 import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
-import com.stratum.core.data.repository.RoomMuscleVolumeLandmarkEstimateRepository
+import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.data.repository.RoomSupersetAffinityRepository
 import com.stratum.core.data.repository.RoomTrainingHistoryRepository
@@ -69,7 +71,7 @@ import com.stratum.domain.response.LiftEffectivenessObservationRepository
 import com.stratum.domain.response.ResponseEpochRepository
 import com.stratum.domain.response.ResponseObservationExtractor
 import com.stratum.domain.response.ResponseProfileMetadataRepository
-import com.stratum.domain.response.MuscleVolumeLandmarkEstimateRepository
+import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.VolumeResponseObservationRepository
 import com.stratum.core.data.seed.AssetLiftEmbeddingCatalog
@@ -195,6 +197,15 @@ object DatabaseModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+object SolverModule {
+    @Provides
+    @Singleton
+    fun provideProgramSynthesisPort(): ProgramSynthesisPort =
+        CpSatProgramSynthesizer()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 object ProgramDatabaseModule {
     @Provides
     fun provideProgramDao(database: StratumDatabase): com.stratum.core.data.db.ProgramDao =
@@ -253,8 +264,8 @@ object ResponseDatabaseModule {
         database.muscleDoseResponsePointDao()
 
     @Provides
-    fun provideMuscleVolumeLandmarkEstimateDao(database: StratumDatabase): MuscleVolumeLandmarkEstimateDao =
-        database.muscleVolumeLandmarkEstimateDao()
+    fun provideMuscleVolumeResponseSnapshotDao(database: StratumDatabase): MuscleVolumeResponseSnapshotDao =
+        database.muscleVolumeResponseSnapshotDao()
 
     @Provides
     fun provideMuscleResponseModelDiagnosticDao(database: StratumDatabase): MuscleResponseModelDiagnosticDao =
@@ -356,9 +367,9 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindMuscleVolumeLandmarkEstimateRepository(
-        impl: RoomMuscleVolumeLandmarkEstimateRepository,
-    ): MuscleVolumeLandmarkEstimateRepository
+    abstract fun bindMuscleVolumeResponseSnapshotRepository(
+        impl: RoomMuscleVolumeResponseSnapshotRepository,
+    ): MuscleVolumeResponseSnapshotRepository
 
     @Binds
     @Singleton

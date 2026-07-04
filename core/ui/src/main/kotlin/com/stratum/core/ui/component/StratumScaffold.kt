@@ -10,6 +10,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 fun StratumScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
@@ -17,6 +18,7 @@ fun StratumScaffold(
         containerColor = StratumThemeAccessor.colors.surfaceBase,
         contentColor = StratumThemeAccessor.colors.textPrimary,
         topBar = topBar,
+        bottomBar = bottomBar,
         content = content,
     )
 }

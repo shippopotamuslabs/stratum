@@ -1,13 +1,27 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class VolumePlannerTest {
     @Test
-    fun `specialized muscles get higher weekly aim than maintenance for the same muscle landmarks`() {
+    fun `specialized muscles aim at recoverability ceiling RC`() {
+        val targets = planWeeklyVolume(
+            GenerationContextTestFixtures.volumePlannerContext(
+                specialization = mapOf("Bicep" to "Specialize"),
+            ),
+        )
+        val expectedRc = literatureRc("Bicep")
+        assertEquals(expectedRc, targets.getValue("Bicep").aim)
+        assertEquals(expectedRc, targets.getValue("Bicep").max)
+    }
+
+    @Test
+    fun `specialized muscles get higher weekly aim than maintenance for the same muscle snapshots`() {
         val specializedCtx = GenerationContextTestFixtures.volumePlannerContext(
             specialization = mapOf("Bicep" to "Specialize"),
         )
@@ -17,6 +31,19 @@ class VolumePlannerTest {
         val specialized = planWeeklyVolume(specializedCtx).getValue("Bicep")
         val maintenance = planWeeklyVolume(maintenanceCtx).getValue("Bicep")
         assertTrue(specialized.aim > maintenance.aim)
+    }
+
+    @Test
+    fun `maintenance muscles floor at MV and aim at PV`() {
+        val targets = planWeeklyVolume(
+            GenerationContextTestFixtures.volumePlannerContext(
+                specialization = mapOf("Chest" to "Maintenance"),
+            ),
+        )
+        val chest = targets.getValue("Chest")
+        val snapshot = GenerationContextTestFixtures.literatureSnapshotContext("Chest")
+        assertEquals(snapshot.retentionFloorMv, chest.min)
+        assertEquals(literaturePv("Chest"), chest.aim)
     }
 
     @Test
@@ -31,7 +58,11 @@ class VolumePlannerTest {
                 ),
             ),
         )
-        assertEquals(11.0, targets.getValue("Chest").aim)
+        assertEquals(literaturePv("Chest"), targets.getValue("Chest").aim)
+        assertEquals(
+            GenerationContextTestFixtures.literatureSnapshotContext("Chest").retentionFloorMv,
+            targets.getValue("Chest").min,
+        )
     }
 
     @Test
@@ -52,21 +83,45 @@ class VolumePlannerTest {
     }
 
     @Test
-    fun `arm specialization keeps full weekly back chest targets per-session cap is separate`() {
+    fun `arm and calf specialization preserves specialized RC aims while trimming maintenance upper`() {
+        val armAndCalfSpec = planWeeklyVolume(
+            GenerationContextTestFixtures.volumePlannerContext(
+                specialization = mapOf(
+                    "Bicep" to "Specialize",
+                    "Tricep" to "Specialize",
+                    "Calf" to "Specialize",
+                ),
+            ),
+        )
+        assertEquals(literatureRc("Bicep"), armAndCalfSpec.getValue("Bicep").aim)
+        assertEquals(literatureRc("Tricep"), armAndCalfSpec.getValue("Tricep").aim)
+        assertTrue(armAndCalfSpec.getValue("Chest").aim <= literaturePv("Chest"))
+        assertTrue(armAndCalfSpec.getValue("Chest").aim >= armAndCalfSpec.getValue("Chest").min)
+        assertEquals(literaturePv("Quad"), armAndCalfSpec.getValue("Quad").aim)
+    }
+
+    @Test
+    fun `dual arm specialization keeps maintenance chest and back aiming at PV when budget allows`() {
         val armSpec = planWeeklyVolume(
             GenerationContextTestFixtures.volumePlannerContext(
                 specialization = mapOf("Bicep" to "Specialize", "Tricep" to "Specialize"),
             ),
         )
-        val neutral = planWeeklyVolume(
-            GenerationContextTestFixtures.volumePlannerContext(
-                specialization = mapOf("Bicep" to "Maintenance", "Tricep" to "Maintenance"),
-            ),
+        assertEquals(literaturePv("Back"), armSpec.getValue("Back").aim)
+        assertEquals(literaturePv("Chest"), armSpec.getValue("Chest").aim)
+    }
+
+    @Test
+    fun `minimum volume muscles aim at MV below maintenance for the same snapshots`() {
+        val minimumCtx = GenerationContextTestFixtures.volumePlannerContext(
+            specialization = mapOf("Bicep" to "MinimumVolume"),
         )
-        assertEquals(14.0, armSpec.getValue("Back").aim)
-        assertEquals(14.0, armSpec.getValue("Chest").aim)
-        assertEquals(neutral.getValue("Back").aim, armSpec.getValue("Back").aim)
-        assertEquals(neutral.getValue("Chest").aim, armSpec.getValue("Chest").aim)
-        assertTrue((armSpec.getValue("Bicep").aim) > (neutral.getValue("Bicep").aim))
+        val maintenanceCtx = GenerationContextTestFixtures.volumePlannerContext(
+            specialization = mapOf("Bicep" to "Maintenance"),
+        )
+        val minimum = planWeeklyVolume(minimumCtx).getValue("Bicep")
+        val maintenance = planWeeklyVolume(maintenanceCtx).getValue("Bicep")
+        assertTrue(minimum.aim < maintenance.aim)
+        assertTrue(minimum.max <= maintenance.aim)
     }
 }

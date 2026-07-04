@@ -20,6 +20,7 @@ class FakeHistoricalImportPort(
     var conversionJson: String = """{"sessions":[],"sets":[]}""",
     /** When set, selects snapshot sequence per upload (1-based upload index). */
     var snapshotSequenceByUpload: List<List<ImportJobSnapshot>>? = null,
+    var conversionJsonMap: Map<String, String> = emptyMap(),
 ) : HistoricalImportPort {
     val uploads = mutableListOf<Triple<ImportJobId, ByteArray, String>>()
     private var pollIndex = 0
@@ -56,5 +57,5 @@ class FakeHistoricalImportPort(
     }
 
     override suspend fun downloadConversion(storagePath: String): Result<String> =
-        Result.success(conversionJson)
+        Result.success(conversionJsonMap[storagePath] ?: conversionJson)
 }

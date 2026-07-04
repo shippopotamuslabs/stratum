@@ -1,0 +1,21 @@
+[
+  {
+    "id": "2d-t1-fb-rot",
+    "days": 2,
+    "sessions": [
+      { "type": "FullBody", "patterns": ["SquatPattern", "HorizontalPress", "HorizontalPull", "HipHinge"] },
+      { "type": "FullBody", "patterns": ["HipHinge", "VerticalPress", "SquatPattern", "InclinePress"] }
+    ]
+  },
+  {
+    "id": "5d-t1-micro",
+    "days": 5,
+    "sessions": [
+      { "type": "CompoundPair", "slotCount": 2 },
+      { "type": "CompoundPair", "slotCount": 2 },
+      { "type": "CompoundPair", "slotCount": 2 },
+      { "type": "CompoundPair", "slotCount": 2 },
+      { "type": "AuxPair", "slotCount": 2 }
+    ]
+  }
+]

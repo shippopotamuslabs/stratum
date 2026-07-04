@@ -22,6 +22,8 @@ data class Program(
     val createdAt: Instant,
     /** Sessions in one full training cycle before repeating (may exceed workouts trained per calendar week). */
     val cycleLength: Int,
+    /** Calendar days this program trains on; rest days are [Weekday.entries] minus this set. */
+    val trainingWeekdays: Set<Weekday> = emptySet(),
     val workouts: List<Workout>,
 )
 

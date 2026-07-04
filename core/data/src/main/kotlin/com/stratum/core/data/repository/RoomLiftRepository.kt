@@ -41,6 +41,16 @@ class RoomLiftRepository @Inject constructor(
     override fun observeLifts(): Flow<List<Lift>> =
         liftDao.observeLiftsWithTiers().map { rows -> rows.map { it.toDomain() } }
 
+    override fun observeEnabledLifts(): Flow<List<Lift>> =
+        liftDao.observeEnabledLiftsWithTiers().map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeLifts(isCustom: Boolean): Flow<List<Lift>> =
+        liftDao.observeLiftsWithTiersByCustom(isCustom).map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeLiftsContainingPattern(pattern: MovementPattern): Flow<List<Lift>> =
+        liftDao.observeLiftsWithTiersByPattern(1 shl pattern.ordinal)
+            .map { rows -> rows.map { it.toDomain() } }
+
     override fun observeSelectedPreset(): Flow<GymPreset?> =
         gymPreferenceDao.observe().map { it?.selectedPreset }
 

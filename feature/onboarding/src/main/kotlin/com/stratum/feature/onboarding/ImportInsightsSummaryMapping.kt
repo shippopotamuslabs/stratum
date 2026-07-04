@@ -1,10 +1,12 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.importing.EffectiveLiftHighlight
 import com.stratum.domain.importing.HistoricalImportSummary
 import com.stratum.domain.importing.LandmarkConfidenceInterval
 import com.stratum.domain.importing.MuscleVolumeHighlight
 import com.stratum.domain.importing.VolumeResponseHighlight
+import com.stratum.domain.response.modeling.VolumePosture
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -18,21 +20,28 @@ internal fun HistoricalImportSummary.toImportInsightsSummaryUi(): ImportInsights
         customLiftsCreated = customLiftsCreated,
         liftsWithInsights = liftsWithInsights,
         supersetPairs = supersetPairs,
-        volumeLandmarks = volumeHighlights.map { it.toUi() },
+        volumeSnapshots = volumeHighlights.map { it.toUi() },
         effectiveLifts = effectiveLifts.map { it.toUi() },
         volumeResponses = volumeResponses.map { it.toUi() },
     )
 
-private fun MuscleVolumeHighlight.toUi(): MuscleVolumeLandmarkUi =
-    MuscleVolumeLandmarkUi(
+private fun MuscleVolumeHighlight.toUi(): MuscleVolumeSnapshotUi =
+    MuscleVolumeSnapshotUi(
         muscleLabel = muscle.displayLabel,
-        mevWeeklyHardSets = estimatedMev.formatWeeklySets(),
-        mavWeeklyHardSets = estimatedMav.formatWeeklySets(),
-        mrvWeeklyHardSets = estimatedMrv.formatWeeklySets(),
-        pvWeeklyHardSets = estimatedPv.formatWeeklySets(),
-        mevIntervalLabel = mevInterval.formatInterval(),
-        mavIntervalLabel = mavInterval.formatInterval(),
-        mrvIntervalLabel = mrvInterval.formatInterval(),
+        mvWeeklyHardSets = retentionFloorMv.formatWeeklySets(),
+        pvWeeklyHardSets = paretoVolumePv.formatWeeklySets(),
+        rcWeeklyHardSets = recoverabilityCeilingRc.formatWeeklySets(),
+        isSaturatedPosture =
+            posture == VolumePosture.Saturated ||
+                (
+                    observedDoseMax >= GlobalVolumePriors.RECOVERABILITY_CEILING_RC * 0.9 &&
+                        observedDoseMedian >= GlobalVolumePriors.PARETO_VOLUME_PV * 0.85
+                    ),
+        personalizedFromLogs = personalizedFromLogs,
+        observedMinWeeklyHardSets = observedDoseMin.formatWeeklySets(),
+        observedMedianWeeklyHardSets = observedDoseMedian,
+        observedMedianWeeklyHardSetsLabel = observedDoseMedian.formatWeeklySets(),
+        observedMaxWeeklyHardSets = observedDoseMax.formatWeeklySets(),
         pvIntervalLabel = pvInterval.formatInterval(),
         confidenceTier = confidenceTier,
     )
@@ -61,16 +70,11 @@ private fun Double.formatWeeklySets(): String {
     }
 }
 
-/**
- * Format a [LandmarkConfidenceInterval] as a compact range label like "6–10". The bounds are
- * weekly hard-set counts; we round each to the nearest whole set (intervals are approximate by
- * construction, so fractional precision adds noise rather than information). Returns "" when
- * the interval is unavailable so the UI omits the subheader cleanly.
- */
 private fun LandmarkConfidenceInterval.formatInterval(): String {
     if (!isAvailable) return ""
     val lowRounded = kotlin.math.round(low).toInt()
     val highRounded = kotlin.math.round(high).toInt()
+    if (lowRounded <= 0 && highRounded <= 0) return ""
     if (lowRounded == highRounded) return lowRounded.toString()
     return "$lowRounded–$highRounded"
 }

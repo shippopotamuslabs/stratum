@@ -1,10 +1,15 @@
 package com.stratum.domain.program.generation.volume
 
+import com.stratum.domain.importing.GlobalVolumePriors
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureSnapshotContext
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureSpecializeMin
 import com.stratum.domain.program.generation.context.LiftContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkSource
-import com.stratum.domain.program.generation.context.VolumeResponseContext
+import com.stratum.domain.program.generation.context.VolumeCorrelationContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -15,61 +20,73 @@ class VolumeTargetPlannerTest {
     @Nested
     inner class ResolveMuscleWeeklyTarget {
         @Test
-        fun `Specialize without proven volume response aims between MAV and MRV`() {
+        fun `Specialize aims at recoverability ceiling RC`() {
             val ctx = GenerationContextTestFixtures.contextWith()
             val target = resolveMuscleWeeklyTarget("Chest", "Specialize", ctx)
-            assertEquals(12.0, target.min)
-            assertEquals(20.0, target.max)
-            assertTrue(target.aim > 14 && target.aim < 20, "aim ${target.aim} should sit between MAV and MRV")
+            assertEquals(literatureSpecializeMin("Chest"), target.min)
+            assertEquals(literatureRc("Chest"), target.aim)
+            assertEquals(literatureRc("Chest"), target.max)
         }
 
         @Test
-        fun `Specialize with proven positive volume response aims at MRV`() {
+        fun `Specialize with proven positive volume response still aims at RC`() {
             val ctx = GenerationContextTestFixtures.contextWith(
-                volumeResponses = listOf(
-                    VolumeResponseContext("Chest", 0.4, "Proven"),
+                volumeCorrelations = listOf(
+                    VolumeCorrelationContext("Chest", 0.4, "Proven"),
                 ),
             )
             val target = resolveMuscleWeeklyTarget("Chest", "Specialize", ctx)
-            assertEquals(20.0, target.aim)
-            assertEquals(20.0, target.max)
+            assertEquals(literatureRc("Chest"), target.aim)
+            assertEquals(literatureRc("Chest"), target.max)
         }
 
         @Test
-        fun `Maintenance on a non-conservative profile targets MAV`() {
+        fun `Maintenance targets PV with MV floor`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
-                profileOverrides = mapOf("lastTrained" to "WithinLastMonth"),
+                profileOverrides = mapOf(
+                    "lastTrained" to "WithinLastMonth",
+                    "sessionLengthMinutes" to null,
+                ),
             )
-            val target = resolveMuscleWeeklyTarget("Back", "Maintenance", ctx)
-            assertEquals(8.0, target.min)
-            assertEquals(14.0, target.aim)
-            assertEquals(20.0, target.max)
+            val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
+            val snapshot = literatureSnapshotContext("Back")
+            assertEquals(snapshot.retentionFloorMv, target.min)
+            assertEquals(literaturePv("Back"), target.aim)
+            assertEquals(snapshot.maintenanceCeiling, target.max)
         }
 
         @Test
-        fun `Maintenance on a conservative return-to-training profile targets PV, caps at MAV`() {
+        fun `Maintenance on a conservative return-to-training profile also targets PV with MV floor`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
-                profileOverrides = mapOf("lastTrained" to "MoreThanAYearAgo"),
+                profileOverrides = mapOf(
+                    "lastTrained" to "MoreThanAYearAgo",
+                    "sessionLengthMinutes" to null,
+                ),
             )
-            val target = resolveMuscleWeeklyTarget("Back", "Maintenance", ctx)
-            assertEquals(8.0, target.min)
-            assertEquals(11.0, target.aim)
-            assertEquals(14.0, target.max)
+            val target = resolveUnscaledTarget("Back", "Maintenance", ctx)
+            val snapshot = literatureSnapshotContext("Back")
+            assertEquals(snapshot.retentionFloorMv, target.min)
+            assertEquals(literaturePv("Back"), target.aim)
+            assertEquals(snapshot.maintenanceCeiling, target.max)
         }
 
         @Test
-        fun `falls back to coarse defaults when no landmark exists for a muscle`() {
+        fun `falls back to coarse defaults when no snapshot exists for a muscle`() {
+            val globals = GlobalVolumePriors.forTrainingAgeName("Intermediate")
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
-                profileOverrides = mapOf("lastTrained" to "WithinLastMonth"),
-                literatureVolumeLandmarks = emptyList(),
+                profileOverrides = mapOf(
+                    "lastTrained" to "WithinLastMonth",
+                    "sessionLengthMinutes" to null,
+                ),
+                literatureVolumeSnapshots = emptyList(),
             )
-            val target = resolveMuscleWeeklyTarget("Hamstring", "Maintenance", ctx)
-            assertEquals(8.0, target.min)
-            assertEquals(14.0, target.aim)
-            assertEquals(20.0, target.max)
+            val target = resolveUnscaledTarget("Hamstring", "Maintenance", ctx)
+            assertEquals(globals.retentionFloorMv, target.min)
+            assertEquals(globals.paretoVolumePv, target.aim)
+            assertEquals(globals.maintenanceCeiling, target.max)
         }
     }
 
@@ -103,7 +120,7 @@ class VolumeTargetPlannerTest {
         }
 
         @Test
-        fun `specialized muscles get a higher aim than maintenance muscles with the same landmark`() {
+        fun `specialized muscles get a higher aim than maintenance muscles with the same snapshot`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = mapOf("Chest" to "Specialize", "Back" to "Maintenance"),
             )
@@ -114,16 +131,15 @@ class VolumeTargetPlannerTest {
         }
 
         @Test
-        fun `includes a muscle that appears only via a literature landmark (not a major muscle)`() {
+        fun `includes a muscle that appears only via a literature snapshot (not a major muscle)`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
-                literatureVolumeLandmarks = listOf(
-                    VolumeLandmarkContext("Calf", 6.0, 10.0, 16.0, 8.0, VolumeLandmarkSource.Literature),
-                ),
+                profileOverrides = mapOf("sessionLengthMinutes" to null),
+                literatureVolumeSnapshots = listOf(GenerationContextTestFixtures.literatureSnapshotContext("Calf")),
             )
             val targets = computeAllWeeklyTargets(ctx)
             assertTrue(targets.containsKey("Calf"))
-            assertEquals(10.0, targets.getValue("Calf").aim)
+            assertEquals(literaturePv("Calf"), targets.getValue("Calf").aim)
         }
     }
 
@@ -156,18 +172,18 @@ class VolumeTargetPlannerTest {
                     LiftContext(
                         id = "bench",
                         name = "bench",
-                        movementPattern = "HorizontalPress",
-                        movementPatterns = listOf("HorizontalPress"),
-                        primaryMuscles = listOf("Chest"),
-                        secondaryMuscles = listOf("Tricep"),
+                        movementPattern = MovementPattern.HorizontalPress,
+                        movementPatterns = setOf(MovementPattern.HorizontalPress),
+                        primaryMuscles = setOf(MuscleGroup.Chest),
+                        secondaryMuscles = setOf(MuscleGroup.Tricep),
                     ),
                     LiftContext(
                         id = "inc-press",
                         name = "inc-press",
-                        movementPattern = "InclinePress",
-                        movementPatterns = listOf("InclinePress"),
-                        primaryMuscles = listOf("Chest"),
-                        secondaryMuscles = listOf("AnteriorDeltoid"),
+                        movementPattern = MovementPattern.InclinePress,
+                        movementPatterns = setOf(MovementPattern.InclinePress),
+                        primaryMuscles = setOf(MuscleGroup.Chest),
+                        secondaryMuscles = setOf(MuscleGroup.AnteriorDeltoid),
                     ),
                 ),
             )

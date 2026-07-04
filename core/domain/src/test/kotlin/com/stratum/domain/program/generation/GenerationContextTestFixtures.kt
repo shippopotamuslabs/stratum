@@ -1,10 +1,14 @@
 package com.stratum.domain.program.generation
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
+import com.stratum.domain.program.LiteratureVolumeDefaultsProvider
 import com.stratum.domain.program.generation.context.LiftContext
+import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkSource
-import com.stratum.domain.program.generation.context.VolumeResponseContext
+import com.stratum.domain.program.generation.context.VolumeCorrelationContext
+import com.stratum.domain.program.generation.context.VolumeSnapshotSource
 
 internal object GenerationContextTestFixtures {
     fun contextWith(
@@ -12,8 +16,8 @@ internal object GenerationContextTestFixtures {
         specialization: Map<String, String> = mapOf("Chest" to "Specialize"),
         provenLifts: List<LiftContext> = defaultProvenLifts(),
         availableLifts: List<LiftContext> = emptyList(),
-        literatureVolumeLandmarks: List<VolumeLandmarkContext> = defaultLiteratureLandmarks(),
-        volumeResponses: List<VolumeResponseContext> = emptyList(),
+        literatureVolumeSnapshots: List<MuscleVolumeSnapshotContext> = defaultLiteratureSnapshots(),
+        volumeCorrelations: List<VolumeCorrelationContext> = emptyList(),
     ): ProgramGenerationContext {
         val profile = mutableMapOf(
             "trainingAge" to "Intermediate",
@@ -26,15 +30,15 @@ internal object GenerationContextTestFixtures {
 
         val liftsById = mutableMapOf<String, LiftContext>()
         val enabledLiftIds = mutableSetOf<String>()
-        val movementPatternByLiftId = mutableMapOf<String, String>()
+        val movementPatternByLiftId = mutableMapOf<String, MovementPattern?>()
         for (lift in provenLifts + availableLifts) {
             liftsById[lift.id] = lift
             enabledLiftIds.add(lift.id)
             movementPatternByLiftId[lift.id] = lift.movementPattern
         }
 
-        val volumeLandmarksByMuscle = literatureVolumeLandmarks.associateBy { it.muscle }
-        val volumeResponsesByMuscle = volumeResponses.associateBy { it.muscle }
+        val muscleVolumeSnapshotsByMuscle = literatureVolumeSnapshots.associateBy { it.muscle }
+        val volumeCorrelationsByMuscle = volumeCorrelations.associateBy { it.muscle }
 
         return ProgramGenerationContext(
             trainingAge = profile["trainingAge"] as String,
@@ -42,10 +46,10 @@ internal object GenerationContextTestFixtures {
             sessionLengthMinutes = profile["sessionLengthMinutes"] as Int?,
             trainingDaysPerWeek = profile["trainingDaysPerWeek"] as Int,
             weekdays = (profile["weekdays"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-            specialization = specialization,
+            specialization = specialization.toSpecializationMap(),
             liftsById = liftsById,
-            volumeLandmarksByMuscle = volumeLandmarksByMuscle,
-            volumeResponsesByMuscle = volumeResponsesByMuscle,
+            muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,
+            volumeCorrelationsByMuscle = volumeCorrelationsByMuscle,
             enabledLiftIds = enabledLiftIds,
             movementPatternByLiftId = movementPatternByLiftId,
             liftEffectivenessByLiftId = emptyMap(),
@@ -56,101 +60,120 @@ internal object GenerationContextTestFixtures {
         LiftContext(
             id = "bench",
             name = "bench",
-            movementPattern = "HorizontalPress",
-            movementPatterns = listOf("HorizontalPress"),
-            primaryMuscles = listOf("Chest"),
-            secondaryMuscles = listOf("Tricep"),
+            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            secondaryMuscles = setOf(MuscleGroup.Tricep),
         ),
         LiftContext(
             id = "row",
             name = "row",
-            movementPattern = "HorizontalPull",
-            movementPatterns = listOf("HorizontalPull"),
-            primaryMuscles = listOf("Back"),
-            secondaryMuscles = listOf("Bicep"),
+            movementPattern = MovementPattern.HorizontalPull,
+            movementPatterns = setOf(MovementPattern.HorizontalPull),
+            primaryMuscles = setOf(MuscleGroup.Back),
+            secondaryMuscles = setOf(MuscleGroup.Bicep),
         ),
     )
 
-    private fun defaultLiteratureLandmarks(): List<VolumeLandmarkContext> = listOf(
-        VolumeLandmarkContext("Chest", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Back", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-    )
+    /** Bridges a String-keyed specialization map (as still passed by legacy callers) to enums. */
+    private fun Map<String, String>.toSpecializationMap(): Map<MuscleGroup, SpecializationLevel> =
+        entries.mapNotNull { (muscle, level) ->
+            val mg = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull() ?: return@mapNotNull null
+            val sl = runCatching { SpecializationLevel.valueOf(level) }.getOrNull() ?: return@mapNotNull null
+            mg to sl
+        }.toMap()
+
+    private fun defaultLiteratureSnapshots(): List<MuscleVolumeSnapshotContext> =
+        listOf("Chest", "Back").map { muscle -> literatureSnapshotContext(muscle) }
+
+    internal fun literatureSnapshotContext(muscle: String): MuscleVolumeSnapshotContext {
+        val literature =
+            LiteratureVolumeDefaultsProvider.all().single { entry -> entry.muscle.name == muscle }
+        return MuscleVolumeSnapshotContext(
+            muscle = literature.muscle.name,
+            retentionFloorMv = literature.retentionFloorMv,
+            paretoVolumePv = literature.paretoVolumePv,
+            recoverabilityCeilingRc = literature.recoverabilityCeilingRc,
+            growthEntryFloor = literature.growthEntryFloor,
+            maintenanceCeiling = literature.maintenanceCeiling,
+            posture = null,
+            source = VolumeSnapshotSource.Literature,
+        )
+    }
+
+    internal fun literatureRc(muscle: String): Double =
+        LiteratureVolumeDefaultsProvider.all().single { it.muscle.name == muscle }.recoverabilityCeilingRc
+
+    internal fun literaturePv(muscle: String): Double =
+        LiteratureVolumeDefaultsProvider.all().single { it.muscle.name == muscle }.paretoVolumePv
+
+    internal fun literatureSpecializeMin(muscle: String): Double =
+        literatureSnapshotContext(muscle).growthEntryFloor
 
     val volumePlannerLifts: List<LiftContext> = listOf(
         LiftContext(
             id = "bench",
             name = "Bench Press",
-            movementPattern = "HorizontalPress",
-            movementPatterns = listOf("HorizontalPress"),
-            primaryMuscles = listOf("Chest"),
-            secondaryMuscles = listOf("Tricep"),
+            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            secondaryMuscles = setOf(MuscleGroup.Tricep),
         ),
         LiftContext(
             id = "row",
             name = "Row",
-            movementPattern = "HorizontalPull",
-            movementPatterns = listOf("HorizontalPull"),
-            primaryMuscles = listOf("Back"),
-            secondaryMuscles = listOf("Bicep"),
+            movementPattern = MovementPattern.HorizontalPull,
+            movementPatterns = setOf(MovementPattern.HorizontalPull),
+            primaryMuscles = setOf(MuscleGroup.Back),
+            secondaryMuscles = setOf(MuscleGroup.Bicep),
         ),
         LiftContext(
             id = "squat",
             name = "Squat",
-            movementPattern = "SquatPattern",
-            movementPatterns = listOf("SquatPattern"),
-            primaryMuscles = listOf("Quad"),
-            secondaryMuscles = listOf("Glute"),
+            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
+            primaryMuscles = setOf(MuscleGroup.Quad),
+            secondaryMuscles = setOf(MuscleGroup.Glute),
         ),
         LiftContext(
             id = "rdl",
             name = "RDL",
-            movementPattern = "HipHinge",
-            movementPatterns = listOf("HipHinge"),
-            primaryMuscles = listOf("Hamstring"),
-            secondaryMuscles = listOf("Glute"),
+            movementPattern = MovementPattern.HipHinge,
+            movementPatterns = setOf(MovementPattern.HipHinge),
+            primaryMuscles = setOf(MuscleGroup.Hamstring),
+            secondaryMuscles = setOf(MuscleGroup.Glute),
         ),
         LiftContext(
             id = "curl",
             name = "Curl",
-            movementPattern = "ElbowFlexion",
-            movementPatterns = listOf("ElbowFlexion"),
-            primaryMuscles = listOf("Bicep"),
-            secondaryMuscles = emptyList(),
+            movementPattern = MovementPattern.ElbowFlexion,
+            movementPatterns = setOf(MovementPattern.ElbowFlexion),
+            primaryMuscles = setOf(MuscleGroup.Bicep),
+            secondaryMuscles = emptySet(),
         ),
         LiftContext(
             id = "tricep-ext",
             name = "Tricep Extension",
-            movementPattern = "ElbowExtension",
-            movementPatterns = listOf("ElbowExtension"),
-            primaryMuscles = listOf("Tricep"),
-            secondaryMuscles = emptyList(),
+            movementPattern = MovementPattern.ElbowExtension,
+            movementPatterns = setOf(MovementPattern.ElbowExtension),
+            primaryMuscles = setOf(MuscleGroup.Tricep),
+            secondaryMuscles = emptySet(),
         ),
     )
 
-    val volumePlannerLandmarks: List<VolumeLandmarkContext> = listOf(
-        VolumeLandmarkContext("Chest", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Back", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Quad", 8.0, 14.0, 20.0, 11.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Hamstring", 6.0, 10.0, 16.0, 8.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Bicep", 4.0, 8.0, 14.0, 6.0, VolumeLandmarkSource.Literature),
-        VolumeLandmarkContext("Tricep", 4.0, 8.0, 14.0, 6.0, VolumeLandmarkSource.Literature),
-    )
+    val volumePlannerSnapshots: List<MuscleVolumeSnapshotContext> =
+        listOf("Chest", "Back", "Quad", "Hamstring", "Bicep", "Tricep").map { muscle ->
+            literatureSnapshotContext(muscle)
+        }
 
     fun volumePlannerContext(
+        specialization: Map<String, String> = emptyMap(),
         profileOverrides: Map<String, Any?> = emptyMap(),
-        specialization: Map<String, String> = mapOf(
-            "Bicep" to "Specialize",
-            "Chest" to "Maintenance",
-        ),
     ): ProgramGenerationContext =
         contextWith(
-            profileOverrides = mapOf(
-                "sessionLengthMinutes" to 75,
-                "weekdays" to listOf("Monday", "Tuesday", "Thursday", "Friday"),
-                "trainingDaysPerWeek" to 4,
-            ) + profileOverrides,
-            specialization = specialization,
             provenLifts = volumePlannerLifts,
-            literatureVolumeLandmarks = volumePlannerLandmarks,
+            literatureVolumeSnapshots = volumePlannerSnapshots,
+            specialization = specialization,
+            profileOverrides = profileOverrides,
         )
 }

@@ -249,9 +249,11 @@ class ResolveImportLiftsUseCase @Inject constructor(
             liftRepository.applyPreset(derivedGymFallback)
         }
 
-        val finalCatalog = liftRepository.observeLifts().first()
-        val finalEnabledSeedLiftCount = finalCatalog.count { !it.isCustom && it.enabled }
-        val finalEnabledCustomLiftCount = finalCatalog.count { it.isCustom && it.enabled }
+        // §5: count enabled lifts from the enabled-only stream instead of reloading the whole
+        // catalog — only the enabled seed/custom tallies are needed for the summary.
+        val finalEnabledLifts = liftRepository.observeEnabledLifts().first()
+        val finalEnabledSeedLiftCount = finalEnabledLifts.count { !it.isCustom }
+        val finalEnabledCustomLiftCount = finalEnabledLifts.count { it.isCustom }
         val unresolvedSetCount = finalResolvedSets.count { it.liftId == null }
 
         val unmatchedSamples =
@@ -324,9 +326,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
 
     private suspend fun awaitSeedCatalog(): List<Lift> =
         withTimeout(SEED_CATALOG_WAIT_MS) {
-            liftRepository.observeLifts().first { lifts ->
-                lifts.count { !it.isCustom } >= MIN_SEED_CATALOG_SIZE
-            }
+            liftRepository.observeLifts(isCustom = false).first { it.size >= MIN_SEED_CATALOG_SIZE }
         }
 
     private fun resolveExerciseName(
