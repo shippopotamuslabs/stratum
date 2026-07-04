@@ -1,8 +1,13 @@
 package com.stratum.feature.program.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,16 +17,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
@@ -275,14 +284,7 @@ private fun WorkoutCard(
             )
         }
         workout.lifts.sortedBy { lift -> lift.position }.forEach { lift ->
-            StratumNumber(
-                text = lift.summaryLine,
-                style =
-                    StratumThemeAccessor.typography.sectionLabel.copy(
-                        fontFamily = FontFamily.Monospace,
-                    ),
-                maxLines = 1,
-            )
+            MarqueeLiftLine(text = lift.summaryLine)
         }
         StratumButton(
             text = stringResource(R.string.programs_start_workout),
@@ -291,6 +293,68 @@ private fun WorkoutCard(
         )
     }
 }
+
+@Composable
+private fun MarqueeLiftLine(text: String) {
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+    var textWidthPx by remember { mutableStateOf(0) }
+    var containerWidthPx by remember { mutableStateOf(0) }
+    // Require a meaningful amount of overflow before marqueeing, otherwise lines that
+    // fit within a pixel or two end up "wiggling" with no real distance to travel.
+    val truncated =
+        containerWidthPx > 0 && textWidthPx - containerWidthPx > MARQUEE_TRUNCATION_THRESHOLD_PX
+
+    LaunchedEffect(truncated) {
+        if (!truncated) return@LaunchedEffect
+        // Slowly scroll the line left so the ellipsis follows the text and the cut-off
+        // tail comes into view, then reset. Repeats for the lifetime of the composable.
+        while (true) {
+            delay(MARQUEE_PAUSE_BEFORE_MS)
+            scrollState.animateScrollTo(
+                value = scrollState.maxValue,
+                animationSpec = tween(
+                    durationMillis = MARQUEE_SCROLL_MS_PER_PX * scrollState.maxValue.coerceAtLeast(1),
+                    easing = LinearEasing,
+                ),
+            )
+            delay(MARQUEE_PAUSE_AFTER_MS)
+            scrollState.animateScrollTo(
+                value = 0,
+                animationSpec = tween(
+                    durationMillis = MARQUEE_RESET_MS,
+                    easing = LinearEasing,
+                ),
+            )
+        }
+    }
+
+    BoxWithConstraints {
+        containerWidthPx = with(density) { maxWidth.toPx() }.toInt()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(scrollState),
+        ) {
+            StratumNumber(
+                text = text,
+                style = StratumThemeAccessor.typography.sectionLabel.copy(
+                    fontFamily = FontFamily.Monospace,
+                ),
+                maxLines = 1,
+                onTextLayout = { result: TextLayoutResult ->
+                    textWidthPx = result.size.width
+                },
+            )
+        }
+    }
+}
+
+private const val MARQUEE_PAUSE_BEFORE_MS = 1_500L
+private const val MARQUEE_PAUSE_AFTER_MS = 2_000L
+private const val MARQUEE_SCROLL_MS_PER_PX = 45
+private const val MARQUEE_RESET_MS = 600
+private const val MARQUEE_TRUNCATION_THRESHOLD_PX = 8
 
 @Composable
 private fun ProgramMenuLeadingIcon(
