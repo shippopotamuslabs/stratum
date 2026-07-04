@@ -46,7 +46,7 @@ import com.stratum.feature.onboarding.R as FeatureR
  * Step 5 of the wizard. Pick a gym preset or import historical training data (JSON/CSV).
  */
 @Composable
-fun GymAndLiftsScreen(
+fun GymAndLiftOnboardingSetupScreen(
     draft: GymLiftsDraftUi,
     presetOptions: List<GymPresetOptionUi>,
     onPresetSelected: (String?) -> Unit,
