@@ -42,7 +42,7 @@ fun MainTabShell(
     modifier: Modifier = Modifier,
     // TEMP: back-to-onboarding for regeneration testing
     onBackToGenerateClick: () -> Unit = {},
-    onNavigateToSwap: (liftId: String, liftName: String) -> Unit = { _, _ -> },
+    onNavigateToSwap: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
     val items =
