@@ -10,6 +10,7 @@ data class StratumColors(
     val accentMuted: Color,
     val surfaceBase: Color,
     val surfaceRaised: Color,
+    val surfaceInset: Color,
     val surfaceSunken: Color,
     val borderStrong: Color,
     val borderSubtle: Color,

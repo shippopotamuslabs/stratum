@@ -43,8 +43,11 @@ data class WorkoutViewState(
     val isCompleted: Boolean = false,
 )
 
-/** One line per lift: `Lift Name - 3 x 8–12@8`. */
+/** Structured lift summary rendered as a two-row sub card on workout cards. */
 data class WorkoutLiftLineState(
-    val summaryLine: String,
+    val name: String,
+    val setCount: Int,
+    val repRange: String,
+    val topSetRpe: String,
     val position: Int,
 )
