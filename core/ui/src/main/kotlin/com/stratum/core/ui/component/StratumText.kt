@@ -14,6 +14,8 @@ fun StratumText(
     modifier: Modifier = Modifier,
     style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
     muted: Boolean = false,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
 ) {
     Text(
         text = text,
@@ -25,6 +27,8 @@ fun StratumText(
             } else {
                 StratumThemeAccessor.colors.textPrimary
             },
+        maxLines = maxLines,
+        overflow = overflow,
     )
 }
 

@@ -70,17 +70,24 @@ internal fun formatTopSetRpeSuffix(sets: List<LiftSet>): String {
     return topSet?.let { set -> "@${10 - set.rirGoal}" } ?: ""
 }
 
-internal fun formatLiftSummaryLine(
+/**
+ * Builds the structured [WorkoutLiftLineState] fields for a lift. The name resolves from the
+ * catalog (or falls back to a title-cased slug / "Unknown lift"); sets, rep range, and top-set
+ * RPE are computed by [formatRepRangeLabel] and [formatTopSetRpeSuffix].
+ */
+internal fun buildLiftLineState(
     liftId: LiftId,
     sets: List<LiftSet>,
     liftNamesById: Map<String, String>,
-): String {
-    val name = resolveLiftDisplayName(liftId.value, liftNamesById)
-    val setCount = sets.size
-    val repRange = formatRepRangeLabel(sets)
-    val rpeSuffix = formatTopSetRpeSuffix(sets)
-    return "$name - $setCount x $repRange$rpeSuffix"
-}
+    position: Int,
+): WorkoutLiftLineState =
+    WorkoutLiftLineState(
+        name = resolveLiftDisplayName(liftId.value, liftNamesById),
+        setCount = sets.size,
+        repRange = formatRepRangeLabel(sets),
+        topSetRpe = formatTopSetRpeSuffix(sets),
+        position = position,
+    )
 
 private fun ScheduleDayItem.toScheduleItemState(liftNamesById: Map<String, String>): ScheduleItemState =
     when (this) {
@@ -104,13 +111,10 @@ private fun Workout.toViewState(liftNamesById: Map<String, String>, weekday: Wee
     )
 
 private fun WorkoutLift.toViewState(liftNamesById: Map<String, String>): WorkoutLiftLineState =
-    WorkoutLiftLineState(
-        summaryLine =
-            formatLiftSummaryLine(
-                liftId = liftId,
-                sets = sets.sortedBy { set -> set.position },
-                liftNamesById = liftNamesById,
-            ),
+    buildLiftLineState(
+        liftId = liftId,
+        sets = sets.sortedBy { set -> set.position },
+        liftNamesById = liftNamesById,
         position = position,
     )
 

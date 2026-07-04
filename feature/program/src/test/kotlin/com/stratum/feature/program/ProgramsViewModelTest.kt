@@ -97,10 +97,10 @@ class ProgramsViewModelTest {
     }
 
     @Nested
-    @DisplayName("PROG-GEN-402 WorkoutLift summary lines include catalog names and RPE")
+    @DisplayName("PROG-GEN-402 WorkoutLift view state carries name set count reps and RPE")
     inner class LiftSummary {
         @Test
-        fun `the populated WorkoutLift view state carries a summary line with set count reps and RPE`() =
+        fun `the populated WorkoutLift view state carries name set count reps and RPE`() =
             runTest {
                 val viewModel = buildViewModel(initial = PROGRAM_PPL)
 
@@ -113,7 +113,10 @@ class ProgramsViewModelTest {
                             .workout
                             .lifts
                             .first()
-                    assertEquals("Barbell Bench Press - 2 x 8\u201312@8", lift.summaryLine)
+                    assertEquals("Barbell Bench Press", lift.name)
+                    assertEquals(2, lift.setCount)
+                    assertEquals("8\u201312", lift.repRange)
+                    assertEquals("@8", lift.topSetRpe)
                     cancelAndIgnoreRemainingEvents()
                 }
             }
