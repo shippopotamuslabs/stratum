@@ -3,6 +3,7 @@ package com.stratum.feature.program
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.MuscleVolumeSummary
+import com.stratum.core.ui.component.toVolumeDisplayName
 
 internal val upperVolumeMuscleOrder: List<MuscleGroup> =
     listOf(

@@ -14,6 +14,7 @@ import com.stratum.domain.lift.ScoredLift
 import com.stratum.domain.lift.classifyLiftCategory
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.ui.WorkoutLiftLineState
+import com.stratum.core.ui.component.toVolumeDisplayName
 
 /**
  * Domain → presentation mapping for the lift swap bottom sheet. Pure functions — no use-case
