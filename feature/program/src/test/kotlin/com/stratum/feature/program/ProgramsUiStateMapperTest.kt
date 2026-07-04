@@ -14,39 +14,51 @@ class ProgramsUiStateMapperTest {
     @DisplayName("PROG-GEN-408 lift names resolve from catalog ids")
     fun progGen408_liftNamesResolveFromCatalog() {
         val line =
-            formatLiftSummaryLine(
+            buildLiftLineState(
                 liftId = LiftId("barbell-bench-press-medium-grip"),
                 sets = sampleSets(),
                 liftNamesById = mapOf("barbell-bench-press-medium-grip" to "Barbell Bench Press"),
+                position = 0,
             )
 
-        assertEquals("Barbell Bench Press - 2 x 8\u201312", line)
+        assertEquals("Barbell Bench Press", line.name)
+        assertEquals(2, line.setCount)
+        assertEquals("8\u201312", line.repRange)
+        assertEquals("@8", line.topSetRpe)
     }
 
     @Test
     @DisplayName("PROG-GEN-409 slug ids title-case when catalog name is missing")
     fun progGen409_slugIdsTitleCaseWhenCatalogMissing() {
         val line =
-            formatLiftSummaryLine(
+            buildLiftLineState(
                 liftId = LiftId("cable-one-arm-tricep-extension"),
                 sets = sampleSets(),
                 liftNamesById = emptyMap(),
+                position = 0,
             )
 
-        assertEquals("Cable One Arm Tricep Extension - 2 x 8\u201312", line)
+        assertEquals("Cable One Arm Tricep Extension", line.name)
+        assertEquals(2, line.setCount)
+        assertEquals("8\u201312", line.repRange)
+        assertEquals("@8", line.topSetRpe)
     }
 
     @Test
     @DisplayName("PROG-GEN-410 uuid ids without catalog entry use unknown label")
     fun progGen410_uuidWithoutCatalogUsesUnknownLabel() {
         val line =
-            formatLiftSummaryLine(
+            buildLiftLineState(
                 liftId = LiftId("8ac3e0b4-75a7-4f66-b423-3c59ccf8ffbf"),
                 sets = sampleSets(),
                 liftNamesById = emptyMap(),
+                position = 0,
             )
 
-        assertEquals("Unknown lift - 2 x 8\u201312", line)
+        assertEquals("Unknown lift", line.name)
+        assertEquals(2, line.setCount)
+        assertEquals("8\u201312", line.repRange)
+        assertEquals("@8", line.topSetRpe)
     }
 
     private fun sampleSets(): List<LiftSet> =

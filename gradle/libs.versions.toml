@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.0-alpha02"
+agp = "9.4.0-alpha03"
 coreKtx = "1.15.0"
 detekt = "1.23.8"
 junit = "4.13.2"
@@ -23,6 +23,7 @@ robolectric = "4.16.1"
 apterJunit5Robolectric = "0.9.0"
 androidxTestCore = "1.6.1"
 turbine = "1.2.0"
+ortools = "9.14.6206"
 firebaseBom = "34.13.0"
 androidxCredentials = "1.7.0-alpha02"
 googleid = "1.2.0"
@@ -46,6 +47,7 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 detekt-api = { group = "io.gitlab.arturbosch.detekt", name = "detekt-api", version.ref = "detekt" }
 javax-inject = { group = "javax.inject", name = "javax.inject", version = "1" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -72,6 +74,7 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 apter-junit5-robolectric-extension = { group = "tech.apter.junit5.jupiter", name = "robolectric-extension", version.ref = "apterJunit5Robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+ortools-java = { group = "com.google.ortools", name = "ortools-java", version.ref = "ortools" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-functions = { group = "com.google.firebase", name = "firebase-functions" }

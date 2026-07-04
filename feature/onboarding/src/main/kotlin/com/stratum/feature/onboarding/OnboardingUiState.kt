@@ -13,6 +13,7 @@ data class OnboardingUiState(
     val profileDraft: ProfileDraftUi = ProfileDraftUi.Empty,
     val scheduleDraft: ScheduleDraftUi = ScheduleDraftUi.Empty,
     val specializationDraft: SpecializationDraftUi = SpecializationDraftUi.Empty,
+    val minimumVolumeDraft: MinimumVolumeDraftUi = MinimumVolumeDraftUi.Empty,
     val gymLiftsDraft: GymLiftsDraftUi = GymLiftsDraftUi.Empty,
     val reviewDraft: ReviewDraftUi = ReviewDraftUi.Empty,
     val presetOptions: List<GymPresetOptionUi> = emptyList(),
@@ -112,6 +113,7 @@ enum class GenerateState { Idle, Loading, Error }
  */
 data class SpecializationDraftUi(
     val selectedMuscleLabels: Set<String> = emptySet(),
+    val saturatedSpecializeWarningLabels: List<String> = emptyList(),
     val showErrors: Boolean = false,
 ) {
     val specializedCount: Int get() = selectedMuscleLabels.size
@@ -126,6 +128,26 @@ data class SpecializationDraftUi(
 }
 
 /**
+ * UI-shaped snapshot of the Minimum Volume step.
+ */
+data class MinimumVolumeDraftUi(
+    val selectedMuscleLabels: Set<String> = emptySet(),
+    val excludedMuscleLabels: Set<String> = emptySet(),
+    val suggestedMuscleLabels: Set<String> = emptySet(),
+    val showErrors: Boolean = false,
+) {
+    val selectedCount: Int get() = selectedMuscleLabels.size
+
+    val atCap: Boolean get() = selectedCount >= OnboardingValidationConstants.MAX_MINIMUM_VOLUME
+
+    val isValid: Boolean get() = selectedCount <= OnboardingValidationConstants.MAX_MINIMUM_VOLUME
+
+    companion object {
+        val Empty = MinimumVolumeDraftUi()
+    }
+}
+
+/**
  * UI-shaped snapshot of one catalog lift for the toggle list. Kept for future post-onboarding
  * catalog management mapping in [GymLiftsDraftMapping].
  */
@@ -135,6 +157,25 @@ data class LiftSummaryUi(
     val patternLabel: String,
     val muscleSummary: String,
     val enabled: Boolean,
+)
+
+/**
+ * Profile and schedule step callbacks for [OnboardingWizard].
+ */
+data class ProfileScheduleHandlers(
+    val onTrainingAgeSelected: (String?) -> Unit,
+    val onLastTrainedSelected: (String?) -> Unit,
+    val onWeekdayToggled: (String) -> Unit,
+    val onSessionPresetSelected: (String?) -> Unit,
+    val onCustomSessionMinutesChange: (Int) -> Unit,
+)
+
+/**
+ * Bundle of the Minimum Volume step's event callbacks.
+ */
+data class MinimumVolumeHandlers(
+    val onMuscleToggled: (String) -> Unit,
+    val onSuggestedMuscleToggled: (String) -> Unit,
 )
 
 /**
@@ -205,6 +246,7 @@ data class ReviewDraftUi(
     val weekdays: List<String> = emptyList(),
     val sessionMinutes: Int? = null,
     val specialization: List<String> = emptyList(),
+    val minimumVolume: List<String> = emptyList(),
     val presetLabel: String? = null,
     val enabledLiftCount: Int = 0,
 ) {

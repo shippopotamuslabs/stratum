@@ -2,11 +2,16 @@
 
 package com.stratum.core.testing.program
 
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleLengthBias
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkContext
-import com.stratum.domain.program.generation.context.VolumeLandmarkSource
+import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
+import com.stratum.domain.program.generation.context.VolumeSnapshotSource
+import com.stratum.domain.program.LiteratureVolumeDefaultsProvider
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -43,19 +48,26 @@ val SCENARIO_LIFT_CATALOG: List<LiftContext> = listOf(
     lift("hip-thrust", "Hip Thrust", "HipExtension", listOf("Glute"), listOf("Hamstring")),
 )
 
-val SCENARIO_LANDMARKS: List<VolumeLandmarkContext> = listOf(
-    landmark("Chest", 8.0, 14.0, 20.0, 11.0),
-    landmark("Back", 8.0, 14.0, 20.0, 11.0),
-    landmark("Quad", 8.0, 14.0, 20.0, 11.0),
-    landmark("Hamstring", 6.0, 10.0, 16.0, 8.0),
-    landmark("Glute", 4.0, 8.0, 14.0, 6.0),
-    landmark("Calf", 6.0, 10.0, 16.0, 8.0),
-    landmark("Tricep", 4.0, 8.0, 14.0, 6.0),
-    landmark("Bicep", 4.0, 8.0, 14.0, 6.0),
-    landmark("LateralDeltoid", 4.0, 8.0, 14.0, 6.0),
-    landmark("PosteriorDeltoid", 4.0, 8.0, 14.0, 6.0),
-    landmark("AnteriorDeltoid", 4.0, 8.0, 14.0, 6.0),
-)
+private val SCENARIO_MUSCLE_NAMES =
+    setOf(
+        "Chest",
+        "Back",
+        "Quad",
+        "Hamstring",
+        "Glute",
+        "Calf",
+        "Tricep",
+        "Bicep",
+        "LateralDeltoid",
+        "PosteriorDeltoid",
+        "AnteriorDeltoid",
+    )
+
+/** Literature defaults from [LiteratureVolumeDefaultsProvider] — kept in sync with production priors. */
+val SCENARIO_SNAPSHOTS: List<MuscleVolumeSnapshotContext> =
+    LiteratureVolumeDefaultsProvider.all()
+        .filter { literature -> literature.muscle.name in SCENARIO_MUSCLE_NAMES }
+        .map { literature -> literature.toScenarioSnapshot() }
 
 val SPECIALIZATION_PRESETS: Map<String, Map<String, String>> = mapOf(
     "maintenance" to emptyMap(),
@@ -73,6 +85,15 @@ data class ScenarioConfig(
     val label: String,
 )
 
+val WEEKDAY_LAYOUTS: Map<String, List<String>> = mapOf(
+    "sequential" to listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"),
+    "mwf" to listOf("Monday", "Wednesday", "Friday"),
+    "spread5" to listOf("Monday", "Tuesday", "Thursday", "Friday", "Saturday"),
+    "mtwfs" to listOf("Monday", "Tuesday", "Wednesday", "Friday", "Saturday"),
+    "sean5" to listOf("Sunday", "Monday", "Wednesday", "Thursday", "Friday"),
+    "weird4" to listOf("Monday", "Tuesday", "Wednesday", "Friday"),
+)
+
 val GENERATION_SCENARIOS: List<ScenarioConfig> = buildList {
     for (days in listOf(3, 4, 5, 6)) {
         for (preset in SPECIALIZATION_PRESETS.keys) {
@@ -81,20 +102,41 @@ val GENERATION_SCENARIOS: List<ScenarioConfig> = buildList {
     }
 }
 
+/** Key presets across non-sequential weekday layouts for synthesis regression. */
+val WEEKDAY_LAYOUT_SCENARIOS: List<ScenarioConfig> = buildList {
+    add(ScenarioConfig(days = 3, preset = "arms", label = "3-day mwf arms"))
+    add(ScenarioConfig(days = 5, preset = "arms", label = "5-day spread5 arms"))
+    add(ScenarioConfig(days = 4, preset = "chest", label = "4-day spread5 chest"))
+}
+
 fun scenarioContext(days: Int, specialization: Map<String, String>): ProgramGenerationContext =
     parseScenarioContext(scenarioPayload(days, specialization))
 
-fun scenarioPayload(days: Int, specialization: Map<String, String>): String {
-    val weekdays = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-        .take(days)
-        .joinToString(",")
+fun scenarioPayload(
+    days: Int,
+    specialization: Map<String, String>,
+    sessionLengthMinutes: Int = 75,
+    weekdayLayout: String = "sequential",
+): String {
+    val layoutDays = WEEKDAY_LAYOUTS[weekdayLayout] ?: WEEKDAY_LAYOUTS.getValue("sequential")
+    val weekdays =
+        if (layoutDays.size >= days) {
+            layoutDays.take(days)
+        } else {
+            val padded = layoutDays.toMutableList()
+            val sequential = WEEKDAY_LAYOUTS.getValue("sequential")
+            while (padded.size < days) {
+                padded += sequential[padded.size]
+            }
+            padded.take(days)
+        }.joinToString(",")
     return Json.encodeToString(
         JsonObject.serializer(),
         JsonObject(
             mapOf(
                 "profile" to jsonObj(
                     "trainingAge" to JsonPrimitive("Advanced"),
-                    "sessionLengthMinutes" to JsonPrimitive(75),
+                    "sessionLengthMinutes" to JsonPrimitive(sessionLengthMinutes),
                     "weekdays" to JsonPrimitive(weekdays),
                     "trainingDaysPerWeek" to JsonPrimitive(days),
                 ),
@@ -103,7 +145,7 @@ fun scenarioPayload(days: Int, specialization: Map<String, String>): String {
                 ),
                 "provenLifts" to liftsToJson(SCENARIO_LIFT_CATALOG),
                 "availableLifts" to JsonArray(emptyList()),
-                "literatureVolumeLandmarks" to landmarksToJson(SCENARIO_LANDMARKS),
+                "literatureVolumeSnapshots" to snapshotsToJson(SCENARIO_SNAPSHOTS),
             ),
         ),
     )
@@ -124,14 +166,18 @@ fun parseScenarioContext(payload: String): ProgramGenerationContext {
         .orEmpty()
     val specialization = root["specialization"]?.jsonObject
         ?.mapNotNull { (muscle, value) ->
-            value.jsonPrimitive.contentOrNull?.let { muscle to it }
+            val mg = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull() ?: return@mapNotNull null
+            val level = value.jsonPrimitive.contentOrNull
+                ?.let { runCatching { SpecializationLevel.valueOf(it) }.getOrNull() }
+                ?: return@mapNotNull null
+            mg to level
         }
         ?.toMap()
         .orEmpty()
 
     val liftsById = linkedMapOf<String, LiftContext>()
     val enabledLiftIds = mutableSetOf<String>()
-    val movementPatternByLiftId = mutableMapOf<String, String>()
+    val movementPatternByLiftId = mutableMapOf<String, MovementPattern?>()
     for (lift in readLiftArray(root["provenLifts"], provenTier = true) +
         readLiftArray(root["availableLifts"], provenTier = false)) {
         liftsById[lift.id] = lift
@@ -139,10 +185,10 @@ fun parseScenarioContext(payload: String): ProgramGenerationContext {
         movementPatternByLiftId[lift.id] = lift.movementPattern
     }
 
-    val volumeLandmarksByMuscle = SCENARIO_LANDMARKS.associateBy { it.muscle }.toMutableMap()
-    for (row in root["literatureVolumeLandmarks"]?.jsonArray.orEmpty()) {
-        readLandmark(row, VolumeLandmarkSource.Literature)?.let { landmark ->
-            volumeLandmarksByMuscle.putIfAbsent(landmark.muscle, landmark)
+    val muscleVolumeSnapshotsByMuscle = SCENARIO_SNAPSHOTS.associateBy { it.muscle }.toMutableMap()
+    for (row in root["literatureVolumeSnapshots"]?.jsonArray.orEmpty()) {
+        readSnapshot(row, VolumeSnapshotSource.Literature)?.let { snapshot ->
+            muscleVolumeSnapshotsByMuscle.putIfAbsent(snapshot.muscle, snapshot)
         }
     }
 
@@ -154,8 +200,8 @@ fun parseScenarioContext(payload: String): ProgramGenerationContext {
         weekdays = weekdays,
         specialization = specialization,
         liftsById = liftsById,
-        volumeLandmarksByMuscle = volumeLandmarksByMuscle,
-        volumeResponsesByMuscle = emptyMap(),
+        muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,
+        volumeCorrelationsByMuscle = emptyMap(),
         enabledLiftIds = enabledLiftIds,
         movementPatternByLiftId = movementPatternByLiftId,
         liftEffectivenessByLiftId = emptyMap(),
@@ -168,53 +214,60 @@ private fun lift(
     pattern: String,
     primary: List<String>,
     secondary: List<String> = emptyList(),
-): LiftContext = LiftContext(
-    id = id,
-    name = name,
-    movementPattern = pattern,
-    movementPatterns = listOf(pattern),
-    primaryMuscles = primary,
-    secondaryMuscles = secondary,
-    proven = true,
-)
+    kinematicProfile: String = when (pattern) {
+        "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) "AxialCompound" else "NonAxialCompound"
+        "HipExtension", "HorizontalPress", "VerticalPress", "InclinePress",
+        "HorizontalPull", "VerticalPull" -> "NonAxialCompound"
+        else -> "Isolation"
+    },
+): LiftContext {
+    val movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
+    return LiftContext(
+        id = id,
+        name = name,
+        movementPattern = movementPattern,
+        movementPatterns = listOfNotNull(movementPattern).toSet(),
+        primaryMuscles = primary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+        secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+        proven = true,
+        kinematicProfile = runCatching { KinematicProfile.valueOf(kinematicProfile) }.getOrDefault(KinematicProfile.Isolation),
+    )
+}
 
-private fun landmark(
-    muscle: String,
-    mev: Double,
-    mav: Double,
-    mrv: Double,
-    pv: Double,
-): VolumeLandmarkContext = VolumeLandmarkContext(
-    muscle = muscle,
-    estimatedMev = mev,
-    estimatedMav = mav,
-    estimatedMrv = mrv,
-    estimatedPv = pv,
-    source = VolumeLandmarkSource.Literature,
-)
+private fun com.stratum.domain.program.LiteratureVolumeDefaults.toScenarioSnapshot(): MuscleVolumeSnapshotContext =
+    MuscleVolumeSnapshotContext(
+        muscle = muscle.name,
+        retentionFloorMv = retentionFloorMv,
+        paretoVolumePv = paretoVolumePv,
+        recoverabilityCeilingRc = recoverabilityCeilingRc,
+        growthEntryFloor = growthEntryFloor,
+        maintenanceCeiling = maintenanceCeiling,
+        posture = null,
+        source = VolumeSnapshotSource.Literature,
+    )
 
+private fun snapshotsToJson(snapshots: List<MuscleVolumeSnapshotContext>): JsonArray =
+    JsonArray(
+        snapshots.map { row ->
+            jsonObj(
+                "muscle" to JsonPrimitive(row.muscle),
+                "retentionFloorMv" to JsonPrimitive(row.retentionFloorMv),
+                "paretoVolumePv" to JsonPrimitive(row.paretoVolumePv),
+                "recoverabilityCeilingRc" to JsonPrimitive(row.recoverabilityCeilingRc),
+                "growthEntryFloor" to JsonPrimitive(row.growthEntryFloor),
+                "maintenanceCeiling" to JsonPrimitive(row.maintenanceCeiling),
+            )
+        },
+    )
 private fun liftsToJson(lifts: List<LiftContext>): JsonArray =
     JsonArray(
         lifts.map { lift ->
             jsonObj(
                 "id" to JsonPrimitive(lift.id),
                 "name" to JsonPrimitive(lift.name),
-                "movementPattern" to JsonPrimitive(lift.movementPattern),
-                "primaryMuscles" to JsonArray(lift.primaryMuscles.map(::JsonPrimitive)),
-                "secondaryMuscles" to JsonArray(lift.secondaryMuscles.map(::JsonPrimitive)),
-            )
-        },
-    )
-
-private fun landmarksToJson(landmarks: List<VolumeLandmarkContext>): JsonArray =
-    JsonArray(
-        landmarks.map { row ->
-            jsonObj(
-                "muscle" to JsonPrimitive(row.muscle),
-                "estimatedMev" to JsonPrimitive(row.estimatedMev),
-                "estimatedMav" to JsonPrimitive(row.estimatedMav),
-                "estimatedMrv" to JsonPrimitive(row.estimatedMrv),
-                "estimatedPv" to JsonPrimitive(row.estimatedPv),
+                "movementPattern" to JsonPrimitive(lift.movementPattern?.name),
+                "primaryMuscles" to JsonArray(lift.primaryMuscles.map { JsonPrimitive(it.name) }),
+                "secondaryMuscles" to JsonArray(lift.secondaryMuscles.map { JsonPrimitive(it.name) }),
             )
         },
     )
@@ -226,29 +279,33 @@ private fun readLift(element: JsonElement, provenTier: Boolean): LiftContext? {
     val lift = element.jsonObject
     val id = lift.string("id") ?: return null
     val name = lift.string("name") ?: id
-    val movementPatterns = lift.stringList("movementPatterns")
-    val movementPattern = movementPatterns.firstOrNull() ?: lift.string("movementPattern").orEmpty()
+    val movementPatternStrings = lift.stringList("movementPatterns")
+    val movementPattern = (movementPatternStrings.firstOrNull() ?: lift.string("movementPattern"))
+        ?.let { runCatching { MovementPattern.valueOf(it) }.getOrNull() }
+    val patterns = movementPatternStrings.mapNotNull { runCatching { MovementPattern.valueOf(it) }.getOrNull() }.toSet()
     return LiftContext(
         id = id,
         name = name,
         movementPattern = movementPattern,
-        movementPatterns = if (movementPatterns.isEmpty()) listOf(movementPattern) else movementPatterns,
-        primaryMuscles = lift.stringList("primaryMuscles"),
-        secondaryMuscles = lift.stringList("secondaryMuscles"),
+        movementPatterns = if (patterns.isEmpty()) setOfNotNull(movementPattern) else patterns,
+        primaryMuscles = lift.stringList("primaryMuscles").mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+        secondaryMuscles = lift.stringList("secondaryMuscles").mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
         mainstream = lift["mainstream"]?.jsonPrimitive?.booleanOrNull,
         proven = provenTier || lift["proven"]?.jsonPrimitive?.booleanOrNull == true,
     )
 }
 
-private fun readLandmark(element: JsonElement, source: VolumeLandmarkSource): VolumeLandmarkContext? {
+private fun readSnapshot(element: JsonElement, source: VolumeSnapshotSource): MuscleVolumeSnapshotContext? {
     val row = element.jsonObject
     val muscle = row.string("muscle") ?: return null
-    return VolumeLandmarkContext(
+    return MuscleVolumeSnapshotContext(
         muscle = muscle,
-        estimatedMev = row.number("estimatedMev", 8.0),
-        estimatedMav = row.number("estimatedMav", 14.0),
-        estimatedMrv = row.number("estimatedMrv", 20.0),
-        estimatedPv = row.number("estimatedPv", 11.0),
+        retentionFloorMv = row.number("retentionFloorMv", 4.0),
+        paretoVolumePv = row.number("paretoVolumePv", 13.0),
+        recoverabilityCeilingRc = row.number("recoverabilityCeilingRc", 20.0),
+        growthEntryFloor = row.number("growthEntryFloor", 6.0),
+        maintenanceCeiling = row.number("maintenanceCeiling", 16.5),
+        posture = null,
         source = source,
     )
 }

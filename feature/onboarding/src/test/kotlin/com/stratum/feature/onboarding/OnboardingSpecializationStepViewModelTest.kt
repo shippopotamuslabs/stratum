@@ -98,7 +98,7 @@ class OnboardingSpecializationStepViewModelTest {
         subject.uiState.test {
             awaitItem()
             subject.next()
-            assertEquals("GymAndLifts", awaitItem().step.id)
+            assertEquals("MinimumVolume", awaitItem().step.id)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -114,7 +114,7 @@ class OnboardingSpecializationStepViewModelTest {
         subject.uiState.test {
             awaitItem()
             subject.next()
-            assertEquals("GymAndLifts", awaitItem().step.id)
+            assertEquals("MinimumVolume", awaitItem().step.id)
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -147,6 +147,6 @@ class OnboardingSpecializationStepViewModelTest {
 
         val saved = OnboardingViewModelTestFixtures.fakeSpecializationRepository.current
         assertEquals(setOf(MuscleGroup.Chest), saved.specializedMuscles)
-        assertEquals(OnboardingStep.Schedule, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
+        assertEquals(OnboardingStep.GymAndLifts, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
     }
 }

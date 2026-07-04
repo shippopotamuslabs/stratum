@@ -41,10 +41,30 @@ android {
         compose = true
         buildConfig = true
     }
+    packaging {
+        resources {
+            excludes += listOf(
+                "META-INF/AL2.0",
+                "META-INF/LGPL2.1",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/*.kotlin_module",
+                "ortools-linux-x86-64/**",
+                "ortools-darwin-x86-64/**",
+                "ortools-win32-x86-64/**",
+                "ortools-darwin-aarch64/**",
+                "ortools-linux-aarch64/**",
+            )
+        }
+    }
 }
 
 dependencies {
     implementation(project(":core:domain"))
+    implementation(project(":core:domain-solver"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
     implementation(project(":core:inference"))
@@ -58,6 +78,8 @@ dependencies {
     debugImplementation(libs.firebase.appcheck.debug)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation.layout)
     implementation(libs.androidx.compose.ui.tooling.preview)

@@ -69,7 +69,7 @@ class ExtractResponseProfileUseCase @Inject constructor(
                 weeklyStimulus = modeling?.weeklyStimulus.orEmpty(),
                 liftPerformance = modeling?.liftPerformance.orEmpty(),
                 outcomeIndices = modeling?.outcomeIndices.orEmpty(),
-                landmarkEstimates = modeling?.landmarkEstimates.orEmpty(),
+                volumeSnapshots = modeling?.volumeSnapshots.orEmpty(),
                 modelDiagnostics = modeling?.diagnostics.orEmpty(),
                 dosePoints = modeling?.dosePoints.orEmpty(),
             ),

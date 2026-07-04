@@ -2,29 +2,27 @@
 
 package com.stratum.domain.program.generation.reference
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MINUTES_PER_HARD_SET
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 
 /** Max hard sets per muscle per workout before junk-volume territory (Stratum default). */
-const val SESSION_MUSCLE_SET_CAP = 8
+const val SESSION_MUSCLE_SET_CAP = 11
 
-/** Session time tolerance when computing per-day hard-set budget (legacy ratio — prefer sessionHardSetCapForLength). */
-const val DURATION_TOLERANCE_RATIO = 1.08
+/** Max hard sets on a single exercise in one session — avoids repetitive high-volume stacks. */
+const val SETS_PER_LIFT_CAP = 5
 
-/** Max estimated/allocated minutes above the user's stated session length. */
-const val SESSION_DURATION_SLACK_MINUTES = 5
-
-/** Hard-set cap for one workout from stated session length (+ slack). */
+/** Hard-set cap for one workout from stated session length (3 min per set). */
 fun sessionHardSetCapForLength(sessionLengthMinutes: Int?): Int? {
     if (sessionLengthMinutes == null || sessionLengthMinutes <= 0) return null
-    return kotlin.math.floor(
-        (sessionLengthMinutes + SESSION_DURATION_SLACK_MINUTES) / MINUTES_PER_HARD_SET,
-    ).toInt()
+    return kotlin.math.floor(sessionLengthMinutes / MINUTES_PER_HARD_SET).toInt()
 }
 
-/** Duration budget in minutes (session length + slack) for validation. */
-fun sessionDurationBudgetMinutes(sessionLengthMinutes: Int): Int =
-    sessionLengthMinutes + SESSION_DURATION_SLACK_MINUTES
+/** Duration budget in minutes for validation (matches the user's stated session length). */
+fun sessionDurationBudgetMinutes(sessionLengthMinutes: Int): Int = sessionLengthMinutes
 
 enum class FrequencyTier(val value: Int) {
     One(1),
@@ -90,18 +88,97 @@ val RP_REP_RIR_BANDS: Map<RpRepProfile, RpRepRirBand> = mapOf(
 )
 
 data class PatternSecondaryMuscleCredit(
-    val muscle: String,
+    val muscle: MuscleGroup,
     val creditPerSet: Double,
 )
 
 /** Typical secondary muscle credits by movement pattern (slot-level estimate during allocation). */
-val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<String, List<PatternSecondaryMuscleCredit>> = mapOf(
-    "VerticalPull" to listOf(PatternSecondaryMuscleCredit("Bicep", SECONDARY_SET_CREDIT)),
-    "HorizontalPull" to listOf(PatternSecondaryMuscleCredit("Bicep", SECONDARY_SET_CREDIT)),
-    "HorizontalPress" to listOf(PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT)),
-    "InclinePress" to listOf(PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT)),
-    "VerticalPress" to listOf(PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT)),
+val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<MovementPattern, List<PatternSecondaryMuscleCredit>> = mapOf(
+    MovementPattern.SquatPattern to listOf(PatternSecondaryMuscleCredit(MuscleGroup.Glute, SECONDARY_SET_CREDIT)),
+    MovementPattern.HipHinge to
+        listOf(
+            PatternSecondaryMuscleCredit(MuscleGroup.Glute, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.Hamstring, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.LowerBack, SECONDARY_SET_CREDIT),
+        ),
+    MovementPattern.HipExtension to listOf(PatternSecondaryMuscleCredit(MuscleGroup.Hamstring, SECONDARY_SET_CREDIT)),
+    MovementPattern.VerticalPull to listOf(PatternSecondaryMuscleCredit(MuscleGroup.Bicep, SECONDARY_SET_CREDIT)),
+    MovementPattern.HorizontalPull to
+        listOf(
+            PatternSecondaryMuscleCredit(MuscleGroup.Bicep, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.PosteriorDeltoid, SECONDARY_SET_CREDIT),
+        ),
+    MovementPattern.HorizontalPress to
+        listOf(
+            PatternSecondaryMuscleCredit(MuscleGroup.Tricep, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.AnteriorDeltoid, SECONDARY_SET_CREDIT),
+        ),
+    MovementPattern.InclinePress to
+        listOf(
+            PatternSecondaryMuscleCredit(MuscleGroup.Tricep, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.AnteriorDeltoid, SECONDARY_SET_CREDIT),
+        ),
+    MovementPattern.VerticalPress to
+        listOf(
+            PatternSecondaryMuscleCredit(MuscleGroup.Tricep, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.AnteriorDeltoid, SECONDARY_SET_CREDIT),
+        ),
 )
 
+/**
+ * Computes per-pattern secondary muscle credits from the **actual enabled lift catalog**, averaging
+ * the secondary muscle tags across all enabled lifts that share each movement pattern. This makes the
+ * solver's volume accounting match the *expected realized* metadata volume (what the Programs UI shows)
+ * rather than a static idealization.
+ *
+ * Without this, patterns like `HipHinge` systematically undercount muscles that only some lifts tag.
+ * For example, `barbell-sumo-deadlift` (HipHinge) tags Quad as secondary, but the static table credits
+ * 0 Quad for HipHinge — so the solver allocates HipHinge sets thinking they cost 0 Quad, then the UI
+ * shows Quad volume inflated by the secondary credit the solver never saw.
+ *
+ * Falls back to [PATTERN_SECONDARY_MUSCLE_CREDITS] for any pattern with no enabled lifts, preserving
+ * the idealized estimate when the catalog provides no signal.
+ */
+fun computePatternSecondaryCredits(
+    context: ProgramGenerationContext,
+): Map<MovementPattern, List<PatternSecondaryMuscleCredit>> {
+    val liftsByPattern = mutableMapOf<MovementPattern, MutableList<LiftContext>>()
+    for (lift in context.liftsById.values) {
+        if (lift.id !in context.enabledLiftIds) continue
+        for (pattern in lift.movementPatterns) {
+            liftsByPattern.getOrPut(pattern) { mutableListOf() }.add(lift)
+        }
+    }
+
+    val result = mutableMapOf<MovementPattern, List<PatternSecondaryMuscleCredit>>()
+    for ((pattern, lifts) in liftsByPattern) {
+        if (lifts.isEmpty()) continue
+        val count = lifts.size.toDouble()
+        // Sum per-muscle: each lift contributes SECONDARY_SET_CREDIT for each secondary muscle
+        // (excluding its own primaries, matching computeWorkoutMuscleVolume / AntagonistMetadataBalance).
+        val muscleTotals = mutableMapOf<MuscleGroup, Double>()
+        for (lift in lifts) {
+            for (muscle in lift.secondaryMuscles) {
+                if (muscle in lift.primaryMuscles) continue
+                muscleTotals[muscle] = (muscleTotals[muscle] ?: 0.0) + SECONDARY_SET_CREDIT
+            }
+        }
+        val averaged = muscleTotals.map { (muscle, total) ->
+            PatternSecondaryMuscleCredit(muscle, total / count)
+        }
+        if (averaged.isNotEmpty()) {
+            result[pattern] = averaged
+        }
+    }
+
+    // Merge with static fallbacks: patterns not covered by the catalog keep the idealized estimate.
+    val merged = PATTERN_SECONDARY_MUSCLE_CREDITS.toMutableMap()
+    merged.putAll(result)
+    return merged
+}
+
 /** Minimum direct (primary) sets for a specialized muscle's isolation slot in one session. */
-const val MIN_SPECIALIZED_DIRECT_SETS = 4
+const val MIN_SPECIALIZED_DIRECT_SETS = 2
+
+/** Minimum direct sets for a cross-domain touch isolation slot (supplementary volume). */
+const val MIN_TOUCH_DIRECT_SETS = 2

@@ -20,6 +20,29 @@ interface LiftDao {
     @Query("SELECT * FROM lifts ORDER BY name")
     fun observeLiftsWithTiers(): Flow<List<LiftWithTiers>>
 
+    /** Enabled lifts only — the §5 SQL-predicate read backing [LiftRepository.observeEnabledLifts]. */
+    @Transaction
+    @Query("SELECT * FROM lifts WHERE enabled = 1 ORDER BY name")
+    fun observeEnabledLiftsWithTiers(): Flow<List<LiftWithTiers>>
+
+    /** Lifts filtered by `isCustom` — the §5 SQL-predicate read backing [LiftRepository.observeLifts(isCustom)]. */
+    @Transaction
+    @Query("SELECT * FROM lifts WHERE isCustom = :isCustom ORDER BY name")
+    fun observeLiftsWithTiersByCustom(isCustom: Boolean): Flow<List<LiftWithTiers>>
+
+    /**
+     * Lifts whose movement-pattern set includes the pattern encoded in [bit]. The column is a
+     * bitmask (`1 shl MovementPattern.ordinal`), so a bitwise AND is the positional-safe filter:
+     * the caller passes `bit = 1 shl pattern.ordinal`, and any lift carrying that pattern yields
+     * a non-zero AND result. This is the SQL-predicate read backing
+     * [com.stratum.domain.lift.LiftRepository.observeLiftsContainingPattern] — equivalent to
+     * `observeLifts().map { it.filter { l -> pattern in l.movementPatterns } }` but executed by
+     * the database (DATA_LAYER_RULES.md §5).
+     */
+    @Transaction
+    @Query("SELECT * FROM lifts WHERE movementPatternsBitmask & :bit != 0 ORDER BY name")
+    fun observeLiftsWithTiersByPattern(bit: Int): Flow<List<LiftWithTiers>>
+
     /** Snapshot of every lift with tiers (non-streaming). */
     @Transaction
     @Query("SELECT * FROM lifts ORDER BY name")

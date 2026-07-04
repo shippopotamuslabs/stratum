@@ -1,5 +1,8 @@
 package com.stratum.domain.program.generation.build
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.prescription.FilledSlot
@@ -24,8 +27,8 @@ class WorkoutAssemblerTest {
         val s = FilledSlot(
             slotId = slotId,
             role = role,
-            pattern = pattern,
-            primaryMuscle = muscle,
+            pattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull()!!,
+            primaryMuscle = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull()!!,
             repProfile = RpRepProfile.Isolation,
             setCount = 3,
         )
@@ -34,10 +37,10 @@ class WorkoutAssemblerTest {
             lift = LiftContext(
                 id = liftId,
                 name = liftId,
-                movementPattern = pattern,
-                movementPatterns = listOf(pattern),
-                primaryMuscles = listOf(muscle),
-                secondaryMuscles = emptyList(),
+                movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull(),
+                movementPatterns = setOfNotNull(runCatching { MovementPattern.valueOf(pattern) }.getOrNull()),
+                primaryMuscles = setOfNotNull(runCatching { MuscleGroup.valueOf(muscle) }.getOrNull()),
+                secondaryMuscles = emptySet(),
                 proven = false,
             ),
             candidates = emptyList(),
@@ -54,10 +57,10 @@ class WorkoutAssemblerTest {
             sessionLengthMinutes = null,
             trainingDaysPerWeek = 0,
             weekdays = emptyList(),
-            specialization = mapOf("Bicep" to "Specialize", "Tricep" to "Specialize"),
+            specialization = mapOf(MuscleGroup.Bicep to SpecializationLevel.Specialize, MuscleGroup.Tricep to SpecializationLevel.Specialize),
             liftsById = emptyMap(),
-            volumeLandmarksByMuscle = emptyMap(),
-            volumeResponsesByMuscle = emptyMap(),
+            muscleVolumeSnapshotsByMuscle = emptyMap(),
+            volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = emptySet(),
             movementPatternByLiftId = emptyMap(),
             liftEffectivenessByLiftId = emptyMap(),
@@ -137,8 +140,8 @@ class WorkoutAssemblerTest {
             weekdays = emptyList(),
             specialization = emptyMap(),
             liftsById = emptyMap(),
-            volumeLandmarksByMuscle = emptyMap(),
-            volumeResponsesByMuscle = emptyMap(),
+            muscleVolumeSnapshotsByMuscle = emptyMap(),
+            volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = emptySet(),
             movementPatternByLiftId = emptyMap(),
             liftEffectivenessByLiftId = emptyMap(),

@@ -48,6 +48,7 @@ import com.stratum.domain.onboarding.SpecializationPreference
 import com.stratum.domain.onboarding.UpdateSpecializationUseCase
 import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.ValidateCurrentOnboardingStepUseCase
+import com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase
 import com.stratum.domain.onboarding.ValidateProfileStepUseCase
 import com.stratum.domain.onboarding.ValidateScheduleStepUseCase
 import com.stratum.domain.onboarding.ValidateSpecializationStepUseCase
@@ -121,6 +122,7 @@ internal object OnboardingViewModelTestFixtures {
             validateProfileStep = ValidateProfileStepUseCase(),
             validateScheduleStep = ValidateScheduleStepUseCase(),
             validateSpecializationStep = ValidateSpecializationStepUseCase(),
+            validateMinimumVolumeStep = ValidateMinimumVolumeStepUseCase(),
             validateGymLiftsStep = ValidateGymLiftsStepUseCase(),
         )
         val rollbackHistoricalImport = buildRollbackHistoricalImport()
@@ -136,7 +138,7 @@ internal object OnboardingViewModelTestFixtures {
                 fakeSupersetRepository,
                 fakeVolumeResponseRepository,
                 fakeEffectivenessRepository,
-                com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
+                com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository(),
                 fakeLiftRepository,
             ),
         )

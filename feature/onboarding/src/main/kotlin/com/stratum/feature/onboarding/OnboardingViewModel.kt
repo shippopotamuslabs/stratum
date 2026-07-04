@@ -19,10 +19,12 @@ import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
 import com.stratum.domain.onboarding.GetOnboardingStepCapabilitiesUseCase
 import com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.OnboardingStepDirection
 import com.stratum.domain.onboarding.OnboardingWizardState
 import com.stratum.domain.onboarding.SpecializationPreference
 import com.stratum.domain.onboarding.UserTrainingProfile
+import com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.onboarding.applyAdditiveSetEdit
 import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
@@ -62,10 +64,6 @@ class OnboardingViewModel @Inject constructor(
     private val importResumeState = MutableStateFlow<HistoricalImportResumeState?>(null)
     private var importJob: Job? = null
     private var generateJob: Job? = null
-
-    init {
-        viewModelScope.launch { applyRefreshPersistedImportState() }
-    }
 
     private val wizardState: StateFlow<OnboardingWizardState> =
         getOnboardingWizardState().stateIn(
@@ -125,6 +123,10 @@ class OnboardingViewModel @Inject constructor(
             initialValue = OnboardingUiState.Initial,
         )
 
+    init {
+        viewModelScope.launch { applyRefreshPersistedImportState() }
+    }
+
     fun onTrainingAgeSelected(label: String?) {
         edits.value = edits.value.copy(trainingAge = label?.let(::trainingAgeFromLabel))
     }
@@ -179,6 +181,23 @@ class OnboardingViewModel @Inject constructor(
             ),
         )
     }
+
+    fun onMinimumVolumeMuscleToggled(label: String) {
+        val muscle = muscleGroupFromLabel(label) ?: return
+        if (muscle in effectiveSpecialization.value.specializedMuscles) return
+        val current = effectiveSpecialization.value.minimumVolumeMuscles
+        val persisted = wizardState.value.specialization.minimumVolumeMuscles
+        specializationEdits.value = specializationEdits.value.copy(
+            minimumVolumeMusclesEdit = toggleInAdditiveSetEdit(
+                item = muscle,
+                currentEffective = current,
+                persistedBase = persisted,
+                currentEdit = specializationEdits.value.minimumVolumeMusclesEdit,
+            ),
+        )
+    }
+
+    fun onSuggestedMinimumVolumeToggled(label: String) = onMinimumVolumeMuscleToggled(label)
 
     fun onPresetSelected(label: String?) {
         if (ephemeral.value.importProgress?.let { progress ->
@@ -282,6 +301,7 @@ class OnboardingViewModel @Inject constructor(
                             importInsightsSummary = event.refresh.toEphemeralImportFields().importInsightsSummary,
                         )
                     }
+                    maybePrefillMinimumVolumeFromImport()
                 }
                 is HistoricalImportOrchestrationEvent.Failed -> {
                     importResumeState.value = event.resume
@@ -306,6 +326,41 @@ class OnboardingViewModel @Inject constructor(
                 importInsightsSummary = refresh.importInsightsSummary,
             )
         }
+        maybePrefillMinimumVolumeFromImport()
+    }
+
+    /**
+     * When import landmarks suggest low-volume muscles, pre-select MV candidates on first visit
+     * to the Minimum Volume step (e.g. after returning from Gym & Lifts post-import).
+     */
+    private fun maybePrefillMinimumVolumeFromImport() {
+        val ep = ephemeral.value
+        if (ep.minimumVolumeImportPrefillApplied) return
+        if (wizardState.value.currentStep != OnboardingStep.MinimumVolume) return
+        val persisted = wizardState.value.specialization
+        if (persisted.minimumVolumeMuscles.isNotEmpty()) {
+            ephemeral.update { it.copy(minimumVolumeImportPrefillApplied = true) }
+            return
+        }
+        val suggestions = suggestMinimumVolumeMuscleLabels(
+            importInsights = ep.importInsightsSummary,
+            preference = effectiveSpecialization.value,
+        )
+        if (suggestions.isEmpty()) return
+        val musclesToAdd =
+            suggestions.mapNotNull(::muscleGroupFromLabel)
+                .filter { muscle ->
+                    muscle !in persisted.minimumVolumeMuscles &&
+                        muscle !in effectiveSpecialization.value.minimumVolumeMuscles
+                }
+                .take(ValidateMinimumVolumeStepUseCase.MAX_MINIMUM_VOLUME)
+        if (musclesToAdd.isEmpty()) return
+        specializationEdits.value = specializationEdits.value.copy(
+            minimumVolumeMusclesEdit = specializationEdits.value.minimumVolumeMusclesEdit.copy(
+                added = specializationEdits.value.minimumVolumeMusclesEdit.added + musclesToAdd,
+            ),
+        )
+        ephemeral.update { it.copy(minimumVolumeImportPrefillApplied = true) }
     }
 
     fun next() {
@@ -327,6 +382,9 @@ class OnboardingViewModel @Inject constructor(
                     edits.value = ProfileEdit()
                     specializationEdits.value = SpecializationEdit()
                     ephemeral.update { it.copy(showErrors = false) }
+                    if (result.newStep == OnboardingStep.MinimumVolume) {
+                        maybePrefillMinimumVolumeFromImport()
+                    }
                 }
                 AdvanceOnboardingStepResult.NoOp -> Unit
             }
@@ -348,6 +406,9 @@ class OnboardingViewModel @Inject constructor(
             if (result is AdvanceOnboardingStepResult.Success) {
                 edits.value = ProfileEdit()
                 specializationEdits.value = SpecializationEdit()
+                if (result.newStep == OnboardingStep.MinimumVolume) {
+                    maybePrefillMinimumVolumeFromImport()
+                }
             }
         }
     }
@@ -448,6 +509,7 @@ class OnboardingViewModel @Inject constructor(
 
     private data class SpecializationEdit(
         val musclesEdit: AdditiveSetEdit<MuscleGroup> = AdditiveSetEdit(),
+        val minimumVolumeMusclesEdit: AdditiveSetEdit<MuscleGroup> = AdditiveSetEdit(),
     )
 
     private fun SpecializationPreference.applyEdit(edit: SpecializationEdit): SpecializationPreference {
@@ -455,7 +517,19 @@ class OnboardingViewModel @Inject constructor(
         edit.musclesEdit.added.forEach {
             base[it] = com.stratum.domain.onboarding.SpecializationLevel.Specialize
         }
-        edit.musclesEdit.removed.forEach { base.remove(it) }
+        edit.musclesEdit.removed.forEach { removed ->
+            if (base[removed] == com.stratum.domain.onboarding.SpecializationLevel.Specialize) {
+                base.remove(removed)
+            }
+        }
+        edit.minimumVolumeMusclesEdit.added.forEach {
+            base[it] = com.stratum.domain.onboarding.SpecializationLevel.MinimumVolume
+        }
+        edit.minimumVolumeMusclesEdit.removed.forEach { removed ->
+            if (base[removed] == com.stratum.domain.onboarding.SpecializationLevel.MinimumVolume) {
+                base.remove(removed)
+            }
+        }
         return copy(levels = base)
     }
 

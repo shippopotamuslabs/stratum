@@ -3,15 +3,14 @@ package com.stratum.feature.program
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.onboarding.OnboardingStep
-import com.stratum.domain.onboarding.ReopenOnboardingWizardUseCase
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.ComputeProgramMuscleVolumeUseCase
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -23,10 +22,10 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.program.ui.ProgramsUiState
+import com.stratum.feature.program.ui.ScheduleItemState
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -59,21 +58,22 @@ class ProgramsViewModelTest {
     @DisplayName("PROG-GEN-401 populated repo maps to a Loaded presentation")
     inner class LoadedState {
         @Test
-        fun `a populated repository emits Loaded with the program name and a single workout`() =
-            runTest {
-                val viewModel = buildViewModel(initial = PROGRAM_PPL)
+        fun `a populated repository emits Loaded with schedule and volume`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
 
-                viewModel.programsUiState.test {
-                    val state = awaitItem()
-                    assertTrue(state is ProgramsUiState.Loaded)
-                    val loaded = state as ProgramsUiState.Loaded
-                    assertEquals("Push/Pull/Legs", loaded.program.name)
-                    assertEquals(1, loaded.program.workouts.size)
-                    assertEquals("Push Day", loaded.program.workouts[0].name)
-                    assertEquals(1, loaded.program.workouts[0].workoutLifts.size)
-                    cancelAndIgnoreRemainingEvents()
-                }
+            viewModel.programsUiState.test {
+                val state = awaitItem()
+                assertTrue(state is ProgramsUiState.Loaded)
+                val loaded = state as ProgramsUiState.Loaded
+                assertEquals("Push/Pull/Legs", loaded.program.name)
+                assertTrue(loaded.scheduleItems.any { item -> item is ScheduleItemState.Workout })
+                assertTrue(
+                    loaded.upperVolumeByMuscle.isNotEmpty() ||
+                        loaded.lowerVolumeByMuscle.isNotEmpty(),
+                )
+                cancelAndIgnoreRemainingEvents()
             }
+        }
 
         @Test
         fun `the presentation does not expose any domain type`() = runTest {
@@ -81,13 +81,15 @@ class ProgramsViewModelTest {
 
             viewModel.programsUiState.test {
                 val state = awaitItem() as ProgramsUiState.Loaded
-                // ProgramsUiState and its view states must not surface Program/Workout/etc.
                 val uiPackage = ProgramsUiState::class.java.`package`.name
-                val viewStateTypes = listOf(
-                    state.program::class,
-                    state.program.workouts.first()::class,
-                    state.program.workouts.first().workoutLifts.first()::class,
-                )
+                val workoutItem =
+                    state.scheduleItems.filterIsInstance<ScheduleItemState.Workout>().first()
+                val viewStateTypes =
+                    listOf(
+                        state.program::class,
+                        workoutItem.workout::class,
+                        workoutItem.workout.lifts.first()::class,
+                    )
                 assertTrue(viewStateTypes.all { it.java.`package`.name == uiPackage })
                 cancelAndIgnoreRemainingEvents()
             }
@@ -95,51 +97,32 @@ class ProgramsViewModelTest {
     }
 
     @Nested
-    @DisplayName("PROG-GEN-402 WorkoutLift summary lines include catalog names")
+    @DisplayName("PROG-GEN-402 WorkoutLift view state carries name set count reps and RPE")
     inner class LiftSummary {
         @Test
-        fun `the populated WorkoutLift view state carries a summary line with set count and reps`() =
+        fun `the populated WorkoutLift view state carries name set count reps and RPE`() =
             runTest {
                 val viewModel = buildViewModel(initial = PROGRAM_PPL)
 
                 viewModel.programsUiState.test {
-                    val lift = (awaitItem() as ProgramsUiState.Loaded)
-                        .program.workouts[0].workoutLifts[0]
-                    assertEquals("Barbell Bench Press - 2 x 8\u201312", lift.summaryLine)
+                    val lift =
+                        (awaitItem() as ProgramsUiState.Loaded)
+                            .scheduleItems
+                            .filterIsInstance<ScheduleItemState.Workout>()
+                            .first()
+                            .workout
+                            .lifts
+                            .first()
+                    assertEquals("Barbell Bench Press", lift.name)
+                    assertEquals(2, lift.setCount)
+                    assertEquals("8\u201312", lift.repRange)
+                    assertEquals("@8", lift.topSetRpe)
                     cancelAndIgnoreRemainingEvents()
                 }
             }
     }
 
-    @Nested
-    @DisplayName("PROG-GEN-404 back to onboarding reopens the wizard")
-    inner class BackToOnboarding {
-        @Test
-        fun `backToOnboarding clears completion and invokes navigation`() = runTest {
-            val onboardingRepo =
-                FakeOnboardingRepository(
-                    initial =
-                        com.stratum.domain.onboarding.OnboardingProgress(
-                            currentStep = OnboardingStep.Generate,
-                            startedAt = FakeOnboardingRepository.STARTED_AT,
-                            completedAt = FakeOnboardingRepository.COMPLETED_AT,
-                        ),
-                )
-            var navigated = false
-            val viewModel = buildViewModel(initial = PROGRAM_PPL, onboardingRepo = onboardingRepo)
-
-            viewModel.backToOnboarding { navigated = true }
-
-            assertTrue(navigated)
-            assertNull(onboardingRepo.current.completedAt)
-            assertEquals(OnboardingStep.Generate, onboardingRepo.current.currentStep)
-        }
-    }
-
-    private fun buildViewModel(
-        initial: Program?,
-        onboardingRepo: FakeOnboardingRepository = FakeOnboardingRepository(),
-    ): ProgramsViewModel {
+    private fun buildViewModel(initial: Program?): ProgramsViewModel {
         repository = FakeProgramRepository(initial)
         val liftRepository =
             FakeLiftRepository(
@@ -151,7 +134,7 @@ class ProgramsViewModelTest {
         return ProgramsViewModel(
             observeProgram = com.stratum.domain.program.ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(onboardingRepo),
+            computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
         )
     }
 
@@ -160,7 +143,7 @@ class ProgramsViewModelTest {
             id = id,
             name = name,
             movementPatterns = setOf(MovementPattern.HorizontalPress),
-            primaryMuscles = emptySet(),
+            primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
             allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
@@ -169,39 +152,56 @@ class ProgramsViewModelTest {
         )
 
     private companion object {
-        val PROGRAM_PPL: Program = Program(
-            id = ProgramId("p-1"),
-            name = "Push/Pull/Legs",
-            createdAt = Instant.parse("2026-06-26T12:00:00Z"),
-            cycleLength = 1,
-            workouts = listOf(
-                Workout(
-                    id = WorkoutId("w-1"),
-                    programId = ProgramId("p-1"),
-                    name = "Push Day",
-                    weekday = Weekday.Monday,
-                    position = 0,
-                    workoutLifts = listOf(
-                        WorkoutLift(
-                            id = WorkoutLiftId("wl-1"),
-                            workoutId = WorkoutId("w-1"),
-                            liftId = LiftId("bench-press"),
-                            progressionScheme = ProgressionScheme.Linear,
+        val PROGRAM_PPL: Program =
+            Program(
+                id = ProgramId("p-1"),
+                name = "Push/Pull/Legs",
+                createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+                cycleLength = 1,
+                trainingWeekdays = setOf(Weekday.Monday),
+                workouts =
+                    listOf(
+                        Workout(
+                            id = WorkoutId("w-1"),
+                            programId = ProgramId("p-1"),
+                            name = "Push Day",
+                            weekday = Weekday.Monday,
                             position = 0,
-                            sets = listOf(
-                                LiftSet(
-                                    LiftSetId("ls-1"), WorkoutLiftId("wl-1"), 0,
-                                    SetType.Standard, 8, 12, 2, isTopSet = true,
+                            workoutLifts =
+                                listOf(
+                                    WorkoutLift(
+                                        id = WorkoutLiftId("wl-1"),
+                                        workoutId = WorkoutId("w-1"),
+                                        liftId = LiftId("bench-press"),
+                                        progressionScheme = ProgressionScheme.Linear,
+                                        position = 0,
+                                        sets =
+                                            listOf(
+                                                LiftSet(
+                                                    LiftSetId("ls-1"),
+                                                    WorkoutLiftId("wl-1"),
+                                                    0,
+                                                    SetType.Standard,
+                                                    8,
+                                                    12,
+                                                    2,
+                                                    isTopSet = true,
+                                                ),
+                                                LiftSet(
+                                                    LiftSetId("ls-2"),
+                                                    WorkoutLiftId("wl-1"),
+                                                    1,
+                                                    SetType.Standard,
+                                                    8,
+                                                    12,
+                                                    2,
+                                                    isTopSet = false,
+                                                ),
+                                            ),
+                                    ),
                                 ),
-                                LiftSet(
-                                    LiftSetId("ls-2"), WorkoutLiftId("wl-1"), 1,
-                                    SetType.Standard, 8, 12, 2, isTopSet = false,
-                                ),
-                            ),
                         ),
                     ),
-                ),
-            ),
-        )
+            )
     }
 }

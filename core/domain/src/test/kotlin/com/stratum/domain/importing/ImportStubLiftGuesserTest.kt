@@ -121,4 +121,17 @@ class ImportStubLiftGuesserTest {
         assertEquals(MovementPattern.ShoulderHorizontalAbduction, pattern)
         assertEquals(setOf(MuscleGroup.PosteriorDeltoid), primary)
     }
+
+    @Test
+    @DisplayName("Given chest dip vs triceps dip names when guessing then press vs extension patterns apply")
+    fun dipNamesDistinguishChestAndTriceps() {
+        assertEquals(
+            MovementPattern.HorizontalPress,
+            ImportStubLiftGuesser.guessMovementPattern("Chest Dip"),
+        )
+        assertEquals(
+            MovementPattern.ElbowExtension,
+            ImportStubLiftGuesser.guessMovementPattern("Triceps Dip"),
+        )
+    }
 }

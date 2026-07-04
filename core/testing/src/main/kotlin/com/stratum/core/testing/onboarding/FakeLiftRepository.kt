@@ -10,6 +10,7 @@ import com.stratum.domain.lift.identity.LiftId
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 /**
  * In-memory fake for [LiftRepository]. Defaults to an empty catalog and a `null` preset
@@ -30,6 +31,13 @@ class FakeLiftRepository(
     private val usedHistoricalImport = MutableStateFlow(false)
 
     override fun observeLifts(): Flow<List<Lift>> = lifts
+
+    override fun observeEnabledLifts(): Flow<List<Lift>> = lifts.map { rows -> rows.filter { it.enabled } }
+
+    override fun observeLifts(isCustom: Boolean): Flow<List<Lift>> = lifts.map { rows -> rows.filter { it.isCustom == isCustom } }
+
+    override fun observeLiftsContainingPattern(pattern: MovementPattern): Flow<List<Lift>> =
+        lifts.map { rows -> rows.filter { pattern in it.movementPatterns } }
 
     override fun observeSelectedPreset(): Flow<GymPreset?> = selectedPreset
 

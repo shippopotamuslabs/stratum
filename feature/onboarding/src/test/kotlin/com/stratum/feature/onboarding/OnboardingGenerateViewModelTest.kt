@@ -16,6 +16,10 @@ import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.program.GenerateProgramUseCase
 import com.stratum.domain.program.ProgramGenerationContextLoader
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -43,73 +47,64 @@ class OnboardingGenerateViewModelTest {
     @DisplayName("PROG-GEN-600 tapping Generate completes onboarding and persists the program")
     inner class GenerateSuccess {
         @Test
-        fun `generate marks onboarding complete and persists the program`() = runTest {
-            val (viewModel, onboardingRepo, programRepo) = buildViewModel(fail = false)
-
-            viewModel.generate()
-
-            assertTrue(onboardingRepo.current.isComplete)
-            assertTrue(programRepo.current != null, "expected a persisted program")
-        }
+        fun `generate marks onboarding complete and persists the program`() =
+            runGenerateTest(fail = false) { _, onboardingRepo, programRepo ->
+                assertTrue(onboardingRepo.current.isComplete)
+                assertTrue(programRepo.current != null, "expected a persisted program")
+            }
     }
 
     @Nested
     @DisplayName("PROG-GEN-601 generation failure does not complete onboarding")
     inner class GenerateFailure {
         @Test
-        fun `generate leaves onboarding incomplete and persists no program on failure`() = runTest {
-            val (viewModel, onboardingRepo, programRepo) = buildViewModel(fail = true)
-
-            viewModel.generate()
-
-            assertFalse(onboardingRepo.current.isComplete)
-            assertEquals(null, programRepo.current)
-        }
+        fun `generate leaves onboarding incomplete and persists no program on failure`() =
+            runGenerateTest(fail = true) { _, onboardingRepo, programRepo ->
+                assertFalse(onboardingRepo.current.isComplete)
+                assertEquals(null, programRepo.current)
+            }
     }
 
     @Nested
     @DisplayName("PROG-GEN-603 terminal generateState is Idle on success")
     inner class LoadingCopy {
         @Test
-        fun `after generate the terminal generateState is Idle on success`() = runTest {
-            val (viewModel, _, _) = buildViewModel(fail = false)
-            viewModel.generate()
-            viewModel.uiState.test {
-                assertEquals(GenerateState.Idle, awaitItem().generateState)
-                cancelAndIgnoreRemainingEvents()
+        fun `after generate the terminal generateState is Idle on success`() =
+            runGenerateTest(fail = false) { viewModel, _, _ ->
+                viewModel.uiState.test {
+                    assertEquals(GenerateState.Idle, awaitItem().generateState)
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
-        }
     }
 
     @Nested
     @DisplayName("PROG-GEN-602 error state offers retry and back-to-review handlers")
     inner class ErrorState {
         @Test
-        fun `the terminal generateState is Error on failure`() = runTest {
-            val (viewModel, onboardingRepo, _) = buildViewModel(fail = true)
-            viewModel.generate()
-            viewModel.uiState.test {
-                val state = awaitItem()
-                assertEquals(GenerateState.Error, state.generateState)
-                assertEquals(null, state.generateErrorMessage)
-                cancelAndIgnoreRemainingEvents()
+        fun `the terminal generateState is Error on failure`() =
+            runGenerateTest(fail = true) { viewModel, onboardingRepo, _ ->
+                viewModel.uiState.test {
+                    val state = awaitItem()
+                    assertEquals(GenerateState.Error, state.generateState)
+                    assertEquals(null, state.generateErrorMessage)
+                    cancelAndIgnoreRemainingEvents()
+                }
+                assertFalse(onboardingRepo.current.isComplete)
             }
-            assertFalse(onboardingRepo.current.isComplete)
-        }
 
         @Test
-        fun `generate failure does not surface technical exception message in ui state`() = runTest {
-            val (viewModel, _, _) = buildViewModel(
+        fun `generate failure does not surface technical exception message in ui state`() =
+            runGenerateTest(
                 fail = true,
                 failMessage = "Network error. Check your connection and try again.",
-            )
-            viewModel.generate()
-            viewModel.uiState.test {
-                val state = awaitItem()
-                assertEquals(null, state.generateErrorMessage)
-                cancelAndIgnoreRemainingEvents()
+            ) { viewModel, _, _ ->
+                viewModel.uiState.test {
+                    val state = awaitItem()
+                    assertEquals(null, state.generateErrorMessage)
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
-        }
 
         @Test
         fun `GenerateState has exactly the Idle Loading Error variants`() {
@@ -122,9 +117,12 @@ class OnboardingGenerateViewModelTest {
     inner class SingleFlight {
         @Test
         fun `a second generate call while Loading is ignored`() = runTest {
-            val (viewModel, _, _) = buildViewModel(fail = false)
+            val generationDispatcher = StandardTestDispatcher(testScheduler)
+            val (viewModel, _, _) =
+                buildViewModel(fail = false, generationDispatcher = generationDispatcher)
             viewModel.generate()
             viewModel.generate()
+            advanceUntilIdle()
             viewModel.uiState.test {
                 assertEquals(GenerateState.Idle, awaitItem().generateState)
                 cancelAndIgnoreRemainingEvents()
@@ -135,6 +133,7 @@ class OnboardingGenerateViewModelTest {
     private fun buildViewModel(
         fail: Boolean,
         @Suppress("UNUSED_PARAMETER") failMessage: String = "generation failed",
+        generationDispatcher: CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default,
     ): Triple<OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository> {
         val onboardingRepo = FakeOnboardingRepository()
         val profileRepo = FakeUserTrainingProfileRepository(
@@ -151,6 +150,7 @@ class OnboardingGenerateViewModelTest {
             validateProfileStep = com.stratum.domain.onboarding.ValidateProfileStepUseCase(),
             validateScheduleStep = com.stratum.domain.onboarding.ValidateScheduleStepUseCase(),
             validateSpecializationStep = com.stratum.domain.onboarding.ValidateSpecializationStepUseCase(),
+            validateMinimumVolumeStep = com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase(),
             validateGymLiftsStep = com.stratum.domain.lift.ValidateGymLiftsStepUseCase(),
         )
         val rollbackHistoricalImport = com.stratum.domain.importing.RollbackHistoricalImportUseCase(
@@ -174,7 +174,7 @@ class OnboardingGenerateViewModelTest {
                 com.stratum.core.testing.importing.FakeSupersetAffinityRepository(),
                 com.stratum.core.testing.response.FakeVolumeResponseObservationRepository(),
                 com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository(),
-                com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository(),
+                com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository(),
                 com.stratum.core.testing.onboarding.FakeLiftRepository(),
             ),
         )
@@ -246,8 +246,25 @@ class OnboardingGenerateViewModelTest {
                 liftRepository = liftRepo,
                 completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
                 profileRepository = profileRepo,
+                generationDispatcher = generationDispatcher,
             ),
         )
         return Triple(viewModel, onboardingRepo, programRepo)
+    }
+
+    private fun runGenerateTest(
+        fail: Boolean,
+        failMessage: String = "generation failed",
+        block: suspend (OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository) -> Unit,
+    ) = runTest {
+        val generationDispatcher = UnconfinedTestDispatcher(testScheduler)
+        val (viewModel, onboardingRepo, programRepo) =
+            buildViewModel(
+                fail = fail,
+                failMessage = failMessage,
+                generationDispatcher = generationDispatcher,
+            )
+        viewModel.generate()
+        block(viewModel, onboardingRepo, programRepo)
     }
 }

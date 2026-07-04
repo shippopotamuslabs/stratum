@@ -35,6 +35,7 @@ internal fun OnboardingStep.toStepDisplayName(): String = when (this) {
     OnboardingStep.Profile -> "Profile"
     OnboardingStep.Schedule -> "Schedule"
     OnboardingStep.Specialization -> "Specialization"
+    OnboardingStep.MinimumVolume -> "Minimum Volume"
     OnboardingStep.GymAndLifts -> "Gym & Lifts"
     OnboardingStep.Review -> "Review"
     OnboardingStep.Generate -> "Create Program"

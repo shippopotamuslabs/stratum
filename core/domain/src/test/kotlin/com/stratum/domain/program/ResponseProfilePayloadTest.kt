@@ -66,7 +66,7 @@ class ResponseProfilePayloadTest {
             ResponseProfilePayload.fromObservations(
                 volumeObservations = listOf(observation),
                 effectivenessObservations = emptyList(),
-                volumeLandmarks = emptyList(),
+                volumeSnapshots = emptyList(),
                 epochsAnalyzed = 0,
                 analysisWindowStart = windowStart,
                 analysisWindowEnd = windowEnd,
@@ -85,7 +85,7 @@ class ResponseProfilePayloadTest {
             ResponseProfilePayload(
                 volumeResponses = emptyList(),
                 liftEffectiveness = emptyList(),
-                volumeLandmarks = emptyList(),
+                volumeSnapshots = emptyList(),
                 informational = ResponseProfileInformational(emptyList(), emptyList()),
                 epochsAnalyzed = 2,
                 analysisWindowStart = windowStart,
@@ -102,7 +102,7 @@ class ResponseProfilePayloadTest {
             ResponseProfilePayload(
                 volumeResponses = emptyList(),
                 liftEffectiveness = emptyList(),
-                volumeLandmarks = emptyList(),
+                volumeSnapshots = emptyList(),
                 informational = ResponseProfileInformational(emptyList(), emptyList()),
                 epochsAnalyzed = 0,
                 analysisWindowStart = windowStart,

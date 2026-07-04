@@ -18,6 +18,8 @@ internal data class OnboardingEphemeralState(
     val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
     val presetApplyError: String? = null,
+    /** True after import-based MV suggestions were auto-applied once this wizard run. */
+    val minimumVolumeImportPrefillApplied: Boolean = false,
 ) {
     companion object {
         val Initial = OnboardingEphemeralState()

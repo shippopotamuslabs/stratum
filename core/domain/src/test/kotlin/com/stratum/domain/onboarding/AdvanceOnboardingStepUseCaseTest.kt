@@ -33,6 +33,7 @@ class AdvanceOnboardingStepUseCaseTest {
                 validateProfileStep = ValidateProfileStepUseCase(),
                 validateScheduleStep = ValidateScheduleStepUseCase(),
                 validateSpecializationStep = ValidateSpecializationStepUseCase(),
+                validateMinimumVolumeStep = ValidateMinimumVolumeStepUseCase(),
                 validateGymLiftsStep = ValidateGymLiftsStepUseCase(),
             ),
             updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfile),

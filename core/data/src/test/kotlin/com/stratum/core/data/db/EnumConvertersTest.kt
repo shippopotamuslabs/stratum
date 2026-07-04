@@ -57,6 +57,13 @@ class EnumConvertersTest {
     }
 
     @Test
+    @DisplayName("Given a MovementPattern when round-tripped through the single-value converter then it is preserved")
+    fun movementPatternRoundTripsSingleValue() {
+        val pattern = com.stratum.domain.lift.MovementPattern.SquatPattern
+        assertEquals(pattern, converters.toMovementPattern(converters.fromMovementPattern(pattern)))
+    }
+
+    @Test
     @DisplayName("Given a blank LiftId when decoded then it yields null")
     fun blankLiftIdYieldsNull() {
         assertNull(converters.toLiftId(""))

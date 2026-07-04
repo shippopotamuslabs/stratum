@@ -11,6 +11,7 @@ import com.stratum.domain.importing.VolumeResponseHighlight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.EvidenceLevel
+import com.stratum.domain.response.modeling.VolumePosture
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -33,15 +34,16 @@ class ImportInsightsSummaryMappingTest {
                     listOf(
                         MuscleVolumeHighlight(
                             muscle = MuscleGroup.Chest,
-                            estimatedMev = 10.0,
-                            estimatedMav = 15.0,
-                            estimatedMrv = 18.0,
-                            estimatedPv = 13.0,
-                            mevInterval = LandmarkConfidenceInterval(8.0, 12.0, IntervalMethod.DeltaMethod),
-                            mavInterval = LandmarkConfidenceInterval(13.0, 17.0, IntervalMethod.DeltaMethod),
-                            mrvInterval = LandmarkConfidenceInterval(16.0, 21.0, IntervalMethod.ResidualBootstrap),
-                            pvInterval = LandmarkConfidenceInterval.Unavailable,
+                            retentionFloorMv = 10.0,
+                            paretoVolumePv = 13.0,
+                            recoverabilityCeilingRc = 18.0,
+                            observedDoseMin = 8.0,
+                            observedDoseMax = 14.0,
+                            observedDoseMedian = 11.0,
+                            posture = VolumePosture.Holding,
+                            pvInterval = LandmarkConfidenceInterval(12.0, 14.0, IntervalMethod.EpochBlockedBootstrap),
                             confidenceTier = LandmarkConfidenceTier.Medium,
+                            personalizedFromLogs = true,
                         ),
                     ),
                 effectiveLifts =
@@ -68,15 +70,18 @@ class ImportInsightsSummaryMappingTest {
 
         val ui = summary.toImportInsightsSummaryUi()
 
-        assertEquals("Chest", ui.volumeLandmarks.first().muscleLabel)
-        assertEquals("10", ui.volumeLandmarks.first().mevWeeklyHardSets)
-        assertEquals("15", ui.volumeLandmarks.first().mavWeeklyHardSets)
-        assertEquals("18", ui.volumeLandmarks.first().mrvWeeklyHardSets)
-        assertEquals("13", ui.volumeLandmarks.first().pvWeeklyHardSets)
-        assertEquals("8–12", ui.volumeLandmarks.first().mevIntervalLabel)
-        assertEquals("13–17", ui.volumeLandmarks.first().mavIntervalLabel)
-        assertEquals("16–21", ui.volumeLandmarks.first().mrvIntervalLabel)
-        assertEquals("", ui.volumeLandmarks.first().pvIntervalLabel)
+        assertEquals("Chest", ui.volumeSnapshots.first().muscleLabel)
+        assertEquals("10", ui.volumeSnapshots.first().mvWeeklyHardSets)
+        assertEquals("13", ui.volumeSnapshots.first().pvWeeklyHardSets)
+        assertEquals("18", ui.volumeSnapshots.first().rcWeeklyHardSets)
+        assertEquals(false, ui.volumeSnapshots.first().isSaturatedPosture)
+        assertEquals(true, ui.volumeSnapshots.first().personalizedFromLogs)
+        assertEquals("8", ui.volumeSnapshots.first().observedMinWeeklyHardSets)
+        assertEquals("11", ui.volumeSnapshots.first().observedMedianWeeklyHardSetsLabel)
+        assertEquals(11.0, ui.volumeSnapshots.first().observedMedianWeeklyHardSets)
+        assertEquals("14", ui.volumeSnapshots.first().observedMaxWeeklyHardSets)
+        assertEquals("12–14", ui.volumeSnapshots.first().pvIntervalLabel)
+        assertEquals(true, ui.volumeSnapshots.first().hasPvInterval)
         assertEquals("Chest", ui.effectiveLifts.first().muscleLabel)
         assertEquals("Bench Press", ui.effectiveLifts.first().liftName)
         assertEquals(UserEffectivenessTier.VeryEffective, ui.effectiveLifts.first().effectivenessTier)

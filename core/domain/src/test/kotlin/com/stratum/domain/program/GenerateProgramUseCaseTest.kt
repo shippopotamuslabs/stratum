@@ -12,6 +12,8 @@ import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -29,7 +31,7 @@ class GenerateProgramUseCaseTest {
     inner class HappyPath {
         @Test
         fun `invoke persists a generated program and completes onboarding`() = runTest {
-            val useCase = buildUseCase()
+            val useCase = buildUseCase(this)
 
             val result = useCase.invoke()
 
@@ -46,7 +48,7 @@ class GenerateProgramUseCaseTest {
     inner class FailurePath {
         @Test
         fun `invoke does not persist or complete on generation failure`() = runTest {
-            val useCase = buildUseCase(contextLoader = ProgramGenerationContextLoader { error("boom") })
+            val useCase = buildUseCase(this, contextLoader = ProgramGenerationContextLoader { error("boom") })
 
             val result = useCase.invoke()
 
@@ -62,7 +64,7 @@ class GenerateProgramUseCaseTest {
     inner class PersistFailurePath {
         @Test
         fun `invoke does not complete onboarding when saveProgram fails`() = runTest {
-            val useCase = buildUseCase(repositoryFailOnSave = true)
+            val useCase = buildUseCase(this, repositoryFailOnSave = true)
 
             val result = useCase.invoke()
 
@@ -78,21 +80,28 @@ class GenerateProgramUseCaseTest {
         @Test
         fun `invoke reports pipeline and orchestration phases`() = runTest {
             val phases = mutableListOf<ProgramGenerationProgressPhase>()
-            val useCase = buildUseCase()
+            val useCase = buildUseCase(this)
 
             useCase.invoke { progress -> phases.add(progress.phase) }
 
+            val collapsed =
+                phases.fold(mutableListOf<ProgramGenerationProgressPhase>()) { acc, phase ->
+                    if (acc.lastOrNull() != phase) acc.add(phase)
+                    acc
+                }
             assertEquals(
                 listOf(
                     ProgramGenerationProgressPhase.PreparingPayload,
                     ProgramGenerationProgressPhase.ReviewingProfile,
-                    ProgramGenerationProgressPhase.SplitPlanning,
-                    ProgramGenerationProgressPhase.BuildingWorkouts,
-                    ProgramGenerationProgressPhase.Integrating,
+                    ProgramGenerationProgressPhase.PlanningVolume,
+                    ProgramGenerationProgressPhase.SynthesizingProgram,
+                    ProgramGenerationProgressPhase.SelectingExercises,
+                    ProgramGenerationProgressPhase.PolishingProgram,
+                    ProgramGenerationProgressPhase.FinalizingProgram,
                     ProgramGenerationProgressPhase.SavingProgram,
                     ProgramGenerationProgressPhase.Complete,
                 ),
-                phases,
+                collapsed,
             )
         }
     }
@@ -102,6 +111,7 @@ class GenerateProgramUseCaseTest {
     private lateinit var profileRepository: FakeUserTrainingProfileRepository
 
     private fun buildUseCase(
+        testScope: TestScope,
         contextLoader: ProgramGenerationContextLoader = ProgramGenerationContextLoader {
             scenarioContext(days = 3, specialization = emptyMap())
         },
@@ -133,6 +143,7 @@ class GenerateProgramUseCaseTest {
             ),
             completeOnboarding = CompleteOnboardingUseCase(onboardingRepository, profileRepository),
             profileRepository = profileRepository,
+            generationDispatcher = UnconfinedTestDispatcher(testScope.testScheduler),
         )
     }
 

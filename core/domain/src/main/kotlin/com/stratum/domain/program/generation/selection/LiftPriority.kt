@@ -2,6 +2,8 @@
 
 package com.stratum.domain.program.generation.selection
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
@@ -12,7 +14,7 @@ import kotlin.math.min
 data class LiftCandidate(
     val liftId: String,
     val name: String,
-    val pattern: String,
+    val pattern: MovementPattern?,
     /** 0.0–1.0 priority score (higher = more relevant for this day). */
     val priority: Double,
     /** Coarse tier label for the prompt: "proven" or "available". */
@@ -22,8 +24,8 @@ data class LiftCandidate(
      *  isolation/accessory work. */
     val isCompound: Boolean,
     val mainstream: Boolean? = null,
-    val primaryMuscles: List<String>,
-    val secondaryMuscles: List<String>,
+    val primaryMuscles: Set<MuscleGroup>,
+    val secondaryMuscles: Set<MuscleGroup>,
     /** Trimmed insights: only fatigue decay + progress trend. Undefined when the lift has no insights. */
     val trainingInsights: TrainingInsights? = null,
 ) {
@@ -38,7 +40,7 @@ data class LiftCandidate(
 const val CANDIDATES_PER_SLOT = 5
 
 /** Weight for the mainstream-name bonus blended into [scoreLift]. */
-private const val MAINSTREAM_NAME_WEIGHT = 0.12
+private val MAINSTREAM_NAME_WEIGHT: Double get() = LiftSelectionWeights.MAINSTREAM_WEIGHT
 
 /**
  * 0.0–1.0 score favoring bread-and-butter lifts over obscure yuhonas catalog tail entries.
@@ -142,12 +144,12 @@ fun scoreLift(lift: LiftContext, context: ProgramGenerationContext): Double {
     val mainstream = if (lift.mainstream == true) 1.0 else mainstreamNameScore(lift.name)
 
     return (
-        0.30 * provenTier +
-            0.20 * recencyScore +
-            0.20 * effectivenessScore +
-            0.15 * progressTrendScore +
-            0.10 * evidenceTier +
-            0.05 * hasInsights +
+        LiftSelectionWeights.PROVEN_TIER_WEIGHT * provenTier +
+            LiftSelectionWeights.RECENCY_WEIGHT * recencyScore +
+            LiftSelectionWeights.EFFECTIVENESS_WEIGHT * effectivenessScore +
+            LiftSelectionWeights.PROGRESS_TREND_WEIGHT * progressTrendScore +
+            LiftSelectionWeights.EVIDENCE_WEIGHT * evidenceTier +
+            LiftSelectionWeights.HAS_INSIGHTS_WEIGHT * hasInsights +
             MAINSTREAM_NAME_WEIGHT * mainstream
         )
 }

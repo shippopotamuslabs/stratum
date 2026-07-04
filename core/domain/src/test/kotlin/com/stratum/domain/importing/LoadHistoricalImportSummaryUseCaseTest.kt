@@ -2,7 +2,7 @@ package com.stratum.domain.importing
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
-import com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository
+import com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -17,9 +17,9 @@ import com.stratum.domain.response.StimulusDescriptor
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.WeeklySetRange
 import com.stratum.domain.response.identity.EpochId
-import com.stratum.domain.response.modeling.MrvSource
-import com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate
+import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
 import com.stratum.domain.response.modeling.OutcomeModelType
+import com.stratum.domain.response.modeling.VolumePosture
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -152,11 +152,11 @@ class LoadHistoricalImportSummaryUseCaseTest {
         val volumeResponseRepository = FakeVolumeResponseObservationRepository().apply { seed(volumeResponses) }
         val effectivenessRepository = FakeLiftEffectivenessObservationRepository().apply { seed(effectiveness) }
         val liftRepository = FakeLiftRepository().apply { seedLifts(lifts) }
-        val landmarkRepository = FakeMuscleVolumeLandmarkEstimateRepository().apply {
+        val snapshotRepository = FakeMuscleVolumeResponseSnapshotRepository().apply {
             seed(
                 listOf(
-                    sampleLandmark(MuscleGroup.Chest),
-                    sampleLandmark(MuscleGroup.Back),
+                    sampleSnapshot(MuscleGroup.Chest),
+                    sampleSnapshot(MuscleGroup.Back),
                 ),
             )
         }
@@ -167,27 +167,27 @@ class LoadHistoricalImportSummaryUseCaseTest {
             supersetRepository,
             volumeResponseRepository,
             effectivenessRepository,
-            landmarkRepository,
+            snapshotRepository,
             liftRepository,
         )
     }
 
-    private fun sampleLandmark(muscle: MuscleGroup): MuscleVolumeLandmarkEstimate =
-        MuscleVolumeLandmarkEstimate(
+    private fun sampleSnapshot(muscle: MuscleGroup): MuscleVolumeResponseSnapshot =
+        MuscleVolumeResponseSnapshot(
             muscle = muscle,
-            estimatedMev = 6.0,
-            estimatedMav = 12.0,
-            estimatedMrv = 18.0,
-            estimatedPv = 9.0,
-            mevInterval = LandmarkConfidenceInterval.Unavailable,
-            mavInterval = LandmarkConfidenceInterval.Unavailable,
-            mrvInterval = LandmarkConfidenceInterval.Unavailable,
+            retentionFloorMv = 6.0,
+            paretoVolumePv = 12.0,
+            recoverabilityCeilingRc = 18.0,
+            growthEntryFloor = 6.0,
+            observedDoseMin = 4.0,
+            observedDoseMax = 16.0,
+            observedDoseMedian = 10.0,
+            productiveBandMin = 8.0,
+            productiveBandMax = 14.0,
+            posture = VolumePosture.Holding,
             pvInterval = LandmarkConfidenceInterval.Unavailable,
             confidenceTier = LandmarkConfidenceTier.Medium,
             outcomeModelType = OutcomeModelType.MuscleIndex,
-            mrvSource = MrvSource.Observed,
-            observedDoseMin = 4.0,
-            observedDoseMax = 16.0,
             diagnosticAnchorLiftId = null,
         )
 

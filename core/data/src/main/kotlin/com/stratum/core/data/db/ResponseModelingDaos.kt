@@ -54,15 +54,15 @@ interface MuscleDoseResponsePointDao {
 }
 
 @Dao
-interface MuscleVolumeLandmarkEstimateDao {
+interface MuscleVolumeResponseSnapshotDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<MuscleVolumeLandmarkEstimateEntity>)
+    suspend fun insertAll(entities: List<MuscleVolumeResponseSnapshotEntity>)
 
-    @Query("DELETE FROM muscle_volume_landmark_estimates")
+    @Query("DELETE FROM muscle_volume_response_snapshots")
     suspend fun deleteAll()
 
-    @Query("SELECT * FROM muscle_volume_landmark_estimates")
-    suspend fun getAll(): List<MuscleVolumeLandmarkEstimateEntity>
+    @Query("SELECT * FROM muscle_volume_response_snapshots")
+    suspend fun getAll(): List<MuscleVolumeResponseSnapshotEntity>
 }
 
 @Dao

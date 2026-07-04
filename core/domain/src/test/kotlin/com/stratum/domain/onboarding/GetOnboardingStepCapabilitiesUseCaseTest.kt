@@ -22,6 +22,7 @@ class GetOnboardingStepCapabilitiesUseCaseTest {
                         validateProfileStep = ValidateProfileStepUseCase(),
                         validateScheduleStep = ValidateScheduleStepUseCase(),
                         validateSpecializationStep = ValidateSpecializationStepUseCase(),
+                        validateMinimumVolumeStep = ValidateMinimumVolumeStepUseCase(),
                         validateGymLiftsStep = ValidateGymLiftsStepUseCase(),
                     ),
             )

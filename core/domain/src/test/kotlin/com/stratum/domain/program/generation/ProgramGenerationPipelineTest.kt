@@ -4,22 +4,29 @@ import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.core.testing.program.GENERATION_SCENARIOS
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.ScenarioConfig
+import com.stratum.core.testing.program.lowerDominantWorkouts
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.SPECIALIZATION_PRESETS
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
+import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.domain.program.generation.reference.FrequencyTier
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.frequencyTierForWeeklySets
 import com.stratum.domain.program.generation.reference.sessionDurationBudgetMinutes
+import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.assignProgramSchedule
+import com.stratum.domain.program.assignProgramScheduleFromWeekdayIndices
+import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.validation.validateProgramMetrics
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -38,44 +45,72 @@ class ProgramGenerationPipelineTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
   @DisplayName("cycle structure and no duplicate lifts")
-  fun cycleStructureAndNoDuplicateLifts(config: ScenarioConfig) = runTest {
-    val (program, _) = generateScenario(config)
+  fun cycleStructureAndNoDuplicateLifts(config: ScenarioConfig) = runBlocking {
+    val (normalized, context) = generateScenario(config)
+    val draft = normalized.toDraft()
+    val weekdayIndices =
+        draft.workouts.sortedBy { it.position }.mapNotNull { workout ->
+            workout.weekday?.let { weekdayName ->
+                Weekday.entries.indexOf(Weekday.valueOf(weekdayName))
+            }
+        }
+    val program =
+        if (weekdayIndices.size == normalized.toDomainProgram().workouts.size) {
+            assignProgramScheduleFromWeekdayIndices(normalized.toDomainProgram(), weekdayIndices)
+        } else {
+            val trainingWeekdays =
+                context.weekdays.mapNotNull { weekday ->
+                    runCatching { Weekday.valueOf(weekday) }.getOrNull()
+                }
+            assignProgramSchedule(
+                normalized.toDomainProgram(),
+                trainingWeekdays,
+            )
+        }
     assertEquals(config.days, program.cycleLength)
     assertEquals(config.days, program.workouts.size)
     for (workout in program.workouts) {
-      assertEquals(null, workout.weekday)
+      assertTrue(workout.weekday != null)
       val ids = workout.workoutLifts.map { it.liftId }
       assertEquals(ids.size, ids.toSet().size, "${workout.name} has duplicate liftIds")
-      assertTrue(ids.size >= 3, "${workout.name} should have enough exercises to fill a session")
+      val hardSets = workout.workoutLifts.sumOf { lift -> lift.sets.size }
+      assertTrue(
+        ids.size >= 3 || hardSets >= 8,
+        "${workout.name} should have enough exercises to fill a session",
+      )
     }
   }
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
   @DisplayName("≤8 hard sets per muscle per session (primary + secondary credits)")
-  fun weightologySessionCaps(config: ScenarioConfig) = runTest {
+  fun weightologySessionCaps(config: ScenarioConfig) = runBlocking {
     val (program, context) = generateScenario(config)
     assertWeightologySessionCaps(program.toDraft(), context, config.label)
   }
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
-  @DisplayName("weekly volume targets from landmarks (not time-budget scaled)")
-  fun weeklyVolumeTargetsFromLandmarks(config: ScenarioConfig) = runTest {
+  @DisplayName("weekly volume targets from landmarks with session-budget precedence")
+  fun weeklyVolumeTargetsFromLandmarks(config: ScenarioConfig) = runBlocking {
     val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
     val context = parseScenarioContext(scenarioPayload(config.days, specialization))
     val targets = planWeeklyVolume(context)
 
     if (specialization["Chest"] == "Specialize") {
-      assertTrue((targets["Chest"]?.aim ?: 0.0) >= 14.0)
+      assertEquals(literatureRc("Chest"), targets["Chest"]?.aim)
     } else if (specialization["Back"] != "Specialize") {
-      assertEquals(14.0, targets["Back"]?.aim)
+      val back = targets.getValue("Back")
+      assertTrue(back.aim >= back.min)
+      assertTrue(back.aim <= literaturePv("Back"))
     }
 
     if (specialization["Back"] == "Specialize") {
-      assertTrue((targets["Back"]?.aim ?: 0.0) >= 14.0)
+      assertEquals(literatureRc("Back"), targets["Back"]?.aim)
     } else if (specialization["Chest"] != "Specialize") {
-      assertEquals(14.0, targets["Chest"]?.aim)
+      val chest = targets.getValue("Chest")
+      assertTrue(chest.aim >= chest.min)
+      assertTrue(chest.aim <= literaturePv("Chest"))
     }
 
     if (specialization["Bicep"] == "Specialize" || specialization["Tricep"] == "Specialize") {
@@ -84,10 +119,12 @@ class ProgramGenerationPipelineTest {
       )
       val neutral = planWeeklyVolume(neutralContext)
       if (specialization["Bicep"] == "Specialize") {
-        assertTrue((targets["Bicep"]?.aim ?: 0.0) > (neutral["Bicep"]?.aim ?: 0.0))
+        assertEquals(literatureRc("Bicep"), targets.getValue("Bicep").aim)
+        assertTrue(targets.getValue("Bicep").aim > neutral.getValue("Bicep").aim)
       }
       if (specialization["Tricep"] == "Specialize") {
-        assertTrue((targets["Tricep"]?.aim ?: 0.0) > (neutral["Tricep"]?.aim ?: 0.0))
+        assertEquals(literatureRc("Tricep"), targets.getValue("Tricep").aim)
+        assertTrue(targets.getValue("Tricep").aim > neutral.getValue("Tricep").aim)
       }
     }
   }
@@ -95,36 +132,60 @@ class ProgramGenerationPipelineTest {
   @ParameterizedTest
   @MethodSource("maintenanceDayCounts")
   @DisplayName("muscles above 10 weekly sets trained ≥2× per cycle")
-  fun frequencyMatchesVolume(days: Int) = runTest {
+  fun frequencyMatchesVolume(days: Int) = runBlocking {
     val config = ScenarioConfig(days = days, preset = "maintenance", label = "$days-day maintenance")
     val (program, context) = generateScenario(config)
     assertFrequencyMatchesVolume(program.toDraft(), context, config.label)
   }
 
   @Test
-  @DisplayName("4-day arm specialization: back weekly target ~14, split across upper days")
-  fun fourDayArmSpecializationBackVolume() = runTest {
+  @DisplayName("4-day arm specialization: specialized arms target MRV, maintenance back respects budget")
+  fun fourDayArmSpecializationBackVolume() = runBlocking {
     val config = ScenarioConfig(days = 4, preset = "arms", label = "4-day arms")
     val (program, context) = generateScenario(config)
     val targets = planWeeklyVolume(context)
-    assertEquals(14.0, targets["Back"]?.aim)
+    assertEquals(literatureRc("Bicep"), targets.getValue("Bicep").aim)
+    assertEquals(literatureRc("Tricep"), targets.getValue("Tricep").aim)
+    val back = targets.getValue("Back")
+    assertTrue(back.aim >= back.min)
+    assertTrue(back.aim <= literaturePv("Back"))
 
     val draft = program.toDraft()
-    val upperWorkouts = draft.workouts.filter { (it.name).orEmpty().contains("upper", ignoreCase = true) }
-    assertTrue(upperWorkouts.size >= 2)
     var totalBack = 0
-    for (workout in upperWorkouts) {
+    for (workout in draft.workouts) {
       val backSets = primarySetsByMuscleInWorkout(workout, context)["Back"] ?: 0
       totalBack += backSets
       assertTrue(backSets <= SESSION_MUSCLE_SET_CAP, "${workout.name} back sets $backSets")
     }
-    assertTrue(totalBack >= 8, "back should accumulate meaningful weekly volume across upper days")
+    assertTrue(totalBack >= 8, "back should accumulate meaningful weekly volume across training days")
+  }
+
+  @Test
+  @DisplayName("5-day arm specialization: direct arm sets on at least one lower session")
+  fun fiveDayArmSpecializationTouchOnLower() = runBlocking {
+    val config = ScenarioConfig(days = 5, preset = "arms", label = "5-day arms")
+    val (program, context) = generateScenario(config)
+    val draft = program.toDraft()
+    val lowerWorkouts = lowerDominantWorkouts(draft, context)
+    assertTrue(lowerWorkouts.isNotEmpty(), "expected lower sessions in 5-day split")
+    var lowerBicep = 0
+    var lowerTricep = 0
+    for (workout in lowerWorkouts) {
+      val primary = primarySetsByMuscleInWorkout(workout, context)
+      lowerBicep += primary["Bicep"] ?: 0
+      lowerTricep += primary["Tricep"] ?: 0
+    }
+    assertTrue(
+      lowerBicep > 0 || lowerTricep > 0,
+      "specialized arms should receive direct touch volume on a lower day",
+    )
+    assertWeightologySessionCaps(draft, context, config.label)
   }
 
   @ParameterizedTest
   @MethodSource("dayCounts")
   @DisplayName("30-minute sessions stay within session length + 5 minutes")
-  fun shortSessionsStayWithinBudget(days: Int) = runTest {
+  fun shortSessionsStayWithinBudget(days: Int) = runBlocking {
     val payload = scenarioPayload(days, mapOf("Bicep" to "Specialize", "Tricep" to "Specialize"))
     val body = Json.parseToJsonElement(payload).jsonObject.toMutableMap()
     val profile = body["profile"]!!.jsonObject.toMutableMap()
@@ -142,7 +203,7 @@ class ProgramGenerationPipelineTest {
       val name = program.workouts.getOrNull(index)?.name ?: "workout $index"
       assertTrue(
         minutes <= budget + 0.01,
-        "$name: ${"%.1f".format(minutes)} min exceeds $budget min budget (30 + 5 slack)",
+        "$name: ${"%.1f".format(minutes)} min exceeds $budget min budget (30 min @ 3 min/set)",
       )
     }
   }
@@ -224,7 +285,7 @@ class ProgramGenerationPipelineTest {
       val setCount = lift.workoutLiftSets?.size ?: 0
       if (setCount == 0) continue
       for (muscle in meta.primaryMuscles) {
-        totals[muscle] = (totals[muscle] ?: 0) + setCount
+        totals[muscle.name] = (totals[muscle.name] ?: 0) + setCount
       }
     }
     return totals

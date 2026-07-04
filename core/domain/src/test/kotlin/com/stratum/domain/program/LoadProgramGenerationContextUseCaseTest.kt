@@ -4,18 +4,20 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
 import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
-import com.stratum.core.testing.response.FakeMuscleVolumeLandmarkEstimateRepository
+import com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
 import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
+import com.stratum.domain.importing.LandmarkConfidenceInterval
+import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.ObserveSpecializationUseCase
-import com.stratum.domain.program.generation.context.VolumeLandmarkSource
+import com.stratum.domain.program.generation.context.VolumeSnapshotSource
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.domain.response.OutcomeDescriptor
 import com.stratum.domain.response.OutcomeMetric
@@ -24,9 +26,9 @@ import com.stratum.domain.response.StimulusDescriptor
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.WeeklySetRange
 import com.stratum.domain.response.identity.EpochId
-import com.stratum.domain.response.modeling.MrvSource
-import com.stratum.domain.response.modeling.MuscleVolumeLandmarkEstimate
+import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
 import com.stratum.domain.response.modeling.OutcomeModelType
+import com.stratum.domain.response.modeling.VolumePosture
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -91,13 +93,13 @@ class LoadProgramGenerationContextUseCaseTest {
 
         val context = useCase()
 
-        assertTrue(context.volumeResponsesByMuscle.containsKey("Quad"))
-        assertEquals("Proven", context.volumeResponsesByMuscle.getValue("Quad").evidence)
+        assertTrue(context.volumeCorrelationsByMuscle.containsKey("Quad"))
+        assertEquals("Proven", context.volumeCorrelationsByMuscle.getValue("Quad").evidence)
     }
 
     @Test
-    @DisplayName("RP-S10-009 load context includes personal volume landmarks when baselines exist")
-    fun rpS10_009_loadContextIncludesVolumeLandmarks() = runTest {
+    @DisplayName("RP-S10-009 load context includes personal volume snapshots when baselines exist")
+    fun rpS10_009_loadContextIncludesVolumeSnapshots() = runTest {
         val metadataRepo = FakeResponseProfileMetadataRepository()
         metadataRepo.save(
             com.stratum.domain.response.ResponseProfileMetadata(
@@ -127,26 +129,10 @@ class LoadProgramGenerationContextUseCaseTest {
                 totalSets = 200,
             ),
         )
-        val landmarkRepo = FakeMuscleVolumeLandmarkEstimateRepository().apply {
+        val snapshotRepo = FakeMuscleVolumeResponseSnapshotRepository().apply {
             seed(
                 listOf(
-                    MuscleVolumeLandmarkEstimate(
-                        muscle = MuscleGroup.Quad,
-                        estimatedMev = 6.0,
-                        estimatedMav = 12.0,
-                        estimatedMrv = 18.0,
-                        estimatedPv = 9.0,
-                        mevInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
-                        mavInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
-                        mrvInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
-                        pvInterval = com.stratum.domain.importing.LandmarkConfidenceInterval.Unavailable,
-                        confidenceTier = com.stratum.domain.importing.LandmarkConfidenceTier.Medium,
-                        outcomeModelType = OutcomeModelType.MuscleIndex,
-                        mrvSource = MrvSource.Observed,
-                        observedDoseMin = 4.0,
-                        observedDoseMax = 16.0,
-                        diagnosticAnchorLiftId = LiftId("lift-squat"),
-                    ),
+                    sampleSnapshot(MuscleGroup.Quad),
                 ),
             )
         }
@@ -154,16 +140,16 @@ class LoadProgramGenerationContextUseCaseTest {
             muscleVolumeBaselineRepository = volumeRepository,
             importAnalysisMetadataRepository = importMetadataRepository,
             responseProfileMetadataRepository = metadataRepo,
-            muscleVolumeLandmarkEstimateRepository = landmarkRepo,
+            muscleVolumeResponseSnapshotRepository = snapshotRepo,
         )
 
         val context = useCase()
-        val quadLandmark = context.volumeLandmarksByMuscle.getValue("Quad")
+        val quadSnapshot = context.muscleVolumeSnapshotsByMuscle.getValue("Quad")
 
-        assertEquals(6.0, quadLandmark.estimatedMev)
-        assertEquals(18.0, quadLandmark.estimatedMrv)
-        assertEquals(VolumeLandmarkSource.Personal, quadLandmark.source)
-        assertTrue(context.volumeLandmarksByMuscle.values.any { it.source == VolumeLandmarkSource.Literature })
+        assertEquals(6.0, quadSnapshot.retentionFloorMv)
+        assertEquals(18.0, quadSnapshot.recoverabilityCeilingRc)
+        assertEquals(VolumeSnapshotSource.Personal, quadSnapshot.source)
+        assertTrue(context.muscleVolumeSnapshotsByMuscle.values.any { it.source == VolumeSnapshotSource.Literature })
     }
 
     private fun buildUseCase(
@@ -173,8 +159,8 @@ class LoadProgramGenerationContextUseCaseTest {
             FakeResponseProfileMetadataRepository(),
         muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository = FakeVolumeRepository(),
         importAnalysisMetadataRepository: ImportAnalysisMetadataRepository = FakeMetadataRepository(),
-        muscleVolumeLandmarkEstimateRepository: FakeMuscleVolumeLandmarkEstimateRepository =
-            FakeMuscleVolumeLandmarkEstimateRepository(),
+        muscleVolumeResponseSnapshotRepository: FakeMuscleVolumeResponseSnapshotRepository =
+            FakeMuscleVolumeResponseSnapshotRepository(),
     ): LoadProgramGenerationContextUseCase =
         LoadProgramGenerationContextUseCase(
             userTrainingProfileRepository = FakeUserTrainingProfileRepository(),
@@ -185,8 +171,27 @@ class LoadProgramGenerationContextUseCaseTest {
             volumeResponseObservationRepository = volumeResponseObservationRepository,
             liftEffectivenessObservationRepository = FakeLiftEffectivenessObservationRepository(),
             responseProfileMetadataRepository = responseProfileMetadataRepository,
-            muscleVolumeLandmarkEstimateRepository = muscleVolumeLandmarkEstimateRepository,
+            muscleVolumeResponseSnapshotRepository = muscleVolumeResponseSnapshotRepository,
             muscleVolumeBaselineRepository = muscleVolumeBaselineRepository,
+        )
+
+    private fun sampleSnapshot(muscle: MuscleGroup): MuscleVolumeResponseSnapshot =
+        MuscleVolumeResponseSnapshot(
+            muscle = muscle,
+            retentionFloorMv = 6.0,
+            paretoVolumePv = 12.0,
+            recoverabilityCeilingRc = 18.0,
+            growthEntryFloor = 6.0,
+            observedDoseMin = 4.0,
+            observedDoseMax = 16.0,
+            observedDoseMedian = 10.0,
+            productiveBandMin = 8.0,
+            productiveBandMax = 14.0,
+            posture = VolumePosture.Holding,
+            pvInterval = LandmarkConfidenceInterval.Unavailable,
+            confidenceTier = LandmarkConfidenceTier.Medium,
+            outcomeModelType = OutcomeModelType.MuscleIndex,
+            diagnosticAnchorLiftId = LiftId("lift-squat"),
         )
 
     private class FakeLiftInsightsRepository : LiftTrainingInsightsRepository {

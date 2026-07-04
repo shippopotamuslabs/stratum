@@ -32,7 +32,7 @@ data class ResponseProfileInformational(
 data class ResponseProfilePayload(
     val volumeResponses: List<VolumeResponseInfluence>,
     val liftEffectiveness: List<LiftEffectivenessInfluence>,
-    val volumeLandmarks: List<MuscleVolumeHighlight>,
+    val volumeSnapshots: List<MuscleVolumeHighlight>,
     val informational: ResponseProfileInformational,
     val epochsAnalyzed: Int,
     val analysisWindowStart: Instant,
@@ -42,7 +42,7 @@ data class ResponseProfilePayload(
         fun fromObservations(
             volumeObservations: List<VolumeResponseObservation>,
             effectivenessObservations: List<LiftEffectivenessObservation>,
-            volumeLandmarks: List<MuscleVolumeHighlight> = emptyList(),
+            volumeSnapshots: List<MuscleVolumeHighlight> = emptyList(),
             epochsAnalyzed: Int,
             analysisWindowStart: Instant,
             analysisWindowEnd: Instant,
@@ -50,7 +50,7 @@ data class ResponseProfilePayload(
             ResponseProfilePayload(
                 volumeResponses = filterVolumeInfluenceWithMerge(volumeObservations),
                 liftEffectiveness = filterLiftEffectivenessInfluenceWithMerge(effectivenessObservations),
-                volumeLandmarks = volumeLandmarks,
+                volumeSnapshots = volumeSnapshots,
                 informational =
                     ResponseProfileInformational(
                         volumeResponses = filterInformationalVolume(volumeObservations),
@@ -165,6 +165,6 @@ fun shouldIncludeResponseProfile(payload: ResponseProfilePayload): Boolean =
     payload.epochsAnalyzed > 0 ||
         payload.volumeResponses.isNotEmpty() ||
         payload.liftEffectiveness.isNotEmpty() ||
-        payload.volumeLandmarks.isNotEmpty() ||
+        payload.volumeSnapshots.isNotEmpty() ||
         payload.informational.volumeResponses.isNotEmpty() ||
         payload.informational.liftEffectiveness.isNotEmpty()
