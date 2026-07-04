@@ -7,8 +7,9 @@ import org.junit.jupiter.api.Test
 
 class BodyHighlightCanvasTest {
     @Test
-    @DisplayName("UI-BH-401 triceps rear delts and calves prefer back view")
+    @DisplayName("UI-BH-401 traps triceps rear delts and calves prefer back view")
     fun uiBh401_backViewPreferredMusclesUseBackSilhouette() {
+        assertEquals(BodyView.Back, bodyViewForMuscle(MuscleGroup.Trap))
         assertEquals(BodyView.Back, bodyViewForMuscle(MuscleGroup.Tricep))
         assertEquals(BodyView.Back, bodyViewForMuscle(MuscleGroup.PosteriorDeltoid))
         assertEquals(BodyView.Back, bodyViewForMuscle(MuscleGroup.Calf))
