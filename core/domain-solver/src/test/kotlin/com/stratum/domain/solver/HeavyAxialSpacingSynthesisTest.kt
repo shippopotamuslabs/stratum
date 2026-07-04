@@ -4,6 +4,8 @@ package com.stratum.domain.solver
 
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
@@ -85,8 +87,8 @@ class HeavyAxialSpacingSynthesisTest {
             FilledSlot(
                 slotId = "s0_squat",
                 role = SlotRole.Anchor,
-                pattern = "SquatPattern",
-                primaryMuscle = "Quad",
+                pattern = MovementPattern.SquatPattern,
+                primaryMuscle = MuscleGroup.Quad,
                 repProfile = RpRepProfile.LowerFreeWeightCompound,
                 setCount = 4,
             )
@@ -134,7 +136,7 @@ class HeavyAxialSpacingSynthesisTest {
     ): Boolean =
         plan.filledSlots.any { slot ->
             coefficients.isHeavyAxialSlot(slot) &&
-                slot.primaryMuscle == muscle &&
+                slot.primaryMuscle.name == muscle &&
                 slot.setCount > 0 &&
                 slot.setCount * coefficients.coeff(slot, muscle) >= 1.0
         }

@@ -156,10 +156,36 @@ class LiftMapperTest {
     }
 
     @Test
-    @DisplayName("Given a muscle bitmask when decoded then it returns the matching MuscleGroup set")
-    fun bitmaskDecodesToMuscleSet() {
-        val mask = (1 shl MuscleGroup.Chest.ordinal) or (1 shl MuscleGroup.Tricep.ordinal)
-        assertEquals(setOf(MuscleGroup.Chest, MuscleGroup.Tricep), mask.toMuscleSet())
+    @DisplayName("Given a movement-pattern set when encoded then the bitmask round-trips back to the same set")
+    fun movementPatternBitmaskRoundTrips() {
+        val patterns = setOf(MovementPattern.SquatPattern, MovementPattern.HipExtension)
+        assertEquals(patterns, patterns.toBitmask().toMovementPatternSet())
+    }
+
+    @Test
+    @DisplayName("Given an empty movement-pattern set when encoded then the bitmask is zero")
+    fun emptyMovementPatternSetEncodesToZero() {
+        assertEquals(0, emptySet<MovementPattern>().toBitmask())
+        assertEquals(emptySet<MovementPattern>(), 0.toMovementPatternSet())
+    }
+
+    @Test
+    @DisplayName("Given a movement-pattern set when mapped to entity and back then it round-trips")
+    fun movementPatternsRoundTripThroughEntity() {
+        val lift = Lift(
+            id = LiftId("deadlift"),
+            name = "Deadlift",
+            movementPatterns = setOf(MovementPattern.HipHinge, MovementPattern.HipExtension),
+            primaryMuscles = setOf(MuscleGroup.Hamstring),
+            secondaryMuscles = emptySet(),
+            allowWeightChangeBetweenSets = false,
+            incrementTiers = emptyList(),
+            presetTags = emptySet(),
+            enabled = false,
+            isCustom = false,
+        )
+        val back = LiftWithTiers(lift.toEntity(), emptyList()).toDomain()
+        assertEquals(lift.movementPatterns, back.movementPatterns)
     }
 
     @Test

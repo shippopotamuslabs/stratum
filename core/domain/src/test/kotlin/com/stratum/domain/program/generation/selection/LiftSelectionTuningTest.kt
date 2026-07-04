@@ -1,5 +1,8 @@
 package com.stratum.domain.program.generation.selection
 
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleLengthBias
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -86,7 +89,7 @@ class LiftSelectionTuningTest {
         val context4 = testContext(case4Lifts)
         val slot4 = slot(role = SlotRole.Anchor, pattern = "SquatPattern", primary = "Quad")
         val selectionState4 = LiftSelectionState()
-        selectionState4.cycleUsedLiftIdsByPattern.getOrPut("SquatPattern") { mutableSetOf() }.add("squat")
+        selectionState4.cycleUsedLiftIdsByPattern.getOrPut(MovementPattern.SquatPattern) { mutableSetOf() }.add("squat")
         val ranked4 = rankLiftsForSlot(case4Lifts, slot4, context4, selectionState4)
         val squatIdx = ranked4.indexOfFirst { it.id == "squat" }
         val frontSquatIdx = ranked4.indexOfFirst { it.id == "front-squat" }
@@ -203,15 +206,15 @@ class LiftSelectionTuningTest {
         LiftContext(
             id = id,
             name = name,
-            movementPattern = pattern,
-            movementPatterns = listOf(pattern),
-            primaryMuscles = primary,
-            secondaryMuscles = secondary,
+            movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull(),
+            movementPatterns = setOfNotNull(runCatching { MovementPattern.valueOf(pattern) }.getOrNull()),
+            primaryMuscles = primary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+            secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
             proven = proven,
             mainstream = mainstream,
             equipment = equipment,
             muscleLengthBias = lengthBias?.let { MuscleLengthBias.valueOf(it) },
-            kinematicProfile = kinematicProfile
+            kinematicProfile = runCatching { KinematicProfile.valueOf(kinematicProfile) }.getOrNull() ?: KinematicProfile.Isolation
         )
 
     private fun slot(
@@ -223,8 +226,8 @@ class LiftSelectionTuningTest {
         WorkoutSlotTemplate(
             slotId = "test-slot",
             role = role,
-            pattern = pattern,
-            primaryMuscle = primary,
+            pattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull() ?: MovementPattern.ElbowFlexion,
+            primaryMuscle = runCatching { MuscleGroup.valueOf(primary) }.getOrNull() ?: MuscleGroup.Chest,
             repProfile = com.stratum.domain.program.generation.reference.RpRepProfile.Isolation,
             lengthBiasPreference = lengthBias,
             siblingVariant = SiblingVariant.A,

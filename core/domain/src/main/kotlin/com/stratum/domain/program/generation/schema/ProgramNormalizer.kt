@@ -71,7 +71,8 @@ private fun normalizeLifts(
     for (lift in rawLifts) {
         val liftId = lift.liftId ?: continue
         if (liftId !in request.enabledLiftIds) continue
-        val isMajorCompound = request.movementPatternByLiftId[liftId].orEmpty() in MAJOR_COMPOUND_PATTERNS
+        val liftPattern = request.movementPatternByLiftId[liftId]
+        val isMajorCompound = liftPattern != null && liftPattern in MAJOR_COMPOUND_PATTERNS
         val sets = normalizeSets(lift, isMajorCompound, scheme)
         if (sets.isEmpty()) continue
         if (scheme == ProgressionScheme.Double) {

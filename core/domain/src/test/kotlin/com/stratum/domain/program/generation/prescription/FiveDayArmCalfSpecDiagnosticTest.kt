@@ -3,6 +3,8 @@ package com.stratum.domain.program.generation.prescription
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.integration.resolveAdjacentCalendarLiftCollisions
@@ -77,7 +79,7 @@ class FiveDayArmCalfSpecDiagnosticTest {
         val totals = mutableMapOf<String, Double>()
         for (workout in draft.workouts) {
             for ((muscle, dose) in computeWorkoutMuscleVolume(workout, context)) {
-                totals[muscle] = (totals[muscle] ?: 0.0) + dose
+                totals[muscle.name] = (totals[muscle.name] ?: 0.0) + dose
             }
         }
         return totals
@@ -162,10 +164,10 @@ class FiveDayArmCalfSpecDiagnosticTest {
         com.stratum.domain.program.generation.context.LiftContext(
             id = id,
             name = name,
-            movementPattern = pattern,
-            movementPatterns = listOf(pattern),
-            primaryMuscles = primary,
-            secondaryMuscles = secondary,
+            movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull(),
+            movementPatterns = setOfNotNull(runCatching { MovementPattern.valueOf(pattern) }.getOrNull()),
+            primaryMuscles = primary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+            secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
             proven = true,
             mainstream = true,
         )

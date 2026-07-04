@@ -1,12 +1,14 @@
 package com.stratum.domain.program.generation.naming
 
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramDraft
 
 private fun specializedMuscles(context: ProgramGenerationContext): List<String> =
     context.specialization
-        .filter { (_, level) -> level == "Specialize" }
+        .filter { (_, level) -> level == SpecializationLevel.Specialize }
         .keys
+        .map { it.name }
         .toList()
 
 fun buildProgramNamingRequest(
@@ -24,7 +26,9 @@ fun buildProgramNamingRequest(
                         sessionLengthMinutes = context.sessionLengthMinutes,
                         trainingDaysPerWeek = context.trainingDaysPerWeek,
                         cycleLength = cycleLength,
-                        specialization = context.specialization,
+                        specialization = context.specialization
+                            .mapKeys { it.key.name }
+                            .mapValues { it.value.name },
                         specializedMuscles = specializedMuscles(context),
                         trainingWeekdays = context.weekdays,
                     ),
@@ -41,8 +45,8 @@ fun buildProgramNamingRequest(
                                             val meta = context.liftsById[liftId]
                                             ProgramNamingLiftPayload(
                                                 name = meta?.name ?: liftId,
-                                                movementPattern = meta?.movementPattern ?: "Unknown",
-                                                primaryMuscles = meta?.primaryMuscles.orEmpty(),
+                                                movementPattern = meta?.movementPattern?.name ?: "Unknown",
+                                                primaryMuscles = meta?.primaryMuscles.orEmpty().map { it.name },
                                                 setCount = lift.workoutLiftSets.orEmpty().size,
                                             )
                                         },

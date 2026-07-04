@@ -2,6 +2,10 @@
 
 package com.stratum.domain.program.generation.integration
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -10,7 +14,6 @@ import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.draft.ProgramLiftDraft
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.program.generation.reference.LiftStressClass
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.reference.calendarDayIndexGap
 import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
@@ -71,8 +74,8 @@ class CalendarAdjacentRecoveryRepairTest {
 
         val repaired = repairWeeklyVolume(program, emptyMap(), context)
 
-        val fridayStress = computeWorkoutMuscleSessionStress(repaired.workouts[0], context)["Bicep"]!!
-        val saturdayDose = computeWorkoutMuscleVolume(repaired.workouts[1], context)["Bicep"] ?: 0.0
+        val fridayStress = computeWorkoutMuscleSessionStress(repaired.workouts[0], context)[MuscleGroup.Bicep]!!
+        val saturdayDose = computeWorkoutMuscleVolume(repaired.workouts[1], context)[MuscleGroup.Bicep] ?: 0.0
         assertTrue(
             !muscleRecoveryGapViolated(
                 fridayStress,
@@ -106,8 +109,8 @@ class CalendarAdjacentRecoveryRepairTest {
 
         val repaired = repairWeeklyVolume(program, emptyMap(), context)
 
-        val mondayStress = computeWorkoutMuscleSessionStress(repaired.workouts[0], context)["Bicep"]!!
-        val tuesdayBicep = computeWorkoutMuscleVolume(repaired.workouts[1], context)["Bicep"] ?: 0.0
+        val mondayStress = computeWorkoutMuscleSessionStress(repaired.workouts[0], context)[MuscleGroup.Bicep]!!
+        val tuesdayBicep = computeWorkoutMuscleVolume(repaired.workouts[1], context)[MuscleGroup.Bicep] ?: 0.0
         assertEquals(LiftStressClass.Isolation, mondayStress.stressClass)
         assertTrue(
             !muscleRecoveryGapViolated(
@@ -145,8 +148,8 @@ class CalendarAdjacentRecoveryRepairTest {
 
         val repaired = repairWeeklyVolume(program, emptyMap(), context)
 
-        val fridayBicep = computeWorkoutMuscleVolume(repaired.workouts[0], context)["Bicep"] ?: 0.0
-        val saturdayBicep = computeWorkoutMuscleVolume(repaired.workouts[1], context)["Bicep"] ?: 0.0
+        val fridayBicep = computeWorkoutMuscleVolume(repaired.workouts[0], context)[MuscleGroup.Bicep] ?: 0.0
+        val saturdayBicep = computeWorkoutMuscleVolume(repaired.workouts[1], context)[MuscleGroup.Bicep] ?: 0.0
         assertTrue(
             fridayBicep < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE || saturdayBicep < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE,
             "At least one day should drop below meaningful: Friday=$fridayBicep Saturday=$saturdayBicep",
@@ -275,8 +278,8 @@ class CalendarAdjacentRecoveryRepairTest {
 
         val repaired = repairWeeklyVolume(program, emptyMap(), context)
 
-        val mondayStress = computeWorkoutMuscleSessionStress(repaired.workouts[0], context)["Quad"]
-        val wednesdayStress = computeWorkoutMuscleSessionStress(repaired.workouts[1], context)["Quad"]
+        val mondayStress = computeWorkoutMuscleSessionStress(repaired.workouts[0], context)[MuscleGroup.Quad]
+        val wednesdayStress = computeWorkoutMuscleSessionStress(repaired.workouts[1], context)[MuscleGroup.Quad]
         val gap = calendarDayIndexGap(0, 2)
         val violated =
             mondayStress != null &&
@@ -345,8 +348,8 @@ class CalendarAdjacentRecoveryRepairTest {
 
         val repaired = repairWeeklyVolume(program, emptyMap(), context)
 
-        val mondayStress = computeWorkoutMuscleSessionStress(repaired.workouts[0], context)["Quad"]!!
-        val wednesdayQuad = computeWorkoutMuscleVolume(repaired.workouts[1], context)["Quad"] ?: 0.0
+        val mondayStress = computeWorkoutMuscleSessionStress(repaired.workouts[0], context)[MuscleGroup.Quad]!!
+        val wednesdayQuad = computeWorkoutMuscleVolume(repaired.workouts[1], context)[MuscleGroup.Quad] ?: 0.0
         assertTrue(
             !muscleRecoveryGapViolated(
                 mondayStress,
@@ -378,8 +381,8 @@ class CalendarAdjacentRecoveryRepairTest {
                     ),
             )
 
-        val mondayStress = computeWorkoutMuscleSessionStress(program.workouts[0], context)["Glute"]!!
-        val wednesdayGlute = computeWorkoutMuscleVolume(program.workouts[1], context)["Glute"] ?: 0.0
+        val mondayStress = computeWorkoutMuscleSessionStress(program.workouts[0], context)[MuscleGroup.Glute]!!
+        val wednesdayGlute = computeWorkoutMuscleVolume(program.workouts[1], context)[MuscleGroup.Glute] ?: 0.0
         assertEquals(LiftStressClass.Isolation, mondayStress.stressClass)
         assertTrue(
             !muscleRecoveryGapViolated(
@@ -400,14 +403,14 @@ class CalendarAdjacentRecoveryRepairTest {
             sessionLengthMinutes = null,
             trainingDaysPerWeek = weekdays.size,
             weekdays = weekdays,
-            specialization = mapOf("Quad" to "Specialize"),
+            specialization = mapOf(MuscleGroup.Quad to SpecializationLevel.Specialize),
             liftsById = mapOf(
                 "barbell-back-squat" to liftContext("barbell-back-squat", "SquatPattern", "Quad", emptyList()),
             ),
             muscleVolumeSnapshotsByMuscle = emptyMap(),
             volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = setOf("barbell-back-squat"),
-            movementPatternByLiftId = mapOf("barbell-back-squat" to "SquatPattern"),
+            movementPatternByLiftId = mapOf("barbell-back-squat" to MovementPattern.SquatPattern),
             liftEffectivenessByLiftId = emptyMap(),
         )
 
@@ -418,7 +421,7 @@ class CalendarAdjacentRecoveryRepairTest {
             sessionLengthMinutes = null,
             trainingDaysPerWeek = weekdays.size,
             weekdays = weekdays,
-            specialization = mapOf("Bicep" to "Specialize"),
+            specialization = mapOf(MuscleGroup.Bicep to SpecializationLevel.Specialize),
             liftsById = mapOf(
                 "barbell-curl" to liftContext("barbell-curl", "ElbowFlexion", "Bicep", emptyList()),
                 "lat-pulldown" to liftContext("lat-pulldown", "VerticalPull", "Back", listOf("Bicep")),
@@ -430,11 +433,11 @@ class CalendarAdjacentRecoveryRepairTest {
             volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = setOf("barbell-curl", "lat-pulldown", "chin-up", "back-squat", "hip-thrust"),
             movementPatternByLiftId = mapOf(
-                "barbell-curl" to "ElbowFlexion",
-                "lat-pulldown" to "VerticalPull",
-                "chin-up" to "VerticalPull",
-                "back-squat" to "SquatPattern",
-                "hip-thrust" to "HipHinge",
+                "barbell-curl" to MovementPattern.ElbowFlexion,
+                "lat-pulldown" to MovementPattern.VerticalPull,
+                "chin-up" to MovementPattern.VerticalPull,
+                "back-squat" to MovementPattern.SquatPattern,
+                "hip-thrust" to MovementPattern.HipHinge,
             ),
             liftEffectivenessByLiftId = emptyMap(),
         )
@@ -446,27 +449,31 @@ class CalendarAdjacentRecoveryRepairTest {
             sessionLengthMinutes = null,
             trainingDaysPerWeek = weekdays.size,
             weekdays = weekdays,
-            specialization = mapOf("Quad" to "Specialize", "Glute" to "Maintenance"),
+            specialization = mapOf(MuscleGroup.Quad to SpecializationLevel.Specialize, MuscleGroup.Glute to SpecializationLevel.Maintenance),
             liftsById = mapOf(
                 "back-squat" to liftContext("back-squat", "SquatPattern", "Quad", listOf("Glute")),
             ),
             muscleVolumeSnapshotsByMuscle = emptyMap(),
             volumeCorrelationsByMuscle = emptyMap(),
             enabledLiftIds = setOf("back-squat"),
-            movementPatternByLiftId = mapOf("back-squat" to "SquatPattern"),
+            movementPatternByLiftId = mapOf("back-squat" to MovementPattern.SquatPattern),
             liftEffectivenessByLiftId = emptyMap(),
         )
 
-    private fun liftContext(id: String, pattern: String, primary: String, secondary: List<String>): LiftContext =
-        LiftContext(
+    private fun liftContext(id: String, pattern: String, primary: String, secondary: List<String>): LiftContext {
+        val movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
+        val primaryMuscle = MuscleGroup.valueOf(primary)
+        val secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet()
+        return LiftContext(
             id = id,
             name = id,
-            movementPattern = pattern,
-            movementPatterns = listOf(pattern),
-            primaryMuscles = listOf(primary),
-            secondaryMuscles = secondary,
+            movementPattern = movementPattern,
+            movementPatterns = movementPattern?.let { setOf(it) } ?: emptySet(),
+            primaryMuscles = setOf(primaryMuscle),
+            secondaryMuscles = secondaryMuscles,
             proven = true,
         )
+    }
 
     private fun workout(name: String, weekday: String, vararg lifts: ProgramLiftDraft): ProgramWorkoutDraft =
         ProgramWorkoutDraft(

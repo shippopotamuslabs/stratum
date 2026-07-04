@@ -2,12 +2,13 @@
 
 package com.stratum.domain.program.generation.prescription
 
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.reference.RP_REP_RIR_BANDS
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
 
-private val LOWER_FREE_WEIGHT_PATTERNS = setOf("SquatPattern", "HipHinge")
+private val LOWER_FREE_WEIGHT_PATTERNS = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge)
 
 fun classifyLiftRepProfile(
     slot: WorkoutSlotTemplate,

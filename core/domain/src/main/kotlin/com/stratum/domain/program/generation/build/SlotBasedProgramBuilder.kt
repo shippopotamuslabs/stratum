@@ -2,6 +2,7 @@
 
 package com.stratum.domain.program.generation.build
 
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
@@ -44,7 +45,7 @@ suspend fun buildProgramWithSelections(
     val lastUsedSession = mutableMapOf<String, Int>()
     val minCycleGap = 2
     val selectionState = LiftSelectionState()
-    val runningWeeklyVolume = mutableMapOf<String, Double>()
+    val runningWeeklyVolume = mutableMapOf<MuscleGroup, Double>()
 
     val selectionsBySession =
         sessionPlans.mapIndexed { sessionIndex, plan ->

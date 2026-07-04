@@ -2,6 +2,8 @@
 
 package com.stratum.domain.program.generation.synthesis
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.split.ResolvedSessionPlan
@@ -9,6 +11,14 @@ import com.stratum.domain.program.generation.split.SessionTypeId
 import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
 import com.stratum.domain.program.generation.volume.TrainingDomain
 import com.stratum.domain.program.generation.volume.muscleTrainingDomain
+
+private fun patternFromSynthesis(pattern: String): MovementPattern =
+    runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
+        ?: error("Unknown MovementPattern: $pattern")
+
+private fun muscleFromSynthesis(muscle: String): MuscleGroup =
+    runCatching { MuscleGroup.valueOf(muscle) }.getOrNull()
+        ?: error("Unknown MuscleGroup: $muscle")
 
 fun buildUnifiedSessionPlans(
     universe: List<SynthesisSlot>,
@@ -27,8 +37,8 @@ fun buildUnifiedSessionPlans(
                         FilledSlot(
                             slotId = sessionSlotId(sessionIndex, slot.id),
                             role = slot.role,
-                            pattern = slot.pattern,
-                            primaryMuscle = slot.primaryMuscle,
+                            pattern = patternFromSynthesis(slot.pattern),
+                            primaryMuscle = muscleFromSynthesis(slot.primaryMuscle),
                             repProfile = slot.repProfile,
                             lengthBiasPreference = null,
                             siblingVariant = slot.siblingVariant,
@@ -74,8 +84,8 @@ fun materializeSynthesisResult(
                 WorkoutSlotTemplate(
                     slotId = sessionSlotId(sessionIndex, slot.id),
                     role = slot.role,
-                    pattern = slot.pattern,
-                    primaryMuscle = slot.primaryMuscle,
+                    pattern = patternFromSynthesis(slot.pattern),
+                    primaryMuscle = muscleFromSynthesis(slot.primaryMuscle),
                     repProfile = slot.repProfile,
                     isCrossDomainTouch = slot.isCrossDomainTouch,
                     siblingVariant = slot.siblingVariant,
@@ -142,7 +152,7 @@ internal fun inferSessionTypeFromActiveSlots(slots: List<SynthesisSlot>): Sessio
 fun inferSessionTypeFromSlots(slotTemplates: List<WorkoutSlotTemplate>): SessionTypeId {
     val domains =
         slotTemplates.map { template ->
-            allowedDomainsForPattern(template.pattern, template.primaryMuscle, template.isCrossDomainTouch)
+            allowedDomainsForPattern(template.pattern.name, template.primaryMuscle.name, template.isCrossDomainTouch)
         }
     return when {
         domains.all { SynthesisSessionDomain.Lower in it && SynthesisSessionDomain.Upper !in it } ->

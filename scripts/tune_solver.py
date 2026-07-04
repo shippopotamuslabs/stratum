@@ -19,6 +19,8 @@ def objective(trial):
         "LOWER_ANCHOR_ACTIVATION_BONUS": trial.suggest_int("LOWER_ANCHOR_ACTIVATION_BONUS", -1000, -100, step=50),
         "SESSION_FILL_SHORTFALL": trial.suggest_int("SESSION_FILL_SHORTFALL", 1000, 10_000, step=500),
         "SESSION_SET_IMBALANCE": trial.suggest_int("SESSION_SET_IMBALANCE", 500, 5000, step=100),
+        "UPPER_BODY_MAINTENANCE_PARITY": trial.suggest_int("UPPER_BODY_MAINTENANCE_PARITY", 500, 5000, step=100),
+        "LOWER_BODY_MAINTENANCE_PARITY": trial.suggest_int("LOWER_BODY_MAINTENANCE_PARITY", 500, 5000, step=100),
     }
     
     # Format system property string
@@ -29,7 +31,8 @@ def objective(trial):
         ":core:domain-solver:testDebugUnitTest",
         "--tests",
         "com.stratum.domain.solver.ProgramSynthesisAcceptanceTest.benchmarkTuningSuite",
-        f"-Dstratum.solver.weights={override_str}"
+        f"-Dstratum.solver.weights={override_str}",
+        "-Dstratum.solver.deadline=7000"
     ]
     
     # Delete old loss file to ensure fresh run results
@@ -56,16 +59,38 @@ def objective(trial):
         print(f"Trial {trial.number} errored: {e}")
         return 1_000_000.0
 
+# The current production defaults (SynthesisObjectiveWeights.kt). Seeded as a fixed
+# trial so TPE always has the known-good baseline as an anchor before exploring —
+# without this, the first ~10 trials are pure-random and often worse than the defaults
+# (the suite is broad enough that defaults are already near a local optimum).
+DEFAULT_WEIGHTS = {
+    "RECOVERY_PRIORITY": 3_000_000,
+    "RECOVERY_GENERAL": 330_000,
+    "SPECIALIZE_AIM_DEVIATION": 3_000,
+    "MAINTENANCE_AIM_DEVIATION": 4_000,
+    "SLOT_ACTIVATION_COUNT": 50,
+    "LOWER_ANCHOR_ACTIVATION_BONUS": -250,
+    "SESSION_FILL_SHORTFALL": 7_000,
+    "SESSION_SET_IMBALANCE": 3_700,
+    "UPPER_BODY_MAINTENANCE_PARITY": 3_200,
+    "LOWER_BODY_MAINTENANCE_PARITY": 5_000,
+}
+
+
 def run_study(n_trials=10):
     study = optuna.create_study(direction="minimize")
+    # Seed with the current production defaults so the optimizer starts from a known-good
+    # point. This counts as one of the n_trials.
+    study.enqueue_trial(DEFAULT_WEIGHTS)
     study.optimize(objective, n_trials=n_trials)
-    
+
     print("\n" + "="*40)
     print("Optimization finished!")
     print(f"Best Trial Loss: {study.best_value}")
     print(f"Best Weights: {study.best_params}")
+    print(f"Default-weights baseline was one of the trials (seeded).")
     print("="*40)
-    
+
     # Save best parameters to build/best_weights.json
     build_dir = os.path.dirname(BEST_WEIGHTS_PATH)
     os.makedirs(build_dir, exist_ok=True)

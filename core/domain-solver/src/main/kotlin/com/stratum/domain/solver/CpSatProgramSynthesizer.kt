@@ -5,6 +5,8 @@ package com.stratum.domain.solver
 import com.google.ortools.Loader
 import com.google.ortools.sat.CpSolver
 import com.google.ortools.sat.CpSolverStatus
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
@@ -77,8 +79,11 @@ class CpSatProgramSynthesizer(
         // back-to-back available days can fire meaningfully at most ceil(availableNonAdjacentSlots/2)
         // times — flag configs where the required MEV clearly can't fit before solving.
         weeklyTargets.forEach { (muscle, target) ->
-            val level = context.specialization[muscle] ?: "Maintenance"
-            if (level != "Specialize" || target.min <= 0.0) return@forEach
+            val level = runCatching { MuscleGroup.valueOf(muscle) }
+                .getOrNull()
+                ?.let { context.specialization[it] }
+                ?: SpecializationLevel.Maintenance
+            if (level != SpecializationLevel.Specialize || target.min <= 0.0) return@forEach
             if (distinctWeekdays.size <= 1) {
                 throw ProgramSynthesisException(
                     "Cannot specialize $muscle (MEV ${target.min}) with only one distinct training day " +

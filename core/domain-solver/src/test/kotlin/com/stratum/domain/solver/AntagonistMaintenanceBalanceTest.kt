@@ -5,6 +5,8 @@ package com.stratum.domain.solver
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
@@ -167,10 +169,10 @@ class AntagonistMaintenanceBalanceTest {
             LiftContext(
                 id = id,
                 name = name,
-                movementPattern = pattern,
-                movementPatterns = listOf(pattern),
-                primaryMuscles = primary,
-                secondaryMuscles = secondary,
+                movementPattern = MovementPattern.valueOf(pattern),
+                movementPatterns = setOf(MovementPattern.valueOf(pattern)),
+                primaryMuscles = primary.map { MuscleGroup.valueOf(it) }.toSet(),
+                secondaryMuscles = secondary.map { MuscleGroup.valueOf(it) }.toSet(),
                 proven = true,
             )
         val lifts = listOf(
@@ -210,7 +212,7 @@ class AntagonistMaintenanceBalanceTest {
         )
         val liftsById = linkedMapOf<String, LiftContext>()
         val enabledIds = mutableSetOf<String>()
-        val patternById = linkedMapOf<String, String>()
+        val patternById = linkedMapOf<String, MovementPattern?>()
         for (l in lifts) {
             liftsById[l.id] = l
             enabledIds += l.id
@@ -321,6 +323,143 @@ class AntagonistMaintenanceBalanceTest {
     }
 
     /**
+     * Lower-body maintenance parity: when Quad, Hamstring, and Calf are all Maintenance on a 5-day
+     * split, Calf should not outrun Quad/Hamstring by a wide margin. Calf is the typical outlier —
+     * it accumulates incidental secondary credit from squats (~0.39/set in production, where ~78% of
+     * SquatPattern lifts tag Calf secondary), recovers at the fast 24h Low-isolation tier, and had no
+     * balance constraint pulling it toward the larger leg muscles.
+     *
+     * Uses [calfDivergenceCatalog] — a catalog where squats tag Calf as a secondary (the production
+     * drift mechanism) and Calf has a higher maintenance ceiling (18) than Quad (14) / Hamstring (10).
+     *
+     * Measured behavior: without the parity term Calf floats to its 18.0 ceiling (spread 8.0); with
+     * the term it pulls down to 16.0 (spread 6.0). The residual gap is recovery-driven: Calf recovers
+     * in 24h (Low-isolation tier) while Quad/Hamstring need 48h, so session-fill pressure (weight
+     * [SynthesisObjectiveWeights.SESSION_FILL_SHORTFALL] = 4,000, which sits ABOVE parity's 1,500 in
+     * the tier hierarchy) packs Calf into sessions that Quad/Hamstring can't fill. Parity at 1,500
+     * intentionally sits below session-fill (matching the upper-body parity tier), so the solver
+     * eats the parity penalty when recovery spacing genuinely can't accommodate convergence — this is
+     * the same trade-off documented on [ProgramSynthesisModel.addUpperBodyMaintenanceParity].
+     *
+     * The 7.0 threshold is a regression guard: it sits between the 6.0 the rule achieves and the 8.0
+     * baseline without the rule, so it fails if the parity term is removed or weakened. In production,
+     * where Calf is absent from MAJOR_MUSCLES and often has NO weekly ceiling at all, the rule has
+     * larger effect since it pulls against unbounded drift rather than an 18.0 cap.
+     */
+    @Test
+    fun fiveDayMaintenanceKeepsLegGroupBalanced() = runBlocking {
+        val context = calfDivergenceCatalog()
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
+        val normalized =
+            pipeline.generate(
+                context = context,
+                normalizationRequest = context.toProgramNormalizationRequest(),
+                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+            )
+        val draft = normalized.toDraft()
+        val weekly = weeklyMuscleVolume(draft, context)
+        val group = listOf("Quad", "Hamstring", "Calf")
+        val volumes = group.map { muscle -> weekly[muscle] ?: 0.0 }
+        val spread = (volumes.maxOrNull() ?: 0.0) - (volumes.minOrNull() ?: 0.0)
+        val quad = weekly["Quad"] ?: 0.0
+        val ham = weekly["Hamstring"] ?: 0.0
+        val calf = weekly["Calf"] ?: 0.0
+
+        assertTrue(
+            spread <= 7.0,
+            "Lower-body maintenance group should stay within a 7-set spread when all are Maintenance " +
+                "(regression guard: 6.0 with parity, 8.0 without): " +
+                "spread=$spread volumes=${group.zip(volumes).toMap()} weekly=$weekly",
+        )
+        assertTrue(
+            calf <= quad + 7.0,
+            "Calf ($calf) should not outrun Quad ($quad) by more than 7 sets " +
+                "when both are Maintenance: weekly=$weekly",
+        )
+        assertTrue(
+            calf <= ham + 7.0,
+            "Calf ($calf) should not outrun Hamstring ($ham) by more than 7 sets " +
+                "when both are Maintenance: weekly=$weekly",
+        )
+    }
+
+    /**
+     * Catalog where squats tag Calf as a secondary muscle (reproducing the production drift mechanism
+     * — ~78% of SquatPattern seed lifts tag Calf secondary, giving every squat set ~0.39 incidental
+     * Calf credit) and Calf has a higher maintenance ceiling (18) than Quad (14) / Hamstring (10).
+     * Without the parity term, incidental squat credit + session-fill pressure push Calf toward its
+     * ceiling while Quad/Hamstring sit lower — a wide spread. With the parity term, the three leg
+     * muscles cluster tighter.
+     */
+    private fun calfDivergenceCatalog(): ProgramGenerationContext {
+        fun lift(id: String, name: String, pattern: String, primary: List<String>, secondary: List<String> = emptyList()) =
+            LiftContext(
+                id = id,
+                name = name,
+                movementPattern = MovementPattern.valueOf(pattern),
+                movementPatterns = setOf(MovementPattern.valueOf(pattern)),
+                primaryMuscles = primary.map { MuscleGroup.valueOf(it) }.toSet(),
+                secondaryMuscles = secondary.map { MuscleGroup.valueOf(it) }.toSet(),
+                proven = true,
+            )
+        val lifts = listOf(
+            lift("bench", "Bench Press", "HorizontalPress", listOf("Chest"), listOf("Tricep", "AnteriorDeltoid")),
+            lift("inc-press", "Incline Press", "InclinePress", listOf("Chest"), listOf("AnteriorDeltoid", "Tricep")),
+            lift("row", "Barbell Row", "HorizontalPull", listOf("Back"), listOf("Bicep", "PosteriorDeltoid")),
+            lift("pullup", "Pullup", "VerticalPull", listOf("Back"), listOf("Bicep")),
+            // Squats tag Calf as a secondary — the production drift mechanism. This gives every squat
+            // set an incidental Calf credit (catalog-averaged across both squat lifts here).
+            lift("back-squat", "Barbell Back Squat", "SquatPattern", listOf("Quad"), listOf("Glute", "LowerBack", "Calf")),
+            lift("front-squat", "Barbell Front Squat", "SquatPattern", listOf("Quad"), listOf("Glute", "Calf")),
+            lift("leg-ext", "Leg Extension", "KneeExtension", listOf("Quad")),
+            lift("rdl", "Romanian Deadlift", "HipHinge", listOf("Hamstring"), listOf("Glute", "LowerBack")),
+            lift("leg-curl", "Leg Curl", "KneeFlexion", listOf("Hamstring")),
+            lift("hip-thrust", "Hip Thrust", "HipExtension", listOf("Glute"), listOf("Hamstring")),
+            lift("calf-raise", "Calf Raise", "PlantarFlexion", listOf("Calf")),
+            lift("lat-raise", "Lateral Raise", "ShoulderAbduction", listOf("LateralDeltoid")),
+            lift("ohp", "Overhead Press", "VerticalPress", listOf("AnteriorDeltoid"), listOf("Tricep")),
+            lift("curl", "Curl", "ElbowFlexion", listOf("Bicep")),
+            lift("tricep-ext", "Tricep Extension", "ElbowExtension", listOf("Tricep")),
+        )
+        val landmarks = listOf(
+            vlc("Chest", 8.0, 12.0, 20.0, 10.0),
+            vlc("Back", 8.0, 12.0, 20.0, 10.0),
+            vlc("Quad", 11.0, 14.0, 20.0, 12.8),
+            vlc("Hamstring", 6.0, 10.0, 16.0, 8.4),
+            vlc("Glute", 6.0, 10.0, 16.0, 8.4),
+            vlc("Calf", 8.0, 18.0, 22.0, 12.0),
+            vlc("Tricep", 6.0, 14.0, 18.0, 10.0),
+            vlc("Bicep", 6.0, 14.0, 22.0, 10.0),
+            vlc("LateralDeltoid", 6.0, 14.0, 18.0, 10.0),
+            vlc("PosteriorDeltoid", 6.0, 11.0, 18.0, 9.0),
+            vlc("AnteriorDeltoid", 6.0, 11.0, 18.0, 9.0),
+            vlc("LowerBack", 0.0, 8.0, 14.0, 4.0),
+        )
+        val liftsById = linkedMapOf<String, LiftContext>()
+        val enabledIds = mutableSetOf<String>()
+        val patternById = linkedMapOf<String, MovementPattern?>()
+        for (l in lifts) {
+            liftsById[l.id] = l
+            enabledIds += l.id
+            patternById[l.id] = l.movementPattern
+        }
+        return ProgramGenerationContext(
+            trainingAge = "Advanced",
+            lastTrained = null,
+            sessionLengthMinutes = 75,
+            trainingDaysPerWeek = 5,
+            weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday", "Saturday"),
+            specialization = emptyMap(),
+            liftsById = liftsById,
+            muscleVolumeSnapshotsByMuscle = landmarks.associateBy { it.muscle },
+            volumeCorrelationsByMuscle = emptyMap(),
+            enabledLiftIds = enabledIds,
+            movementPatternByLiftId = patternById,
+            liftEffectivenessByLiftId = emptyMap(),
+        )
+    }
+
+    /**
      * Catalog where LateralDeltoid has a higher maintenance ceiling (18) than Chest/Back (12),
      * reproducing the user-reported lateral-delt drift. Without the parity term, the solver pushes
      * lateral to 18 (its ceiling) while Chest/Back sit at 12 — a 6-set spread. With the parity term,
@@ -331,10 +470,10 @@ class AntagonistMaintenanceBalanceTest {
             LiftContext(
                 id = id,
                 name = name,
-                movementPattern = pattern,
-                movementPatterns = listOf(pattern),
-                primaryMuscles = primary,
-                secondaryMuscles = secondary,
+                movementPattern = MovementPattern.valueOf(pattern),
+                movementPatterns = setOf(MovementPattern.valueOf(pattern)),
+                primaryMuscles = primary.map { MuscleGroup.valueOf(it) }.toSet(),
+                secondaryMuscles = secondary.map { MuscleGroup.valueOf(it) }.toSet(),
                 proven = true,
             )
         val lifts = listOf(
@@ -370,7 +509,7 @@ class AntagonistMaintenanceBalanceTest {
         )
         val liftsById = linkedMapOf<String, LiftContext>()
         val enabledIds = mutableSetOf<String>()
-        val patternById = linkedMapOf<String, String>()
+        val patternById = linkedMapOf<String, MovementPattern?>()
         for (l in lifts) {
             liftsById[l.id] = l
             enabledIds += l.id
@@ -399,7 +538,7 @@ class AntagonistMaintenanceBalanceTest {
         val totals = mutableMapOf<String, Double>()
         for (workout in draft.workouts) {
             for ((muscle, dose) in computeWorkoutMuscleVolume(workout, context)) {
-                totals[muscle] = (totals[muscle] ?: 0.0) + dose
+                totals[muscle.name] = (totals[muscle.name] ?: 0.0) + dose
             }
         }
         return totals
@@ -418,7 +557,7 @@ class AntagonistMaintenanceBalanceTest {
                 val meta = context.liftsById[liftId] ?: continue
                 val setCount = lift.workoutLiftSets?.size ?: 0
                 if (setCount == 0) continue
-                if (muscle in meta.primaryMuscles) {
+                if (runCatching { MuscleGroup.valueOf(muscle) }.getOrNull() in meta.primaryMuscles) {
                     result += liftId to setCount
                 }
             }
@@ -439,7 +578,7 @@ class AntagonistMaintenanceBalanceTest {
                 val setCount = lift.workoutLiftSets?.size ?: 0
                 if (setCount == 0) continue
                 for (muscle in meta.primaryMuscles) {
-                    totals[muscle] = (totals[muscle] ?: 0) + setCount
+                    totals[muscle.name] = (totals[muscle.name] ?: 0) + setCount
                 }
             }
         }

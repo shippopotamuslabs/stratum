@@ -21,6 +21,31 @@ interface LiftRepository {
     /** Hot stream of every lift in the catalog, each carrying its current `enabled` flag. */
     fun observeLifts(): Flow<List<Lift>>
 
+    /**
+     * Hot stream of only enabled lifts — the SQL-predicate equivalent of
+     * `observeLifts().map { it.filter(Lift::enabled) }`. Prefer this over re-filtering in
+     * Kotlin so the catalog isn't loaded whole just to drop its disabled rows
+     * (DATA_LAYER_RULES.md §5). Consumers that legitimately need the full catalog
+     * (including disabled lifts, e.g. insights extraction) keep using [observeLifts].
+     */
+    fun observeEnabledLifts(): Flow<List<Lift>>
+
+    /**
+     * Hot stream of lifts filtered by the [isCustom] flag — the SQL-predicate equivalent of
+     * `observeLifts().map { it.filter { l -> l.isCustom == isCustom } }`. Used by import
+     * paths that need the seed/custom split without loading the whole catalog.
+     */
+    fun observeLifts(isCustom: Boolean): Flow<List<Lift>>
+
+    /**
+     * Hot stream of lifts whose movement-pattern set includes [pattern] — the SQL-predicate
+     * equivalent of `observeLifts().map { it.filter { l -> pattern in l.movementPatterns } }`,
+     * evaluated as a bitwise AND on the stored bitmask so the database drops non-matching rows
+     * rather than the caller (DATA_LAYER_RULES.md §5). Prefer this over re-filtering in Kotlin
+     * when a consumer only needs one pattern's lifts.
+     */
+    fun observeLiftsContainingPattern(pattern: MovementPattern): Flow<List<Lift>>
+
     /** Hot stream of the preset the user selected in this step, or `null` until they pick one. */
     fun observeSelectedPreset(): Flow<GymPreset?>
 

@@ -1,5 +1,6 @@
 package com.stratum.domain.program.generation.schema
 
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.draft.LiftSetDraft
 import com.stratum.domain.program.generation.draft.ProgramDraft
@@ -74,7 +75,7 @@ class ProgramNormalizerTest {
             ProgramNormalizationRequest(
                 trainingAge = "Intermediate",
                 enabledLiftIds = setOf("barbell-curl"),
-                movementPatternByLiftId = mapOf("barbell-curl" to "ElbowFlexion"),
+                movementPatternByLiftId = mapOf("barbell-curl" to MovementPattern.ElbowFlexion),
             )
 
         val normalized = parseAndNormalizeProgram(program, request)
@@ -128,7 +129,7 @@ class ProgramNormalizerTest {
             ProgramNormalizationRequest(
                 trainingAge = "Intermediate",
                 enabledLiftIds = setOf("barbell-bench-press"),
-                movementPatternByLiftId = mapOf("barbell-bench-press" to "HorizontalPress"),
+                movementPatternByLiftId = mapOf("barbell-bench-press" to MovementPattern.HorizontalPress),
             )
 
         val normalized = parseAndNormalizeProgram(program, request)

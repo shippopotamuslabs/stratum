@@ -2,6 +2,8 @@
 
 package com.stratum.domain.program.generation.swap
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramDraft
@@ -17,23 +19,24 @@ interface LiftSwapPort {
 
 private fun specializedMuscles(context: ProgramGenerationContext): List<String> =
     context.specialization
-        .filter { (_, level) -> level == "Specialize" }
+        .filter { (_, level) -> level == SpecializationLevel.Specialize }
         .keys
+        .map { it.name }
         .toList()
 
 private fun liftToCandidatePayload(lift: LiftContext): LiftSwapCandidatePayload =
     LiftSwapCandidatePayload(
         liftId = lift.id,
         name = lift.name.ifEmpty { lift.id },
-        movementPattern = lift.movementPattern,
-        primaryMuscles = lift.primaryMuscles,
+        movementPattern = lift.movementPattern?.name ?: "Unknown",
+        primaryMuscles = lift.primaryMuscles.map { it.name },
     )
 
 private fun swapCandidateScore(lift: LiftContext, context: ProgramGenerationContext): Double =
     scoreLift(lift, context) + liftCatalogQualityAdjustment(lift)
 
-private fun matchesPattern(lift: LiftContext, pattern: String): Boolean =
-    lift.movementPattern == pattern || pattern in lift.movementPatterns
+private fun matchesPattern(lift: LiftContext, pattern: MovementPattern?): Boolean =
+    lift.movementPattern == pattern || (pattern != null && pattern in lift.movementPatterns)
 
 private fun liftContextToCandidate(lift: LiftContext, context: ProgramGenerationContext): LiftCandidate =
     LiftCandidate(
@@ -118,7 +121,7 @@ fun buildLiftSwapReviewPayload(
             sessionLengthMinutes = context.sessionLengthMinutes,
             trainingDaysPerWeek = context.trainingDaysPerWeek,
             cycleLength = cycleLength,
-            specialization = context.specialization,
+            specialization = context.specialization.mapKeys { it.key.name }.mapValues { it.value.name },
             specializedMuscles = specializedMuscles(context),
         ),
         program = LiftSwapProgramPayload(
@@ -138,9 +141,9 @@ fun buildLiftSwapReviewPayload(
                             position = liftPosition,
                             liftId = liftId,
                             name = meta?.name ?: liftId,
-                            movementPattern = meta?.movementPattern ?: "Unknown",
-                            primaryMuscles = meta?.primaryMuscles.orEmpty(),
-                            secondaryMuscles = meta?.secondaryMuscles.orEmpty(),
+                            movementPattern = meta?.movementPattern?.name ?: "Unknown",
+                            primaryMuscles = meta?.primaryMuscles.orEmpty().map { it.name },
+                            secondaryMuscles = meta?.secondaryMuscles.orEmpty().map { it.name },
                             setCount = sets.size,
                             repMin = repMins.minOrNull(),
                             repMax = repMaxs.maxOrNull(),

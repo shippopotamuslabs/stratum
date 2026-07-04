@@ -2,6 +2,8 @@
 
 package com.stratum.domain.program.generation.prescription
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS
 import com.stratum.domain.program.generation.reference.RpRepProfile
@@ -14,8 +16,8 @@ import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
 data class FilledSlot(
     val slotId: String,
     val role: SlotRole,
-    val pattern: String,
-    val primaryMuscle: String,
+    val pattern: MovementPattern,
+    val primaryMuscle: MuscleGroup,
     val repProfile: RpRepProfile,
     val lengthBiasPreference: MuscleLengthBiasPreference? = null,
     val siblingVariant: SiblingVariant? = null,
@@ -44,7 +46,7 @@ data class SessionSlotPlan(
     val filledSlots: MutableList<FilledSlot>,
 )
 
-internal fun muscleCreditsInSession(plan: SessionSlotPlan, muscle: String): Double {
+internal fun muscleCreditsInSession(plan: SessionSlotPlan, muscle: MuscleGroup): Double {
     var total = 0.0
     for (slot in plan.filledSlots) {
         if (slot.setCount <= 0) continue

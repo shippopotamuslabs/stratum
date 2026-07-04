@@ -48,8 +48,7 @@ class GenerateProgramUseCase @Inject constructor(
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.ReviewingProfile))
 
                 val knownLiftIds =
-                    liftRepository.observeLifts().first()
-                        .filter { lift -> lift.enabled }
+                    liftRepository.observeEnabledLifts().first()
                         .map { lift -> lift.id }
                         .toSet()
 

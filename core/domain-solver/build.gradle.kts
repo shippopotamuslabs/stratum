@@ -68,6 +68,7 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.turbine)
     testImplementation(project(":core:testing"))
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -83,6 +84,11 @@ tasks.withType<Test>().configureEach {
             excludeTags("slow")
         }
     }
+    systemProperty("stratum.solver.weights", System.getProperty("stratum.solver.weights") ?: "")
+    systemProperty("stratum.solver.deadline", System.getProperty("stratum.solver.deadline") ?: "")
+    // Forward the audit-harness gate so ProgramCandidateAuditTest only runs when
+    // explicitly invoked via -Dstratum.audit.run=true (off in normal CI runs).
+    systemProperty("stratum.audit.run", System.getProperty("stratum.audit.run") ?: "")
 }
 
 // Runs only the slow-tagged tests (nightly / CI). Usage: ./gradlew :core:domain-solver:testSlow

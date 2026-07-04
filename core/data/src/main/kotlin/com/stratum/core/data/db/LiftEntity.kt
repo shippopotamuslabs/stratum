@@ -4,7 +4,6 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.stratum.domain.lift.KinematicProfile
-import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
 
@@ -21,8 +20,10 @@ import com.stratum.domain.lift.identity.LiftId
  * Availability lives on this row as [enabled] (no separate flag table — AGENTS.md §4.5: no
  * new tables for transient state; availability is a durable fact about the user's catalog).
  * Increment tiers live in a child [IncrementTierEntity] (no JSON blob — point 1 of the OS-4
- * entity review). [primaryMusclesBitmask]/[secondaryMusclesBitmask] are `1 shl MuscleGroup.ordinal`;
- * [presetTags] is a CSV of `GymPreset.name`. Muscle set + preset decoding happens in the mapper.
+ * entity review). [movementPatternsBitmask]/[primaryMusclesBitmask]/[secondaryMusclesBitmask]
+ * are integer bitmasks (`1 shl Enum.ordinal`) so the set can be filtered in SQL with a bitwise
+ * AND (`movementPatternsBitmask & :bit != 0`); the muscle/pattern set decoding happens in the
+ * mapper. [presetTags] is a delimiter-bounded CSV of `GymPreset.name` (also filtered via LIKE).
  * [equipment] is a nullable display string (e.g. "Hammer Strength") — display copy only, not
  * an equipment entity graph (§2.1 lift-first catalog). Increment tier amounts are stored in lb
  * (v1 schema); the mapper re-wraps them with [Weight.WeightUnit.Lb] until a post-release
@@ -32,7 +33,7 @@ import com.stratum.domain.lift.identity.LiftId
 data class LiftEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: LiftId,
     val name: String,
-    val movementPatterns: Set<MovementPattern>,
+    val movementPatternsBitmask: Int,
     val primaryMusclesBitmask: Int,
     val secondaryMusclesBitmask: Int,
     val allowWeightChangeBetweenSets: Boolean,

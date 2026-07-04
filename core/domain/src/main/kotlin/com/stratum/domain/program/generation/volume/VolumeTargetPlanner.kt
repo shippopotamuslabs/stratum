@@ -3,6 +3,8 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.importing.GlobalVolumePriors
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.MAJOR_MUSCLES
 import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -40,13 +42,13 @@ internal fun resolveUnscaledTarget(
     val maintenanceMax = snapshot?.maintenanceCeiling ?: globals.maintenanceCeiling
 
     return when (specializationLevel) {
-        "Specialize" ->
+        SpecializationLevel.Specialize.name ->
             WeeklyVolumeTarget(
                 min = entry,
                 aim = rc,
                 max = rc,
             )
-        "MinimumVolume" ->
+        SpecializationLevel.MinimumVolume.name ->
             WeeklyVolumeTarget(
                 min = mv,
                 aim = mv,
@@ -82,16 +84,16 @@ internal fun buildUnscaledWeeklyTargets(
     context: ProgramGenerationContext,
 ): WeeklyVolumeTargets =
     muscles.associateWith { muscle ->
-        val level = context.specialization[muscle] ?: "Maintenance"
+        val level = specializationLevelForMuscle(muscle, context)
         resolveUnscaledTarget(muscle, level, context)
     }
 
 internal fun targetableMuscles(context: ProgramGenerationContext): List<String> {
-    val muscles = MAJOR_MUSCLES.toMutableSet()
+    val muscles = MAJOR_MUSCLES.map { it.name }.toMutableSet()
     muscles.addAll(context.muscleVolumeSnapshotsByMuscle.keys)
-    muscles.addAll(context.specialization.keys)
+    muscles.addAll(context.specialization.keys.map { it.name })
     return muscles.filter { muscle ->
-        (context.specialization[muscle] ?: "Maintenance") != "Omit"
+        specializationLevelForMuscle(muscle, context) != SpecializationLevel.Omit.name
     }
 }
 
@@ -101,11 +103,23 @@ fun computeAllWeeklyTargets(context: ProgramGenerationContext): WeeklyVolumeTarg
     return applyWeeklyTimeBudgetPrecedence(unscaled, context)
 }
 
+/**
+ * Resolves the specialization level name for a muscle-name string, bridging the volume system's
+ * String-keyed muscles with the typed [MuscleGroup] specialization map. Muscles with no enum match
+ * (e.g. legacy snapshot entries) default to Maintenance.
+ */
+internal fun specializationLevelForMuscle(muscle: String, context: ProgramGenerationContext): String =
+    runCatching { MuscleGroup.valueOf(muscle) }
+        .getOrNull()
+        ?.let { context.specialization[it] }
+        ?.name
+        ?: SpecializationLevel.Maintenance.name
+
 fun availablePatternsByMuscle(context: ProgramGenerationContext): Map<String, List<String>> {
     val byMuscle = mutableMapOf<String, MutableSet<String>>()
     for (lift in context.liftsById.values) {
         for (muscle in lift.primaryMuscles + lift.secondaryMuscles) {
-            byMuscle.getOrPut(muscle) { mutableSetOf() }.add(lift.movementPattern)
+            lift.movementPattern?.let { byMuscle.getOrPut(muscle.name) { mutableSetOf() }.add(it.name) }
         }
     }
     return byMuscle.mapValues { (_, patterns) -> patterns.toList() }

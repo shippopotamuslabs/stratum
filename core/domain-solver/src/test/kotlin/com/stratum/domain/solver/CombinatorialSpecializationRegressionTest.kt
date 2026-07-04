@@ -8,6 +8,7 @@ import com.stratum.core.testing.program.ScenarioConfig
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
@@ -127,8 +128,8 @@ class CombinatorialSpecializationRegressionTest {
         for (workout in draft.workouts) {
             for (lift in workout.workoutLifts.orEmpty()) {
                 val pattern = context.movementPatternByLiftId[lift.liftId] ?: continue
-                context.liftsById[lift.liftId]?.primaryMuscles?.forEach { creditedMuscles.add(it) }
-                PATTERN_SECONDARY_MUSCLE_CREDITS[pattern]?.forEach { creditedMuscles.add(it.muscle) }
+                context.liftsById[lift.liftId]?.primaryMuscles?.forEach { creditedMuscles.add(it.name) }
+                PATTERN_SECONDARY_MUSCLE_CREDITS[pattern]?.forEach { creditedMuscles.add(it.muscle.name) }
             }
         }
         for ((muscle, level) in specialization) {
@@ -149,9 +150,10 @@ class CombinatorialSpecializationRegressionTest {
         context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
         muscle: String,
     ): Double {
+        val muscleGroup = MuscleGroup.values().firstOrNull { it.name == muscle } ?: return 0.0
         var total = 0.0
         for (workout in draft.workouts) {
-            total += computeWorkoutMuscleVolume(workout, context)[muscle] ?: 0.0
+            total += computeWorkoutMuscleVolume(workout, context)[muscleGroup] ?: 0.0
         }
         return total
     }
@@ -164,12 +166,12 @@ class CombinatorialSpecializationRegressionTest {
         for (plan in plans) {
             for (slot in plan.filledSlots) {
                 if (slot.setCount <= 0) continue
-                if (slot.primaryMuscle == muscle) {
+                if (slot.primaryMuscle.name == muscle) {
                     total += slot.setCount * PRIMARY_SET_CREDIT
                     continue
                 }
                 for (secondary in PATTERN_SECONDARY_MUSCLE_CREDITS[slot.pattern].orEmpty()) {
-                    if (secondary.muscle == muscle) {
+                    if (secondary.muscle.name == muscle) {
                         total += slot.setCount * SECONDARY_SET_CREDIT
                     }
                 }

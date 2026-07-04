@@ -2,6 +2,9 @@
 
 package com.stratum.domain.program.generation.integration
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -25,16 +28,16 @@ import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 private const val LOWER_ANCHOR_MIN_SETS = 2
 private const val MIN_SETS_PER_LIFT = 2
 
-private val LOWER_LEG_ANCHOR_PATTERNS = setOf("SquatPattern", "HipHinge")
+private val LOWER_LEG_ANCHOR_PATTERNS = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge)
 
 private val ISOLATION_PATTERNS = setOf(
-    "ElbowFlexion",
-    "ElbowExtension",
-    "KneeFlexion",
-    "KneeExtension",
-    "PlantarFlexion",
-    "ShoulderAbduction",
-    "ShoulderHorizontalAbduction",
+    MovementPattern.ElbowFlexion,
+    MovementPattern.ElbowExtension,
+    MovementPattern.KneeFlexion,
+    MovementPattern.KneeExtension,
+    MovementPattern.PlantarFlexion,
+    MovementPattern.ShoulderAbduction,
+    MovementPattern.ShoulderHorizontalAbduction,
 )
 
 fun repairWeeklyVolume(
@@ -113,10 +116,10 @@ private fun trimWorkoutToSessionDuration(
 private fun liftIndexToDropForSessionDuration(
     workout: ProgramWorkoutDraft,
     context: ProgramGenerationContext,
-    isolationPatterns: Set<String>,
+    isolationPatterns: Set<MovementPattern>,
 ): Int? {
     val specialized = context.specialization
-        .filter { (_, level) -> level == "Specialize" }
+        .filter { (_, level) -> level == SpecializationLevel.Specialize }
         .keys
 
     data class Candidate(val index: Int, val score: Int)
@@ -151,11 +154,11 @@ private fun liftIndexToDropForSessionDuration(
  * [com.stratum.domain.program.generation.selection.AntagonistMetadataBalance]). Joint-safer
  * direction: back ≥ chest, ham ≥ quad.
  */
-private data class AntagonistPair(val weaker: String, val stronger: String)
+private data class AntagonistPair(val weaker: MuscleGroup, val stronger: MuscleGroup)
 
 private val METADATA_ANTAGONIST_PAIRS = listOf(
-    AntagonistPair("Chest", "Back"),
-    AntagonistPair("Quad", "Hamstring"),
+    AntagonistPair(MuscleGroup.Chest, MuscleGroup.Back),
+    AntagonistPair(MuscleGroup.Quad, MuscleGroup.Hamstring),
 )
 
 private const val ANTAGONIST_BALANCE_TOLERANCE = 0.5
@@ -190,17 +193,17 @@ private fun rebalanceAntagonistPairs(
 }
 
 private fun shouldRebalancePair(pair: AntagonistPair, context: ProgramGenerationContext): Boolean {
-    val weakerLevel = context.specialization[pair.weaker] ?: "Maintenance"
-    val strongerLevel = context.specialization[pair.stronger] ?: "Maintenance"
-    if (weakerLevel == "Omit" || strongerLevel == "Omit") return false
+    val weakerLevel = context.specialization[pair.weaker] ?: SpecializationLevel.Maintenance
+    val strongerLevel = context.specialization[pair.stronger] ?: SpecializationLevel.Maintenance
+    if (weakerLevel == SpecializationLevel.Omit || strongerLevel == SpecializationLevel.Omit) return false
     return specializationTier(strongerLevel) >= specializationTier(weakerLevel)
 }
 
-private fun specializationTier(level: String): Int = when (level) {
-    "Specialize" -> 2
-    "Maintenance" -> 1
-    "MinimumVolume" -> 0
-    else -> 1
+private fun specializationTier(level: SpecializationLevel): Int = when (level) {
+    SpecializationLevel.Specialize -> 2
+    SpecializationLevel.Maintenance -> 1
+    SpecializationLevel.MinimumVolume -> 0
+    SpecializationLevel.Omit -> 1
 }
 
 /**
@@ -310,8 +313,8 @@ private fun tryRedistributeSet(
 private fun metadataWeeklyVolume(
     program: ProgramDraft,
     context: ProgramGenerationContext,
-): Map<String, Double> {
-    val totals = mutableMapOf<String, Double>()
+): Map<MuscleGroup, Double> {
+    val totals = mutableMapOf<MuscleGroup, Double>()
     for (workout in program.workouts) {
         for ((muscle, dose) in computeWorkoutMuscleVolume(workout, context)) {
             totals[muscle] = (totals[muscle] ?: 0.0) + dose
@@ -331,7 +334,7 @@ private fun trimWorkoutMuscleCredits(
         val overEntry = volume.entries.firstOrNull { (_, credits) -> credits > SESSION_MUSCLE_SET_CAP + 0.01 }
             ?: return current
         val muscle = overEntry.key
-        val isSpecializedMuscle = (context.specialization[muscle] ?: "Maintenance") == "Specialize"
+        val isSpecializedMuscle = context.specialization[muscle] == SpecializationLevel.Specialize
 
         data class TrimCandidate(val index: Int, val score: Int)
 
@@ -459,7 +462,7 @@ private fun enforceCalendarAdjacentRecovery(
 private data class AdjacentRecoveryViolation(
     val earlierIndex: Int,
     val laterIndex: Int,
-    val muscle: String,
+    val muscle: MuscleGroup,
 )
 
 /**
@@ -479,7 +482,7 @@ private data class AdjacentRecoveryViolation(
  */
 private fun adjacentRecoveryTrimIndex(
     workout: ProgramWorkoutDraft,
-    muscle: String,
+    muscle: MuscleGroup,
     context: ProgramGenerationContext,
 ): Int? {
     data class Candidate(val index: Int, val score: Int)

@@ -115,7 +115,7 @@ internal fun buildScheduleMuscleExposures(
             for (muscle in primaryMusclesForSessionType(resolvedSessionType)) {
                 out.add(
                     MuscleSessionExposure(
-                        muscle = muscle,
+                        muscle = muscle.name,
                         weekdayIndex = weekdayIdx,
                         fractionalSets = 5.0,
                         workoutName = workout.name,

@@ -285,7 +285,7 @@ class ProgramGenerationPipelineTest {
       val setCount = lift.workoutLiftSets?.size ?: 0
       if (setCount == 0) continue
       for (muscle in meta.primaryMuscles) {
-        totals[muscle] = (totals[muscle] ?: 0) + setCount
+        totals[muscle.name] = (totals[muscle.name] ?: 0) + setCount
       }
     }
     return totals

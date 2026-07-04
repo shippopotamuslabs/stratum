@@ -4,6 +4,8 @@ package com.stratum.domain.solver
 
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
@@ -34,14 +36,14 @@ class ProgramSynthesisAuditFixTest {
         // A pattern where 3 of 8 lifts tag a muscle → 0.1875/set. With SCALE=100 this is 19, not 0.
         val credits = VolumeAllocationCoefficients(
             mapOf(
-                "HipHinge" to listOf(PatternSecondaryMuscleCredit("Quad", 0.1875)),
+                MovementPattern.HipHinge to listOf(PatternSecondaryMuscleCredit(MuscleGroup.Quad, 0.1875)),
             ),
         )
         val slot = FilledSlot(
             slotId = "s0_hinge",
             role = SlotRole.Anchor,
-            pattern = "HipHinge",
-            primaryMuscle = "Hamstring",
+            pattern = MovementPattern.HipHinge,
+            primaryMuscle = MuscleGroup.Hamstring,
             repProfile = RpRepProfile.LowerFreeWeightCompound,
             setCount = 0,
         )
@@ -51,7 +53,7 @@ class ProgramSynthesisAuditFixTest {
         assertEquals(100L, credits.scaledCoeff(slot, "Hamstring"))
         // The common "half the lifts tag it" case (0.25) → 25, not 0.
         val halfCredits = VolumeAllocationCoefficients(
-            mapOf("HipHinge" to listOf(PatternSecondaryMuscleCredit("Quad", SECONDARY_SET_CREDIT / 2))),
+            mapOf(MovementPattern.HipHinge to listOf(PatternSecondaryMuscleCredit(MuscleGroup.Quad, SECONDARY_SET_CREDIT / 2))),
         )
         assertEquals(25L, halfCredits.scaledCoeff(slot, "Quad"))
     }

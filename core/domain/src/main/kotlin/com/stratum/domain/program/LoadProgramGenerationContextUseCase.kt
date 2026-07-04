@@ -37,9 +37,8 @@ class LoadProgramGenerationContextUseCase @Inject constructor(
         val insightsByLift = liftTrainingInsightsRepository.getAll().associateBy { it.liftId }
         val metadata = importAnalysisMetadataRepository.get()
         val provenIds = metadata?.provenLiftIds?.toSet() ?: emptySet()
-        val lifts = liftRepository.observeLifts().first()
+        val lifts = liftRepository.observeEnabledLifts().first()
         val (proven, available) = lifts
-            .filter { it.enabled }
             .partition { lift -> lift.id in provenIds && insightsByLift[lift.id] != null }
             .let { (provenLifts, availableLifts) ->
                 provenLifts.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) } to

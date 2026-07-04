@@ -3,6 +3,7 @@
 package com.stratum.domain.program.generation.prescription
 
 import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.reference.LiftStressClass
 import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
@@ -23,15 +24,13 @@ import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
  */
 fun classifyLiftStressClass(
     repProfile: RpRepProfile,
-    movementPattern: String,
+    movementPattern: MovementPattern?,
     liftName: String,
 ): LiftStressClass {
-    if (repProfile == RpRepProfile.LowerFreeWeightCompound ||
-        (
-            movementPattern in LOWER_FREE_WEIGHT_PATTERNS &&
-                isLowerFreeWeightLiftName(liftName)
-            )
-    ) {
+    val lowerFreeWeightByPattern = movementPattern != null &&
+        movementPattern in LOWER_FREE_WEIGHT_PATTERNS &&
+        isLowerFreeWeightLiftName(liftName)
+    if (repProfile == RpRepProfile.LowerFreeWeightCompound || lowerFreeWeightByPattern) {
         return LiftStressClass.HeavyAxial
     }
     if (repProfile == RpRepProfile.Isolation) return LiftStressClass.Isolation
@@ -53,16 +52,16 @@ fun classifyLiftStressClass(slot: WorkoutSlotTemplate, lift: LiftContext): LiftS
 fun classifyLiftStressClass(lift: LiftContext): LiftStressClass =
     kinematicProfileToStressClass(lift.kinematicProfile)
 
-/** Maps a [KinematicProfile] string (from [LiftContext.kinematicProfile]) to [LiftStressClass]. */
-fun kinematicProfileToStressClass(profile: String): LiftStressClass =
+/** Maps a [KinematicProfile] (from [LiftContext.kinematicProfile]) to [LiftStressClass]. */
+fun kinematicProfileToStressClass(profile: KinematicProfile): LiftStressClass =
     when (profile) {
-        KinematicProfile.AxialCompound.name -> LiftStressClass.HeavyAxial
-        KinematicProfile.NonAxialCompound.name -> LiftStressClass.UpperCompound
-        else -> LiftStressClass.Isolation
+        KinematicProfile.AxialCompound -> LiftStressClass.HeavyAxial
+        KinematicProfile.NonAxialCompound -> LiftStressClass.UpperCompound
+        KinematicProfile.Isolation -> LiftStressClass.Isolation
     }
 
 internal fun inferRepProfileForStressClassification(lift: LiftContext): RpRepProfile {
-    val pattern = lift.movementPattern
+    val pattern = lift.movementPattern ?: return RpRepProfile.Isolation
     if (pattern in ISOLATION_MOVEMENT_PATTERNS) return RpRepProfile.Isolation
     if (pattern in LOWER_FREE_WEIGHT_PATTERNS && isLowerFreeWeightLiftName(lift.name)) {
         return RpRepProfile.LowerFreeWeightCompound
@@ -73,16 +72,16 @@ internal fun inferRepProfileForStressClassification(lift: LiftContext): RpRepPro
 
 private val ISOLATION_MOVEMENT_PATTERNS =
     setOf(
-        "ElbowFlexion",
-        "ElbowExtension",
-        "KneeFlexion",
-        "KneeExtension",
-        "PlantarFlexion",
-        "ShoulderAbduction",
-        "ShoulderHorizontalAbduction",
+        MovementPattern.ElbowFlexion,
+        MovementPattern.ElbowExtension,
+        MovementPattern.KneeFlexion,
+        MovementPattern.KneeExtension,
+        MovementPattern.PlantarFlexion,
+        MovementPattern.ShoulderAbduction,
+        MovementPattern.ShoulderHorizontalAbduction,
     )
 
-private val LOWER_FREE_WEIGHT_PATTERNS = setOf("SquatPattern", "HipHinge")
+private val LOWER_FREE_WEIGHT_PATTERNS = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge)
 
 internal fun isLowerFreeWeightLiftName(name: String): Boolean {
     val normalized = name.lowercase()

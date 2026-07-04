@@ -80,8 +80,8 @@ internal fun recoveryGapViolationsFromDraftWorkouts(
             laterLabel = ordered[index].name.orEmpty(),
             earlierDayIndex = earlierDayIndex,
             laterDayIndex = laterDayIndex,
-            earlierStress = stressByWorkout.getValue(ordered[index - 1]),
-            laterStress = stressByWorkout.getValue(ordered[index]),
+            earlierStress = stressByWorkout.getValue(ordered[index - 1]).mapKeys { (k, _) -> k.name },
+            laterStress = stressByWorkout.getValue(ordered[index]).mapKeys { (k, _) -> k.name },
             muscleFilter = muscleFilter,
             calendarGapFilter = calendarGapFilter,
         )
@@ -157,14 +157,14 @@ private fun accumulateSlotStressContributors(
     classContributors: MutableMap<String, MutableList<Pair<LiftStressClass, Double>>>,
 ) {
     val stressClass = coefficients.slotLiftStressClass(slot)
-    classContributors.getOrPut(slot.primaryMuscle) { mutableListOf() }
+    classContributors.getOrPut(slot.primaryMuscle.name) { mutableListOf() }
         .add(
             recoveryStressClassForContributor(stressClass, isPrimaryContributor = true) to
                 slot.setCount * PRIMARY_SET_CREDIT,
         )
     for (secondary in coefficients.musclesForPattern(slot.pattern)) {
         if (secondary.muscle == slot.primaryMuscle) continue
-        classContributors.getOrPut(secondary.muscle) { mutableListOf() }
+        classContributors.getOrPut(secondary.muscle.name) { mutableListOf() }
             .add(
                 recoveryStressClassForContributor(stressClass, isPrimaryContributor = false) to
                     slot.setCount * secondary.creditPerSet,
@@ -179,8 +179,8 @@ private fun planMuscleCredits(
     val totals = mutableMapOf<String, Double>()
     for (slot in plan.filledSlots) {
         if (slot.setCount <= 0) continue
-        val muscles = linkedSetOf(slot.primaryMuscle)
-        coefficients.musclesForPattern(slot.pattern).forEach { muscles += it.muscle }
+        val muscles = linkedSetOf(slot.primaryMuscle.name)
+        coefficients.musclesForPattern(slot.pattern).forEach { muscles += it.muscle.name }
         for (muscle in muscles) {
             val coeff = coefficients.coeff(slot, muscle)
             if (coeff <= 0.0) continue

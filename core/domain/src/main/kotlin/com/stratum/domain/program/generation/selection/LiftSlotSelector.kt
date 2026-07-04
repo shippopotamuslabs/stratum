@@ -2,6 +2,9 @@
 
 package com.stratum.domain.program.generation.selection
 
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.prescription.FilledSlot
@@ -16,7 +19,7 @@ data class SelectedSlotLift(
     val candidates: List<LiftContext>,
 )
 
-private fun matchesPattern(lift: LiftContext, pattern: String, strictPrimaryPattern: Boolean = false): Boolean =
+private fun matchesPattern(lift: LiftContext, pattern: MovementPattern, strictPrimaryPattern: Boolean = false): Boolean =
     if (strictPrimaryPattern) {
         lift.movementPattern == pattern
     } else {
@@ -25,9 +28,9 @@ private fun matchesPattern(lift: LiftContext, pattern: String, strictPrimaryPatt
 
 /** Cross-domain touch slots for arms/calves must pick true isolation lifts only. */
 private val STRICT_ISOLATION_TOUCH_PATTERNS = setOf(
-    "ElbowFlexion",
-    "ElbowExtension",
-    "PlantarFlexion",
+    MovementPattern.ElbowFlexion,
+    MovementPattern.ElbowExtension,
+    MovementPattern.PlantarFlexion,
 )
 
 private fun isStrictIsolationTouch(slot: WorkoutSlotTemplate): Boolean =
@@ -39,7 +42,8 @@ private fun slotRoleBonus(slot: WorkoutSlotTemplate, lift: LiftContext): Double 
     when (slot.role) {
         SlotRole.Anchor -> {
             bonus += mainstream * LiftSelectionWeights.ANCHOR_MAINSTREAM_BONUS
-            val isCompound = lift.kinematicProfile == "AxialCompound" || lift.kinematicProfile == "NonAxialCompound"
+            val isCompound = lift.kinematicProfile == KinematicProfile.AxialCompound ||
+                lift.kinematicProfile == KinematicProfile.NonAxialCompound
             if (isCompound) {
                 if (Regex("""\bbarbell\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.name)) {
                     bonus += LiftSelectionWeights.ANCHOR_BARBELL_BONUS
@@ -93,7 +97,7 @@ fun scoreLiftForSlot(
     context: ProgramGenerationContext,
     siblingIndex: Int,
     setCount: Int,
-    runningWeeklyVolume: Map<String, Double> = emptyMap(),
+    runningWeeklyVolume: Map<MuscleGroup, Double> = emptyMap(),
 ): Double =
     scoreLift(lift, context) +
         slotRoleBonus(slot, lift) +
@@ -122,7 +126,7 @@ fun candidatesForSlot(
             lift.kinematicProfile in slot.allowedKinematicProfiles &&
             slot.primaryMuscle in lift.primaryMuscles
         if (!patternMatch && !kinematicMatch) continue
-        if (slot.primaryMuscle.isNotEmpty()) {
+        run {
             val primaryMatch = slot.primaryMuscle in lift.primaryMuscles
             when {
                 slot.isCrossDomainTouch -> {
@@ -148,7 +152,7 @@ fun selectLiftForSlot(
     sessionIndex: Int,
     lastUsedSession: MutableMap<String, Int>,
     selectionState: LiftSelectionState,
-    runningWeeklyVolume: MutableMap<String, Double> = mutableMapOf(),
+    runningWeeklyVolume: MutableMap<MuscleGroup, Double> = mutableMapOf(),
 ): SelectedSlotLift? {
     if (slot.setCount <= 0) return null
 
@@ -231,7 +235,7 @@ fun selectLiftForSlot(
 
 private fun cycleVarietyBonus(
     liftId: String,
-    pattern: String,
+    pattern: MovementPattern,
     selectionState: LiftSelectionState,
 ): Double {
     val used = selectionState.cycleUsedLiftIdsByPattern[pattern].orEmpty()
@@ -244,7 +248,7 @@ private fun cycleVarietyBonus(
 
 private fun pickWithCycleVariety(
     ranked: List<LiftContext>,
-    pattern: String,
+    pattern: MovementPattern,
     usedLiftIds: Set<String>,
     selectionState: LiftSelectionState,
     allowAnchorReuse: Boolean,

@@ -98,22 +98,6 @@ class EnumConverters {
         value?.let { runCatching { MovementPattern.valueOf(it) }.getOrNull() }
 
     @TypeConverter
-    fun fromMovementPatternSet(patterns: Set<MovementPattern>?): String? =
-        patterns?.joinToString(",") { it.name }
-
-    @TypeConverter
-    fun toMovementPatternSet(value: String?): Set<MovementPattern>? {
-        if (value.isNullOrBlank()) return emptySet()
-        return value.split(",")
-            .mapNotNull { token ->
-                token.trim().takeIf { it.isNotEmpty() }?.let {
-                    runCatching { MovementPattern.valueOf(it) }.getOrNull()
-                }
-            }
-            .toSet()
-    }
-
-    @TypeConverter
     fun fromGymPreset(preset: GymPreset?): String? = preset?.name
 
     @TypeConverter

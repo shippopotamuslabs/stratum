@@ -4,6 +4,7 @@ package com.stratum.domain.program.generation.context
 
 import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.importing.MuscleVolumeHighlight
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.SpecializationPreference
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
@@ -22,7 +23,7 @@ object ProgramGenerationContextMapper {
     ): ProgramGenerationContext {
         val liftsById = linkedMapOf<String, LiftContext>()
         val enabledLiftIds = mutableSetOf<String>()
-        val movementPatternByLiftId = linkedMapOf<String, String>()
+        val movementPatternByLiftId = linkedMapOf<String, MovementPattern?>()
         for (entry in provenLifts + availableLifts) {
             val ctx = entry.toLiftContext(proven = entry in provenLifts)
             liftsById[ctx.id] = ctx
@@ -41,8 +42,7 @@ object ProgramGenerationContextMapper {
             sessionLengthMinutes = profile.sessionLengthMinutes,
             trainingDaysPerWeek = profile.weekdays.size,
             weekdays = profile.weekdays.map { it.name },
-            specialization = specialization.levels.mapKeys { (muscle, _) -> muscle.name }
-                .mapValues { (_, level) -> level.name },
+            specialization = specialization.levels,
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,
             volumeCorrelationsByMuscle = volumeCorrelationsByMuscle,
@@ -53,14 +53,14 @@ object ProgramGenerationContextMapper {
     }
 
         private fun LiftWithInsights.toLiftContext(proven: Boolean): LiftContext {
-        val patterns = lift.movementPatterns.map { it.name }
+        val patterns = lift.movementPatterns
         return LiftContext(
             id = lift.id.value,
             name = lift.name,
-            movementPattern = patterns.firstOrNull().orEmpty(),
+            movementPattern = patterns.firstOrNull(),
             movementPatterns = patterns,
-            primaryMuscles = lift.primaryMuscles.map { it.name },
-            secondaryMuscles = lift.secondaryMuscles.map { it.name },
+            primaryMuscles = lift.primaryMuscles,
+            secondaryMuscles = lift.secondaryMuscles,
             mainstream = lift.mainstream,
             progressTrend = trainingInsights?.progressTrend?.name,
             proven = proven,
@@ -69,7 +69,7 @@ object ProgramGenerationContextMapper {
             fatigueDecayIntercept = trainingInsights?.fatigueDecayIntercept,
             muscleLengthBias = lift.muscleLengthBias.toGenerationContext(),
             equipment = lift.equipment,
-            kinematicProfile = lift.kinematicProfile.name,
+            kinematicProfile = lift.kinematicProfile,
         )
     }
 
@@ -164,7 +164,7 @@ object ProgramGenerationContextMapper {
         return responseProfile.liftEffectiveness.associate { influence ->
             influence.liftId.value to LiftEffectivenessEntry(
                 liftId = influence.liftId.value,
-                pattern = influence.pattern.name,
+                pattern = influence.pattern,
                 rank = influence.rank,
                 effectivenessScore = influence.effectivenessScore,
                 evidence = influence.evidence.name,

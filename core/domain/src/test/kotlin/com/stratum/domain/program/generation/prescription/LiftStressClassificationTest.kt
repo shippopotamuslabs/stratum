@@ -1,6 +1,8 @@
 package com.stratum.domain.program.generation.prescription
 
 import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.reference.LiftStressClass
 import com.stratum.domain.program.generation.reference.RpRepProfile
@@ -17,10 +19,10 @@ class LiftStressClassificationTest {
             LiftContext(
                 id = "barbell-deadlift",
                 name = "Barbell Deadlift",
-                movementPattern = "HipHinge",
-                movementPatterns = listOf("HipHinge"),
-                primaryMuscles = listOf("LowerBack"),
-                secondaryMuscles = listOf("Back", "Quad", "Hamstring", "Glute"),
+                movementPattern = MovementPattern.HipHinge,
+                movementPatterns = setOf(MovementPattern.HipHinge),
+                primaryMuscles = setOf(MuscleGroup.LowerBack),
+                secondaryMuscles = setOf(MuscleGroup.Back, MuscleGroup.Quad, MuscleGroup.Hamstring, MuscleGroup.Glute),
                 proven = true,
             )
         assertEquals(
@@ -40,7 +42,7 @@ class LiftStressClassificationTest {
             LiftStressClass.UpperCompound,
             classifyLiftStressClass(
                 repProfile = RpRepProfile.LowerMachineOrUpperPress,
-                movementPattern = "HorizontalPress",
+                movementPattern = MovementPattern.HorizontalPress,
                 liftName = "Barbell Bench Press",
             ),
         )
@@ -53,7 +55,7 @@ class LiftStressClassificationTest {
             LiftStressClass.Isolation,
             classifyLiftStressClass(
                 repProfile = RpRepProfile.Isolation,
-                movementPattern = "ElbowFlexion",
+                movementPattern = MovementPattern.ElbowFlexion,
                 liftName = "Barbell Curl",
             ),
         )
@@ -66,7 +68,7 @@ class LiftStressClassificationTest {
             LiftStressClass.Isolation,
             classifyLiftStressClass(
                 repProfile = RpRepProfile.Isolation,
-                movementPattern = "KneeExtension",
+                movementPattern = MovementPattern.KneeExtension,
                 liftName = "Leg Extension",
             ),
         )
@@ -111,7 +113,7 @@ class LiftStressClassificationTest {
     fun rowBicepSecondaryDominantClassIsIsolation() {
         val rowClass = classifyLiftStressClass(
             repProfile = RpRepProfile.LowerMachineOrUpperPress,
-            movementPattern = "HorizontalPull",
+            movementPattern = MovementPattern.HorizontalPull,
             liftName = "Barbell Row",
         )
         assertEquals(LiftStressClass.UpperCompound, rowClass)
@@ -139,7 +141,7 @@ class LiftStressClassificationTest {
             LiftStressClass.UpperCompound,
             classifyLiftStressClass(
                 repProfile = RpRepProfile.LowerMachineOrUpperPress,
-                movementPattern = "SquatPattern",
+                movementPattern = MovementPattern.SquatPattern,
                 liftName = "Smith Machine Squat",
             ),
         )
@@ -150,25 +152,27 @@ class LiftStressClassificationTest {
     @Test
     @DisplayName("kinematicProfileToStressClass maps AxialCompound to HeavyAxial")
     fun axialCompoundMapsToHeavyAxial() {
-        assertEquals(LiftStressClass.HeavyAxial, kinematicProfileToStressClass(KinematicProfile.AxialCompound.name))
+        assertEquals(LiftStressClass.HeavyAxial, kinematicProfileToStressClass(KinematicProfile.AxialCompound))
     }
 
     @Test
     @DisplayName("kinematicProfileToStressClass maps NonAxialCompound to UpperCompound")
     fun nonAxialCompoundMapsToUpperCompound() {
-        assertEquals(LiftStressClass.UpperCompound, kinematicProfileToStressClass(KinematicProfile.NonAxialCompound.name))
+        assertEquals(LiftStressClass.UpperCompound, kinematicProfileToStressClass(KinematicProfile.NonAxialCompound))
     }
 
     @Test
     @DisplayName("kinematicProfileToStressClass maps Isolation to Isolation")
     fun isolationMapsToIsolation() {
-        assertEquals(LiftStressClass.Isolation, kinematicProfileToStressClass(KinematicProfile.Isolation.name))
+        assertEquals(LiftStressClass.Isolation, kinematicProfileToStressClass(KinematicProfile.Isolation))
     }
 
     @Test
     @DisplayName("kinematicProfileToStressClass defaults unknown string to Isolation")
     fun unknownProfileDefaultsToIsolation() {
-        assertEquals(LiftStressClass.Isolation, kinematicProfileToStressClass("Unknown"))
+        // The mapping is now a closed enum (KinematicProfile); the only non-Axial/NonAxial value
+        // (Isolation) is the default fallback, preserving the original "unknown → Isolation" intent.
+        assertEquals(LiftStressClass.Isolation, kinematicProfileToStressClass(KinematicProfile.Isolation))
     }
 
     @Test
@@ -178,12 +182,12 @@ class LiftStressClassificationTest {
         val legPress = LiftContext(
             id = "sled-leg-press",
             name = "Sled Leg Press",
-            movementPattern = "SquatPattern",
-            movementPatterns = listOf("SquatPattern"),
-            primaryMuscles = listOf("Quad"),
-            secondaryMuscles = listOf("Calf", "Glute"),
+            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
+            primaryMuscles = setOf(MuscleGroup.Quad),
+            secondaryMuscles = setOf(MuscleGroup.Calf, MuscleGroup.Glute),
             proven = true,
-            kinematicProfile = KinematicProfile.NonAxialCompound.name,
+            kinematicProfile = KinematicProfile.NonAxialCompound,
         )
         assertEquals(LiftStressClass.UpperCompound, classifyLiftStressClass(legPress))
     }
@@ -194,12 +198,12 @@ class LiftStressClassificationTest {
         val backSquat = LiftContext(
             id = "barbell-back-squat",
             name = "Barbell Back Squat",
-            movementPattern = "SquatPattern",
-            movementPatterns = listOf("SquatPattern"),
-            primaryMuscles = listOf("Quad"),
-            secondaryMuscles = listOf("Calf", "Glute"),
+            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
+            primaryMuscles = setOf(MuscleGroup.Quad),
+            secondaryMuscles = setOf(MuscleGroup.Calf, MuscleGroup.Glute),
             proven = true,
-            kinematicProfile = KinematicProfile.AxialCompound.name,
+            kinematicProfile = KinematicProfile.AxialCompound,
         )
         assertEquals(LiftStressClass.HeavyAxial, classifyLiftStressClass(backSquat))
     }
@@ -210,12 +214,12 @@ class LiftStressClassificationTest {
         val legExtension = LiftContext(
             id = "machine-leg-extension",
             name = "Machine Leg Extension",
-            movementPattern = "KneeExtension",
-            movementPatterns = listOf("KneeExtension"),
-            primaryMuscles = listOf("Quad"),
-            secondaryMuscles = emptyList(),
+            movementPattern = MovementPattern.KneeExtension,
+            movementPatterns = setOf(MovementPattern.KneeExtension),
+            primaryMuscles = setOf(MuscleGroup.Quad),
+            secondaryMuscles = emptySet(),
             proven = true,
-            kinematicProfile = KinematicProfile.Isolation.name,
+            kinematicProfile = KinematicProfile.Isolation,
         )
         assertEquals(LiftStressClass.Isolation, classifyLiftStressClass(legExtension))
     }
@@ -227,10 +231,10 @@ class LiftStressClassificationTest {
         val legacyLift = LiftContext(
             id = "some-lift",
             name = "Some Lift",
-            movementPattern = "SquatPattern",
-            movementPatterns = listOf("SquatPattern"),
-            primaryMuscles = listOf("Quad"),
-            secondaryMuscles = emptyList(),
+            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
+            primaryMuscles = setOf(MuscleGroup.Quad),
+            secondaryMuscles = emptySet(),
             proven = true,
         )
         assertEquals(LiftStressClass.Isolation, classifyLiftStressClass(legacyLift))

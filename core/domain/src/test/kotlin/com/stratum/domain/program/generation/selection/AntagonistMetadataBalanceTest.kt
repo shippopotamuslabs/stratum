@@ -3,6 +3,8 @@ package com.stratum.domain.program.generation.selection
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramDraft
@@ -19,7 +21,7 @@ class AntagonistMetadataBalanceTest {
     @Test
     fun `penalizes quad-heavy lift when ham trails quad on metadata volume`() {
         val context = maintenanceContext()
-        val running = mutableMapOf("Quad" to 10.0, "Hamstring" to 5.0)
+        val running = mutableMapOf(MuscleGroup.Quad to 10.0, MuscleGroup.Hamstring to 5.0)
         val legExtension =
             lift(
                 id = "leg-ext",
@@ -42,7 +44,7 @@ class AntagonistMetadataBalanceTest {
     @Test
     fun `penalizes biceps-heavy lift when triceps trails on metadata volume`() {
         val context = maintenanceContext()
-        val running = mutableMapOf("Bicep" to 10.0, "Tricep" to 5.0)
+        val running = mutableMapOf(MuscleGroup.Bicep to 10.0, MuscleGroup.Tricep to 5.0)
         val curl =
             lift(
                 id = "curl",
@@ -65,7 +67,7 @@ class AntagonistMetadataBalanceTest {
     @Test
     fun `symmetric pair has no directional preference when balanced`() {
         val context = maintenanceContext()
-        val running = mutableMapOf("Bicep" to 5.0, "Tricep" to 5.0)
+        val running = mutableMapOf(MuscleGroup.Bicep to 5.0, MuscleGroup.Tricep to 5.0)
         val curl =
             lift(
                 id = "curl",
@@ -93,7 +95,7 @@ class AntagonistMetadataBalanceTest {
     @Test
     fun `penalizes triceps-heavy lift when biceps trails on metadata volume`() {
         val context = maintenanceContext()
-        val running = mutableMapOf("Bicep" to 5.0, "Tricep" to 10.0)
+        val running = mutableMapOf(MuscleGroup.Bicep to 5.0, MuscleGroup.Tricep to 10.0)
         val curl =
             lift(
                 id = "curl",
@@ -155,7 +157,7 @@ class AntagonistMetadataBalanceTest {
         val totals = mutableMapOf<String, Double>()
         for (workout in draft.workouts) {
             for ((muscle, dose) in computeWorkoutMuscleVolume(workout, context)) {
-                totals[muscle] = (totals[muscle] ?: 0.0) + dose
+                totals[muscle.name] = (totals[muscle.name] ?: 0.0) + dose
             }
         }
         return totals
@@ -173,7 +175,7 @@ class AntagonistMetadataBalanceTest {
                 val meta = context.liftsById[liftId] ?: continue
                 val muscles = meta.primaryMuscles + meta.secondaryMuscles.filter { it !in meta.primaryMuscles }
                 for (muscle in muscles) {
-                    exercisesByMuscle.getOrPut(muscle) { mutableSetOf() }.add(liftId)
+                    exercisesByMuscle.getOrPut(muscle.name) { mutableSetOf() }.add(liftId)
                 }
             }
         }
@@ -197,10 +199,10 @@ class AntagonistMetadataBalanceTest {
         LiftContext(
             id = id,
             name = id,
-            movementPattern = pattern,
-            movementPatterns = listOf(pattern),
-            primaryMuscles = primary,
-            secondaryMuscles = secondary,
+            movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull(),
+            movementPatterns = setOfNotNull(runCatching { MovementPattern.valueOf(pattern) }.getOrNull()),
+            primaryMuscles = primary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+            secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
             proven = true,
             mainstream = true,
         )

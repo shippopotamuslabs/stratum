@@ -55,7 +55,9 @@ class FiveDayArmCalfMtwfsRecoveryTest {
         val draft = normalized.toDraft()
         val exposuresByName =
             draft.workouts.associate { workout ->
-                workout.name.orEmpty() to computeWorkoutMuscleSessionStress(workout, context)
+                workout.name.orEmpty() to
+                    computeWorkoutMuscleSessionStress(workout, context)
+                        .mapKeys { (muscle, _) -> muscle.name }
             }
         val scheduled = normalized.toDomainProgram()
         val priority = setOf("Bicep", "Tricep", "Calf")

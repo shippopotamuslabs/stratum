@@ -2,6 +2,9 @@
 
 package com.stratum.domain.program.generation.selection
 
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
 
@@ -24,7 +27,7 @@ private val LIFT_ID_BONUSES: Map<String, Double> = mapOf(
     "barbell-front-squat" to 0.1,
 )
 
-private fun namePenalty(name: String, pattern: String, slot: WorkoutSlotTemplate?): Double {
+private fun namePenalty(name: String, pattern: MovementPattern?, slot: WorkoutSlotTemplate?): Double {
     val n = name.lowercase()
     var penalty = 0.0
 
@@ -37,9 +40,9 @@ private fun namePenalty(name: String, pattern: String, slot: WorkoutSlotTemplate
     if (Regex("""\bdip machine\b""").containsMatchIn(n) ||
         (Regex("""\bdips?\b""").containsMatchIn(n) && Regex("""\bmachine\b""").containsMatchIn(n))
     ) {
-        penalty += if (slot?.pattern == "ElbowExtension") 0.4 else 0.15
+        penalty += if (slot?.pattern == MovementPattern.ElbowExtension) 0.4 else 0.15
     }
-    if (Regex("""\bone.?leg\b""").containsMatchIn(n) && pattern == "SquatPattern") {
+    if (Regex("""\bone.?leg\b""").containsMatchIn(n) && pattern == MovementPattern.SquatPattern) {
         penalty += 0.4
     }
     if (Regex("""\bguillotine\b""").containsMatchIn(n)) penalty += 0.42
@@ -51,20 +54,20 @@ private fun namePenalty(name: String, pattern: String, slot: WorkoutSlotTemplate
     return penalty
 }
 
-private fun nameBonus(name: String, pattern: String, slot: WorkoutSlotTemplate?): Double {
+private fun nameBonus(name: String, pattern: MovementPattern?, slot: WorkoutSlotTemplate?): Double {
     val n = name.lowercase()
     var bonus = 0.0
 
-    if (pattern == "HorizontalPress" &&
+    if (pattern == MovementPattern.HorizontalPress &&
         Regex("""\b(bench press|barbell bench)\b""").containsMatchIn(n) &&
         !Regex("""\bdecline\b""").containsMatchIn(n)
     ) {
         bonus += 0.12
     }
-    if (pattern == "InclinePress" && Regex("""\bincline\b""").containsMatchIn(n)) {
+    if (pattern == MovementPattern.InclinePress && Regex("""\bincline\b""").containsMatchIn(n)) {
         bonus += 0.1
     }
-    if (pattern == "VerticalPress") {
+    if (pattern == MovementPattern.VerticalPress) {
         if (Regex("""\b(dumbbell|db)\b.*\bpress\b""").containsMatchIn(n) ||
             Regex("""\bmachine\b.*\b(military|shoulder|press)\b""").containsMatchIn(n)
         ) {
@@ -76,7 +79,7 @@ private fun nameBonus(name: String, pattern: String, slot: WorkoutSlotTemplate?)
             bonus += 0.12
         }
     }
-    if (slot?.pattern == "ElbowExtension" || pattern == "ElbowExtension") {
+    if (slot?.pattern == MovementPattern.ElbowExtension || pattern == MovementPattern.ElbowExtension) {
         if (Regex("""\b(skull|skullcrusher|skull crusher)\b""").containsMatchIn(n)) bonus += 0.22
         if (Regex("""\b(tricep extension|triceps extension)\b""").containsMatchIn(n) &&
             Regex("""\b(cable|rope|dumbbell|db)\b""").containsMatchIn(n)
@@ -85,7 +88,7 @@ private fun nameBonus(name: String, pattern: String, slot: WorkoutSlotTemplate?)
         }
         if (Regex("""\bpush.?down\b""").containsMatchIn(n)) bonus += 0.15
     }
-    if (pattern == "SquatPattern") {
+    if (pattern == MovementPattern.SquatPattern) {
         if (Regex("""\b(front squat|back squat|barbell squat|full squat)\b""").containsMatchIn(n)) bonus += 0.15
         if (Regex("""\b(bulgarian|split squat)\b""").containsMatchIn(n)) bonus += 0.08
     }
@@ -94,9 +97,10 @@ private fun nameBonus(name: String, pattern: String, slot: WorkoutSlotTemplate?)
 }
 
 private fun isHighSystemicFatigueCompound(lift: LiftContext): Boolean {
-    val isCompound = lift.kinematicProfile == "AxialCompound" || lift.kinematicProfile == "NonAxialCompound"
+    val isCompound = lift.kinematicProfile == KinematicProfile.AxialCompound ||
+        lift.kinematicProfile == KinematicProfile.NonAxialCompound
     if (!isCompound) return false
-    val hasLowerBackPrimary = lift.primaryMuscles.contains("LowerBack")
+    val hasLowerBackPrimary = MuscleGroup.LowerBack in lift.primaryMuscles
     val hasManySecondaries = lift.secondaryMuscles.size >= 6
     return hasLowerBackPrimary || hasManySecondaries
 }

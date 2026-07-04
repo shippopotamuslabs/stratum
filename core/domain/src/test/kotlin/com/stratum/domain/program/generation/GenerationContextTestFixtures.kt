@@ -1,5 +1,8 @@
 package com.stratum.domain.program.generation
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.LiteratureVolumeDefaultsProvider
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
@@ -27,7 +30,7 @@ internal object GenerationContextTestFixtures {
 
         val liftsById = mutableMapOf<String, LiftContext>()
         val enabledLiftIds = mutableSetOf<String>()
-        val movementPatternByLiftId = mutableMapOf<String, String>()
+        val movementPatternByLiftId = mutableMapOf<String, MovementPattern?>()
         for (lift in provenLifts + availableLifts) {
             liftsById[lift.id] = lift
             enabledLiftIds.add(lift.id)
@@ -43,7 +46,7 @@ internal object GenerationContextTestFixtures {
             sessionLengthMinutes = profile["sessionLengthMinutes"] as Int?,
             trainingDaysPerWeek = profile["trainingDaysPerWeek"] as Int,
             weekdays = (profile["weekdays"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-            specialization = specialization,
+            specialization = specialization.toSpecializationMap(),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,
             volumeCorrelationsByMuscle = volumeCorrelationsByMuscle,
@@ -57,20 +60,28 @@ internal object GenerationContextTestFixtures {
         LiftContext(
             id = "bench",
             name = "bench",
-            movementPattern = "HorizontalPress",
-            movementPatterns = listOf("HorizontalPress"),
-            primaryMuscles = listOf("Chest"),
-            secondaryMuscles = listOf("Tricep"),
+            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            secondaryMuscles = setOf(MuscleGroup.Tricep),
         ),
         LiftContext(
             id = "row",
             name = "row",
-            movementPattern = "HorizontalPull",
-            movementPatterns = listOf("HorizontalPull"),
-            primaryMuscles = listOf("Back"),
-            secondaryMuscles = listOf("Bicep"),
+            movementPattern = MovementPattern.HorizontalPull,
+            movementPatterns = setOf(MovementPattern.HorizontalPull),
+            primaryMuscles = setOf(MuscleGroup.Back),
+            secondaryMuscles = setOf(MuscleGroup.Bicep),
         ),
     )
+
+    /** Bridges a String-keyed specialization map (as still passed by legacy callers) to enums. */
+    private fun Map<String, String>.toSpecializationMap(): Map<MuscleGroup, SpecializationLevel> =
+        entries.mapNotNull { (muscle, level) ->
+            val mg = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull() ?: return@mapNotNull null
+            val sl = runCatching { SpecializationLevel.valueOf(level) }.getOrNull() ?: return@mapNotNull null
+            mg to sl
+        }.toMap()
 
     private fun defaultLiteratureSnapshots(): List<MuscleVolumeSnapshotContext> =
         listOf("Chest", "Back").map { muscle -> literatureSnapshotContext(muscle) }
@@ -103,50 +114,50 @@ internal object GenerationContextTestFixtures {
         LiftContext(
             id = "bench",
             name = "Bench Press",
-            movementPattern = "HorizontalPress",
-            movementPatterns = listOf("HorizontalPress"),
-            primaryMuscles = listOf("Chest"),
-            secondaryMuscles = listOf("Tricep"),
+            movementPattern = MovementPattern.HorizontalPress,
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            secondaryMuscles = setOf(MuscleGroup.Tricep),
         ),
         LiftContext(
             id = "row",
             name = "Row",
-            movementPattern = "HorizontalPull",
-            movementPatterns = listOf("HorizontalPull"),
-            primaryMuscles = listOf("Back"),
-            secondaryMuscles = listOf("Bicep"),
+            movementPattern = MovementPattern.HorizontalPull,
+            movementPatterns = setOf(MovementPattern.HorizontalPull),
+            primaryMuscles = setOf(MuscleGroup.Back),
+            secondaryMuscles = setOf(MuscleGroup.Bicep),
         ),
         LiftContext(
             id = "squat",
             name = "Squat",
-            movementPattern = "SquatPattern",
-            movementPatterns = listOf("SquatPattern"),
-            primaryMuscles = listOf("Quad"),
-            secondaryMuscles = listOf("Glute"),
+            movementPattern = MovementPattern.SquatPattern,
+            movementPatterns = setOf(MovementPattern.SquatPattern),
+            primaryMuscles = setOf(MuscleGroup.Quad),
+            secondaryMuscles = setOf(MuscleGroup.Glute),
         ),
         LiftContext(
             id = "rdl",
             name = "RDL",
-            movementPattern = "HipHinge",
-            movementPatterns = listOf("HipHinge"),
-            primaryMuscles = listOf("Hamstring"),
-            secondaryMuscles = listOf("Glute"),
+            movementPattern = MovementPattern.HipHinge,
+            movementPatterns = setOf(MovementPattern.HipHinge),
+            primaryMuscles = setOf(MuscleGroup.Hamstring),
+            secondaryMuscles = setOf(MuscleGroup.Glute),
         ),
         LiftContext(
             id = "curl",
             name = "Curl",
-            movementPattern = "ElbowFlexion",
-            movementPatterns = listOf("ElbowFlexion"),
-            primaryMuscles = listOf("Bicep"),
-            secondaryMuscles = emptyList(),
+            movementPattern = MovementPattern.ElbowFlexion,
+            movementPatterns = setOf(MovementPattern.ElbowFlexion),
+            primaryMuscles = setOf(MuscleGroup.Bicep),
+            secondaryMuscles = emptySet(),
         ),
         LiftContext(
             id = "tricep-ext",
             name = "Tricep Extension",
-            movementPattern = "ElbowExtension",
-            movementPatterns = listOf("ElbowExtension"),
-            primaryMuscles = listOf("Tricep"),
-            secondaryMuscles = emptyList(),
+            movementPattern = MovementPattern.ElbowExtension,
+            movementPatterns = setOf(MovementPattern.ElbowExtension),
+            primaryMuscles = setOf(MuscleGroup.Tricep),
+            secondaryMuscles = emptySet(),
         ),
     )
 

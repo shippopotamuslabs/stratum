@@ -1,5 +1,7 @@
 package com.stratum.domain.program.generation.selection
 
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -13,25 +15,25 @@ import kotlin.math.abs
  */
 object AntagonistMetadataBalance {
     private data class Pair(
-        val weaker: String,
-        val stronger: String,
+        val weaker: MuscleGroup,
+        val stronger: MuscleGroup,
     )
 
     private data class SymmetricPair(
-        val muscleA: String,
-        val muscleB: String,
+        val muscleA: MuscleGroup,
+        val muscleB: MuscleGroup,
     )
 
     private val maintenancePairs =
         listOf(
-            Pair("Chest", "Back"),
-            Pair("Quad", "Hamstring"),
+            Pair(MuscleGroup.Chest, MuscleGroup.Back),
+            Pair(MuscleGroup.Quad, MuscleGroup.Hamstring),
         )
 
     /** Pairs kept roughly even with no directional preference. */
     private val symmetricPairs =
         listOf(
-            SymmetricPair("Bicep", "Tricep"),
+            SymmetricPair(MuscleGroup.Bicep, MuscleGroup.Tricep),
         )
 
     /** Penalty scale when a candidate lift widens the wrong-way gap (quad > ham, chest > back). */
@@ -49,7 +51,7 @@ object AntagonistMetadataBalance {
     fun projectLiftMetadataVolume(
         lift: LiftContext,
         setCount: Int,
-        totals: MutableMap<String, Double>,
+        totals: MutableMap<MuscleGroup, Double>,
     ) {
         if (setCount <= 0) return
         for (muscle in lift.primaryMuscles) {
@@ -70,7 +72,7 @@ object AntagonistMetadataBalance {
         lift: LiftContext,
         setCount: Int,
         context: ProgramGenerationContext,
-        runningWeeklyVolume: Map<String, Double>,
+        runningWeeklyVolume: Map<MuscleGroup, Double>,
     ): Double {
         if (setCount <= 0) return 0.0
         val projected = runningWeeklyVolume.toMutableMap()
@@ -113,22 +115,22 @@ object AntagonistMetadataBalance {
     private fun wrongWayExcess(weaker: Double, stronger: Double): Double =
         maxOf(0.0, weaker - stronger)
 
-    private fun specializationTierValue(level: String): Int =
+    private fun specializationTierValue(level: SpecializationLevel): Int =
         when (level) {
-            "Specialize" -> 2
-            "Maintenance" -> 1
-            "MinimumVolume" -> 0
-            else -> 1
+            SpecializationLevel.Specialize -> 2
+            SpecializationLevel.Maintenance -> 1
+            SpecializationLevel.MinimumVolume -> 0
+            SpecializationLevel.Omit -> 1
         }
 
     private fun shouldBalancePair(
-        weaker: String,
-        stronger: String,
+        weaker: MuscleGroup,
+        stronger: MuscleGroup,
         context: ProgramGenerationContext,
     ): Boolean {
-        val weakerLevel = context.specialization[weaker] ?: "Maintenance"
-        val strongerLevel = context.specialization[stronger] ?: "Maintenance"
-        if (weakerLevel == "Omit" || strongerLevel == "Omit") return false
+        val weakerLevel = context.specialization[weaker] ?: SpecializationLevel.Maintenance
+        val strongerLevel = context.specialization[stronger] ?: SpecializationLevel.Maintenance
+        if (weakerLevel == SpecializationLevel.Omit || strongerLevel == SpecializationLevel.Omit) return false
         val valWeaker = specializationTierValue(weakerLevel)
         val valStronger = specializationTierValue(strongerLevel)
         return valStronger >= valWeaker
@@ -141,13 +143,13 @@ object AntagonistMetadataBalance {
      * Same-tier (notably both Maintenance, the common case) is where parity is achievable.
      */
     private fun shouldBalanceSymmetricPair(
-        muscleA: String,
-        muscleB: String,
+        muscleA: MuscleGroup,
+        muscleB: MuscleGroup,
         context: ProgramGenerationContext,
     ): Boolean {
-        val levelA = context.specialization[muscleA] ?: "Maintenance"
-        val levelB = context.specialization[muscleB] ?: "Maintenance"
-        if (levelA == "Omit" || levelB == "Omit") return false
+        val levelA = context.specialization[muscleA] ?: SpecializationLevel.Maintenance
+        val levelB = context.specialization[muscleB] ?: SpecializationLevel.Maintenance
+        if (levelA == SpecializationLevel.Omit || levelB == SpecializationLevel.Omit) return false
         return specializationTierValue(levelA) == specializationTierValue(levelB)
     }
 }

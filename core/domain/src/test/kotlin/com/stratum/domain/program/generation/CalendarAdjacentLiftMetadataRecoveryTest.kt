@@ -4,6 +4,7 @@ import com.stratum.core.testing.program.SPECIALIZATION_PRESETS
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.reference.calendarDayIndexGap
@@ -85,8 +86,8 @@ class CalendarAdjacentLiftMetadataRecoveryTest {
                         violations +=
                             AdjacentViolation(
                                 scenario = "$days-day $preset $layout",
-                                muscle = muscle,
-                                level = context.specialization[muscle] ?: "Maintenance",
+                                muscle = muscle.name,
+                                level = (context.specialization[muscle] ?: SpecializationLevel.Maintenance).name,
                                 earlierDay = w1.weekday!!,
                                 laterDay = w2.weekday!!,
                                 earlierDose = earlier.fractionalSets,
