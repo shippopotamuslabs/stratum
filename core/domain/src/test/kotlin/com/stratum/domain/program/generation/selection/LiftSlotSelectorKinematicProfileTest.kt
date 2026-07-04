@@ -1,6 +1,9 @@
 package com.stratum.domain.program.generation.selection
 
 import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.RpRepProfile
@@ -58,8 +61,8 @@ class LiftSlotSelectorKinematicProfileTest {
         val slot = WorkoutSlotTemplate(
             slotId = "squat",
             role = SlotRole.Anchor,
-            pattern = "SquatPattern",
-            primaryMuscle = "Quad",
+            pattern = MovementPattern.SquatPattern,
+            primaryMuscle = MuscleGroup.Quad,
             repProfile = RpRepProfile.LowerFreeWeightCompound,
         )
         val candidates = candidatesForSlot(slot, context)
@@ -74,10 +77,10 @@ class LiftSlotSelectorKinematicProfileTest {
         val slot = WorkoutSlotTemplate(
             slotId = "ham-iso",
             role = SlotRole.Isolation,
-            pattern = "KneeFlexion",
-            primaryMuscle = "Hamstring",
+            pattern = MovementPattern.KneeFlexion,
+            primaryMuscle = MuscleGroup.Hamstring,
             repProfile = RpRepProfile.Isolation,
-            allowedKinematicProfiles = setOf(KinematicProfile.Isolation.name, KinematicProfile.NonAxialCompound.name),
+            allowedKinematicProfiles = setOf(KinematicProfile.Isolation, KinematicProfile.NonAxialCompound),
         )
         val candidates = candidatesForSlot(slot, context)
         assertTrue(candidates.any { it.id == "good-morning" }, "good morning (NonAxialCompound, Hamstring primary) should be a ham-iso candidate")
@@ -89,10 +92,10 @@ class LiftSlotSelectorKinematicProfileTest {
     private fun quadIsoSlot() = WorkoutSlotTemplate(
         slotId = "quad-iso",
         role = SlotRole.Isolation,
-        pattern = "KneeExtension",
-        primaryMuscle = "Quad",
+        pattern = MovementPattern.KneeExtension,
+        primaryMuscle = MuscleGroup.Quad,
         repProfile = RpRepProfile.Isolation,
-        allowedKinematicProfiles = setOf(KinematicProfile.Isolation.name, KinematicProfile.NonAxialCompound.name),
+        allowedKinematicProfiles = setOf(KinematicProfile.Isolation, KinematicProfile.NonAxialCompound),
     )
 
     private fun baseContext(lifts: List<LiftContext>): ProgramGenerationContext {
@@ -103,7 +106,7 @@ class LiftSlotSelectorKinematicProfileTest {
             sessionLengthMinutes = 75,
             trainingDaysPerWeek = 5,
             weekdays = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"),
-            specialization = mapOf("Quad" to "Specialize"),
+            specialization = mapOf(MuscleGroup.Quad to SpecializationLevel.Specialize),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = emptyMap(),
             volumeCorrelationsByMuscle = emptyMap(),
@@ -145,54 +148,54 @@ class LiftSlotSelectorKinematicProfileTest {
     private fun legPress() = LiftContext(
         id = "sled-leg-press",
         name = "Sled Leg Press",
-        movementPattern = "SquatPattern",
-        movementPatterns = listOf("SquatPattern"),
-        primaryMuscles = listOf("Quad"),
-        secondaryMuscles = listOf("Calf", "Glute"),
+        movementPattern = MovementPattern.SquatPattern,
+        movementPatterns = setOf(MovementPattern.SquatPattern),
+        primaryMuscles = setOf(MuscleGroup.Quad),
+        secondaryMuscles = setOf(MuscleGroup.Calf, MuscleGroup.Glute),
         proven = true,
-        kinematicProfile = KinematicProfile.NonAxialCompound.name,
+        kinematicProfile = KinematicProfile.NonAxialCompound,
     )
 
     private fun backSquat() = LiftContext(
         id = "barbell-back-squat",
         name = "Barbell Back Squat",
-        movementPattern = "SquatPattern",
-        movementPatterns = listOf("SquatPattern"),
-        primaryMuscles = listOf("Quad"),
-        secondaryMuscles = listOf("Calf", "Glute"),
+        movementPattern = MovementPattern.SquatPattern,
+        movementPatterns = setOf(MovementPattern.SquatPattern),
+        primaryMuscles = setOf(MuscleGroup.Quad),
+        secondaryMuscles = setOf(MuscleGroup.Calf, MuscleGroup.Glute),
         proven = true,
-        kinematicProfile = KinematicProfile.AxialCompound.name,
+        kinematicProfile = KinematicProfile.AxialCompound,
     )
 
     private fun legExtension() = LiftContext(
         id = "machine-leg-extension",
         name = "Machine Leg Extension",
-        movementPattern = "KneeExtension",
-        movementPatterns = listOf("KneeExtension"),
-        primaryMuscles = listOf("Quad"),
-        secondaryMuscles = emptyList(),
+        movementPattern = MovementPattern.KneeExtension,
+        movementPatterns = setOf(MovementPattern.KneeExtension),
+        primaryMuscles = setOf(MuscleGroup.Quad),
+        secondaryMuscles = emptySet(),
         proven = true,
-        kinematicProfile = KinematicProfile.Isolation.name,
+        kinematicProfile = KinematicProfile.Isolation,
     )
 
     private fun legCurl() = LiftContext(
         id = "machine-lying-leg-curl",
         name = "Machine Lying Leg Curl",
-        movementPattern = "KneeFlexion",
-        movementPatterns = listOf("KneeFlexion"),
-        primaryMuscles = listOf("Hamstring"),
-        secondaryMuscles = emptyList(),
+        movementPattern = MovementPattern.KneeFlexion,
+        movementPatterns = setOf(MovementPattern.KneeFlexion),
+        primaryMuscles = setOf(MuscleGroup.Hamstring),
+        secondaryMuscles = emptySet(),
         proven = true,
-        kinematicProfile = KinematicProfile.Isolation.name,
+        kinematicProfile = KinematicProfile.Isolation,
     )
 
     private fun goodMorning() = LiftContext(
         id = "good-morning",
         name = "Good Morning",
-        movementPattern = "HipHinge",
-        movementPatterns = listOf("HipHinge"),
-        primaryMuscles = listOf("Hamstring"),
-        secondaryMuscles = listOf("Glute", "LowerBack"),
+        movementPattern = MovementPattern.HipHinge,
+        movementPatterns = setOf(MovementPattern.HipHinge),
+        primaryMuscles = setOf(MuscleGroup.Hamstring),
+        secondaryMuscles = setOf(MuscleGroup.Glute, MuscleGroup.LowerBack),
         proven = true,
-        kinematicProfile = KinematicProfile.NonAxialCompound.name,
+        kinematicProfile = KinematicProfile.NonAxialCompound,
     )}

@@ -2,13 +2,14 @@
 
 package com.stratum.domain.program.generation.schema
 
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 
 data class ProgramNormalizationRequest(
     val trainingAge: String,
     val enabledLiftIds: Set<String>,
-    val movementPatternByLiftId: Map<String, String>,
+    val movementPatternByLiftId: Map<String, MovementPattern?>,
 )
 
 data class NormalizedProgram(

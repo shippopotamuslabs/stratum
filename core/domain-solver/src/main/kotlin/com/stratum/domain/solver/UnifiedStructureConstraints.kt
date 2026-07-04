@@ -7,6 +7,7 @@ import com.google.ortools.sat.IntVar
 import com.google.ortools.sat.LinearExpr
 import com.google.ortools.sat.Literal
 import com.google.ortools.util.Domain
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.synthesis.SynthesisSessionDomain
 import com.stratum.domain.program.generation.synthesis.SynthesisSlot
@@ -73,4 +74,4 @@ internal fun addUnifiedStructureConstraints(
     }
 }
 
-private val LOWER_LEG_ANCHOR_PATTERNS = setOf("SquatPattern", "HipHinge")
+private val LOWER_LEG_ANCHOR_PATTERNS = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge)

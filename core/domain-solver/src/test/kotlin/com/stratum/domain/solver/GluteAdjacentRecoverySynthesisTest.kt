@@ -5,6 +5,8 @@ package com.stratum.domain.solver
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
@@ -30,8 +32,8 @@ class GluteAdjacentRecoverySynthesisTest {
             FilledSlot(
                 slotId = "s0_squat",
                 role = SlotRole.Anchor,
-                pattern = "SquatPattern",
-                primaryMuscle = "Quad",
+                pattern = MovementPattern.SquatPattern,
+                primaryMuscle = MuscleGroup.Quad,
                 repProfile = RpRepProfile.LowerFreeWeightCompound,
                 setCount = 4,
             )

@@ -51,9 +51,10 @@ class ProgramSynthesisPropertyTest {
         for ((muscle, level) in specialization) {
             if (level != "Specialize") continue
             val target = targets[muscle] ?: continue
+            val muscleGroup = runCatching { com.stratum.domain.onboarding.MuscleGroup.valueOf(muscle) }.getOrNull() ?: continue
             val volume =
                 draft.workouts.sumOf { workout ->
-                    computeWorkoutMuscleVolume(workout, context)[muscle] ?: 0.0
+                    computeWorkoutMuscleVolume(workout, context)[muscleGroup] ?: 0.0
                 }
             assertTrue(
                 volume + 0.01 >= target.min,

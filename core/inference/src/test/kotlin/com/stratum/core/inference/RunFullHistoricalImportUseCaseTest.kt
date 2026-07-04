@@ -102,7 +102,7 @@ class RunFullHistoricalImportUseCaseTest {
         val jobRepo = FakeImportJobRepository()
         val historyRepo = InMemoryTrainingHistoryRepository()
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
-        val readySnapshot =
+        val readySnapshot1 =
             listOf(
                 ImportJobSnapshot(
                     status = RemoteImportJobStatus.Ready,
@@ -112,10 +112,23 @@ class RunFullHistoricalImportUseCaseTest {
                     errorMessage = null,
                 ),
             )
+        val readySnapshot2 =
+            listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Ready,
+                    progressPhase = ImportProgressPhase.ConvertingFull,
+                    progressMessage = "Done",
+                    conversionStoragePath = "imports/test/job/conversions/2/normalized.json",
+                    errorMessage = null,
+                ),
+            )
         val port =
             FakeHistoricalImportPort(
-                snapshotSequenceByUpload = listOf(readySnapshot, readySnapshot),
-                conversionJson = sampleConversionJson(),
+                snapshotSequenceByUpload = listOf(readySnapshot1, readySnapshot2),
+                conversionJsonMap = mapOf(
+                    "imports/test/job/conversions/1/normalized.json" to sampleConversionJson(id = "set1", time = "2025-01-01T01:00:00Z"),
+                    "imports/test/job/conversions/2/normalized.json" to sampleConversionJson(id = "set2", time = "2025-01-01T01:05:00Z")
+                ),
             )
         val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
         val useCase =
@@ -208,13 +221,23 @@ class RunFullHistoricalImportUseCaseTest {
         val jobRepo = FakeImportJobRepository()
         val historyRepo = InMemoryTrainingHistoryRepository()
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
-        val readySnapshot =
+        val readySnapshot1 =
             listOf(
                 ImportJobSnapshot(
                     status = RemoteImportJobStatus.Ready,
                     progressPhase = ImportProgressPhase.ConvertingFull,
                     progressMessage = "Done",
                     conversionStoragePath = "imports/test/job/conversions/1/normalized.json",
+                    errorMessage = null,
+                ),
+            )
+        val readySnapshot2 =
+            listOf(
+                ImportJobSnapshot(
+                    status = RemoteImportJobStatus.Ready,
+                    progressPhase = ImportProgressPhase.ConvertingFull,
+                    progressMessage = "Done",
+                    conversionStoragePath = "imports/test/job/conversions/2/normalized.json",
                     errorMessage = null,
                 ),
             )
@@ -230,8 +253,11 @@ class RunFullHistoricalImportUseCaseTest {
             )
         val port =
             FakeHistoricalImportPort(
-                snapshotSequenceByUpload = listOf(readySnapshot, failedSnapshot, readySnapshot),
-                conversionJson = sampleConversionJson(),
+                snapshotSequenceByUpload = listOf(readySnapshot1, failedSnapshot, readySnapshot2),
+                conversionJsonMap = mapOf(
+                    "imports/test/job/conversions/1/normalized.json" to sampleConversionJson(id = "set1", time = "2025-01-01T01:00:00Z"),
+                    "imports/test/job/conversions/2/normalized.json" to sampleConversionJson(id = "set2", time = "2025-01-01T01:05:00Z")
+                ),
             )
         val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
         val useCase =
@@ -267,7 +293,7 @@ class RunFullHistoricalImportUseCaseTest {
         assertEquals(2, historyRepo.getAllSets().size)
     }
 
-    private fun sampleConversionJson(): String =
+    private fun sampleConversionJson(id: String = "set1", time: String = "2025-01-01T01:00:00Z"): String =
         """
         {
           "sessions": [
@@ -280,7 +306,7 @@ class RunFullHistoricalImportUseCaseTest {
           ],
           "sets": [
             {
-              "id": "set1",
+              "id": "$id",
               "sessionId": "s1",
               "exerciseNameRaw": "Squat",
               "liftId": null,
@@ -289,7 +315,7 @@ class RunFullHistoricalImportUseCaseTest {
               "weightUnit": "Lb",
               "reps": 5,
               "rir": null,
-              "completedAt": "2025-01-01T01:00:00Z"
+              "completedAt": "$time"
             }
           ]
         }

@@ -42,7 +42,9 @@ class ScheduleRecoveryIntegrationTest {
         val draft = normalized.toDraft()
         val exposuresByName =
             draft.workouts.associate { workout ->
-                workout.name.orEmpty() to computeWorkoutMuscleSessionStress(workout, context)
+                workout.name.orEmpty() to
+                    computeWorkoutMuscleSessionStress(workout, context)
+                        .mapKeys { (muscle, _) -> muscle.name }
             }
         val scheduled = scheduleFromSynthesisDraft(normalized, draft)
         val violations =
@@ -85,7 +87,9 @@ class ScheduleRecoveryIntegrationTest {
         val draft = normalized.toDraft()
         val exposuresByName =
             draft.workouts.associate { workout ->
-                workout.name.orEmpty() to computeWorkoutMuscleSessionStress(workout, context)
+                workout.name.orEmpty() to
+                    computeWorkoutMuscleSessionStress(workout, context)
+                        .mapKeys { (muscle, _) -> muscle.name }
             }
         val scheduled = scheduleFromSynthesisDraft(normalized, draft)
         val weekdayIndices =

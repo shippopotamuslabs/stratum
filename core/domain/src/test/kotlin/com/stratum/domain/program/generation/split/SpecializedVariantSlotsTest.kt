@@ -1,5 +1,7 @@
 package com.stratum.domain.program.generation.split
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleLengthBias
@@ -16,19 +18,19 @@ class SpecializedVariantSlotsTest {
                 LiftContext(
                     id = "incline-curl",
                     name = "Incline Curl",
-                    movementPattern = "ElbowFlexion",
-                    movementPatterns = listOf("ElbowFlexion"),
-                    primaryMuscles = listOf("Bicep"),
-                    secondaryMuscles = emptyList(),
+                    movementPattern = MovementPattern.ElbowFlexion,
+                    movementPatterns = setOf(MovementPattern.ElbowFlexion),
+                    primaryMuscles = setOf(MuscleGroup.Bicep),
+                    secondaryMuscles = emptySet(),
                     muscleLengthBias = MuscleLengthBias.Lengthened,
                 ),
                 LiftContext(
                     id = "tricep-pushdown",
                     name = "Tricep Pushdown",
-                    movementPattern = "ElbowExtension",
-                    movementPatterns = listOf("ElbowExtension"),
-                    primaryMuscles = listOf("Tricep"),
-                    secondaryMuscles = emptyList(),
+                    movementPattern = MovementPattern.ElbowExtension,
+                    movementPatterns = setOf(MovementPattern.ElbowExtension),
+                    primaryMuscles = setOf(MuscleGroup.Tricep),
+                    secondaryMuscles = emptySet(),
                     muscleLengthBias = MuscleLengthBias.Shortened,
                 ),
             )
@@ -41,7 +43,7 @@ class SpecializedVariantSlotsTest {
                 provenLifts = dualCurlLifts,
             )
         val slots = slotsForSessionType(SessionTypeId.Upper, context = context)
-        val bicepSlots = slots.filter { it.primaryMuscle == "Bicep" && !it.isCrossDomainTouch }
+        val bicepSlots = slots.filter { it.primaryMuscle == MuscleGroup.Bicep && !it.isCrossDomainTouch }
         assertEquals(2, bicepSlots.size)
         assertTrue(bicepSlots.any { it.slotId == "bicep" })
         assertTrue(bicepSlots.any { it.slotId == "bicep-alt" })
@@ -55,7 +57,7 @@ class SpecializedVariantSlotsTest {
                 provenLifts = GenerationContextTestFixtures.volumePlannerLifts,
             )
         val slots = slotsForSessionType(SessionTypeId.Upper, context = context)
-        val bicepSlots = slots.filter { it.primaryMuscle == "Bicep" && !it.isCrossDomainTouch }
+        val bicepSlots = slots.filter { it.primaryMuscle == MuscleGroup.Bicep && !it.isCrossDomainTouch }
         assertEquals(1, bicepSlots.size)
     }
 

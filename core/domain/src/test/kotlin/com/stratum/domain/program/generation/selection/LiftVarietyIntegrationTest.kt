@@ -4,6 +4,8 @@ import com.stratum.core.testing.program.lowerDominantWorkouts
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleLengthBias
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -32,12 +34,12 @@ class LiftVarietyIntegrationTest {
         val calfLifts =
             lowerLiftIds.filter { liftId ->
                 val meta = context.liftsById[liftId] ?: return@filter false
-                meta.movementPattern == "PlantarFlexion"
+                meta.movementPattern == MovementPattern.PlantarFlexion
             }
         val squatLifts =
             lowerLiftIds.filter { liftId ->
                 val meta = context.liftsById[liftId] ?: return@filter false
-                meta.movementPattern == "SquatPattern"
+                meta.movementPattern == MovementPattern.SquatPattern
             }
         assertTrue(
             calfLifts.toSet().size >= 2,
@@ -88,10 +90,10 @@ class LiftVarietyIntegrationTest {
         LiftContext(
             id = id,
             name = name,
-            movementPattern = pattern,
-            movementPatterns = listOf(pattern),
-            primaryMuscles = primary,
-            secondaryMuscles = secondary,
+            movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull(),
+            movementPatterns = setOfNotNull(runCatching { MovementPattern.valueOf(pattern) }.getOrNull()),
+            primaryMuscles = primary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+            secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
             proven = true,
             mainstream = true,
         )

@@ -3,6 +3,8 @@
 package com.stratum.domain.program.generation.integration
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
@@ -21,11 +23,11 @@ import com.stratum.domain.program.generation.split.SessionTypeId
 import com.stratum.domain.program.generation.split.inferSessionTypeFromWorkoutName
 
 private val LOWER_FORBIDDEN_PRIMARY_PATTERNS = setOf(
-    "VerticalPull",
-    "HorizontalPull",
-    "HorizontalPress",
-    "VerticalPress",
-    "InclinePress",
+    MovementPattern.VerticalPull,
+    MovementPattern.HorizontalPull,
+    MovementPattern.HorizontalPress,
+    MovementPattern.VerticalPress,
+    MovementPattern.InclinePress,
 )
 
 /**
@@ -53,7 +55,7 @@ fun resolveAdjacentCalendarLiftCollisions(
     val updatedById = program.workouts.associateBy { it.id }.toMutableMap()
     var previousLiftIds = emptySet<String>()
     var previousWorkout: Workout? = null
-    var previousMuscleStress: Map<String, MuscleSessionStress> = emptyMap()
+    var previousMuscleStress: Map<MuscleGroup, MuscleSessionStress> = emptyMap()
 
     for (workout in calendarOrder) {
         val current = updatedById.getValue(workout.id)
@@ -116,7 +118,7 @@ private fun resolveWorkoutCollisions(
 private fun resolveMetadataMuscleExposure(
     workout: Workout,
     previousWorkout: Workout?,
-    previousMuscleStress: Map<String, MuscleSessionStress>,
+    previousMuscleStress: Map<MuscleGroup, MuscleSessionStress>,
     context: ProgramGenerationContext,
 ): Workout {
     if (previousWorkout == null || previousMuscleStress.isEmpty()) return workout
@@ -134,7 +136,7 @@ private fun resolveMetadataMuscleExposure(
 
     val lifts = workout.workoutLifts.toMutableList()
     val currentLiftIds = lifts.map { lift -> lift.liftId.value }.toMutableSet()
-    val resolvedMuscles = mutableSetOf<String>()
+    val resolvedMuscles = mutableSetOf<MuscleGroup>()
 
     for (index in lifts.indices) {
         if (resolvedMuscles.size == conflictMuscles.size) break
@@ -161,7 +163,7 @@ private fun resolveMetadataMuscleExposure(
     return workout.copy(workoutLifts = lifts)
 }
 
-private fun replacementStressesMuscle(lift: LiftContext?, muscle: String): Boolean {
+private fun replacementStressesMuscle(lift: LiftContext?, muscle: MuscleGroup): Boolean {
     if (lift == null) return true
     return muscle in lift.primaryMuscles || muscle in lift.secondaryMuscles
 }
@@ -170,12 +172,12 @@ private fun replacementStressesMuscle(lift: LiftContext?, muscle: String): Boole
 private fun workoutMetadataMuscleSessionStress(
     workout: Workout,
     context: ProgramGenerationContext,
-): Map<String, MuscleSessionStress> {
+): Map<MuscleGroup, MuscleSessionStress> {
     val doses = workoutMetadataMuscleVolume(workout, context)
-    val classContributors = mutableMapOf<String, MutableList<Pair<LiftStressClass, Double>>>()
+    val classContributors = mutableMapOf<MuscleGroup, MutableList<Pair<LiftStressClass, Double>>>()
     // Length bias of the primary contributor for each muscle (drives the KneeFlexion
     // lengthened-state surcharge). Secondary contributors do not override the primary's bias.
-    val lengthBiasByMuscle = mutableMapOf<String, String>()
+    val lengthBiasByMuscle = mutableMapOf<MuscleGroup, String>()
     for (lift in workout.workoutLifts) {
         val setCount = lift.sets.size
         if (setCount == 0) continue
@@ -196,7 +198,7 @@ private fun workoutMetadataMuscleSessionStress(
         MuscleSessionStress(
             dose,
             dominantStressClass(classContributors[muscle].orEmpty()),
-            muscle = muscle,
+            muscle = muscle.name,
             muscleLengthBias = lengthBiasByMuscle[muscle],
         )
     }
@@ -206,8 +208,8 @@ private fun workoutMetadataMuscleSessionStress(
 private fun workoutMetadataMuscleVolume(
     workout: Workout,
     context: ProgramGenerationContext,
-): Map<String, Double> {
-    val totals = mutableMapOf<String, Double>()
+): Map<MuscleGroup, Double> {
+    val totals = mutableMapOf<MuscleGroup, Double>()
     for (lift in workout.workoutLifts) {
         val setCount = lift.sets.size
         if (setCount == 0) continue

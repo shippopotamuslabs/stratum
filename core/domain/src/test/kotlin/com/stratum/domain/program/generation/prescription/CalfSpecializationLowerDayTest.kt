@@ -1,6 +1,7 @@
 package com.stratum.domain.program.generation.prescription
 
 import com.stratum.core.testing.program.parseScenarioContext
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
@@ -83,10 +84,11 @@ class CalfSpecializationLowerDayTest {
         context: ProgramGenerationContext,
         pattern: String,
     ): Int {
+        val resolved = runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
         var total = 0
         for (lift in workout.workoutLifts.orEmpty()) {
             val meta = context.liftsById[lift.liftId.orEmpty()] ?: continue
-            if (meta.movementPattern != pattern && pattern !in meta.movementPatterns) continue
+            if (resolved != null && meta.movementPattern != resolved && resolved !in meta.movementPatterns) continue
             total += lift.workoutLiftSets?.size ?: 0
         }
         return total

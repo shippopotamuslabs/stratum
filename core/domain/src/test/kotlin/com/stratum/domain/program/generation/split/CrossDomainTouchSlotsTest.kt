@@ -1,5 +1,7 @@
 package com.stratum.domain.program.generation.split
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
 import com.stratum.domain.program.generation.context.LiftContext
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,10 +16,10 @@ class CrossDomainTouchSlotsTest {
             LiftContext(
                 id = "calf-raise",
                 name = "Calf Raise",
-                movementPattern = "PlantarFlexion",
-                movementPatterns = listOf("PlantarFlexion"),
-                primaryMuscles = listOf("Calf"),
-                secondaryMuscles = emptyList(),
+                movementPattern = MovementPattern.PlantarFlexion,
+                movementPatterns = setOf(MovementPattern.PlantarFlexion),
+                primaryMuscles = setOf(MuscleGroup.Calf),
+                secondaryMuscles = emptySet(),
             )
 
     @Test
@@ -53,8 +55,8 @@ class CrossDomainTouchSlotsTest {
                 siblingIndex = 1,
                 sessionPosition = 4,
             )
-        assertTrue(firstUpper.any { it.isCrossDomainTouch && it.primaryMuscle == "Calf" })
-        assertFalse(secondUpper.any { it.isCrossDomainTouch && it.primaryMuscle == "Calf" })
+        assertTrue(firstUpper.any { it.isCrossDomainTouch && it.primaryMuscle == MuscleGroup.Calf })
+        assertFalse(secondUpper.any { it.isCrossDomainTouch && it.primaryMuscle == MuscleGroup.Calf })
     }
 
     @Test
@@ -71,7 +73,7 @@ class CrossDomainTouchSlotsTest {
                 context = context,
                 sessionPosition = 1,
             )
-        assertTrue(upperPush.any { it.isCrossDomainTouch && it.primaryMuscle == "Calf" })
+        assertTrue(upperPush.any { it.isCrossDomainTouch && it.primaryMuscle == MuscleGroup.Calf })
     }
 
     @Test

@@ -3,6 +3,7 @@
 package com.stratum.domain.program.generation.reference
 
 import com.stratum.domain.program.Workout
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -140,12 +141,13 @@ private fun contributorsForMuscle(
     if (setCount == 0 || meta == null) return emptyList()
     val stressClass = classifyLiftStressClass(meta)
     val contributors = mutableListOf<Pair<LiftStressClass, Double>>()
-    if (muscle in meta.primaryMuscles) {
+    val muscleGroup = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull()
+    if (muscleGroup != null && muscleGroup in meta.primaryMuscles) {
         contributors +=
             recoveryStressClassForContributor(stressClass, isPrimaryContributor = true) to
                 setCount * PRIMARY_SET_CREDIT
     }
-    if (muscle in meta.secondaryMuscles && muscle !in meta.primaryMuscles) {
+    if (muscleGroup != null && muscleGroup in meta.secondaryMuscles && muscleGroup !in meta.primaryMuscles) {
         contributors +=
             recoveryStressClassForContributor(stressClass, isPrimaryContributor = false) to
                 setCount * SECONDARY_SET_CREDIT

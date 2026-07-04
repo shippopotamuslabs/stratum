@@ -1,16 +1,17 @@
 package com.stratum.core.testing.program
 
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 
 private val LOWER_BODY_PATTERNS =
     setOf(
-        "SquatPattern",
-        "HipHinge",
-        "KneeExtension",
-        "KneeFlexion",
-        "PlantarFlexion",
-        "HipExtension",
+        MovementPattern.SquatPattern,
+        MovementPattern.HipHinge,
+        MovementPattern.KneeExtension,
+        MovementPattern.KneeFlexion,
+        MovementPattern.PlantarFlexion,
+        MovementPattern.HipExtension,
     )
 
 /** True when the workout's selected lifts include a lower-body primary pattern. */

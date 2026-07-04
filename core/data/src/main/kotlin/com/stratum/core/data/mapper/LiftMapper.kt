@@ -6,6 +6,7 @@ import com.stratum.core.data.db.LiftWithTiers
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -14,7 +15,12 @@ import com.stratum.domain.onboarding.MuscleGroup
  * Maps [LiftWithTiers] (and the [LiftEntity]/[IncrementTierEntity] it composes) to/from the
  * domain [Lift].
  *
- * The three non-trivial encodings live here:
+ * The four non-trivial encodings live here:
+ * - **Movement-pattern bitmask** ↔ `Set<MovementPattern>`: bit `1 shl MovementPattern.ordinal`.
+ *   Stored as `movementPatternsBitmask` so a SQL bitwise AND can filter the set in the database
+ *   (`movementPatternsBitmask & :bit != 0`) rather than loading rows to filter in Kotlin. The
+ *   bit position couples the on-disk format to the enum order; acceptable because the values
+ *   are grouped for display and never reordered once released.
  * - **Muscle bitmask** ↔ `Set<MuscleGroup>`: bit `1 shl MuscleGroup.ordinal`. [MuscleGroup]
  *   deliberately carries no bitmask of its own (its KDoc is locked), so the bit position is
  *   derived from the stable enum ordinal. This couples the on-disk format to the enum order,
@@ -31,7 +37,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 fun LiftWithTiers.toDomain(): Lift = Lift(
     id = lift.id,
     name = lift.name,
-    movementPatterns = lift.movementPatterns,
+    movementPatterns = lift.movementPatternsBitmask.toMovementPatternSet(),
     primaryMuscles = lift.primaryMusclesBitmask.toMuscleSet(),
     secondaryMuscles = lift.secondaryMusclesBitmask.toMuscleSet(),
     allowWeightChangeBetweenSets = lift.allowWeightChangeBetweenSets,
@@ -50,7 +56,7 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
 fun Lift.toEntity(): LiftEntity = LiftEntity(
     id = id,
     name = name,
-    movementPatterns = movementPatterns,
+    movementPatternsBitmask = movementPatterns.toBitmask(),
     primaryMusclesBitmask = primaryMuscles.toBitmask(),
     secondaryMusclesBitmask = secondaryMuscles.toBitmask(),
     allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
@@ -82,6 +88,15 @@ fun List<IncrementTierEntity>.toDomainTiers(): List<IncrementTier> =
             increment = Weight(entity.increment, DEFAULT_LIFT_UNIT),
         )
     }
+
+/** Decode a movement-pattern bitmask into the matching [MovementPattern] set (by ordinal bit position). */
+fun Int.toMovementPatternSet(): Set<MovementPattern> =
+    MovementPattern.entries.filter { this and (1 shl it.ordinal) != 0 }.toSet()
+
+/** Encode a [MovementPattern] set into a bitmask (`1 shl ordinal`). */
+@JvmName("toMovementPatternBitmask")
+fun Set<MovementPattern>.toBitmask(): Int =
+    fold(0) { mask, pattern -> mask or (1 shl pattern.ordinal) }
 
 /** Decode a muscle bitmask into the matching [MuscleGroup] set (by ordinal bit position). */
 fun Int.toMuscleSet(): Set<MuscleGroup> = MuscleGroup.entries.filter { this and (1 shl it.ordinal) != 0 }.toSet()

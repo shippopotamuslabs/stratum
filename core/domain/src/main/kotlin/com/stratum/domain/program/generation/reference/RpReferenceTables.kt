@@ -2,7 +2,11 @@
 
 package com.stratum.domain.program.generation.reference
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MINUTES_PER_HARD_SET
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 
 /** Max hard sets per muscle per workout before junk-volume territory (Stratum default). */
@@ -84,40 +88,40 @@ val RP_REP_RIR_BANDS: Map<RpRepProfile, RpRepRirBand> = mapOf(
 )
 
 data class PatternSecondaryMuscleCredit(
-    val muscle: String,
+    val muscle: MuscleGroup,
     val creditPerSet: Double,
 )
 
 /** Typical secondary muscle credits by movement pattern (slot-level estimate during allocation). */
-val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<String, List<PatternSecondaryMuscleCredit>> = mapOf(
-    "SquatPattern" to listOf(PatternSecondaryMuscleCredit("Glute", SECONDARY_SET_CREDIT)),
-    "HipHinge" to
+val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<MovementPattern, List<PatternSecondaryMuscleCredit>> = mapOf(
+    MovementPattern.SquatPattern to listOf(PatternSecondaryMuscleCredit(MuscleGroup.Glute, SECONDARY_SET_CREDIT)),
+    MovementPattern.HipHinge to
         listOf(
-            PatternSecondaryMuscleCredit("Glute", SECONDARY_SET_CREDIT),
-            PatternSecondaryMuscleCredit("Hamstring", SECONDARY_SET_CREDIT),
-            PatternSecondaryMuscleCredit("LowerBack", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.Glute, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.Hamstring, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.LowerBack, SECONDARY_SET_CREDIT),
         ),
-    "HipExtension" to listOf(PatternSecondaryMuscleCredit("Hamstring", SECONDARY_SET_CREDIT)),
-    "VerticalPull" to listOf(PatternSecondaryMuscleCredit("Bicep", SECONDARY_SET_CREDIT)),
-    "HorizontalPull" to
+    MovementPattern.HipExtension to listOf(PatternSecondaryMuscleCredit(MuscleGroup.Hamstring, SECONDARY_SET_CREDIT)),
+    MovementPattern.VerticalPull to listOf(PatternSecondaryMuscleCredit(MuscleGroup.Bicep, SECONDARY_SET_CREDIT)),
+    MovementPattern.HorizontalPull to
         listOf(
-            PatternSecondaryMuscleCredit("Bicep", SECONDARY_SET_CREDIT),
-            PatternSecondaryMuscleCredit("PosteriorDeltoid", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.Bicep, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.PosteriorDeltoid, SECONDARY_SET_CREDIT),
         ),
-    "HorizontalPress" to
+    MovementPattern.HorizontalPress to
         listOf(
-            PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT),
-            PatternSecondaryMuscleCredit("AnteriorDeltoid", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.Tricep, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.AnteriorDeltoid, SECONDARY_SET_CREDIT),
         ),
-    "InclinePress" to
+    MovementPattern.InclinePress to
         listOf(
-            PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT),
-            PatternSecondaryMuscleCredit("AnteriorDeltoid", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.Tricep, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.AnteriorDeltoid, SECONDARY_SET_CREDIT),
         ),
-    "VerticalPress" to
+    MovementPattern.VerticalPress to
         listOf(
-            PatternSecondaryMuscleCredit("Tricep", SECONDARY_SET_CREDIT),
-            PatternSecondaryMuscleCredit("AnteriorDeltoid", SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.Tricep, SECONDARY_SET_CREDIT),
+            PatternSecondaryMuscleCredit(MuscleGroup.AnteriorDeltoid, SECONDARY_SET_CREDIT),
         ),
 )
 
@@ -136,9 +140,9 @@ val PATTERN_SECONDARY_MUSCLE_CREDITS: Map<String, List<PatternSecondaryMuscleCre
  * the idealized estimate when the catalog provides no signal.
  */
 fun computePatternSecondaryCredits(
-    context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
-): Map<String, List<PatternSecondaryMuscleCredit>> {
-    val liftsByPattern = mutableMapOf<String, MutableList<com.stratum.domain.program.generation.context.LiftContext>>()
+    context: ProgramGenerationContext,
+): Map<MovementPattern, List<PatternSecondaryMuscleCredit>> {
+    val liftsByPattern = mutableMapOf<MovementPattern, MutableList<LiftContext>>()
     for (lift in context.liftsById.values) {
         if (lift.id !in context.enabledLiftIds) continue
         for (pattern in lift.movementPatterns) {
@@ -146,13 +150,13 @@ fun computePatternSecondaryCredits(
         }
     }
 
-    val result = mutableMapOf<String, List<PatternSecondaryMuscleCredit>>()
+    val result = mutableMapOf<MovementPattern, List<PatternSecondaryMuscleCredit>>()
     for ((pattern, lifts) in liftsByPattern) {
         if (lifts.isEmpty()) continue
         val count = lifts.size.toDouble()
         // Sum per-muscle: each lift contributes SECONDARY_SET_CREDIT for each secondary muscle
         // (excluding its own primaries, matching computeWorkoutMuscleVolume / AntagonistMetadataBalance).
-        val muscleTotals = mutableMapOf<String, Double>()
+        val muscleTotals = mutableMapOf<MuscleGroup, Double>()
         for (lift in lifts) {
             for (muscle in lift.secondaryMuscles) {
                 if (muscle in lift.primaryMuscles) continue

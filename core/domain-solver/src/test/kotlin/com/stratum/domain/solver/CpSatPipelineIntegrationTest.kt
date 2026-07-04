@@ -61,9 +61,10 @@ class CpSatPipelineIntegrationTest {
         context: com.stratum.domain.program.generation.context.ProgramGenerationContext,
         muscle: String,
     ): Double {
+        val muscleGroup = runCatching { com.stratum.domain.onboarding.MuscleGroup.valueOf(muscle) }.getOrNull() ?: return 0.0
         var total = 0.0
         for (workout in draft.workouts) {
-            total += computeWorkoutMuscleVolume(workout, context)[muscle] ?: 0.0
+            total += computeWorkoutMuscleVolume(workout, context)[muscleGroup] ?: 0.0
         }
         return total
     }

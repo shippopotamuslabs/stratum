@@ -2,6 +2,9 @@
 
 package com.stratum.domain.program.generation.build
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.LiftSetDraft
@@ -15,27 +18,27 @@ import com.stratum.domain.program.generation.reference.schemeForTrainingAge
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
 import com.stratum.domain.program.generation.synthesis.relabelPlaceholderSessionNamesByWeekday
 
-private val ANTAGONIST_PAIRS: List<Pair<String, String>> = listOf(
-    "Chest" to "Back",
-    "Bicep" to "Tricep",
-    "Quad" to "Hamstring",
+private val ANTAGONIST_PAIRS: List<Pair<MuscleGroup, MuscleGroup>> = listOf(
+    MuscleGroup.Chest to MuscleGroup.Back,
+    MuscleGroup.Bicep to MuscleGroup.Tricep,
+    MuscleGroup.Quad to MuscleGroup.Hamstring,
 )
 
-private val PULL_PATTERNS = setOf(
-    "VerticalPull",
-    "HorizontalPull",
-    "ElbowFlexion",
-    "KneeFlexion",
-    "HipHinge",
+private val PULL_PATTERNS: Set<MovementPattern> = setOf(
+    MovementPattern.VerticalPull,
+    MovementPattern.HorizontalPull,
+    MovementPattern.ElbowFlexion,
+    MovementPattern.KneeFlexion,
+    MovementPattern.HipHinge,
 )
 
-private val PUSH_PATTERNS = setOf(
-    "HorizontalPress",
-    "InclinePress",
-    "VerticalPress",
-    "ElbowExtension",
-    "SquatPattern",
-    "KneeExtension",
+private val PUSH_PATTERNS: Set<MovementPattern> = setOf(
+    MovementPattern.HorizontalPress,
+    MovementPattern.InclinePress,
+    MovementPattern.VerticalPress,
+    MovementPattern.ElbowExtension,
+    MovementPattern.SquatPattern,
+    MovementPattern.KneeExtension,
 )
 
 private enum class PushPullSide {
@@ -43,13 +46,13 @@ private enum class PushPullSide {
     Pull,
 }
 
-private fun isAntagonist(a: String, b: String): Boolean =
+private fun isAntagonist(a: MuscleGroup, b: MuscleGroup): Boolean =
     ANTAGONIST_PAIRS.any { (x, y) -> (a == x && b == y) || (a == y && b == x) }
 
-private fun specializedMuscles(context: ProgramGenerationContext): Set<String> {
-    val out = mutableSetOf<String>()
+private fun specializedMuscles(context: ProgramGenerationContext): Set<MuscleGroup> {
+    val out = mutableSetOf<MuscleGroup>()
     for ((muscle, level) in context.specialization) {
-        if (level == "Specialize") out.add(muscle)
+        if (level == SpecializationLevel.Specialize) out.add(muscle)
     }
     return out
 }
@@ -65,7 +68,7 @@ private fun oppositePushPullSide(side: PushPullSide): PushPullSide =
     if (side == PushPullSide.Push) PushPullSide.Pull else PushPullSide.Push
 
 private data class InterleaveContext(
-    val lastMuscle: String?,
+    val lastMuscle: MuscleGroup?,
     val lastSide: PushPullSide?,
 )
 

@@ -8,6 +8,9 @@ import com.google.ortools.sat.IntVar
 import com.google.ortools.sat.LinearExpr
 import com.google.ortools.sat.Literal
 import com.google.ortools.util.Domain
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.isPullPattern
 import com.stratum.domain.program.generation.context.isPushPattern
@@ -126,9 +129,9 @@ internal class ProgramSynthesisModel(
 
         val muscleSet = linkedSetOf<String>()
         muscleSet.addAll(weeklyTargets.keys)
-        _slots.forEach { sv -> muscleSet.add(sv.slot.primaryMuscle) }
+        _slots.forEach { sv -> muscleSet.add(sv.slot.primaryMuscle.name) }
         _slots.forEach { sv ->
-            coefficients.musclesForPattern(sv.slot.pattern).forEach { muscleSet.add(it.muscle) }
+            coefficients.musclesForPattern(sv.slot.pattern).forEach { muscleSet.add(it.muscle.name) }
         }
         _muscles.addAll(muscleSet)
 
@@ -282,8 +285,8 @@ internal class ProgramSynthesisModel(
     private fun addWeeklyVolumeCeilings(model: CpModel) {
         _muscles.forEach { muscle ->
             val weekly = weeklyCreditExpr(muscle) ?: return@forEach
-            val level = context.specialization[muscle] ?: "Maintenance"
-            if (level == "Omit") {
+            val level = specializationLevelForMuscle(muscle)
+            if (level == SpecializationLevel.Omit) {
                 // Omitted muscles are excluded from weeklyTargets, so without this they'd have no
                 // ceiling at all — yet a required anchor (e.g. squat on a lower session) still gives
                 // them volume. Cap incidental omitted-muscle volume at a conservative maintenance-MV
@@ -323,12 +326,12 @@ internal class ProgramSynthesisModel(
         _muscles.forEach { muscle ->
             val target = weeklyTargets[muscle] ?: return@forEach
             val weekly = weeklyCreditExpr(muscle) ?: return@forEach
-            val level = context.specialization[muscle] ?: "Maintenance"
+            val level = specializationLevelForMuscle(muscle)
             val aimScaled = (target.aim * coefficients.scale).toLong()
             val prefix =
                 when (level) {
-                    "Specialize" -> "spec"
-                    "MinimumVolume" -> "minvol"
+                    SpecializationLevel.Specialize -> "spec"
+                    SpecializationLevel.MinimumVolume -> "minvol"
                     else -> "maint"
                 }
             val over = trackSlack(model, "over_${prefix}_$muscle", CREDIT_DEVIATION_SLACK_MAX)
@@ -339,8 +342,8 @@ internal class ProgramSynthesisModel(
             )
             val weight =
                 when (level) {
-                    "Specialize" -> SynthesisObjectiveWeights.SPECIALIZE_AIM_DEVIATION
-                    "MinimumVolume" -> SynthesisObjectiveWeights.MINIMUM_VOLUME_AIM_DEVIATION
+                    SpecializationLevel.Specialize -> SynthesisObjectiveWeights.SPECIALIZE_AIM_DEVIATION
+                    SpecializationLevel.MinimumVolume -> SynthesisObjectiveWeights.MINIMUM_VOLUME_AIM_DEVIATION
                     // G14: PosteriorDeltoid gets partial coverage from HorizontalPull secondaries
                     // (0.5/set), so the PV aim is often unreachable from secondaries alone and
                     // direct work competes with bicep/tricep/lateral for session time. A lower
@@ -355,7 +358,7 @@ internal class ProgramSynthesisModel(
             weightedTerms.add(over to weight)
             weightedTerms.add(under to weight)
 
-            if (target.min > 0.0 && level == "Specialize") {
+            if (target.min > 0.0 && level == SpecializationLevel.Specialize) {
                 val minScaled = (target.min * coefficients.scale).toLong()
                 val minUnder = trackSlack(model, "minUnder_$muscle", CREDIT_DEVIATION_SLACK_MAX)
                 model.addGreaterOrEqual(
@@ -396,6 +399,7 @@ internal class ProgramSynthesisModel(
         addAntagonistMaintenanceBalance(model, weightedTerms)
         addSymmetricMaintenanceBalance(model, weightedTerms)
         addUpperBodyMaintenanceParity(model, weightedTerms)
+        addLowerBodyMaintenanceParity(model, weightedTerms)
         addCoSpecializationBalance(model, weightedTerms)
         val objective =
             LinearExpr.weightedSum(
@@ -700,7 +704,7 @@ internal class ProgramSynthesisModel(
                 _slots.filter {
                     it.plan == plan &&
                         coefficients.isHeavyAxialSlot(it.slot) &&
-                        it.slot.primaryMuscle == muscle
+                        it.slot.primaryMuscle.name == muscle
                 }
                     .mapNotNull { sv ->
                         slotContributesOneCreditLiteral(model, sv, muscle) ?: return@mapNotNull null
@@ -729,7 +733,7 @@ internal class ProgramSynthesisModel(
                 _slots.filter {
                     it.plan == plan &&
                         coefficients.isUpperCompoundSlot(it.slot) &&
-                        it.slot.primaryMuscle == muscle
+                        it.slot.primaryMuscle.name == muscle
                 }
                     .mapNotNull { sv ->
                         slotContributesOneCreditLiteral(model, sv, muscle) ?: return@mapNotNull null
@@ -1123,13 +1127,21 @@ internal class ProgramSynthesisModel(
         }
     }
 
-    private fun specializationTierValue(level: String): Int =
+    private fun specializationTierValue(level: SpecializationLevel): Int =
         when (level) {
-            "Specialize" -> 2
-            "Maintenance" -> 1
-            "MinimumVolume" -> 0
-            else -> 1
+            SpecializationLevel.Specialize -> 2
+            SpecializationLevel.Maintenance -> 1
+            SpecializationLevel.MinimumVolume -> 0
+            SpecializationLevel.Omit -> 1
         }
+
+    /** Resolves the specialization tier for a muscle-name string, bridging the typed
+     *  [MuscleGroup] specialization map with the String-keyed muscle identifiers used here. */
+    private fun specializationLevelForMuscle(muscle: String): SpecializationLevel =
+        runCatching { MuscleGroup.valueOf(muscle) }
+            .getOrNull()
+            ?.let { context.specialization[it] }
+            ?: SpecializationLevel.Maintenance
 
     private fun addAntagonistMaintenanceBalance(
         model: CpModel,
@@ -1140,8 +1152,8 @@ internal class ProgramSynthesisModel(
             val weakerCredit = weeklyCreditExpr(pair.weaker) ?: continue
             val strongerCredit = weeklyCreditExpr(pair.stronger) ?: continue
 
-            val levelWeaker = context.specialization[pair.weaker] ?: "Maintenance"
-            val levelStronger = context.specialization[pair.stronger] ?: "Maintenance"
+            val levelWeaker = specializationLevelForMuscle(pair.weaker)
+            val levelStronger = specializationLevelForMuscle(pair.stronger)
             val valWeaker = specializationTierValue(levelWeaker)
             val valStronger = specializationTierValue(levelStronger)
 
@@ -1192,9 +1204,9 @@ internal class ProgramSynthesisModel(
      * Specialize muscle's RC.
      */
     private fun shouldBalanceAntagonistPair(muscleA: String, muscleB: String): Boolean {
-        val levelA = context.specialization[muscleA] ?: "Maintenance"
-        val levelB = context.specialization[muscleB] ?: "Maintenance"
-        if (levelA == "Omit" || levelB == "Omit") return false
+        val levelA = specializationLevelForMuscle(muscleA)
+        val levelB = specializationLevelForMuscle(muscleB)
+        if (levelA == SpecializationLevel.Omit || levelB == SpecializationLevel.Omit) return false
         return true
     }
 
@@ -1238,9 +1250,9 @@ internal class ProgramSynthesisModel(
      * skips. Both-Specialize with equal aims is also handled by [addCoSpecializationBalance].
      */
     private fun shouldBalanceSymmetricPair(muscleA: String, muscleB: String): Boolean {
-        val levelA = context.specialization[muscleA] ?: "Maintenance"
-        val levelB = context.specialization[muscleB] ?: "Maintenance"
-        if (levelA == "Omit" || levelB == "Omit") return false
+        val levelA = specializationLevelForMuscle(muscleA)
+        val levelB = specializationLevelForMuscle(muscleB)
+        if (levelA == SpecializationLevel.Omit || levelB == SpecializationLevel.Omit) return false
         return specializationTierValue(levelA) == specializationTierValue(levelB)
     }
 
@@ -1268,7 +1280,7 @@ internal class ProgramSynthesisModel(
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
         val maintenanceMembers = UPPER_BODY_MAINTENANCE_PARITY_GROUP
-            .filter { muscle -> (context.specialization[muscle] ?: "Maintenance") == "Maintenance" }
+            .filter { muscle -> specializationLevelForMuscle(muscle) == SpecializationLevel.Maintenance }
         if (maintenanceMembers.size < 2) return
         for (i in maintenanceMembers.indices) {
             for (j in (i + 1) until maintenanceMembers.size) {
@@ -1292,12 +1304,61 @@ internal class ProgramSynthesisModel(
         }
     }
 
+    /**
+     * Group parity for the lower-body maintenance cluster {Quad, Hamstring, Calf}. Pulls every pair
+     * toward parity so no single muscle — notably Calf, which has no parity pressure and accumulates
+     * incidental secondary credit from ~78% of SquatPattern lifts (~0.39/set), recovers at the fast
+     * 24h Low-isolation tier, and (absent from MAJOR_MUSCLES) often has no weekly ceiling — outruns
+     * the group. Mirrors [addUpperBodyMaintenanceParity]: same slack/equality encoding and the same
+     * tier ([SynthesisObjectiveWeights.LOWER_BODY_MAINTENANCE_PARITY]
+     * == [SynthesisObjectiveWeights.SYMMETRIC_PAIR_CLOSENESS]) so each leg pair is weighed comparably
+     * to the bicep/tricep pair. The Quad↔Hamstring pair stacks with [addAntagonistMaintenanceBalance]
+     * (the `quad_ham` pair at weight 5,100), matching the upper-body precedent where Chest/Back sit in
+     * both the antagonist rule and the parity rule; Calf↔Quad and Calf↔Hamstring are the pairs this
+     * term uniquely anchors.
+     *
+     * Gated to Maintenance-only: Specialize muscles have a higher-priority RC aim (weight 2,500)
+     * that parity (1,500) must not fight, and MinimumVolume muscles are deliberately floored at MV
+     * and should not be inflated toward the group. Omit is always excluded. Soft only: maintenance
+     * hard ceilings ([addWeeklyVolumeCeilings]) still bind where they exist, and recovery weights
+     * (100k–1M) dominate by 100×, so this never causes infeasibility — worst case the solver eats the
+     * parity penalty when recovery spacing genuinely can't accommodate convergence.
+     */
+    private fun addLowerBodyMaintenanceParity(
+        model: CpModel,
+        weightedTerms: MutableList<Pair<IntVar, Long>>,
+    ) {
+        val maintenanceMembers = LOWER_BODY_MAINTENANCE_PARITY_GROUP
+            .filter { muscle -> specializationLevelForMuscle(muscle) == SpecializationLevel.Maintenance }
+        if (maintenanceMembers.size < 2) return
+        for (i in maintenanceMembers.indices) {
+            for (j in (i + 1) until maintenanceMembers.size) {
+                val muscleA = maintenanceMembers[i]
+                val muscleB = maintenanceMembers[j]
+                val creditA = weeklyCreditExpr(muscleA) ?: continue
+                val creditB = weeklyCreditExpr(muscleB) ?: continue
+                val label = "${muscleA}_${muscleB}"
+                val excessA = trackSlack(model, "lbpOver_$label", CREDIT_DEVIATION_SLACK_MAX)
+                val excessB = trackSlack(model, "lbpUnder_$label", CREDIT_DEVIATION_SLACK_MAX)
+                model.addEquality(
+                    LinearExpr.weightedSum(
+                        arrayOf(creditA, creditB, excessA, excessB),
+                        longArrayOf(1L, -1L, -1L, 1L),
+                    ),
+                    0L,
+                )
+                weightedTerms.add(excessA to SynthesisObjectiveWeights.LOWER_BODY_MAINTENANCE_PARITY)
+                weightedTerms.add(excessB to SynthesisObjectiveWeights.LOWER_BODY_MAINTENANCE_PARITY)
+            }
+        }
+    }
+
     private fun addCoSpecializationBalance(
         model: CpModel,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
         val specializedMuscles =
-            _muscles.filter { muscle -> (context.specialization[muscle] ?: "Maintenance") == "Specialize" }
+            _muscles.filter { muscle -> specializationLevelForMuscle(muscle) == SpecializationLevel.Specialize }
         if (specializedMuscles.size < 2) return
         for (i in specializedMuscles.indices) {
             for (j in (i + 1) until specializedMuscles.size) {
@@ -1348,10 +1409,10 @@ internal class ProgramSynthesisModel(
         model: CpModel,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
-        val posteriorLevel = context.specialization["PosteriorDeltoid"] ?: "Maintenance"
-        if (posteriorLevel == "Specialize") return
+        val posteriorLevel = context.specialization[MuscleGroup.PosteriorDeltoid] ?: SpecializationLevel.Maintenance
+        if (posteriorLevel == SpecializationLevel.Specialize) return
         _slots.forEach { sv ->
-            if (sv.slot.primaryMuscle != "PosteriorDeltoid") return@forEach
+            if (sv.slot.primaryMuscle != MuscleGroup.PosteriorDeltoid) return@forEach
             val sets = model.newIntVar(0L, MAX_OVER, "rearDirect_${sv.slot.slotId}")
             model.addEquality(sets, sv.x)
             // Scale the per-set discouragement by the credit scale so it stays proportional to the
@@ -1373,7 +1434,7 @@ internal class ProgramSynthesisModel(
         // role-only check returned null for Optional. RpRepProfile.Isolation is the reliable
         // signal that this is a true single-joint isolation that should honor the direct floor.
         val isSpecializedPrimary =
-            (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize"
+            (context.specialization[slot.primaryMuscle] ?: SpecializationLevel.Maintenance) == SpecializationLevel.Specialize
         if (!isSpecializedPrimary) return null
         return when {
             slot.repProfile != RpRepProfile.Isolation -> null
@@ -1432,7 +1493,7 @@ internal class ProgramSynthesisModel(
         const val OMITTED_MUSCLE_INCIDENTAL_CEILING = 6.0
         /** Minimum hard sets on any active slot — every active exposure ≥ 2 sets (G2). */
         const val MIN_SETS_PER_ACTIVE_SLOT = 2
-        val LOWER_LEG_ANCHOR_PATTERNS = setOf("SquatPattern", "HipHinge")
+        val LOWER_LEG_ANCHOR_PATTERNS = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge)
         val ANTAGONIST_MAINTENANCE_PAIRS =
             listOf(
                 AntagonistMaintenancePair("Chest", "Back", "chest_back"),
@@ -1452,6 +1513,19 @@ internal class ProgramSynthesisModel(
          */
         val UPPER_BODY_MAINTENANCE_PARITY_GROUP =
             setOf("Chest", "Back", "Bicep", "Tricep", "LateralDeltoid")
+        /**
+         * Lower-body maintenance group pulled toward pairwise parity by [addLowerBodyMaintenanceParity].
+         * Calf is included despite having no parity pressure and accumulating incidental secondary
+         * credit from ~78% of SquatPattern lifts (~0.39/set) — that's exactly the muscle this term
+         * exists to anchor. Glute is excluded: like Anterior/PosteriorDeltoid upstairs, it is almost
+         * entirely met by squat/hinge secondaries rather than direct work, so its aim doesn't cluster
+         * with the direct-work muscles and parity would fight its deliberately-secondary-driven target.
+         * The Quad↔Hamstring pair intentionally stacks with [ANTAGONIST_MAINTENANCE_PAIRS] (the
+         * `quad_ham` antagonist pair, weight 5,100) — same precedent as Chest/Back sitting in both the
+         * antagonist rule and the upper-body parity rule.
+         */
+        val LOWER_BODY_MAINTENANCE_PARITY_GROUP =
+            setOf("Quad", "Hamstring", "Calf")
     }
 
     private data class AntagonistMaintenancePair(
@@ -1469,5 +1543,7 @@ internal class ProgramSynthesisModel(
 
 internal fun recoveryPriorityMuscles(context: ProgramGenerationContext): Set<String> =
     context.specialization
-        .filterValues { level -> level == "Specialize" || level == "MinimumVolume" }
+        .filterValues { level -> level == SpecializationLevel.Specialize || level == SpecializationLevel.MinimumVolume }
         .keys
+        .map { it.name }
+        .toSet()

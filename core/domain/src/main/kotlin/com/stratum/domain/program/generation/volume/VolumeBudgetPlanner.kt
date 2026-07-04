@@ -175,7 +175,7 @@ private fun trimMaintenanceExcessPrioritized(
 }
 
 private fun specializationLevel(muscle: String, context: ProgramGenerationContext): String =
-    context.specialization[muscle] ?: "Maintenance"
+    specializationLevelForMuscle(muscle, context)
 
 private fun proportionalScaleTargets(
     targets: Map<String, WeeklyVolumeTarget>,

@@ -2,6 +2,9 @@
 
 package com.stratum.domain.program.generation.split
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.volume.TrainingDomain
@@ -17,13 +20,13 @@ internal fun applySpecFocusedUpperSlots(
     context: ProgramGenerationContext,
 ) {
     for ((muscle, level) in context.specialization) {
-        if (level != "Specialize") continue
-        if (muscleTrainingDomain(muscle) != TrainingDomain.Upper) continue
+        if (level != SpecializationLevel.Specialize) continue
+        if (muscleTrainingDomain(muscle.name) != TrainingDomain.Upper) continue
         ensureDirectIsolationSlot(slots, muscle, context)
     }
     for (slot in slots.indices) {
         val muscle = slots[slot].primaryMuscle
-        if ((context.specialization[muscle] ?: "Maintenance") == "Specialize") {
+        if (context.specialization[muscle] == SpecializationLevel.Specialize) {
             if (slots[slot].role == SlotRole.Optional) {
                 slots[slot] = slots[slot].copy(role = SlotRole.Isolation)
             }
@@ -34,19 +37,19 @@ internal fun applySpecFocusedUpperSlots(
 
 private fun ensureDirectIsolationSlot(
     slots: MutableList<WorkoutSlotTemplate>,
-    muscle: String,
+    muscle: MuscleGroup,
     context: ProgramGenerationContext,
 ) {
     if (slots.any { it.primaryMuscle == muscle && !it.isCrossDomainTouch }) return
     val pattern =
-        preferredIsolationPattern(muscle, context) ?: return
-    val slotId = "spec-focus-${muscle.lowercase()}"
+        preferredIsolationPattern(muscle.name, context) ?: return
+    val slotId = "spec-focus-${muscle.name.lowercase()}"
     if (slots.any { it.slotId == slotId }) return
     slots.add(
         WorkoutSlotTemplate(
             slotId = slotId,
             role = SlotRole.Isolation,
-            pattern = pattern,
+            pattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull() ?: return,
             primaryMuscle = muscle,
             repProfile = RpRepProfile.Isolation,
         ),
@@ -78,9 +81,11 @@ private fun hasPrimaryLiftForPattern(
     muscle: String,
     pattern: String,
     context: ProgramGenerationContext,
-): Boolean =
-    context.liftsById.values.any { lift ->
+): Boolean {
+    val muscleEnum = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull() ?: return false
+    return context.liftsById.values.any { lift ->
         lift.id in context.enabledLiftIds &&
-            lift.movementPattern == pattern &&
-            muscle in lift.primaryMuscles
+            lift.movementPattern?.name == pattern &&
+            muscleEnum in lift.primaryMuscles
     }
+}

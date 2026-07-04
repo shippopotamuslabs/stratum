@@ -2,6 +2,9 @@
 
 package com.stratum.domain.program.generation.split
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 
 /**
@@ -16,7 +19,7 @@ internal fun injectSpecializedVariantSlots(
 ) {
     val insertions = mutableListOf<Pair<Int, WorkoutSlotTemplate>>()
     for ((muscle, level) in context.specialization) {
-        if (level != "Specialize") continue
+        if (level != SpecializationLevel.Specialize) continue
         val variantInsertion = variantInsertionForMuscle(slots, muscle, context) ?: continue
         insertions.add(variantInsertion)
     }
@@ -28,7 +31,7 @@ internal fun injectSpecializedVariantSlots(
 
 private fun variantInsertionForMuscle(
     slots: List<WorkoutSlotTemplate>,
-    muscle: String,
+    muscle: MuscleGroup,
     context: ProgramGenerationContext,
 ): Pair<Int, WorkoutSlotTemplate>? {
     val inDomain = slots.filter { it.primaryMuscle == muscle && !it.isCrossDomainTouch }
@@ -48,8 +51,8 @@ private fun variantInsertionForMuscle(
 }
 
 internal fun hasMultipleLiftOptions(
-    pattern: String,
-    muscle: String,
+    pattern: MovementPattern,
+    muscle: MuscleGroup,
     context: ProgramGenerationContext,
 ): Boolean {
     var count = 0

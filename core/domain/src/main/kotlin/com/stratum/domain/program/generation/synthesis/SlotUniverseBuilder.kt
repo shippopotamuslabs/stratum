@@ -2,6 +2,9 @@
 
 package com.stratum.domain.program.generation.synthesis
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.split.SessionComposition
 import com.stratum.domain.program.generation.split.SessionTypeId
@@ -17,12 +20,12 @@ private const val MAX_UNIVERSE_SLOTS = 80
 
 private val LOWER_PRIMARY_PATTERNS =
     setOf(
-        "SquatPattern",
-        "HipHinge",
-        "HipExtension",
-        "KneeExtension",
-        "KneeFlexion",
-        "PlantarFlexion",
+        MovementPattern.SquatPattern,
+        MovementPattern.HipHinge,
+        MovementPattern.HipExtension,
+        MovementPattern.KneeExtension,
+        MovementPattern.KneeFlexion,
+        MovementPattern.PlantarFlexion,
     )
 
 private val SOURCE_SESSION_TYPES =
@@ -40,8 +43,10 @@ fun buildSlotUniverse(
 ): List<SynthesisSlot> {
     val priorityMuscles =
         context.specialization
-            .filterValues { level -> level == "Specialize" || level == "MinimumVolume" }
+            .filterValues { level -> level == SpecializationLevel.Specialize || level == SpecializationLevel.MinimumVolume }
             .keys
+            .map { it.name }
+            .toSet()
     val relevantMuscles =
         weeklyTargets
             .filter { (_, target) -> target.aim > 0 }
@@ -86,8 +91,8 @@ private fun isSlotRelevant(
     // G14: Exclude the direct VerticalPress/AnteriorDeltoid slot when anterior is not Specialize.
     // Anterior PV is reachable via HorizontalPress/InclinePress secondaries (0.5/set); a dedicated
     // overhead secondary churns session time the maintenance prescription should spend on arms/lateral.
-    if (slot.pattern == "VerticalPress" && slot.primaryMuscle == "AnteriorDeltoid" &&
-        (context.specialization["AnteriorDeltoid"] ?: "Maintenance") != "Specialize"
+    if (slot.pattern == MovementPattern.VerticalPress && slot.primaryMuscle == MuscleGroup.AnteriorDeltoid &&
+        context.specialization[MuscleGroup.AnteriorDeltoid] != SpecializationLevel.Specialize
     ) {
         return false
     }
@@ -95,14 +100,14 @@ private fun isSlotRelevant(
     // squat/hinge secondaries, so a dedicated hip-thrust slot churns session time without aim-driven
     // need. Included only when the user Specializes Glute (per the "keep out unless specializing"
     // policy). Other lower anchors (squat/hinge) stay in regardless because they target Quad/Hamstring.
-    if (slot.pattern == "HipExtension" && slot.primaryMuscle == "Glute" &&
-        (context.specialization["Glute"] ?: "Maintenance") != "Specialize"
+    if (slot.pattern == MovementPattern.HipExtension && slot.primaryMuscle == MuscleGroup.Glute &&
+        context.specialization[MuscleGroup.Glute] != SpecializationLevel.Specialize
     ) {
         return false
     }
     val keepsByMuscleOrRole =
-        slot.primaryMuscle in relevantMuscles ||
-            (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize" ||
+        slot.primaryMuscle.name in relevantMuscles ||
+            context.specialization[slot.primaryMuscle] == SpecializationLevel.Specialize ||
             slot.role == SlotRole.Anchor
     if (!keepsByMuscleOrRole) return false
     // Candidate existence (audit §4.4): never include a slot with zero enabled catalog candidates.
@@ -114,8 +119,8 @@ private fun isSlotRelevant(
 
 private fun slotKey(slot: WorkoutSlotTemplate): String =
     listOf(
-        slot.pattern,
-        slot.primaryMuscle,
+        slot.pattern.name,
+        slot.primaryMuscle.name,
         slot.role.name,
         slot.isCrossDomainTouch.toString(),
         slot.siblingVariant?.name ?: "Any",
@@ -124,8 +129,8 @@ private fun slotKey(slot: WorkoutSlotTemplate): String =
 private fun WorkoutSlotTemplate.toSynthesisSlot(): SynthesisSlot =
     SynthesisSlot(
         id = slotKey(this),
-        pattern = pattern,
-        primaryMuscle = primaryMuscle,
+        pattern = pattern.name,
+        primaryMuscle = primaryMuscle.name,
         role = role,
         repProfile = repProfile,
         allowedDomains = allowedDomainsForSlot(this),
@@ -134,7 +139,7 @@ private fun WorkoutSlotTemplate.toSynthesisSlot(): SynthesisSlot =
     )
 
 internal fun allowedDomainsForSlot(slot: WorkoutSlotTemplate): Set<SynthesisSessionDomain> =
-    allowedDomainsForPattern(slot.pattern, slot.primaryMuscle, slot.isCrossDomainTouch)
+    allowedDomainsForPattern(slot.pattern.name, slot.primaryMuscle.name, slot.isCrossDomainTouch)
 
 internal fun allowedDomainsForPattern(
     pattern: String,
@@ -147,7 +152,9 @@ internal fun allowedDomainsForPattern(
             TrainingDomain.Upper -> setOf(SynthesisSessionDomain.Lower, SynthesisSessionDomain.Full)
         }
     }
-    if (pattern in LOWER_PRIMARY_PATTERNS || muscleTrainingDomain(primaryMuscle) == TrainingDomain.Lower) {
+    if (runCatching { MovementPattern.valueOf(pattern) }.getOrNull() in LOWER_PRIMARY_PATTERNS ||
+        muscleTrainingDomain(primaryMuscle) == TrainingDomain.Lower
+    ) {
         return setOf(SynthesisSessionDomain.Lower, SynthesisSessionDomain.Full)
     }
     return setOf(SynthesisSessionDomain.Upper, SynthesisSessionDomain.Full)

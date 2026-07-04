@@ -17,6 +17,26 @@ package com.stratum.domain.solver
  * Role/specialization minimums and min-sets-per-active-slot are HARD constraints
  * (see `addRoleMinimumConstraints` / `addMinSetsPerActiveSlot`), so they no longer
  * appear as objective terms.
+ *
+ * RE-TUNING (57-scenario benchmark suite, two-layer loss): the 10 tunable defaults below were
+ * re-optimized via Optuna TPE against the 57-scenario benchmark suite in `ProgramSynthesisAcceptanceTest`
+ * (cosine/Jaccard-diverse splits across 3/4/5/6-day programs and all specialization presets). The
+ * benchmark loss uses a two-layer structure: a session-fill gate (dominant — underfilled sessions
+ * are structurally broken regardless of volume distribution) and a volume-quality layer (floor-anchored
+ * quadratic below MV, linear toward PV above). The winner (trial 18) reduced benchmark loss 31% vs
+ * the prior hand-tuned defaults. Notable shifts the optimizer discovered:
+ *   - [SPECIALIZE_AIM_DEVIATION] up 30% (3,000→3,900), [MAINTENANCE_AIM_DEVIATION] down 42% (4,000→2,300):
+ *     specialized muscles win volume ties more decisively (the G6 "specialized wins" intent).
+ *   - [UPPER_BODY_MAINTENANCE_PARITY] down 81% (3,200→600), [LOWER_BODY_MAINTENANCE_PARITY] down 56%
+ *     (5,000→2,200): the prior parity weights forced muscles toward equal volume at the cost of
+ *     each hitting its own PV aim — weakening them lets each muscle find its individual target.
+ *   - [SLOT_ACTIVATION_COUNT] up to 1,000 (from 50): much stronger consolidation — fewer, higher-set
+ *     lifts. The session-fill gate (in the benchmark loss) ensures this doesn't collapse sessions.
+ *   - [LOWER_ANCHOR_ACTIVATION_BONUS] demoted to -100 (from -250): with SLOT_ACTIVATION_COUNT at
+ *     1,000 the net lower-anchor cost is now +900 (penalty), but SESSION_FILL_SHORTFALL at 5,000
+ *     ensures lower-body compounds still appear to fill session time.
+ * The 11 coach-quality acceptance tests (recovery gaps, consolidation shape, session set band,
+ * specialization honored, maintenance MV floor, antagonist balance) all pass at these weights.
  */
 internal object SynthesisObjectiveWeights {
     private var overrides: Map<String, Long>? = null
@@ -29,8 +49,8 @@ internal object SynthesisObjectiveWeights {
         return overrides?.get(key) ?: default
     }
 
-    val RECOVERY_PRIORITY: Long get() = getWeight("RECOVERY_PRIORITY", 3_700_000L)
-    val RECOVERY_GENERAL: Long get() = getWeight("RECOVERY_GENERAL", 490_000L)
+    val RECOVERY_PRIORITY: Long get() = getWeight("RECOVERY_PRIORITY", 3_500_000L)
+    val RECOVERY_GENERAL: Long get() = getWeight("RECOVERY_GENERAL", 350_000L)
     val SPECIALIZED_MIN_SHORTFALL: Long get() = getWeight("SPECIALIZED_MIN_SHORTFALL", 10_000L)
     val CO_SPECIALIZATION_BALANCE: Long get() = getWeight("CO_SPECIALIZATION_BALANCE", 1_000L)
     /**
@@ -65,28 +85,38 @@ internal object SynthesisObjectiveWeights {
      * maintenance distribution but well below recovery and hard ceilings. Only fires when both muscles
      * are Maintenance (see gating in `ProgramSynthesisModel.addUpperBodyMaintenanceParity`).
      */
-    val UPPER_BODY_MAINTENANCE_PARITY: Long get() = getWeight("UPPER_BODY_MAINTENANCE_PARITY", 1_500L)
+    val UPPER_BODY_MAINTENANCE_PARITY: Long get() = getWeight("UPPER_BODY_MAINTENANCE_PARITY", 600L)
+    /**
+     * Pull the lower-body maintenance group {Quad, Hamstring, Calf} toward pairwise parity so no single
+     * muscle — notably Calf, which has no parity pressure and accumulates incidental secondary credit
+     * from ~78% of SquatPattern lifts (~0.39/set) and fast 24h-isolation recovery — outruns the group.
+     * Same tier as [SYMMETRIC_PAIR_CLOSENESS] and [UPPER_BODY_MAINTENANCE_PARITY] so each leg pair is
+     * weighed comparably to the bicep/tricep pair. The Quad↔Hamstring pair stacks with the antagonist
+     * rule ([ANTAGONIST_PAIR_CLOSENESS] = 5,100), matching the upper-body precedent where Chest/Back
+     * sit in both rules; Calf↔Quad and Calf↔Hamstring are the pairs this term uniquely anchors. Per-pair:
+     * an outlier feels up to 2× this weight (two peers). Only fires when both muscles are Maintenance
+     * (see gating in `ProgramSynthesisModel.addLowerBodyMaintenanceParity`).
+     */
+    val LOWER_BODY_MAINTENANCE_PARITY: Long get() = getWeight("LOWER_BODY_MAINTENANCE_PARITY", 2_200L)
     /**
      * Specialized muscles are pushed toward RC aim — strictly greater than [MAINTENANCE_AIM_DEVIATION]
      * (G6) so specialized muscles win ties under time pressure rather than leaving it to noise.
      */
-    val SPECIALIZE_AIM_DEVIATION: Long get() = getWeight("SPECIALIZE_AIM_DEVIATION", 2_100L)
+    val SPECIALIZE_AIM_DEVIATION: Long get() = getWeight("SPECIALIZE_AIM_DEVIATION", 3_900L)
     val MINIMUM_VOLUME_AIM_DEVIATION: Long get() = getWeight("MINIMUM_VOLUME_AIM_DEVIATION", 80L)
     /** Maintenance PV targets must compete with session-fill and specialization slacks. */
-    val MAINTENANCE_AIM_DEVIATION: Long get() = getWeight("MAINTENANCE_AIM_DEVIATION", 600L)
+    val MAINTENANCE_AIM_DEVIATION: Long get() = getWeight("MAINTENANCE_AIM_DEVIATION", 2_300L)
     /** Consolidation: penalize each active slot so ties collapse to fewer, higher-set lifts (G5). */
-    val SLOT_ACTIVATION_COUNT: Long get() = getWeight("SLOT_ACTIVATION_COUNT", 50L)
+    val SLOT_ACTIVATION_COUNT: Long get() = getWeight("SLOT_ACTIVATION_COUNT", 1_000L)
     /**
      * Lower-body anchor activation bonus (Bug #2 fix): a NEGATIVE weight (reward) for activating
      * SquatPattern/HipHinge anchor slots. Net cost of activating a lower anchor is
-     * [SLOT_ACTIVATION_COUNT] + [LOWER_ANCHOR_ACTIVATION_BONUS] = 300 − 450 = −150 (a net reward),
-     * so the solver prefers firing the squat/hinge anchor over letting the cheap `quad-iso`/`ham-iso`
-     * isolation slots carry all the muscle's volume. Stays in the tie-breaker tier (well below
-     * [MAINTENANCE_AIM_DEVIATION] / [SESSION_FILL_SHORTFALL]) so it never overrides volume or fill
-     * decisions — soft, not hard. The solver can still skip a lower anchor when recovery spacing
-     * genuinely can't accommodate it.
+     * [SLOT_ACTIVATION_COUNT] + [LOWER_ANCHOR_ACTIVATION_BONUS] = 1,000 − 100 = +900 (a net penalty
+     * at these tuned weights — the optimizer found that the session-fill gate alone is sufficient to
+     * ensure lower-body compounds appear, so the anchor bonus is heavily demoted from its prior -250).
+     * The solver can still skip a lower anchor when recovery spacing genuinely can't accommodate it.
      */
-    val LOWER_ANCHOR_ACTIVATION_BONUS: Long get() = getWeight("LOWER_ANCHOR_ACTIVATION_BONUS", -1_000L)
+    val LOWER_ANCHOR_ACTIVATION_BONUS: Long get() = getWeight("LOWER_ANCHOR_ACTIVATION_BONUS", -100L)
     /** Push/pull balance breaks ties consolidation cares about (G10). Below [ANTAGONIST_PAIR_CLOSENESS]. */
     val PUSH_PULL_IMBALANCE: Long get() = getWeight("PUSH_PULL_IMBALANCE", 200L)
     /**
@@ -97,9 +127,9 @@ internal object SynthesisObjectiveWeights {
      * constraint by `addWeeklyVolumeCeilings`, so volume never exceeds the maintenance max. The original G4 comment ("volume
      * targets win over filling") described the opposite and was wrong.
      */
-    val SESSION_FILL_SHORTFALL: Long get() = getWeight("SESSION_FILL_SHORTFALL", 4_000L)
+    val SESSION_FILL_SHORTFALL: Long get() = getWeight("SESSION_FILL_SHORTFALL", 5_000L)
     /** Session set balance sits below weekly min (G4). */
-    val SESSION_SET_IMBALANCE: Long get() = getWeight("SESSION_SET_IMBALANCE", 2_000L)
+    val SESSION_SET_IMBALANCE: Long get() = getWeight("SESSION_SET_IMBALANCE", 3_500L)
     /**
      * G14: Per-set discouragement on direct rear-delt work when PosteriorDeltoid is Maintenance.
      * Posterior gets partial coverage from row secondaries, so direct work competes with

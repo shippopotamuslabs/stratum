@@ -94,7 +94,7 @@ class UpperCompoundSpacingSynthesisTest {
     ): Boolean {
         val coefficients = VolumeAllocationCoefficients(computePatternSecondaryCredits(context))
         return plan.filledSlots.any { slot ->
-            slot.primaryMuscle == muscle &&
+            slot.primaryMuscle.name == muscle &&
                 slot.repProfile == RpRepProfile.LowerFreeWeightCompound &&
                 coefficients.isHeavyAxialSlot(slot) &&
                 slot.setCount > 0

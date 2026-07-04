@@ -82,7 +82,7 @@ class SeanWorkbookSynthesisTest {
         val totals = mutableMapOf<String, Double>()
         for (workout in draft.workouts) {
             for ((muscle, dose) in computeWorkoutMuscleVolume(workout, context)) {
-                totals[muscle] = (totals[muscle] ?: 0.0) + dose
+                totals[muscle.name] = (totals[muscle.name] ?: 0.0) + dose
             }
         }
         return totals

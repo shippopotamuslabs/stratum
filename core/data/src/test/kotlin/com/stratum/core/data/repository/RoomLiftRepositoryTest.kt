@@ -3,6 +3,7 @@ package com.stratum.core.data.repository
 import androidx.room.Room
 import app.cash.turbine.test
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.domain.lift.GymPreset
@@ -163,6 +164,39 @@ class RoomLiftRepositoryTest {
         }
     }
 
+    @Nested
+    @DisplayName("observe by pattern")
+    inner class ObserveByPattern {
+        @Test
+        @DisplayName("Given lifts with distinct patterns when observed by pattern then only matching lifts emit")
+        fun observeLiftsContainingPatternFiltersByBitmask() = runTest {
+            seedLift(LiftId("back-squat"), patterns = setOf(MovementPattern.SquatPattern))
+            seedLift(LiftId("romanian-deadlift"), patterns = setOf(MovementPattern.HipHinge))
+            // Multi-pattern lift carrying SquatPattern among others — must still match.
+            seedLift(
+                LiftId("front-squat"),
+                patterns = setOf(MovementPattern.SquatPattern, MovementPattern.HipExtension),
+            )
+
+            subject.observeLiftsContainingPattern(MovementPattern.SquatPattern).test {
+                val emitted = awaitItem().map { it.id }
+                assertEquals(setOf(LiftId("back-squat"), LiftId("front-squat")), emitted.toSet())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given no lifts carrying a pattern when observed by pattern then an empty list emits")
+        fun observeLiftsContainingPatternEmptyWhenNoMatch() = runTest {
+            seedLift(LiftId("back-squat"), patterns = setOf(MovementPattern.SquatPattern))
+
+            subject.observeLiftsContainingPattern(MovementPattern.ElbowFlexion).test {
+                assertEquals(emptyList<Any>(), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
     private suspend fun firstLifts(): List<com.stratum.domain.lift.Lift> =
         subject.observeLifts().first()
 
@@ -170,6 +204,7 @@ class RoomLiftRepositoryTest {
         id: LiftId,
         tags: Set<GymPreset> = emptySet(),
         enabled: Boolean = false,
+        patterns: Set<MovementPattern> = setOf(MovementPattern.SquatPattern),
     ) {
         // Use the production mapper so the test encodes exactly as the seeder/repository do.
         val tagCsv = tags.toPresetCsv()
@@ -177,7 +212,7 @@ class RoomLiftRepositoryTest {
             LiftEntity(
                 id = id,
                 name = id.value,
-                movementPatterns = setOf(MovementPattern.SquatPattern),
+                movementPatternsBitmask = patterns.toBitmask(),
                 primaryMusclesBitmask = 1 shl MuscleGroup.Quad.ordinal,
                 secondaryMusclesBitmask = 0,
                 allowWeightChangeBetweenSets = false,

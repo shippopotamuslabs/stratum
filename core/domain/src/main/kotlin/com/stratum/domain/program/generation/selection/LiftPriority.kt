@@ -2,6 +2,8 @@
 
 package com.stratum.domain.program.generation.selection
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
@@ -12,7 +14,7 @@ import kotlin.math.min
 data class LiftCandidate(
     val liftId: String,
     val name: String,
-    val pattern: String,
+    val pattern: MovementPattern?,
     /** 0.0–1.0 priority score (higher = more relevant for this day). */
     val priority: Double,
     /** Coarse tier label for the prompt: "proven" or "available". */
@@ -22,8 +24,8 @@ data class LiftCandidate(
      *  isolation/accessory work. */
     val isCompound: Boolean,
     val mainstream: Boolean? = null,
-    val primaryMuscles: List<String>,
-    val secondaryMuscles: List<String>,
+    val primaryMuscles: Set<MuscleGroup>,
+    val secondaryMuscles: Set<MuscleGroup>,
     /** Trimmed insights: only fatigue decay + progress trend. Undefined when the lift has no insights. */
     val trainingInsights: TrainingInsights? = null,
 ) {

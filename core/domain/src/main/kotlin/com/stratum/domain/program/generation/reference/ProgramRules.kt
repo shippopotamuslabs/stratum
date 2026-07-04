@@ -2,15 +2,17 @@
 
 package com.stratum.domain.program.generation.reference
 
+import com.stratum.domain.lift.MovementPattern
+
 /** Movement patterns classified as major compound for back-off RIR clamping (§2.3). */
-val MAJOR_COMPOUND_PATTERNS: Set<String> = setOf(
-    "SquatPattern",
-    "HipHinge",
-    "HorizontalPress",
-    "VerticalPress",
-    "InclinePress",
-    "HorizontalPull",
-    "VerticalPull",
+val MAJOR_COMPOUND_PATTERNS: Set<MovementPattern> = setOf(
+    MovementPattern.SquatPattern,
+    MovementPattern.HipHinge,
+    MovementPattern.HorizontalPress,
+    MovementPattern.VerticalPress,
+    MovementPattern.InclinePress,
+    MovementPattern.HorizontalPull,
+    MovementPattern.VerticalPull,
 )
 
 /** Top-set RIR goal on a Double-progression lift (fixed; §2.3). */

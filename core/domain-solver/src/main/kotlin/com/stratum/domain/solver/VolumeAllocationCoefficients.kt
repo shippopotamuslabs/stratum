@@ -2,6 +2,7 @@
 
 package com.stratum.domain.solver
 
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.reference.LiftStressClass
@@ -27,15 +28,15 @@ import kotlin.math.round
  * coarser volume model, kept for contexts without a lift catalog.
  */
 class VolumeAllocationCoefficients(
-    private val credits: Map<String, List<PatternSecondaryMuscleCredit>>,
+    private val credits: Map<MovementPattern, List<PatternSecondaryMuscleCredit>>,
 ) {
     val scale: Long get() = SCALE
 
     fun coeff(slot: FilledSlot, muscle: String): Double {
-        if (slot.primaryMuscle == muscle) return PRIMARY_SET_CREDIT
+        if (slot.primaryMuscle.name == muscle) return PRIMARY_SET_CREDIT
         return credits[slot.pattern]
             ?.orEmpty()
-            ?.firstOrNull { it.muscle == muscle }
+            ?.firstOrNull { it.muscle.name == muscle }
             ?.creditPerSet
             ?: 0.0
     }
@@ -43,7 +44,7 @@ class VolumeAllocationCoefficients(
     fun scaledCoeff(slot: FilledSlot, muscle: String): Long =
         round(coeff(slot, muscle) * SCALE).toLong()
 
-    fun musclesForPattern(pattern: String): List<PatternSecondaryMuscleCredit> =
+    fun musclesForPattern(pattern: MovementPattern): List<PatternSecondaryMuscleCredit> =
         credits[pattern].orEmpty()
 
     /** Movement-stress class for a slot from its pre-classified [RpRepProfile] and pattern. */

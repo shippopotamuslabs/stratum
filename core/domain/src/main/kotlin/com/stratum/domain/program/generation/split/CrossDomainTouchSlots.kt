@@ -2,6 +2,9 @@
 
 package com.stratum.domain.program.generation.split
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.volume.TrainingDomain
@@ -43,27 +46,27 @@ internal fun injectCrossDomainTouchSlots(
     val touchBudget = maxTouchSlotsForSession(sessionType, slots, context, composition)
 
     for ((muscle, level) in context.specialization) {
-        if (level != "Specialize") continue
+        if (level != SpecializationLevel.Specialize) continue
         if (muscle in sessionPrimaries) continue
-        if (muscle == "Calf" && !allowsCalfCrossDomainTouch(sessionType, sessionPosition, context, composition)) {
+        if (muscle == MuscleGroup.Calf && !allowsCalfCrossDomainTouch(sessionType, sessionPosition, context, composition)) {
             continue
         }
         if (touchCount >= touchBudget) break
         if (slots.any { it.isCrossDomainTouch && it.primaryMuscle == muscle }) continue
 
-        val pattern = resolveTouchPattern(muscle, patternsByMuscle) ?: continue
-        val slotId = "touch-${muscle.lowercase()}-${sessionType.name.lowercase()}"
+        val pattern = resolveTouchPattern(muscle.name, patternsByMuscle) ?: continue
+        val slotId = "touch-${muscle.name.lowercase()}-${sessionType.name.lowercase()}"
         if (slots.any { it.slotId == slotId }) continue
 
         val touchSlot = WorkoutSlotTemplate(
             slotId = slotId,
             role = SlotRole.Isolation,
-            pattern = pattern,
+            pattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull() ?: continue,
             primaryMuscle = muscle,
             repProfile = RpRepProfile.Isolation,
             isCrossDomainTouch = true,
         )
-        val insertAt = touchSlotInsertIndex(slots, muscle, pattern)
+        val insertAt = touchSlotInsertIndex(slots, muscle.name, pattern)
         slots.add(insertAt, touchSlot)
         touchCount++
     }
@@ -97,7 +100,7 @@ private fun touchSlotInsertIndex(
         else -> null
     }
     if (anchorPattern != null) {
-        val anchorIdx = slots.indexOfLast { it.pattern == anchorPattern }
+        val anchorIdx = slots.indexOfLast { it.pattern.name == anchorPattern }
         if (anchorIdx >= 0) return anchorIdx + 1
     }
     val lastCompound = slots.indexOfLast {
@@ -144,7 +147,7 @@ internal fun maxTouchSlotsForSession(
     val hasInDomainSpecialized =
         slots.any { slot ->
             !slot.isCrossDomainTouch &&
-                (context.specialization[slot.primaryMuscle] ?: "Maintenance") == "Specialize"
+                context.specialization[slot.primaryMuscle] == SpecializationLevel.Specialize
         }
     return if (hasInDomainSpecialized) MAX_TOUCH_SLOTS_ON_LOWER_WITH_IN_DOMAIN_SPEC else MAX_TOUCH_SLOTS_PER_SESSION
 }

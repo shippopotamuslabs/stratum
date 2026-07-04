@@ -1,6 +1,8 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.importing.GlobalVolumePriors
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.GenerationContextTestFixtures
 import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
 import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
@@ -170,18 +172,18 @@ class VolumeTargetPlannerTest {
                     LiftContext(
                         id = "bench",
                         name = "bench",
-                        movementPattern = "HorizontalPress",
-                        movementPatterns = listOf("HorizontalPress"),
-                        primaryMuscles = listOf("Chest"),
-                        secondaryMuscles = listOf("Tricep"),
+                        movementPattern = MovementPattern.HorizontalPress,
+                        movementPatterns = setOf(MovementPattern.HorizontalPress),
+                        primaryMuscles = setOf(MuscleGroup.Chest),
+                        secondaryMuscles = setOf(MuscleGroup.Tricep),
                     ),
                     LiftContext(
                         id = "inc-press",
                         name = "inc-press",
-                        movementPattern = "InclinePress",
-                        movementPatterns = listOf("InclinePress"),
-                        primaryMuscles = listOf("Chest"),
-                        secondaryMuscles = listOf("AnteriorDeltoid"),
+                        movementPattern = MovementPattern.InclinePress,
+                        movementPatterns = setOf(MovementPattern.InclinePress),
+                        primaryMuscles = setOf(MuscleGroup.Chest),
+                        secondaryMuscles = setOf(MuscleGroup.AnteriorDeltoid),
                     ),
                 ),
             )

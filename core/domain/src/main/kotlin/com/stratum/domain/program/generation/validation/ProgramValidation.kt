@@ -2,6 +2,8 @@
 
 package com.stratum.domain.program.generation.validation
 
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.MAJOR_MUSCLES
 import com.stratum.domain.program.generation.context.MINUTES_PER_HARD_SET
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
@@ -44,10 +46,10 @@ data class ValidationIssue(
 )
 
 data class ValidationSummary(
-    val weeklyMuscleVolume: Map<String, Double>,
+    val weeklyMuscleVolume: Map<MuscleGroup, Double>,
     val workoutHardSets: List<Int>,
     val estimatedWorkoutMinutes: List<Double>,
-    val muscleWeeklyFrequency: Map<String, Int>,
+    val muscleWeeklyFrequency: Map<MuscleGroup, Int>,
     val weeklyPushSets: Double,
     val weeklyPullSets: Double,
 )
@@ -159,15 +161,15 @@ fun weeklyVolumeToleranceBand(target: WeeklyVolumeTarget): Pair<Double, Double> 
 }
 
 fun validateWeeklyMuscleVolume(
-    weeklyMuscleVolume: Map<String, Double>,
+    weeklyMuscleVolume: Map<MuscleGroup, Double>,
     context: ProgramGenerationContext,
 ): List<ValidationIssue> {
     val issues = mutableListOf<ValidationIssue>()
     val musclesToCheck = (weeklyMuscleVolume.keys + MAJOR_MUSCLES).toSet()
 
     for (muscle in musclesToCheck) {
-        val level = context.specialization[muscle] ?: "Maintenance"
-        if (level == "Omit") {
+        val level = context.specialization[muscle] ?: SpecializationLevel.Maintenance
+        if (level == SpecializationLevel.Omit) {
             val volume = weeklyMuscleVolume[muscle] ?: 0.0
             if (volume > 0.01) {
                 // Warning, not Error: omitted muscles that still appear as required anchors (e.g. a
@@ -186,7 +188,7 @@ fun validateWeeklyMuscleVolume(
         val volume = weeklyMuscleVolume[muscle] ?: 0.0
         if (volume <= 0.01) continue
 
-        val target = resolveMuscleWeeklyTarget(muscle, level, context)
+        val target = resolveMuscleWeeklyTarget(muscle.name, level.name, context)
         val (minFloor, maxCeiling) = weeklyVolumeToleranceBand(target)
         if (volume < minFloor) {
             // Warning: the solver minimizes but cannot always hit every aim under session/session-cap
@@ -197,7 +199,7 @@ fun validateWeeklyMuscleVolume(
                 message = "$muscle weekly volume ${"%.1f".format(volume)} is materially below target minimum " +
                     "${"%.1f".format(target.min)} ($level, aim ${"%.1f".format(target.aim)}; " +
                     "fuzzy floor ${"%.1f".format(minFloor)}).",
-                details = mapOf("muscle" to muscle, "volume" to volume, "target" to target, "minFloor" to minFloor),
+                details = mapOf("muscle" to muscle.name, "volume" to volume, "target" to target, "minFloor" to minFloor),
             )
         }
         if (volume > maxCeiling) {
@@ -208,7 +210,7 @@ fun validateWeeklyMuscleVolume(
                 severity = ValidationSeverity.Warning,
                 message = "$muscle weekly volume ${"%.1f".format(volume)} materially exceeds MRV ceiling " +
                     "${"%.1f".format(target.max)} (fuzzy cap ${"%.1f".format(maxCeiling)}).",
-                details = mapOf("muscle" to muscle, "volume" to volume, "target" to target, "maxCeiling" to maxCeiling),
+                details = mapOf("muscle" to muscle.name, "volume" to volume, "target" to target, "maxCeiling" to maxCeiling),
             )
         }
     }
@@ -218,7 +220,7 @@ fun validateWeeklyMuscleVolume(
 fun validateWorkoutMuscleVolume(
     program: ProgramDraft,
     context: ProgramGenerationContext,
-    weeklyMuscleVolume: Map<String, Double>,
+    weeklyMuscleVolume: Map<MuscleGroup, Double>,
 ): List<ValidationIssue> {
     val issues = mutableListOf<ValidationIssue>()
     program.workouts.forEachIndexed { workoutIndex, workout ->
@@ -235,7 +237,7 @@ fun validateWorkoutMuscleVolume(
                     message = "$muscle: ${(share * 100).toInt()}% of weekly volume is in workout " +
                         "\"${workout.name ?: workoutIndex}\" — distribute across sessions.",
                     details = mapOf(
-                        "muscle" to muscle,
+                        "muscle" to muscle.name,
                         "workoutIndex" to workoutIndex,
                         "share" to share,
                         "inWorkout" to inWorkout,
@@ -263,7 +265,7 @@ fun validateSessionMuscleVolumeCap(
                     message = "$muscle: ${"%.1f".format(credits)} fractional sets in workout " +
                         "\"${workout.name ?: workoutIndex}\" exceeds $SESSION_MUSCLE_SET_CAP session cap.",
                     details = mapOf(
-                        "muscle" to muscle,
+                        "muscle" to muscle.name,
                         "workoutIndex" to workoutIndex,
                         "credits" to credits,
                         "cap" to SESSION_MUSCLE_SET_CAP,
@@ -276,14 +278,14 @@ fun validateSessionMuscleVolumeCap(
 }
 
 fun validateMuscleFrequency(
-    muscleWeeklyFrequency: Map<String, Int>,
-    weeklyMuscleVolume: Map<String, Double>,
+    muscleWeeklyFrequency: Map<MuscleGroup, Int>,
+    weeklyMuscleVolume: Map<MuscleGroup, Double>,
     context: ProgramGenerationContext,
 ): List<ValidationIssue> {
     val issues = mutableListOf<ValidationIssue>()
     for (muscle in MAJOR_MUSCLES) {
-        val level = context.specialization[muscle] ?: "Maintenance"
-        if (level == "Omit") continue
+        val level = context.specialization[muscle] ?: SpecializationLevel.Maintenance
+        if (level == SpecializationLevel.Omit) continue
         val frequency = muscleWeeklyFrequency[muscle] ?: 0
         val weeklyAim = weeklyMuscleVolume[muscle] ?: 0.0
         if (weeklyAim <= 0) continue
@@ -296,11 +298,11 @@ fun validateMuscleFrequency(
         if (frequency < minRequired) {
             issues += ValidationIssue(
                 code = "MUSCLE_FREQUENCY_LOW",
-                severity = if (level == "Specialize") ValidationSeverity.Error else ValidationSeverity.Warning,
+                severity = if (level == SpecializationLevel.Specialize) ValidationSeverity.Error else ValidationSeverity.Warning,
                 message = "$muscle is trained ${frequency}× per cycle; prefer ≥${minRequired}× for " +
                     "${weeklyAim.toInt()} weekly sets (TABLE 7.6).",
                 details = mapOf(
-                    "muscle" to muscle,
+                    "muscle" to muscle.name,
                     "frequency" to frequency,
                     "minRequired" to minRequired,
                     "weeklyAim" to weeklyAim,
@@ -443,7 +445,7 @@ fun validateCalendarAdjacentMuscleExposure(
             val earlierDose = earlierStress.fractionalSets
             val earlierDay = WEEKDAY_NAMES.getOrElse(earlierDayIndex) { earlierDayIndex.toString() }
             val laterDay = WEEKDAY_NAMES.getOrElse(laterDayIndex) { laterDayIndex.toString() }
-            val level = context.specialization[muscle] ?: "Maintenance"
+            val level = context.specialization[muscle] ?: SpecializationLevel.Maintenance
             val requiredGap = minimumRecoveryCalendarGap(earlierStress)
             issues +=
                 ValidationIssue(
@@ -456,8 +458,8 @@ fun validateCalendarAdjacentMuscleExposure(
                             "gap $calendarGap < required $requiredGap.",
                     details =
                         mapOf(
-                            "muscle" to muscle,
-                            "level" to level,
+                            "muscle" to muscle.name,
+                            "level" to level.name,
                             "earlierDay" to earlierDay,
                             "laterDay" to laterDay,
                             "earlierDose" to earlierDose,
@@ -564,8 +566,8 @@ private fun countWorkoutHardSets(workout: ProgramWorkoutDraft): Int {
 private fun computeWeeklyMuscleVolume(
     program: ProgramDraft,
     context: ProgramGenerationContext,
-): Map<String, Double> {
-    val totals = mutableMapOf<String, Double>()
+): Map<MuscleGroup, Double> {
+    val totals = mutableMapOf<MuscleGroup, Double>()
     for (workout in program.workouts) {
         val workoutVolume = computeWorkoutMuscleVolume(workout, context)
         for ((muscle, credits) in workoutVolume) {
@@ -579,8 +581,8 @@ private fun computeWeeklyMuscleVolume(
 fun computeWorkoutMuscleVolume(
     workout: ProgramWorkoutDraft,
     context: ProgramGenerationContext,
-): Map<String, Double> {
-    val totals = mutableMapOf<String, Double>()
+): Map<MuscleGroup, Double> {
+    val totals = mutableMapOf<MuscleGroup, Double>()
     for (lift in workout.workoutLifts.orEmpty()) {
         val liftId = lift.liftId.orEmpty()
         val setCount = lift.workoutLiftSets?.size ?: 0
@@ -601,12 +603,12 @@ fun computeWorkoutMuscleVolume(
 fun computeWorkoutMuscleSessionStress(
     workout: ProgramWorkoutDraft,
     context: ProgramGenerationContext,
-): Map<String, MuscleSessionStress> {
+): Map<MuscleGroup, MuscleSessionStress> {
     val doses = computeWorkoutMuscleVolume(workout, context)
-    val classContributors = mutableMapOf<String, MutableList<Pair<LiftStressClass, Double>>>()
+    val classContributors = mutableMapOf<MuscleGroup, MutableList<Pair<LiftStressClass, Double>>>()
     // Length bias of the primary contributor for each muscle (drives the KneeFlexion
     // lengthened-state surcharge). Secondary contributors do not override the primary's bias.
-    val lengthBiasByMuscle = mutableMapOf<String, String>()
+    val lengthBiasByMuscle = mutableMapOf<MuscleGroup, String>()
     for (lift in workout.workoutLifts.orEmpty()) {
         val setCount = lift.workoutLiftSets?.size ?: 0
         if (setCount == 0) continue
@@ -633,7 +635,7 @@ fun computeWorkoutMuscleSessionStress(
         MuscleSessionStress(
             dose,
             dominantStressClass(classContributors[muscle].orEmpty()),
-            muscle = muscle,
+            muscle = muscle.name,
             muscleLengthBias = lengthBiasByMuscle[muscle],
         )
     }
@@ -642,8 +644,8 @@ fun computeWorkoutMuscleSessionStress(
 private fun computeMuscleWeeklyFrequency(
     program: ProgramDraft,
     context: ProgramGenerationContext,
-): Map<String, Int> {
-    val frequency = mutableMapOf<String, Int>()
+): Map<MuscleGroup, Int> {
+    val frequency = mutableMapOf<MuscleGroup, Int>()
     for (workout in program.workouts) {
         val muscles = computeWorkoutMuscleVolume(workout, context).keys
         for (muscle in muscles) {
@@ -664,9 +666,9 @@ private fun computeWeeklyPushPullVolume(
             val liftId = lift.liftId.orEmpty()
             val setCount = lift.workoutLiftSets?.size ?: 0
             if (setCount == 0) continue
-            val pattern = context.movementPatternByLiftId[liftId].orEmpty()
-            if (isPushPattern(pattern)) pushSets += setCount
-            if (isPullPattern(pattern)) pullSets += setCount
+            val pattern = context.movementPatternByLiftId[liftId]
+            if (pattern != null && isPushPattern(pattern)) pushSets += setCount
+            if (pattern != null && isPullPattern(pattern)) pullSets += setCount
         }
     }
     return pushSets to pullSets

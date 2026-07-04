@@ -2,6 +2,10 @@
 
 package com.stratum.core.testing.program
 
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleLengthBias
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -162,14 +166,18 @@ fun parseScenarioContext(payload: String): ProgramGenerationContext {
         .orEmpty()
     val specialization = root["specialization"]?.jsonObject
         ?.mapNotNull { (muscle, value) ->
-            value.jsonPrimitive.contentOrNull?.let { muscle to it }
+            val mg = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull() ?: return@mapNotNull null
+            val level = value.jsonPrimitive.contentOrNull
+                ?.let { runCatching { SpecializationLevel.valueOf(it) }.getOrNull() }
+                ?: return@mapNotNull null
+            mg to level
         }
         ?.toMap()
         .orEmpty()
 
     val liftsById = linkedMapOf<String, LiftContext>()
     val enabledLiftIds = mutableSetOf<String>()
-    val movementPatternByLiftId = mutableMapOf<String, String>()
+    val movementPatternByLiftId = mutableMapOf<String, MovementPattern?>()
     for (lift in readLiftArray(root["provenLifts"], provenTier = true) +
         readLiftArray(root["availableLifts"], provenTier = false)) {
         liftsById[lift.id] = lift
@@ -212,16 +220,19 @@ private fun lift(
         "HorizontalPull", "VerticalPull" -> "NonAxialCompound"
         else -> "Isolation"
     },
-): LiftContext = LiftContext(
-    id = id,
-    name = name,
-    movementPattern = pattern,
-    movementPatterns = listOf(pattern),
-    primaryMuscles = primary,
-    secondaryMuscles = secondary,
-    proven = true,
-    kinematicProfile = kinematicProfile,
-)
+): LiftContext {
+    val movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
+    return LiftContext(
+        id = id,
+        name = name,
+        movementPattern = movementPattern,
+        movementPatterns = listOfNotNull(movementPattern).toSet(),
+        primaryMuscles = primary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+        secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+        proven = true,
+        kinematicProfile = runCatching { KinematicProfile.valueOf(kinematicProfile) }.getOrDefault(KinematicProfile.Isolation),
+    )
+}
 
 private fun com.stratum.domain.program.LiteratureVolumeDefaults.toScenarioSnapshot(): MuscleVolumeSnapshotContext =
     MuscleVolumeSnapshotContext(
@@ -254,9 +265,9 @@ private fun liftsToJson(lifts: List<LiftContext>): JsonArray =
             jsonObj(
                 "id" to JsonPrimitive(lift.id),
                 "name" to JsonPrimitive(lift.name),
-                "movementPattern" to JsonPrimitive(lift.movementPattern),
-                "primaryMuscles" to JsonArray(lift.primaryMuscles.map(::JsonPrimitive)),
-                "secondaryMuscles" to JsonArray(lift.secondaryMuscles.map(::JsonPrimitive)),
+                "movementPattern" to JsonPrimitive(lift.movementPattern?.name),
+                "primaryMuscles" to JsonArray(lift.primaryMuscles.map { JsonPrimitive(it.name) }),
+                "secondaryMuscles" to JsonArray(lift.secondaryMuscles.map { JsonPrimitive(it.name) }),
             )
         },
     )
@@ -268,15 +279,17 @@ private fun readLift(element: JsonElement, provenTier: Boolean): LiftContext? {
     val lift = element.jsonObject
     val id = lift.string("id") ?: return null
     val name = lift.string("name") ?: id
-    val movementPatterns = lift.stringList("movementPatterns")
-    val movementPattern = movementPatterns.firstOrNull() ?: lift.string("movementPattern").orEmpty()
+    val movementPatternStrings = lift.stringList("movementPatterns")
+    val movementPattern = (movementPatternStrings.firstOrNull() ?: lift.string("movementPattern"))
+        ?.let { runCatching { MovementPattern.valueOf(it) }.getOrNull() }
+    val patterns = movementPatternStrings.mapNotNull { runCatching { MovementPattern.valueOf(it) }.getOrNull() }.toSet()
     return LiftContext(
         id = id,
         name = name,
         movementPattern = movementPattern,
-        movementPatterns = if (movementPatterns.isEmpty()) listOf(movementPattern) else movementPatterns,
-        primaryMuscles = lift.stringList("primaryMuscles"),
-        secondaryMuscles = lift.stringList("secondaryMuscles"),
+        movementPatterns = if (patterns.isEmpty()) setOfNotNull(movementPattern) else patterns,
+        primaryMuscles = lift.stringList("primaryMuscles").mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
+        secondaryMuscles = lift.stringList("secondaryMuscles").mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
         mainstream = lift["mainstream"]?.jsonPrimitive?.booleanOrNull,
         proven = provenTier || lift["proven"]?.jsonPrimitive?.booleanOrNull == true,
     )

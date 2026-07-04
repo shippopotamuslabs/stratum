@@ -5,6 +5,9 @@ package com.stratum.domain.solver
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -37,7 +40,7 @@ class FiveDaySessionQualitySynthesisTest {
         val synthesizer = CpSatProgramSynthesizer()
         val synthesis = synthesizer.synthesize(planWeeklyVolume(context), context)
         val specializedMuscles =
-            context.specialization.filterValues { it == "Specialize" }.keys
+            context.specialization.filterValues { it == SpecializationLevel.Specialize }.keys.map { it.name }.toSet()
         val solverAdjacentRepeats =
             recoveryGapViolationsFromPlans(
                 plans = synthesis.plans,
@@ -156,10 +159,10 @@ class FiveDaySessionQualitySynthesisTest {
         LiftContext(
             id = id,
             name = name,
-            movementPattern = pattern,
-            movementPatterns = listOf(pattern),
-            primaryMuscles = primary,
-            secondaryMuscles = secondary,
+            movementPattern = MovementPattern.valueOf(pattern),
+            movementPatterns = setOf(MovementPattern.valueOf(pattern)),
+            primaryMuscles = primary.map { MuscleGroup.valueOf(it) }.toSet(),
+            secondaryMuscles = secondary.map { MuscleGroup.valueOf(it) }.toSet(),
             proven = true,
             mainstream = true,
         )

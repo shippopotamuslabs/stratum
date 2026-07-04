@@ -97,9 +97,9 @@ internal fun volumePlannerTrainableMuscles(context: ProgramGenerationContext): L
     val patternsByMuscle = availablePatternsByMuscle(context)
     val muscles = mutableSetOf<String>()
     muscles.addAll(context.muscleVolumeSnapshotsByMuscle.keys)
-    muscles.addAll(context.specialization.keys)
+    muscles.addAll(context.specialization.keys.map { it.name })
     return muscles.filter { muscle ->
-        if ((context.specialization[muscle] ?: "Maintenance") == "Omit") return@filter false
+        if (specializationLevelForMuscle(muscle, context) == "Omit") return@filter false
         (patternsByMuscle[muscle]?.size ?: 0) > 0
     }
 }

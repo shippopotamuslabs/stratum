@@ -4,6 +4,8 @@ package com.stratum.domain.solver
 
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -33,13 +35,13 @@ class WeirdCalendarFourDaySynthesisTest {
         val result = synthesizer.synthesize(targets, context)
 
         val chestPressWeekdays = mutableSetOf<Int>()
-        val chestPressPatterns = setOf("HorizontalPress", "InclinePress")
+        val chestPressPatterns = setOf(MovementPattern.HorizontalPress, MovementPattern.InclinePress)
         for (plan in result.plans) {
             val weekday = result.weekdayIndexByPosition[plan.position]
             val hasChestPress =
                 plan.filledSlots.any { slot ->
                     slot.pattern in chestPressPatterns &&
-                        slot.primaryMuscle == "Chest" &&
+                        slot.primaryMuscle == MuscleGroup.Chest &&
                         slot.setCount > 0
                 }
             if (hasChestPress) {

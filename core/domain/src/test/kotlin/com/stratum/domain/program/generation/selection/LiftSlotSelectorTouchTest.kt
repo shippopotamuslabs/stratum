@@ -1,5 +1,8 @@
 package com.stratum.domain.program.generation.selection
 
+import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.reference.RpRepProfile
@@ -18,8 +21,8 @@ class LiftSlotSelectorTouchTest {
             WorkoutSlotTemplate(
                 slotId = "touch-bicep-lower",
                 role = SlotRole.Isolation,
-                pattern = "ElbowFlexion",
-                primaryMuscle = "Bicep",
+                pattern = MovementPattern.ElbowFlexion,
+                primaryMuscle = MuscleGroup.Bicep,
                 repProfile = RpRepProfile.Isolation,
                 isCrossDomainTouch = true,
             )
@@ -34,20 +37,20 @@ class LiftSlotSelectorTouchTest {
                 LiftContext(
                     id = "chin-up",
                     name = "Chin-Up",
-                    movementPattern = "VerticalPull",
-                    movementPatterns = listOf("VerticalPull", "ElbowFlexion"),
-                    primaryMuscles = listOf("Back"),
-                    secondaryMuscles = listOf("Bicep"),
+                    movementPattern = MovementPattern.VerticalPull,
+                    movementPatterns = setOf(MovementPattern.VerticalPull, MovementPattern.ElbowFlexion),
+                    primaryMuscles = setOf(MuscleGroup.Back),
+                    secondaryMuscles = setOf(MuscleGroup.Bicep),
                     proven = true,
                     mainstream = true,
                 ),
                 LiftContext(
                     id = "hammer-curl",
                     name = "Hammer Curl",
-                    movementPattern = "ElbowFlexion",
-                    movementPatterns = listOf("ElbowFlexion"),
-                    primaryMuscles = listOf("Bicep"),
-                    secondaryMuscles = emptyList(),
+                    movementPattern = MovementPattern.ElbowFlexion,
+                    movementPatterns = setOf(MovementPattern.ElbowFlexion),
+                    primaryMuscles = setOf(MuscleGroup.Bicep),
+                    secondaryMuscles = emptySet(),
                     proven = true,
                 ),
             )
@@ -58,7 +61,7 @@ class LiftSlotSelectorTouchTest {
             sessionLengthMinutes = 75,
             trainingDaysPerWeek = 5,
             weekdays = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"),
-            specialization = mapOf("Bicep" to "Specialize"),
+            specialization = mapOf(MuscleGroup.Bicep to SpecializationLevel.Specialize),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = emptyMap(),
             volumeCorrelationsByMuscle = emptyMap(),
