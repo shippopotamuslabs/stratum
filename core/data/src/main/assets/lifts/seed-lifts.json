@@ -1780,8 +1780,8 @@
     ],
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
-      "HorizontalPress",
-      "ElbowExtension"
+      "VerticalPull",
+      "ElbowFlexion"
     ],
     "mainstream": true,
     "kinematicProfile": "NonAxialCompound"
@@ -2417,11 +2417,12 @@
     "id": "dumbbell-one-arm-upright-row",
     "name": "Dumbbell One-Arm Upright Row",
     "primaryMuscles": [
-      "AnteriorDeltoid"
+      "Trap",
+      "LateralDeltoid"
     ],
     "secondaryMuscles": [
-      "Bicep",
-      "Trap"
+      "AnteriorDeltoid",
+      "Bicep"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -2436,7 +2437,8 @@
     ],
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
-      "VerticalPull"
+      "ScapularElevation",
+      "ShoulderAbduction"
     ],
     "mainstream": false,
     "kinematicProfile": "NonAxialCompound"
@@ -2749,7 +2751,8 @@
       "PosteriorDeltoid"
     ],
     "secondaryMuscles": [
-      "Back"
+      "Back",
+      "Bicep"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -2963,33 +2966,6 @@
     "kinematicProfile": "NonAxialCompound"
   },
   {
-    "id": "handstand-push-ups",
-    "name": "Handstand Push-Ups",
-    "primaryMuscles": [
-      "AnteriorDeltoid"
-    ],
-    "secondaryMuscles": [
-      "Tricep"
-    ],
-    "presetTags": [
-      "CommercialGym",
-      "GarageGym"
-    ],
-    "imageSlug": "Handstand_Push-Ups",
-    "description": "With your back to the wall bend at the waist and place both hands on the floor at shoulder width. Kick yourself up against the wall with your arms straight. Your body should be upside down with the arms and legs fully extended. Keep your whole body as straight as possible. Tip: If doing this for the first time, have a spotter help you. Also, make sure that you keep facing the wall with your head, rather than looking down. Slowly lower yourself to the ground as you inhale until your head almost touches the floor. Tip: It is of utmost importance that you come down slow in order to avoid head injury. Push yourself back up slowly as you exhale until your elbows are nearly locked. Repeat for the recommended amount of repetitions.",
-    "imageUris": [
-      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Handstand_Push-Ups/0.jpg",
-      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Handstand_Push-Ups/1.jpg"
-    ],
-    "muscleLengthBias": "MidRange",
-    "movementPatterns": [
-      "HorizontalPress",
-      "ElbowExtension"
-    ],
-    "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
-  },
-  {
     "id": "hanging-leg-raise",
     "name": "Hanging Leg Raise",
     "primaryMuscles": [
@@ -3047,7 +3023,8 @@
       "Back"
     ],
     "secondaryMuscles": [
-      "PosteriorDeltoid"
+      "PosteriorDeltoid",
+      "Bicep"
     ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
@@ -4381,7 +4358,7 @@
     ],
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
-      "ElbowExtension"
+      "HipExtension"
     ],
     "mainstream": false,
     "kinematicProfile": "Isolation"
@@ -4953,6 +4930,9 @@
     "primaryMuscles": [
       "Back"
     ],
+    "secondaryMuscles": [
+      "Tricep"
+    ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
@@ -4966,11 +4946,9 @@
     ],
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
-      "VerticalPull",
-      "ElbowFlexion"
+      "VerticalPull"
     ],
     "mainstream": false,
-    "secondaryMuscles": [],
     "kinematicProfile": "NonAxialCompound"
   },
   {
@@ -6062,6 +6040,9 @@
     "primaryMuscles": [
       "Back"
     ],
+    "secondaryMuscles": [
+      "Tricep"
+    ],
     "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
@@ -6075,11 +6056,9 @@
     ],
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
-      "VerticalPull",
-      "ElbowFlexion"
+      "VerticalPull"
     ],
     "mainstream": false,
-    "secondaryMuscles": [],
     "kinematicProfile": "NonAxialCompound"
   },
   {
@@ -6307,6 +6286,7 @@
       "LateralDeltoid"
     ],
     "secondaryMuscles": [
+      "AnteriorDeltoid",
       "Bicep"
     ],
     "allowWeightChangeBetweenSets": true,
@@ -6321,7 +6301,8 @@
     ],
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
-      "VerticalPull"
+      "ScapularElevation",
+      "ShoulderAbduction"
     ],
     "mainstream": true,
     "kinematicProfile": "NonAxialCompound"
