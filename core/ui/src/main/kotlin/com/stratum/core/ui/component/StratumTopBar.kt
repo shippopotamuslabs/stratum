@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StratumTopBar(
-    title: String,
+    titleContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
@@ -40,19 +40,36 @@ fun StratumTopBar(
             .background(StratumThemeAccessor.colors.surfaceBase)
     ) {
         CenterAlignedTopAppBar(
-            title = {
-                Text(
-                    text = title,
-                    style = StratumThemeAccessor.typography.titleLarge,
-                    color = StratumThemeAccessor.colors.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
+            title = titleContent,
             navigationIcon = navigationIcon ?: emptyNav,
             actions = actions ?: emptyActions,
             colors = colors,
         )
         bottom?.invoke()
     }
+}
+
+@Composable
+fun StratumTopBar(
+    title: String,
+    modifier: Modifier = Modifier,
+    navigationIcon: @Composable (() -> Unit)? = null,
+    actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
+    bottom: @Composable (() -> Unit)? = null,
+) {
+    StratumTopBar(
+        titleContent = {
+            Text(
+                text = title,
+                style = StratumThemeAccessor.typography.titleLarge,
+                color = StratumThemeAccessor.colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        modifier = modifier,
+        navigationIcon = navigationIcon,
+        actions = actions,
+        bottom = bottom,
+    )
 }
