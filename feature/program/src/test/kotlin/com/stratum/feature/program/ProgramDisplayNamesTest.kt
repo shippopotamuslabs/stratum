@@ -5,6 +5,8 @@ import com.stratum.domain.onboarding.MuscleGroup
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import com.stratum.core.ui.component.toVolumeDisplayName
+import com.stratum.core.ui.component.toProgramDisplayName
 
 class ProgramDisplayNamesTest {
     @Test
