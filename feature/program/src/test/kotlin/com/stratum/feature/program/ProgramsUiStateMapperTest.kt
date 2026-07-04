@@ -15,6 +15,7 @@ class ProgramsUiStateMapperTest {
     fun progGen408_liftNamesResolveFromCatalog() {
         val line =
             buildLiftLineState(
+                workoutLiftId = WorkoutLiftId("wl-1"),
                 liftId = LiftId("barbell-bench-press-medium-grip"),
                 sets = sampleSets(),
                 liftNamesById = mapOf("barbell-bench-press-medium-grip" to "Barbell Bench Press"),
@@ -32,6 +33,7 @@ class ProgramsUiStateMapperTest {
     fun progGen409_slugIdsTitleCaseWhenCatalogMissing() {
         val line =
             buildLiftLineState(
+                workoutLiftId = WorkoutLiftId("wl-1"),
                 liftId = LiftId("cable-one-arm-tricep-extension"),
                 sets = sampleSets(),
                 liftNamesById = emptyMap(),
@@ -49,6 +51,7 @@ class ProgramsUiStateMapperTest {
     fun progGen410_uuidWithoutCatalogUsesUnknownLabel() {
         val line =
             buildLiftLineState(
+                workoutLiftId = WorkoutLiftId("wl-1"),
                 liftId = LiftId("8ac3e0b4-75a7-4f66-b423-3c59ccf8ffbf"),
                 sets = sampleSets(),
                 liftNamesById = emptyMap(),

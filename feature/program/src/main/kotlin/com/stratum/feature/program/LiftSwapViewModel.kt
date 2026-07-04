@@ -6,8 +6,11 @@ import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.domain.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.SwapWorkoutLiftUseCase
+import com.stratum.domain.program.identity.WorkoutLiftId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +30,7 @@ import kotlinx.coroutines.flow.stateIn
 @HiltViewModel
 class LiftSwapViewModel @Inject constructor(
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
+    private val swapWorkoutLift: SwapWorkoutLiftUseCase,
 ) : ViewModel() {
     private val targetLiftId = MutableStateFlow<String?>(null)
     private val targetLiftName = MutableStateFlow<String?>(null)
@@ -84,6 +88,18 @@ class LiftSwapViewModel @Inject constructor(
 
     fun onSearchQueryChanged(query: String) {
         swapFilters.value = swapFilters.value.copy(searchQuery = query)
+    }
+
+    fun swapLift(workoutLiftId: String, newLiftId: String, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            swapWorkoutLift(WorkoutLiftId(workoutLiftId), LiftId(newLiftId))
+                .onSuccess {
+                    onComplete()
+                }
+                .onFailure {
+                    // Log or handle error if needed
+                }
+        }
     }
 
     private fun <T> Set<T>.toggle(value: T): Set<T> =

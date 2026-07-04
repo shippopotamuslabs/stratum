@@ -71,10 +71,10 @@ import com.stratum.feature.program.LiftSwapViewModel
  */
 @Composable
 fun LiftSwapRoute(
+    workoutLiftId: String,
     liftId: String,
     liftName: String,
     onBackClick: () -> Unit,
-    onSwapSelected: (newLiftId: String) -> Unit,
     onCreateNewLift: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LiftSwapViewModel = hiltViewModel(),
@@ -88,7 +88,13 @@ fun LiftSwapRoute(
     state?.let { activeState ->
         LiftSwapScreen(
             state = activeState,
-            onLiftSelected = onSwapSelected,
+            onLiftSelected = { newLiftId ->
+                viewModel.swapLift(
+                    workoutLiftId = workoutLiftId,
+                    newLiftId = newLiftId,
+                    onComplete = onBackClick
+                )
+            },
             onCreateNewLift = onCreateNewLift,
             onBackClick = onBackClick,
             onFilterIntent = viewModel::onFilterIntent,

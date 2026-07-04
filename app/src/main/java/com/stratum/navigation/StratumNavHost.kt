@@ -51,16 +51,13 @@ fun StratumNavHost() {
                         backStack.removeAll { it is MainTabKey }
                         backStack.add(OnboardingKey)
                     },
-                    onNavigateToSwap = { id, name ->
-                        backStack.add(LiftSwapKey(id, name))
+                    onNavigateToSwap = { workoutLiftId, id, name ->
+                        backStack.add(LiftSwapKey(workoutLiftId, id, name))
                     },
                 )
             }
             liftSwapEntry(
                 onBackClick = {
-                    backStack.removeAt(backStack.size - 1)
-                },
-                onSwapSelected = { newLiftId ->
                     backStack.removeAt(backStack.size - 1)
                 },
                 onCreateNewLift = {
