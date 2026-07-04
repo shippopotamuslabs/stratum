@@ -35,7 +35,7 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumMuscleVolumeRow
 import com.stratum.core.ui.component.StratumVolumeBodyTier
 import com.stratum.core.ui.component.StratumNumber
-import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -68,9 +68,8 @@ internal fun ProgramsScreen(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
-    StratumScaffold(
-        modifier = modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets(0.dp),
+    StratumTabScaffold(
+        modifier = modifier,
         topBar = {
             StratumTopBar(
                 title = stringResource(R.string.programs_screen_title),
@@ -162,17 +161,13 @@ internal fun ProgramsScreen(
                 }
             }
         },
-    ) { padding ->
+        horizontalPadding = 12.dp,
+    ) {
         Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(
-                        top = padding.calculateTopPadding(),
-                        bottom = padding.calculateBottomPadding(),
-                    )
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (!isPreviewMode) {
