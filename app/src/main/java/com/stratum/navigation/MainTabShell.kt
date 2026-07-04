@@ -19,7 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.stratum.DashboardPlaceholder
-import com.stratum.GymPlaceholder
+import com.stratum.GymScreen
 import com.stratum.R
 import com.stratum.core.ui.component.StratumNavigationBar
 import com.stratum.core.ui.component.StratumNavigationBarItem
@@ -44,6 +44,7 @@ fun MainTabShell(
     onDiscardProgramClick: () -> Unit = {},
     onKeepProgramClick: () -> Unit = {},
     onNavigateToSwap: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
+    onCreateNewLift: () -> Unit = {},
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
     val items =
@@ -92,7 +93,7 @@ fun MainTabShell(
                     onDiscardProgramClick = onDiscardProgramClick,
                     onSwapLiftClick = onNavigateToSwap,
                 )
-                MainTab.Gym -> GymPlaceholder()
+                MainTab.Gym -> GymScreen(onCreateNewLift = onCreateNewLift)
             }
         }
     }
