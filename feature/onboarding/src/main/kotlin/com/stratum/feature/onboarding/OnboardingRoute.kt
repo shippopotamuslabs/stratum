@@ -29,7 +29,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.ui.GenerateScreen
-import com.stratum.feature.onboarding.ui.GymAndLiftsScreen
+import com.stratum.feature.onboarding.ui.GymAndLiftOnboardingSetupScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
@@ -156,7 +156,7 @@ private fun OnboardingWizard(
                         onMuscleToggled = minimumVolume.onMuscleToggled,
                         onSuggestedMuscleToggled = minimumVolume.onSuggestedMuscleToggled,
                     )
-                    WIZARD_STEP_GYM_AND_LIFTS -> GymAndLiftsScreen(
+                    WIZARD_STEP_GYM_AND_LIFTS -> GymAndLiftOnboardingSetupScreen(
                         draft = state.gymLiftsDraft,
                         presetOptions = state.presetOptions,
                         onPresetSelected = gymLifts.onPresetSelected,
