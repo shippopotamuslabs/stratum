@@ -16,6 +16,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.onboarding.navigation.onboardingEntry
+import com.stratum.feature.program.navigation.LiftSwapKey
+import com.stratum.feature.program.navigation.liftSwapEntry
 
 @Composable
 fun StratumNavHost() {
@@ -49,8 +51,22 @@ fun StratumNavHost() {
                         backStack.removeAll { it is MainTabKey }
                         backStack.add(OnboardingKey)
                     },
+                    onNavigateToSwap = { id, name ->
+                        backStack.add(LiftSwapKey(id, name))
+                    },
                 )
             }
+            liftSwapEntry(
+                onBackClick = {
+                    backStack.removeAt(backStack.size - 1)
+                },
+                onSwapSelected = { newLiftId ->
+                    backStack.removeAt(backStack.size - 1)
+                },
+                onCreateNewLift = {
+                    // Navigate to custom lift screen in future slice
+                },
+            )
         },
     )
 }

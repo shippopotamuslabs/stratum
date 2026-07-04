@@ -82,6 +82,7 @@ internal fun buildLiftLineState(
     position: Int,
 ): WorkoutLiftLineState =
     WorkoutLiftLineState(
+        liftId = liftId.value,
         name = resolveLiftDisplayName(liftId.value, liftNamesById),
         setCount = sets.size,
         repRange = formatRepRangeLabel(sets),

@@ -42,6 +42,7 @@ fun MainTabShell(
     modifier: Modifier = Modifier,
     // TEMP: back-to-onboarding for regeneration testing
     onBackToGenerateClick: () -> Unit = {},
+    onNavigateToSwap: (liftId: String, liftName: String) -> Unit = { _, _ -> },
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
     val items =
@@ -82,7 +83,10 @@ fun MainTabShell(
         ) {
             when (MainTab.fromIndex(selectedTabIndex)) {
                 MainTab.Dashboard -> DashboardPlaceholder()
-                MainTab.Program -> ProgramsRoute(onBackToGenerateClick = onBackToGenerateClick)
+                MainTab.Program -> ProgramsRoute(
+                    onBackToGenerateClick = onBackToGenerateClick,
+                    onSwapLiftClick = onNavigateToSwap,
+                )
                 MainTab.Gym -> GymPlaceholder()
             }
         }

@@ -1,9 +1,9 @@
 package com.stratum.feature.program
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.feature.program.ui.ProgramsScreen
 import com.stratum.feature.program.ui.ProgramsUiState
@@ -20,6 +20,7 @@ fun ProgramsRoute(
     onStartEmptyWorkoutClick: () -> Unit = {},
     onStartWorkoutClick: (String) -> Unit = {},
     onSkipWorkoutCheckedChange: (String, Boolean) -> Unit = { _, _ -> },
+    onSwapLiftClick: (liftId: String, liftName: String) -> Unit = { _, _ -> },
     // TEMP: back-to-onboarding for regeneration testing
     onBackToGenerateClick: () -> Unit = {},
 ) {
@@ -34,6 +35,9 @@ fun ProgramsRoute(
         onStartEmptyWorkoutClick = onStartEmptyWorkoutClick,
         onStartWorkoutClick = onStartWorkoutClick,
         onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
+        onSwapLiftClick = { target ->
+            onSwapLiftClick(target.liftId, target.name)
+        },
         modifier = modifier,
         onBackToGenerateClick = onBackToGenerateClick,
     )
