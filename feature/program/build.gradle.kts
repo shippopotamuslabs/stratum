@@ -57,6 +57,7 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.coil.compose)
     ksp(libs.hilt.compiler)
     ksp(libs.kotlin.metadata.jvm)
 

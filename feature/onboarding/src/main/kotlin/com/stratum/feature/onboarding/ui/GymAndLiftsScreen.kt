@@ -64,7 +64,7 @@ fun GymAndLiftsScreen(
     }
 
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         StratumText(
@@ -201,7 +201,7 @@ private fun GymImportCard(
                     color = borderColor,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(24.dp),
+                .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -353,7 +353,7 @@ private fun GymPresetCard(
                     color = borderColor,
                     shape = StratumThemeAccessor.shapes.panel,
                 )
-                .padding(24.dp),
+                .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         StratumText(

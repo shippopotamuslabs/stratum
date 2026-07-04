@@ -42,9 +42,13 @@ import com.stratum.feature.program.R
 /**
  * Read-only Programs overview. Renders volume summary, weekly schedule with rest days, and verbose
  * workout cards. All controls are present but no-op until wired in a later slice.
+ *
+ * Lift-swap surface: tapping a lift sub-card opens [StratumLiftSwapBottomSheet] via
+ * [swapBindings]; the bindings bundle the sheet state + every swap-related callback so this
+ * composable's signature stays under the detekt parameter threshold.
  */
 @Composable
-fun ProgramsScreen(
+internal fun ProgramsScreen(
     state: ProgramsUiState,
     onCalendarClick: () -> Unit,
     onCreateProgramClick: () -> Unit,
@@ -54,8 +58,8 @@ fun ProgramsScreen(
     onStartEmptyWorkoutClick: () -> Unit,
     onStartWorkoutClick: (workoutName: String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
+    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
-    // TEMP: back-to-onboarding for regeneration testing
     onBackToGenerateClick: () -> Unit = {},
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -141,7 +145,7 @@ fun ProgramsScreen(
                     .fillMaxSize()
                     .padding(top = padding.calculateTopPadding())
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             StratumButton(
@@ -162,6 +166,7 @@ fun ProgramsScreen(
                     state = state,
                     onStartWorkoutClick = onStartWorkoutClick,
                     onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
+                    onSwapLiftClick = onSwapLiftClick,
                 )
             }
         }
@@ -173,6 +178,7 @@ private fun LoadedProgramContent(
     state: ProgramsUiState.Loaded,
     onStartWorkoutClick: (String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
+    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
 ) {
     if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
         val initialTier = if (state.upperVolumeByMuscle.isEmpty() && state.lowerVolumeByMuscle.isNotEmpty()) {
@@ -207,6 +213,7 @@ private fun LoadedProgramContent(
                     workout = item.workout,
                     onStartWorkoutClick = onStartWorkoutClick,
                     onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
+                    onSwapLiftClick = onSwapLiftClick,
                 )
         }
     }
@@ -244,6 +251,7 @@ internal fun WorkoutCard(
     workout: WorkoutViewState,
     onStartWorkoutClick: (String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
+    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
 ) {
     Column(
         modifier =
@@ -277,7 +285,7 @@ internal fun WorkoutCard(
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             workout.lifts.sortedBy { lift -> lift.position }.forEach { lift ->
-                LiftSubCard(lift = lift)
+                LiftSubCard(lift = lift, onSwapLiftClick = { onSwapLiftClick(lift) })
             }
         }
         StratumButton(
@@ -292,11 +300,15 @@ internal fun WorkoutCard(
  * Two-row bordered sub card for a single lift inside a workout card. Row 1 is the lift name
  * (truncates with an ellipsis when the name is too long to fit); row 2 is the tabular
  * `sets x repRange@rpe` summary, which never gets truncated because the name no longer
- * competes for the same line.
+ * competes for the same line. The trailing swap icon opens the lift swap bottom sheet —
+ * the card itself is not clickable so the rest of the row is inert.
  */
 @Composable
-private fun LiftSubCard(lift: WorkoutLiftLineState) {
-    Column(
+private fun LiftSubCard(
+    lift: WorkoutLiftLineState,
+    onSwapLiftClick: () -> Unit,
+) {
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
@@ -310,21 +322,35 @@ private fun LiftSubCard(lift: WorkoutLiftLineState) {
                     shape = StratumThemeAccessor.shapes.chip,
                 )
                 .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        StratumText(
-            text = lift.name,
-            style = StratumThemeAccessor.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        StratumNumber(
-            text = "${lift.setCount} x ${lift.repRange}${lift.topSetRpe}",
-            style = StratumThemeAccessor.typography.sectionLabel.copy(
-                fontFamily = FontFamily.Monospace,
-            ),
-            maxLines = 1,
-        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            StratumText(
+                text = lift.name,
+                style = StratumThemeAccessor.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            StratumNumber(
+                text = "${lift.setCount} x ${lift.repRange}${lift.topSetRpe}",
+                style = StratumThemeAccessor.typography.sectionLabel.copy(
+                    fontFamily = FontFamily.Monospace,
+                ),
+                maxLines = 1,
+            )
+        }
+        StratumIconButton(
+            onClick = onSwapLiftClick,
+            containerColor = StratumThemeAccessor.colors.surfaceRaised,
+            contentColor = StratumThemeAccessor.colors.textMuted,
+        ) {
+            Icon(
+                painter = painterResource(CoreUiR.drawable.ic_swap_horiz),
+                contentDescription = stringResource(R.string.programs_swap_lift_content_description),
+                tint = StratumThemeAccessor.colors.textMuted,
+            )
+        }
     }
 }
 

@@ -72,6 +72,7 @@ private fun LoadedProgramsScreen() {
                                     lifts =
                                         listOf(
                                             WorkoutLiftLineState(
+                                                liftId = "barbell-romanian-deadlift",
                                                 name = "Barbell Romanian Deadlift",
                                                 setCount = 3,
                                                 repRange = "8\u201312",
@@ -79,6 +80,7 @@ private fun LoadedProgramsScreen() {
                                                 position = 0,
                                             ),
                                             WorkoutLiftLineState(
+                                                liftId = "pin-loaded-leg-press-calf-raise",
                                                 name = "Pin-Loaded Leg Press Calf Raise",
                                                 setCount = 2,
                                                 repRange = "10\u201315",
@@ -86,6 +88,7 @@ private fun LoadedProgramsScreen() {
                                                 position = 1,
                                             ),
                                             WorkoutLiftLineState(
+                                                liftId = "seated-dumbbell-biceps-curl",
                                                 name = "Seated Dumbbell Biceps Curl With Supinated Grip",
                                                 setCount = 4,
                                                 repRange = "10\u201315",
@@ -105,6 +108,7 @@ private fun LoadedProgramsScreen() {
         onStartEmptyWorkoutClick = {},
         onStartWorkoutClick = {},
         onSkipWorkoutCheckedChange = { _, _ -> },
+        onSwapLiftClick = {},
     )
 }
 
@@ -122,6 +126,7 @@ fun ProgramsScreenEmptyPreview() {
             onStartEmptyWorkoutClick = {},
             onStartWorkoutClick = {},
             onSkipWorkoutCheckedChange = { _, _ -> },
+            onSwapLiftClick = {},
         )
     }
 }
@@ -148,7 +153,7 @@ private fun WorkoutCardPreviewContent() {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 12.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         WorkoutCard(
@@ -160,6 +165,7 @@ private fun WorkoutCardPreviewContent() {
                     lifts =
                         listOf(
                             WorkoutLiftLineState(
+                                liftId = "barbell-bench-press",
                                 name = "Barbell Bench Press",
                                 setCount = 4,
                                 repRange = "5",
@@ -167,6 +173,7 @@ private fun WorkoutCardPreviewContent() {
                                 position = 0,
                             ),
                             WorkoutLiftLineState(
+                                liftId = "seated-dumbbell-overhead-press",
                                 name = "Seated Dumbbell Overhead Press",
                                 setCount = 3,
                                 repRange = "8\u201312",
@@ -174,6 +181,7 @@ private fun WorkoutCardPreviewContent() {
                                 position = 1,
                             ),
                             WorkoutLiftLineState(
+                                liftId = "incline-dumbbell-bench-press",
                                 name = "Incline Dumbbell Bench Press",
                                 setCount = 3,
                                 repRange = "8\u201312",
@@ -181,6 +189,7 @@ private fun WorkoutCardPreviewContent() {
                                 position = 2,
                             ),
                             WorkoutLiftLineState(
+                                liftId = "cable-crossover-fly",
                                 name = "Cable Crossover Fly",
                                 setCount = 3,
                                 repRange = "12\u201315",
@@ -188,6 +197,7 @@ private fun WorkoutCardPreviewContent() {
                                 position = 3,
                             ),
                             WorkoutLiftLineState(
+                                liftId = "dumbbell-lateral-raise",
                                 name = "Dumbbell Lateral Raise",
                                 setCount = 4,
                                 repRange = "15\u201320",
@@ -195,6 +205,7 @@ private fun WorkoutCardPreviewContent() {
                                 position = 4,
                             ),
                             WorkoutLiftLineState(
+                                liftId = "tricep-rope-pushdown",
                                 name = "Tricep Rope Pushdown",
                                 setCount = 3,
                                 repRange = "10\u201315",
@@ -202,6 +213,7 @@ private fun WorkoutCardPreviewContent() {
                                 position = 5,
                             ),
                             WorkoutLiftLineState(
+                                liftId = "overhead-cable-tricep-extension",
                                 name = "Overhead Cable Tricep Extension",
                                 setCount = 3,
                                 repRange = "12\u201315",
@@ -212,6 +224,7 @@ private fun WorkoutCardPreviewContent() {
                 ),
             onStartWorkoutClick = {},
             onSkipWorkoutCheckedChange = { _, _ -> },
+            onSwapLiftClick = {},
         )
     }
 }

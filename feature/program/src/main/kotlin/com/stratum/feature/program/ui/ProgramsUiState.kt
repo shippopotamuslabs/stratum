@@ -45,6 +45,7 @@ data class WorkoutViewState(
 
 /** Structured lift summary rendered as a two-row sub card on workout cards. */
 data class WorkoutLiftLineState(
+    val liftId: String,
     val name: String,
     val setCount: Int,
     val repRange: String,

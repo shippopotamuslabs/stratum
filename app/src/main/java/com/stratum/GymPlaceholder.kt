@@ -16,7 +16,7 @@ import com.stratum.core.ui.component.StratumText
 fun GymPlaceholder(modifier: Modifier = Modifier) {
     StratumScaffold(modifier = modifier.fillMaxSize()) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(12.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
