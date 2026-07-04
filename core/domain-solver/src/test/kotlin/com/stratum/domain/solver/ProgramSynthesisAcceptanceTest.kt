@@ -315,7 +315,6 @@ class ProgramSynthesisAcceptanceTest {
         val belowFloor = mutableListOf<String>()
         for ((muscleName, target) in targets) {
             val mg = runCatching { MuscleGroup.valueOf(muscleName) }.getOrNull() ?: continue
-            // Only check non-specialized muscles — specialized ones are covered by specializationHonored.
             if (context.specialization[mg] == SpecializationLevel.Specialize) continue
             val actual = weekly[muscleName] ?: 0.0
             if (actual < target.min - MAINTENANCE_VOLUME_TOLERANCE) {

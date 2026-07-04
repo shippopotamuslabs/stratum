@@ -63,17 +63,18 @@ def objective(trial):
 # trial so TPE always has the known-good baseline as an anchor before exploring —
 # without this, the first ~10 trials are pure-random and often worse than the defaults
 # (the suite is broad enough that defaults are already near a local optimum).
+# These match the trial-18 tuned values (the current production defaults).
 DEFAULT_WEIGHTS = {
-    "RECOVERY_PRIORITY": 3_000_000,
-    "RECOVERY_GENERAL": 330_000,
-    "SPECIALIZE_AIM_DEVIATION": 3_000,
-    "MAINTENANCE_AIM_DEVIATION": 4_000,
-    "SLOT_ACTIVATION_COUNT": 50,
-    "LOWER_ANCHOR_ACTIVATION_BONUS": -250,
-    "SESSION_FILL_SHORTFALL": 7_000,
-    "SESSION_SET_IMBALANCE": 3_700,
-    "UPPER_BODY_MAINTENANCE_PARITY": 3_200,
-    "LOWER_BODY_MAINTENANCE_PARITY": 5_000,
+    "RECOVERY_PRIORITY": 3_500_000,
+    "RECOVERY_GENERAL": 350_000,
+    "SPECIALIZE_AIM_DEVIATION": 3_900,
+    "MAINTENANCE_AIM_DEVIATION": 2_300,
+    "SLOT_ACTIVATION_COUNT": 1_000,
+    "LOWER_ANCHOR_ACTIVATION_BONUS": -100,
+    "SESSION_FILL_SHORTFALL": 5_000,
+    "SESSION_SET_IMBALANCE": 3_500,
+    "UPPER_BODY_MAINTENANCE_PARITY": 600,
+    "LOWER_BODY_MAINTENANCE_PARITY": 2_200,
 }
 
 
