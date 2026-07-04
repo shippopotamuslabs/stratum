@@ -31,8 +31,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.component.musclepicker.BodyHighlightCanvas
 import com.stratum.core.ui.component.musclepicker.bodyRegionsForHighlight
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -78,9 +79,8 @@ fun StratumMuscleFilterCard(
         }
         StratumText(
             text = state.displayName,
-            style = StratumThemeAccessor.typography.bodyLarge,
+            style = filterCardTitleStyle(),
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
             muted = !selected,
         )
     }
@@ -202,7 +202,7 @@ private fun VerticalTierToggle(
                 ) {
                     StratumText(
                         text = label,
-                        style = StratumThemeAccessor.typography.bodyLarge,
+                        style = filterTierToggleLabelStyle(),
                         muted = !selected,
                     )
                 }
@@ -211,13 +211,30 @@ private fun VerticalTierToggle(
     }
 }
 
-private val FILTER_ROW_HEIGHT = 112.dp
-private val FILTER_CARD_WIDTH = 112.dp
-private val FILTER_CARD_PADDING = 8.dp
-private val FILTER_CARD_SPACING = 10.dp
-private val ANATOMY_WIDTH = 48.dp
-private val ANATOMY_HEIGHT = 64.dp
-private val TIER_TOGGLE_WIDTH = 28.dp
+private val FILTER_ROW_HEIGHT = 81.dp
+private val FILTER_CARD_WIDTH = 96.dp
+private val FILTER_CARD_PADDING = 6.dp
+private val FILTER_CARD_SPACING = 6.dp
+private val ANATOMY_WIDTH = 36.dp
+private val ANATOMY_HEIGHT = 48.dp
+private val TIER_TOGGLE_WIDTH = 20.dp
+
+@Composable
+private fun filterCardTitleStyle() =
+    StratumThemeAccessor.typography.sectionLabel.copy(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        lineHeight = 12.sp,
+        letterSpacing = 0.sp,
+    )
+
+@Composable
+private fun filterTierToggleLabelStyle() =
+    StratumThemeAccessor.typography.sectionLabel.copy(
+        fontSize = 11.sp,
+        lineHeight = 12.sp,
+        letterSpacing = 0.sp,
+    )
 
 private const val UPPER_TIER_INDEX = 0
 private const val LOWER_TIER_INDEX = 1

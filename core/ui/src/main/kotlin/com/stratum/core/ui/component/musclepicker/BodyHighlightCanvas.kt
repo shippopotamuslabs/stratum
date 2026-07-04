@@ -88,6 +88,7 @@ internal fun bodyViewForMuscle(muscle: MuscleGroup): BodyView? {
 
 private val BACK_VIEW_PREFERRED_MUSCLES =
     setOf(
+        MuscleGroup.Trap,
         MuscleGroup.Tricep,
         MuscleGroup.PosteriorDeltoid,
         MuscleGroup.Calf,
