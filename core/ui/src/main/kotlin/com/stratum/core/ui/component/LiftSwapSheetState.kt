@@ -80,6 +80,7 @@ data class LiftSwapOptionState(
     val similarity: Float,
     val isCustom: Boolean,
     val imageUrl: String? = null,
+    val enabled: Boolean = true,
 )
 
 /**
