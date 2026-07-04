@@ -86,7 +86,7 @@ internal fun relabelWorkoutNamesByWeekday(workouts: List<Workout>): List<Workout
     }
 }
 
-internal fun buildScheduleMuscleExposures(
+fun buildScheduleMuscleExposures(
     workouts: List<Workout>,
     weekdayIndices: List<Int>,
     workoutMuscleExposures: List<Map<String, Double>?>? = null,

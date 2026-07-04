@@ -9,8 +9,8 @@ import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.SPECIALIZATION_PRESETS
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
+import com.stratum.core.testing.program.GenerationContextTestFixtures.literatureRc
+import com.stratum.core.testing.program.GenerationContextTestFixtures.literaturePv
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.domain.program.generation.reference.FrequencyTier

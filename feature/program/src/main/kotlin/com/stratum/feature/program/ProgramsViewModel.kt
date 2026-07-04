@@ -17,6 +17,13 @@ import kotlinx.coroutines.flow.stateIn
  * Exposes the persisted program as [ProgramsUiState] for the read-only Programs screen. Maps the
  * domain program to presentation view states and resolves lift ids through the catalog so the UI
  * shows human-readable lift names (ARCHITECTURE.md §4.3).
+ *
+ * Also owns the lift-swap bottom sheet state ([liftSwapSheet]). The sheet is opened with
+ * [openLiftSwap] (targeting a workout lift); the ranked candidate stream is produced by
+ * [RankSwapCandidatesUseCase] and the filter overlay is reduced here against [LiftSwapFilters]
+ * (ARCHITECTURE.md §4.4 — only transient state lives in the ViewModel). Actual program-mutation
+ * after a swap is a follow-up slice; this ViewModel emits the swap selection via
+ * [swapSelections] for the route to persist.
  */
 @HiltViewModel
 class ProgramsViewModel @Inject constructor(
@@ -42,4 +49,5 @@ class ProgramsViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5_000),
             ProgramsUiState.Empty,
         )
+
 }

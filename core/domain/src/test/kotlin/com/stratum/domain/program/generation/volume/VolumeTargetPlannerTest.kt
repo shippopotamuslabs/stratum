@@ -3,11 +3,11 @@ package com.stratum.domain.program.generation.volume
 import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.program.generation.GenerationContextTestFixtures
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literaturePv
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureRc
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureSnapshotContext
-import com.stratum.domain.program.generation.GenerationContextTestFixtures.literatureSpecializeMin
+import com.stratum.core.testing.program.GenerationContextTestFixtures
+import com.stratum.core.testing.program.GenerationContextTestFixtures.literaturePv
+import com.stratum.core.testing.program.GenerationContextTestFixtures.literatureRc
+import com.stratum.core.testing.program.GenerationContextTestFixtures.literatureSnapshotContext
+import com.stratum.core.testing.program.GenerationContextTestFixtures.literatureSpecializeMin
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.VolumeCorrelationContext
 import org.junit.jupiter.api.Assertions.assertEquals

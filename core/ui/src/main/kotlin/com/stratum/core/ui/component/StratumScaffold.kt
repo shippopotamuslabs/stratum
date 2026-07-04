@@ -1,7 +1,9 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -11,6 +13,7 @@ fun StratumScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    contentWindowInsets: WindowInsets = ScaffoldDefaults.contentWindowInsets,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
@@ -19,6 +22,7 @@ fun StratumScaffold(
         contentColor = StratumThemeAccessor.colors.textPrimary,
         topBar = topBar,
         bottomBar = bottomBar,
+        contentWindowInsets = contentWindowInsets,
         content = content,
     )
 }
