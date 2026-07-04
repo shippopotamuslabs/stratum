@@ -40,8 +40,9 @@ private enum class MainTab(val index: Int) {
 @Composable
 fun MainTabShell(
     modifier: Modifier = Modifier,
-    // TEMP: back-to-onboarding for regeneration testing
-    onBackToGenerateClick: () -> Unit = {},
+    isPreviewMode: Boolean = false,
+    onDiscardProgramClick: () -> Unit = {},
+    onKeepProgramClick: () -> Unit = {},
     onNavigateToSwap: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
@@ -67,11 +68,13 @@ fun MainTabShell(
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            StratumNavigationBar(
-                items = items,
-                selectedIndex = selectedTabIndex,
-                onItemSelected = { index -> selectedTabIndex = index },
-            )
+            if (!isPreviewMode) {
+                StratumNavigationBar(
+                    items = items,
+                    selectedIndex = selectedTabIndex,
+                    onItemSelected = { index -> selectedTabIndex = index },
+                )
+            }
         },
     ) { padding ->
         // Tab screens own their top bar + status-bar inset; shell only reserves bottom nav space.
@@ -84,7 +87,9 @@ fun MainTabShell(
             when (MainTab.fromIndex(selectedTabIndex)) {
                 MainTab.Dashboard -> DashboardPlaceholder()
                 MainTab.Program -> ProgramsRoute(
-                    onBackToGenerateClick = onBackToGenerateClick,
+                    isPreviewMode = isPreviewMode,
+                    onKeepProgramClick = onKeepProgramClick,
+                    onDiscardProgramClick = onDiscardProgramClick,
                     onSwapLiftClick = onNavigateToSwap,
                 )
                 MainTab.Gym -> GymPlaceholder()

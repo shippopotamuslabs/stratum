@@ -5,8 +5,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -60,104 +62,131 @@ internal fun ProgramsScreen(
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
-    onBackToGenerateClick: () -> Unit = {},
+    isPreviewMode: Boolean = false,
+    onKeepProgramClick: () -> Unit = {},
+    onDiscardProgramClick: () -> Unit = {},
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             StratumTopBar(
                 title = stringResource(R.string.programs_screen_title),
-                navigationIcon = {
-                    StratumIconButton(onClick = onCalendarClick) {
-                        Icon(
-                            painter = painterResource(CoreUiR.drawable.ic_calendar),
-                            contentDescription = stringResource(R.string.programs_calendar_content_description),
-                            tint = StratumThemeAccessor.colors.textPrimary,
-                        )
+                navigationIcon = if (isPreviewMode) null else {
+                    {
+                        StratumIconButton(onClick = onCalendarClick) {
+                            Icon(
+                                painter = painterResource(CoreUiR.drawable.ic_calendar),
+                                contentDescription = stringResource(R.string.programs_calendar_content_description),
+                                tint = StratumThemeAccessor.colors.textPrimary,
+                            )
+                        }
                     }
                 },
-                actions = {
-                    // TEMP: back-to-onboarding for regeneration testing
-                    StratumIconButton(onClick = onBackToGenerateClick) {
-                        Icon(
-                            painter = painterResource(CoreUiR.drawable.ic_auto_awesome),
-                            contentDescription = stringResource(R.string.programs_back_to_generate_content_description),
-                            tint = StratumThemeAccessor.colors.textPrimary,
-                        )
-                    }
-                    StratumIconButton(onClick = { menuExpanded = true }) {
-                        Icon(
-                            painter = painterResource(CoreUiR.drawable.ic_more_vert),
-                            contentDescription = stringResource(R.string.programs_menu_content_description),
-                            tint = StratumThemeAccessor.colors.textPrimary,
-                        )
-                    }
-                    StratumDropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                    ) {
-                        StratumDropdownMenuItem(
-                            text = stringResource(R.string.programs_menu_create_program),
-                            onClick = {
-                                menuExpanded = false
-                                onCreateProgramClick()
-                            },
-                            leadingIcon = {
-                                ProgramMenuLeadingIcon(
-                                    iconRes = CoreUiR.drawable.ic_add,
-                                )
-                            },
-                        )
-                        StratumDropdownMenuItem(
-                            text = stringResource(R.string.programs_menu_generate_program),
-                            onClick = {
-                                menuExpanded = false
-                                onGenerateProgramClick()
-                            },
-                            leadingIcon = {
-                                ProgramMenuLeadingIcon(
-                                    iconRes = CoreUiR.drawable.ic_auto_awesome,
-                                )
-                            },
-                        )
-                        StratumDropdownMenuItem(
-                            text = stringResource(R.string.programs_menu_program_library),
-                            onClick = {
-                                menuExpanded = false
-                                onProgramLibraryClick()
-                            },
-                            leadingIcon = {
-                                ProgramMenuLeadingIcon(
-                                    iconRes = CoreUiR.drawable.ic_library_books,
-                                )
-                            },
-                        )
+                actions = if (isPreviewMode) null else {
+                    {
+                        StratumIconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                painter = painterResource(CoreUiR.drawable.ic_more_vert),
+                                contentDescription = stringResource(R.string.programs_menu_content_description),
+                                tint = StratumThemeAccessor.colors.textPrimary,
+                            )
+                        }
+                        StratumDropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            StratumDropdownMenuItem(
+                                text = stringResource(R.string.programs_menu_create_program),
+                                onClick = {
+                                    menuExpanded = false
+                                    onCreateProgramClick()
+                                },
+                                leadingIcon = {
+                                    ProgramMenuLeadingIcon(
+                                        iconRes = CoreUiR.drawable.ic_add,
+                                    )
+                                },
+                            )
+                            StratumDropdownMenuItem(
+                                text = stringResource(R.string.programs_menu_generate_program),
+                                onClick = {
+                                    menuExpanded = false
+                                    onGenerateProgramClick()
+                                },
+                                leadingIcon = {
+                                    ProgramMenuLeadingIcon(
+                                        iconRes = CoreUiR.drawable.ic_auto_awesome,
+                                    )
+                                },
+                            )
+                            StratumDropdownMenuItem(
+                                text = stringResource(R.string.programs_menu_program_library),
+                                onClick = {
+                                    menuExpanded = false
+                                    onProgramLibraryClick()
+                                },
+                                leadingIcon = {
+                                    ProgramMenuLeadingIcon(
+                                        iconRes = CoreUiR.drawable.ic_library_books,
+                                    )
+                                },
+                            )
+                        }
                     }
                 },
             )
+        },
+        bottomBar = {
+            if (isPreviewMode) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(StratumThemeAccessor.colors.surfaceRaised)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .navigationBarsPadding(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    StratumButton(
+                        text = stringResource(R.string.programs_keep_program),
+                        onClick = onKeepProgramClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    StratumOutlinedButton(
+                        text = stringResource(R.string.programs_discard_program),
+                        onClick = onDiscardProgramClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         },
     ) { padding ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(top = padding.calculateTopPadding())
+                    .padding(
+                        top = padding.calculateTopPadding(),
+                        bottom = padding.calculateBottomPadding(),
+                    )
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            StratumButton(
-                text = stringResource(R.string.programs_start_next_workout),
-                onClick = onStartNextWorkoutClick,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            StratumOutlinedButton(
-                text = stringResource(R.string.programs_start_empty_workout),
-                onClick = onStartEmptyWorkoutClick,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (!isPreviewMode) {
+                StratumButton(
+                    text = stringResource(R.string.programs_start_next_workout),
+                    onClick = onStartNextWorkoutClick,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                StratumOutlinedButton(
+                    text = stringResource(R.string.programs_start_empty_workout),
+                    onClick = onStartEmptyWorkoutClick,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             when (state) {
                 is ProgramsUiState.Empty ->
@@ -167,6 +196,7 @@ internal fun ProgramsScreen(
                     onStartWorkoutClick = onStartWorkoutClick,
                     onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
                     onSwapLiftClick = onSwapLiftClick,
+                    isPreviewMode = isPreviewMode,
                 )
             }
         }
@@ -179,6 +209,7 @@ private fun LoadedProgramContent(
     onStartWorkoutClick: (String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    isPreviewMode: Boolean,
 ) {
     if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
         val initialTier = if (state.upperVolumeByMuscle.isEmpty() && state.lowerVolumeByMuscle.isNotEmpty()) {
@@ -214,6 +245,7 @@ private fun LoadedProgramContent(
                     onStartWorkoutClick = onStartWorkoutClick,
                     onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
                     onSwapLiftClick = onSwapLiftClick,
+                    isPreviewMode = isPreviewMode,
                 )
         }
     }
@@ -252,6 +284,7 @@ internal fun WorkoutCard(
     onStartWorkoutClick: (String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    isPreviewMode: Boolean = false,
 ) {
     Column(
         modifier =
@@ -288,11 +321,13 @@ internal fun WorkoutCard(
                 LiftSubCard(lift = lift, onSwapLiftClick = { onSwapLiftClick(lift) })
             }
         }
-        StratumButton(
-            text = stringResource(R.string.programs_start_workout),
-            onClick = { onStartWorkoutClick(workout.name) },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (!isPreviewMode) {
+            StratumButton(
+                text = stringResource(R.string.programs_start_workout),
+                onClick = { onStartWorkoutClick(workout.name) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
