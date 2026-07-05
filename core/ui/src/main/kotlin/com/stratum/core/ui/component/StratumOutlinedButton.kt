@@ -24,6 +24,7 @@ fun StratumOutlinedButton(
     enabled: Boolean = true,
     style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    containerColor: Color = Color.Transparent,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -35,9 +36,9 @@ fun StratumOutlinedButton(
         border = BorderStroke(shapes.borderWidth, colors.accent),
         colors =
             ButtonDefaults.outlinedButtonColors(
-                containerColor = Color.Transparent,
+                containerColor = containerColor,
                 contentColor = colors.accent,
-                disabledContainerColor = Color.Transparent,
+                disabledContainerColor = containerColor,
                 disabledContentColor = colors.textMuted,
             ),
         contentPadding = contentPadding,

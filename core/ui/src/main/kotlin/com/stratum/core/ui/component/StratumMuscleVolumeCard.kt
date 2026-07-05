@@ -90,17 +90,21 @@ fun StratumMuscleVolumeRow(
     title: String = "Volume",
     initialTier: StratumVolumeBodyTier = StratumVolumeBodyTier.Upper,
 ) {
-    var selectedIndex by remember(initialTier) {
+    var selectedIndex by remember(initialTier, upperCards, lowerCards) {
         mutableIntStateOf(
-            when (initialTier) {
-                StratumVolumeBodyTier.Upper -> UPPER_TIER_INDEX
-                StratumVolumeBodyTier.Lower -> LOWER_TIER_INDEX
+            when {
+                upperCards.isEmpty() && lowerCards.isNotEmpty() -> LOWER_TIER_INDEX
+                initialTier == StratumVolumeBodyTier.Lower && lowerCards.isNotEmpty() -> LOWER_TIER_INDEX
+                else -> UPPER_TIER_INDEX
             },
         )
     }
+    val showTierToggle = upperCards.isNotEmpty() && lowerCards.isNotEmpty()
     val visibleCards =
-        when (selectedIndex) {
-            LOWER_TIER_INDEX -> lowerCards
+        when {
+            showTierToggle && selectedIndex == LOWER_TIER_INDEX -> lowerCards
+            showTierToggle -> upperCards
+            lowerCards.isNotEmpty() -> lowerCards
             else -> upperCards
         }
 
@@ -115,12 +119,14 @@ fun StratumMuscleVolumeRow(
                 style = StratumThemeAccessor.typography.titleLarge,
                 modifier = Modifier.weight(1f),
             )
-            StratumSegmentedControl(
-                modifier = Modifier.fillMaxWidth(VOLUME_TIER_TOGGLE_WIDTH_FRACTION),
-                segments = volumeTierLabels,
-                selectedIndex = selectedIndex,
-                onSelectedIndexChange = { index -> selectedIndex = index },
-            )
+            if (showTierToggle) {
+                StratumSegmentedControl(
+                    modifier = Modifier.fillMaxWidth(VOLUME_TIER_TOGGLE_WIDTH_FRACTION),
+                    segments = volumeTierLabels,
+                    selectedIndex = selectedIndex,
+                    onSelectedIndexChange = { index -> selectedIndex = index },
+                )
+            }
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(VOLUME_CARD_SPACING)) {
             items(visibleCards, key = { card -> card.muscle.name }) { card ->

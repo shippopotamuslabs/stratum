@@ -40,14 +40,21 @@ fun StratumDropdownMenuItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    isDestructive: Boolean = false,
     leadingIcon: @Composable (() -> Unit)? = null,
 ) {
+    val textColor =
+        if (isDestructive) {
+            StratumThemeAccessor.colors.error
+        } else {
+            StratumThemeAccessor.colors.textPrimary
+        }
     DropdownMenuItem(
         text = {
             Text(
                 text = text,
                 style = StratumThemeAccessor.typography.bodyLarge,
-                color = StratumThemeAccessor.colors.textPrimary,
+                color = textColor,
             )
         },
         leadingIcon = leadingIcon,
