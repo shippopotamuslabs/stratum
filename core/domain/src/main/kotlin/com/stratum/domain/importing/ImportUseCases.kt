@@ -10,6 +10,7 @@ import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionOrigin
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
@@ -436,6 +437,9 @@ class PersistImportedHistoryUseCase @Inject constructor(
         onProgress: ImportProgressCallback = {},
     ): Result<ExtractTrainingInsightsSummary> = runCatching {
         val (sessions, sanitizedSets) = ImportedHistorySanitizer.sanitize(sessions, sets)
+        require(sessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {
+            "Import persist requires all sessions to have origin IMPORT."
+        }
         require(sanitizedSets.isNotEmpty()) {
             "Import contained no valid training sets."
         }
