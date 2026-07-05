@@ -7,12 +7,15 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.response.ExtractResponseProfileUseCase
 import com.stratum.domain.response.ResponseProfilePersistencePort
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.domain.training.TrainingSession
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 
 class ExtractTrainingInsightsUseCase @Inject constructor(
-    private val trainingHistoryRepository: TrainingHistoryRepository,
+    private val trainingLogRepository: TrainingLogRepository,
     private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
     private val supersetAffinityRepository: SupersetAffinityRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
@@ -22,8 +25,8 @@ class ExtractTrainingInsightsUseCase @Inject constructor(
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
     ): Result<ExtractTrainingInsightsSummary> = runCatching {
-        val sessions = trainingHistoryRepository.getAllSessions()
-        val sets = trainingHistoryRepository.getAllSets()
+        val sessions = trainingLogRepository.getImportSessions()
+        val sets = trainingLogRepository.getImportSets()
         val lifts = liftRepository.observeLifts().first()
         val output = TrainingInsightsExtractor.analyze(
             TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts, provenLiftIds),
@@ -419,7 +422,7 @@ class StartHistoricalImportUseCase @Inject constructor(
 }
 
 class PersistImportedHistoryUseCase @Inject constructor(
-    private val trainingHistoryRepository: TrainingHistoryRepository,
+    private val trainingLogRepository: TrainingLogRepository,
     private val resolveImportLifts: ResolveImportLiftsUseCase,
     private val extractTrainingInsights: ExtractTrainingInsightsUseCase,
     private val extractResponseProfile: ExtractResponseProfileUseCase,
@@ -428,7 +431,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
     private val loggedLiftContextFactory: com.stratum.domain.training.LoggedLiftContextFactory? = null,
 ) {
     suspend operator fun invoke(
-        sessions: List<HistoricalSession>,
+        sessions: List<TrainingSession>,
         sets: List<LoggedSet>,
         onProgress: ImportProgressCallback = {},
     ): Result<ExtractTrainingInsightsSummary> = runCatching {
@@ -439,19 +442,9 @@ class PersistImportedHistoryUseCase @Inject constructor(
         val outcome = resolveImportLifts(sanitizedSets, onProgress = onProgress)
         val factory = loggedLiftContextFactory ?: com.stratum.domain.training.DefaultLoggedLiftContextFactory()
         val lifts = liftRepository.observeLifts().first().associateBy { it.id }
-        val snapshotSets =
+        val enrichedSets =
             outcome.resolvedSets.map { set ->
-                val lift = set.liftId?.let { lifts[it] }
-                if (lift == null) {
-                    set
-                } else {
-                    val context = factory.fromLiftCatalog(lift, set.exerciseNameRaw)
-                    set.copy(
-                        movementPatternsSnapshot = context.movementPatternsBitmask,
-                        primaryMusclesSnapshot = context.primaryMusclesBitmask,
-                        secondaryMusclesSnapshot = context.secondaryMusclesBitmask,
-                    )
-                }
+                ImportHistoryTrainingMapper.enrichLiftContext(set, factory, lifts)
             }
         onProgress(
             ImportProgress(
@@ -459,7 +452,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
                 catalogStep = ImportCatalogProgressStep.SavingHistory,
             ),
         )
-        trainingHistoryRepository.replaceAll(sessions, snapshotSets)
+        trainingLogRepository.replaceImportHistory(sessions, enrichedSets)
         onProgress(
             ImportProgress(
                 phase = ImportProgressPhase.ExtractingInsights,
@@ -472,13 +465,13 @@ class PersistImportedHistoryUseCase @Inject constructor(
                     .getOrThrow()
                     .copy(liftResolution = outcome.summary)
             } catch (error: Throwable) {
-                trainingHistoryRepository.replaceAll(emptyList(), emptyList())
+                trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
                 throw error
             }
         try {
             extractResponseProfile(outcome.provenLiftIds).getOrThrow()
         } catch (error: Throwable) {
-            trainingHistoryRepository.replaceAll(emptyList(), emptyList())
+            trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
             responseProfilePersistence.clearAll()
             throw error
         }
@@ -489,7 +482,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
 }
 
 class RollbackHistoricalImportUseCase @Inject constructor(
-    private val trainingHistoryRepository: TrainingHistoryRepository,
+    private val trainingLogRepository: TrainingLogRepository,
     private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
     private val supersetAffinityRepository: SupersetAffinityRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
@@ -498,7 +491,7 @@ class RollbackHistoricalImportUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
 ) {
     suspend operator fun invoke() {
-        trainingHistoryRepository.replaceAll(emptyList(), emptyList())
+        trainingLogRepository.replaceImportHistory(emptyList(), emptyList())
         liftTrainingInsightsRepository.replaceAll(emptyList())
         supersetAffinityRepository.replaceAll(emptyList())
         muscleVolumeBaselineRepository.replaceAll(emptyList())

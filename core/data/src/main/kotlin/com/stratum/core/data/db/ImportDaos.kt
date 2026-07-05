@@ -28,38 +28,6 @@ interface ImportJobDao {
 }
 
 @Dao
-interface HistoricalSessionDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<HistoricalSessionEntity>)
-
-    @Query("DELETE FROM historical_sessions")
-    suspend fun deleteAll()
-
-    @Query("SELECT * FROM historical_sessions")
-    suspend fun getAll(): List<HistoricalSessionEntity>
-}
-
-@Dao
-interface LoggedSetDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<LoggedSetEntity>)
-
-    @Query("DELETE FROM logged_sets")
-    suspend fun deleteAll()
-
-    @Query("SELECT * FROM logged_sets")
-    suspend fun getAll(): List<LoggedSetEntity>
-
-    @Query(
-        """
-        SELECT * FROM logged_sets
-        WHERE completedAtEpochMillis >= :startMillis AND completedAtEpochMillis <= :endMillis
-        """,
-    )
-    suspend fun getInWindow(startMillis: Long, endMillis: Long): List<LoggedSetEntity>
-}
-
-@Dao
 interface LiftTrainingInsightsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(entities: List<LiftTrainingInsightsEntity>)

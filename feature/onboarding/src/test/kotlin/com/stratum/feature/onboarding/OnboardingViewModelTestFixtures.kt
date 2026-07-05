@@ -25,16 +25,8 @@ import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.importing.RefreshPersistedImportStateUseCase
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.importing.RunHistoricalImportUseCase
-import com.stratum.domain.importing.TrainingHistoryRepository
-import com.stratum.domain.lift.ObserveUsedHistoricalImportUseCase
-import com.stratum.domain.lift.SetSelectedPresetUseCase
-import com.stratum.domain.lift.ValidateGymLiftsStepUseCase
-import com.stratum.domain.importing.HistoricalSession
-import com.stratum.domain.importing.LoggedSet
-import com.stratum.domain.importing.identity.HistoricalSessionId
-import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.Weight
+import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetOnboardingStateUseCase
@@ -62,8 +54,10 @@ import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
 import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.core.testing.program.FakeProgramRepository
-import com.stratum.core.testing.program.scenarioContext
-import java.time.Instant
+import com.stratum.domain.lift.ObserveUsedHistoricalImportUseCase
+import com.stratum.domain.lift.SetSelectedPresetUseCase
+import com.stratum.domain.lift.ValidateGymLiftsStepUseCase
+import com.stratum.domain.lift.identity.LiftId
 
 internal object OnboardingViewModelTestFixtures {
 
@@ -73,7 +67,7 @@ internal object OnboardingViewModelTestFixtures {
     val fakeLiftRepository = FakeLiftRepository()
 
     val fakeHistoricalImport = FakeHistoricalImportRunnerPort()
-    private val fakeTrainingHistoryRepository = FakeTrainingHistoryRepository()
+    private val fakeTrainingLogRepository = FakeTrainingLogRepository()
     private val fakeMetadataRepository = FakeImportAnalysisMetadataRepository()
     private val fakeLiftInsightsRepository = FakeLiftInsightsRepository()
     private val fakeSupersetRepository = FakeSupersetRepository()
@@ -91,7 +85,7 @@ internal object OnboardingViewModelTestFixtures {
         fakeLiftRepository.seedLifts(emptyList())
         fakeLiftRepository.seedPreset(null)
         fakeLiftRepository.seedUsedHistoricalImport(false)
-        fakeTrainingHistoryRepository.clear()
+        runBlocking { fakeTrainingLogRepository.replaceImportHistory(emptyList(), emptyList()) }
         fakeMetadataRepository.reset()
         fakeVolumeRepository.reset()
         fakeVolumeResponseRepository.seed(emptyList())
@@ -114,7 +108,29 @@ internal object OnboardingViewModelTestFixtures {
     }
 
     fun seedOrphanImportHistory() {
-        fakeTrainingHistoryRepository.seedOrphanHistory()
+        runBlocking {
+            fakeTrainingLogRepository.replaceImportHistory(
+                sessions =
+                    listOf(
+                        WorkoutLoggingFixtures.importTrainingSession(
+                            id = "s1",
+                            startedAt = Instant.parse("2025-01-01T00:00:00Z"),
+                            endedAt = null,
+                            sourceApp = null,
+                        ),
+                    ),
+                sets =
+                    listOf(
+                        WorkoutLoggingFixtures.importLoggedSet(
+                            id = "set1",
+                            sessionId = "s1",
+                            exerciseNameRaw = "Squat",
+                            liftId = null,
+                            completedAt = Instant.parse("2025-01-01T01:00:00Z"),
+                        ),
+                    ),
+            )
+        }
     }
 
     fun buildViewModel(): OnboardingViewModel {
@@ -186,7 +202,7 @@ internal object OnboardingViewModelTestFixtures {
 
     private fun buildRollbackHistoricalImport(): RollbackHistoricalImportUseCase =
         RollbackHistoricalImportUseCase(
-            fakeTrainingHistoryRepository,
+            fakeTrainingLogRepository,
             fakeLiftInsightsRepository,
             fakeSupersetRepository,
             fakeVolumeRepository,
@@ -194,57 +210,6 @@ internal object OnboardingViewModelTestFixtures {
             FakeResponseProfilePersistencePort(),
             fakeLiftRepository,
         )
-
-    private class FakeTrainingHistoryRepository : TrainingHistoryRepository {
-        private var sessions: List<HistoricalSession> = emptyList()
-        private var sets: List<LoggedSet> = emptyList()
-
-        fun clear() {
-            sessions = emptyList()
-            sets = emptyList()
-        }
-
-        fun seedOrphanHistory() {
-            sessions =
-                listOf(
-                    HistoricalSession(
-                        id = HistoricalSessionId("s1"),
-                        startedAt = Instant.parse("2025-01-01T00:00:00Z"),
-                        endedAt = null,
-                        sourceApp = null,
-                    ),
-                )
-            sets =
-                listOf(
-                    LoggedSet(
-                        id = LoggedSetId("set1"),
-                        sessionId = HistoricalSessionId("s1"),
-                        exerciseNameRaw = "Squat",
-                        liftId = null,
-                        setIndex = 0,
-                        weight = Weight(100.0, Weight.WeightUnit.Lb),
-                        reps = 5,
-                        rir = null,
-                        completedAt = Instant.parse("2025-01-01T01:00:00Z"),
-                    ),
-                )
-        }
-
-        override suspend fun replaceAll(
-            sessions: List<HistoricalSession>,
-            sets: List<LoggedSet>,
-        ) {
-            this.sessions = sessions
-            this.sets = sets
-        }
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = sessions
-
-        override suspend fun getAllSets(): List<LoggedSet> = sets
-
-        override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
-            emptyList()
-    }
 
     private class FakeImportAnalysisMetadataRepository : ImportAnalysisMetadataRepository {
         private var stored: ImportAnalysisMetadata? = null

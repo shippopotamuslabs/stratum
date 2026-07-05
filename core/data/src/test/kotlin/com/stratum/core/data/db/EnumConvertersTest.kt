@@ -1,6 +1,5 @@
 package com.stratum.core.data.db
 
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -23,10 +22,6 @@ class EnumConvertersTest {
         assertEquals(Weekday.Monday, converters.toWeekday(converters.fromWeekday(Weekday.Monday)))
         assertEquals(LiftId("bench-press"), converters.toLiftId(converters.fromLiftId(LiftId("bench-press"))))
         assertEquals(
-            HistoricalSessionId("session-1"),
-            converters.toHistoricalSessionId(converters.fromHistoricalSessionId(HistoricalSessionId("session-1"))),
-        )
-        assertEquals(
             LoggedSetId("set-1"),
             converters.toLoggedSetId(converters.fromLoggedSetId(LoggedSetId("set-1"))),
         )
@@ -43,7 +38,6 @@ class EnumConvertersTest {
         assertNull(converters.toMuscleGroup(converters.fromMuscleGroup(null)))
         assertNull(converters.toWeekday(converters.fromWeekday(null)))
         assertNull(converters.toLiftId(converters.fromLiftId(null)))
-        assertNull(converters.toHistoricalSessionId(converters.fromHistoricalSessionId(null)))
         assertNull(converters.toLoggedSetId(converters.fromLoggedSetId(null)))
         assertNull(converters.toEpochId(converters.fromEpochId(null)))
         assertNull(converters.toExperimentId(converters.fromExperimentId(null)))

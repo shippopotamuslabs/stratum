@@ -1,9 +1,7 @@
 package com.stratum.core.testing.training
 
-import com.stratum.domain.importing.HistoricalSession
-import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.importing.LoggedSet as ImportLoggedSet
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -60,29 +58,40 @@ object WorkoutLoggingFixtures {
         movementPatterns = setOf(MovementPattern.VerticalPull),
     )
 
-    fun importHistoricalSession(id: String = "hs-import-1"): HistoricalSession = HistoricalSession(
-        id = HistoricalSessionId(id),
-        startedAt = Instant.parse("2025-01-01T10:00:00Z"),
-        endedAt = Instant.parse("2025-01-01T11:00:00Z"),
-        sourceApp = "liftlab",
-    )
+    fun importTrainingSession(
+        id: String = "ts-import-1",
+        startedAt: Instant = Instant.parse("2025-01-01T10:00:00Z"),
+        endedAt: Instant? = Instant.parse("2025-01-01T11:00:00Z"),
+        sourceApp: String? = "liftlab",
+    ): TrainingSession =
+        ImportHistoryTrainingMapper.parseSession(
+            id = id,
+            startedAt = startedAt,
+            endedAt = endedAt,
+            sourceApp = sourceApp,
+        )
 
     fun importLoggedSet(
         id: String = "import-set-1",
-        sessionId: String = "hs-import-1",
+        sessionId: String = "ts-import-1",
         exerciseNameRaw: String = "Bench Press",
         liftId: LiftId? = liftBenchId,
-    ): ImportLoggedSet = ImportLoggedSet(
-        id = LoggedSetId(id),
-        sessionId = HistoricalSessionId(sessionId),
-        exerciseNameRaw = exerciseNameRaw,
-        liftId = liftId,
-        setIndex = 0,
-        weight = Weight(BENCH_WEIGHT_LB, Weight.WeightUnit.Lb),
-        reps = 8,
-        rir = 2,
-        completedAt = Instant.parse("2025-01-01T10:30:00Z"),
-    )
+        liftContext: LoggedLiftContext = importLiftContext(),
+        completedAt: Instant = Instant.parse("2025-01-01T10:30:00Z"),
+    ): LoggedSet =
+        ImportHistoryTrainingMapper.parseSet(
+            id = LoggedSetId(id),
+            sessionId = TrainingSessionId(sessionId),
+            exerciseNameRaw = exerciseNameRaw,
+            setIndex = 0,
+            weight = Weight(BENCH_WEIGHT_LB, Weight.WeightUnit.Lb),
+            reps = 8,
+            rir = 2,
+            completedAt = completedAt,
+        ).copy(
+            liftId = liftId,
+            liftContext = if (liftId != null) liftContext else importLiftContext(liftName = exerciseNameRaw),
+        )
 
     fun benchLift(): Lift = Lift(
         id = liftBenchId,
@@ -98,8 +107,8 @@ object WorkoutLoggingFixtures {
         muscleLengthBias = MuscleLengthBias.MidRange,
     )
 
-    fun importLiftContext(): LoggedLiftContext = LoggedLiftContext(
-        liftName = "Barbell Bench Press",
+    fun importLiftContext(liftName: String = "Barbell Bench Press"): LoggedLiftContext = LoggedLiftContext(
+        liftName = liftName,
         movementPatternsBitmask = BENCH_HORIZONTAL_BITMASK,
         primaryMusclesBitmask = CHEST_BITMASK,
         secondaryMusclesBitmask = TRICEPS_BITMASK,

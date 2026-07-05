@@ -20,13 +20,11 @@ import com.stratum.domain.solver.CpSatProgramSynthesizer
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
-import com.stratum.core.data.db.ExperimentBlockDao
-import com.stratum.core.data.db.HistoricalSessionDao
 import com.stratum.core.data.db.ImportAnalysisMetadataDao
 import com.stratum.core.data.db.ImportJobDao
+import com.stratum.core.data.db.ExperimentBlockDao
 import com.stratum.core.data.db.LiftEffectivenessObservationDao
 import com.stratum.core.data.db.LiftTrainingInsightsDao
-import com.stratum.core.data.db.LoggedSetDao
 import com.stratum.core.data.db.LiftWeeklyPerformanceDao
 import com.stratum.core.data.db.MuscleDoseResponsePointDao
 import com.stratum.core.data.db.MuscleResponseModelDiagnosticDao
@@ -54,7 +52,6 @@ import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.data.repository.RoomSupersetAffinityRepository
-import com.stratum.core.data.repository.RoomTrainingHistoryRepository
 import com.stratum.domain.importing.Bm25LiftNameResolver
 import com.stratum.domain.importing.HybridLiftNameResolver
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
@@ -66,7 +63,6 @@ import com.stratum.domain.importing.LiftNameResolverPort
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinityRepository
-import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.domain.response.DefaultResponseObservationExtractor
 import com.stratum.domain.response.EmptyExperimentRegistry
 import com.stratum.domain.response.ExperimentBlockRepository
@@ -163,13 +159,6 @@ object DatabaseModule {
     @Provides
     fun provideProgramChangeEventDao(database: StratumDatabase): com.stratum.core.data.db.ProgramChangeEventDao =
         database.programChangeEventDao()
-
-    @Provides
-    fun provideHistoricalSessionDao(database: StratumDatabase): HistoricalSessionDao =
-        database.historicalSessionDao()
-
-    @Provides
-    fun provideLoggedSetDao(database: StratumDatabase): LoggedSetDao = database.loggedSetDao()
 
     @Provides
     fun provideLiftTrainingInsightsDao(database: StratumDatabase): LiftTrainingInsightsDao =
@@ -327,12 +316,6 @@ abstract class RepositoryModule {
     abstract fun bindProgramChangeEventRepository(
         impl: RoomProgramChangeEventRepository,
     ): ProgramChangeEventRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindTrainingHistoryRepository(
-        impl: RoomTrainingHistoryRepository,
-    ): TrainingHistoryRepository
 
     @Binds
     @Singleton

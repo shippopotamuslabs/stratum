@@ -6,6 +6,7 @@ import com.stratum.core.data.db.ProgramDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.TrainingLoggedSetDao
 import com.stratum.core.data.db.TrainingSessionDao
+import com.stratum.core.data.mapper.importHistoryProgramEntity
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.mapper.toTrainingDomain
@@ -45,6 +46,26 @@ class RoomTrainingLogRepository @Inject constructor(
             }
         }
     }
+
+    override suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>) {
+        database.withTransaction {
+            programDao.upsert(importHistoryProgramEntity())
+            setDao.deleteAllForImportedSessions()
+            sessionDao.deleteAllImported()
+            if (sessions.isNotEmpty()) {
+                sessionDao.insertAll(sessions.map { it.toEntity() })
+            }
+            if (sets.isNotEmpty()) {
+                setDao.insertAll(sets.map { it.toEntity() })
+            }
+        }
+    }
+
+    override suspend fun getImportSessions(): List<TrainingSession> =
+        sessionDao.getAllImported().map { it.toDomain() }
+
+    override suspend fun getImportSets(): List<LoggedSet> =
+        setDao.getAllForImportedSessions().map { it.toTrainingDomain() }
 
     override suspend fun getAllSessions(): List<TrainingSession> =
         sessionDao.getAll().map { it.toDomain() }

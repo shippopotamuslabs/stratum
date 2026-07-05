@@ -1,9 +1,9 @@
 package com.stratum.domain.response
 
-import com.stratum.domain.importing.HistoricalSession
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.response.identity.EpochId
+import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
@@ -148,7 +148,7 @@ object EpochSplitter {
         }
     }
 
-    private fun sessionGapSplits(sessions: List<HistoricalSession>): List<SplitPoint> {
+    private fun sessionGapSplits(sessions: List<TrainingSession>): List<SplitPoint> {
         if (sessions.size < 2) return emptyList()
         val splits = mutableListOf<SplitPoint>()
         for (index in 1 until sessions.size) {
@@ -170,7 +170,7 @@ object EpochSplitter {
     }
 
     private fun equipmentShiftSplits(
-        sessions: List<HistoricalSession>,
+        sessions: List<TrainingSession>,
         cleanSets: List<CleanTrainingSet>,
     ): List<SplitPoint> {
         if (sessions.size < 2) return emptyList()
@@ -209,7 +209,7 @@ object EpochSplitter {
     }
 
     private fun primaryLiftSplits(
-        sessions: List<HistoricalSession>,
+        sessions: List<TrainingSession>,
         cleanSets: List<CleanTrainingSet>,
     ): List<SplitPoint> {
         val sessionById = sessions.associateBy { it.id }
@@ -255,7 +255,7 @@ object EpochSplitter {
         weekStarts: List<Instant>,
         weeklyPrimaryLifts: SortedMap<Instant, Set<LiftId>>,
         cleanSets: List<CleanTrainingSet>,
-        sessionById: Map<HistoricalSessionId, HistoricalSession>,
+        sessionById: Map<TrainingSessionId, TrainingSession>,
     ): SplitPoint? {
         val blockEnd = blockStart + ROLLING_PRIMARY_WINDOW_WEEKS
         if (blockEnd >= weekStarts.size) return null

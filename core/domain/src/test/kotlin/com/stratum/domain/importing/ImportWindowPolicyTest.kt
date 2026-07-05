@@ -1,11 +1,12 @@
 package com.stratum.domain.importing
 
-import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ImportWindowPolicyTest {
@@ -33,11 +34,10 @@ class ImportWindowPolicyTest {
     }
 
     private fun loggedSet(id: String, completedAt: Instant): LoggedSet =
-        LoggedSet(
+        ImportHistoryTrainingMapper.parseSet(
             id = LoggedSetId(id),
-            sessionId = HistoricalSessionId("s1"),
+            sessionId = TrainingSessionId("s1"),
             exerciseNameRaw = "Squat",
-            liftId = null,
             setIndex = 0,
             weight = Weight(100.0, Weight.WeightUnit.Lb),
             reps = 5,

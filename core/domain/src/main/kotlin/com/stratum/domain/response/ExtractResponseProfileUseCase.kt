@@ -3,9 +3,9 @@ package com.stratum.domain.response
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
-import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.training.toMovementPatternSet
 import java.time.Instant
 import javax.inject.Inject
@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.first
  * `Instant.now() - metadata.lastExtractedAt >= RE_EXTRACT_MIN_INTERVAL_DAYS`.
  */
 class ExtractResponseProfileUseCase @Inject constructor(
-    private val trainingHistoryRepository: TrainingHistoryRepository,
+    private val trainingLogRepository: TrainingLogRepository,
     private val liftRepository: LiftRepository,
     private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
@@ -28,8 +28,8 @@ class ExtractResponseProfileUseCase @Inject constructor(
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
     ): Result<ExtractResponseProfileSummary> = runCatching {
-        val sessions = trainingHistoryRepository.getAllSessions()
-        val sets = trainingHistoryRepository.getAllSets()
+        val sessions = trainingLogRepository.getImportSessions()
+        val sets = trainingLogRepository.getImportSets()
         val lifts = liftRepository.observeLifts().first()
         val metadata = importAnalysisMetadataRepository.get()
         val input =

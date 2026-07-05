@@ -10,7 +10,6 @@ import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.training.identity.TrainingSessionId
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.ImportJobId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
@@ -27,14 +26,6 @@ data class ImportJobEntity(
     val errorMessage: String?,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long,
-)
-
-@Entity(tableName = "historical_sessions")
-data class HistoricalSessionEntity(
-    @PrimaryKey val id: HistoricalSessionId,
-    val startedAtEpochMillis: Long,
-    val endedAtEpochMillis: Long?,
-    val sourceApp: String?,
 )
 
 @Entity(

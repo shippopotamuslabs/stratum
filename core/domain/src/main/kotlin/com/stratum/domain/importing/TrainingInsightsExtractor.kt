@@ -4,6 +4,8 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -24,7 +26,7 @@ object TrainingInsightsExtractor {
     private const val REGRESSION_DENOM_EPSILON = 1e-9
 
     data class AnalysisInput(
-        val sessions: List<HistoricalSession>,
+        val sessions: List<TrainingSession>,
         val sets: List<LoggedSet>,
         val lifts: List<Lift>,
         /**
@@ -69,7 +71,7 @@ object TrainingInsightsExtractor {
     private data class Window(val start: Instant, val endInclusive: Instant)
 
     private fun selectFullHistoryWindow(
-        sessions: List<HistoricalSession>,
+        sessions: List<TrainingSession>,
         sets: List<LoggedSet>,
     ): Window {
         if (sessions.isEmpty() && sets.isEmpty()) {

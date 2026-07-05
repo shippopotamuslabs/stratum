@@ -20,7 +20,6 @@ import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.domain.importing.ResolveImportLiftsUseCase
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
-import com.stratum.core.testing.importing.FakeTrainingHistoryRepository
 import com.stratum.domain.importing.TrainingInsightsExtractor
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -45,16 +44,12 @@ class WorkoutLoggingMutationDefenseTest {
         val lifts = catalogWithBench()
         val liftRepo = FakeLiftRepository(initialLifts = lifts)
         val persistUseCase = buildPersistUseCase(
-            historyRepo =
-                FakeTrainingHistoryRepository(
-                    trainingLogMirror = trainingLogRepo,
-                    mirrorLifts = lifts.associateBy { it.id },
-                ),
+            trainingLogRepo = trainingLogRepo,
             liftRepo = liftRepo,
         )
 
         persistUseCase(
-            sessions = listOf(WorkoutLoggingFixtures.importHistoricalSession()),
+            sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
             sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
         ).getOrThrow()
 
@@ -63,7 +58,7 @@ class WorkoutLoggingMutationDefenseTest {
         })
 
         val baselinesFromSnapshot =
-            TrainingInsightsExtractor.computeVolumeBaselinesFromSnapshots(trainingLogRepo.getAllSets())
+            TrainingInsightsExtractor.computeVolumeBaselinesFromSnapshots(trainingLogRepo.getImportSets())
 
         val chest = baselinesFromSnapshot.firstOrNull { it.muscle == MuscleGroup.Chest }
         val back = baselinesFromSnapshot.firstOrNull { it.muscle == MuscleGroup.Back }
@@ -78,20 +73,15 @@ class WorkoutLoggingMutationDefenseTest {
         val trainingLogRepo = FakeTrainingLogRepository()
         val lifts = catalogWithBench()
         val liftRepo = FakeLiftRepository(initialLifts = lifts)
-        val historyRepo =
-            FakeTrainingHistoryRepository(
-                trainingLogMirror = trainingLogRepo,
-                mirrorLifts = lifts.associateBy { it.id },
-            )
         val persistence = FakeResponseProfilePersistencePort()
         val persistUseCase = buildPersistUseCase(
-            historyRepo = historyRepo,
+            trainingLogRepo = trainingLogRepo,
             liftRepo = liftRepo,
             persistence = persistence,
         )
 
         persistUseCase(
-            sessions = listOf(WorkoutLoggingFixtures.importHistoricalSession()),
+            sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
             sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
         ).getOrThrow()
 
@@ -99,7 +89,7 @@ class WorkoutLoggingMutationDefenseTest {
 
         val extractUseCase =
             ExtractResponseProfileUseCase(
-                trainingHistoryRepository = historyRepo,
+                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -129,7 +119,7 @@ class WorkoutLoggingMutationDefenseTest {
     }
 
     private fun buildPersistUseCase(
-        historyRepo: FakeTrainingHistoryRepository,
+        trainingLogRepo: FakeTrainingLogRepository,
         liftRepo: FakeLiftRepository,
         persistence: ResponseProfilePersistencePort = FakeResponseProfilePersistencePort(),
     ): PersistImportedHistoryUseCase {
@@ -137,7 +127,7 @@ class WorkoutLoggingMutationDefenseTest {
         val insightsRepo = InMemoryLiftInsightsRepository()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                trainingHistoryRepository = historyRepo,
+                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -147,7 +137,7 @@ class WorkoutLoggingMutationDefenseTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
-            trainingHistoryRepository = historyRepo,
+            trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
                     liftRepo,
@@ -158,7 +148,7 @@ class WorkoutLoggingMutationDefenseTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
-                    trainingHistoryRepository = historyRepo,
+                    trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),
                     muscleVolumeBaselineRepository = InMemoryVolumeRepository(),

@@ -13,7 +13,6 @@ import androidx.room.TypeConverters
         IncrementTierEntity::class,
         GymPreferenceEntity::class,
         ImportJobEntity::class,
-        HistoricalSessionEntity::class,
         LoggedSetEntity::class,
         LiftTrainingInsightsEntity::class,
         SupersetAffinityEntity::class,
@@ -56,10 +55,6 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun gymPreferenceDao(): GymPreferenceDao
 
     abstract fun importJobDao(): ImportJobDao
-
-    abstract fun historicalSessionDao(): HistoricalSessionDao
-
-    abstract fun loggedSetDao(): LoggedSetDao
 
     abstract fun liftTrainingInsightsDao(): LiftTrainingInsightsDao
 

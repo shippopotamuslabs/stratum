@@ -1,24 +1,18 @@
 package com.stratum.core.data.mapper
 
-import com.stratum.core.data.db.HistoricalSessionEntity
 import com.stratum.core.data.db.ImportAnalysisMetadataEntity
 import com.stratum.core.data.db.ImportJobEntity
 import com.stratum.core.data.db.LiftTrainingInsightsEntity
-import com.stratum.core.data.db.LoggedSetEntity
 import com.stratum.core.data.db.MuscleVolumeBaselineEntity
 import com.stratum.core.data.db.SupersetAffinityEntity
-import com.stratum.domain.importing.HistoricalSession
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportJob
 import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.importing.LiftTrainingInsights
-import com.stratum.domain.importing.LoggedSet
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.ProgressTrend
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.importing.identity.HistoricalSessionId
-import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.lift.identity.LiftId
 import java.time.Instant
 
@@ -42,52 +36,6 @@ internal fun ImportJob.toEntity(): ImportJobEntity = ImportJobEntity(
     errorMessage = errorMessage,
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
-)
-
-internal fun HistoricalSessionEntity.toDomain(): HistoricalSession = HistoricalSession(
-    id = id,
-    startedAt = Instant.ofEpochMilli(startedAtEpochMillis),
-    endedAt = endedAtEpochMillis?.let(Instant::ofEpochMilli),
-    sourceApp = sourceApp,
-)
-
-internal fun HistoricalSession.toEntity(): HistoricalSessionEntity = HistoricalSessionEntity(
-    id = id,
-    startedAtEpochMillis = startedAt.toEpochMilli(),
-    endedAtEpochMillis = endedAt?.toEpochMilli(),
-    sourceApp = sourceApp,
-)
-
-internal fun LoggedSetEntity.toDomain(): LoggedSet = LoggedSet(
-    id = id,
-    sessionId = HistoricalSessionId(sessionId.value),
-    exerciseNameRaw = exerciseNameRaw,
-    liftId = liftId,
-    setIndex = setIndex,
-    weight = Weight(weightAmount, Weight.WeightUnit.parse(weightUnit)),
-    reps = reps,
-    rir = rir,
-    completedAt = Instant.ofEpochMilli(completedAtEpochMillis),
-    movementPatternsSnapshot = movementPatternsBitmask.takeIf { it != 0 },
-    primaryMusclesSnapshot = primaryMusclesBitmask.takeIf { it != 0 },
-    secondaryMusclesSnapshot = secondaryMusclesBitmask.takeIf { it != 0 },
-)
-
-internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
-    id = id,
-    sessionId = TrainingSessionId(sessionId.value),
-    exerciseNameRaw = exerciseNameRaw,
-    liftId = liftId,
-    setIndex = setIndex,
-    weightAmount = weight.amount,
-    weightUnit = weight.unit.name,
-    reps = reps,
-    rir = rir,
-    completedAtEpochMillis = completedAt.toEpochMilli(),
-    liftName = exerciseNameRaw,
-    movementPatternsBitmask = movementPatternsSnapshot ?: 0,
-    primaryMusclesBitmask = primaryMusclesSnapshot ?: 0,
-    secondaryMusclesBitmask = secondaryMusclesSnapshot ?: 0,
 )
 
 internal fun LiftTrainingInsightsEntity.toDomain(): LiftTrainingInsights = LiftTrainingInsights(

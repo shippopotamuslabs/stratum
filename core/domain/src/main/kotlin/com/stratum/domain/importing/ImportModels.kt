@@ -1,11 +1,11 @@
 package com.stratum.domain.importing
 
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.ImportJobId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.onboarding.MuscleGroup
 import java.time.Instant
 
@@ -18,28 +18,6 @@ enum class ImportJobStatus {
     Completed,
     Failed,
 }
-
-data class HistoricalSession(
-    val id: HistoricalSessionId,
-    val startedAt: Instant,
-    val endedAt: Instant?,
-    val sourceApp: String?,
-)
-
-data class LoggedSet(
-    val id: LoggedSetId,
-    val sessionId: HistoricalSessionId,
-    val exerciseNameRaw: String,
-    val liftId: LiftId?,
-    val setIndex: Int,
-    val weight: Weight,
-    val reps: Int,
-    val rir: Int?,
-    val completedAt: Instant,
-    val movementPatternsSnapshot: Int? = null,
-    val primaryMusclesSnapshot: Int? = null,
-    val secondaryMusclesSnapshot: Int? = null,
-)
 
 data class ImportJob(
     val id: ImportJobId,

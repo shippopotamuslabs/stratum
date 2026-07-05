@@ -10,8 +10,10 @@ import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import java.time.Instant
@@ -494,11 +496,10 @@ class ResolveImportLiftsUseCaseTest {
         )
 
     private fun loggedSet(exerciseNameRaw: String): LoggedSet =
-        LoggedSet(
+        ImportHistoryTrainingMapper.parseSet(
             id = LoggedSetId("set-${exerciseNameRaw.hashCode()}"),
-            sessionId = HistoricalSessionId("session-1"),
+            sessionId = TrainingSessionId("session-1"),
             exerciseNameRaw = exerciseNameRaw,
-            liftId = null,
             setIndex = 0,
             weight = Weight(50.0, Weight.WeightUnit.Lb),
             reps = 8,
