@@ -6,7 +6,11 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import java.time.Instant
+
+/** Default inter-set rest (seconds) for generated and legacy persisted sets. */
+const val DEFAULT_LIFT_SET_REST_SECONDS = 120
 
 /**
  * Program hierarchy (vertical-slices §2.4): `Program → Workout → WorkoutLift → LiftSet`.
@@ -43,6 +47,8 @@ data class WorkoutLift(
     val progressionScheme: ProgressionScheme,
     val position: Int,
     val sets: List<LiftSet>,
+    val supersetGroupId: WorkoutSupersetGroupId? = null,
+    val useRestTimerBetweenLifts: Boolean = false,
 )
 
 /**
@@ -62,4 +68,5 @@ data class LiftSet(
     val repMax: Int,
     val rirGoal: Int,
     val isTopSet: Boolean,
+    val restSeconds: Int = DEFAULT_LIFT_SET_REST_SECONDS,
 )

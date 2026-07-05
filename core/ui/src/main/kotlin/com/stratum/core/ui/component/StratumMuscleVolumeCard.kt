@@ -90,20 +90,80 @@ fun StratumMuscleVolumeRow(
     title: String = "Volume",
     initialTier: StratumVolumeBodyTier = StratumVolumeBodyTier.Upper,
 ) {
-    var selectedIndex by remember(initialTier) {
+    var selectedIndex by remember(initialTier, upperCards, lowerCards) {
         mutableIntStateOf(
-            when (initialTier) {
-                StratumVolumeBodyTier.Upper -> UPPER_TIER_INDEX
-                StratumVolumeBodyTier.Lower -> LOWER_TIER_INDEX
+            when {
+                upperCards.isEmpty() && lowerCards.isNotEmpty() -> LOWER_TIER_INDEX
+                initialTier == StratumVolumeBodyTier.Lower && lowerCards.isNotEmpty() -> LOWER_TIER_INDEX
+                else -> UPPER_TIER_INDEX
             },
         )
     }
+    val showTierToggle = upperCards.isNotEmpty() && lowerCards.isNotEmpty()
     val visibleCards =
-        when (selectedIndex) {
-            LOWER_TIER_INDEX -> lowerCards
+        when {
+            showTierToggle && selectedIndex == LOWER_TIER_INDEX -> lowerCards
+            showTierToggle -> upperCards
+            lowerCards.isNotEmpty() -> lowerCards
             else -> upperCards
         }
 
+    StratumMuscleVolumeRowContent(
+        title = title,
+        toggleLabels = if (showTierToggle) volumeTierLabels else null,
+        selectedIndex = selectedIndex,
+        onSelectedIndexChange = { index -> selectedIndex = index },
+        visibleCards = visibleCards,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun StratumScopedMuscleVolumeRow(
+    workoutCards: List<StratumMuscleVolumeCardState>,
+    programCards: List<StratumMuscleVolumeCardState>,
+    modifier: Modifier = Modifier,
+    title: String = "Volume",
+    scopeLabels: List<String> = volumeScopeLabels,
+    initialScope: StratumVolumeScope = StratumVolumeScope.Workout,
+) {
+    var selectedIndex by remember(initialScope, workoutCards, programCards) {
+        mutableIntStateOf(
+            when {
+                workoutCards.isEmpty() && programCards.isNotEmpty() -> PROGRAM_SCOPE_INDEX
+                initialScope == StratumVolumeScope.Program && programCards.isNotEmpty() -> PROGRAM_SCOPE_INDEX
+                else -> WORKOUT_SCOPE_INDEX
+            },
+        )
+    }
+    val showScopeToggle = workoutCards.isNotEmpty() && programCards.isNotEmpty()
+    val visibleCards =
+        when {
+            showScopeToggle && selectedIndex == PROGRAM_SCOPE_INDEX -> programCards
+            showScopeToggle -> workoutCards
+            programCards.isNotEmpty() -> programCards
+            else -> workoutCards
+        }
+
+    StratumMuscleVolumeRowContent(
+        title = title,
+        toggleLabels = if (showScopeToggle) scopeLabels else null,
+        selectedIndex = selectedIndex,
+        onSelectedIndexChange = { index -> selectedIndex = index },
+        visibleCards = visibleCards,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun StratumMuscleVolumeRowContent(
+    title: String,
+    toggleLabels: List<String>?,
+    selectedIndex: Int,
+    onSelectedIndexChange: (Int) -> Unit,
+    visibleCards: List<StratumMuscleVolumeCardState>,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(VOLUME_ROW_SPACING)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -115,12 +175,14 @@ fun StratumMuscleVolumeRow(
                 style = StratumThemeAccessor.typography.titleLarge,
                 modifier = Modifier.weight(1f),
             )
-            StratumSegmentedControl(
-                modifier = Modifier.fillMaxWidth(VOLUME_TIER_TOGGLE_WIDTH_FRACTION),
-                segments = volumeTierLabels,
-                selectedIndex = selectedIndex,
-                onSelectedIndexChange = { index -> selectedIndex = index },
-            )
+            if (toggleLabels != null) {
+                StratumSegmentedControl(
+                    modifier = Modifier.fillMaxWidth(VOLUME_TIER_TOGGLE_WIDTH_FRACTION),
+                    segments = toggleLabels,
+                    selectedIndex = selectedIndex,
+                    onSelectedIndexChange = onSelectedIndexChange,
+                )
+            }
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(VOLUME_CARD_SPACING)) {
             items(visibleCards, key = { card -> card.muscle.name }) { card ->
@@ -160,10 +222,13 @@ private fun setCountLabel(setCount: Double): String {
 
 private const val UPPER_TIER_INDEX = 0
 private const val LOWER_TIER_INDEX = 1
+private const val WORKOUT_SCOPE_INDEX = 0
+private const val PROGRAM_SCOPE_INDEX = 1
 
 private const val VOLUME_TIER_TOGGLE_WIDTH_FRACTION = 0.5f
 
 private val volumeTierLabels = listOf("Upper", "Lower")
+private val volumeScopeLabels = listOf("Workout", "Program")
 
 private val VOLUME_CARD_WIDTH = 125.dp
 private val VOLUME_CARD_PADDING = 6.dp

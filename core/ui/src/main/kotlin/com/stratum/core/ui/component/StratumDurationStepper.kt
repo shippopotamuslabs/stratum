@@ -54,6 +54,7 @@ internal enum class SegmentUnit { Hours, Minutes }
 /**
  * Digital-clock style duration picker with independent hour and minute steppers.
  * Values are expressed as total minutes and clamped to [minMinutes]..[maxMinutes].
+ * The minute segment adjusts by [minutesStep] per tap (default 1).
  *
  * Each unit renders as its own bordered value box with a bordered up/down control
  * column beside it. Tapping a value box turns it into an inline numeric field
@@ -75,6 +76,7 @@ fun StratumDurationStepper(
     incrementContentDescription: String,
     decrementContentDescription: String,
     modifier: Modifier = Modifier,
+    minutesStep: Int = 1,
     isError: Boolean = false,
     onInvalidInput: ((InvalidDurationInput) -> Unit)? = null,
 ) {
@@ -124,12 +126,16 @@ fun StratumDurationStepper(
             minMinutes = minMinutes,
             maxMinutes = maxMinutes,
             controls = StepperControls(
-                incrementEnabled = totalMinutes + 1 <= maxMinutes,
-                decrementEnabled = totalMinutes - 1 >= minMinutes,
+                incrementEnabled = totalMinutes + minutesStep <= maxMinutes,
+                decrementEnabled = totalMinutes - minutesStep >= minMinutes,
                 incrementContentDescription = incrementContentDescription,
                 decrementContentDescription = decrementContentDescription,
-                onIncrement = { onTotalMinutesChange((totalMinutes + 1).coerceIn(minMinutes, maxMinutes)) },
-                onDecrement = { onTotalMinutesChange((totalMinutes - 1).coerceIn(minMinutes, maxMinutes)) },
+                onIncrement = {
+                    onTotalMinutesChange((totalMinutes + minutesStep).coerceIn(minMinutes, maxMinutes))
+                },
+                onDecrement = {
+                    onTotalMinutesChange((totalMinutes - minutesStep).coerceIn(minMinutes, maxMinutes))
+                },
             ),
             onTotalMinutesChange = onTotalMinutesChange,
             onInvalidInput = onInvalidInput,

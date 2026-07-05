@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "fc66bd1b688df7d3e7ec0de428cae4ba",
+    "identityHash": "01feb4afe7d10f52daf98f3258023e43",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -1667,7 +1667,7 @@
       },
       {
         "tableName": "workout_lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_id` TEXT NOT NULL, `lift_id` TEXT NOT NULL, `progression_scheme` TEXT NOT NULL, `position` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_id`) REFERENCES `workouts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`lift_id`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_id` TEXT NOT NULL, `lift_id` TEXT NOT NULL, `progression_scheme` TEXT NOT NULL, `position` INTEGER NOT NULL, `superset_group_id` TEXT, `use_rest_timer_between_lifts` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_id`) REFERENCES `workouts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`lift_id`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1696,6 +1696,17 @@
           {
             "fieldPath": "position",
             "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "supersetGroupId",
+            "columnName": "superset_group_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "useRestTimerBetweenLifts",
+            "columnName": "use_rest_timer_between_lifts",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -1753,7 +1764,7 @@
       },
       {
         "tableName": "sets",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_lift_id` TEXT NOT NULL, `position` INTEGER NOT NULL, `set_type` TEXT NOT NULL, `rep_min` INTEGER NOT NULL, `rep_max` INTEGER NOT NULL, `rir_goal` INTEGER NOT NULL, `is_top_set` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_lift_id`) REFERENCES `workout_lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_lift_id` TEXT NOT NULL, `position` INTEGER NOT NULL, `set_type` TEXT NOT NULL, `rep_min` INTEGER NOT NULL, `rep_max` INTEGER NOT NULL, `rir_goal` INTEGER NOT NULL, `is_top_set` INTEGER NOT NULL, `rest_seconds` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_lift_id`) REFERENCES `workout_lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1802,6 +1813,12 @@
             "columnName": "is_top_set",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "restSeconds",
+            "columnName": "rest_seconds",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -1838,7 +1855,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'fc66bd1b688df7d3e7ec0de428cae4ba')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '01feb4afe7d10f52daf98f3258023e43')"
     ]
   }
 }

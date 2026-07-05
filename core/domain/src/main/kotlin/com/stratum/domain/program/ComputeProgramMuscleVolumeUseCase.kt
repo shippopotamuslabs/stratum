@@ -4,10 +4,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.onboarding.MuscleGroup
 import javax.inject.Inject
 
-private const val PRIMARY_SET_CREDIT = 1.0
-private const val SECONDARY_SET_CREDIT = 0.5
-
-/** Weekly hard-set credits and exercise counts for one muscle group on the active program. */
+/** Weekly hard-set credits and exercise counts for one muscle group. */
 data class MuscleVolumeSummary(
     val muscle: MuscleGroup,
     val exerciseCount: Int,
@@ -21,69 +18,15 @@ data class MuscleVolumeSummary(
 class ComputeProgramMuscleVolumeUseCase @Inject constructor() {
     operator fun invoke(program: Program, lifts: List<Lift>): List<MuscleVolumeSummary> {
         val liftsById = lifts.associateBy { lift -> lift.id }
-        val volumeTotals = mutableMapOf<MuscleGroup, Double>()
-        val exercisesByMuscle = mutableMapOf<MuscleGroup, MutableSet<String>>()
-
-        for (workout in program.workouts) {
-            for (workoutLift in workout.workoutLifts) {
-                accumulateLiftVolume(
-                    workoutLift = workoutLift,
-                    lift = liftsById[workoutLift.liftId],
-                    volumeTotals = volumeTotals,
-                    exercisesByMuscle = exercisesByMuscle,
-                )
+        val workoutLifts =
+            program.workouts.flatMap { workout ->
+                workout.workoutLifts.map { workoutLift ->
+                    WorkoutLiftVolumeInput(
+                        liftId = workoutLift.liftId.value,
+                        setCount = workoutLift.sets.size,
+                    )
+                }
             }
-        }
-
-        return volumeTotals
-            .map { (muscle, setCount) ->
-                MuscleVolumeSummary(
-                    muscle = muscle,
-                    exerciseCount = exercisesByMuscle[muscle]?.size ?: 0,
-                    setCount = setCount,
-                )
-            }
-            .sortedByDescending { summary -> summary.setCount }
-    }
-}
-
-private fun accumulateLiftVolume(
-    workoutLift: WorkoutLift,
-    lift: Lift?,
-    volumeTotals: MutableMap<MuscleGroup, Double>,
-    exercisesByMuscle: MutableMap<MuscleGroup, MutableSet<String>>,
-) {
-    if (lift == null) return
-    val setCount = workoutLift.sets.size
-    if (setCount == 0) return
-    creditMuscleVolume(
-        muscles = lift.primaryMuscles,
-        credit = PRIMARY_SET_CREDIT,
-        setCount = setCount,
-        liftId = workoutLift.liftId.value,
-        volumeTotals = volumeTotals,
-        exercisesByMuscle = exercisesByMuscle,
-    )
-    creditMuscleVolume(
-        muscles = lift.secondaryMuscles.filter { muscle -> muscle !in lift.primaryMuscles },
-        credit = SECONDARY_SET_CREDIT,
-        setCount = setCount,
-        liftId = workoutLift.liftId.value,
-        volumeTotals = volumeTotals,
-        exercisesByMuscle = exercisesByMuscle,
-    )
-}
-
-private fun creditMuscleVolume(
-    muscles: Collection<MuscleGroup>,
-    credit: Double,
-    setCount: Int,
-    liftId: String,
-    volumeTotals: MutableMap<MuscleGroup, Double>,
-    exercisesByMuscle: MutableMap<MuscleGroup, MutableSet<String>>,
-) {
-    for (muscle in muscles) {
-        volumeTotals[muscle] = (volumeTotals[muscle] ?: 0.0) + setCount * credit
-        exercisesByMuscle.getOrPut(muscle) { mutableSetOf() }.add(liftId)
+        return WorkoutMuscleVolumeAccumulator.accumulate(workoutLifts, liftsById)
     }
 }

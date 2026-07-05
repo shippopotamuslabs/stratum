@@ -25,6 +25,7 @@ import com.stratum.core.ui.component.StratumNavigationBar
 import com.stratum.core.ui.component.StratumNavigationBarItem
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.program.ProgramsRoute
+import com.stratum.feature.program.ui.ProgramsScreenCallbacks
 
 private enum class MainTab(val index: Int) {
     Dashboard(0),
@@ -44,6 +45,7 @@ fun MainTabShell(
     onDiscardProgramClick: () -> Unit = {},
     onKeepProgramClick: () -> Unit = {},
     onNavigateToSwap: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
+    onNavigateToEditWorkout: (workoutId: String) -> Unit = {},
     onCreateNewLift: () -> Unit = {},
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
@@ -89,8 +91,12 @@ fun MainTabShell(
                 MainTab.Dashboard -> DashboardPlaceholder()
                 MainTab.Program -> ProgramsRoute(
                     isPreviewMode = isPreviewMode,
-                    onKeepProgramClick = onKeepProgramClick,
-                    onDiscardProgramClick = onDiscardProgramClick,
+                    callbacks =
+                        ProgramsScreenCallbacks(
+                            onKeepProgramClick = onKeepProgramClick,
+                            onDiscardProgramClick = onDiscardProgramClick,
+                            onEditWorkoutClick = onNavigateToEditWorkout,
+                        ),
                     onSwapLiftClick = onNavigateToSwap,
                 )
                 MainTab.Gym -> GymScreen(onCreateNewLift = onCreateNewLift)
