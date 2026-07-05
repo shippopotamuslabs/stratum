@@ -14,8 +14,9 @@ class RecordWorkoutSkipUseCaseTest {
     @Test
     @DisplayName("WL-027 RecordWorkoutSkipUseCase creates COMPLETED zero-set session")
     fun wl027_workoutSkipZeroSetSession() = runTest {
-        val repo = FakeTrainingLogRepository()
-        val useCase = RecordWorkoutSkipUseCase(repo, FakeProgramRepository(program()), null)
+        val programRepo = FakeProgramRepository(program())
+        val repo = FakeTrainingLogRepository(programRepository = programRepo)
+        val useCase = RecordWorkoutSkipUseCase(repo, programRepo)
 
         val session = useCase(WorkoutLoggingFixtures.workoutAId).getOrThrow()
 
@@ -29,7 +30,11 @@ class RecordWorkoutSkipUseCaseTest {
     @DisplayName("WL-029 Workout skip increments cycle_position")
     fun wl029_skipAdvancesCyclePosition() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram(cyclePosition = 0))
-        val useCase = RecordWorkoutSkipUseCase(FakeTrainingLogRepository(), programRepo, null)
+        val useCase =
+            RecordWorkoutSkipUseCase(
+                FakeTrainingLogRepository(programRepository = programRepo),
+                programRepo,
+            )
 
         useCase(WorkoutLoggingFixtures.workoutAId).getOrThrow()
 
@@ -39,17 +44,23 @@ class RecordWorkoutSkipUseCaseTest {
     @Test
     @DisplayName("WL-030 Completing last workout in cycle wraps cycle number")
     fun wl030_cycleWrapIncrementsCycleNumber() = runTest {
-        val logRepo = FakeTrainingLogRepository()
-        logRepo.seedSession(
-            WorkoutLoggingFixtures.completedProgramWorkoutSession(
-                id = "ts-wkt-a-done",
-                workoutId = WorkoutLoggingFixtures.workoutAId,
-            ),
-        )
         val programRepo = FakeProgramRepository(
             WorkoutLoggingFixtures.twoWorkoutProgram(cyclePosition = 1, currentCycleNumber = 1),
         )
-        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo, FakeProgramChangeEventRepository())
+        val events = FakeProgramChangeEventRepository()
+        val logRepo =
+            FakeTrainingLogRepository(
+                initialSessions =
+                    listOf(
+                        WorkoutLoggingFixtures.completedProgramWorkoutSession(
+                            id = "ts-wkt-a-done",
+                            workoutId = WorkoutLoggingFixtures.workoutAId,
+                        ),
+                    ),
+                programRepository = programRepo,
+                programChangeEventRepository = events,
+            )
+        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo)
 
         useCase(WorkoutLoggingFixtures.workoutBId).getOrThrow()
 

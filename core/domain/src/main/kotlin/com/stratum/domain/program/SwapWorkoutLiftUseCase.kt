@@ -17,7 +17,7 @@ import javax.inject.Inject
  */
 class SwapWorkoutLiftUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
-    private val programChangeEventRepository: ProgramChangeEventRepository? = null,
+    private val programChangeEventRepository: ProgramChangeEventRepository,
 ) {
     suspend operator fun invoke(workoutLiftId: WorkoutLiftId, newLiftId: LiftId): Result<Unit> {
         val program = programRepository.getProgram() ?: return Result.failure(
@@ -47,7 +47,7 @@ class SwapWorkoutLiftUseCase @Inject constructor(
 
         val updatedProgram = program.copy(workouts = updatedWorkouts)
         programRepository.saveProgram(updatedProgram)
-        programChangeEventRepository?.append(
+        programChangeEventRepository.append(
             ProgramChangeEvent(
                 id = ProgramChangeEventId(UUID.randomUUID().toString()),
                 programId = program.id,

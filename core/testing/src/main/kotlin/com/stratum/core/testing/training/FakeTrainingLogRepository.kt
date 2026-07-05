@@ -2,7 +2,11 @@ package com.stratum.core.testing.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.ProgramRepository
+import com.stratum.domain.training.CyclePointerUpdate
 import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.ProgramChangeEvent
+import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
@@ -15,6 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 class FakeTrainingLogRepository(
     initialSessions: List<TrainingSession> = emptyList(),
     initialSets: List<LoggedSet> = emptyList(),
+    private val programRepository: ProgramRepository? = null,
+    private val programChangeEventRepository: ProgramChangeEventRepository? = null,
 ) : TrainingLogRepository {
     private val sessions = initialSessions.associateBy { it.id }.toMutableMap()
     private val setsBySession = initialSets.groupBy { it.sessionId }.mapValues { (_, sets) ->
@@ -104,5 +110,27 @@ class FakeTrainingLogRepository(
 
     override suspend fun deleteSet(id: LoggedSetId) {
         setsBySession.values.forEach { bucket -> bucket.remove(id) }
+    }
+
+    override suspend fun persistSessionWithCycleEffects(
+        session: TrainingSession,
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
+    ) {
+        if (sessions.containsKey(session.id)) {
+            updateSession(session)
+        } else {
+            insertSession(session)
+        }
+        cyclePointerUpdate?.let { update ->
+            programRepository?.updateCyclePointer(
+                programId = update.programId,
+                currentCycleNumber = update.currentCycleNumber,
+                cyclePosition = update.cyclePosition,
+            )
+        }
+        cycleCompletedEvent?.let { event ->
+            programChangeEventRepository?.append(event)
+        }
     }
 }

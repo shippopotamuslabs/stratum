@@ -5,6 +5,8 @@ import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
 import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
+import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.scenarioContext
 import com.stratum.domain.lift.identity.LiftId
@@ -112,7 +114,7 @@ class GenerateProgramUseCaseTest {
 
     private fun buildUseCase(
         testScope: TestScope,
-        events: com.stratum.core.testing.training.FakeProgramChangeEventRepository? = null,
+        events: ProgramChangeEventRepository = NoOpProgramChangeEventRepository(),
         contextLoader: ProgramGenerationContextLoader = ProgramGenerationContextLoader {
             scenarioContext(days = 3, specialization = emptyMap())
         },

@@ -5,7 +5,7 @@ import com.stratum.domain.program.Workout
 import com.stratum.domain.program.identity.WorkoutId
 
 data class CycleProgress(
-    val program: Program,
+    val program: Program?,
     val activeSession: TrainingSession?,
     val completedWorkoutIdsThisCycle: Set<WorkoutId>,
     val nextWorkout: Workout?,

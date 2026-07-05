@@ -1,6 +1,8 @@
 package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
+import com.stratum.core.data.db.ProgramChangeEventDao
+import com.stratum.core.data.db.ProgramDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.TrainingLoggedSetDao
 import com.stratum.core.data.db.TrainingSessionDao
@@ -9,7 +11,9 @@ import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.mapper.toTrainingDomain
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.training.CyclePointerUpdate
 import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
@@ -26,6 +30,8 @@ class RoomTrainingLogRepository @Inject constructor(
     private val database: StratumDatabase,
     private val sessionDao: TrainingSessionDao,
     private val setDao: TrainingLoggedSetDao,
+    private val programDao: ProgramDao,
+    private val programChangeEventDao: ProgramChangeEventDao,
 ) : TrainingLogRepository {
     override suspend fun replaceAll(sessions: List<TrainingSession>, sets: List<LoggedSet>) {
         database.withTransaction {
@@ -92,5 +98,25 @@ class RoomTrainingLogRepository @Inject constructor(
 
     override suspend fun deleteSet(id: LoggedSetId) {
         setDao.deleteById(id)
+    }
+
+    override suspend fun persistSessionWithCycleEffects(
+        session: TrainingSession,
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
+    ) {
+        database.withTransaction {
+            sessionDao.insert(session.toEntity())
+            cyclePointerUpdate?.let { update ->
+                programDao.updateCyclePointer(
+                    programId = update.programId,
+                    currentCycleNumber = update.currentCycleNumber,
+                    cyclePosition = update.cyclePosition,
+                )
+            }
+            cycleCompletedEvent?.let { event ->
+                programChangeEventDao.insert(event.toEntity())
+            }
+        }
     }
 }

@@ -22,4 +22,14 @@ interface TrainingLogRepository {
     suspend fun insertSet(set: LoggedSet)
     suspend fun updateSet(set: LoggedSet)
     suspend fun deleteSet(id: LoggedSetId)
+
+    /**
+     * Atomically persists a completed session and optional cycle-pointer / change-event side effects.
+     * Used when finalizing or skipping a program workout so ledger and pointer stay consistent.
+     */
+    suspend fun persistSessionWithCycleEffects(
+        session: TrainingSession,
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
+    )
 }

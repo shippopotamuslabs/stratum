@@ -16,7 +16,7 @@ import javax.inject.Inject
  */
 class SaveWorkoutUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
-    private val programChangeEventRepository: ProgramChangeEventRepository? = null,
+    private val programChangeEventRepository: ProgramChangeEventRepository,
 ) {
     suspend operator fun invoke(workoutId: WorkoutId, updatedWorkout: Workout): Result<Unit> {
         val program =
@@ -25,7 +25,7 @@ class SaveWorkoutUseCase @Inject constructor(
         return runCatching {
             val merged = program.mergeWorkout(workoutId, updatedWorkout)
             programRepository.saveProgram(merged)
-            programChangeEventRepository?.append(
+            programChangeEventRepository.append(
                 ProgramChangeEvent(
                     id = ProgramChangeEventId(UUID.randomUUID().toString()),
                     programId = program.id,

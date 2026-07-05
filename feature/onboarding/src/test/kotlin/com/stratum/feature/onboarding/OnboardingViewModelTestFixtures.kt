@@ -179,6 +179,7 @@ internal object OnboardingViewModelTestFixtures {
                 liftRepository = fakeLiftRepository,
                 completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
                 profileRepository = fakeProfileRepository,
+                programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
         )
     }

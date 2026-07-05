@@ -1,6 +1,7 @@
 package com.stratum.domain.program
 
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.identity.ProgramId
@@ -50,7 +51,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val useCase = SwapWorkoutLiftUseCase(repository)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(targetWorkoutLiftId, newLiftId)
 
@@ -63,7 +64,7 @@ class SwapWorkoutLiftUseCaseTest {
     @DisplayName("When swap is called and no active program exists, then it returns a failure result")
     fun swapFailsWhenNoProgram() = runTest {
         val repository = FakeProgramRepository(null)
-        val useCase = SwapWorkoutLiftUseCase(repository)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutLiftId("wl-1"), LiftId("incline-db-bench"))
 
@@ -102,7 +103,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val useCase = SwapWorkoutLiftUseCase(repository)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutLiftId("non-existent"), LiftId("incline-db-bench"))
 

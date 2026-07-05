@@ -14,21 +14,24 @@ class WorkoutLoggingProgramChangeEventTest {
     @Test
     @DisplayName("WL-038 Cycle wrap appends CYCLE_COMPLETED event")
     fun wl038_cycleWrapAppendsCycleCompleted() = runTest {
-        val logRepo = FakeTrainingLogRepository()
-        logRepo.seedSession(
-            WorkoutLoggingFixtures.completedProgramWorkoutSession(
-                id = "ts-wkt-a-done",
-                workoutId = WorkoutLoggingFixtures.workoutAId,
-            ),
-        )
         val events = FakeProgramChangeEventRepository()
-        val useCase = RecordWorkoutSkipUseCase(
-            logRepo,
+        val programRepo =
             FakeProgramRepository(
                 WorkoutLoggingFixtures.twoWorkoutProgram(cyclePosition = 1, currentCycleNumber = 1),
-            ),
-            events,
-        )
+            )
+        val logRepo =
+            FakeTrainingLogRepository(
+                initialSessions =
+                    listOf(
+                        WorkoutLoggingFixtures.completedProgramWorkoutSession(
+                            id = "ts-wkt-a-done",
+                            workoutId = WorkoutLoggingFixtures.workoutAId,
+                        ),
+                    ),
+                programRepository = programRepo,
+                programChangeEventRepository = events,
+            )
+        val useCase = RecordWorkoutSkipUseCase(logRepo, programRepo)
 
         useCase(WorkoutLoggingFixtures.workoutBId).getOrThrow()
 

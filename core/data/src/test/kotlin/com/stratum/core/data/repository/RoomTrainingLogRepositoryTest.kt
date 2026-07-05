@@ -35,6 +35,8 @@ class RoomTrainingLogRepositoryTest {
             database = database,
             sessionDao = database.trainingSessionDao(),
             setDao = database.trainingLoggedSetDao(),
+            programDao = database.programDao(),
+            programChangeEventDao = database.programChangeEventDao(),
         )
         runBlocking {
             database.programDao().upsert(
