@@ -28,13 +28,14 @@ class DefaultResponseObservationExtractor @Inject constructor() : ResponseObserv
         val volumeResponses = ResponseModelingPipeline.projectVolumeResponses(modeling, epochs)
 
         val patterns =
-            if (input.sets.any { it.movementPatternsSnapshot != null && it.movementPatternsSnapshot != 0 }) {
-                input.sets
-                    .flatMap { it.movementPatternsSnapshot?.toMovementPatternSet().orEmpty() }
-                    .distinct()
-            } else {
-                input.lifts.flatMap { it.movementPatterns }.distinct()
-            }
+            input.sets
+                .asSequence()
+                .map { it.liftContext.movementPatternsBitmask }
+                .filter { it != 0 }
+                .flatMap { it.toMovementPatternSet().asSequence() }
+                .distinct()
+                .toList()
+                .ifEmpty { input.lifts.flatMap { it.movementPatterns }.distinct() }
         val liftEffectiveness =
             patterns.flatMap { pattern ->
                 epochs.flatMap { epoch ->

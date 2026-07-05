@@ -8,8 +8,11 @@ import kotlinx.coroutines.flow.Flow
 
 interface TrainingLogRepository {
     suspend fun replaceAll(sessions: List<TrainingSession>, sets: List<LoggedSet>)
+    suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>)
     suspend fun getAllSessions(): List<TrainingSession>
     suspend fun getAllSets(): List<LoggedSet>
+    suspend fun getImportSessions(): List<TrainingSession>
+    suspend fun getImportSets(): List<LoggedSet>
     suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet>
     suspend fun getSession(id: TrainingSessionId): TrainingSession?
     suspend fun getSetsForSession(sessionId: TrainingSessionId): List<LoggedSet>

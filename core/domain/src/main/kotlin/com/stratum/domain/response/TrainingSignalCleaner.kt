@@ -1,9 +1,10 @@
 package com.stratum.domain.response
 
 import com.stratum.domain.importing.EstimatedOneRm
-import com.stratum.domain.importing.LoggedSet
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.identity.TrainingSessionId
 
 object TrainingSignalCleaner {
     private const val LB_TO_KG = 0.45359237
@@ -80,7 +81,7 @@ object TrainingSignalCleaner {
 
     private fun sessionTopNormalizedWeight(
         sets: List<LoggedSet>,
-    ): Map<Pair<com.stratum.domain.importing.identity.HistoricalSessionId, LiftId>, Double> =
+    ): Map<Pair<TrainingSessionId, LiftId>, Double> =
         sets.filter { it.liftId != null }
             .groupBy { it.sessionId to it.liftId!! }
             .mapValues { (_, sessionSets) ->

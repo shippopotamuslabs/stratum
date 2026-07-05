@@ -20,7 +20,7 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 class LoggedSetDaoContractTest {
     private lateinit var database: StratumDatabase
     private lateinit var sessionDao: TrainingSessionDao
-    private lateinit var setDao: LoggedSetDao
+    private lateinit var setDao: TrainingLoggedSetDao
 
     @BeforeEach
     fun setup() = runBlocking {
@@ -37,7 +37,7 @@ class LoggedSetDaoContractTest {
             ),
         )
         sessionDao = database.trainingSessionDao()
-        setDao = database.loggedSetDao()
+        setDao = database.trainingLoggedSetDao()
     }
 
     @AfterEach

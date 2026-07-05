@@ -148,16 +148,6 @@ interface HistoricalImportRunnerPort {
     ): Flow<HistoricalImportEvent>
 }
 
-interface TrainingHistoryRepository {
-    suspend fun replaceAll(sessions: List<HistoricalSession>, sets: List<LoggedSet>)
-
-    suspend fun getAllSessions(): List<HistoricalSession>
-
-    suspend fun getAllSets(): List<LoggedSet>
-
-    suspend fun getSetsInWindow(windowStart: java.time.Instant, windowEnd: java.time.Instant): List<LoggedSet>
-}
-
 interface ImportJobRepository {
     suspend fun createJob(): ImportJob
 

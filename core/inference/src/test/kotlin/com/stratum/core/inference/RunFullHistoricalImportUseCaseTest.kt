@@ -8,7 +8,7 @@ import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.MergeImportedHistoryUseCase
-import com.stratum.domain.importing.HistoricalSession
+import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.ImportJobSnapshot
@@ -16,7 +16,7 @@ import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
-import com.stratum.domain.importing.LoggedSet
+import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
@@ -35,7 +35,6 @@ import com.stratum.domain.importing.ResolveImportLiftsUseCase
 import com.stratum.domain.importing.StartHistoricalImportUseCase
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
-import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
@@ -52,7 +51,7 @@ class RunFullHistoricalImportUseCaseTest {
     @Test
     fun `emits progress then completes when server returns ready snapshot`() = runTest {
         val jobRepo = FakeImportJobRepository()
-        val historyRepo = InMemoryTrainingHistoryRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val port = FakeHistoricalImportPort(
             snapshotSequence = listOf(
@@ -73,7 +72,7 @@ class RunFullHistoricalImportUseCaseTest {
             ),
             conversionJson = sampleConversionJson(),
         )
-        val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
+        val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase = RunFullHistoricalImportUseCase(
             startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
             historicalImportPort = port,
@@ -100,7 +99,7 @@ class RunFullHistoricalImportUseCaseTest {
     @Test
     fun `merges multiple files before persisting once`() = runTest {
         val jobRepo = FakeImportJobRepository()
-        val historyRepo = InMemoryTrainingHistoryRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val readySnapshot1 =
             listOf(
@@ -130,7 +129,7 @@ class RunFullHistoricalImportUseCaseTest {
                     "imports/test/job/conversions/2/normalized.json" to sampleConversionJson(id = "set2", time = "2025-01-01T01:05:00Z")
                 ),
             )
-        val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
+        val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
                 startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
@@ -154,14 +153,14 @@ class RunFullHistoricalImportUseCaseTest {
         assertTrue(events.last() is HistoricalImportEvent.Completed)
         assertEquals(2, port.uploads.size)
         assertEquals(2, jobRepo.allJobs().count { it.status == ImportJobStatus.Completed })
-        assertEquals(2, historyRepo.getAllSessions().size)
-        assertEquals(2, historyRepo.getAllSets().size)
+        assertEquals(2, trainingLogRepo.getImportSessions().size)
+        assertEquals(2, trainingLogRepo.getImportSets().size)
     }
 
     @Test
     fun `rolls back when second file conversion fails`() = runTest {
         val jobRepo = FakeImportJobRepository()
-        val historyRepo = InMemoryTrainingHistoryRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val readySnapshot =
             listOf(
@@ -188,7 +187,7 @@ class RunFullHistoricalImportUseCaseTest {
                 snapshotSequenceByUpload = listOf(readySnapshot, failedSnapshot),
                 conversionJson = sampleConversionJson(),
             )
-        val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
+        val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
                 startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
@@ -213,13 +212,13 @@ class RunFullHistoricalImportUseCaseTest {
         val failed = events.last() as HistoricalImportEvent.Failed
         assertNotNull(failed.resume)
         assertEquals(1, failed.resume?.completedChunks?.size)
-        assertTrue(historyRepo.getAllSets().isEmpty())
+        assertTrue(trainingLogRepo.getImportSets().isEmpty())
     }
 
     @Test
     fun `resume retries only pending files after partial multi-file failure`() = runTest {
         val jobRepo = FakeImportJobRepository()
-        val historyRepo = InMemoryTrainingHistoryRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val readySnapshot1 =
             listOf(
@@ -259,7 +258,7 @@ class RunFullHistoricalImportUseCaseTest {
                     "imports/test/job/conversions/2/normalized.json" to sampleConversionJson(id = "set2", time = "2025-01-01T01:05:00Z")
                 ),
             )
-        val (persist, rollback) = buildPersistAndRollback(historyRepo, liftRepo)
+        val (persist, rollback) = buildPersistAndRollback(trainingLogRepo, liftRepo)
         val useCase =
             RunFullHistoricalImportUseCase(
                 startHistoricalImport = StartHistoricalImportUseCase(jobRepo),
@@ -290,7 +289,7 @@ class RunFullHistoricalImportUseCaseTest {
 
         assertTrue(secondRun.last() is HistoricalImportEvent.Completed)
         assertEquals(3, port.uploads.size)
-        assertEquals(2, historyRepo.getAllSets().size)
+        assertEquals(2, trainingLogRepo.getImportSets().size)
     }
 
     private fun sampleConversionJson(id: String = "set1", time: String = "2025-01-01T01:00:00Z"): String =
@@ -322,13 +321,13 @@ class RunFullHistoricalImportUseCaseTest {
         """.trimIndent()
 
     private fun buildPersistAndRollback(
-        historyRepo: InMemoryTrainingHistoryRepository,
+        trainingLogRepo: FakeTrainingLogRepository,
         liftRepo: FakeLiftRepository,
     ): Pair<PersistImportedHistoryUseCase, RollbackHistoricalImportUseCase> {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                trainingHistoryRepository = historyRepo,
+                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -339,7 +338,7 @@ class RunFullHistoricalImportUseCaseTest {
             )
         val persist =
             PersistImportedHistoryUseCase(
-                trainingHistoryRepository = historyRepo,
+                trainingLogRepository = trainingLogRepo,
                 resolveImportLifts =
                     ResolveImportLiftsUseCase(
                         liftRepo,
@@ -350,7 +349,7 @@ class RunFullHistoricalImportUseCaseTest {
                     ),
                 extractTrainingInsights =
                     ExtractTrainingInsightsUseCase(
-                        trainingHistoryRepository = historyRepo,
+                        trainingLogRepository = trainingLogRepo,
                         liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
                         supersetAffinityRepository = InMemorySupersetRepository(),
                         muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -363,7 +362,7 @@ class RunFullHistoricalImportUseCaseTest {
             )
         val rollback =
             RollbackHistoricalImportUseCase(
-                historyRepo,
+                trainingLogRepo,
                 InMemoryLiftInsightsRepository(),
                 InMemorySupersetRepository(),
                 InMemoryVolumeRepository(),
@@ -376,23 +375,6 @@ class RunFullHistoricalImportUseCaseTest {
 
     private fun testImportLiftResolutionLogger(): ImportLiftResolutionLogger =
         ImportLiftResolutionLogger(FakeLoggingPort())
-
-    private class InMemoryTrainingHistoryRepository : TrainingHistoryRepository {
-        private var sessions: List<HistoricalSession> = emptyList()
-        private var sets: List<LoggedSet> = emptyList()
-
-        override suspend fun replaceAll(sessions: List<HistoricalSession>, sets: List<LoggedSet>) {
-            this.sessions = sessions
-            this.sets = sets
-        }
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = sessions
-
-        override suspend fun getAllSets(): List<LoggedSet> = sets
-
-        override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
-            sets.filter { it.completedAt in windowStart..windowEnd }
-    }
 
     private class InMemoryLiftInsightsRepository : LiftTrainingInsightsRepository {
         override suspend fun replaceAll(insights: List<LiftTrainingInsights>) = Unit

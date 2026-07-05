@@ -20,7 +20,6 @@ import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.domain.importing.ResolveImportLiftsUseCase
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
-import com.stratum.core.testing.importing.FakeTrainingHistoryRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
@@ -42,20 +41,16 @@ class WorkoutLoggingImportSnapshotTest {
         val lifts = catalogWithBench()
         val liftRepo = FakeLiftRepository(initialLifts = lifts)
         val useCase = buildPersistUseCase(
-            historyRepo =
-                FakeTrainingHistoryRepository(
-                    trainingLogMirror = trainingLogRepo,
-                    mirrorLifts = lifts.associateBy { it.id },
-                ),
+            trainingLogRepo = trainingLogRepo,
             liftRepo = liftRepo,
         )
 
         useCase(
-            sessions = listOf(WorkoutLoggingFixtures.importHistoricalSession()),
+            sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
             sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
         ).getOrThrow()
 
-        val stored = trainingLogRepo.getAllSets().single()
+        val stored = trainingLogRepo.getImportSets().single()
         assertEquals("Barbell Bench Press", stored.liftContext.liftName)
         assertEquals(WorkoutLoggingFixtures.BENCH_HORIZONTAL_BITMASK, stored.liftContext.movementPatternsBitmask)
         assertEquals(WorkoutLoggingFixtures.CHEST_BITMASK, stored.liftContext.primaryMusclesBitmask)
@@ -67,20 +62,16 @@ class WorkoutLoggingImportSnapshotTest {
         val trainingLogRepo = FakeTrainingLogRepository()
         val lifts = catalogWithBench()
         val useCase = buildPersistUseCase(
-            historyRepo =
-                FakeTrainingHistoryRepository(
-                    trainingLogMirror = trainingLogRepo,
-                    mirrorLifts = lifts.associateBy { it.id },
-                ),
+            trainingLogRepo = trainingLogRepo,
             liftRepo = FakeLiftRepository(initialLifts = lifts),
         )
 
         useCase(
-            sessions = listOf(WorkoutLoggingFixtures.importHistoricalSession()),
+            sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
             sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
         ).getOrThrow()
 
-        val liftContext = trainingLogRepo.getAllSets().single().liftContext
+        val liftContext = trainingLogRepo.getImportSets().single().liftContext
         assertNull(liftContext.workoutLiftId)
         assertNull(liftContext.progressionScheme)
         assertNull(liftContext.setType)
@@ -90,7 +81,7 @@ class WorkoutLoggingImportSnapshotTest {
     }
 
     private fun buildPersistUseCase(
-        historyRepo: FakeTrainingHistoryRepository,
+        trainingLogRepo: FakeTrainingLogRepository,
         liftRepo: FakeLiftRepository,
     ): PersistImportedHistoryUseCase {
         val metadataRepo = InMemoryMetadataRepository()
@@ -98,7 +89,7 @@ class WorkoutLoggingImportSnapshotTest {
         val persistence = FakeResponseProfilePersistencePort()
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                trainingHistoryRepository = historyRepo,
+                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -108,7 +99,7 @@ class WorkoutLoggingImportSnapshotTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
-            trainingHistoryRepository = historyRepo,
+            trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
                     liftRepo,
@@ -119,7 +110,7 @@ class WorkoutLoggingImportSnapshotTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
-                    trainingHistoryRepository = historyRepo,
+                    trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),
                     muscleVolumeBaselineRepository = InMemoryVolumeRepository(),

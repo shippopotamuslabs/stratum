@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "d8e0f34cc07db445d3a782221c395c2e",
+    "identityHash": "15867ac032e7f070935f5486335f5e74",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -337,40 +337,6 @@
             "columnName": "updatedAtEpochMillis",
             "affinity": "INTEGER",
             "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "id"
-          ]
-        }
-      },
-      {
-        "tableName": "historical_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `startedAtEpochMillis` INTEGER NOT NULL, `endedAtEpochMillis` INTEGER, `sourceApp` TEXT, PRIMARY KEY(`id`))",
-        "fields": [
-          {
-            "fieldPath": "id",
-            "columnName": "id",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "startedAtEpochMillis",
-            "columnName": "startedAtEpochMillis",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "endedAtEpochMillis",
-            "columnName": "endedAtEpochMillis",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "sourceApp",
-            "columnName": "sourceApp",
-            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -2139,7 +2105,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd8e0f34cc07db445d3a782221c395c2e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '15867ac032e7f070935f5486335f5e74')"
     ]
   }
 }

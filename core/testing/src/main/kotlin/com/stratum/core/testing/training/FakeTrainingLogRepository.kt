@@ -9,6 +9,7 @@ import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
@@ -47,6 +48,21 @@ class FakeTrainingLogRepository(
         sessions.forEach { insertSession(it) }
         sets.forEach { insertSet(it) }
         refreshActiveSession()
+    }
+
+    override suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>) {
+        getImportSessions().forEach { deleteSession(it.id) }
+        sessions.forEach { insertSession(it) }
+        sets.forEach { insertSet(it) }
+        refreshActiveSession()
+    }
+
+    override suspend fun getImportSessions(): List<TrainingSession> =
+        sessions.values.filter { it.origin == TrainingSessionOrigin.IMPORT }
+
+    override suspend fun getImportSets(): List<LoggedSet> {
+        val importSessionIds = getImportSessions().map { it.id }.toSet()
+        return getAllSets().filter { it.sessionId in importSessionIds }
     }
 
     override suspend fun getAllSessions(): List<TrainingSession> = sessions.values.toList()

@@ -1,11 +1,12 @@
 package com.stratum.core.inference
 
+import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.ImportTimestamps
-import com.stratum.domain.importing.HistoricalSession
-import com.stratum.domain.importing.LoggedSet
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -41,29 +42,30 @@ private data class ImportedSetDto(
 internal object ImportedHistoryJsonParser {
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun parse(payload: String): Pair<List<HistoricalSession>, List<LoggedSet>> {
+    fun parse(payload: String): Pair<List<TrainingSession>, List<LoggedSet>> {
         val document = json.decodeFromString<ImportedHistoryDocument>(payload)
-        val sessions = document.sessions.map { dto ->
-            HistoricalSession(
-                id = HistoricalSessionId(dto.id),
-                startedAt = ImportTimestamps.parse(dto.startedAt),
-                endedAt = dto.endedAt?.let(ImportTimestamps::parse),
-                sourceApp = dto.sourceApp,
-            )
-        }
-        val sets = document.sets.map { dto ->
-            LoggedSet(
-                id = LoggedSetId(dto.id),
-                sessionId = HistoricalSessionId(dto.sessionId),
-                exerciseNameRaw = dto.exerciseNameRaw,
-                liftId = null,
-                setIndex = dto.setIndex,
-                weight = Weight(dto.weightAmount, Weight.WeightUnit.parse(dto.weightUnitName)),
-                reps = dto.reps,
-                rir = dto.rir,
-                completedAt = ImportTimestamps.parse(dto.completedAt),
-            )
-        }
+        val sessions =
+            document.sessions.map { dto ->
+                ImportHistoryTrainingMapper.parseSession(
+                    id = dto.id,
+                    startedAt = ImportTimestamps.parse(dto.startedAt),
+                    endedAt = dto.endedAt?.let(ImportTimestamps::parse),
+                    sourceApp = dto.sourceApp,
+                )
+            }
+        val sets =
+            document.sets.map { dto ->
+                ImportHistoryTrainingMapper.parseSet(
+                    id = LoggedSetId(dto.id),
+                    sessionId = TrainingSessionId(dto.sessionId),
+                    exerciseNameRaw = dto.exerciseNameRaw,
+                    setIndex = dto.setIndex,
+                    weight = Weight(dto.weightAmount, Weight.WeightUnit.parse(dto.weightUnitName)),
+                    reps = dto.reps,
+                    rir = dto.rir,
+                    completedAt = ImportTimestamps.parse(dto.completedAt),
+                )
+            }
         return sessions to sets
     }
 }

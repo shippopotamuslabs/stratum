@@ -66,14 +66,14 @@ class AnchorLiftSelectorTest {
         val benchSessions =
             (0 until 8).map { index ->
                 ResponseFixtures.fixS4RichChest().sessions.first().copy(
-                    id = com.stratum.domain.importing.identity.HistoricalSessionId("tie-bench-$index"),
+                    id = com.stratum.domain.training.identity.TrainingSessionId("tie-bench-$index"),
                     startedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS),
                 )
             }
         val flySessions =
             (0 until 8).map { index ->
                 ResponseFixtures.fixS4RichChest().sessions.first().copy(
-                    id = com.stratum.domain.importing.identity.HistoricalSessionId("tie-fly-$index"),
+                    id = com.stratum.domain.training.identity.TrainingSessionId("tie-fly-$index"),
                     startedAt = ResponseFixtures.weekStart(2025, 1, 6).plus(index * 7L, ChronoUnit.DAYS),
                 )
             }

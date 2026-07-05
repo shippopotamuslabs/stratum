@@ -9,7 +9,6 @@ import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.ImportJobId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.ProgressionScheme
@@ -145,13 +144,6 @@ class EnumConverters {
     @TypeConverter
     fun toImportJobId(value: String?): ImportJobId? =
         value?.let { runCatching { ImportJobId(it) }.getOrNull() }
-
-    @TypeConverter
-    fun fromHistoricalSessionId(id: HistoricalSessionId?): String? = id?.value
-
-    @TypeConverter
-    fun toHistoricalSessionId(value: String?): HistoricalSessionId? =
-        value?.let { runCatching { HistoricalSessionId(it) }.getOrNull() }
 
     @TypeConverter
     fun fromLoggedSetId(id: LoggedSetId?): String? = id?.value

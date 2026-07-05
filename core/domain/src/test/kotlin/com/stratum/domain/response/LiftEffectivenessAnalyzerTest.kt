@@ -158,8 +158,8 @@ class LiftEffectivenessAnalyzerTest {
             )
         val baseInstant = Instant.parse("2025-01-06T10:00:00Z")
         val sessions = (0 until 8).map { week ->
-            com.stratum.domain.importing.HistoricalSession(
-                id = com.stratum.domain.importing.identity.HistoricalSessionId("vol-week-$week"),
+            com.stratum.core.testing.training.WorkoutLoggingFixtures.importTrainingSession(
+                id = "vol-week-$week",
                 startedAt = baseInstant.plus(week * 7L, ChronoUnit.DAYS),
                 endedAt = null,
                 sourceApp = "fixture",
@@ -171,28 +171,26 @@ class LiftEffectivenessAnalyzerTest {
             val setCount = week + 1
             (0 until setCount).flatMap { setIndex ->
                 listOf(
-                    com.stratum.domain.importing.LoggedSet(
+                    com.stratum.domain.importing.ImportHistoryTrainingMapper.parseSet(
                         id = com.stratum.domain.importing.identity.LoggedSetId("vol-a-$week-$setIndex"),
                         sessionId = session.id,
                         exerciseNameRaw = "Fixture",
-                        liftId = correlatedLift,
                         setIndex = setIndex + 1,
                         weight = Weight(100.0 + week * 2.0, Weight.WeightUnit.Kg),
                         reps = 5,
                         rir = 2,
                         completedAt = session.startedAt.plusSeconds((setIndex * 90).toLong()),
-                    ),
-                    com.stratum.domain.importing.LoggedSet(
+                    ).copy(liftId = correlatedLift),
+                    com.stratum.domain.importing.ImportHistoryTrainingMapper.parseSet(
                         id = com.stratum.domain.importing.identity.LoggedSetId("vol-b-$week-$setIndex"),
                         sessionId = session.id,
                         exerciseNameRaw = "Fixture",
-                        liftId = flatLift,
                         setIndex = setIndex + 1,
                         weight = Weight(100.0, Weight.WeightUnit.Kg),
                         reps = 5,
                         rir = 2,
                         completedAt = session.startedAt.plusSeconds(60L + (setIndex * 90).toLong()),
-                    ),
+                    ).copy(liftId = flatLift),
                 )
             }
         }

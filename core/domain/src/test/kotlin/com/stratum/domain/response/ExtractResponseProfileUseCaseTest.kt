@@ -2,15 +2,12 @@ package com.stratum.domain.response
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
-import com.stratum.domain.importing.HistoricalSession
+import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
-import com.stratum.domain.importing.LoggedSet
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
-import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.domain.response.fixtures.ResponseFixtures
-import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -65,7 +62,7 @@ class ExtractResponseProfileUseCaseTest {
         val persistence = FakeResponseProfilePersistencePort()
         val useCase =
             ExtractResponseProfileUseCase(
-                trainingHistoryRepository = FakeTrainingHistoryRepository(emptyList(), emptyList()),
+                trainingLogRepository = FakeTrainingLogRepository(),
                 liftRepository = FakeLiftRepository(),
                 liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
                 muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
@@ -97,14 +94,16 @@ class ExtractResponseProfileUseCaseTest {
         assertTrue((baselines.firstOrNull { it.muscle == com.stratum.domain.onboarding.MuscleGroup.Chest }?.meanWeeklyHardSets ?: 0.0) > 0.0)
     }
 
-    private fun buildUseCase(
+    private suspend fun buildUseCase(
         fixture: ResponseExtractionInput,
         persistence: FakeResponseProfilePersistencePort,
     ): ExtractResponseProfileUseCase {
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(fixture.lifts)
+        val trainingLogRepo = FakeTrainingLogRepository()
+        trainingLogRepo.replaceImportHistory(fixture.sessions, fixture.sets)
         return ExtractResponseProfileUseCase(
-            trainingHistoryRepository = FakeTrainingHistoryRepository(fixture.sessions, fixture.sets),
+            trainingLogRepository = trainingLogRepo,
             liftRepository = liftRepo,
             liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
             muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
@@ -113,23 +112,6 @@ class ExtractResponseProfileUseCaseTest {
             extractor = DefaultResponseObservationExtractor(),
             experimentRegistry = EmptyExperimentRegistry(),
         )
-    }
-
-    private class FakeTrainingHistoryRepository(
-        private var sessions: List<HistoricalSession>,
-        private var sets: List<LoggedSet>,
-    ) : TrainingHistoryRepository {
-        override suspend fun replaceAll(sessions: List<HistoricalSession>, sets: List<LoggedSet>) {
-            this.sessions = sessions
-            this.sets = sets
-        }
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = sessions
-
-        override suspend fun getAllSets(): List<LoggedSet> = sets
-
-        override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
-            sets.filter { it.completedAt in windowStart..windowEnd }
     }
 
     private class FakeLiftInsightsRepository : LiftTrainingInsightsRepository {
