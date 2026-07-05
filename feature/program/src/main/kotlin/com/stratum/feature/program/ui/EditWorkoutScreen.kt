@@ -48,8 +48,7 @@ import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
-import com.stratum.core.ui.component.StratumMuscleVolumeRow
-import com.stratum.core.ui.component.StratumVolumeBodyTier
+import com.stratum.core.ui.component.StratumScopedMuscleVolumeRow
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.EditWorkoutViewModel
 import com.stratum.feature.program.R
@@ -58,6 +57,7 @@ import com.stratum.feature.program.formatEstimatedWorkoutDuration
 
 private const val MIN_REST_SECONDS = 0
 private const val MAX_REST_SECONDS = 600
+private const val REST_SECONDS_STEP = 30
 private const val REORDER_DRAG_THRESHOLD_DP = 48f
 
 @Composable
@@ -300,18 +300,19 @@ private fun EditWorkoutContent(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
+        val workoutVolumeCards = state.upperVolumeByMuscle + state.lowerVolumeByMuscle
+        val programVolumeCards = state.programUpperVolumeByMuscle + state.programLowerVolumeByMuscle
+        if (workoutVolumeCards.isNotEmpty() || programVolumeCards.isNotEmpty()) {
             item {
-                val initialTier =
-                    if (state.upperVolumeByMuscle.isEmpty() && state.lowerVolumeByMuscle.isNotEmpty()) {
-                        StratumVolumeBodyTier.Lower
-                    } else {
-                        StratumVolumeBodyTier.Upper
-                    }
-                StratumMuscleVolumeRow(
-                    upperCards = state.upperVolumeByMuscle,
-                    lowerCards = state.lowerVolumeByMuscle,
-                    initialTier = initialTier,
+                StratumScopedMuscleVolumeRow(
+                    workoutCards = workoutVolumeCards,
+                    programCards = programVolumeCards,
+                    title = stringResource(R.string.edit_workout_volume_title),
+                    scopeLabels =
+                        listOf(
+                            stringResource(R.string.edit_workout_volume_scope_workout),
+                            stringResource(R.string.edit_workout_volume_scope_program),
+                        ),
                 )
             }
         }
@@ -578,6 +579,7 @@ private fun RestTimeBottomSheet(
             onTotalMinutesChange = onTotalSecondsChange,
             minMinutes = MIN_REST_SECONDS,
             maxMinutes = MAX_REST_SECONDS,
+            minutesStep = REST_SECONDS_STEP,
             hoursLabel = stringResource(R.string.edit_workout_rest_minutes_label),
             minutesLabel = stringResource(R.string.edit_workout_rest_seconds_label),
             incrementContentDescription = stringResource(R.string.edit_workout_rest_increment),
