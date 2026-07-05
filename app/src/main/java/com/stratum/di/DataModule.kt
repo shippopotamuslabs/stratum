@@ -66,6 +66,7 @@ import com.stratum.domain.importing.LiftNameResolverPort
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.domain.importing.TrainingHistoryRepository
 import com.stratum.domain.response.DefaultResponseObservationExtractor
 import com.stratum.domain.response.EmptyExperimentRegistry
 import com.stratum.domain.response.ExperimentBlockRepository

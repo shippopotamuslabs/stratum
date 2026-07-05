@@ -53,6 +53,7 @@ class RoomProgramRepositoryTest {
             workoutDao = database.workoutDao(),
             workoutLiftDao = database.workoutLiftDao(),
             liftSetDao = database.liftSetDao(),
+            trainingSessionDao = database.trainingSessionDao(),
         )
     }
 

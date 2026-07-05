@@ -41,6 +41,18 @@ interface TrainingSessionDao {
 
     @Query(
         """
+        UPDATE training_sessions
+        SET program_id = :newProgramId
+        WHERE program_id = :oldProgramId
+        """,
+    )
+    suspend fun reassignProgramId(
+        oldProgramId: ProgramId,
+        newProgramId: ProgramId,
+    )
+
+    @Query(
+        """
         SELECT * FROM training_sessions
         WHERE status = :status
         LIMIT 1

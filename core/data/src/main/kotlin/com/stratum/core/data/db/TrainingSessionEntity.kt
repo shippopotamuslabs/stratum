@@ -20,7 +20,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
             entity = ProgramEntity::class,
             parentColumns = ["id"],
             childColumns = ["program_id"],
-            onDelete = ForeignKey.CASCADE,
+            onDelete = ForeignKey.RESTRICT,
         ),
         ForeignKey(
             entity = WorkoutEntity::class,
