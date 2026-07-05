@@ -1,8 +1,15 @@
 package com.stratum.feature.program.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,11 +29,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -274,13 +286,26 @@ internal fun WorkoutCard(
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
     isPreviewMode: Boolean = false,
+    initiallyExpanded: Boolean = false,
 ) {
+    var expanded by rememberSaveable(workout.workoutId) { mutableStateOf(initiallyExpanded) }
     val sortedLifts = workout.lifts.sortedBy { lift -> lift.position }
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "workoutCardChevronRotation",
+    )
+    val expandCollapseLabel =
+        if (expanded) {
+            stringResource(R.string.programs_collapse_workout_a11y, workout.name)
+        } else {
+            stringResource(R.string.programs_expand_workout_a11y, workout.name)
+        }
+    val toggleInteractionSource = remember { MutableInteractionSource() }
+
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { onEditWorkoutClick(workout.workoutId) }
                 .background(
                     color = StratumThemeAccessor.colors.surfaceRaised,
                     shape = StratumThemeAccessor.shapes.panel,
@@ -299,45 +324,86 @@ internal fun WorkoutCard(
                         horizontal = WorkoutCardContentPadding,
                         vertical = 16.dp,
                     ),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                StratumText(text = workout.name, style = StratumThemeAccessor.typography.titleLarge)
-                StratumText(text = workout.weekdayLabel, muted = true)
+            Row(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = expandCollapseLabel }
+                        .clickable(
+                            interactionSource = toggleInteractionSource,
+                            indication = null,
+                            onClick = { expanded = !expanded },
+                        ),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .padding(top = 4.dp)
+                            .size(WorkoutChevronSize)
+                            .rotate(chevronRotation),
+                    tint = StratumThemeAccessor.colors.textMuted,
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    StratumText(
+                        text = workout.name,
+                        style = StratumThemeAccessor.typography.titleLarge,
+                        modifier = Modifier.clickable { onEditWorkoutClick(workout.workoutId) },
+                    )
+                    StratumText(text = workout.weekdayLabel, muted = true)
+                }
             }
             StratumCheckbox(
                 checked = workout.isCompleted,
                 onCheckedChange = { checked -> onSkipWorkoutCheckedChange(workout.name, checked) },
             )
         }
-        WorkoutCardDivider()
-        sortedLifts.forEachIndexed { index, lift ->
-            LiftRow(
-                lift = lift,
-                onSwapLiftClick = { onSwapLiftClick(lift) },
-            )
-            if (index < sortedLifts.lastIndex) {
-                WorkoutCardDivider(startPadding = WorkoutCardContentPadding)
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Column {
+                WorkoutCardDivider()
+                sortedLifts.forEachIndexed { index, lift ->
+                    LiftRow(
+                        lift = lift,
+                        onSwapLiftClick = { onSwapLiftClick(lift) },
+                    )
+                    if (index < sortedLifts.lastIndex) {
+                        WorkoutCardDivider(startPadding = WorkoutCardContentPadding)
+                    }
+                }
+                if (!isPreviewMode) {
+                    StratumButton(
+                        text = stringResource(R.string.programs_start_workout),
+                        onClick = { onStartWorkoutClick(workout.name) },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = WorkoutCardContentPadding,
+                                    end = WorkoutCardContentPadding,
+                                    top = 12.dp,
+                                    bottom = WorkoutCardContentPadding,
+                                ),
+                    )
+                }
             }
-        }
-        if (!isPreviewMode) {
-            StratumButton(
-                text = stringResource(R.string.programs_start_workout),
-                onClick = { onStartWorkoutClick(workout.name) },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            start = WorkoutCardContentPadding,
-                            end = WorkoutCardContentPadding,
-                            top = 12.dp,
-                            bottom = WorkoutCardContentPadding,
-                        ),
-            )
         }
     }
 }
+
+private val WorkoutChevronSize = 20.dp
 
 @Composable
 private fun LiftRow(

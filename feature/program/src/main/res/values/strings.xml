@@ -14,6 +14,8 @@
     <string name="programs_menu_content_description">Program options</string>
     <string name="programs_skip_workout_content_description">Skip workout</string>
     <string name="programs_swap_lift_content_description">Swap lift</string>
+    <string name="programs_expand_workout_a11y">Expand %1$s workout</string>
+    <string name="programs_collapse_workout_a11y">Collapse %1$s workout</string>
 
     <string name="programs_keep_program">Keep Program</string>
     <string name="programs_discard_program">Discard Program</string>
