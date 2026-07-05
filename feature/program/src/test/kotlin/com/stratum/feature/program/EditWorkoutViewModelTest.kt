@@ -23,13 +23,16 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
+import com.stratum.feature.program.ui.SaveBlockedReason
 import app.cash.turbine.ReceiveTurbine
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -101,6 +104,7 @@ class EditWorkoutViewModelTest {
                     ?: 0.0
             viewModel.addSet(WORKOUT_LIFT_ID)
             val updated = awaitItem() as EditWorkoutUiState.Loaded
+            assertTrue(updated.isDirty)
             val updatedWorkoutChestSets =
                 updated.upperVolumeByMuscle
                     .first { card -> card.muscle == MuscleGroup.Chest }
@@ -217,10 +221,11 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.addLift()
+            viewModel.addLift { _, _, _ -> }
             val loaded = awaitLoaded()
             assertEquals(3, loaded.lifts.size)
             assertEquals(PLACEHOLDER_LIFT_NAME, loaded.lifts.last().name)
+            assertEquals(SaveBlockedReason.PlaceholderLift, loaded.saveBlockedReason)
             assertEquals(1, loaded.lifts.last().sets.size)
             cancelAndIgnoreRemainingEvents()
         }
@@ -267,8 +272,8 @@ class EditWorkoutViewModelTest {
             awaitLoaded()
             viewModel.linkSupersetWithPrevious("wl-2")
             val loaded = awaitItem() as EditWorkoutUiState.Loaded
-            assertEquals(1, loaded.lifts[0].supersetGroupId)
-            assertEquals(1, loaded.lifts[1].supersetGroupId)
+            assertNotNull(loaded.lifts[0].supersetGroupId)
+            assertEquals(loaded.lifts[0].supersetGroupId, loaded.lifts[1].supersetGroupId)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -306,6 +311,23 @@ class EditWorkoutViewModelTest {
         }
     }
 
+    @Test
+    @DisplayName("Given dirty workout when saved then repository receives updated workout")
+    fun saveWorkoutPersistsChanges() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.setRestSecondsForAllSetsOnLift(WORKOUT_LIFT_ID, 45)
+            awaitItem()
+            viewModel.saveWorkout()
+            val saved = awaitItem() as EditWorkoutUiState.Loaded
+            assertFalse(saved.isDirty)
+            assertEquals(45, repository.getProgram()!!.workouts.first().workoutLifts.first().sets.first().restSeconds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private suspend fun ReceiveTurbine<EditWorkoutUiState>.awaitLoaded(): EditWorkoutUiState.Loaded {
         var item = awaitItem()
         while (item !is EditWorkoutUiState.Loaded) {
@@ -326,6 +348,7 @@ class EditWorkoutViewModelTest {
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
         )

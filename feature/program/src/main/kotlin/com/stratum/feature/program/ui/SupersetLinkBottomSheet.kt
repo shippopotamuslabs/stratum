@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +28,9 @@ import com.stratum.feature.program.SupersetLinkDirection
 @Composable
 internal fun SupersetLinkBottomSheet(
     options: List<SupersetLinkSheetOption>,
+    showRestBetweenLiftsToggle: Boolean,
+    useRestTimerBetweenLifts: Boolean,
+    onUseRestTimerBetweenLiftsChange: (Boolean) -> Unit,
     onOptionSelected: (SupersetLinkDirection) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -37,12 +42,51 @@ internal fun SupersetLinkBottomSheet(
             SupersetLinkSheetRow(
                 label = stringResource(option.labelRes),
                 trailingIconRes = option.trailingIconRes,
-                onClick = {
-                    onOptionSelected(option.direction)
-                    onDismiss()
-                },
+                onClick = { onOptionSelected(option.direction) },
             )
         }
+        if (showRestBetweenLiftsToggle) {
+            SupersetRestBetweenLiftsRow(
+                checked = useRestTimerBetweenLifts,
+                onCheckedChange = onUseRestTimerBetweenLiftsChange,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SupersetRestBetweenLiftsRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
+                .clickable { onCheckedChange(!checked) }
+                .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumText(
+            text = stringResource(R.string.edit_workout_use_rest_timer_between_lifts),
+            style = StratumThemeAccessor.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors =
+                CheckboxDefaults.colors(
+                    checkedColor = colors.accent,
+                    uncheckedColor = colors.textMuted,
+                    checkmarkColor = colors.onAccent,
+                ),
+        )
     }
 }
 
@@ -81,7 +125,7 @@ private fun SupersetLinkSheetRow(
 
 @Composable
 internal fun SupersetGroupChip(
-    groupId: Int,
+    groupId: String,
     modifier: Modifier = Modifier,
 ) {
     StratumText(

@@ -17,11 +17,13 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -94,6 +96,38 @@ class RoomProgramRepositoryTest {
             assertEquals(SetType.Standard, loaded.workouts[0].workoutLifts[0].sets[0].setType)
             assertEquals(Weekday.Monday, loaded.workouts[0].weekday)
             assertEquals(ProgressionScheme.Linear, loaded.workouts[0].workoutLifts[0].progressionScheme)
+        }
+
+        @Test
+        fun `rest seconds and superset fields round-trip`() = runTest {
+            seedReferencedLifts()
+            val programWithSuperset =
+                PROGRAM_P1.copy(
+                    workouts =
+                        PROGRAM_P1.workouts.map { workout ->
+                            workout.copy(
+                                workoutLifts =
+                                    listOf(
+                                        workout.workoutLifts[0].copy(
+                                            supersetGroupId = WorkoutSupersetGroupId("sg-1"),
+                                            useRestTimerBetweenLifts = true,
+                                            sets =
+                                                workout.workoutLifts[0].sets.mapIndexed { index, set ->
+                                                    set.copy(restSeconds = 90 + index * 30)
+                                                },
+                                        ),
+                                    ),
+                            )
+                        },
+                )
+            repository.saveProgram(programWithSuperset)
+
+            val loaded = repository.getProgram()!!.workouts[0].workoutLifts[0]
+
+            assertEquals(WorkoutSupersetGroupId("sg-1"), loaded.supersetGroupId)
+            assertTrue(loaded.useRestTimerBetweenLifts)
+            assertEquals(90, loaded.sets[0].restSeconds)
+            assertEquals(120, loaded.sets[1].restSeconds)
         }
     }
 

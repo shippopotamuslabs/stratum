@@ -16,7 +16,7 @@ internal fun linkSupersetWithAdjacent(
     lifts: List<EditLiftState>,
     workoutLiftId: String,
     direction: SupersetLinkDirection,
-    nextGroupId: () -> Int,
+    nextGroupId: () -> String,
 ): List<EditLiftState> {
     val sorted = lifts.sortedBy { lift -> lift.position }
     val index = sorted.indexOfFirst { lift -> lift.workoutLiftId == workoutLiftId }
@@ -54,7 +54,10 @@ internal fun linkSupersetWithAdjacent(
 
     return lifts.map { lift ->
         if (lift.workoutLiftId in liftIdsToUpdate) {
-            lift.copy(supersetGroupId = targetGroupId)
+            lift.copy(
+                supersetGroupId = targetGroupId,
+                useRestTimerBetweenLifts = false,
+            )
         } else {
             lift
         }
@@ -69,7 +72,10 @@ internal fun unlinkLiftFromSuperset(
     val updated =
         lifts.map { lift ->
             if (lift.workoutLiftId == workoutLiftId) {
-                lift.copy(supersetGroupId = null)
+                lift.copy(
+                    supersetGroupId = null,
+                    useRestTimerBetweenLifts = false,
+                )
             } else {
                 lift
             }
@@ -87,7 +93,10 @@ internal fun cleanupSupersetGroups(lifts: List<EditLiftState>): List<EditLiftSta
     return lifts.map { lift ->
         val groupId = lift.supersetGroupId
         if (groupId != null && (counts[groupId] ?: 0) < 2) {
-            lift.copy(supersetGroupId = null)
+            lift.copy(
+                supersetGroupId = null,
+                useRestTimerBetweenLifts = false,
+            )
         } else {
             lift
         }

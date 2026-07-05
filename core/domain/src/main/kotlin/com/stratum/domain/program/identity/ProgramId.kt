@@ -33,3 +33,11 @@ value class LiftSetId(override val value: String) : EntityId {
         require(value.isNotBlank()) { "LiftSetId cannot be blank" }
     }
 }
+
+/** Type-safe identifier linking [com.stratum.domain.program.WorkoutLift]s in a superset/giant set. */
+@JvmInline
+value class WorkoutSupersetGroupId(override val value: String) : EntityId {
+    init {
+        require(value.isNotBlank()) { "WorkoutSupersetGroupId cannot be blank" }
+    }
+}

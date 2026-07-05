@@ -7,6 +7,7 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -93,6 +94,17 @@ class ProgramSchemaContractTest {
             assertEquals(LiftSetId("ls-1"), converters.toLiftSetId("ls-1"))
             assertNull(converters.toProgramId(""))
             assertNull(converters.toProgramId(null))
+        }
+
+        @Test
+        fun `WorkoutSupersetGroupId round-trips and rejects blank values`() {
+            assertEquals("sg-1", converters.fromWorkoutSupersetGroupId(WorkoutSupersetGroupId("sg-1")))
+            assertEquals(
+                WorkoutSupersetGroupId("sg-1"),
+                converters.toWorkoutSupersetGroupId("sg-1"),
+            )
+            assertNull(converters.toWorkoutSupersetGroupId(""))
+            assertNull(converters.toWorkoutSupersetGroupId(null))
         }
     }
 }

@@ -23,7 +23,14 @@ sealed interface EditWorkoutUiState {
         val estimatedDurationMinutes: Int = 0,
         val isReorderMode: Boolean = false,
         val pendingReorderLifts: List<EditLiftReorderState>? = null,
+        val isDirty: Boolean = false,
+        val isSaving: Boolean = false,
+        val saveBlockedReason: SaveBlockedReason? = null,
     ) : EditWorkoutUiState
+}
+
+enum class SaveBlockedReason {
+    PlaceholderLift,
 }
 
 data class EditLiftState(
@@ -32,7 +39,8 @@ data class EditLiftState(
     val name: String,
     val position: Int,
     val sets: List<EditSetState>,
-    val supersetGroupId: Int? = null,
+    val supersetGroupId: String? = null,
+    val useRestTimerBetweenLifts: Boolean = false,
 )
 
 data class EditSetState(

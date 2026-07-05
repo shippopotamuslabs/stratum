@@ -18,6 +18,7 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
@@ -279,4 +280,11 @@ class EnumConverters {
     @TypeConverter
     fun toLiftSetId(value: String?): LiftSetId? =
         value?.let { runCatching { LiftSetId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromWorkoutSupersetGroupId(id: WorkoutSupersetGroupId?): String? = id?.value
+
+    @TypeConverter
+    fun toWorkoutSupersetGroupId(value: String?): WorkoutSupersetGroupId? =
+        value?.let { runCatching { WorkoutSupersetGroupId(it) }.getOrNull() }
 }

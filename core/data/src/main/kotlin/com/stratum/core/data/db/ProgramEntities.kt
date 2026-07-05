@@ -9,10 +9,12 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
+import com.stratum.domain.program.DEFAULT_LIFT_SET_REST_SECONDS
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 
 /**
  * Program hierarchy persistence (OS-7). Four normalized tables for the
@@ -78,6 +80,8 @@ data class WorkoutLiftEntity(
     @ColumnInfo(name = "lift_id") val liftId: LiftId,
     @ColumnInfo(name = "progression_scheme") val progressionScheme: ProgressionScheme,
     val position: Int,
+    @ColumnInfo(name = "superset_group_id") val supersetGroupId: WorkoutSupersetGroupId? = null,
+    @ColumnInfo(name = "use_rest_timer_between_lifts") val useRestTimerBetweenLifts: Boolean = false,
 )
 
 @Entity(
@@ -101,4 +105,5 @@ data class LiftSetEntity(
     @ColumnInfo(name = "rep_max") val repMax: Int,
     @ColumnInfo(name = "rir_goal") val rirGoal: Int,
     @ColumnInfo(name = "is_top_set") val isTopSet: Boolean,
+    @ColumnInfo(name = "rest_seconds") val restSeconds: Int = DEFAULT_LIFT_SET_REST_SECONDS,
 )

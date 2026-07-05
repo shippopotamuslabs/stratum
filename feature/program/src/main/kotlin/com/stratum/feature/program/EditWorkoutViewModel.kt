@@ -8,26 +8,28 @@ import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.ObserveProgramUseCase
 import com.stratum.domain.program.Program
+import com.stratum.domain.program.SaveWorkoutUseCase
+import com.stratum.domain.program.mergeWorkout
+import com.stratum.domain.program.Workout
+import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
+import com.stratum.feature.program.ui.SaveBlockedReason
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/**
- * Loads a workout for editing and holds in-memory mutations until persistence is wired.
- */
 @HiltViewModel
 class EditWorkoutViewModel @Inject constructor(
     private val observeProgram: ObserveProgramUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
+    private val saveWorkoutUseCase: SaveWorkoutUseCase,
     private val computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
     private val estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
 ) : ViewModel() {
@@ -37,9 +39,9 @@ class EditWorkoutViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<EditWorkoutUiState>(EditWorkoutUiState.Loading)
     val uiState: StateFlow<EditWorkoutUiState> = _uiState.asStateFlow()
 
-    private var nextSupersetGroupId = 1
     private var catalogLifts: List<Lift> = emptyList()
     private var programSnapshot: Program? = null
+    private var baselineWorkout: Workout? = null
 
     fun initialize(workoutId: String) {
         if (targetWorkoutId.value == workoutId && hasSnapshot.value) {
@@ -49,37 +51,74 @@ class EditWorkoutViewModel @Inject constructor(
         hasSnapshot.value = false
         _uiState.value = EditWorkoutUiState.Loading
         viewModelScope.launch {
-            val (snapshot, catalog, program) =
-                combine(
-                    observeProgram(),
-                    observeLiftCatalog(),
-                ) { program, lifts ->
-                    val liftNamesById = lifts.associate { lift -> lift.id.value to lift.name }
-                    val state =
-                        if (program == null) {
-                            EditWorkoutUiState.NotFound
-                        } else {
-                            val workout =
-                                program.workouts.firstOrNull { workout -> workout.id.value == workoutId }
-                            if (workout == null) {
-                                EditWorkoutUiState.NotFound
-                            } else {
-                                workout.toEditWorkoutUiState(liftNamesById)
-                            }
+            combine(
+                observeProgram(),
+                observeLiftCatalog(),
+            ) { program, lifts ->
+                program to lifts
+            }.collect { (program, lifts) ->
+                catalogLifts = lifts
+                programSnapshot = program
+                val liftNamesById = lifts.associate { lift -> lift.id.value to lift.name }
+                val workout =
+                    program?.workouts?.firstOrNull { workout -> workout.id.value == workoutId }
+                baselineWorkout = workout
+
+                when {
+                    program == null || workout == null -> {
+                        if (!hasSnapshot.value) {
+                            _uiState.value =
+                                if (program == null) {
+                                    EditWorkoutUiState.NotFound
+                                } else {
+                                    EditWorkoutUiState.NotFound
+                                }
                         }
-                    Triple(state, lifts, program)
-                }.first { (state, _, _) -> state !is EditWorkoutUiState.Loading }
-            catalogLifts = catalog
-            programSnapshot = program
-            nextSupersetGroupId =
-                (snapshot as? EditWorkoutUiState.Loaded)
-                    ?.lifts
-                    ?.mapNotNull { lift -> lift.supersetGroupId }
-                    ?.maxOrNull()
-                    ?.plus(1)
-                    ?: 1
-            _uiState.value = applyDerivedMetrics(snapshot)
-            hasSnapshot.value = true
+                    }
+                    !hasSnapshot.value -> {
+                        val loaded = workout.toEditWorkoutUiState(liftNamesById).markSaveState()
+                        _uiState.value = applyDerivedMetrics(loaded)
+                        hasSnapshot.value = true
+                    }
+                    else -> {
+                        val current = _uiState.value
+                        if (current is EditWorkoutUiState.Loaded) {
+                            _uiState.value =
+                                applyDerivedMetrics(
+                                    current.mergeSwappedLiftIdentity(workout, liftNamesById),
+                                )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun saveWorkout(onComplete: () -> Unit = {}) {
+        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val baseline = baselineWorkout ?: return
+        if (loaded.saveBlockedReason != null || loaded.isSaving) {
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = loaded.copy(isSaving = true)
+            val updatedWorkout = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))
+            saveWorkoutUseCase(WorkoutId(loaded.workoutId), updatedWorkout)
+                .onSuccess {
+                    baselineWorkout = updatedWorkout
+                    programSnapshot =
+                        programSnapshot?.mergeWorkout(WorkoutId(loaded.workoutId), updatedWorkout)
+                    val savedState =
+                        updatedWorkout
+                            .toEditWorkoutUiState(catalogLifts.associate { lift -> lift.id.value to lift.name })
+                            .copy(isDirty = false, isSaving = false)
+                            .markSaveState()
+                    _uiState.value = applyDerivedMetrics(savedState)
+                    onComplete()
+                }
+                .onFailure {
+                    _uiState.value = loaded.copy(isSaving = false)
+                }
         }
     }
 
@@ -99,19 +138,22 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
-    fun addLift() {
+    fun addLift(onNavigateToPicker: (workoutLiftId: String, liftId: String, liftName: String) -> Unit) {
+        val workoutLiftId = newWorkoutLiftId()
+        val liftId = newLiftId()
         updateLoaded { loaded ->
             val position = loaded.lifts.size
             val newLift =
                 EditLiftState(
-                    workoutLiftId = newWorkoutLiftId(),
-                    liftId = newLiftId(),
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
                     name = PLACEHOLDER_LIFT_NAME,
                     position = position,
                     sets = listOf(defaultEditSetState(setNumber = 1)),
                 )
             loaded.copy(lifts = loaded.lifts + newLift)
         }
+        onNavigateToPicker(workoutLiftId, liftId, PLACEHOLDER_LIFT_NAME)
     }
 
     fun removeLift(workoutLiftId: String) {
@@ -230,6 +272,21 @@ class EditWorkoutViewModel @Inject constructor(
         updateSet(setId) { set -> set.copy(rirGoal = rirGoal) }
     }
 
+    fun setUseRestTimerBetweenLifts(workoutLiftId: String, enabled: Boolean) {
+        updateLoaded { loaded ->
+            loaded.copy(
+                lifts =
+                    loaded.lifts.map { lift ->
+                        if (lift.workoutLiftId == workoutLiftId) {
+                            lift.copy(useRestTimerBetweenLifts = enabled)
+                        } else {
+                            lift
+                        }
+                    },
+            )
+        }
+    }
+
     private fun updateSet(setId: String, transform: (EditSetState) -> EditSetState) {
         updateLoaded { loaded ->
             loaded.copy(
@@ -277,7 +334,7 @@ class EditWorkoutViewModel @Inject constructor(
                         lifts = loaded.lifts,
                         workoutLiftId = workoutLiftId,
                         direction = direction,
-                        nextGroupId = { nextSupersetGroupId++ },
+                        nextGroupId = ::newSupersetGroupId,
                     ),
             )
         }
@@ -286,8 +343,39 @@ class EditWorkoutViewModel @Inject constructor(
     private inline fun updateLoaded(transform: (EditWorkoutUiState.Loaded) -> EditWorkoutUiState.Loaded) {
         val current = _uiState.value
         if (current is EditWorkoutUiState.Loaded) {
-            _uiState.value = applyDerivedMetrics(transform(current))
+            _uiState.value = applyDerivedMetrics(transform(current).markDirty())
         }
+    }
+
+    private fun EditWorkoutUiState.Loaded.markDirty(): EditWorkoutUiState.Loaded =
+        copy(isDirty = true).markSaveState()
+
+    private fun EditWorkoutUiState.Loaded.markSaveState(): EditWorkoutUiState.Loaded {
+        val catalogIds = catalogLifts.map { lift -> lift.id.value }.toSet()
+        val blocked =
+            if (lifts.hasPlaceholderLift(catalogIds)) {
+                SaveBlockedReason.PlaceholderLift
+            } else {
+                null
+            }
+        return copy(saveBlockedReason = blocked)
+    }
+
+    private fun EditWorkoutUiState.Loaded.mergeSwappedLiftIdentity(
+        baseline: Workout,
+        liftNamesById: Map<String, String>,
+    ): EditWorkoutUiState.Loaded {
+        val baselineById = baseline.workoutLifts.associateBy { lift -> lift.id.value }
+        return copy(
+            lifts =
+                lifts.map { editLift ->
+                    val baselineLift = baselineById[editLift.workoutLiftId] ?: return@map editLift
+                    editLift.copy(
+                        liftId = baselineLift.liftId.value,
+                        name = resolveLiftDisplayName(baselineLift.liftId.value, liftNamesById),
+                    )
+                },
+        ).markSaveState()
     }
 
     private fun applyDerivedMetrics(state: EditWorkoutUiState): EditWorkoutUiState =

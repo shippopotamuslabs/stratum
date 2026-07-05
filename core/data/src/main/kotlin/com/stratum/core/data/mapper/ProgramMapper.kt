@@ -41,6 +41,8 @@ internal fun WorkoutLiftEntity.toDomain(sets: List<LiftSet>): WorkoutLift = Work
     progressionScheme = progressionScheme,
     position = position,
     sets = sets,
+    supersetGroupId = supersetGroupId,
+    useRestTimerBetweenLifts = useRestTimerBetweenLifts,
 )
 
 internal fun LiftSetEntity.toDomain(): LiftSet = LiftSet(
@@ -52,6 +54,7 @@ internal fun LiftSetEntity.toDomain(): LiftSet = LiftSet(
     repMax = repMax,
     rirGoal = rirGoal,
     isTopSet = isTopSet,
+    restSeconds = restSeconds,
 )
 
 internal fun Program.toEntity(): ProgramEntity = ProgramEntity(
@@ -76,6 +79,8 @@ internal fun WorkoutLift.toEntity(): WorkoutLiftEntity = WorkoutLiftEntity(
     liftId = liftId,
     progressionScheme = progressionScheme,
     position = position,
+    supersetGroupId = supersetGroupId,
+    useRestTimerBetweenLifts = useRestTimerBetweenLifts,
 )
 
 internal fun LiftSet.toEntity(): LiftSetEntity = LiftSetEntity(
@@ -87,6 +92,7 @@ internal fun LiftSet.toEntity(): LiftSetEntity = LiftSetEntity(
     repMax = repMax,
     rirGoal = rirGoal,
     isTopSet = isTopSet,
+    restSeconds = restSeconds,
 )
 
 /**
