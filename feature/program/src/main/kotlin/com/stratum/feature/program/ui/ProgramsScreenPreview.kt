@@ -154,8 +154,16 @@ fun WorkoutCardDarkPreview() {
     }
 }
 
+@Preview(name = "Workout card expanded dark", showBackground = true, backgroundColor = 0xFF121212)
 @Composable
-private fun WorkoutCardPreviewContent() {
+fun WorkoutCardExpandedDarkPreview() {
+    StratumTheme(darkTheme = true) {
+        WorkoutCardPreviewContent(initiallyExpanded = true)
+    }
+}
+
+@Composable
+private fun WorkoutCardPreviewContent(initiallyExpanded: Boolean = false) {
     Column(
         modifier =
             Modifier
@@ -241,6 +249,7 @@ private fun WorkoutCardPreviewContent() {
             onEditWorkoutClick = {},
             onSkipWorkoutCheckedChange = { _, _ -> },
             onSwapLiftClick = {},
+            initiallyExpanded = initiallyExpanded,
         )
     }
 }
