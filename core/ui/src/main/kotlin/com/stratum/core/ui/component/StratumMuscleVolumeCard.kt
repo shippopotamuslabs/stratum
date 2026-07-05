@@ -176,8 +176,7 @@ private fun StratumMuscleVolumeRowContent(
                 modifier = Modifier.weight(1f),
             )
             if (toggleLabels != null) {
-                StratumSegmentedControl(
-                    modifier = Modifier.fillMaxWidth(VOLUME_TIER_TOGGLE_WIDTH_FRACTION),
+                StratumPillToggle(
                     segments = toggleLabels,
                     selectedIndex = selectedIndex,
                     onSelectedIndexChange = onSelectedIndexChange,
@@ -224,8 +223,6 @@ private const val UPPER_TIER_INDEX = 0
 private const val LOWER_TIER_INDEX = 1
 private const val WORKOUT_SCOPE_INDEX = 0
 private const val PROGRAM_SCOPE_INDEX = 1
-
-private const val VOLUME_TIER_TOGGLE_WIDTH_FRACTION = 0.5f
 
 private val volumeTierLabels = listOf("Upper", "Lower")
 private val volumeScopeLabels = listOf("Workout", "Program")

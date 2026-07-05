@@ -17,7 +17,7 @@ fun StratumIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    containerColor: Color = StratumThemeAccessor.colors.surfaceSunken,
+    containerColor: Color = Color.Transparent,
     contentColor: Color = StratumThemeAccessor.colors.textPrimary,
     shape: Shape = CircleShape,
     content: @Composable () -> Unit,

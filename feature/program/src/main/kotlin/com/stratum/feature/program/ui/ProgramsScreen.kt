@@ -1,16 +1,19 @@
 package com.stratum.feature.program.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -25,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumButton
@@ -43,12 +47,8 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.R
 
 /**
- * Read-only Programs overview. Renders volume summary, weekly schedule with rest days, and verbose
- * workout cards. All controls are present but no-op until wired in a later slice.
- *
- * Lift-swap surface: tapping a lift sub-card opens [StratumLiftSwapBottomSheet] via
- * [swapBindings]; the bindings bundle the sheet state + every swap-related callback so this
- * composable's signature stays under the detekt parameter threshold.
+ * Read-only Programs overview. Renders volume summary, weekly schedule with rest days, and workout
+ * cards with a header row (name, weekday, skip checkbox) and a flat lift list.
  */
 @Composable
 internal fun ProgramsScreen(
@@ -264,6 +264,8 @@ private fun RestDayRow(onCheckedChange: (Boolean) -> Unit) {
     }
 }
 
+private val WorkoutCardContentPadding = 20.dp
+
 @Composable
 internal fun WorkoutCard(
     workout: WorkoutViewState,
@@ -273,6 +275,7 @@ internal fun WorkoutCard(
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
     isPreviewMode: Boolean = false,
 ) {
+    val sortedLifts = workout.lifts.sortedBy { lift -> lift.position }
     Column(
         modifier =
             Modifier
@@ -286,12 +289,16 @@ internal fun WorkoutCard(
                     width = StratumThemeAccessor.shapes.borderWidth,
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = StratumThemeAccessor.shapes.panel,
-                )
-                .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+                ),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = WorkoutCardContentPadding,
+                        vertical = 16.dp,
+                    ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top,
         ) {
@@ -304,30 +311,36 @@ internal fun WorkoutCard(
                 onCheckedChange = { checked -> onSkipWorkoutCheckedChange(workout.name, checked) },
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            workout.lifts.sortedBy { lift -> lift.position }.forEach { lift ->
-                LiftSubCard(lift = lift, onSwapLiftClick = { onSwapLiftClick(lift) })
+        WorkoutCardDivider()
+        sortedLifts.forEachIndexed { index, lift ->
+            LiftRow(
+                lift = lift,
+                onSwapLiftClick = { onSwapLiftClick(lift) },
+            )
+            if (index < sortedLifts.lastIndex) {
+                WorkoutCardDivider(startPadding = WorkoutCardContentPadding)
             }
         }
         if (!isPreviewMode) {
             StratumButton(
                 text = stringResource(R.string.programs_start_workout),
                 onClick = { onStartWorkoutClick(workout.name) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = WorkoutCardContentPadding,
+                            end = WorkoutCardContentPadding,
+                            top = 12.dp,
+                            bottom = WorkoutCardContentPadding,
+                        ),
             )
         }
     }
 }
 
-/**
- * Two-row bordered sub card for a single lift inside a workout card. Row 1 is the lift name
- * (truncates with an ellipsis when the name is too long to fit); row 2 is the tabular
- * `sets x repRange@rpe` summary, which never gets truncated because the name no longer
- * competes for the same line. The trailing swap icon opens the lift swap bottom sheet —
- * the card itself is not clickable so the rest of the row is inert.
- */
 @Composable
-private fun LiftSubCard(
+private fun LiftRow(
     lift: WorkoutLiftLineState,
     onSwapLiftClick: () -> Unit,
 ) {
@@ -335,16 +348,10 @@ private fun LiftSubCard(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(
-                    color = StratumThemeAccessor.colors.surfaceInset,
-                    shape = StratumThemeAccessor.shapes.chip,
-                )
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderSubtle,
-                    shape = StratumThemeAccessor.shapes.chip,
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(
+                    horizontal = WorkoutCardContentPadding,
+                    vertical = 14.dp,
+                ),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -374,6 +381,22 @@ private fun LiftSubCard(
                 tint = StratumThemeAccessor.colors.textMuted,
             )
         }
+    }
+}
+
+@Composable
+private fun WorkoutCardDivider(startPadding: Dp = 0.dp) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        if (startPadding > 0.dp) {
+            Spacer(modifier = Modifier.width(startPadding))
+        }
+        Box(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .height(StratumThemeAccessor.shapes.borderWidth)
+                    .background(StratumThemeAccessor.colors.borderSubtle),
+        )
     }
 }
 
