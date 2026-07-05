@@ -7,6 +7,7 @@ import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.ObserveProgramUseCase
+import com.stratum.domain.program.Program
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -38,6 +39,7 @@ class EditWorkoutViewModel @Inject constructor(
 
     private var nextSupersetGroupId = 1
     private var catalogLifts: List<Lift> = emptyList()
+    private var programSnapshot: Program? = null
 
     fun initialize(workoutId: String) {
         if (targetWorkoutId.value == workoutId && hasSnapshot.value) {
@@ -47,7 +49,7 @@ class EditWorkoutViewModel @Inject constructor(
         hasSnapshot.value = false
         _uiState.value = EditWorkoutUiState.Loading
         viewModelScope.launch {
-            val (snapshot, catalog) =
+            val (snapshot, catalog, program) =
                 combine(
                     observeProgram(),
                     observeLiftCatalog(),
@@ -65,9 +67,10 @@ class EditWorkoutViewModel @Inject constructor(
                                 workout.toEditWorkoutUiState(liftNamesById)
                             }
                         }
-                    state to lifts
-                }.first { (state, _) -> state !is EditWorkoutUiState.Loading }
+                    Triple(state, lifts, program)
+                }.first { (state, _, _) -> state !is EditWorkoutUiState.Loading }
             catalogLifts = catalog
+            programSnapshot = program
             nextSupersetGroupId =
                 (snapshot as? EditWorkoutUiState.Loaded)
                     ?.lifts
@@ -292,6 +295,7 @@ class EditWorkoutViewModel @Inject constructor(
             is EditWorkoutUiState.Loaded ->
                 state.withDerivedMetrics(
                     liftCatalog = catalogLifts,
+                    program = programSnapshot,
                     computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
                     estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
                 )

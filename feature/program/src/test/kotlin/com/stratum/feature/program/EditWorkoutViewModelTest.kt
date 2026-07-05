@@ -73,7 +73,44 @@ class EditWorkoutViewModelTest {
         viewModel.uiState.test {
             val loaded = awaitLoaded()
             assertTrue(loaded.upperVolumeByMuscle.isNotEmpty() || loaded.lowerVolumeByMuscle.isNotEmpty())
+            assertTrue(
+                loaded.programUpperVolumeByMuscle.isNotEmpty() ||
+                    loaded.programLowerVolumeByMuscle.isNotEmpty(),
+            )
             assertTrue(loaded.estimatedDurationMinutes > 0)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given loaded workout when addSet then workout and program volume both update")
+    fun addSetUpdatesWorkoutAndProgramVolume() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            val workoutChestSets =
+                loaded.upperVolumeByMuscle
+                    .firstOrNull { card -> card.muscle == MuscleGroup.Chest }
+                    ?.setCount
+                    ?: 0.0
+            val programChestSets =
+                loaded.programUpperVolumeByMuscle
+                    .firstOrNull { card -> card.muscle == MuscleGroup.Chest }
+                    ?.setCount
+                    ?: 0.0
+            viewModel.addSet(WORKOUT_LIFT_ID)
+            val updated = awaitItem() as EditWorkoutUiState.Loaded
+            val updatedWorkoutChestSets =
+                updated.upperVolumeByMuscle
+                    .first { card -> card.muscle == MuscleGroup.Chest }
+                    .setCount
+            val updatedProgramChestSets =
+                updated.programUpperVolumeByMuscle
+                    .first { card -> card.muscle == MuscleGroup.Chest }
+                    .setCount
+            assertEquals(workoutChestSets + 1.0, updatedWorkoutChestSets)
+            assertEquals(programChestSets + 1.0, updatedProgramChestSets)
             cancelAndIgnoreRemainingEvents()
         }
     }

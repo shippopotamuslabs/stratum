@@ -58,4 +58,7 @@
     <string name="edit_workout_rest_apply_to_all_sets">Apply to All Sets</string>
     <string name="edit_workout_exercise_count_header">%1$d Exercises</string>
     <string name="edit_workout_estimated_duration">Estimated workout time: %1$s</string>
+    <string name="edit_workout_volume_title">Volume</string>
+    <string name="edit_workout_volume_scope_workout">Workout</string>
+    <string name="edit_workout_volume_scope_program">Program</string>
 </resources>

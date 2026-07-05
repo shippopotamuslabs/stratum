@@ -18,6 +18,8 @@ sealed interface EditWorkoutUiState {
         val lifts: List<EditLiftState>,
         val upperVolumeByMuscle: List<StratumMuscleVolumeCardState> = emptyList(),
         val lowerVolumeByMuscle: List<StratumMuscleVolumeCardState> = emptyList(),
+        val programUpperVolumeByMuscle: List<StratumMuscleVolumeCardState> = emptyList(),
+        val programLowerVolumeByMuscle: List<StratumMuscleVolumeCardState> = emptyList(),
         val estimatedDurationMinutes: Int = 0,
         val isReorderMode: Boolean = false,
         val pendingReorderLifts: List<EditLiftReorderState>? = null,
