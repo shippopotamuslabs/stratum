@@ -26,6 +26,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -226,6 +227,14 @@ private fun LoadedProgramContent(
         style = StratumThemeAccessor.typography.titleLarge,
     )
 
+    val nextWorkoutId = remember(state.scheduleItems) { findNextWorkoutId(state.scheduleItems) }
+    var expandedWorkoutId by rememberSaveable(state.scheduleItems) {
+        mutableStateOf(nextWorkoutId)
+    }
+    LaunchedEffect(nextWorkoutId) {
+        expandedWorkoutId = nextWorkoutId
+    }
+
     state.scheduleItems.forEach { item ->
         when (item) {
             is ScheduleItemState.RestDay -> {
@@ -239,6 +248,10 @@ private fun LoadedProgramContent(
             is ScheduleItemState.Workout ->
                 WorkoutCard(
                     workout = item.workout,
+                    expanded = item.workout.workoutId == expandedWorkoutId,
+                    onExpandedChange = { expanded ->
+                        expandedWorkoutId = if (expanded) item.workout.workoutId else null
+                    },
                     onStartWorkoutClick = callbacks.onStartWorkoutClick,
                     onEditWorkoutClick = callbacks.onEditWorkoutClick,
                     onSkipWorkoutCheckedChange = callbacks.onSkipWorkoutCheckedChange,
@@ -281,14 +294,15 @@ private val WorkoutCardContentPadding = 20.dp
 @Composable
 internal fun WorkoutCard(
     workout: WorkoutViewState,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     onStartWorkoutClick: (String) -> Unit,
     onEditWorkoutClick: (workoutId: String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    modifier: Modifier = Modifier,
     isPreviewMode: Boolean = false,
-    initiallyExpanded: Boolean = false,
 ) {
-    var expanded by rememberSaveable(workout.workoutId) { mutableStateOf(initiallyExpanded) }
     val sortedLifts = workout.lifts.sortedBy { lift -> lift.position }
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
@@ -304,7 +318,7 @@ internal fun WorkoutCard(
 
     Column(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .background(
                     color = StratumThemeAccessor.colors.surfaceRaised,
@@ -335,7 +349,7 @@ internal fun WorkoutCard(
                         .clickable(
                             interactionSource = toggleInteractionSource,
                             indication = null,
-                            onClick = { expanded = !expanded },
+                            onClick = { onExpandedChange(!expanded) },
                         ),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top,
