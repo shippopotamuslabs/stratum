@@ -46,7 +46,10 @@ import com.stratum.core.data.repository.RoomResponseProfilePersistenceRepository
 import com.stratum.core.data.repository.RoomVolumeResponseObservationRepository
 import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
 import com.stratum.core.data.repository.RoomImportJobRepository
-import com.stratum.domain.importing.TrainingHistoryRepository
+import com.stratum.core.data.repository.RoomProgramChangeEventRepository
+import com.stratum.core.data.repository.RoomTrainingLogRepository
+import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
@@ -90,6 +93,7 @@ import kotlinx.coroutines.launch
 
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("TooManyFunctions")
 object DatabaseModule {
 
     // Application-scoped scope for one-shot catalog seeding. Detached from any ViewModel so the
@@ -146,6 +150,18 @@ object DatabaseModule {
 
     @Provides
     fun provideImportJobDao(database: StratumDatabase): ImportJobDao = database.importJobDao()
+
+    @Provides
+    fun provideTrainingSessionDao(database: StratumDatabase): com.stratum.core.data.db.TrainingSessionDao =
+        database.trainingSessionDao()
+
+    @Provides
+    fun provideTrainingLoggedSetDao(database: StratumDatabase): com.stratum.core.data.db.TrainingLoggedSetDao =
+        database.trainingLoggedSetDao()
+
+    @Provides
+    fun provideProgramChangeEventDao(database: StratumDatabase): com.stratum.core.data.db.ProgramChangeEventDao =
+        database.programChangeEventDao()
 
     @Provides
     fun provideHistoricalSessionDao(database: StratumDatabase): HistoricalSessionDao =
@@ -298,6 +314,18 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindImportJobRepository(impl: RoomImportJobRepository): ImportJobRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTrainingLogRepository(
+        impl: RoomTrainingLogRepository,
+    ): TrainingLogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProgramChangeEventRepository(
+        impl: RoomProgramChangeEventRepository,
+    ): ProgramChangeEventRepository
 
     @Binds
     @Singleton

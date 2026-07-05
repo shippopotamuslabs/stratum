@@ -122,4 +122,17 @@ class MuscleVolumeCreditTest {
             0.001,
         )
     }
+
+    @Test
+    @DisplayName("WL-006 MuscleVolumeCredit credits muscles from LoggedLiftContext bitmasks")
+    fun wl006_snapshotVolumeCredit() {
+        val weekStart = Instant.parse("2025-01-06T00:00:00Z")
+        val credits = mutableMapOf<MuscleGroup, MutableMap<Instant, Double>>()
+        val liftContext = com.stratum.core.testing.training.WorkoutLoggingFixtures.importLiftContext()
+
+        MuscleVolumeCredit.accumulateSetCredits(liftContext, weekStart, credits)
+
+        assertEquals(1.0, requireNotNull(credits[MuscleGroup.Chest]?.getValue(weekStart)), 0.001)
+        assertEquals(0.5, requireNotNull(credits[MuscleGroup.Tricep]?.getValue(weekStart)), 0.001)
+    }
 }

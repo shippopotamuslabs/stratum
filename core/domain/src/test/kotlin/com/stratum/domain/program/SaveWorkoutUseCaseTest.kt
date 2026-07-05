@@ -165,4 +165,52 @@ class SaveWorkoutUseCaseTest {
                     ),
             )
     }
+
+    @Test
+    @DisplayName("WL-036 SaveWorkoutUseCase appends WORKOUT_EDITED event")
+    fun wl036_saveWorkoutAppendsWorkoutEditedEvent() = runTest {
+        val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
+        val program = com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram()
+        val useCase = SaveWorkoutUseCase(FakeProgramRepository(program), events)
+
+        useCase(com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId, program.workouts.first()).getOrThrow()
+
+        val appended = events.getEventsForProgram(com.stratum.core.testing.training.WorkoutLoggingFixtures.programId)
+        assertEquals(1, appended.size)
+        assertEquals(com.stratum.domain.training.ProgramChangeEventType.WORKOUT_EDITED, appended.single().eventType)
+        val payload = appended.single().payload as com.stratum.domain.training.ProgramChangeEventPayload.WorkoutEdited
+        assertEquals(com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId, payload.workoutId)
+    }
+
+    @Test
+    @DisplayName("WL-040 Program change events are append-only")
+    fun wl040_eventsAreAppendOnly() = runTest {
+        val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
+        events.seed(
+            com.stratum.domain.training.ProgramChangeEvent(
+                id = com.stratum.domain.training.identity.ProgramChangeEventId("evt-1"),
+                programId = com.stratum.core.testing.training.WorkoutLoggingFixtures.programId,
+                eventType = com.stratum.domain.training.ProgramChangeEventType.LIFT_SWAPPED,
+                occurredAt = java.time.Instant.parse("2025-01-01T00:00:00Z"),
+                payload = com.stratum.domain.training.ProgramChangeEventPayload.LiftSwapped(
+                    workoutLiftId = WorkoutLiftId("wl-1"),
+                    previousLiftId = LiftId("lift-bench"),
+                    newLiftId = LiftId("lift-squat"),
+                ),
+            ),
+        )
+        val useCase = SaveWorkoutUseCase(
+            FakeProgramRepository(com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram()),
+            events,
+        )
+
+        useCase(
+            com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId,
+            com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram().workouts.first(),
+        ).getOrThrow()
+
+        val all = events.getEventsForProgram(com.stratum.core.testing.training.WorkoutLoggingFixtures.programId)
+        assertEquals(2, all.size)
+        assertEquals(com.stratum.domain.training.identity.ProgramChangeEventId("evt-1"), all.first().id)
+    }
 }

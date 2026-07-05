@@ -2,6 +2,7 @@ package com.stratum.domain.response
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.toMovementPatternSet
 import java.time.Instant
 
 object LiftEffectivenessAnalyzer {
@@ -11,6 +12,10 @@ object LiftEffectivenessAnalyzer {
         input: ResponseExtractionInput,
         deloadWeeks: Set<Instant>,
     ): List<LiftEffectivenessObservation> {
+        if (input.sets.any { it.movementPatternsSnapshot != null && it.movementPatternsSnapshot != 0 }) {
+            return analyzeFromImportSnapshots(pattern, epoch, input)
+        }
+
         val cleanSets = TrainingSignalCleaner.clean(input)
         val patternLifts = input.lifts.filter { pattern in it.movementPatterns }.map { it.id }
         val scoredLifts =
@@ -105,6 +110,75 @@ object LiftEffectivenessAnalyzer {
             effectivenessScore = effectivenessScore,
             confidenceScore = confidenceScore,
         )
+    }
+
+    private fun analyzeFromImportSnapshots(
+        pattern: MovementPattern,
+        epoch: Epoch,
+        input: ResponseExtractionInput,
+    ): List<LiftEffectivenessObservation> {
+        val patternLiftIds =
+            input.sets
+                .filter { set ->
+                    set.liftId != null &&
+                        set.movementPatternsSnapshot != null &&
+                        pattern in set.movementPatternsSnapshot.toMovementPatternSet()
+                }
+                .map { it.liftId!! }
+                .distinct()
+        if (patternLiftIds.isEmpty()) return emptyList()
+
+        return patternLiftIds.map { liftId ->
+            val snapshotSets =
+                input.sets
+                    .filter { it.liftId == liftId }
+                    .map { importSet ->
+                        com.stratum.domain.training.LoggedSet(
+                            id = importSet.id,
+                            sessionId = com.stratum.domain.training.identity.TrainingSessionId(importSet.sessionId.value),
+                            exerciseNameRaw = importSet.exerciseNameRaw,
+                            liftId = importSet.liftId,
+                            setIndex = importSet.setIndex,
+                            weight = importSet.weight,
+                            reps = importSet.reps,
+                            rir = importSet.rir,
+                            completedAt = importSet.completedAt,
+                            liftContext =
+                                com.stratum.domain.training.LoggedLiftContext(
+                                    liftName = importSet.exerciseNameRaw,
+                                    movementPatternsBitmask = importSet.movementPatternsSnapshot ?: 0,
+                                    primaryMusclesBitmask = importSet.primaryMusclesSnapshot ?: 0,
+                                    secondaryMusclesBitmask = importSet.secondaryMusclesSnapshot ?: 0,
+                                    kinematicProfile = com.stratum.domain.lift.KinematicProfile.NonAxialCompound,
+                                    muscleLengthBias = com.stratum.domain.lift.MuscleLengthBias.MidRange,
+                                ),
+                        )
+                    }
+            val score = effectivenessFromSnapshot(pattern, snapshotSets, liftId)
+            LiftEffectivenessObservation(
+                pattern = pattern,
+                liftId = liftId,
+                epochId = epoch.id,
+                effectivenessScore = score,
+                peerLiftCount = patternLiftIds.size,
+                rank = 1,
+                evidence = EvidenceLevel.Hypothesis,
+                confidenceScore = score.coerceAtMost(1.0),
+            )
+        }
+    }
+
+    fun effectivenessFromSnapshot(
+        pattern: MovementPattern,
+        sets: List<com.stratum.domain.training.LoggedSet>,
+        liftId: LiftId,
+    ): Double {
+        val matching =
+            sets.filter { set ->
+                set.liftId == liftId &&
+                    pattern in set.liftContext.movementPatternsBitmask.toMovementPatternSet()
+            }
+        return matching.size.toDouble().coerceAtLeast(if (matching.isNotEmpty()) 1.0 else 0.0)
     }
 }
 

@@ -13,7 +13,14 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.integration.resolveAdjacentCalendarLiftCollisions
 import com.stratum.domain.di.DefaultDispatcher
+import com.stratum.domain.training.ProgramChangeEvent
+import com.stratum.domain.training.ProgramChangeEventPayload
+import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.training.identity.ProgramChangeEventId
 import javax.inject.Inject
+import java.time.Instant
+import java.util.UUID
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -36,6 +43,7 @@ class GenerateProgramUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val profileRepository: UserTrainingProfileRepository,
+    private val programChangeEventRepository: ProgramChangeEventRepository? = null,
     @DefaultDispatcher private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
@@ -74,6 +82,15 @@ class GenerateProgramUseCase @Inject constructor(
                 )
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram))
                 repository.saveProgram(program)
+                programChangeEventRepository?.append(
+                    ProgramChangeEvent(
+                        id = ProgramChangeEventId(UUID.randomUUID().toString()),
+                        programId = program.id,
+                        eventType = ProgramChangeEventType.PROGRAM_REGENERATED,
+                        occurredAt = Instant.now(),
+                        payload = ProgramChangeEventPayload.ProgramRegenerated,
+                    ),
+                )
                 val profile = profileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
                 completeOnboarding(profile)
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))

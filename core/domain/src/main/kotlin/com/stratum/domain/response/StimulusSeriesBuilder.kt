@@ -61,4 +61,24 @@ object StimulusSeriesBuilder {
             )
         }.sortedBy { it.weekStart }
     }
+
+    fun weeklyHardSetsFromSnapshot(
+        epoch: Epoch,
+        sets: List<com.stratum.domain.training.LoggedSet>,
+    ): Map<MuscleGroup, Double> {
+        val muscleWeekCredits = mutableMapOf<MuscleGroup, MutableMap<java.time.Instant, Double>>()
+        val windowSets = sets.filter { it.completedAt in epoch.start..epoch.end }
+        windowSets.forEach { set ->
+            if (
+                set.liftContext.movementPatternsBitmask == 0 &&
+                set.liftContext.primaryMusclesBitmask == 0 &&
+                set.liftContext.secondaryMusclesBitmask == 0
+            ) {
+                return@forEach
+            }
+            val weekStart = WeeklySignalSupport.weekStartFor(set.completedAt)
+            MuscleVolumeCredit.accumulateSetCredits(set.liftContext, weekStart, muscleWeekCredits)
+        }
+        return muscleWeekCredits.mapValues { (_, weekCounts) -> weekCounts.values.sum() }
+    }
 }

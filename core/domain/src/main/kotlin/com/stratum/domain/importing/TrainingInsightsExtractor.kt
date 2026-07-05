@@ -238,4 +238,54 @@ object TrainingInsightsExtractor {
         val intercept = (sumY - slope * sumX) / n
         return Regression(slope, intercept)
     }
+
+    fun computeVolumeBaselinesFromSnapshots(
+        sets: List<com.stratum.domain.training.LoggedSet>,
+    ): List<MuscleVolumeBaseline> {
+        if (sets.isEmpty()) return emptyList()
+        val windowStart = sets.minOf { it.completedAt }
+        val windowEnd = sets.maxOf { it.completedAt }
+        val weeks = (ChronoUnit.DAYS.between(windowStart, windowEnd) / DAYS_PER_WEEK).coerceAtLeast(1).toInt()
+        val weeklyMuscleSets = mutableMapOf<MuscleGroup, MutableList<Int>>()
+        val weekStart = windowStart.truncatedTo(ChronoUnit.DAYS)
+
+        sets.forEach { set ->
+            val weekIndex =
+                (ChronoUnit.DAYS.between(windowStart, set.completedAt) / DAYS_PER_WEEK)
+                    .toInt()
+                    .coerceIn(0, weeks - 1)
+            val credits = mutableMapOf<MuscleGroup, MutableMap<Instant, Double>>()
+            com.stratum.domain.response.MuscleVolumeCredit.accumulateSetCredits(
+                liftContext = set.liftContext,
+                weekStart = weekStart,
+                muscleWeekCredits = credits,
+            )
+            credits.forEach { (muscle, weekCredits) ->
+                val credit = weekCredits.values.sum()
+                if (credit <= 0.0) return@forEach
+                val weeksList = weeklyMuscleSets.getOrPut(muscle) { MutableList(weeks) { 0 } }
+                if (weekIndex in weeksList.indices) {
+                    weeksList[weekIndex] = weeksList[weekIndex] + credit.toInt().coerceAtLeast(1)
+                }
+            }
+        }
+
+        return weeklyMuscleSets.map { (muscle, counts) ->
+            val mean = counts.average()
+            val sorted = counts.sorted()
+            val p90Index = ((sorted.size - 1) * P90_QUANTILE).toInt().coerceIn(0, sorted.lastIndex)
+            val trend =
+                if (counts.size >= 2) {
+                    linearRegression(counts.indices.map { it.toDouble() }, counts.map { it.toDouble() }).slope
+                } else {
+                    null
+                }
+            MuscleVolumeBaseline(
+                muscle = muscle,
+                meanWeeklyHardSets = mean,
+                p90WeeklyHardSets = sorted[p90Index].toDouble(),
+                trendSlope = trend,
+            )
+        }
+    }
 }

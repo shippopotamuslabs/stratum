@@ -1,6 +1,13 @@
 package com.stratum.domain.program
 
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.training.ProgramChangeEvent
+import com.stratum.domain.training.ProgramChangeEventPayload
+import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.training.identity.ProgramChangeEventId
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -9,6 +16,7 @@ import javax.inject.Inject
  */
 class SaveWorkoutUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
+    private val programChangeEventRepository: ProgramChangeEventRepository? = null,
 ) {
     suspend operator fun invoke(workoutId: WorkoutId, updatedWorkout: Workout): Result<Unit> {
         val program =
@@ -17,6 +25,15 @@ class SaveWorkoutUseCase @Inject constructor(
         return runCatching {
             val merged = program.mergeWorkout(workoutId, updatedWorkout)
             programRepository.saveProgram(merged)
+            programChangeEventRepository?.append(
+                ProgramChangeEvent(
+                    id = ProgramChangeEventId(UUID.randomUUID().toString()),
+                    programId = program.id,
+                    eventType = ProgramChangeEventType.WORKOUT_EDITED,
+                    occurredAt = Instant.now(),
+                    payload = ProgramChangeEventPayload.WorkoutEdited(workoutId),
+                ),
+            )
         }
     }
 }

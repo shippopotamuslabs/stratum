@@ -36,6 +36,9 @@ data class LoggedSet(
     val reps: Int,
     val rir: Int?,
     val completedAt: Instant,
+    val movementPatternsSnapshot: Int? = null,
+    val primaryMusclesSnapshot: Int? = null,
+    val secondaryMusclesSnapshot: Int? = null,
 )
 
 data class ImportJob(

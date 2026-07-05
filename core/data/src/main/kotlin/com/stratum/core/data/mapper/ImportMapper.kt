@@ -17,6 +17,8 @@ import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.ProgressTrend
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.lift.identity.LiftId
 import java.time.Instant
 
@@ -58,7 +60,7 @@ internal fun HistoricalSession.toEntity(): HistoricalSessionEntity = HistoricalS
 
 internal fun LoggedSetEntity.toDomain(): LoggedSet = LoggedSet(
     id = id,
-    sessionId = sessionId,
+    sessionId = HistoricalSessionId(sessionId.value),
     exerciseNameRaw = exerciseNameRaw,
     liftId = liftId,
     setIndex = setIndex,
@@ -66,11 +68,14 @@ internal fun LoggedSetEntity.toDomain(): LoggedSet = LoggedSet(
     reps = reps,
     rir = rir,
     completedAt = Instant.ofEpochMilli(completedAtEpochMillis),
+    movementPatternsSnapshot = movementPatternsBitmask.takeIf { it != 0 },
+    primaryMusclesSnapshot = primaryMusclesBitmask.takeIf { it != 0 },
+    secondaryMusclesSnapshot = secondaryMusclesBitmask.takeIf { it != 0 },
 )
 
 internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
     id = id,
-    sessionId = sessionId,
+    sessionId = TrainingSessionId(sessionId.value),
     exerciseNameRaw = exerciseNameRaw,
     liftId = liftId,
     setIndex = setIndex,
@@ -79,6 +84,10 @@ internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
     reps = reps,
     rir = rir,
     completedAtEpochMillis = completedAt.toEpochMilli(),
+    liftName = exerciseNameRaw,
+    movementPatternsBitmask = movementPatternsSnapshot ?: 0,
+    primaryMusclesBitmask = primaryMusclesSnapshot ?: 0,
+    secondaryMusclesBitmask = secondaryMusclesSnapshot ?: 0,
 )
 
 internal fun LiftTrainingInsightsEntity.toDomain(): LiftTrainingInsights = LiftTrainingInsights(
