@@ -2,6 +2,7 @@ package com.stratum.core.data.repository
 
 import com.stratum.core.data.db.ProgramChangeEventDao
 import com.stratum.core.data.db.ProgramChangeEventEntity
+import com.stratum.core.data.mapper.toEntity
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
@@ -27,23 +28,6 @@ class RoomProgramChangeEventRepository @Inject constructor(
         return entities
             .filter { entity -> since == null || entity.occurredAtEpochMillis >= since.toEpochMilli() }
             .map { it.toDomain() }
-    }
-
-    private fun ProgramChangeEvent.toEntity(): ProgramChangeEventEntity {
-        val liftSwapped = payload as? ProgramChangeEventPayload.LiftSwapped
-        val workoutEdited = payload as? ProgramChangeEventPayload.WorkoutEdited
-        val cycleCompleted = payload as? ProgramChangeEventPayload.CycleCompleted
-        return ProgramChangeEventEntity(
-            id = id,
-            programId = programId,
-            eventType = eventType,
-            occurredAtEpochMillis = occurredAt.toEpochMilli(),
-            workoutLiftId = liftSwapped?.workoutLiftId,
-            previousLiftId = liftSwapped?.previousLiftId,
-            newLiftId = liftSwapped?.newLiftId,
-            workoutId = workoutEdited?.workoutId,
-            completedCycleNumber = cycleCompleted?.completedCycleNumber,
-        )
     }
 
     private fun ProgramChangeEventEntity.toDomain(): ProgramChangeEvent {

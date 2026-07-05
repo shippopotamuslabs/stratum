@@ -348,7 +348,7 @@ class EditWorkoutViewModelTest {
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, com.stratum.core.testing.training.NoOpProgramChangeEventRepository()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
         )

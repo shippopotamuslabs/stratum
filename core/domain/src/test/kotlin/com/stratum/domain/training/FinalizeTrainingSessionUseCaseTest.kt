@@ -63,7 +63,11 @@ class FinalizeTrainingSessionUseCaseTest {
         programRepo: FakeProgramRepository = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram()),
         eventRepository: FakeProgramChangeEventRepository = FakeProgramChangeEventRepository(),
     ): FinalizeTrainingSessionUseCase {
-        val repo = FakeTrainingLogRepository()
+        val repo =
+            FakeTrainingLogRepository(
+                programRepository = programRepo,
+                programChangeEventRepository = eventRepository,
+            )
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         repo.seedSession(
             WorkoutLoggingFixtures.inProgressSession(
@@ -75,7 +79,6 @@ class FinalizeTrainingSessionUseCaseTest {
         return FinalizeTrainingSessionUseCase(
             trainingLogRepository = repo,
             programRepository = programRepo,
-            programChangeEventRepository = eventRepository,
         )
     }
 }

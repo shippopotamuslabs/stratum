@@ -246,6 +246,7 @@ class OnboardingGenerateViewModelTest {
                 liftRepository = liftRepo,
                 completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
                 profileRepository = profileRepo,
+                programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
                 generationDispatcher = generationDispatcher,
             ),
         )

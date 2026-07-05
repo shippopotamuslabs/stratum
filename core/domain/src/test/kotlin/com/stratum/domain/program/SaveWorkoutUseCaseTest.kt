@@ -1,6 +1,7 @@
 package com.stratum.domain.program
 
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.identity.LiftSetId
@@ -20,7 +21,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("Given active program when save workout then only target workout is replaced")
     fun saveWorkoutMergesSingleWorkout() = runTest {
         val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM)
-        val useCase = SaveWorkoutUseCase(repository)
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
         val updatedWorkout =
             TWO_WORKOUT_PROGRAM.workouts.first().copy(
                 workoutLifts =
@@ -66,7 +67,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("When no active program exists then save returns failure")
     fun saveFailsWhenNoProgram() = runTest {
         val repository = FakeProgramRepository(null)
-        val useCase = SaveWorkoutUseCase(repository)
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutId("w-1"), sampleWorkout())
 
@@ -78,7 +79,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("When workout id is missing then save returns failure")
     fun saveFailsWhenWorkoutNotFound() = runTest {
         val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM)
-        val useCase = SaveWorkoutUseCase(repository)
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutId("missing"), sampleWorkout())
 

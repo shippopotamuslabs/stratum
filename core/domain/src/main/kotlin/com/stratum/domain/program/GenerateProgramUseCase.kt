@@ -43,7 +43,7 @@ class GenerateProgramUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val profileRepository: UserTrainingProfileRepository,
-    private val programChangeEventRepository: ProgramChangeEventRepository? = null,
+    private val programChangeEventRepository: ProgramChangeEventRepository,
     @DefaultDispatcher private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
@@ -82,7 +82,7 @@ class GenerateProgramUseCase @Inject constructor(
                 )
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram))
                 repository.saveProgram(program)
-                programChangeEventRepository?.append(
+                programChangeEventRepository.append(
                     ProgramChangeEvent(
                         id = ProgramChangeEventId(UUID.randomUUID().toString()),
                         programId = program.id,
