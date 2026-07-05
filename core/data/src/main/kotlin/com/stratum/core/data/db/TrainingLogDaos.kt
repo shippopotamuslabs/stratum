@@ -109,20 +109,6 @@ interface TrainingLoggedSetDao {
     )
     suspend fun getAllForImportedSessions(): List<LoggedSetEntity>
 
-    @Query(
-        """
-        SELECT ls.* FROM logged_sets ls
-        INNER JOIN training_sessions ts ON ls.sessionId = ts.id
-        WHERE ts.origin = 'IMPORT'
-          AND ls.completedAtEpochMillis >= :windowStartEpochMillis
-          AND ls.completedAtEpochMillis <= :windowEndEpochMillis
-        """,
-    )
-    suspend fun getImportedInWindow(
-        windowStartEpochMillis: Long,
-        windowEndEpochMillis: Long,
-    ): List<LoggedSetEntity>
-
     @Query("DELETE FROM logged_sets WHERE id = :id")
     suspend fun deleteById(id: LoggedSetId)
 
