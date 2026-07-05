@@ -36,6 +36,7 @@ sealed interface ScheduleItemState {
 }
 
 data class WorkoutViewState(
+    val workoutId: String,
     val name: String,
     val weekdayLabel: String,
     val position: Int,

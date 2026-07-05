@@ -1,5 +1,6 @@
 package com.stratum.feature.program.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -52,19 +53,10 @@ import com.stratum.feature.program.R
 @Composable
 internal fun ProgramsScreen(
     state: ProgramsUiState,
-    onCalendarClick: () -> Unit,
-    onCreateProgramClick: () -> Unit,
-    onGenerateProgramClick: () -> Unit,
-    onProgramLibraryClick: () -> Unit,
-    onStartNextWorkoutClick: () -> Unit,
-    onStartEmptyWorkoutClick: () -> Unit,
-    onStartWorkoutClick: (workoutName: String) -> Unit,
-    onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
+    callbacks: ProgramsScreenCallbacks,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
     isPreviewMode: Boolean = false,
-    onKeepProgramClick: () -> Unit = {},
-    onDiscardProgramClick: () -> Unit = {},
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -75,7 +67,7 @@ internal fun ProgramsScreen(
                 title = stringResource(R.string.programs_screen_title),
                 navigationIcon = if (isPreviewMode) null else {
                     {
-                        StratumIconButton(onClick = onCalendarClick) {
+                        StratumIconButton(onClick = callbacks.onCalendarClick) {
                             Icon(
                                 painter = painterResource(CoreUiR.drawable.ic_calendar),
                                 contentDescription = stringResource(R.string.programs_calendar_content_description),
@@ -101,7 +93,7 @@ internal fun ProgramsScreen(
                                 text = stringResource(R.string.programs_menu_create_program),
                                 onClick = {
                                     menuExpanded = false
-                                    onCreateProgramClick()
+                                    callbacks.onCreateProgramClick()
                                 },
                                 leadingIcon = {
                                     ProgramMenuLeadingIcon(
@@ -113,7 +105,7 @@ internal fun ProgramsScreen(
                                 text = stringResource(R.string.programs_menu_generate_program),
                                 onClick = {
                                     menuExpanded = false
-                                    onGenerateProgramClick()
+                                    callbacks.onGenerateProgramClick()
                                 },
                                 leadingIcon = {
                                     ProgramMenuLeadingIcon(
@@ -125,7 +117,7 @@ internal fun ProgramsScreen(
                                 text = stringResource(R.string.programs_menu_program_library),
                                 onClick = {
                                     menuExpanded = false
-                                    onProgramLibraryClick()
+                                    callbacks.onProgramLibraryClick()
                                 },
                                 leadingIcon = {
                                     ProgramMenuLeadingIcon(
@@ -150,12 +142,12 @@ internal fun ProgramsScreen(
                 ) {
                     StratumButton(
                         text = stringResource(R.string.programs_keep_program),
-                        onClick = onKeepProgramClick,
+                        onClick = callbacks.onKeepProgramClick,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     StratumOutlinedButton(
                         text = stringResource(R.string.programs_discard_program),
-                        onClick = onDiscardProgramClick,
+                        onClick = callbacks.onDiscardProgramClick,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -173,12 +165,12 @@ internal fun ProgramsScreen(
             if (!isPreviewMode) {
                 StratumButton(
                     text = stringResource(R.string.programs_start_next_workout),
-                    onClick = onStartNextWorkoutClick,
+                    onClick = callbacks.onStartNextWorkoutClick,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 StratumOutlinedButton(
                     text = stringResource(R.string.programs_start_empty_workout),
-                    onClick = onStartEmptyWorkoutClick,
+                    onClick = callbacks.onStartEmptyWorkoutClick,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -188,8 +180,7 @@ internal fun ProgramsScreen(
                     StratumText(text = stringResource(R.string.programs_empty), muted = true)
                 is ProgramsUiState.Loaded -> LoadedProgramContent(
                     state = state,
-                    onStartWorkoutClick = onStartWorkoutClick,
-                    onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
+                    callbacks = callbacks,
                     onSwapLiftClick = onSwapLiftClick,
                     isPreviewMode = isPreviewMode,
                 )
@@ -201,8 +192,7 @@ internal fun ProgramsScreen(
 @Composable
 private fun LoadedProgramContent(
     state: ProgramsUiState.Loaded,
-    onStartWorkoutClick: (String) -> Unit,
-    onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
+    callbacks: ProgramsScreenCallbacks,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
     isPreviewMode: Boolean,
 ) {
@@ -230,15 +220,16 @@ private fun LoadedProgramContent(
                 val restDayLabel = stringResource(R.string.programs_rest_day)
                 RestDayRow(
                     onCheckedChange = { checked ->
-                        onSkipWorkoutCheckedChange(restDayLabel, checked)
+                        callbacks.onSkipWorkoutCheckedChange(restDayLabel, checked)
                     },
                 )
             }
             is ScheduleItemState.Workout ->
                 WorkoutCard(
                     workout = item.workout,
-                    onStartWorkoutClick = onStartWorkoutClick,
-                    onSkipWorkoutCheckedChange = onSkipWorkoutCheckedChange,
+                    onStartWorkoutClick = callbacks.onStartWorkoutClick,
+                    onEditWorkoutClick = callbacks.onEditWorkoutClick,
+                    onSkipWorkoutCheckedChange = callbacks.onSkipWorkoutCheckedChange,
                     onSwapLiftClick = onSwapLiftClick,
                     isPreviewMode = isPreviewMode,
                 )
@@ -277,6 +268,7 @@ private fun RestDayRow(onCheckedChange: (Boolean) -> Unit) {
 internal fun WorkoutCard(
     workout: WorkoutViewState,
     onStartWorkoutClick: (String) -> Unit,
+    onEditWorkoutClick: (workoutId: String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
     isPreviewMode: Boolean = false,
@@ -285,6 +277,7 @@ internal fun WorkoutCard(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .clickable { onEditWorkoutClick(workout.workoutId) }
                 .background(
                     color = StratumThemeAccessor.colors.surfaceRaised,
                     shape = StratumThemeAccessor.shapes.panel,

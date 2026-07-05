@@ -1,0 +1,84 @@
+package com.stratum.core.ui.component
+
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.theme.LocalStratumTheme
+import com.stratum.core.ui.theme.StratumThemeAccessor
+
+private val TopBarTextButtonPadding = PaddingValues(start = 8.dp, top = 8.dp, end = 0.dp, bottom = 8.dp)
+private val TopBarTextButtonEndInset = 16.dp
+
+/**
+ * Text-only action for inline secondary actions.
+ */
+@Composable
+fun StratumTextButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
+    contentColor: Color = StratumThemeAccessor.colors.accent,
+    contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
+) {
+    val colors = StratumThemeAccessor.colors
+    TextButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        colors =
+            ButtonDefaults.textButtonColors(
+                contentColor = contentColor,
+                disabledContentColor = colors.textMuted,
+            ),
+        contentPadding = contentPadding,
+    ) {
+        Text(text = text, style = style)
+    }
+}
+
+/**
+ * Trailing top-bar action — compact end padding and a lighter accent on dark surfaces.
+ */
+@Composable
+fun StratumTopBarTextButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
+) {
+    val colors = StratumThemeAccessor.colors
+    val spec = LocalStratumTheme.current
+    val contentColor =
+        if (spec.dark) {
+            colors.accent.lighten(fraction = 0.35f)
+        } else {
+            colors.accent
+        }
+    StratumTextButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier.padding(end = TopBarTextButtonEndInset),
+        enabled = enabled,
+        style = style,
+        contentColor = contentColor,
+        contentPadding = TopBarTextButtonPadding,
+    )
+}
+
+private fun Color.lighten(fraction: Float): Color =
+    Color(
+        red = red + ((1f - red) * fraction),
+        green = green + ((1f - green) * fraction),
+        blue = blue + ((1f - blue) * fraction),
+        alpha = alpha,
+    )

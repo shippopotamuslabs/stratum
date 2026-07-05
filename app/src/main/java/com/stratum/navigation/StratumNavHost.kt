@@ -16,6 +16,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.onboarding.navigation.onboardingEntry
+import com.stratum.feature.program.navigation.EditWorkoutKey
+import com.stratum.feature.program.navigation.editWorkoutEntry
 import com.stratum.feature.program.navigation.LiftSwapKey
 import com.stratum.feature.program.navigation.liftSwapEntry
 
@@ -33,9 +35,18 @@ fun StratumNavHost() {
         if (isComplete == true) MainTabKey(isPreviewMode = false) else OnboardingKey
     }
     val backStack = rememberNavBackStack(startKey)
+    val onNavigateBack =
+        remember(backStack) {
+            {
+                if (backStack.size > 1) {
+                    backStack.removeLast()
+                }
+            }
+        }
 
     NavDisplay(
         backStack = backStack,
+        onBack = onNavigateBack,
         entryProvider = entryProvider {
             onboardingEntry(
                 onComplete = {
@@ -58,17 +69,24 @@ fun StratumNavHost() {
                     onNavigateToSwap = { workoutLiftId, id, name ->
                         backStack.add(LiftSwapKey(workoutLiftId, id, name))
                     },
+                    onNavigateToEditWorkout = { workoutId ->
+                        backStack.add(EditWorkoutKey(workoutId))
+                    },
                     onCreateNewLift = {
                         // Navigate to custom lift screen in future slice
                     },
                 )
             }
             liftSwapEntry(
-                onBackClick = {
-                    backStack.removeAt(backStack.size - 1)
-                },
+                onBackClick = onNavigateBack,
                 onCreateNewLift = {
                     // Navigate to custom lift screen in future slice
+                },
+            )
+            editWorkoutEntry(
+                onBackClick = onNavigateBack,
+                onSwapLiftClick = { workoutLiftId, liftId, liftName ->
+                    backStack.add(LiftSwapKey(workoutLiftId, liftId, liftName))
                 },
             )
         },
