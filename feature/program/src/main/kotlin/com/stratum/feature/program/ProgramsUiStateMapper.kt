@@ -105,6 +105,7 @@ private fun ScheduleDayItem.toScheduleItemState(liftNamesById: Map<String, Strin
 
 private fun Workout.toViewState(liftNamesById: Map<String, String>, weekday: Weekday): WorkoutViewState =
     WorkoutViewState(
+        workoutId = id.value,
         name = name,
         weekdayLabel = weekday.toDisplayLabel(),
         position = position,

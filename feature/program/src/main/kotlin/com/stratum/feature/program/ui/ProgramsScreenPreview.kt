@@ -82,6 +82,7 @@ private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
                         Workout(
                             workout =
                                 WorkoutViewState(
+                                    workoutId = "w-preview-1",
                                     name = "Minimal Lower A",
                                     weekdayLabel = "Monday",
                                     position = 0,
@@ -119,14 +120,7 @@ private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
                         ),
                     ),
             ),
-        onCalendarClick = {},
-        onCreateProgramClick = {},
-        onGenerateProgramClick = {},
-        onProgramLibraryClick = {},
-        onStartNextWorkoutClick = {},
-        onStartEmptyWorkoutClick = {},
-        onStartWorkoutClick = {},
-        onSkipWorkoutCheckedChange = { _, _ -> },
+        callbacks = ProgramsScreenCallbacks(),
         onSwapLiftClick = {},
         isPreviewMode = isPreviewMode,
     )
@@ -138,14 +132,7 @@ fun ProgramsScreenEmptyPreview() {
     StratumTheme(darkTheme = true) {
         ProgramsScreen(
             state = ProgramsUiState.Empty,
-            onCalendarClick = {},
-            onCreateProgramClick = {},
-            onGenerateProgramClick = {},
-            onProgramLibraryClick = {},
-            onStartNextWorkoutClick = {},
-            onStartEmptyWorkoutClick = {},
-            onStartWorkoutClick = {},
-            onSkipWorkoutCheckedChange = { _, _ -> },
+            callbacks = ProgramsScreenCallbacks(),
             onSwapLiftClick = {},
         )
     }
@@ -179,6 +166,7 @@ private fun WorkoutCardPreviewContent() {
         WorkoutCard(
             workout =
                 WorkoutViewState(
+                    workoutId = "w-preview-2",
                     name = "Push Day",
                     weekdayLabel = "Monday",
                     position = 0,
@@ -250,6 +238,7 @@ private fun WorkoutCardPreviewContent() {
                         ),
                 ),
             onStartWorkoutClick = {},
+            onEditWorkoutClick = {},
             onSkipWorkoutCheckedChange = { _, _ -> },
             onSwapLiftClick = {},
         )
