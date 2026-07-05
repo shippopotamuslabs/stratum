@@ -81,6 +81,22 @@ class ExtractResponseProfileUseCaseTest {
         assertEquals(1, persistence.epochRepository.getAll().size)
     }
 
+    @Test
+    @DisplayName("WL-042 ExtractResponseProfileUseCase computes volume baselines without live Lift list")
+    fun wl042_volumeBaselinesWithoutCatalog() = runTest {
+        val sets = listOf(
+            com.stratum.core.testing.training.WorkoutLoggingFixtures.loggedSet(
+                id = "set-1",
+                sessionId = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+            ),
+        )
+
+        val baselines = ExtractResponseProfileUseCase.extractVolumeBaselinesFromSnapshots(sets)
+
+        assertTrue(baselines.isNotEmpty())
+        assertTrue((baselines.firstOrNull { it.muscle == com.stratum.domain.onboarding.MuscleGroup.Chest }?.meanWeeklyHardSets ?: 0.0) > 0.0)
+    }
+
     private fun buildUseCase(
         fixture: ResponseExtractionInput,
         persistence: FakeResponseProfilePersistencePort,

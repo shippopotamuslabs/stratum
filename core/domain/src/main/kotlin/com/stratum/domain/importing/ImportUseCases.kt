@@ -425,6 +425,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
     private val extractResponseProfile: ExtractResponseProfileUseCase,
     private val responseProfilePersistence: ResponseProfilePersistencePort,
     private val liftRepository: LiftRepository,
+    private val loggedLiftContextFactory: com.stratum.domain.training.LoggedLiftContextFactory? = null,
 ) {
     suspend operator fun invoke(
         sessions: List<HistoricalSession>,
@@ -436,13 +437,29 @@ class PersistImportedHistoryUseCase @Inject constructor(
             "Import contained no valid training sets."
         }
         val outcome = resolveImportLifts(sanitizedSets, onProgress = onProgress)
+        val factory = loggedLiftContextFactory ?: com.stratum.domain.training.DefaultLoggedLiftContextFactory()
+        val lifts = liftRepository.observeLifts().first().associateBy { it.id }
+        val snapshotSets =
+            outcome.resolvedSets.map { set ->
+                val lift = set.liftId?.let { lifts[it] }
+                if (lift == null) {
+                    set
+                } else {
+                    val context = factory.fromLiftCatalog(lift, set.exerciseNameRaw)
+                    set.copy(
+                        movementPatternsSnapshot = context.movementPatternsBitmask,
+                        primaryMusclesSnapshot = context.primaryMusclesBitmask,
+                        secondaryMusclesSnapshot = context.secondaryMusclesBitmask,
+                    )
+                }
+            }
         onProgress(
             ImportProgress(
                 phase = ImportProgressPhase.EnrichingCustomLifts,
                 catalogStep = ImportCatalogProgressStep.SavingHistory,
             ),
         )
-        trainingHistoryRepository.replaceAll(sessions, outcome.resolvedSets)
+        trainingHistoryRepository.replaceAll(sessions, snapshotSets)
         onProgress(
             ImportProgress(
                 phase = ImportProgressPhase.ExtractingInsights,

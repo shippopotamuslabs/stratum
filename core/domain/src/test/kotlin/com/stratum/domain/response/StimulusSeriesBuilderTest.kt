@@ -2,6 +2,7 @@ package com.stratum.domain.response
 
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.fixtures.ResponseFixtures
+import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.DisplayName
@@ -81,5 +82,25 @@ class StimulusSeriesBuilderTest {
                 ?.hardSets
 
         assertEquals(1.0, requireNotNull(chest), 0.001)
+    }
+
+    @Test
+    @DisplayName("WL-041 StimulusSeriesBuilder credits volume from LoggedLiftContext without Lift join")
+    fun wl041_stimulusFromSnapshot() {
+        val epoch = ResponseFixtures.epoch(
+            id = "e1",
+            start = Instant.parse("2025-01-01T00:00:00Z"),
+            end = Instant.parse("2025-01-31T00:00:00Z"),
+        )
+        val sets = listOf(
+            com.stratum.core.testing.training.WorkoutLoggingFixtures.loggedSet(
+                id = "set-1",
+                sessionId = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+            ),
+        )
+
+        val credits = StimulusSeriesBuilder.weeklyHardSetsFromSnapshot(epoch, sets)
+
+        assertEquals(1.0, credits[MuscleGroup.Chest] ?: 0.0, 0.001)
     }
 }

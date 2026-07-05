@@ -13,4 +13,10 @@ interface ProgramRepository {
     suspend fun getProgram(): Program?
 
     suspend fun saveProgram(program: Program)
+
+    suspend fun updateCyclePointer(
+        programId: com.stratum.domain.program.identity.ProgramId,
+        currentCycleNumber: Int,
+        cyclePosition: Int,
+    )
 }

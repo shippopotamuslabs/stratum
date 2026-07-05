@@ -69,4 +69,34 @@ class EnumConvertersTest {
         assertNull(converters.toLiftId(""))
         assertNull(converters.toLiftId("   "))
     }
+
+    @Test
+    @DisplayName("WL-003 EnumConverters round-trip TrainingSessionStatus Kind and Origin")
+    fun wl003_trainingSessionEnumRoundTrip() {
+        assertEquals(
+            com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+            converters.toTrainingSessionStatus(
+                converters.fromTrainingSessionStatus(
+                    com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+                ),
+            ),
+        )
+        assertEquals(
+            "REST_DAY",
+            converters.fromTrainingSessionKind(com.stratum.domain.training.TrainingSessionKind.REST_DAY),
+        )
+        assertEquals(
+            com.stratum.domain.training.TrainingSessionKind.REST_DAY,
+            converters.toTrainingSessionKind("REST_DAY"),
+        )
+        assertEquals(
+            "LIVE",
+            converters.fromTrainingSessionOrigin(com.stratum.domain.training.TrainingSessionOrigin.LIVE),
+        )
+        assertEquals(
+            com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+            converters.toTrainingSessionOrigin("LIVE"),
+        )
+        assertNull(converters.toTrainingSessionStatus("UNKNOWN"))
+    }
 }

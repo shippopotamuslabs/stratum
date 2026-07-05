@@ -243,4 +243,23 @@ class LiftEffectivenessAnalyzerTest {
             allowWeightChangeBetweenSets = false,
             enabled = true,
         )
+
+    @Test
+    @DisplayName("WL-043 LiftEffectivenessAnalyzer filters by liftId using snapshot movement pattern")
+    fun wl043_effectivenessFromSnapshot() {
+        val sets = listOf(
+            com.stratum.core.testing.training.WorkoutLoggingFixtures.loggedSet(
+                id = "set-1",
+                sessionId = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+            ),
+        )
+
+        val score = LiftEffectivenessAnalyzer.effectivenessFromSnapshot(
+            pattern = MovementPattern.HorizontalPress,
+            sets = sets,
+            liftId = com.stratum.core.testing.training.WorkoutLoggingFixtures.liftBenchId,
+        )
+
+        assertTrue(score > 0.0)
+    }
 }

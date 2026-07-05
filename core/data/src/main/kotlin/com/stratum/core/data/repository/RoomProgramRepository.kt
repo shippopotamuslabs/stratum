@@ -68,4 +68,16 @@ class RoomProgramRepository @Inject constructor(
             .associate { it.id.value to liftSetDao.getForWorkoutLift(it.id.value) }
         rejoinProgram(programEntity, workouts, liftsByWorkout, setsByLift)
     }
+
+    override suspend fun updateCyclePointer(
+        programId: com.stratum.domain.program.identity.ProgramId,
+        currentCycleNumber: Int,
+        cyclePosition: Int,
+    ) {
+        programDao.updateCyclePointer(
+            programId = programId,
+            currentCycleNumber = currentCycleNumber,
+            cyclePosition = cyclePosition,
+        )
+    }
 }

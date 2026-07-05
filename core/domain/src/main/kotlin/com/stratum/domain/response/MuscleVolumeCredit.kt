@@ -4,6 +4,9 @@ import com.stratum.domain.importing.CustomLiftMusclePolicy
 import com.stratum.domain.importing.ImportStubLiftGuesser
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.LoggedLiftContext
+import com.stratum.domain.training.toMovementPatternSet
+import com.stratum.domain.training.toMuscleGroupSet
 import java.time.Instant
 
 /**
@@ -15,6 +18,39 @@ import java.time.Instant
 object MuscleVolumeCredit {
     const val PRIMARY_SET_CREDIT = 1.0
     const val SECONDARY_SET_CREDIT = 0.5
+
+    fun accumulateSetCredits(
+        liftContext: LoggedLiftContext,
+        weekStart: Instant,
+        muscleWeekCredits: MutableMap<MuscleGroup, MutableMap<Instant, Double>>,
+    ) {
+        if (
+            liftContext.movementPatternsBitmask == 0 &&
+            liftContext.primaryMusclesBitmask == 0 &&
+            liftContext.secondaryMusclesBitmask == 0
+        ) {
+            return
+        }
+
+        val movementPattern =
+            liftContext.movementPatternsBitmask
+                .toMovementPatternSet()
+                .firstOrNull()
+                ?: return
+        val primaryMuscles = liftContext.primaryMusclesBitmask.toMuscleGroupSet()
+        primaryMuscles.forEach { muscle ->
+            addCredit(muscle, weekStart, PRIMARY_SET_CREDIT, muscleWeekCredits)
+        }
+        val secondaryMuscles =
+            CustomLiftMusclePolicy.effectiveSecondaryMuscles(
+                movementPattern = movementPattern,
+                primaryMuscles = primaryMuscles,
+                secondaryMuscles = liftContext.secondaryMusclesBitmask.toMuscleGroupSet(),
+            )
+        (secondaryMuscles - primaryMuscles).forEach { muscle ->
+            addCredit(muscle, weekStart, SECONDARY_SET_CREDIT, muscleWeekCredits)
+        }
+    }
 
     fun accumulateSetCredits(
         lift: Lift,

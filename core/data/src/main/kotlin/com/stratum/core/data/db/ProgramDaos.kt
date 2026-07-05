@@ -20,6 +20,20 @@ interface ProgramDao {
 
     @Query("SELECT * FROM programs LIMIT 1")
     fun observe(): Flow<ProgramEntity?>
+
+    @Query(
+        """
+        UPDATE programs
+        SET current_cycle_number = :currentCycleNumber,
+            cycle_position = :cyclePosition
+        WHERE id = :programId
+        """,
+    )
+    suspend fun updateCyclePointer(
+        programId: com.stratum.domain.program.identity.ProgramId,
+        currentCycleNumber: Int,
+        cyclePosition: Int,
+    )
 }
 
 @Dao

@@ -29,6 +29,8 @@ data class Program(
     /** Calendar days this program trains on; rest days are [Weekday.entries] minus this set. */
     val trainingWeekdays: Set<Weekday> = emptySet(),
     val workouts: List<Workout>,
+    val currentCycleNumber: Int = 1,
+    val cyclePosition: Int = 0,
 )
 
 data class Workout(

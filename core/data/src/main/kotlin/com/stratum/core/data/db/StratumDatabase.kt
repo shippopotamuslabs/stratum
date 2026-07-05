@@ -34,11 +34,14 @@ import androidx.room.TypeConverters
         WorkoutEntity::class,
         WorkoutLiftEntity::class,
         LiftSetEntity::class,
+        TrainingSessionEntity::class,
+        ProgramChangeEventEntity::class,
     ],
     version = 1,
     exportSchema = true,
 )
 @TypeConverters(WeekdaySetConverter::class, EnumConverters::class)
+@Suppress("TooManyFunctions")
 abstract class StratumDatabase : RoomDatabase() {
     abstract fun onboardingProgressDao(): OnboardingProgressDao
 
@@ -95,6 +98,12 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun workoutLiftDao(): WorkoutLiftDao
 
     abstract fun liftSetDao(): LiftSetDao
+
+    abstract fun trainingSessionDao(): TrainingSessionDao
+
+    abstract fun trainingLoggedSetDao(): TrainingLoggedSetDao
+
+    abstract fun programChangeEventDao(): ProgramChangeEventDao
 
     companion object {
         const val DATABASE_NAME = "stratum.db"

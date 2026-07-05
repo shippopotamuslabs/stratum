@@ -287,4 +287,49 @@ class EnumConverters {
     @TypeConverter
     fun toWorkoutSupersetGroupId(value: String?): WorkoutSupersetGroupId? =
         value?.let { runCatching { WorkoutSupersetGroupId(it) }.getOrNull() }
+
+    // --- Workout logging: training session enums + typed ids ---------------------------
+
+    @TypeConverter
+    fun fromTrainingSessionId(id: com.stratum.domain.training.identity.TrainingSessionId?): String? = id?.value
+
+    @TypeConverter
+    fun toTrainingSessionId(value: String?): com.stratum.domain.training.identity.TrainingSessionId? =
+        value?.let { runCatching { com.stratum.domain.training.identity.TrainingSessionId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromProgramChangeEventId(id: com.stratum.domain.training.identity.ProgramChangeEventId?): String? =
+        id?.value
+
+    @TypeConverter
+    fun toProgramChangeEventId(value: String?): com.stratum.domain.training.identity.ProgramChangeEventId? =
+        value?.let { runCatching { com.stratum.domain.training.identity.ProgramChangeEventId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromTrainingSessionStatus(status: com.stratum.domain.training.TrainingSessionStatus?): String? = status?.name
+
+    @TypeConverter
+    fun toTrainingSessionStatus(value: String?): com.stratum.domain.training.TrainingSessionStatus? =
+        value?.let { runCatching { com.stratum.domain.training.TrainingSessionStatus.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromTrainingSessionKind(kind: com.stratum.domain.training.TrainingSessionKind?): String? = kind?.name
+
+    @TypeConverter
+    fun toTrainingSessionKind(value: String?): com.stratum.domain.training.TrainingSessionKind? =
+        value?.let { runCatching { com.stratum.domain.training.TrainingSessionKind.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromTrainingSessionOrigin(origin: com.stratum.domain.training.TrainingSessionOrigin?): String? = origin?.name
+
+    @TypeConverter
+    fun toTrainingSessionOrigin(value: String?): com.stratum.domain.training.TrainingSessionOrigin? =
+        value?.let { runCatching { com.stratum.domain.training.TrainingSessionOrigin.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromProgramChangeEventType(type: com.stratum.domain.training.ProgramChangeEventType?): String? = type?.name
+
+    @TypeConverter
+    fun toProgramChangeEventType(value: String?): com.stratum.domain.training.ProgramChangeEventType? =
+        value?.let { runCatching { com.stratum.domain.training.ProgramChangeEventType.valueOf(it) }.getOrNull() }
 }

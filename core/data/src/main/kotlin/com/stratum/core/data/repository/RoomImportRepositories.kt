@@ -1,16 +1,20 @@
 package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
-import com.stratum.core.data.db.HistoricalSessionDao
 import com.stratum.core.data.db.ImportAnalysisMetadataDao
 import com.stratum.core.data.db.ImportJobDao
 import com.stratum.core.data.db.LiftTrainingInsightsDao
-import com.stratum.core.data.db.LoggedSetDao
 import com.stratum.core.data.db.MuscleVolumeBaselineDao
+import com.stratum.core.data.db.ProgramDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.SupersetAffinityDao
+import com.stratum.core.data.db.TrainingLoggedSetDao
+import com.stratum.core.data.db.TrainingSessionDao
+import com.stratum.core.data.mapper.importHistoryProgramEntity
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
+import com.stratum.core.data.mapper.toHistoricalSession
+import com.stratum.core.data.mapper.toImportTrainingSessionEntity
 import com.stratum.domain.importing.HistoricalSession
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
@@ -62,31 +66,38 @@ class RoomImportJobRepository @Inject constructor(
 
 class RoomTrainingHistoryRepository @Inject constructor(
     private val database: StratumDatabase,
-    private val sessionDao: HistoricalSessionDao,
-    private val setDao: LoggedSetDao,
+    private val sessionDao: TrainingSessionDao,
+    private val setDao: TrainingLoggedSetDao,
+    private val programDao: ProgramDao,
 ) : TrainingHistoryRepository {
     override suspend fun replaceAll(sessions: List<HistoricalSession>, sets: List<LoggedSet>) {
         database.withTransaction {
-            sessionDao.deleteAll()
-            setDao.deleteAll()
-            sessionDao.insertAll(sessions.map { it.toEntity() })
-            setDao.insertAll(sets.map { it.toEntity() })
+            programDao.upsert(importHistoryProgramEntity())
+            setDao.deleteAllForImportedSessions()
+            sessionDao.deleteAllImported()
+            if (sessions.isNotEmpty()) {
+                sessionDao.insertAll(sessions.map { it.toImportTrainingSessionEntity() })
+            }
+            if (sets.isNotEmpty()) {
+                setDao.insertAll(sets.map { it.toEntity() })
+            }
         }
     }
 
     override suspend fun getAllSessions(): List<HistoricalSession> =
-        sessionDao.getAll().map { it.toDomain() }
+        sessionDao.getAllImported().map { it.toHistoricalSession() }
 
     override suspend fun getAllSets(): List<LoggedSet> =
-        setDao.getAll().map { it.toDomain() }
+        setDao.getAllForImportedSessions().map { it.toDomain() }
 
     override suspend fun getSetsInWindow(
         windowStart: Instant,
         windowEnd: Instant,
-    ): List<LoggedSet> = setDao.getInWindow(
-        windowStart.toEpochMilli(),
-        windowEnd.toEpochMilli(),
-    ).map { it.toDomain() }
+    ): List<LoggedSet> =
+        setDao.getImportedInWindow(
+            windowStart.toEpochMilli(),
+            windowEnd.toEpochMilli(),
+        ).map { it.toDomain() }
 }
 
 class RoomLiftTrainingInsightsRepository @Inject constructor(

@@ -112,4 +112,46 @@ class SwapWorkoutLiftUseCaseTest {
         val currentProgram = repository.getProgram()
         assertEquals(LiftId("bench-press"), currentProgram?.workouts?.first()?.workoutLifts?.first()?.liftId)
     }
+
+    @Test
+    @DisplayName("WL-035 SwapWorkoutLiftUseCase appends LIFT_SWAPPED event")
+    fun wl035_swapAppendsLiftSwappedEvent() = runTest {
+        val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
+        val program = Program(
+            id = ProgramId("p-1"),
+            name = "Push Program",
+            createdAt = Instant.now(),
+            cycleLength = 1,
+            trainingWeekdays = setOf(Weekday.Monday),
+            workouts = listOf(
+                Workout(
+                    id = WorkoutId("w-1"),
+                    programId = ProgramId("p-1"),
+                    name = "Push Day",
+                    weekday = Weekday.Monday,
+                    position = 0,
+                    workoutLifts = listOf(
+                        WorkoutLift(
+                            id = WorkoutLiftId("wl-bench"),
+                            workoutId = WorkoutId("w-1"),
+                            liftId = LiftId("lift-bench"),
+                            progressionScheme = ProgressionScheme.Linear,
+                            position = 0,
+                            sets = emptyList(),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events)
+
+        useCase(WorkoutLiftId("wl-bench"), LiftId("lift-squat")).getOrThrow()
+
+        val appended = events.getEventsForProgram(ProgramId("p-1"))
+        assertEquals(1, appended.size)
+        assertEquals(com.stratum.domain.training.ProgramChangeEventType.LIFT_SWAPPED, appended.single().eventType)
+        val payload = appended.single().payload as com.stratum.domain.training.ProgramChangeEventPayload.LiftSwapped
+        assertEquals(LiftId("lift-bench"), payload.previousLiftId)
+        assertEquals(LiftId("lift-squat"), payload.newLiftId)
+    }
 }

@@ -112,6 +112,7 @@ class GenerateProgramUseCaseTest {
 
     private fun buildUseCase(
         testScope: TestScope,
+        events: com.stratum.core.testing.training.FakeProgramChangeEventRepository? = null,
         contextLoader: ProgramGenerationContextLoader = ProgramGenerationContextLoader {
             scenarioContext(days = 3, specialization = emptyMap())
         },
@@ -143,9 +144,26 @@ class GenerateProgramUseCaseTest {
             ),
             completeOnboarding = CompleteOnboardingUseCase(onboardingRepository, profileRepository),
             profileRepository = profileRepository,
+            programChangeEventRepository = events,
             generationDispatcher = UnconfinedTestDispatcher(testScope.testScheduler),
         )
     }
 
     private val SEEDED_PROFILE = UserTrainingProfile.Empty.copy(trainingAge = TrainingAge.Advanced)
+
+    @Test
+    @DisplayName("WL-037 GenerateProgramUseCase appends PROGRAM_REGENERATED event")
+    fun wl037_generateProgramAppendsRegeneratedEvent() = runTest {
+        val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
+        val useCase = buildUseCase(this, events)
+
+        useCase.invoke().getOrThrow()
+
+        val appended = events.getEventsForProgram(programRepository.current!!.id)
+        assertEquals(1, appended.size)
+        assertEquals(
+            com.stratum.domain.training.ProgramChangeEventType.PROGRAM_REGENERATED,
+            appended.single().eventType,
+        )
+    }
 }
