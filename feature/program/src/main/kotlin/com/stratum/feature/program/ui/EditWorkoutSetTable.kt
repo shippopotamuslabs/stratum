@@ -65,7 +65,12 @@ internal fun EditWorkoutSetTable(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        EditWorkoutSetTableHeader()
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            EditWorkoutSetTableHeader()
+            SetTableHeaderDivider()
+        }
         sets.forEach { set ->
             EditWorkoutSetTableRow(
                 set = set,
@@ -90,6 +95,8 @@ private fun EditWorkoutSetTableHeader() {
         SetTableHeaderCell(
             text = stringResource(R.string.edit_workout_column_set),
             modifier = Modifier.weight(SET_COLUMN_WEIGHT),
+            textAlign = TextAlign.Start,
+            contentAlignment = Alignment.CenterStart,
         )
         SetTableHeaderCell(
             text = stringResource(R.string.edit_workout_column_rep_range),
@@ -107,19 +114,32 @@ private fun EditWorkoutSetTableHeader() {
 }
 
 @Composable
+private fun SetTableHeaderDivider() {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(StratumThemeAccessor.shapes.borderWidth)
+                .background(StratumThemeAccessor.colors.borderSubtle),
+    )
+}
+
+@Composable
 private fun SetTableHeaderCell(
     text: String,
     modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Center,
+    contentAlignment: Alignment = Alignment.Center,
 ) {
     Box(
         modifier = modifier,
-        contentAlignment = Alignment.Center,
+        contentAlignment = contentAlignment,
     ) {
         StratumText(
             text = text,
             style =
                 StratumThemeAccessor.typography.sectionLabel.copy(
-                    textAlign = TextAlign.Center,
+                    textAlign = textAlign,
                 ),
             muted = true,
             maxLines = 1,
@@ -154,7 +174,7 @@ private fun EditWorkoutSetTableRow(
         ) {
             Box(
                 modifier = Modifier.weight(SET_COLUMN_WEIGHT),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.CenterStart,
             ) {
                 SetNumberBadge(number = set.setNumber)
             }
@@ -194,7 +214,7 @@ private fun EditWorkoutAddSetRow(onAddSet: () -> Unit) {
     ) {
         Box(
             modifier = Modifier.weight(SET_COLUMN_WEIGHT),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.CenterStart,
         ) {
             SetColumnCircleBadge(onClick = onAddSet) {
                 Icon(

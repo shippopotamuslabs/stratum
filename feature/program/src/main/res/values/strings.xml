@@ -24,12 +24,13 @@
     <string name="edit_workout_loading">Loading workout…</string>
     <string name="edit_workout_not_found">Workout not found</string>
     <string name="edit_workout_reorder_lifts">Reorder lifts</string>
+    <string name="edit_workout_confirm">Confirm</string>
     <string name="edit_workout_confirm_reorder">Confirm lift order</string>
     <string name="edit_workout_add_exercise">Add exercise</string>
     <string name="edit_workout_add_set">Add set</string>
     <string name="edit_workout_remove_set">Remove set</string>
     <string name="edit_workout_lift_menu">Lift options</string>
-    <string name="edit_workout_create_superset">Create superset</string>
+    <string name="edit_workout_create_superset">Configure Superset</string>
     <string name="edit_workout_superset_with_previous">Superset with previous</string>
     <string name="edit_workout_superset_with_next">Superset with next</string>
     <string name="edit_workout_giant_set_with_previous">Giant set with previous</string>
@@ -61,4 +62,12 @@
     <string name="edit_workout_volume_title">Volume</string>
     <string name="edit_workout_volume_scope_workout">Workout</string>
     <string name="edit_workout_volume_scope_program">Program</string>
+    <string name="edit_workout_save">Save workout</string>
+    <string name="edit_workout_saving">Saving workout…</string>
+    <string name="edit_workout_discard_title">Discard changes?</string>
+    <string name="edit_workout_discard_message">You have unsaved edits to this workout.</string>
+    <string name="edit_workout_discard_confirm">Discard</string>
+    <string name="edit_workout_discard_cancel">Keep editing</string>
+    <string name="edit_workout_use_rest_timer_between_lifts">Use rest timer between lifts</string>
+    <string name="edit_workout_save_blocked_placeholder_lift">Choose an exercise for each new lift before saving.</string>
 </resources>

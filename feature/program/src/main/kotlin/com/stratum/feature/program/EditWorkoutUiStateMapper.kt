@@ -40,6 +40,8 @@ internal fun WorkoutLift.toEditLiftState(liftNamesById: Map<String, String>): Ed
             sets
                 .sortedBy { set -> set.position }
                 .mapIndexed { index, set -> set.toEditSetState(index + 1) },
+        supersetGroupId = supersetGroupId?.value,
+        useRestTimerBetweenLifts = useRestTimerBetweenLifts,
     )
 
 internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =
@@ -48,7 +50,7 @@ internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =
         setNumber = setNumber,
         repMin = repMin,
         repMax = repMax,
-        restSeconds = DEFAULT_REST_SECONDS,
+        restSeconds = restSeconds,
         rirGoal = rirGoal,
     )
 

@@ -19,5 +19,7 @@ data class EditWorkoutScreenCallbacks(
     val onSetRepMin: (setId: String, repMin: Int) -> Unit = { _, _ -> },
     val onSetRepMax: (setId: String, repMax: Int) -> Unit = { _, _ -> },
     val onSetRirGoal: (setId: String, rirGoal: Int) -> Unit = { _, _ -> },
+    val onSetUseRestTimerBetweenLifts: (workoutLiftId: String, enabled: Boolean) -> Unit = { _, _ -> },
+    val onSaveWorkout: () -> Unit = {},
     val onSwapLiftClick: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
 )

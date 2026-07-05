@@ -1,5 +1,6 @@
 package com.stratum.core.ui.theme
 
+import kotlin.math.absoluteValue
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -7,7 +8,7 @@ import androidx.compose.ui.graphics.Color
  * on every lift in the group (UI_DESIGN.md §3 — colors live in theme, not features).
  */
 object StratumSupersetGroupColors {
-    fun backgroundFor(groupId: Int): Color = Palette[(groupId - 1).mod(Palette.size)]
+    fun backgroundFor(groupId: String): Color = Palette[groupId.hashCode().mod(Palette.size).absoluteValue]
 
     val contentColor: Color = Color(0xFF1A1A1A)
 

@@ -4,6 +4,7 @@ package com.stratum.domain.program.generation.schema
 
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.DEFAULT_LIFT_SET_REST_SECONDS
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
@@ -44,6 +45,7 @@ fun NormalizedProgram.toDomainProgram(createdAt: Instant = Instant.now()): Progr
                             repMax = set.repMax,
                             rirGoal = set.rirGoal,
                             isTopSet = set.isTopSet,
+                            restSeconds = DEFAULT_LIFT_SET_REST_SECONDS,
                         )
                     },
                 )

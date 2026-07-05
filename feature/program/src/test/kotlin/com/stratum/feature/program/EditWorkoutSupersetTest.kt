@@ -4,16 +4,22 @@ import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.isSupersetPairMember
 import com.stratum.feature.program.ui.showsSupersetChip
+import com.stratum.feature.program.ui.shouldKeepSupersetSheetOpenAfterLink
 import com.stratum.feature.program.ui.supersetLinkSheetOptions
 import com.stratum.feature.program.R
 import com.stratum.core.ui.R as CoreUiR
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class EditWorkoutSupersetTest {
+    private val groupA = "group-a"
+    private val groupB = "group-b"
+
     @Test
     @DisplayName("Given adjacent lifts when linked with previous then both share a group id")
     fun linkWithPreviousCreatesPair() {
@@ -28,11 +34,12 @@ class EditWorkoutSupersetTest {
                 lifts = lifts,
                 workoutLiftId = "wl-2",
                 direction = SupersetLinkDirection.Previous,
-                nextGroupId = { 1 },
+                nextGroupId = { groupA },
             )
 
-        assertEquals(1, updated[0].supersetGroupId)
-        assertEquals(1, updated[1].supersetGroupId)
+        assertEquals(groupA, updated[0].supersetGroupId)
+        assertEquals(groupA, updated[1].supersetGroupId)
+        assertFalse(updated[0].useRestTimerBetweenLifts)
     }
 
     @Test
@@ -40,8 +47,8 @@ class EditWorkoutSupersetTest {
     fun linkWithNextJoinsGiantSet() {
         val lifts =
             listOf(
-                lift("wl-1", position = 0, groupId = 2),
-                lift("wl-2", position = 1, groupId = 2),
+                lift("wl-1", position = 0, groupId = groupB),
+                lift("wl-2", position = 1, groupId = groupB),
                 lift("wl-3", position = 2),
             )
 
@@ -50,11 +57,11 @@ class EditWorkoutSupersetTest {
                 lifts = lifts,
                 workoutLiftId = "wl-2",
                 direction = SupersetLinkDirection.Next,
-                nextGroupId = { 99 },
+                nextGroupId = { "unused" },
             )
 
-        assertEquals(2, updated[2].supersetGroupId)
-        assertEquals(3, updated.count { lift -> lift.supersetGroupId == 2 })
+        assertEquals(groupB, updated[2].supersetGroupId)
+        assertEquals(3, updated.count { lift -> lift.supersetGroupId == groupB })
     }
 
     @Test
@@ -62,13 +69,13 @@ class EditWorkoutSupersetTest {
     fun cleanupRemovesSingletonGroup() {
         val lifts =
             listOf(
-                lift("wl-1", position = 0, groupId = 4),
+                lift("wl-1", position = 0, groupId = "group-solo"),
                 lift("wl-2", position = 1),
             )
 
         val cleaned = cleanupSupersetGroups(lifts)
 
-        assertEquals(null, cleaned[0].supersetGroupId)
+        assertNull(cleaned[0].supersetGroupId)
     }
 
     @Test
@@ -76,14 +83,14 @@ class EditWorkoutSupersetTest {
     fun unlinkFromPairClearsBoth() {
         val lifts =
             listOf(
-                lift("wl-1", position = 0, groupId = 1),
-                lift("wl-2", position = 1, groupId = 1),
+                lift("wl-1", position = 0, groupId = groupA),
+                lift("wl-2", position = 1, groupId = groupA),
             )
 
         val updated = unlinkLiftFromSuperset(lifts = lifts, workoutLiftId = "wl-2")
 
-        assertEquals(null, updated[0].supersetGroupId)
-        assertEquals(null, updated[1].supersetGroupId)
+        assertNull(updated[0].supersetGroupId)
+        assertNull(updated[1].supersetGroupId)
     }
 
     @Test
@@ -91,16 +98,34 @@ class EditWorkoutSupersetTest {
     fun unlinkFromGiantSetKeepsRemainingGroup() {
         val lifts =
             listOf(
-                lift("wl-1", position = 0, groupId = 2),
-                lift("wl-2", position = 1, groupId = 2),
-                lift("wl-3", position = 2, groupId = 2),
+                lift("wl-1", position = 0, groupId = groupB),
+                lift("wl-2", position = 1, groupId = groupB),
+                lift("wl-3", position = 2, groupId = groupB),
             )
 
         val updated = unlinkLiftFromSuperset(lifts = lifts, workoutLiftId = "wl-2")
 
-        assertEquals(2, updated[0].supersetGroupId)
-        assertEquals(null, updated[1].supersetGroupId)
-        assertEquals(2, updated[2].supersetGroupId)
+        assertEquals(groupB, updated[0].supersetGroupId)
+        assertNull(updated[1].supersetGroupId)
+        assertEquals(groupB, updated[2].supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("Given reorder when terminal lift changes then last-in-chain updates")
+    fun reorderChangesTerminalLift() {
+        val lifts =
+            listOf(
+                lift("wl-1", position = 0, groupId = groupA),
+                lift("wl-2", position = 1, groupId = groupA),
+            )
+        val reordered =
+            listOf(
+                lifts[1].copy(position = 0),
+                lifts[0].copy(position = 1),
+            )
+
+        assertFalse(isLastInSupersetChain(reordered[0], reordered))
+        assertTrue(isLastInSupersetChain(reordered[1], reordered))
     }
 
     @Test
@@ -108,8 +133,8 @@ class EditWorkoutSupersetTest {
     fun sheetOptionsIncludeRemoveWhenGrouped() {
         val lifts =
             listOf(
-                lift("wl-1", position = 0, groupId = 1),
-                lift("wl-2", position = 1, groupId = 1),
+                lift("wl-1", position = 0, groupId = groupA),
+                lift("wl-2", position = 1, groupId = groupA),
             )
 
         val options = supersetLinkSheetOptions(lifts = lifts, workoutLiftId = "wl-2")
@@ -120,13 +145,31 @@ class EditWorkoutSupersetTest {
     }
 
     @Test
+    @DisplayName("Given paired lifts when sheet reopened then link to grouped neighbor is hidden")
+    fun sheetOptionsHideAlreadyLinkedNeighbor() {
+        val lifts =
+            listOf(
+                lift("wl-1", position = 0, groupId = groupA),
+                lift("wl-2", position = 1, groupId = groupA),
+            )
+
+        val optionsFromFirst = supersetLinkSheetOptions(lifts = lifts, workoutLiftId = "wl-1")
+        val optionsFromSecond = supersetLinkSheetOptions(lifts = lifts, workoutLiftId = "wl-2")
+
+        assertEquals(1, optionsFromFirst.size)
+        assertEquals(SupersetLinkDirection.Remove, optionsFromFirst.single().direction)
+        assertEquals(1, optionsFromSecond.size)
+        assertEquals(SupersetLinkDirection.Remove, optionsFromSecond.single().direction)
+    }
+
+    @Test
     @DisplayName("Given middle lift when sheet options built then previous and next labels reflect neighbor groups")
     fun sheetOptionsUseGiantSetLabels() {
         val lifts =
             listOf(
-                lift("wl-1", position = 0, groupId = 1),
+                lift("wl-1", position = 0, groupId = groupA),
                 lift("wl-2", position = 1),
-                lift("wl-3", position = 2, groupId = 2),
+                lift("wl-3", position = 2, groupId = groupB),
             )
 
         val options = supersetLinkSheetOptions(lifts = lifts, workoutLiftId = "wl-2")
@@ -143,8 +186,8 @@ class EditWorkoutSupersetTest {
     fun chipVisibleForPairMembers() {
         val lifts =
             listOf(
-                lift("wl-1", position = 0, groupId = 3),
-                lift("wl-2", position = 1, groupId = 3),
+                lift("wl-1", position = 0, groupId = groupA),
+                lift("wl-2", position = 1, groupId = groupA),
             )
 
         assertTrue(lifts[0].showsSupersetChip(lifts))
@@ -160,10 +203,64 @@ class EditWorkoutSupersetTest {
         assertFalse(lifts[0].showsSupersetChip(lifts))
     }
 
+    @Test
+    @DisplayName("Given link with next when lift is not terminal then sheet stays open")
+    fun keepSheetOpenAfterLinkWithNext() {
+        val lifts =
+            listOf(
+                lift("wl-1", position = 0),
+                lift("wl-2", position = 1),
+            )
+
+        assertTrue(
+            shouldKeepSupersetSheetOpenAfterLink(
+                lifts = lifts,
+                workoutLiftId = "wl-1",
+                direction = SupersetLinkDirection.Next,
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("Given link with previous when lift becomes terminal then sheet closes")
+    fun closeSheetAfterLinkWithPrevious() {
+        val lifts =
+            listOf(
+                lift("wl-1", position = 0),
+                lift("wl-2", position = 1),
+            )
+
+        assertFalse(
+            shouldKeepSupersetSheetOpenAfterLink(
+                lifts = lifts,
+                workoutLiftId = "wl-2",
+                direction = SupersetLinkDirection.Previous,
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("Given remove from superset then sheet closes")
+    fun closeSheetAfterRemove() {
+        val lifts =
+            listOf(
+                lift("wl-1", position = 0, groupId = groupA),
+                lift("wl-2", position = 1, groupId = groupA),
+            )
+
+        assertFalse(
+            shouldKeepSupersetSheetOpenAfterLink(
+                lifts = lifts,
+                workoutLiftId = "wl-2",
+                direction = SupersetLinkDirection.Remove,
+            ),
+        )
+    }
+
     private fun lift(
         workoutLiftId: String,
         position: Int,
-        groupId: Int? = null,
+        groupId: String? = null,
     ): EditLiftState =
         EditLiftState(
             workoutLiftId = workoutLiftId,

@@ -20,6 +20,9 @@ internal fun EditWorkoutUiState.Loaded.withDerivedMetrics(
         lifts.map { lift ->
             WorkoutLiftDurationInput(
                 restSecondsBySet = lift.sets.map { set -> set.restSeconds },
+                position = lift.position,
+                supersetGroupId = lift.supersetGroupId,
+                useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
             )
         }
     val volumeSummaries = computeWorkoutMuscleVolume(volumeInputs, liftCatalog)

@@ -43,6 +43,7 @@ import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumTheme
@@ -54,6 +55,9 @@ import com.stratum.feature.program.EditWorkoutViewModel
 import com.stratum.feature.program.R
 import com.stratum.feature.program.SupersetLinkDirection
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
+import com.stratum.feature.program.isLastInSupersetChain
+import com.stratum.feature.program.isSupersetPairMember
+import com.stratum.feature.program.ui.shouldKeepSupersetSheetOpenAfterLink
 
 private const val MIN_REST_SECONDS = 0
 private const val MAX_REST_SECONDS = 600
@@ -74,12 +78,21 @@ fun EditWorkoutRoute(
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val loadedState = state as? EditWorkoutUiState.Loaded
+    var showDiscardDialog by remember { mutableStateOf(false) }
 
     EditWorkoutScreen(
         state = state,
+        showDiscardDialog = showDiscardDialog,
+        onDismissDiscardDialog = { showDiscardDialog = false },
+        onConfirmDiscard = {
+            showDiscardDialog = false
+            onBackClick()
+        },
         onBackClick = {
             if (loadedState?.isReorderMode == true) {
                 viewModel.cancelReorderMode()
+            } else if (loadedState?.isDirty == true) {
+                showDiscardDialog = true
             } else {
                 onBackClick()
             }
@@ -91,7 +104,7 @@ fun EditWorkoutRoute(
                 onReorderLifts = viewModel::reorderLifts,
                 onAddSet = viewModel::addSet,
                 onRemoveSet = viewModel::removeSet,
-                onAddLift = viewModel::addLift,
+                onAddLift = { viewModel.addLift(onSwapLiftClick) },
                 onRemoveLift = viewModel::removeLift,
                 onLinkSupersetWithPrevious = viewModel::linkSupersetWithPrevious,
                 onLinkSupersetWithNext = viewModel::linkSupersetWithNext,
@@ -101,6 +114,8 @@ fun EditWorkoutRoute(
                 onSetRepMin = viewModel::setRepMin,
                 onSetRepMax = viewModel::setRepMax,
                 onSetRirGoal = viewModel::setRirGoal,
+                onSetUseRestTimerBetweenLifts = viewModel::setUseRestTimerBetweenLifts,
+                onSaveWorkout = { viewModel.saveWorkout(onComplete = onBackClick) },
                 onSwapLiftClick = onSwapLiftClick,
             ),
         modifier = modifier,
@@ -113,6 +128,9 @@ fun EditWorkoutScreen(
     onBackClick: () -> Unit,
     callbacks: EditWorkoutScreenCallbacks,
     modifier: Modifier = Modifier,
+    showDiscardDialog: Boolean = false,
+    onDismissDiscardDialog: () -> Unit = {},
+    onConfirmDiscard: () -> Unit = {},
 ) {
     var restSheetSet by remember { mutableStateOf<EditSetState?>(null) }
     var restSheetLiftId by remember { mutableStateOf<String?>(null) }
@@ -128,6 +146,7 @@ fun EditWorkoutScreen(
                 onBackClick = onBackClick,
                 onToggleReorderMode = callbacks.onToggleReorderMode,
                 onConfirmReorder = callbacks.onConfirmReorder,
+                onSaveWorkout = callbacks.onSaveWorkout,
             )
         },
     ) { padding ->
@@ -218,18 +237,27 @@ fun EditWorkoutScreen(
 
     val loadedState = state as? EditWorkoutUiState.Loaded
     supersetSheetLiftId?.let { liftId ->
-        val options =
-            loadedState?.let { loaded ->
-                supersetLinkSheetOptions(lifts = loaded.lifts, workoutLiftId = liftId)
-            }.orEmpty()
-        if (options.isNotEmpty()) {
+        val loaded = loadedState ?: return@let
+        val currentLift = loaded.lifts.firstOrNull { lift -> lift.workoutLiftId == liftId }
+        val options = supersetLinkSheetOptions(lifts = loaded.lifts, workoutLiftId = liftId)
+        if (options.isNotEmpty() && currentLift != null) {
             SupersetLinkBottomSheet(
                 options = options,
+                showRestBetweenLiftsToggle =
+                    isSupersetPairMember(currentLift, loaded.lifts) &&
+                        !isLastInSupersetChain(currentLift, loaded.lifts),
+                useRestTimerBetweenLifts = currentLift.useRestTimerBetweenLifts,
+                onUseRestTimerBetweenLiftsChange = { enabled ->
+                    callbacks.onSetUseRestTimerBetweenLifts(liftId, enabled)
+                },
                 onOptionSelected = { direction ->
                     when (direction) {
                         SupersetLinkDirection.Previous -> callbacks.onLinkSupersetWithPrevious(liftId)
                         SupersetLinkDirection.Next -> callbacks.onLinkSupersetWithNext(liftId)
                         SupersetLinkDirection.Remove -> callbacks.onRemoveFromSuperset(liftId)
+                    }
+                    if (!shouldKeepSupersetSheetOpenAfterLink(loaded.lifts, liftId, direction)) {
+                        supersetSheetLiftId = null
                     }
                 },
                 onDismiss = { supersetSheetLiftId = null },
@@ -237,6 +265,13 @@ fun EditWorkoutScreen(
         } else {
             supersetSheetLiftId = null
         }
+    }
+
+    if (showDiscardDialog) {
+        EditWorkoutDiscardBottomSheet(
+            onConfirmDiscard = onConfirmDiscard,
+            onDismiss = onDismissDiscardDialog,
+        )
     }
 }
 
@@ -246,6 +281,7 @@ private fun EditWorkoutTopBar(
     onBackClick: () -> Unit,
     onToggleReorderMode: () -> Unit,
     onConfirmReorder: () -> Unit,
+    onSaveWorkout: () -> Unit,
 ) {
     val title =
         when (state) {
@@ -265,19 +301,31 @@ private fun EditWorkoutTopBar(
         actions = {
             if (state is EditWorkoutUiState.Loaded) {
                 if (isReorderMode) {
-                    StratumIconButton(onClick = onConfirmReorder) {
-                        Icon(
-                            painter = painterResource(CoreUiR.drawable.ic_check),
-                            contentDescription = stringResource(R.string.edit_workout_confirm_reorder),
-                            tint = StratumThemeAccessor.colors.textPrimary,
-                        )
-                    }
+                    StratumTopBarTextButton(
+                        text = stringResource(R.string.edit_workout_confirm),
+                        onClick = onConfirmReorder,
+                    )
                 } else {
-                    StratumIconButton(onClick = onToggleReorderMode) {
+                    StratumIconButton(
+                        onClick = onToggleReorderMode,
+                        containerColor = Color.Transparent,
+                    ) {
                         Icon(
                             painter = painterResource(CoreUiR.drawable.ic_swap_vert),
                             contentDescription = stringResource(R.string.edit_workout_reorder_lifts),
                             tint = StratumThemeAccessor.colors.textPrimary,
+                        )
+                    }
+                    if (state.isDirty) {
+                        StratumTopBarTextButton(
+                            text =
+                                if (state.isSaving) {
+                                    stringResource(R.string.edit_workout_saving)
+                                } else {
+                                    stringResource(R.string.edit_workout_confirm)
+                                },
+                            onClick = onSaveWorkout,
+                            enabled = !state.isSaving && state.saveBlockedReason == null,
                         )
                     }
                 }
@@ -321,6 +369,15 @@ private fun EditWorkoutContent(
                 exerciseCount = state.lifts.size,
                 estimatedDurationMinutes = state.estimatedDurationMinutes,
             )
+        }
+        if (state.saveBlockedReason == SaveBlockedReason.PlaceholderLift) {
+            item {
+                StratumText(
+                    text = stringResource(R.string.edit_workout_save_blocked_placeholder_lift),
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    muted = true,
+                )
+            }
         }
         itemsIndexed(state.lifts, key = { _, lift -> lift.workoutLiftId }) { _, lift ->
             EditLiftPanel(
@@ -595,6 +652,32 @@ private fun RestTimeBottomSheet(
             text = stringResource(R.string.edit_workout_rest_apply_to_all_sets),
             onClick = onApplyToAllSets,
             containerColor = sheetColor,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun EditWorkoutDiscardBottomSheet(
+    onConfirmDiscard: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.edit_workout_discard_title),
+    ) {
+        StratumText(
+            text = stringResource(R.string.edit_workout_discard_message),
+            style = StratumThemeAccessor.typography.bodyLarge,
+        )
+        StratumButton(
+            text = stringResource(R.string.edit_workout_discard_confirm),
+            onClick = onConfirmDiscard,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        StratumOutlinedButton(
+            text = stringResource(R.string.edit_workout_discard_cancel),
+            onClick = onDismiss,
             modifier = Modifier.fillMaxWidth(),
         )
     }
