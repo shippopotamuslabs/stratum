@@ -15,6 +15,9 @@ interface ProgramDao {
     @Query("DELETE FROM programs")
     suspend fun deleteAll()
 
+    @Query("DELETE FROM programs WHERE id = :programId")
+    suspend fun deleteById(programId: com.stratum.domain.program.identity.ProgramId)
+
     @Query("SELECT * FROM programs LIMIT 1")
     suspend fun get(): ProgramEntity?
 

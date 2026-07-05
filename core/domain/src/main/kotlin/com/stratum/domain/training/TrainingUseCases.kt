@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
+import javax.inject.Inject
 
 sealed class StartTrainingSessionRequest {
     data class ProgramWorkout(val workoutId: WorkoutId) : StartTrainingSessionRequest()
@@ -35,7 +36,7 @@ data class LogSetCommand(
     val completedAt: Instant,
 )
 
-class StartTrainingSessionUseCase(
+class StartTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
 ) {
@@ -91,7 +92,7 @@ class StartTrainingSessionUseCase(
     }
 }
 
-class FinalizeTrainingSessionUseCase(
+class FinalizeTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository? = null,
@@ -123,7 +124,7 @@ class FinalizeTrainingSessionUseCase(
     }
 }
 
-class AbandonTrainingSessionUseCase(
+class AbandonTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
 ) {
     suspend operator fun invoke(sessionId: TrainingSessionId): Result<Unit> = runCatching {
@@ -131,7 +132,7 @@ class AbandonTrainingSessionUseCase(
     }
 }
 
-class RecordWorkoutSkipUseCase(
+class RecordWorkoutSkipUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository? = null,
@@ -170,7 +171,7 @@ class RecordWorkoutSkipUseCase(
     }
 }
 
-class RecordRestDaySkipUseCase(
+class RecordRestDaySkipUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository? = null,
@@ -201,7 +202,7 @@ class RecordRestDaySkipUseCase(
     }
 }
 
-class LogSetUseCase(
+class LogSetUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val liftRepository: com.stratum.domain.lift.LiftRepository,
     private val programRepository: ProgramRepository,
@@ -254,7 +255,7 @@ class LogSetUseCase(
     }
 }
 
-class ObserveCycleProgressUseCase(
+class ObserveCycleProgressUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val trainingLogRepository: TrainingLogRepository,
 ) {
