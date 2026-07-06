@@ -6,6 +6,7 @@ import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.domain.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.workout.WorkoutEditSession
 
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

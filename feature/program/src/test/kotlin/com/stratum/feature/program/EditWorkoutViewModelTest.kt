@@ -24,6 +24,8 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.SaveWorkoutUseCase
+import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventType
@@ -290,7 +292,7 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.linkSuperset("wl-2", com.stratum.feature.program.SupersetLinkDirection.Previous)
+            viewModel.linkSuperset("wl-2", SupersetLinkDirection.Previous)
             val loaded = awaitItem() as EditWorkoutUiState.Loaded
             assertNotNull(loaded.lifts[0].supersetGroupId)
             assertEquals(loaded.lifts[0].supersetGroupId, loaded.lifts[1].supersetGroupId)
@@ -305,7 +307,7 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.linkSuperset("wl-2", com.stratum.feature.program.SupersetLinkDirection.Previous)
+            viewModel.linkSuperset("wl-2", SupersetLinkDirection.Previous)
             awaitItem()
             viewModel.removeFromSuperset("wl-2")
             val loaded = awaitItem() as EditWorkoutUiState.Loaded
@@ -322,7 +324,7 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.linkSuperset("wl-2", com.stratum.feature.program.SupersetLinkDirection.Previous)
+            viewModel.linkSuperset("wl-2", SupersetLinkDirection.Previous)
             awaitItem()
             viewModel.removeLift("wl-2")
             val loaded = awaitLoaded()

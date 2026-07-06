@@ -10,7 +10,16 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.domain.workout.EditSessionEvent
+import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.core.ui.component.isLastInSupersetChain
+import com.stratum.core.ui.component.isSupersetPairMember
+import com.stratum.core.ui.component.linkSupersetWithAdjacent
+import com.stratum.core.ui.component.unlinkLiftFromSuperset
+import com.stratum.core.ui.component.cleanupSupersetGroups
 import com.stratum.domain.training.DeleteLoggedSetUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetCommand
@@ -72,7 +81,22 @@ class WorkoutViewModel @Inject constructor(
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
     private val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     private val logErrorUseCase: LogErrorUseCase,
+    private val workoutEditSession: WorkoutEditSession,
 ) : ViewModel() {
+
+    init {
+        viewModelScope.launch {
+            workoutEditSession.events.collect { event ->
+                when (event) {
+                    is EditSessionEvent.LiftSelected -> {
+                        if (event.workoutId == activeWorkoutId?.value && event.workoutLiftId != null) {
+                            swapLift(WorkoutLiftId(event.workoutLiftId!!), LiftId(event.liftId))
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     private val _uiState = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
@@ -326,10 +350,90 @@ class WorkoutViewModel @Inject constructor(
         render()
     }
 
-    @Suppress("UnusedParameter")
     fun swapLift(workoutLiftId: WorkoutLiftId, newLiftId: LiftId) {
-        // Exercise swap recomputes the snapshot — out of scope for the Slice 7 skeleton.
-        // Signature retained for UI wiring; implementation deferred.
+        overlay = overlay.copy(
+            swappedLifts = overlay.swappedLifts + (workoutLiftId to newLiftId)
+        )
+        recomputeRecommendations()
+        render()
+    }
+
+    fun removeLift(workoutLiftId: WorkoutLiftId) {
+        val currentLifts = getLinkableLifts().filterNot { it.workoutLiftId == workoutLiftId.value }
+        val cleaned = cleanupSupersetGroups(currentLifts)
+        val newGroupIdOverrides = overlay.supersetGroupIdOverrides.toMutableMap()
+        val newRestTimerOverrides = overlay.useRestTimerBetweenLiftsOverrides.toMutableMap()
+        cleaned.forEach { lift ->
+            newGroupIdOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
+            newRestTimerOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.useRestTimerBetweenLifts
+        }
+        overlay = overlay.copy(
+            deletedLiftIds = overlay.deletedLiftIds + workoutLiftId,
+            supersetGroupIdOverrides = newGroupIdOverrides,
+            useRestTimerBetweenLiftsOverrides = newRestTimerOverrides
+        )
+        recomputeRecommendations()
+        render()
+    }
+
+    fun linkSuperset(workoutLiftId: WorkoutLiftId, direction: SupersetLinkDirection) {
+        val currentLifts = getLinkableLifts()
+        val updated = linkSupersetWithAdjacent(
+            lifts = currentLifts,
+            workoutLiftId = workoutLiftId.value,
+            direction = direction,
+            nextGroupId = { WorkoutSupersetGroupId(java.util.UUID.randomUUID().toString()).value }
+        )
+        val newGroupIdOverrides = overlay.supersetGroupIdOverrides.toMutableMap()
+        val newRestTimerOverrides = overlay.useRestTimerBetweenLiftsOverrides.toMutableMap()
+        updated.forEach { lift ->
+            newGroupIdOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
+            newRestTimerOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.useRestTimerBetweenLifts
+        }
+        overlay = overlay.copy(
+            supersetGroupIdOverrides = newGroupIdOverrides,
+            useRestTimerBetweenLiftsOverrides = newRestTimerOverrides
+        )
+        recomputeRecommendations()
+        render()
+    }
+
+    fun removeFromSuperset(workoutLiftId: WorkoutLiftId) {
+        val currentLifts = getLinkableLifts()
+        val updated = unlinkLiftFromSuperset(currentLifts, workoutLiftId.value)
+        val newGroupIdOverrides = overlay.supersetGroupIdOverrides.toMutableMap()
+        val newRestTimerOverrides = overlay.useRestTimerBetweenLiftsOverrides.toMutableMap()
+        updated.forEach { lift ->
+            newGroupIdOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
+            newRestTimerOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.useRestTimerBetweenLifts
+        }
+        overlay = overlay.copy(
+            supersetGroupIdOverrides = newGroupIdOverrides,
+            useRestTimerBetweenLiftsOverrides = newRestTimerOverrides
+        )
+        recomputeRecommendations()
+        render()
+    }
+
+    fun setUseRestTimerBetweenLifts(workoutLiftId: WorkoutLiftId, enabled: Boolean) {
+        overlay = overlay.copy(
+            useRestTimerBetweenLiftsOverrides = overlay.useRestTimerBetweenLiftsOverrides + (workoutLiftId to enabled)
+        )
+        recomputeRecommendations()
+        render()
+    }
+
+    private fun getLinkableLifts(): List<com.stratum.core.ui.component.SupersetLinkableLiftState> {
+        val currentRendered = merge()
+        return currentRendered.lifts.map { lift ->
+            com.stratum.core.ui.component.SupersetLinkableLiftState(
+                workoutLiftId = lift.workoutLiftId.value,
+                liftId = lift.liftId.value,
+                name = lift.liftName,
+                supersetGroupId = lift.supersetGroupId?.value,
+                useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[lift.workoutLiftId] ?: lift.useRestTimerBetweenLifts
+            )
+        }
     }
 
     fun finalizeSession() {
@@ -385,15 +489,42 @@ class WorkoutViewModel @Inject constructor(
             "",
             emptyList(),
         )
-        // Fold overlay structural mutations into the projection: append added slots to
-        // their owning lift; the merge use case then removes deleted slots via its
-        // deletedSlotIds check.
-        val withAdded = base.copy(
-            lifts = base.lifts.map { lift ->
-                val appended = overlay.addedSlots.filter { it.workoutLiftId == lift.workoutLiftId }
-                if (appended.isEmpty()) lift else lift.copy(slots = lift.slots + appended)
-            },
-        )
+        val filtered = base.lifts.filterNot { it.workoutLiftId in overlay.deletedLiftIds }
+        val mappedLifts = filtered.map { lift ->
+            val swappedLiftId = overlay.swappedLifts[lift.workoutLiftId]
+            
+            var currentLiftId = lift.liftId
+            var currentLiftName = lift.liftName
+            var currentLoadType = lift.loadType
+            if (swappedLiftId != null) {
+                currentLiftId = swappedLiftId
+                currentLiftName = liftNamesById[swappedLiftId].orEmpty()
+                currentLoadType = liftsById[swappedLiftId]?.loadType ?: LoadType.Weighted
+            }
+            
+            val currentSupersetGroupId = if (overlay.supersetGroupIdOverrides.containsKey(lift.workoutLiftId)) {
+                overlay.supersetGroupIdOverrides[lift.workoutLiftId]
+            } else {
+                lift.supersetGroupId
+            }
+            
+            val baseSlots = lift.slots.map { slot ->
+                if (swappedLiftId != null) slot.copy(liftId = swappedLiftId) else slot
+            }
+            val appended = overlay.addedSlots.filter { it.workoutLiftId == lift.workoutLiftId }.map { slot ->
+                if (swappedLiftId != null) slot.copy(liftId = swappedLiftId) else slot
+            }
+            
+            lift.copy(
+                liftId = currentLiftId,
+                liftName = currentLiftName,
+                loadType = currentLoadType,
+                supersetGroupId = currentSupersetGroupId,
+                slots = baseSlots + appended,
+                useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[lift.workoutLiftId] ?: lift.useRestTimerBetweenLifts
+            )
+        }
+        val withAdded = base.copy(lifts = mappedLifts)
         val snapshot = com.stratum.domain.workout.ProgressionSnapshot(withAdded.workoutId, snapshotBySlot)
         return mergeRenderedWorkout(withAdded, snapshot, overlay)
     }

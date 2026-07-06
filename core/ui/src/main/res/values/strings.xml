@@ -27,4 +27,18 @@
     <string name="edit_workout_rir_info_content_description">About RIR targets</string>
     <string name="edit_workout_rir_info_close">Close RIR description</string>
     <string name="edit_workout_rir_info_body">RIR stands for Reps in Reserve — how many additional reps you think you could have done. This is a way to track how challenging a set felt to you.\n\nA lower RIR means you were closer to failure and pushed your limit. A higher one means it felt easier and you had a lot left in the tank.</string>
+
+    <!-- LiftSettingsBottomSheets — shared superset configuration and actions -->
+    <string name="edit_workout_lift_menu">Lift options</string>
+    <string name="edit_workout_create_superset">Configure Superset</string>
+    <string name="edit_workout_superset_with_previous">Superset with previous</string>
+    <string name="edit_workout_superset_with_next">Superset with next</string>
+    <string name="edit_workout_giant_set_with_previous">Giant set with previous</string>
+    <string name="edit_workout_giant_set_with_next">Giant set with next</string>
+    <string name="edit_workout_remove_from_superset">Remove from superset</string>
+    <string name="edit_workout_remove_from_giant_set">Remove from giant set</string>
+    <string name="edit_workout_superset_chip">Superset</string>
+    <string name="edit_workout_swap_lift">Swap</string>
+    <string name="edit_workout_remove_lift">Remove</string>
+    <string name="edit_workout_use_rest_timer_between_lifts">Use rest timer between lifts</string>
 </resources>

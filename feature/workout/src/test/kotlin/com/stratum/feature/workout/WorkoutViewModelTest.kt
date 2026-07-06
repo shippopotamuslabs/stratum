@@ -40,6 +40,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
+import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
 import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RecommendationEngine
@@ -246,9 +247,20 @@ class WorkoutViewModelTest {
         ),
     )
 
+    private fun catalogLift2(): Lift = Lift(
+        id = LiftId("L-2"),
+        name = "Bench Press",
+        movementPatterns = setOf(MovementPattern.SquatPattern),
+        primaryMuscles = setOf(MuscleGroup.Quad),
+        secondaryMuscles = emptySet(),
+        incrementTiers = emptyList(),
+        presetTags = emptySet(),
+        enabled = true,
+    )
+
     private fun buildViewModel(): WorkoutViewModel {
         // Uses the seeded [programRepository] / [progressionHistory] from [setUp].
-        val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift()))
+        val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift(), catalogLift2()))
         return WorkoutViewModel(
             observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
             generateSnapshot =
@@ -276,6 +288,7 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            workoutEditSession = WorkoutEditSession(),
         )
     }
 
@@ -318,6 +331,7 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            workoutEditSession = WorkoutEditSession(),
         )
     }
 
@@ -361,18 +375,19 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(
                     listOf(
                         com.stratum.domain.importing.LiftTrainingInsights(
-                            liftId = liftId,
-                            estimatedOneRm = null,
-                            fatigueDecaySlope = slope,
-                            fatigueDecayIntercept = intercept,
-                            sessionCount = 5,
-                            progressTrend = null,
-                            lastPerformedAt = null,
+                             liftId = liftId,
+                             estimatedOneRm = null,
+                             fatigueDecaySlope = slope,
+                             fatigueDecayIntercept = intercept,
+                             sessionCount = 5,
+                             progressTrend = null,
+                             lastPerformedAt = null,
                         ),
                     ),
                 ),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            workoutEditSession = WorkoutEditSession(),
         )
     }
 
@@ -772,6 +787,7 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            workoutEditSession = WorkoutEditSession(),
         )
 
         localViewModel.startSession(workoutId)
@@ -825,6 +841,7 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            workoutEditSession = WorkoutEditSession(),
         )
 
         localViewModel.startSession(workoutId)
@@ -883,6 +900,59 @@ class WorkoutViewModelTest {
             // Should transition to NoActiveSession and reset states
             val noSession = awaitItem()
             assertTrue(noSession is WorkoutUiState.NoActiveSession)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Active Session Edit: Swap Lift in memory updates presentation lift metadata")
+    fun activeSessionSwapLiftUpdatesMetadata() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertEquals("Squat", loaded.lifts.first().liftName)
+
+            // Swap to catalogLift2 (Bench Press)
+            viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+            val updated = awaitItem() as WorkoutUiState.Loaded
+            assertEquals("Bench Press", updated.lifts.first().liftName)
+            assertEquals("L-2", updated.lifts.first().liftId)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Active Session Edit: Remove Lift in memory filters it from UI list")
+    fun activeSessionRemoveLiftFiltersFromUiList() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertEquals(1, loaded.lifts.size)
+
+            viewModel.removeLift(workoutLiftId)
+            val updated = awaitItem() as WorkoutUiState.Loaded
+            assertEquals(0, updated.lifts.size)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Active Session Edit: Set rest timer override in memory updates property")
+    fun activeSessionSetRestTimerOverrideUpdatesProperty() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertTrue(!loaded.lifts.first().useRestTimerBetweenLifts)
+
+            viewModel.setUseRestTimerBetweenLifts(workoutLiftId, true)
+            val updated = awaitItem() as WorkoutUiState.Loaded
+            assertTrue(updated.lifts.first().useRestTimerBetweenLifts)
 
             cancelAndIgnoreRemainingEvents()
         }
