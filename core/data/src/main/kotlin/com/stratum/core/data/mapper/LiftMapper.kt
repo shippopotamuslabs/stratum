@@ -6,6 +6,7 @@ import com.stratum.core.data.db.LiftWithTiers
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -40,7 +41,6 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
     movementPatterns = lift.movementPatternsBitmask.toMovementPatternSet(),
     primaryMuscles = lift.primaryMusclesBitmask.toMuscleSet(),
     secondaryMuscles = lift.secondaryMusclesBitmask.toMuscleSet(),
-    allowWeightChangeBetweenSets = lift.allowWeightChangeBetweenSets,
     incrementTiers = tiers.toDomainTiers(),
     presetTags = lift.presetTags.toPresetSet(),
     equipment = lift.equipment,
@@ -51,6 +51,7 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
     muscleLengthBias = lift.muscleLengthBias,
     mainstream = lift.mainstream,
     kinematicProfile = lift.kinematicProfile,
+    loadType = lift.loadType,
 )
 
 fun Lift.toEntity(): LiftEntity = LiftEntity(
@@ -59,7 +60,6 @@ fun Lift.toEntity(): LiftEntity = LiftEntity(
     movementPatternsBitmask = movementPatterns.toBitmask(),
     primaryMusclesBitmask = primaryMuscles.toBitmask(),
     secondaryMusclesBitmask = secondaryMuscles.toBitmask(),
-    allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
     presetTags = presetTags.toPresetCsv(),
     equipment = equipment,
     isCustom = isCustom,
@@ -69,6 +69,7 @@ fun Lift.toEntity(): LiftEntity = LiftEntity(
     muscleLengthBias = muscleLengthBias,
     mainstream = mainstream,
     kinematicProfile = kinematicProfile,
+    loadType = loadType,
 )
 
 fun Lift.toTierEntities(): List<IncrementTierEntity> = incrementTiers.map { tier ->

@@ -1,8 +1,6 @@
 package com.stratum.domain.importing
 
-import com.stratum.domain.importing.identity.HistoricalSessionId
-import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.Weight
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -10,37 +8,21 @@ import org.junit.jupiter.api.Test
 class ImportedHistorySanitizerTest {
     @Test
     fun `drops sets with non-positive reps`() {
-        val session =
-            HistoricalSession(
-                id = HistoricalSessionId("s1"),
-                startedAt = Instant.parse("2025-01-01T00:00:00Z"),
-                endedAt = null,
-                sourceApp = null,
-            )
+        val session = WorkoutLoggingFixtures.importTrainingSession(id = "s1")
         val sets =
             listOf(
-                LoggedSet(
-                    id = LoggedSetId("a"),
-                    sessionId = session.id,
+                WorkoutLoggingFixtures.importLoggedSet(
+                    id = "a",
+                    sessionId = "s1",
                     exerciseNameRaw = "Squat",
                     liftId = null,
-                    setIndex = 0,
-                    weight = Weight(100.0, Weight.WeightUnit.Lb),
-                    reps = 0,
-                    rir = null,
-                    completedAt = Instant.parse("2025-01-01T01:00:00Z"),
-                ),
-                LoggedSet(
-                    id = LoggedSetId("b"),
-                    sessionId = session.id,
+                ).copy(reps = 0),
+                WorkoutLoggingFixtures.importLoggedSet(
+                    id = "b",
+                    sessionId = "s1",
                     exerciseNameRaw = "Squat",
                     liftId = null,
-                    setIndex = 1,
-                    weight = Weight(100.0, Weight.WeightUnit.Lb),
-                    reps = 5,
-                    rir = null,
-                    completedAt = Instant.parse("2025-01-01T01:05:00Z"),
-                ),
+                ).copy(reps = 5),
             )
 
         val (_, sanitized) = ImportedHistorySanitizer.sanitize(listOf(session), sets)

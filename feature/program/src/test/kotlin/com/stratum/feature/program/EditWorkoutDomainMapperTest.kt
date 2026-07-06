@@ -187,5 +187,6 @@ class EditWorkoutDomainMapperTest {
                 ),
             supersetGroupId = groupId,
             useRestTimerBetweenLifts = useRestBetween,
+            progressionScheme = ProgressionScheme.Linear,
         )
 }

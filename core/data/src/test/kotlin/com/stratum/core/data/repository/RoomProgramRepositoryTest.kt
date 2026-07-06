@@ -53,6 +53,7 @@ class RoomProgramRepositoryTest {
             workoutDao = database.workoutDao(),
             workoutLiftDao = database.workoutLiftDao(),
             liftSetDao = database.liftSetDao(),
+            trainingSessionDao = database.trainingSessionDao(),
         )
     }
 
@@ -185,7 +186,6 @@ class RoomProgramRepositoryTest {
         movementPatternsBitmask = 1 shl pattern.ordinal,
         primaryMusclesBitmask = 0,
         secondaryMusclesBitmask = 0,
-        allowWeightChangeBetweenSets = false,
         presetTags = ",",
         isCustom = false,
         enabled = true,

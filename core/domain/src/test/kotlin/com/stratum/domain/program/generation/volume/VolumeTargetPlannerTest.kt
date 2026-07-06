@@ -45,7 +45,7 @@ class VolumeTargetPlannerTest {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf(
-                    "lastTrained" to "WithinLastMonth",
+                    "lastTrained" to "WithinLastThreeMonths",
                     "sessionLengthMinutes" to null,
                 ),
             )
@@ -61,7 +61,7 @@ class VolumeTargetPlannerTest {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf(
-                    "lastTrained" to "MoreThanAYearAgo",
+                    "lastTrained" to "MoreThanThreeMonthsAgo",
                     "sessionLengthMinutes" to null,
                 ),
             )
@@ -78,7 +78,7 @@ class VolumeTargetPlannerTest {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf(
-                    "lastTrained" to "WithinLastMonth",
+                    "lastTrained" to "WithinLastThreeMonths",
                     "sessionLengthMinutes" to null,
                 ),
                 literatureVolumeSnapshots = emptyList(),

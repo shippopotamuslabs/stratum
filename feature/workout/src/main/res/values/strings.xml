@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="workout_screen_discard_workout">Discard Workout?</string>
+    <string name="workout_screen_discard_confirm_body">This will permanently delete the current training session and all logged sets. Are you sure?</string>
+    <string name="workout_screen_cancel_discard">Cancel</string>
+    <string name="workout_screen_confirm_discard">Discard</string>
+</resources>

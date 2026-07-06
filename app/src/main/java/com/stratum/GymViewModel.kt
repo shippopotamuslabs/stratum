@@ -90,6 +90,9 @@ class GymViewModel @Inject constructor(
                 is LiftSwapFilterIntent.SelectLibrary ->
                     filters.value.copy(selectedLibrary = intent.library)
 
+                LiftSwapFilterIntent.ResetMuscles ->
+                    filters.value.copy(selectedMuscles = emptySet())
+
                 LiftSwapFilterIntent.ResetAll -> GymFilters()
             }
     }

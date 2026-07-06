@@ -55,7 +55,8 @@ import com.stratum.core.ui.component.StratumDropdownMenu
 import com.stratum.core.ui.component.StratumDropdownMenuItem
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumMuscleFilterCardState
-import com.stratum.core.ui.component.StratumMuscleFilterRow
+import com.stratum.core.ui.component.SelectedMusclesRow
+import com.stratum.core.ui.component.MuscleFilterBottomSheet
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSearchField
 import com.stratum.core.ui.component.StratumText
@@ -73,16 +74,17 @@ import com.stratum.feature.program.LiftSwapViewModel
  */
 @Composable
 fun LiftSwapRoute(
-    workoutLiftId: String,
-    liftId: String,
-    liftName: String,
+    workoutId: String,
+    workoutLiftId: String?,
+    liftId: String?,
+    liftName: String?,
     onBackClick: () -> Unit,
     onCreateNewLift: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LiftSwapViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(liftId, liftName) {
-        viewModel.initialize(liftId, liftName)
+    LaunchedEffect(workoutId, workoutLiftId, liftId, liftName) {
+        viewModel.initialize(workoutId, workoutLiftId, liftId, liftName)
     }
 
     val state by viewModel.liftSwapState.collectAsStateWithLifecycle()
@@ -91,8 +93,7 @@ fun LiftSwapRoute(
         LiftSwapScreen(
             state = activeState,
             onLiftSelected = { newLiftId ->
-                viewModel.swapLift(
-                    workoutLiftId = workoutLiftId,
+                viewModel.selectLift(
                     newLiftId = newLiftId,
                     onComplete = onBackClick
                 )
@@ -120,13 +121,18 @@ fun LiftSwapScreen(
     modifier: Modifier = Modifier,
 ) {
     var allLiftsExpanded by remember { mutableStateOf(false) }
+    var showMuscleSheet by remember { mutableStateOf(false) }
     val isDefaultScreen = !state.hasActiveFilter && state.searchQuery.isBlank()
 
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             StratumTopBar(
-                title = stringResource(R.string.lift_swap_title, state.targetLiftName),
+                title = if (state.isAddMode) {
+                    stringResource(R.string.lift_add_title)
+                } else {
+                    stringResource(R.string.lift_swap_title, state.targetLiftName)
+                },
                 navigationIcon = {
                     StratumTopBarBackButton(
                         onClick = onBackClick,
@@ -159,11 +165,10 @@ fun LiftSwapScreen(
             FilterDropdownRow(
                 state = state,
                 onFilterIntent = onFilterIntent,
+                onMuscleFilterClick = { showMuscleSheet = true },
             )
 
-            StratumMuscleFilterRow(
-                upperCards = state.muscleGroups.upper,
-                lowerCards = state.muscleGroups.lower,
+            SelectedMusclesRow(
                 selectedMuscles = state.selectedMuscles,
                 onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
             )
@@ -174,7 +179,7 @@ fun LiftSwapScreen(
                     .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (isDefaultScreen) {
+                if (isDefaultScreen && !state.isAddMode) {
                     val similarLifts = state.options.filter { it.similarity >= SIMILARITY_THRESHOLD }
                     val remainingLifts = state.options.filter { it.similarity < SIMILARITY_THRESHOLD }
 
@@ -259,6 +264,16 @@ fun LiftSwapScreen(
                 onValueChange = onSearchQueryChanged,
             )
         }
+    }
+
+    if (showMuscleSheet) {
+        MuscleFilterBottomSheet(
+            onDismissRequest = { showMuscleSheet = false },
+            selectedMuscles = state.selectedMuscles,
+            muscleGroups = state.muscleGroups,
+            onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
+            onClearAll = { onFilterIntent(LiftSwapFilterIntent.ResetMuscles) },
+        )
     }
 }
 

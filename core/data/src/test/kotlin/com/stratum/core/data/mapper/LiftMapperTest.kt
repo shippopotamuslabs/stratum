@@ -5,6 +5,7 @@ import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.LiftWithTiers
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -25,7 +26,6 @@ class LiftMapperTest {
             movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = setOf(MuscleGroup.Tricep, MuscleGroup.AnteriorDeltoid),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = setOf(GymPreset.CommercialGym, GymPreset.GarageGym),
             enabled = true,
@@ -51,7 +51,6 @@ class LiftMapperTest {
             movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = listOf(
                 com.stratum.domain.lift.IncrementTier(Weight(0.0, lb), Weight(40.0, lb), Weight(2.5, lb)),
                 com.stratum.domain.lift.IncrementTier(Weight(40.0, lb), Weight(100.0, lb), Weight(5.0, lb)),
@@ -83,7 +82,6 @@ class LiftMapperTest {
             movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = true,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = false,
@@ -103,7 +101,6 @@ class LiftMapperTest {
             movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = emptySet(),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = false,
@@ -120,7 +117,6 @@ class LiftMapperTest {
             movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = true,
             incrementTiers = emptyList(),
             presetTags = setOf(GymPreset.CommercialGym),
             equipment = "Hammer Strength",
@@ -143,7 +139,6 @@ class LiftMapperTest {
             movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             equipment = null,
@@ -178,7 +173,6 @@ class LiftMapperTest {
             movementPatterns = setOf(MovementPattern.HipHinge, MovementPattern.HipExtension),
             primaryMuscles = setOf(MuscleGroup.Hamstring),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = false,
@@ -192,5 +186,62 @@ class LiftMapperTest {
     @DisplayName("Given a preset csv with an unknown name when decoded then unknown entries are dropped")
     fun unknownPresetsDropped() {
         assertEquals(setOf(GymPreset.CommercialGym), ",CommercialGym,Bogus,".toPresetSet())
+    }
+
+    @Test
+    @DisplayName("Given an assisted lift when mapped to entity and back then loadType round-trips")
+    fun roundTripsLoadTypeAssisted() {
+        val lift = Lift(
+            id = LiftId("assisted-pull-up"),
+            name = "Assisted Pull-Up",
+            movementPatterns = setOf(MovementPattern.VerticalPull),
+            primaryMuscles = setOf(MuscleGroup.Back),
+            secondaryMuscles = setOf(MuscleGroup.Bicep),
+            incrementTiers = emptyList(),
+            presetTags = setOf(GymPreset.CommercialGym),
+            enabled = false,
+            isCustom = false,
+            loadType = LoadType.Assisted,
+        )
+        val entity = lift.toEntity()
+        assertEquals(LoadType.Assisted, entity.loadType)
+        val back = LiftWithTiers(entity, emptyList()).toDomain()
+        assertEquals(LoadType.Assisted, back.loadType)
+    }
+
+    @Test
+    @DisplayName("Given a bodyweight lift when mapped to entity and back then loadType round-trips")
+    fun roundTripsLoadTypeBodyweight() {
+        val lift = Lift(
+            id = LiftId("pull-up"),
+            name = "Pull-Up",
+            movementPatterns = setOf(MovementPattern.VerticalPull),
+            primaryMuscles = setOf(MuscleGroup.Back),
+            secondaryMuscles = setOf(MuscleGroup.Bicep),
+            incrementTiers = emptyList(),
+            presetTags = setOf(GymPreset.CommercialGym),
+            enabled = false,
+            isCustom = false,
+            loadType = LoadType.Bodyweight,
+        )
+        val back = LiftWithTiers(lift.toEntity(), emptyList()).toDomain()
+        assertEquals(LoadType.Bodyweight, back.loadType)
+    }
+
+    @Test
+    @DisplayName("Given a lift with default loadType when mapped to entity then loadType is Weighted")
+    fun defaultLoadTypeIsWeighted() {
+        val lift = Lift(
+            id = LiftId("bench-press"),
+            name = "Bench Press",
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            secondaryMuscles = emptySet(),
+            incrementTiers = emptyList(),
+            presetTags = emptySet(),
+            enabled = true,
+            isCustom = false,
+        )
+        assertEquals(LoadType.Weighted, lift.toEntity().loadType)
     }
 }

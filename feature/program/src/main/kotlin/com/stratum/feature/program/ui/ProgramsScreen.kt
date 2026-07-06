@@ -24,6 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,7 +37,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -43,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
@@ -67,8 +81,11 @@ import com.stratum.feature.program.R
 internal fun ProgramsScreen(
     state: ProgramsUiState,
     callbacks: ProgramsScreenCallbacks,
-    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
+    activeWorkoutBar: MinimizedWorkoutState? = null,
+    onCancelWorkoutClick: () -> Unit = {},
+    onExpandWorkoutClick: (String) -> Unit = {},
     isPreviewMode: Boolean = false,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -166,37 +183,268 @@ internal fun ProgramsScreen(
                 }
             }
         },
-        horizontalPadding = 12.dp,
+        horizontalPadding = 0.dp,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            if (!isPreviewMode) {
-                StratumButton(
-                    text = stringResource(R.string.programs_start_next_workout),
-                    onClick = callbacks.onStartNextWorkoutClick,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.programs_start_empty_workout),
-                    onClick = callbacks.onStartEmptyWorkoutClick,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp)
+                    .padding(vertical = 16.dp)
+                    .padding(bottom = if (activeWorkoutBar != null) 96.dp else 0.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (!isPreviewMode) {
+                    StratumButton(
+                        text = stringResource(R.string.programs_start_next_workout),
+                        onClick = callbacks.onStartNextWorkoutClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    StratumOutlinedButton(
+                        text = stringResource(R.string.programs_start_empty_workout),
+                        onClick = callbacks.onStartEmptyWorkoutClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                when (state) {
+                    is ProgramsUiState.Empty ->
+                        StratumText(text = stringResource(R.string.programs_empty), muted = true)
+                    is ProgramsUiState.Loaded -> LoadedProgramContent(
+                        state = state,
+                        callbacks = callbacks,
+                        onSwapLiftClick = onSwapLiftClick,
+                        isPreviewMode = isPreviewMode,
+                    )
+                }
             }
 
-            when (state) {
-                is ProgramsUiState.Empty ->
-                    StratumText(text = stringResource(R.string.programs_empty), muted = true)
-                is ProgramsUiState.Loaded -> LoadedProgramContent(
-                    state = state,
-                    callbacks = callbacks,
-                    onSwapLiftClick = onSwapLiftClick,
-                    isPreviewMode = isPreviewMode,
-                )
+            if (activeWorkoutBar != null) {
+                var showCancelConfirm by remember { mutableStateOf(false) }
+                var elapsedTimeStr by remember(activeWorkoutBar.startedAtEpochMilli) { mutableStateOf("00:00") }
+
+                LaunchedEffect(activeWorkoutBar.startedAtEpochMilli) {
+                    while (true) {
+                        val now = System.currentTimeMillis()
+                        val diffMs = now - activeWorkoutBar.startedAtEpochMilli
+                        val diffSec = (diffMs / 1000).coerceAtLeast(0)
+                        val hrs = diffSec / 3600
+                        val mins = (diffSec % 3600) / 60
+                        val secs = diffSec % 60
+                        elapsedTimeStr = if (hrs > 0) {
+                            String.format(java.util.Locale.US, "%d:%02d:%02d", hrs, mins, secs)
+                        } else {
+                            String.format(java.util.Locale.US, "%02d:%02d", mins, secs)
+                        }
+                        kotlinx.coroutines.delay(1000L)
+                    }
+                }
+
+                val panelShape = StratumThemeAccessor.shapes.panel
+                val borderWidth = StratumThemeAccessor.shapes.borderWidth
+                val borderSubtleColor = StratumThemeAccessor.colors.borderSubtle
+                val drawerShape = remember(panelShape) {
+                    if (panelShape is RoundedCornerShape) {
+                        RoundedCornerShape(
+                            topStart = panelShape.topStart,
+                            topEnd = panelShape.topEnd,
+                            bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp),
+                            bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp)
+                        )
+                    } else {
+                        RoundedCornerShape(
+                            topStart = 12.dp,
+                            topEnd = 12.dp,
+                            bottomStart = 0.dp,
+                            bottomEnd = 0.dp
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = drawerShape,
+                            clip = false
+                        )
+                        .background(
+                            color = StratumThemeAccessor.colors.surfaceRaised,
+                            shape = drawerShape
+                        )
+                        .drawBehind {
+                            val strokeWidth = borderWidth.toPx()
+                            val halfStroke = strokeWidth / 2f
+                            val topStartPx = drawerShape.topStart.toPx(size, this)
+                            val topRightPx = drawerShape.topEnd.toPx(size, this)
+
+                            val path = Path().apply {
+                                moveTo(halfStroke, size.height)
+                                if (topStartPx > 0f) {
+                                    lineTo(halfStroke, topStartPx + halfStroke)
+                                    arcTo(
+                                        rect = Rect(
+                                            left = halfStroke,
+                                            top = halfStroke,
+                                            right = (topStartPx * 2f) + halfStroke,
+                                            bottom = (topStartPx * 2f) + halfStroke
+                                        ),
+                                        startAngleDegrees = 180f,
+                                        sweepAngleDegrees = 90f,
+                                        forceMoveTo = false
+                                    )
+                                } else {
+                                    lineTo(halfStroke, halfStroke)
+                                }
+
+                                if (topRightPx > 0f) {
+                                    lineTo(size.width - topRightPx - halfStroke, halfStroke)
+                                    arcTo(
+                                        rect = Rect(
+                                            left = size.width - (topRightPx * 2f) - halfStroke,
+                                            top = halfStroke,
+                                            right = size.width - halfStroke,
+                                            bottom = (topRightPx * 2f) + halfStroke
+                                        ),
+                                        startAngleDegrees = 270f,
+                                        sweepAngleDegrees = 90f,
+                                        forceMoveTo = false
+                                    )
+                                } else {
+                                    lineTo(size.width - halfStroke, halfStroke)
+                                }
+
+                                lineTo(size.width - halfStroke, size.height)
+                            }
+                            drawPath(
+                                path = path,
+                                color = borderSubtleColor,
+                                style = Stroke(width = strokeWidth)
+                            )
+
+                            // Draw a shadow gradient at the bottom edge to simulate the bottom app bar casting a shadow onto this overlay
+                            val shadowHeightPx = 8.dp.toPx()
+                            val shadowBrush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.35f)
+                                ),
+                                startY = size.height - shadowHeightPx,
+                                endY = size.height
+                            )
+                            drawRect(
+                                brush = shadowBrush,
+                                topLeft = Offset(0f, size.height - shadowHeightPx),
+                                size = Size(size.width, shadowHeightPx)
+                            )
+                        }
+                        .clickable { onExpandWorkoutClick(activeWorkoutBar.workoutId) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    StratumIconButton(
+                        onClick = { showCancelConfirm = true },
+                        contentColor = StratumThemeAccessor.colors.error
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = "Cancel Workout",
+                            tint = StratumThemeAccessor.colors.error
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            StratumText(
+                                text = activeWorkoutBar.workoutName,
+                                style = StratumThemeAccessor.typography.titleLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            StratumText(
+                                text = elapsedTimeStr,
+                                style = StratumThemeAccessor.typography.bodyLarge,
+                                muted = true
+                            )
+                        }
+                        StratumText(
+                            text = activeWorkoutBar.nextLiftName,
+                            style = StratumThemeAccessor.typography.sectionLabel,
+                            muted = true,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    StratumIconButton(onClick = { onExpandWorkoutClick(activeWorkoutBar.workoutId) }) {
+                        Icon(
+                            painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                            contentDescription = "Resume Workout",
+                            tint = StratumThemeAccessor.colors.textPrimary,
+                            modifier = Modifier.rotate(180f)
+                        )
+                    }
+                }
+
+                if (showCancelConfirm) {
+                    Dialog(onDismissRequest = { showCancelConfirm = false }) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = StratumThemeAccessor.colors.surfaceRaised,
+                                    shape = StratumThemeAccessor.shapes.panel
+                                )
+                                .border(
+                                    width = StratumThemeAccessor.shapes.borderWidth,
+                                    color = StratumThemeAccessor.colors.borderStrong,
+                                    shape = StratumThemeAccessor.shapes.panel
+                                )
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            StratumText(
+                                text = stringResource(R.string.programs_discard_workout),
+                                style = StratumThemeAccessor.typography.titleLarge
+                            )
+                            StratumText(
+                                text =
+                                    stringResource(
+                                        R.string.confirm_discard_dialog_body_text),
+                                style = StratumThemeAccessor.typography.bodyLarge,
+                                muted = true
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+                            ) {
+                                StratumOutlinedButton(
+                                    text = stringResource(R.string.programs_cancel_discard),
+                                    onClick = { showCancelConfirm = false },
+                                )
+                                StratumButton(
+                                    text = stringResource(R.string.programs_discard_confirm),
+                                    onClick = {
+                                        showCancelConfirm = false
+                                        onCancelWorkoutClick()
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -206,7 +454,7 @@ internal fun ProgramsScreen(
 private fun LoadedProgramContent(
     state: ProgramsUiState.Loaded,
     callbacks: ProgramsScreenCallbacks,
-    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     isPreviewMode: Boolean,
 ) {
     if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
@@ -299,7 +547,7 @@ internal fun WorkoutCard(
     onStartWorkoutClick: (String) -> Unit,
     onEditWorkoutClick: (workoutId: String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
-    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
     isPreviewMode: Boolean = false,
 ) {
@@ -314,8 +562,6 @@ internal fun WorkoutCard(
         } else {
             stringResource(R.string.programs_expand_workout_a11y, workout.name)
         }
-    val toggleInteractionSource = remember { MutableInteractionSource() }
-
     Column(
         modifier =
             modifier
@@ -328,7 +574,9 @@ internal fun WorkoutCard(
                     width = StratumThemeAccessor.shapes.borderWidth,
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = StratumThemeAccessor.shapes.panel,
-                ),
+                )
+                .clip(StratumThemeAccessor.shapes.panel)
+                .clickable { onEditWorkoutClick(workout.workoutId) },
     ) {
         Row(
             modifier =
@@ -344,26 +592,27 @@ internal fun WorkoutCard(
             Row(
                 modifier =
                     Modifier
-                        .weight(1f)
-                        .semantics { contentDescription = expandCollapseLabel }
-                        .clickable(
-                            interactionSource = toggleInteractionSource,
-                            indication = null,
-                            onClick = { onExpandedChange(!expanded) },
-                        ),
+                        .weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                Icon(
-                    painter = painterResource(CoreUiR.drawable.ic_chevron_down),
-                    contentDescription = null,
-                    modifier =
-                        Modifier
-                            .padding(top = 4.dp)
-                            .size(WorkoutChevronSize)
-                            .rotate(chevronRotation),
-                    tint = StratumThemeAccessor.colors.textMuted,
-                )
+                StratumIconButton(
+                    onClick = { onExpandedChange(!expanded) },
+                    modifier = Modifier
+                        .semantics { contentDescription = expandCollapseLabel }
+                        .padding(top = 2.dp)
+                        .size(24.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .size(WorkoutChevronSize)
+                                .rotate(chevronRotation),
+                        tint = StratumThemeAccessor.colors.textMuted,
+                    )
+                }
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -371,7 +620,6 @@ internal fun WorkoutCard(
                     StratumText(
                         text = workout.name,
                         style = StratumThemeAccessor.typography.titleLarge,
-                        modifier = Modifier.clickable { onEditWorkoutClick(workout.workoutId) },
                     )
                     StratumText(text = workout.weekdayLabel, muted = true)
                 }
@@ -391,7 +639,7 @@ internal fun WorkoutCard(
                 sortedLifts.forEachIndexed { index, lift ->
                     LiftRow(
                         lift = lift,
-                        onSwapLiftClick = { onSwapLiftClick(lift) },
+                        onSwapLiftClick = { onSwapLiftClick(workout.workoutId, lift) },
                     )
                     if (index < sortedLifts.lastIndex) {
                         WorkoutCardDivider(startPadding = WorkoutCardContentPadding)
@@ -400,7 +648,7 @@ internal fun WorkoutCard(
                 if (!isPreviewMode) {
                     StratumButton(
                         text = stringResource(R.string.programs_start_workout),
-                        onClick = { onStartWorkoutClick(workout.name) },
+                        onClick = { onStartWorkoutClick(workout.workoutId) },
                         modifier =
                             Modifier
                                 .fillMaxWidth()

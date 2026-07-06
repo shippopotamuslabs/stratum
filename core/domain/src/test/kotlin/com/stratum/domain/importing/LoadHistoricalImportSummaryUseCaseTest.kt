@@ -202,7 +202,6 @@ class LoadHistoricalImportSummaryUseCaseTest {
             movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = enabled,

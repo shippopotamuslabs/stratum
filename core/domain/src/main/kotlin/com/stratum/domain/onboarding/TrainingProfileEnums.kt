@@ -30,13 +30,15 @@ enum class TrainingAge {
 /**
  * Coarse bucket for "when did you last train seriously?". Drives deload/return-to-training
  * heuristics; avoids the need for a date picker in OS-2 (slice decision).
+ *
+ * D8 collapsed 5→3: `Never` / `WithinLastThreeMonths` / `MoreThanThreeMonthsAgo`.
+ * The latter is the single layoff bucket routing non-beginners through Linear.
+ * Schema-adjacent (v1 reinstall policy applies — stale old names decode to null).
  */
 enum class LastTrainedBucket {
+    WithinLastThreeMonths,
+    MoreThanThreeMonthsAgo,
     Never,
-    WithinLastMonth,
-    OneToSixMonthsAgo,
-    SixToTwelveMonthsAgo,
-    MoreThanAYearAgo,
     ;
 }
 

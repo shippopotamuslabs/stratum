@@ -1,0 +1,37 @@
+package com.stratum.core.data.db
+
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.training.identity.ProgramChangeEventId
+
+@Entity(
+    tableName = "program_change_events",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProgramEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["program_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index(value = ["program_id", "occurred_at_epoch_millis"])],
+)
+data class ProgramChangeEventEntity(
+    @PrimaryKey val id: ProgramChangeEventId,
+    @ColumnInfo(name = "program_id") val programId: ProgramId,
+    @ColumnInfo(name = "event_type") val eventType: ProgramChangeEventType,
+    @ColumnInfo(name = "occurred_at_epoch_millis") val occurredAtEpochMillis: Long,
+    @ColumnInfo(name = "workout_lift_id") val workoutLiftId: WorkoutLiftId? = null,
+    @ColumnInfo(name = "previous_lift_id") val previousLiftId: LiftId? = null,
+    @ColumnInfo(name = "new_lift_id") val newLiftId: LiftId? = null,
+    @ColumnInfo(name = "workout_id") val workoutId: WorkoutId? = null,
+    @ColumnInfo(name = "completed_cycle_number") val completedCycleNumber: Int? = null,
+)

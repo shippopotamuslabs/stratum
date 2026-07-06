@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
@@ -21,6 +22,9 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.domain.training.StartTrainingSessionUseCase
+import com.stratum.feature.program.ui.ProgramsUiEvent
 import com.stratum.feature.program.ui.ProgramsUiState
 import com.stratum.feature.program.ui.ScheduleItemState
 import java.time.Instant
@@ -122,8 +126,65 @@ class ProgramsViewModelTest {
             }
     }
 
+    @Nested
+    @DisplayName("Start workout navigation")
+    inner class StartWorkout {
+        @Test
+        fun `startProgramWorkout emits NavigateToWorkout after session is created`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+            viewModel.programsUiState.test {
+                assertTrue(awaitItem() is ProgramsUiState.Loaded)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.startProgramWorkout("w-1")
+                assertEquals(ProgramsUiEvent.NavigateToWorkout("w-1"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        fun `startNextWorkout emits NavigateToWorkout for the first incomplete workout`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+            viewModel.programsUiState.test {
+                assertTrue(awaitItem() is ProgramsUiState.Loaded)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.startNextWorkout()
+                assertEquals(ProgramsUiEvent.NavigateToWorkout("w-1"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("Active workout bar state")
+    inner class ActiveWorkoutBar {
+        @Test
+        fun `when active session exists then activeWorkoutBarState emits MinimizedWorkoutState`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+
+            viewModel.activeWorkoutBarState.test {
+                assertEquals(null, awaitItem())
+
+                viewModel.startProgramWorkout("w-1")
+
+                val state = awaitItem()
+                assertTrue(state != null)
+                assertEquals("w-1", state?.workoutId)
+                assertEquals("Push Day", state?.workoutName)
+                assertTrue(state?.startedAtEpochMilli != null)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
     private fun buildViewModel(initial: Program?): ProgramsViewModel {
         repository = FakeProgramRepository(initial)
+        val trainingLog = FakeTrainingLogRepository(programRepository = repository)
         val liftRepository =
             FakeLiftRepository(
                 initialLifts =
@@ -135,6 +196,10 @@ class ProgramsViewModelTest {
             observeProgram = com.stratum.domain.program.ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
+            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
+            observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
+            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog),
+            getLoggedSetsForSession = com.stratum.domain.training.GetLoggedSetsForSessionUseCase(trainingLog),
         )
     }
 
@@ -145,7 +210,6 @@ class ProgramsViewModelTest {
             movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,

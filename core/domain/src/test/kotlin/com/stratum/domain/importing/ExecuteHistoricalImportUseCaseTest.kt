@@ -10,6 +10,7 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
 import com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
+import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.lift.identity.LiftId
 import java.time.Instant
@@ -140,7 +141,7 @@ class ExecuteHistoricalImportUseCaseTest {
     ): ExecuteHistoricalImportUseCase {
         val rollback =
             RollbackHistoricalImportUseCase(
-                InMemoryTrainingHistoryRepository(),
+                FakeTrainingLogRepository(),
                 FakeLiftTrainingInsightsRepository(),
                 FakeSupersetAffinityRepository(),
                 FakeMuscleVolumeBaselineRepository(),
@@ -169,21 +170,5 @@ class ExecuteHistoricalImportUseCaseTest {
             rollbackHistoricalImport = rollback,
             refreshPersistedImportState = refresh,
         )
-    }
-
-    private class InMemoryTrainingHistoryRepository : TrainingHistoryRepository {
-        override suspend fun replaceAll(
-            sessions: List<HistoricalSession>,
-            sets: List<LoggedSet>,
-        ) = Unit
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = emptyList()
-
-        override suspend fun getAllSets(): List<LoggedSet> = emptyList()
-
-        override suspend fun getSetsInWindow(
-            windowStart: Instant,
-            windowEnd: Instant,
-        ): List<LoggedSet> = emptyList()
     }
 }

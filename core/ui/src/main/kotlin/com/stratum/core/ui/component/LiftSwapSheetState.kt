@@ -42,6 +42,7 @@ data class LiftSwapSheetState(
     val selectedCategory: LiftCategory?,
     val selectedLibrary: LiftLibraryFilter?,
     val searchQuery: String,
+    val isAddMode: Boolean = false,
 ) {
     /** True when any filter axis is active (drives the reset button's visibility). */
     val hasActiveFilter: Boolean
@@ -59,6 +60,7 @@ data class LiftSwapSheetState(
      */
     val activeFilterChipKey: String?
         get() = when {
+            selectedMuscles.isNotEmpty() -> "muscles"
             selectedBias != null -> "bias"
             selectedCategory != null -> "lift-type"
             selectedLibrary != null -> "library"
@@ -114,5 +116,6 @@ sealed interface LiftSwapFilterIntent {
     data class SelectBias(val bias: MuscleLengthBias?) : LiftSwapFilterIntent
     data class SelectCategory(val category: LiftCategory?) : LiftSwapFilterIntent
     data class SelectLibrary(val library: LiftLibraryFilter?) : LiftSwapFilterIntent
+    data object ResetMuscles : LiftSwapFilterIntent
     data object ResetAll : LiftSwapFilterIntent
 }

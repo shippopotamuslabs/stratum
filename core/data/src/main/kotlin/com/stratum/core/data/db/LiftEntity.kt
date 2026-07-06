@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
 
@@ -27,7 +28,9 @@ import com.stratum.domain.lift.identity.LiftId
  * [equipment] is a nullable display string (e.g. "Hammer Strength") — display copy only, not
  * an equipment entity graph (§2.1 lift-first catalog). Increment tier amounts are stored in lb
  * (v1 schema); the mapper re-wraps them with [Weight.WeightUnit.Lb] until a post-release
- * schema adds per-lift unit persistence.
+ * schema adds per-lift unit persistence. [loadType] classifies the loading modality
+ * (Weighted / Bodyweight / Assisted) so the progression engine and UI can branch; stored as
+ * the enum `.name` via `EnumConverters`. Defaults to [LoadType.Weighted].
  */
 @Entity(tableName = "lifts")
 data class LiftEntity(
@@ -36,7 +39,6 @@ data class LiftEntity(
     val movementPatternsBitmask: Int,
     val primaryMusclesBitmask: Int,
     val secondaryMusclesBitmask: Int,
-    val allowWeightChangeBetweenSets: Boolean,
     val presetTags: String,
     val equipment: String? = null,
     val isCustom: Boolean,
@@ -46,4 +48,5 @@ data class LiftEntity(
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val mainstream: Boolean = false,
     val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+    val loadType: LoadType = LoadType.Weighted,
 )

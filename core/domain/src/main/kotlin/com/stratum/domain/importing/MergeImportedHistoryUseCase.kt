@@ -1,8 +1,10 @@
 package com.stratum.domain.importing
 
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
@@ -10,7 +12,7 @@ import kotlin.math.roundToInt
 
 data class ImportedHistoryChunk(
     val sourceLabel: String,
-    val sessions: List<HistoricalSession>,
+    val sessions: List<TrainingSession>,
     val sets: List<LoggedSet>,
 )
 
@@ -21,8 +23,8 @@ data class ImportedHistoryChunk(
 class MergeImportedHistoryUseCase @Inject constructor() {
     operator fun invoke(
         chunks: List<ImportedHistoryChunk>,
-    ): Pair<List<HistoricalSession>, List<LoggedSet>> {
-        val mergedSessions = mutableListOf<HistoricalSession>()
+    ): Pair<List<TrainingSession>, List<LoggedSet>> {
+        val mergedSessions = mutableListOf<TrainingSession>()
         val mergedSets = mutableListOf<LoggedSet>()
         chunks.forEachIndexed { index, chunk ->
             if (chunk.sets.isEmpty()) {
@@ -36,7 +38,7 @@ class MergeImportedHistoryUseCase @Inject constructor() {
             mergedSessions +=
                 chunk.sessions.map { session ->
                     session.copy(
-                        id = HistoricalSessionId(sessionIdMap.getValue(session.id.value)),
+                        id = TrainingSessionId(sessionIdMap.getValue(session.id.value)),
                     )
                 }
             mergedSets +=
@@ -46,7 +48,7 @@ class MergeImportedHistoryUseCase @Inject constructor() {
                             ?: namespacedId(slug, set.sessionId.value)
                     set.copy(
                         id = LoggedSetId(namespacedId(slug, set.id.value)),
-                        sessionId = HistoricalSessionId(namespacedSessionId),
+                        sessionId = TrainingSessionId(namespacedSessionId),
                     )
                 }
         }

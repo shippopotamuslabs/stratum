@@ -38,6 +38,7 @@ fun StratumPillToggle(
     onSelectedIndexChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    selectedColor: Color = StratumThemeAccessor.colors.surfaceRaised,
 ) {
     require(segments.isNotEmpty()) { "StratumPillToggle requires at least one segment." }
     require(selectedIndex in segments.indices) {
@@ -57,6 +58,7 @@ fun StratumPillToggle(
                 enabled = enabled,
                 onClick = { onSelectedIndexChange(index) },
                 contentDescription = label + if (selected) ", selected" else "",
+                selectedColor = selectedColor,
             )
         }
     }
@@ -69,6 +71,7 @@ private fun PillToggleSegment(
     enabled: Boolean,
     onClick: () -> Unit,
     contentDescription: String,
+    selectedColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val colors = StratumThemeAccessor.colors
@@ -80,7 +83,7 @@ private fun PillToggleSegment(
             modifier
                 .heightIn(min = MinPillToggleHeight)
                 .clip(pillShape)
-                .background(pillBackground(selected = selected, enabled = enabled, colors = colors))
+                .background(pillBackground(selected = selected, enabled = enabled, selectedColor = selectedColor))
                 .semantics {
                     role = Role.Tab
                     this.selected = selected
@@ -111,12 +114,12 @@ private fun PillToggleSegment(
 private fun pillBackground(
     selected: Boolean,
     enabled: Boolean,
-    colors: StratumColors,
+    selectedColor: Color,
 ): Color =
     when {
         !enabled -> Color.Transparent
         // Raised above surfaceBase — surfaceSunken is darker than the screen and reads as a black hole here.
-        selected -> colors.surfaceRaised
+        selected -> selectedColor
         else -> Color.Transparent
     }
 

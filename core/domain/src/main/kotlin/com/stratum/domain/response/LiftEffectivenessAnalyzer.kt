@@ -2,6 +2,8 @@ package com.stratum.domain.response
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.toMovementPatternSet
 import java.time.Instant
 
 object LiftEffectivenessAnalyzer {
@@ -12,11 +14,45 @@ object LiftEffectivenessAnalyzer {
         deloadWeeks: Set<Instant>,
     ): List<LiftEffectivenessObservation> {
         val cleanSets = TrainingSignalCleaner.clean(input)
-        val patternLifts = input.lifts.filter { pattern in it.movementPatterns }.map { it.id }
+        val patternLiftIds =
+            input.sets
+                .filter { set ->
+                    set.liftId != null &&
+                        pattern in set.liftContext.movementPatternsBitmask.toMovementPatternSet()
+                }
+                .map { it.liftId!! }
+                .distinct()
+                .ifEmpty {
+                    input.lifts.filter { pattern in it.movementPatterns }.map { it.id }
+                }
         val scoredLifts =
-            patternLifts.mapNotNull { liftId ->
+            patternLiftIds.mapNotNull { liftId ->
                 scoreLift(liftId, epoch, cleanSets, deloadWeeks)
             }
+        if (scoredLifts.isEmpty() && patternLiftIds.isNotEmpty()) {
+            return patternLiftIds
+                .map { liftId ->
+                    liftId to
+                        effectivenessFromSnapshot(
+                            pattern = pattern,
+                            sets = input.sets.filter { it.liftId == liftId },
+                            liftId = liftId,
+                        )
+                }
+                .sortedByDescending { it.second }
+                .mapIndexed { index, (liftId, score) ->
+                    LiftEffectivenessObservation(
+                        pattern = pattern,
+                        liftId = liftId,
+                        epochId = epoch.id,
+                        effectivenessScore = score,
+                        peerLiftCount = patternLiftIds.size,
+                        rank = index + 1,
+                        evidence = EvidenceLevel.Hypothesis,
+                        confidenceScore = score.coerceAtMost(1.0),
+                    )
+                }
+        }
         if (scoredLifts.isEmpty()) return emptyList()
 
         val ranked = scoredLifts.sortedByDescending { it.effectivenessScore }
@@ -106,5 +142,17 @@ object LiftEffectivenessAnalyzer {
             confidenceScore = confidenceScore,
         )
     }
-}
 
+    fun effectivenessFromSnapshot(
+        pattern: MovementPattern,
+        sets: List<LoggedSet>,
+        liftId: LiftId,
+    ): Double {
+        val matching =
+            sets.filter { set ->
+                set.liftId == liftId &&
+                    pattern in set.liftContext.movementPatternsBitmask.toMovementPatternSet()
+            }
+        return matching.size.toDouble().coerceAtLeast(if (matching.isNotEmpty()) 1.0 else 0.0)
+    }
+}

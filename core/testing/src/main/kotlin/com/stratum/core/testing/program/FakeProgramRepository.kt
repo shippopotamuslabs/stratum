@@ -28,4 +28,17 @@ class FakeProgramRepository(
         saveProgramCalls.add(program)
         state.value = program
     }
+
+    override suspend fun updateCyclePointer(
+        programId: com.stratum.domain.program.identity.ProgramId,
+        currentCycleNumber: Int,
+        cyclePosition: Int,
+    ) {
+        val current = state.value ?: return
+        if (current.id != programId) return
+        state.value = current.copy(
+            currentCycleNumber = currentCycleNumber,
+            cyclePosition = cyclePosition,
+        )
+    }
 }

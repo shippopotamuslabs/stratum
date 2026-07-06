@@ -20,13 +20,11 @@ import com.stratum.domain.solver.CpSatProgramSynthesizer
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
-import com.stratum.core.data.db.ExperimentBlockDao
-import com.stratum.core.data.db.HistoricalSessionDao
 import com.stratum.core.data.db.ImportAnalysisMetadataDao
 import com.stratum.core.data.db.ImportJobDao
+import com.stratum.core.data.db.ExperimentBlockDao
 import com.stratum.core.data.db.LiftEffectivenessObservationDao
 import com.stratum.core.data.db.LiftTrainingInsightsDao
-import com.stratum.core.data.db.LoggedSetDao
 import com.stratum.core.data.db.LiftWeeklyPerformanceDao
 import com.stratum.core.data.db.MuscleDoseResponsePointDao
 import com.stratum.core.data.db.MuscleResponseModelDiagnosticDao
@@ -46,12 +44,16 @@ import com.stratum.core.data.repository.RoomResponseProfilePersistenceRepository
 import com.stratum.core.data.repository.RoomVolumeResponseObservationRepository
 import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
 import com.stratum.core.data.repository.RoomImportJobRepository
-import com.stratum.domain.importing.TrainingHistoryRepository
+import com.stratum.core.data.repository.RoomProgramChangeEventRepository
+import com.stratum.core.data.repository.RoomTrainingLogRepository
+import com.stratum.core.data.repository.ProgressionHistoryRepository
+import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.domain.workout.ProgressionHistoryPort
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.data.repository.RoomSupersetAffinityRepository
-import com.stratum.core.data.repository.RoomTrainingHistoryRepository
 import com.stratum.domain.importing.Bm25LiftNameResolver
 import com.stratum.domain.importing.HybridLiftNameResolver
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
@@ -90,6 +92,7 @@ import kotlinx.coroutines.launch
 
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("TooManyFunctions")
 object DatabaseModule {
 
     // Application-scoped scope for one-shot catalog seeding. Detached from any ViewModel so the
@@ -148,11 +151,16 @@ object DatabaseModule {
     fun provideImportJobDao(database: StratumDatabase): ImportJobDao = database.importJobDao()
 
     @Provides
-    fun provideHistoricalSessionDao(database: StratumDatabase): HistoricalSessionDao =
-        database.historicalSessionDao()
+    fun provideTrainingSessionDao(database: StratumDatabase): com.stratum.core.data.db.TrainingSessionDao =
+        database.trainingSessionDao()
 
     @Provides
-    fun provideLoggedSetDao(database: StratumDatabase): LoggedSetDao = database.loggedSetDao()
+    fun provideTrainingLoggedSetDao(database: StratumDatabase): com.stratum.core.data.db.TrainingLoggedSetDao =
+        database.trainingLoggedSetDao()
+
+    @Provides
+    fun provideProgramChangeEventDao(database: StratumDatabase): com.stratum.core.data.db.ProgramChangeEventDao =
+        database.programChangeEventDao()
 
     @Provides
     fun provideLiftTrainingInsightsDao(database: StratumDatabase): LiftTrainingInsightsDao =
@@ -301,9 +309,21 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindTrainingHistoryRepository(
-        impl: RoomTrainingHistoryRepository,
-    ): TrainingHistoryRepository
+    abstract fun bindTrainingLogRepository(
+        impl: RoomTrainingLogRepository,
+    ): TrainingLogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProgressionHistoryPort(
+        impl: ProgressionHistoryRepository,
+    ): ProgressionHistoryPort
+
+    @Binds
+    @Singleton
+    abstract fun bindProgramChangeEventRepository(
+        impl: RoomProgramChangeEventRepository,
+    ): ProgramChangeEventRepository
 
     @Binds
     @Singleton

@@ -1,4 +1,4 @@
-package com.stratum.feature.program.ui
+package com.stratum.core.ui.component
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -34,18 +34,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
-import com.stratum.core.ui.component.StratumBottomSheet
-import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumNumber
-import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumRirTargetColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.feature.program.R
 
 private const val RIR_SHEET_ANIMATION_MS = 220
+const val SIX_PLUS_RIR_GOAL = 6
 
 @Composable
-internal fun RirTargetBottomSheet(
+fun RirTargetBottomSheet(
     selectedRirGoal: Int,
     onRirSelected: (Int) -> Unit,
     onDismiss: () -> Unit,
@@ -130,7 +126,7 @@ private fun RirSheetTitleRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StratumText(
-            text = stringResource(R.string.edit_workout_rir_sheet_title),
+            text = stringResource(CoreUiR.string.edit_workout_rir_sheet_title),
             style = StratumThemeAccessor.typography.titleLarge,
         )
         StratumIconButton(
@@ -140,7 +136,7 @@ private fun RirSheetTitleRow(
         ) {
             Icon(
                 painter = painterResource(CoreUiR.drawable.ic_info),
-                contentDescription = stringResource(R.string.edit_workout_rir_info_content_description),
+                contentDescription = stringResource(CoreUiR.string.edit_workout_rir_info_content_description),
                 tint = StratumThemeAccessor.colors.textMuted,
             )
         }
@@ -160,7 +156,7 @@ private fun RirTargetInfoContent(onCloseInfo: () -> Unit) {
             StratumIconButton(onClick = onCloseInfo) {
                 Icon(
                     painter = painterResource(CoreUiR.drawable.ic_close),
-                    contentDescription = stringResource(R.string.edit_workout_rir_info_close),
+                    contentDescription = stringResource(CoreUiR.string.edit_workout_rir_info_close),
                     tint = StratumThemeAccessor.colors.textPrimary,
                 )
             }
@@ -169,7 +165,7 @@ private fun RirTargetInfoContent(onCloseInfo: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 StratumText(
-                    text = stringResource(R.string.edit_workout_rir_sheet_title),
+                    text = stringResource(CoreUiR.string.edit_workout_rir_sheet_title),
                     style =
                         StratumThemeAccessor.typography.titleLarge.copy(
                             textAlign = TextAlign.Center,
@@ -181,7 +177,7 @@ private fun RirTargetInfoContent(onCloseInfo: () -> Unit) {
             Box(modifier = Modifier.size(48.dp))
         }
         StratumText(
-            text = stringResource(R.string.edit_workout_rir_info_body),
+            text = stringResource(CoreUiR.string.edit_workout_rir_info_body),
             style = StratumThemeAccessor.typography.bodyLarge,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -227,6 +223,41 @@ private fun RirSheetOption(
     }
 }
 
+@Composable
+fun RirTargetBadge(
+    rirGoal: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val label = formatRirLabel(rirGoal)
+    val background = StratumRirTargetColors.backgroundFor(rirGoal)
+    val contentColor = StratumRirTargetColors.contentColor
+    Box(
+        modifier =
+            modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(background)
+                .then(
+                    if (enabled) {
+                        Modifier.clickable(onClick = onClick)
+                    } else {
+                        Modifier
+                    }
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        StratumNumber(
+            text = label,
+            style =
+                StratumThemeAccessor.typography.sectionLabel.copy(
+                    color = contentColor,
+                ),
+        )
+    }
+}
+
 private data class RirTargetOption(
     val value: Int,
     val label: String,
@@ -243,7 +274,7 @@ private val RIR_TARGET_OPTIONS =
         RirTargetOption(SIX_PLUS_RIR_GOAL, "6+"),
     )
 
-internal fun formatRirLabel(rirGoal: Int): String =
+fun formatRirLabel(rirGoal: Int): String =
     if (rirGoal >= SIX_PLUS_RIR_GOAL) {
         "6+"
     } else {

@@ -1,12 +1,14 @@
 package com.stratum.domain.importing
 
-import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -23,20 +25,19 @@ class TrainingInsightsExtractorTest {
         )
         val t0 = Instant.parse("2025-01-01T10:00:00Z")
         val sessions = (1..5).map { index ->
-            HistoricalSession(
-                id = HistoricalSessionId("session-$index"),
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
                 startedAt = t0.plusSeconds(index * 86_400L),
                 endedAt = null,
-                sourceApp = "test",
             )
         }
         val sets = buildList {
             sessions.forEachIndexed { sessionIndex, session ->
                 repeat(3) { setIndex ->
                     add(
-                        LoggedSet(
-                            id = LoggedSetId("${session.id.value}-squat-$setIndex"),
-                            sessionId = session.id,
+                        importSet(
+                            id = "${session.id.value}-squat-$setIndex",
+                            session = session,
                             exerciseNameRaw = "Hack Squat",
                             liftId = squatId,
                             setIndex = setIndex + 1,
@@ -48,9 +49,9 @@ class TrainingInsightsExtractorTest {
                     )
                 }
                 add(
-                    LoggedSet(
-                        id = LoggedSetId("${session.id.value}-curl"),
-                        sessionId = session.id,
+                    importSet(
+                        id = "${session.id.value}-curl",
+                        session = session,
                         exerciseNameRaw = "DB Curl",
                         liftId = curlId,
                         setIndex = 1,
@@ -80,24 +81,22 @@ class TrainingInsightsExtractorTest {
                 lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
             )
         val oldSession =
-            HistoricalSession(
-                id = HistoricalSessionId("old"),
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "old",
                 startedAt = Instant.parse("2020-01-01T10:00:00Z"),
                 endedAt = null,
-                sourceApp = "test",
             )
         val recentSession =
-            HistoricalSession(
-                id = HistoricalSessionId("recent"),
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "recent",
                 startedAt = Instant.parse("2025-06-01T10:00:00Z"),
                 endedAt = null,
-                sourceApp = "test",
             )
         val sets =
             listOf(
-                LoggedSet(
-                    id = LoggedSetId("old-set"),
-                    sessionId = oldSession.id,
+                importSet(
+                    id = "old-set",
+                    session = oldSession,
                     exerciseNameRaw = "Hack Squat",
                     liftId = squatId,
                     setIndex = 0,
@@ -106,9 +105,9 @@ class TrainingInsightsExtractorTest {
                     rir = null,
                     completedAt = Instant.parse("2020-01-01T11:00:00Z"),
                 ),
-                LoggedSet(
-                    id = LoggedSetId("recent-set"),
-                    sessionId = recentSession.id,
+                importSet(
+                    id = "recent-set",
+                    session = recentSession,
                     exerciseNameRaw = "Hack Squat",
                     liftId = squatId,
                     setIndex = 0,
@@ -133,6 +132,28 @@ class TrainingInsightsExtractorTest {
         assertEquals(2, output.metadata.totalSets)
     }
 
+    private fun importSet(
+        id: String,
+        session: TrainingSession,
+        exerciseNameRaw: String,
+        liftId: LiftId,
+        setIndex: Int,
+        weight: Weight,
+        reps: Int,
+        rir: Int?,
+        completedAt: Instant,
+    ): LoggedSet =
+        ImportHistoryTrainingMapper.parseSet(
+            id = LoggedSetId(id),
+            sessionId = session.id,
+            exerciseNameRaw = exerciseNameRaw,
+            setIndex = setIndex,
+            weight = weight,
+            reps = reps,
+            rir = rir,
+            completedAt = completedAt,
+        ).copy(liftId = liftId)
+
     private fun lift(
         id: LiftId,
         name: String,
@@ -146,7 +167,6 @@ class TrainingInsightsExtractorTest {
         secondaryMuscles = emptySet(),
         incrementTiers = emptyList(),
         presetTags = emptySet(),
-        allowWeightChangeBetweenSets = false,
         enabled = true,
     )
 }

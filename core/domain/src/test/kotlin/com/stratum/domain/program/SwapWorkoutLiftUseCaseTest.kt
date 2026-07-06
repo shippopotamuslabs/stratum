@@ -1,6 +1,7 @@
 package com.stratum.domain.program
 
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.identity.ProgramId
@@ -50,7 +51,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val useCase = SwapWorkoutLiftUseCase(repository)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(targetWorkoutLiftId, newLiftId)
 
@@ -63,7 +64,7 @@ class SwapWorkoutLiftUseCaseTest {
     @DisplayName("When swap is called and no active program exists, then it returns a failure result")
     fun swapFailsWhenNoProgram() = runTest {
         val repository = FakeProgramRepository(null)
-        val useCase = SwapWorkoutLiftUseCase(repository)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutLiftId("wl-1"), LiftId("incline-db-bench"))
 
@@ -102,7 +103,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val useCase = SwapWorkoutLiftUseCase(repository)
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
 
         val result = useCase(WorkoutLiftId("non-existent"), LiftId("incline-db-bench"))
 
@@ -111,5 +112,47 @@ class SwapWorkoutLiftUseCaseTest {
         // Verify program was not modified
         val currentProgram = repository.getProgram()
         assertEquals(LiftId("bench-press"), currentProgram?.workouts?.first()?.workoutLifts?.first()?.liftId)
+    }
+
+    @Test
+    @DisplayName("WL-035 SwapWorkoutLiftUseCase appends LIFT_SWAPPED event")
+    fun wl035_swapAppendsLiftSwappedEvent() = runTest {
+        val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
+        val program = Program(
+            id = ProgramId("p-1"),
+            name = "Push Program",
+            createdAt = Instant.now(),
+            cycleLength = 1,
+            trainingWeekdays = setOf(Weekday.Monday),
+            workouts = listOf(
+                Workout(
+                    id = WorkoutId("w-1"),
+                    programId = ProgramId("p-1"),
+                    name = "Push Day",
+                    weekday = Weekday.Monday,
+                    position = 0,
+                    workoutLifts = listOf(
+                        WorkoutLift(
+                            id = WorkoutLiftId("wl-bench"),
+                            workoutId = WorkoutId("w-1"),
+                            liftId = LiftId("lift-bench"),
+                            progressionScheme = ProgressionScheme.Linear,
+                            position = 0,
+                            sets = emptyList(),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events)
+
+        useCase(WorkoutLiftId("wl-bench"), LiftId("lift-squat")).getOrThrow()
+
+        val appended = events.getEventsForProgram(ProgramId("p-1"))
+        assertEquals(1, appended.size)
+        assertEquals(com.stratum.domain.training.ProgramChangeEventType.LIFT_SWAPPED, appended.single().eventType)
+        val payload = appended.single().payload as com.stratum.domain.training.ProgramChangeEventPayload.LiftSwapped
+        assertEquals(LiftId("lift-bench"), payload.previousLiftId)
+        assertEquals(LiftId("lift-squat"), payload.newLiftId)
     }
 }
