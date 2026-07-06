@@ -37,4 +37,10 @@ data class RenderedSetUi(
     val loggedRepsLabel: String?,
     val isComplete: Boolean,
     val previousWeightLabel: String? = null,
+    val rirGoal: Int,
+    val repMin: Int,
+    val repMax: Int,
+    val recommendedWeightAmount: Double,
+    val recommendedReps: Int,
+    val loggedRir: Int? = null,
 )

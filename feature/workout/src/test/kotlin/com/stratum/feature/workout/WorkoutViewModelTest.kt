@@ -7,7 +7,9 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.testing.workout.FakeFatigueModel
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.workout.FakeProgressionHistoryRepository
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
@@ -260,6 +262,7 @@ class WorkoutViewModelTest {
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
             fatigueModel = FakeFatigueModel(),
+            logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
     }
 
@@ -390,6 +393,57 @@ class WorkoutViewModelTest {
             val set = updated.lifts.first().sets.first()
             assertEquals("130.0", set.loggedWeightLabel)
             assertTrue(set.isComplete)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("S7-recommendation-formatting-rules")
+    fun `S7-recommendation-formatting-rules`() = runTest {
+        val emptyHistory = FakeProgressionHistoryRepository()
+        val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift()))
+        val localViewModel = WorkoutViewModel(
+            observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+            generateSnapshot =
+                GenerateProgressionSnapshotUseCase(
+                    progressionHistoryPort = emptyHistory,
+                    doubleProgressionEngine = DoubleProgressionEngine(),
+                    linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
+                    programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                ),
+            mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            projectStructure = ProjectWorkoutStructureUseCase(),
+            recommendationEngine = RecommendationEngine(),
+            estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
+            logSetUseCase = LogSetUseCase(
+                trainingLogRepository = trainingLogRepository,
+                liftRepository = liftRepository,
+                programRepository = programRepository,
+                loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
+            ),
+            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+            getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
+            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            fatigueModel = FakeFatigueModel(),
+            logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+        )
+
+        localViewModel.startSession(workoutId)
+        localViewModel.uiState.test {
+            val loaded = awaitLoaded()
+            val sets = loaded.lifts.first().sets
+
+            // The first set repMin=4, repMax=6. With no history, placeholder is "4-6"
+            assertEquals("4-6", sets[0].recommendedRepsLabel)
+
+            // The second set repMin=8, repMax=12. With no history, placeholder is "8-12"
+            assertEquals("8-12", sets[1].recommendedRepsLabel)
+
+            // With no history, recommended weight amount is 0.0, so recommendedWeightLabel should be "" (blank)
+            assertEquals("", sets[0].recommendedWeightLabel)
+            assertEquals("", sets[1].recommendedWeightLabel)
+
             cancelAndIgnoreRemainingEvents()
         }
     }

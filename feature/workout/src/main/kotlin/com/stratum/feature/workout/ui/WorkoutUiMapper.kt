@@ -26,18 +26,33 @@ internal object WorkoutUiMapper {
                         "—"
                     }
 
+                    val recommendedWeightAmount = set.recommendedWeight.amount
+                    val recommendedWeightLabel = if (recommendedWeightAmount == 0.0) "" else recommendedWeightAmount.toString()
+
+                    val recommendedRepsLabel = if (set.previousReps != null && set.recommendedReps > 0) {
+                        set.recommendedReps.toString()
+                    } else {
+                        if (set.repMin == 0 && set.repMax == 0) "0" else "${set.repMin}-${set.repMax}"
+                    }
+
                     RenderedSetUi(
                         slotKey = slotKey(set.slotId),
                         positionLabel = (set.position + 1).toString(),
                         setTypeLabel = set.setType.name,
                         repRangeLabel = if (set.repMin == 0 && set.repMax == 0) null else "${set.repMin}–${set.repMax}",
                         rirLabel = "RIR ${set.rirGoal}",
-                        recommendedWeightLabel = set.recommendedWeight.amount.toString(),
-                        recommendedRepsLabel = set.recommendedReps.toString(),
+                        recommendedWeightLabel = recommendedWeightLabel,
+                        recommendedRepsLabel = recommendedRepsLabel,
                         loggedWeightLabel = set.loggedValue?.let { it.weight.amount.toString() },
                         loggedRepsLabel = set.loggedValue?.reps?.toString(),
                         isComplete = set.loggedValue != null,
                         previousWeightLabel = prevLabel,
+                        rirGoal = set.rirGoal,
+                        repMin = set.repMin,
+                        repMax = set.repMax,
+                        recommendedWeightAmount = recommendedWeightAmount,
+                        recommendedReps = set.recommendedReps,
+                        loggedRir = set.loggedValue?.rir,
                     )
                 },
                 supersetGroupId = lift.supersetGroupId?.value,

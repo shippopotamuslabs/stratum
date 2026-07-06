@@ -24,6 +24,7 @@ class RecommendationEngine @Inject constructor() {
         currentWeight: Weight,
     ): RecommendationOutcome? {
         if (lastPerformed == null) return null
+        if (lastPerformed.weight.amount <= 0.0 || currentWeight.amount <= 0.0) return null
 
         val effectiveRir = lastPerformed.rir ?: 0
         val e1rm = EstimatedOneRm.calculate(lastPerformed.weight.amount, lastPerformed.reps + effectiveRir)

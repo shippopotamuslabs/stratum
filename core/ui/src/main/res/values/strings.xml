@@ -18,4 +18,10 @@
     <string name="lift_swap_search_clear_content_description">Clear search</string>
     <string name="lift_swap_empty">No lifts match your filters.</string>
     <string name="lift_swap_match_indicator_content_description">Similarity match</string>
+
+    <!-- RirTargetBottomSheet — shared RIR selection UI -->
+    <string name="edit_workout_rir_sheet_title">RIR targets</string>
+    <string name="edit_workout_rir_info_content_description">About RIR targets</string>
+    <string name="edit_workout_rir_info_close">Close RIR description</string>
+    <string name="edit_workout_rir_info_body">RIR stands for Reps in Reserve — how many additional reps you think you could have done. This is a way to track how challenging a set felt to you.\n\nA lower RIR means you were closer to failure and pushed your limit. A higher one means it felt easier and you had a lot left in the tank.</string>
 </resources>

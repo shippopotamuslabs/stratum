@@ -35,6 +35,7 @@ fun projectReps(
     perLiftSlope: Double?,
     perLiftIntercept: Double?,
 ): Int {
+    if (baselineOneRm <= 0.0 || targetWeight.amount <= 0.0) return 1
     val slope = perLiftSlope ?: POPULATION_FATIGUE_DECAY_SLOPE
     val intercept = perLiftIntercept ?: POPULATION_FATIGUE_DECAY_INTERCEPT
     val baselineReps = EstimatedOneRm.repsForWeight(baselineOneRm, targetWeight.amount)
