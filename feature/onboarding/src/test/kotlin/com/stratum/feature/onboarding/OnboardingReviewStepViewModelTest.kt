@@ -66,7 +66,7 @@ class OnboardingReviewStepViewModelTest {
         subject.uiState.test {
             val draft = awaitItem().reviewDraft
             assertEquals("4–7 years", draft.trainingAge)
-            assertEquals("Within the last month", draft.lastTrained)
+            assertEquals("Within the last 3 months", draft.lastTrained)
             assertEquals(listOf("Mon", "Wed", "Fri"), draft.weekdays)
             assertEquals(60, draft.sessionMinutes)
             assertEquals(listOf("Chest", "Quads"), draft.specialization)
