@@ -160,6 +160,28 @@ class ProgramsViewModelTest {
         }
     }
 
+    @Nested
+    @DisplayName("Active workout bar state")
+    inner class ActiveWorkoutBar {
+        @Test
+        fun `when active session exists then activeWorkoutBarState emits MinimizedWorkoutState`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+
+            viewModel.activeWorkoutBarState.test {
+                assertEquals(null, awaitItem())
+
+                viewModel.startProgramWorkout("w-1")
+
+                val state = awaitItem()
+                assertTrue(state != null)
+                assertEquals("w-1", state?.workoutId)
+                assertEquals("Push Day", state?.workoutName)
+                assertTrue(state?.startedAtEpochMilli != null)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
     private fun buildViewModel(initial: Program?): ProgramsViewModel {
         repository = FakeProgramRepository(initial)
         val trainingLog = FakeTrainingLogRepository(programRepository = repository)
