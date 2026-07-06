@@ -85,6 +85,24 @@ fun WorkoutScreen(
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
 
+    var elapsedTimeStr by remember(state.sessionStartedAtEpochMilli) { mutableStateOf("00:00") }
+    LaunchedEffect(state.sessionStartedAtEpochMilli) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            val diffMs = now - state.sessionStartedAtEpochMilli
+            val diffSec = (diffMs / 1000).coerceAtLeast(0)
+            val hrs = diffSec / 3600
+            val mins = (diffSec % 3600) / 60
+            val secs = diffSec % 60
+            elapsedTimeStr = if (hrs > 0) {
+                String.format(java.util.Locale.US, "%d:%02d:%02d", hrs, mins, secs)
+            } else {
+                String.format(java.util.Locale.US, "%02d:%02d", mins, secs)
+            }
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+
     LaunchedEffect(isTimerActive, remainingRestSeconds) {
         if (isTimerActive && remainingRestSeconds > 0) {
             kotlinx.coroutines.delay(1000L)
@@ -107,7 +125,7 @@ fun WorkoutScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             StratumTopBar(
-                title = state.workoutName,
+                title = elapsedTimeStr,
                 navigationIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         StratumIconButton(onClick = onNavigateBack) {
@@ -248,23 +266,29 @@ private fun RestTimerTopBarIndicator(
             Box(
                 modifier = Modifier
                     .width(barWidth)
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(StratumThemeAccessor.colors.surfaceSunken)
+                    .height(24.dp)
+                    .border(
+                        width = 1.dp,
+                        color = StratumThemeAccessor.colors.accent,
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(StratumThemeAccessor.colors.surfaceSunken),
+                contentAlignment = Alignment.Center
             ) {
                 val progress = if (totalSeconds > 0) remainingSeconds.toFloat() / totalSeconds else 0f
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(progress)
-                        .background(StratumThemeAccessor.colors.accent)
+                        .align(Alignment.CenterStart)
+                        .background(StratumThemeAccessor.colors.accent.copy(alpha = 0.3f))
+                )
+                StratumText(
+                    text = formatRestDisplay(remainingSeconds),
+                    style = StratumThemeAccessor.typography.sectionLabel,
                 )
             }
-            Spacer(modifier = Modifier.width(6.dp))
-            StratumText(
-                text = formatRestDisplay(remainingSeconds),
-                style = StratumThemeAccessor.typography.sectionLabel,
-            )
         }
     }
 }
@@ -280,6 +304,7 @@ private fun LiftSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .clip(StratumThemeAccessor.shapes.panel)
             .background(
                 color = StratumThemeAccessor.colors.surfaceRaised,
                 shape = StratumThemeAccessor.shapes.panel
@@ -289,11 +314,11 @@ private fun LiftSection(
                 color = StratumThemeAccessor.colors.borderSubtle,
                 shape = StratumThemeAccessor.shapes.panel
             )
-            .padding(16.dp),
+            .padding(top = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -335,14 +360,14 @@ private fun LiftSection(
         lift.supersetGroupId?.let { groupId ->
             WorkoutSupersetGroupChip(
                 groupId = groupId,
-                modifier = Modifier.padding(vertical = 2.dp)
+                modifier = Modifier.padding(vertical = 2.dp).padding(horizontal = 16.dp)
             )
         }
 
         Spacer(modifier = Modifier.height(4.dp))
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TableHeaderCell("Set", Modifier.weight(0.10f), alignment = Alignment.CenterStart)
@@ -417,8 +442,8 @@ private fun WorkoutSetRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(rowBg, shape = RoundedCornerShape(8.dp))
-            .padding(vertical = 4.dp, horizontal = 4.dp),
+            .background(rowBg)
+            .padding(vertical = 4.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val isWarmup = set.setTypeLabel == "Warmup"

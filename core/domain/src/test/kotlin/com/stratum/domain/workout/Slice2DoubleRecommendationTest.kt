@@ -167,7 +167,7 @@ class Slice2DoubleRecommendationTest {
     fun `S2-rec-top-set-hold`() {
         val lastPerformed = LoggedSetValue(slotId, lb(135.0), 5, 2)
         val target = topSet(repMin = 4, repMax = 6, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, target, lb(135.0))
+        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertEquals(RecommendationOutcome.Hold(lb(135.0)), outcome)
     }
 
@@ -176,7 +176,7 @@ class Slice2DoubleRecommendationTest {
     fun `S2-rec-top-set-reduce`() {
         val lastPerformed = LoggedSetValue(slotId, lb(135.0), 4, 0)
         val target = topSet(repMin = 6, repMax = 8, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, target, lb(135.0))
+        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertNotNull(outcome)
         assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when projected < repMin")
         val reduce = outcome as RecommendationOutcome.Reduce
@@ -196,7 +196,7 @@ class Slice2DoubleRecommendationTest {
         val backoffId = SetSlotId.Template(LiftSetId("ls-2"))
         val lastPerformed = LoggedSetValue(backoffId, lb(100.0), 8, 2)
         val target = backoffSlot()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, target, lb(100.0))
+        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(100.0))
         assertEquals(RecommendationOutcome.Hold(lb(100.0)), outcome)
     }
 
@@ -206,7 +206,7 @@ class Slice2DoubleRecommendationTest {
         val backoffId = SetSlotId.Template(LiftSetId("ls-2"))
         val lastPerformed = LoggedSetValue(backoffId, lb(100.0), 5, 0)
         val target = backoffSlot()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, target, lb(100.0))
+        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(100.0))
         assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when projected < BACKOFF_REP_FLOOR")
         val reduce = outcome as RecommendationOutcome.Reduce
         // weightForReps(115.64, 5) ≈ 99.97
@@ -220,7 +220,7 @@ class Slice2DoubleRecommendationTest {
         // (the upcoming set is the first set of the session — no e1RM can be derived).
         // lastPerformed is nullable on the engine signature; null is passed directly.
         val target = topSet()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed = null, target, lb(135.0))
+        val outcome = RecommendationEngine().recommendNextSet(lastPerformed = null, null, target, lb(135.0))
         assertNull(outcome)
     }
 
@@ -229,7 +229,7 @@ class Slice2DoubleRecommendationTest {
     fun `S2-mutation-defense-always-hold`() {
         val lastPerformed = LoggedSetValue(slotId, lb(135.0), 4, 0)
         val target = topSet(repMin = 6, repMax = 8, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, target, lb(135.0))
+        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertTrue(outcome is RecommendationOutcome.Reduce, "engine must NOT always return Hold")
     }
 

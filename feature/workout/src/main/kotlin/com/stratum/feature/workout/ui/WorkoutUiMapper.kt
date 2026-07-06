@@ -8,7 +8,7 @@ import com.stratum.domain.workout.SetSlotId
  * types are embedded in the presentation model (Detekt `ForbiddenDomainTypeInUiState`).
  */
 internal object WorkoutUiMapper {
-    fun map(rendered: RenderedWorkout): WorkoutUiState.Loaded {
+    fun map(rendered: RenderedWorkout, sessionStartedAtEpochMilli: Long): WorkoutUiState.Loaded {
         val lifts = rendered.lifts.map { lift ->
             RenderedLiftUi(
                 workoutLiftId = lift.workoutLiftId.value,
@@ -62,6 +62,7 @@ internal object WorkoutUiMapper {
             workoutName = rendered.workoutName,
             lifts = lifts,
             isFinalizing = false,
+            sessionStartedAtEpochMilli = sessionStartedAtEpochMilli,
         )
     }
 

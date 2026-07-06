@@ -449,6 +449,79 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("S7-recommendation-blank-fallback-and-too-easy-bump")
+    fun `S7-recommendation-blank-fallback-and-too-easy-bump`() = runTest {
+        val emptyHistory = FakeProgressionHistoryRepository()
+        val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift()))
+        val localViewModel = WorkoutViewModel(
+            observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+            generateSnapshot =
+                GenerateProgressionSnapshotUseCase(
+                    progressionHistoryPort = emptyHistory,
+                    doubleProgressionEngine = DoubleProgressionEngine(),
+                    linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
+                    programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                ),
+            mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            projectStructure = ProjectWorkoutStructureUseCase(),
+            recommendationEngine = RecommendationEngine(),
+            estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
+            logSetUseCase = LogSetUseCase(
+                trainingLogRepository = trainingLogRepository,
+                liftRepository = liftRepository,
+                programRepository = programRepository,
+                loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
+            ),
+            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+            getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
+            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            fatigueModel = FakeFatigueModel(),
+            logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+        )
+
+        localViewModel.startSession(workoutId)
+        localViewModel.uiState.test {
+            val loaded = awaitLoaded()
+            val initialSets = loaded.lifts.first().sets
+
+            // Log the first set with target repMax=6 at 2 RIR.
+            // Case A (blank fallback): Log it with 135 lb x 5 reps at 2 RIR.
+            // The second set (initially blank) should fall back to get the completed set's weight (135.0).
+            localViewModel.logSet(
+                slotKey = initialSets[0].slotKey,
+                weight = lb(135.0),
+                reps = 5,
+                rir = 2,
+            )
+            val updated1 = awaitItem() as WorkoutUiState.Loaded
+            val setsAfterLog1 = updated1.lifts.first().sets
+            assertEquals("135.0", setsAfterLog1[1].recommendedWeightLabel)
+
+            // Undo the log so we can test the too-easy bump case
+            localViewModel.unlogSet(initialSets[0].slotKey)
+            awaitItem() // Consume the unlogged state
+
+            // Case B (too easy set weight bump): Log first set with 135 lb x 9 reps at 1 RIR.
+            // Target repMax is 6, rirGoal is 2.
+            // Achieved reps at 2 RIR = 9 + 1 - 2 = 8 reps.
+            // Exceeded reps = 8 - 6 = 2 reps (exceeds repMax by 2).
+            // So this set is "too easy" -> should bump the recommended weight of upcoming set to 140.0 (135.0 + 5.0).
+            localViewModel.logSet(
+                slotKey = initialSets[0].slotKey,
+                weight = lb(135.0),
+                reps = 9,
+                rir = 1,
+            )
+            val updated2 = awaitItem() as WorkoutUiState.Loaded
+            val setsAfterLog2 = updated2.lifts.first().sets
+            assertEquals("140.0", setsAfterLog2[1].recommendedWeightLabel)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("S7-mutation-defense-no-verify")
     fun `S7-mutation-defense-no-verify`() {
         // This ViewModel test must not use MockK verify / coVerify (Detekt enforced).
