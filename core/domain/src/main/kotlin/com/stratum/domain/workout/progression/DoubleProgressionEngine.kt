@@ -22,16 +22,30 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
         val latest = request.history.firstOrNull()
         val baseWeight = latest?.loggedSet?.weight ?: request.fallbackOneRm ?: defaultWeight()
         val baselineExpectedReps = latest?.loggedSet?.reps ?: slot.repMin
+        val prevWeight = latest?.loggedSet?.weight
+        val prevReps = latest?.loggedSet?.reps
 
         // Backoff slot (RIR-only, no rep range): inherits the top-set weight.
         if (!slot.isTopSet) {
-            return SlotRecommendation(slot.slotId, baseWeight, baselineExpectedReps)
+            return SlotRecommendation(
+                slotId = slot.slotId,
+                recommendedWeight = baseWeight,
+                baselineExpectedReps = baselineExpectedReps,
+                previousWeight = prevWeight,
+                previousReps = prevReps,
+            )
         }
 
         // Top-set slot: increment when TOP of rep range met at RIR target; hold otherwise.
         val increment = if (shouldIncrement(latest, slot)) incrementFor() else Weight(0.0, baseWeight.unit)
         val next = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
-        return SlotRecommendation(slot.slotId, next, slot.repMin)
+        return SlotRecommendation(
+            slotId = slot.slotId,
+            recommendedWeight = next,
+            baselineExpectedReps = slot.repMin,
+            previousWeight = prevWeight,
+            previousReps = prevReps,
+        )
     }
 
     private fun shouldIncrement(

@@ -176,6 +176,8 @@ class ProgramsViewModelTest {
             computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
             startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
+            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog),
+            getLoggedSetsForSession = com.stratum.domain.training.GetLoggedSetsForSessionUseCase(trainingLog),
         )
     }
 

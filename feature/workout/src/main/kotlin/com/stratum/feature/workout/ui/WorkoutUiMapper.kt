@@ -15,6 +15,17 @@ internal object WorkoutUiMapper {
                 liftName = lift.liftName,
                 progressionSchemeLabel = lift.progressionScheme.name,
                 sets = lift.sets.map { set ->
+                    val prevWeight = set.previousWeight
+                    val prevReps = set.previousReps
+                    val prevLabel = if (prevWeight != null && prevReps != null) {
+                        val amt = prevWeight.amount
+                        val amtStr = if (amt % 1.0 == 0.0) amt.toInt().toString() else amt.toString()
+                        val unitStr = prevWeight.unit.name.lowercase()
+                        "$amtStr $unitStr × $prevReps"
+                    } else {
+                        "—"
+                    }
+
                     RenderedSetUi(
                         slotKey = slotKey(set.slotId),
                         positionLabel = (set.position + 1).toString(),
@@ -26,8 +37,10 @@ internal object WorkoutUiMapper {
                         loggedWeightLabel = set.loggedValue?.let { it.weight.amount.toString() },
                         loggedRepsLabel = set.loggedValue?.reps?.toString(),
                         isComplete = set.loggedValue != null,
+                        previousWeightLabel = prevLabel,
                     )
                 },
+                supersetGroupId = lift.supersetGroupId?.value,
             )
         }
         return WorkoutUiState.Loaded(

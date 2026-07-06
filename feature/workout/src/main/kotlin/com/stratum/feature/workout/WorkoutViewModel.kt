@@ -7,8 +7,11 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.training.DeleteLoggedSetUseCase
+import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetCommand
 import com.stratum.domain.training.LogSetUseCase
+import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
@@ -61,6 +64,9 @@ class WorkoutViewModel @Inject constructor(
     private val estimateAddedSetReps: EstimateAddedSetRepsUseCase,
     private val logSetUseCase: LogSetUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
+    private val getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
+    private val deleteLoggedSet: DeleteLoggedSetUseCase,
+    private val abandonTrainingSession: AbandonTrainingSessionUseCase,
     // FatigueModel is consumed transitively by EstimateDropSetWeightUseCase (domain layer).
     // Retained in the constructor so the DI graph documents the runtime dependency and
     // the live drop-set estimation path can be wired here when the UI gains drop-set entry.
@@ -115,6 +121,24 @@ class WorkoutViewModel @Inject constructor(
                             com.stratum.domain.workout.ProgressionSnapshot(workoutId, emptyMap()),
                         )
                         snapshotBySlot = snapshot.bySlot
+                        
+                        // Load already logged sets for the session from database (resume session support)
+                        val dbSets = getLoggedSetsForSession(session.id)
+                        val resumedLoggedSets = mutableMapOf<SetSlotId, LoggedSetValue>()
+                        for (dbSet in dbSets) {
+                            val slot = projected.lifts.flatMap { it.slots }.firstOrNull {
+                                it.workoutLiftId == dbSet.liftContext.workoutLiftId && it.position == dbSet.setIndex
+                            }
+                            if (slot != null) {
+                                resumedLoggedSets[slot.slotId] = LoggedSetValue(
+                                    slotId = slot.slotId,
+                                    weight = dbSet.weight,
+                                    reps = dbSet.reps,
+                                    rir = dbSet.rir,
+                                )
+                            }
+                        }
+                        overlay = overlay.copy(loggedSets = resumedLoggedSets)
                         snapshotLoaded = true
                     }
                     recomputeRecommendations()
@@ -123,9 +147,10 @@ class WorkoutViewModel @Inject constructor(
             }
     }
 
-    fun logSet(slotId: SetSlotId, weight: Weight, reps: Int, rir: Int?) {
+    fun logSet(slotKey: String, weight: Weight, reps: Int, rir: Int?) {
         val session = currentSessionId() ?: return
-        val slot = resolveSlot(slotId) ?: return
+        val slot = resolveSlotByKey(slotKey) ?: return
+        val slotId = slot.slotId
         viewModelScope.launch {
             logSetUseCase(
                 LogSetCommand(
@@ -141,6 +166,26 @@ class WorkoutViewModel @Inject constructor(
             )
             overlay = overlay.copy(
                 loggedSets = overlay.loggedSets + (slotId to LoggedSetValue(slotId, weight, reps, rir)),
+            )
+            recomputeRecommendations()
+            render()
+        }
+    }
+
+    fun unlogSet(slotKey: String) {
+        val session = currentSessionId() ?: return
+        val slot = resolveSlotByKey(slotKey) ?: return
+        val slotId = slot.slotId
+        viewModelScope.launch {
+            val dbSets = getLoggedSetsForSession(session)
+            val dbSet = dbSets.firstOrNull {
+                it.liftContext.workoutLiftId == slot.workoutLiftId && it.setIndex == slot.position
+            }
+            if (dbSet != null) {
+                deleteLoggedSet(dbSet.id)
+            }
+            overlay = overlay.copy(
+                loggedSets = overlay.loggedSets - slotId,
             )
             recomputeRecommendations()
             render()
@@ -247,14 +292,29 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun abandonSession() {
-        sessionObservationJob?.cancel()
-        sessionObservationJob = null
-        activeWorkoutId = null
-        snapshotLoaded = false
-        structure = null
-        snapshotBySlot = emptyMap()
-        overlay = WorkoutOverlay()
-        _uiState.value = WorkoutUiState.NoActiveSession
+        val session = currentSessionId()
+        if (session != null) {
+            viewModelScope.launch {
+                abandonTrainingSession(session)
+                sessionObservationJob?.cancel()
+                sessionObservationJob = null
+                activeWorkoutId = null
+                snapshotLoaded = false
+                structure = null
+                snapshotBySlot = emptyMap()
+                overlay = WorkoutOverlay()
+                _uiState.value = WorkoutUiState.NoActiveSession
+            }
+        } else {
+            sessionObservationJob?.cancel()
+            sessionObservationJob = null
+            activeWorkoutId = null
+            snapshotLoaded = false
+            structure = null
+            snapshotBySlot = emptyMap()
+            overlay = WorkoutOverlay()
+            _uiState.value = WorkoutUiState.NoActiveSession
+        }
     }
 
     /**
@@ -335,4 +395,15 @@ class WorkoutViewModel @Inject constructor(
         )
 
     private fun zeroWeight(): Weight = Weight(0.0, Weight.WeightUnit.Lb)
+
+    private fun slotKey(slotId: SetSlotId): String = when (slotId) {
+        is SetSlotId.Template -> slotId.liftSetId.value
+        is SetSlotId.Overlay -> slotId.instanceId.value
+    }
+
+    private fun resolveSlotByKey(slotKey: String): SetSlot? {
+        val struct = structure ?: return null
+        return struct.lifts.flatMap { it.slots }.firstOrNull { slotKey(it.slotId) == slotKey }
+            ?: overlay.addedSlots.firstOrNull { slotKey(it.slotId) == slotKey }
+    }
 }

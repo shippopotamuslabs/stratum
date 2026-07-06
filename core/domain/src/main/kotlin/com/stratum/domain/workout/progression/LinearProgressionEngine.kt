@@ -34,16 +34,30 @@ class LinearProgressionEngine @Inject constructor(
         val baseWeight = latest?.loggedSet?.weight
             ?: request.fallbackOneRm
             ?: defaultWeight()
+        val prevWeight = latest?.loggedSet?.weight
+        val prevReps = latest?.loggedSet?.reps
 
         // Backoff slot: inherits the working weight, no increment.
         if (!slot.isTopSet) {
             val baselineReps = latest?.loggedSet?.reps ?: slot.repMin
-            return SlotRecommendation(slot.slotId, baseWeight, baselineReps)
+            return SlotRecommendation(
+                slotId = slot.slotId,
+                recommendedWeight = baseWeight,
+                baselineExpectedReps = baselineReps,
+                previousWeight = prevWeight,
+                previousReps = prevReps,
+            )
         }
 
         val increment = if (metBottomAtRir(latest, slot)) incrementFor(slot) else zero(baseWeight)
         val next = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
-        return SlotRecommendation(slot.slotId, next, slot.repMin)
+        return SlotRecommendation(
+            slotId = slot.slotId,
+            recommendedWeight = next,
+            baselineExpectedReps = slot.repMin,
+            previousWeight = prevWeight,
+            previousReps = prevReps,
+        )
     }
 
     /**

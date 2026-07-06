@@ -4,6 +4,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 
 /** A projected lift within a [WorkoutStructureProjection]. */
 data class WorkoutLiftProjection(
@@ -12,6 +13,7 @@ data class WorkoutLiftProjection(
     val liftName: String,
     val progressionScheme: ProgressionScheme,
     val slots: List<SetSlot>,
+    val supersetGroupId: WorkoutSupersetGroupId? = null,
 )
 
 /**

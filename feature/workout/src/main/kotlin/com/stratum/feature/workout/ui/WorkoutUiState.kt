@@ -22,6 +22,7 @@ data class RenderedLiftUi(
     val liftName: String,
     val progressionSchemeLabel: String,
     val sets: List<RenderedSetUi>,
+    val supersetGroupId: String? = null,
 )
 
 data class RenderedSetUi(
@@ -35,4 +36,5 @@ data class RenderedSetUi(
     val loggedWeightLabel: String?,
     val loggedRepsLabel: String?,
     val isComplete: Boolean,
+    val previousWeightLabel: String? = null,
 )

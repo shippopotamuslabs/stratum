@@ -6,6 +6,7 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 
 /** Merge-result read model for a single set (D1). */
 data class RenderedSet(
@@ -22,6 +23,8 @@ data class RenderedSet(
     val recommendedWeight: Weight,
     val recommendedReps: Int,
     val loggedValue: LoggedSetValue?,
+    val previousWeight: Weight? = null,
+    val previousReps: Int? = null,
 )
 
 /** Merge-result read model for a single lift (D1). */
@@ -31,6 +34,7 @@ data class RenderedWorkoutLift(
     val liftName: String,
     val progressionScheme: ProgressionScheme,
     val sets: List<RenderedSet>,
+    val supersetGroupId: WorkoutSupersetGroupId? = null,
 )
 
 /** The fully merged rendered workout (D1). Pure output of `MergeRenderedWorkoutUseCase`. */
