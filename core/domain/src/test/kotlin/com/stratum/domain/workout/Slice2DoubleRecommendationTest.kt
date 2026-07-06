@@ -181,13 +181,13 @@ class Slice2DoubleRecommendationTest {
         assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when projected < repMin")
         val reduce = outcome as RecommendationOutcome.Reduce
         // Brzycki inverse derivation (spec-mandated formula, EstimatedOneRm constants):
-        //   e1rm = calculate(135.0, 4+0) = 135.0 * 1.0278 / (1.0278 - 0.0278*4)
-        //        = 138.753 / 0.9166 = 151.385
-        //   weightForReps(151.385, repMin=6) = 151.385 * (1.0278 - 0.0278*6) / 1.0278
-        //        = 151.385 * 0.8610 / 1.0278 = 126.81
-        // (Epley inverse for reference would be 134.47 — neither formula yields 120.6,
-        // which was a pre-Implementation arithmetic error in the Gherkin expected literal.)
-        assertEquals(126.81, reduce.weight.amount, 0.5)
+        //   e1rm = calculate(135.0, 4+0) = 151.378
+        //   projectedReps at 135 @ 2 RIR = repsForWeight(151.378, 135) - 2 = 4 - 2 = 2 < repMin=6 → Reduce
+        //   targetReps + rirGoal = 6 + 2 = 8 (reps at 0 RIR equivalent for the target RIR intent)
+        //   weightForReps(151.378, 8) = 151.378 * (1.0278 - 0.0278*8) / 1.0278 = 118.62
+        // The reduce branch must add rirGoal to the target reps so the reduced weight
+        // targets the slot's RIR intent, not 0 RIR (which would yield 126.81 — heavier).
+        assertEquals(118.62, reduce.weight.amount, 0.5)
     }
 
     @Test
@@ -209,8 +209,10 @@ class Slice2DoubleRecommendationTest {
         val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(100.0))
         assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when projected < BACKOFF_REP_FLOOR")
         val reduce = outcome as RecommendationOutcome.Reduce
-        // weightForReps(115.64, 5) ≈ 99.97
-        assertEquals(99.97, reduce.weight.amount, 0.5)
+        // e1rm = calculate(100.0, 5+0) = 115.639
+        // projectedReps at 100 @ 2 RIR = repsForWeight(115.639, 100) - 2 = 5 - 2 = 3 < 5 → Reduce
+        // weightForReps(115.639, 5 + 2 = 7) = 93.74 (RIR-aware target).
+        assertEquals(93.74, reduce.weight.amount, 0.5)
     }
 
     @Test
@@ -257,7 +259,7 @@ class Slice2DoubleRecommendationTest {
         )
         val overlay = WorkoutOverlay(
             loggedSets = mapOf(slotId to LoggedSetValue(slotId, lb(130.0), 6, 2)),
-            recommendations = mapOf(slotId to lb(135.0)),
+            recommendations = mapOf(slotId to LiveSetRecommendation(lb(135.0), 5)),
         )
         val rendered = MergeRenderedWorkoutUseCase()(structure, snapshot, overlay)
         val set = rendered.lifts.first().sets.first()
@@ -287,7 +289,7 @@ class Slice2DoubleRecommendationTest {
             workoutId = structure.workoutId,
             bySlot = mapOf(ls2 to SlotRecommendation(ls2, lb(135.0), 5)),
         )
-        val overlay = WorkoutOverlay(recommendations = mapOf(ls2 to lb(120.0)))
+        val overlay = WorkoutOverlay(recommendations = mapOf(ls2 to LiveSetRecommendation(lb(120.0), 5)))
         val rendered = MergeRenderedWorkoutUseCase()(structure, snapshot, overlay)
         val set = rendered.lifts.first().sets.first()
         assertNull(set.loggedValue)

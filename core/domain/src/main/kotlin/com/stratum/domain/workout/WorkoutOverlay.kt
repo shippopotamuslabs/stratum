@@ -29,7 +29,7 @@ sealed interface StructuralMutation {
  */
 data class WorkoutOverlay(
     val loggedSets: Map<SetSlotId, LoggedSetValue> = emptyMap(),
-    val recommendations: Map<SetSlotId, Weight> = emptyMap(),
+    val recommendations: Map<SetSlotId, LiveSetRecommendation> = emptyMap(),
     val addedSlots: List<SetSlot> = emptyList(),
     val deletedSlotIds: Set<SetSlotId> = emptySet(),
     val undoStack: List<StructuralMutation> = emptyList(),

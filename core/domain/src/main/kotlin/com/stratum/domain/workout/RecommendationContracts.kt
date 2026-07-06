@@ -17,3 +17,14 @@ sealed interface RecommendationOutcome {
     data class Hold(val weight: Weight) : RecommendationOutcome
     data class Reduce(val weight: Weight) : RecommendationOutcome
 }
+
+/**
+ * Overlay-only live recommendation for an upcoming unlogged set (D4). Carries both the
+ * recommended weight (from [RecommendationEngine]) and the recommended reps (projected
+ * one set-index forward from the most recent performed set via the [FatigueModel]). Stored
+ * in `WorkoutOverlay.recommendations`; never written back into the snapshot.
+ */
+data class LiveSetRecommendation(
+    val weight: Weight,
+    val reps: Int,
+)
