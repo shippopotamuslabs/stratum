@@ -22,6 +22,13 @@ data class RenderedSet(
     val restSeconds: Int,
     val recommendedWeight: Weight,
     val recommendedReps: Int,
+    /**
+     * True when [recommendedReps] was projected from the most recent performed set via a
+     * live overlay recommendation (D4). False when [recommendedReps] is just the snapshot
+     * baseline. The UI uses this to decide whether to show a concrete rep count or the
+     * `repMin-repMax` range placeholder.
+     */
+    val hasLiveRepsRecommendation: Boolean = false,
     val loggedValue: LoggedSetValue?,
     val previousWeight: Weight? = null,
     val previousReps: Int? = null,

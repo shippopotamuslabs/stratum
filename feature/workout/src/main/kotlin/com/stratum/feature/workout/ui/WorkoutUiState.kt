@@ -21,7 +21,6 @@ sealed interface WorkoutUiState {
 data class RenderedLiftUi(
     val workoutLiftId: String,
     val liftName: String,
-    val progressionSchemeLabel: String,
     val sets: List<RenderedSetUi>,
     val supersetGroupId: String? = null,
 )
@@ -43,5 +42,6 @@ data class RenderedSetUi(
     val repMax: Int,
     val recommendedWeightAmount: Double,
     val recommendedReps: Int,
+    val hasLiveRepsRecommendation: Boolean = false,
     val loggedRir: Int? = null,
 )

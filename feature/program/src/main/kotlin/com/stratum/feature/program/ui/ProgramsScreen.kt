@@ -283,11 +283,13 @@ internal fun ProgramsScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             StratumText(
-                                text = "Abandon Workout?",
+                                text = stringResource(R.string.programs_discard_workout),
                                 style = StratumThemeAccessor.typography.titleLarge
                             )
                             StratumText(
-                                text = "This will permanently delete the current training session and all logged sets. Are you sure?",
+                                text =
+                                    stringResource(
+                                        R.string.confirm_discard_dialog_body_text),
                                 style = StratumThemeAccessor.typography.bodyLarge,
                                 muted = true
                             )
@@ -296,11 +298,11 @@ internal fun ProgramsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
                             ) {
                                 StratumOutlinedButton(
-                                    text = "Cancel",
+                                    text = stringResource(R.string.programs_cancel_discard),
                                     onClick = { showCancelConfirm = false },
                                 )
                                 StratumButton(
-                                    text = "Abandon",
+                                    text = stringResource(R.string.programs_discard_confirm),
                                     onClick = {
                                         showCancelConfirm = false
                                         onCancelWorkoutClick()

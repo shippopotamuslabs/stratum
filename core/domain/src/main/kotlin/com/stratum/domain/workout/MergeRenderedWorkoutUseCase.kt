@@ -34,12 +34,22 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 val recommendedWeight = when {
                     logged != null ->
                         baseline?.recommendedWeight
-                            ?: recommendation
+                            ?: recommendation?.weight
                             ?: Weight(0.0, logged.weight.unit)
-                    recommendation != null -> recommendation
+                    recommendation != null -> recommendation.weight
                     else -> baseline?.recommendedWeight ?: return@mapNotNull null
                 }
-                val recommendedReps = baseline?.baselineExpectedReps ?: 0
+                // recommendedReps: a live overlay recommendation projects expected reps one
+                // set-index forward from the most recent performed set (D4). When no live
+                // recommendation exists, fall back to the snapshot/dynamic baseline. The
+                // `hasLiveRepsRecommendation` flag tells the UI whether to render the
+                // concrete projected count or the `repMin-repMax` range placeholder.
+                val hasLiveRepsRecommendation =
+                    recommendation != null && recommendation.reps > 0
+                val recommendedReps = when {
+                    hasLiveRepsRecommendation -> recommendation!!.reps
+                    else -> baseline?.baselineExpectedReps ?: 0
+                }
 
                 RenderedSet(
                     slotId = slot.slotId,
@@ -54,6 +64,7 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                     restSeconds = slot.restSeconds,
                     recommendedWeight = recommendedWeight,
                     recommendedReps = recommendedReps,
+                    hasLiveRepsRecommendation = hasLiveRepsRecommendation,
                     loggedValue = logged,
                     previousWeight = baseline?.previousWeight,
                     previousReps = baseline?.previousReps,

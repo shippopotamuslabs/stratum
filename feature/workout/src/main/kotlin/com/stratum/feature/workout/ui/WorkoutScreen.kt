@@ -338,17 +338,10 @@ private fun LiftSection(
                         style = StratumThemeAccessor.typography.titleLarge
                     )
                 }
-                Column {
-                    StratumText(
-                        text = lift.liftName,
-                        style = StratumThemeAccessor.typography.titleLarge,
-                    )
-                    StratumText(
-                        text = lift.progressionSchemeLabel,
-                        style = StratumThemeAccessor.typography.sectionLabel,
-                        muted = true,
-                    )
-                }
+                StratumText(
+                    text = lift.liftName,
+                    style = StratumThemeAccessor.typography.titleLarge,
+                )
             }
             Icon(
                 painter = painterResource(CoreUiR.drawable.ic_more_vert),
