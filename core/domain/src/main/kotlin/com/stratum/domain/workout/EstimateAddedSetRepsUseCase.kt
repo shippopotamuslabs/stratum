@@ -18,6 +18,9 @@ class EstimateAddedSetRepsUseCase @Inject constructor(
         perLiftSlope: Double?,
         perLiftIntercept: Double?,
     ): Int {
+        if (previousRecommendation.recommendedWeight.amount <= 0.0 || previousRecommendation.baselineExpectedReps <= 0) {
+            return previousRecommendation.baselineExpectedReps.coerceAtLeast(1)
+        }
         val baselineOneRm = EstimatedOneRm.calculate(
             previousRecommendation.recommendedWeight.amount,
             previousRecommendation.baselineExpectedReps,

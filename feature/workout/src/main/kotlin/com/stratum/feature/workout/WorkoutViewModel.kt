@@ -1,5 +1,6 @@
 package com.stratum.feature.workout
 
+import com.stratum.domain.logging.LogErrorUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.Weight
@@ -72,6 +73,7 @@ class WorkoutViewModel @Inject constructor(
     // the live drop-set estimation path can be wired here when the UI gains drop-set entry.
     @Suppress("UnusedPrivateProperty")
     private val fatigueModel: FatigueModel,
+    private val logErrorUseCase: LogErrorUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
@@ -152,23 +154,28 @@ class WorkoutViewModel @Inject constructor(
         val slot = resolveSlotByKey(slotKey) ?: return
         val slotId = slot.slotId
         viewModelScope.launch {
-            logSetUseCase(
-                LogSetCommand(
-                    sessionId = session,
-                    liftId = slot.liftId,
-                    workoutLiftId = slot.workoutLiftId,
-                    setIndex = slot.position,
-                    weight = weight,
-                    reps = reps,
-                    rir = rir,
-                    completedAt = Instant.now(),
-                ),
-            )
-            overlay = overlay.copy(
-                loggedSets = overlay.loggedSets + (slotId to LoggedSetValue(slotId, weight, reps, rir)),
-            )
-            recomputeRecommendations()
-            render()
+            try {
+                logSetUseCase(
+                    LogSetCommand(
+                        sessionId = session,
+                        liftId = slot.liftId,
+                        workoutLiftId = slot.workoutLiftId,
+                        setIndex = slot.position,
+                        weight = weight,
+                        reps = reps,
+                        rir = rir,
+                        completedAt = Instant.now(),
+                    ),
+                )
+                overlay = overlay.copy(
+                    loggedSets = overlay.loggedSets + (slotId to LoggedSetValue(slotId, weight, reps, rir)),
+                )
+                recomputeRecommendations()
+                render()
+            } catch (e: Exception) {
+                logErrorUseCase(TAG, "Failed to log set", e)
+                _events.send(WorkoutUiEvent.ShowMessage("Failed to log set: ${e.message}"))
+            }
         }
     }
 
@@ -177,18 +184,23 @@ class WorkoutViewModel @Inject constructor(
         val slot = resolveSlotByKey(slotKey) ?: return
         val slotId = slot.slotId
         viewModelScope.launch {
-            val dbSets = getLoggedSetsForSession(session)
-            val dbSet = dbSets.firstOrNull {
-                it.liftContext.workoutLiftId == slot.workoutLiftId && it.setIndex == slot.position
+            try {
+                val dbSets = getLoggedSetsForSession(session)
+                val dbSet = dbSets.firstOrNull {
+                    it.liftContext.workoutLiftId == slot.workoutLiftId && it.setIndex == slot.position
+                }
+                if (dbSet != null) {
+                    deleteLoggedSet(dbSet.id)
+                }
+                overlay = overlay.copy(
+                    loggedSets = overlay.loggedSets - slotId,
+                )
+                recomputeRecommendations()
+                render()
+            } catch (e: Exception) {
+                logErrorUseCase(TAG, "Failed to unlog set", e)
+                _events.send(WorkoutUiEvent.ShowMessage("Failed to unlog set: ${e.message}"))
             }
-            if (dbSet != null) {
-                deleteLoggedSet(dbSet.id)
-            }
-            overlay = overlay.copy(
-                loggedSets = overlay.loggedSets - slotId,
-            )
-            recomputeRecommendations()
-            render()
         }
     }
 
@@ -322,28 +334,32 @@ class WorkoutViewModel @Inject constructor(
      * recent performed set per lift (D4). Never writes back into the snapshot.
      */
     private fun recomputeRecommendations() {
-        val rendered = merge()
-        val recommendations = mutableMapOf<SetSlotId, Weight>()
-        for (lift in rendered.lifts) {
-            val lastPerformed = lift.sets
-                .firstOrNull { it.loggedValue != null }?.loggedValue
-            val upcoming = lift.sets.filter { it.loggedValue == null }
-            for (set in upcoming) {
-                val rec = recommendationEngine.recommendNextSet(
-                    lastPerformed = lastPerformed,
-                    targetSlot = toSlot(set),
-                    currentWeight = set.recommendedWeight,
-                )
-                if (rec != null) {
-                    val recommendedWeight = when (rec) {
-                        is com.stratum.domain.workout.RecommendationOutcome.Hold -> rec.weight
-                        is com.stratum.domain.workout.RecommendationOutcome.Reduce -> rec.weight
+        try {
+            val rendered = merge()
+            val recommendations = mutableMapOf<SetSlotId, Weight>()
+            for (lift in rendered.lifts) {
+                val lastPerformed = lift.sets
+                    .firstOrNull { it.loggedValue != null }?.loggedValue
+                val upcoming = lift.sets.filter { it.loggedValue == null }
+                for (set in upcoming) {
+                    val rec = recommendationEngine.recommendNextSet(
+                        lastPerformed = lastPerformed,
+                        targetSlot = toSlot(set),
+                        currentWeight = set.recommendedWeight,
+                    )
+                    if (rec != null) {
+                        val recommendedWeight = when (rec) {
+                            is com.stratum.domain.workout.RecommendationOutcome.Hold -> rec.weight
+                            is com.stratum.domain.workout.RecommendationOutcome.Reduce -> rec.weight
+                        }
+                        recommendations[set.slotId] = recommendedWeight
                     }
-                    recommendations[set.slotId] = recommendedWeight
                 }
             }
+            overlay = overlay.copy(recommendations = recommendations)
+        } catch (e: Exception) {
+            logErrorUseCase(TAG, "Failed to recompute recommendations", e)
         }
-        overlay = overlay.copy(recommendations = recommendations)
     }
 
     private fun merge(): RenderedWorkout {
@@ -405,5 +421,9 @@ class WorkoutViewModel @Inject constructor(
         val struct = structure ?: return null
         return struct.lifts.flatMap { it.slots }.firstOrNull { slotKey(it.slotId) == slotKey }
             ?: overlay.addedSlots.firstOrNull { slotKey(it.slotId) == slotKey }
+    }
+
+    private companion object {
+        const val TAG = "WorkoutViewModel"
     }
 }

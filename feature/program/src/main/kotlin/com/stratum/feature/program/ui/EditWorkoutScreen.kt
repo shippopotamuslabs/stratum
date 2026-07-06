@@ -49,6 +49,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.component.RirTargetBottomSheet
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.core.ui.component.StratumScopedMuscleVolumeRow
 import com.stratum.domain.onboarding.MuscleGroup

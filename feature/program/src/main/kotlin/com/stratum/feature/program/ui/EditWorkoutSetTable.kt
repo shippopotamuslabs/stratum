@@ -40,6 +40,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.RirTargetBadge
+import com.stratum.core.ui.component.formatRirLabel
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
@@ -416,32 +418,6 @@ private fun RestTimeCell(
     }
 }
 
-@Composable
-private fun RirTargetBadge(
-    rirGoal: Int,
-    onClick: () -> Unit,
-) {
-    val label = formatRirLabel(rirGoal)
-    val background = StratumRirTargetColors.backgroundFor(rirGoal)
-    val contentColor = StratumRirTargetColors.contentColor
-    Box(
-        modifier =
-            Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(background)
-                .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        StratumNumber(
-            text = label,
-            style =
-                StratumThemeAccessor.typography.sectionLabel.copy(
-                    color = contentColor,
-                ),
-        )
-    }
-}
 
 internal fun formatRestDisplay(restSeconds: Int): String {
     val total = restSeconds.coerceAtLeast(0)
