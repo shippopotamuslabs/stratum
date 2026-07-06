@@ -41,6 +41,7 @@ import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
+import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RecommendationEngine
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.SlotHistoryEntry
@@ -260,7 +261,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recommendationEngine = RecommendationEngine(),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -272,7 +273,6 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            fatigueModel = FakeFatigueModel(),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
     }
@@ -300,7 +300,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recommendationEngine = RecommendationEngine(),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -312,7 +312,6 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            fatigueModel = FakeFatigueModel(),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
     }
@@ -675,7 +674,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recommendationEngine = RecommendationEngine(),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -687,7 +686,6 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            fatigueModel = FakeFatigueModel(),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
 
@@ -726,7 +724,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recommendationEngine = RecommendationEngine(),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -738,7 +736,6 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            fatigueModel = FakeFatigueModel(),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
 

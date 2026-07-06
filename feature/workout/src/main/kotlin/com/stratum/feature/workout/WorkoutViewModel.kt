@@ -19,8 +19,7 @@ import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.domain.workout.LoggedSetValue
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
-import com.stratum.domain.workout.LiveSetRecommendation
-import com.stratum.domain.workout.RecommendationEngine
+import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
@@ -29,7 +28,6 @@ import com.stratum.domain.workout.SnapshotRequest
 import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
-import com.stratum.domain.workout.fatigue.FatigueModel
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import com.stratum.feature.workout.ui.WorkoutUiState
@@ -62,18 +60,13 @@ class WorkoutViewModel @Inject constructor(
     private val generateSnapshot: GenerateProgressionSnapshotUseCase,
     private val mergeRenderedWorkout: MergeRenderedWorkoutUseCase,
     private val projectStructure: ProjectWorkoutStructureUseCase,
-    private val recommendationEngine: RecommendationEngine,
+    private val recomputeRecommendationsUseCase: RecomputeRecommendationsUseCase,
     private val estimateAddedSetReps: EstimateAddedSetRepsUseCase,
     private val logSetUseCase: LogSetUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
     private val deleteLoggedSet: DeleteLoggedSetUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
-    // FatigueModel projects next-set reps from the most recent performed set's e1RM
-    // (D4). Also consumed transitively by EstimateDropSetWeightUseCase in the domain
-    // layer; the live drop-set estimation path can be wired here when the UI gains
-    // drop-set entry.
-    private val fatigueModel: FatigueModel,
     private val logErrorUseCase: LogErrorUseCase,
 ) : ViewModel() {
 
@@ -337,99 +330,16 @@ class WorkoutViewModel @Inject constructor(
 
     /**
      * Recomputes overlay-only recommendations for upcoming unlogged sets from the most
-     * recent performed set per lift (D4). Never writes back into the snapshot.
-     *
-     * Weight comes from [RecommendationEngine.recommendNextSet] (hold-vs-reduce). Reps
-     * are projected one set-index forward from the most recent performed set via
-     * [FatigueModel] — e.g. a lifter who just hit 75 lb for 8 reps at 2 RIR can expect
-     * roughly one fewer rep at the same load on the next set under the population decay.
+     * recent performed set per lift (D4). Delegates the pipeline to
+     * [RecomputeRecommendationsUseCase]; never writes back into the snapshot.
      */
     private fun recomputeRecommendations() {
         try {
-            val rendered = merge()
-            val recommendations = mutableMapOf<SetSlotId, LiveSetRecommendation>()
-            for (lift in rendered.lifts) {
-                val lastPerformedSet = lift.sets
-                    .firstOrNull { it.loggedValue != null }
-                val lastPerformed = lastPerformedSet?.loggedValue
-                val completedSlot = lastPerformedSet?.let { toSlot(it) }
-                val upcoming = lift.sets.filter { it.loggedValue == null }
-                val performedCount = lift.sets.count { it.loggedValue != null }
-                // One weight for all remaining sets (per design): remainingCount is the
-                // total upcoming set count, used by the engine to target the last set.
-                val remainingCount = upcoming.size
-                val incrementTiers = liftsById[lift.liftId]?.incrementTiers ?: emptyList()
-                for (set in upcoming) {
-                    val rec = recommendationEngine.recommendNextSet(
-                        lastPerformed = lastPerformed,
-                        completedSlot = completedSlot,
-                        targetSlot = toSlot(set),
-                        currentWeight = set.recommendedWeight,
-                        remainingCount = remainingCount,
-                        incrementTiers = incrementTiers,
-                    )
-                    val recommendedWeight = when (rec) {
-                        is com.stratum.domain.workout.RecommendationOutcome.Hold -> rec.weight
-                        is com.stratum.domain.workout.RecommendationOutcome.Reduce -> rec.weight
-                        null -> null
-                    }
-                    val recommendedReps = projectNextSetReps(
-                        lastPerformed = lastPerformed,
-                        targetWeight = recommendedWeight ?: set.recommendedWeight,
-                        upcomingSetIndex = performedCount + 1,
-                        repMin = set.repMin,
-                        repMax = set.repMax,
-                        rirGoal = set.rirGoal,
-                    )
-                    if (recommendedWeight != null && recommendedReps > 0) {
-                        recommendations[set.slotId] =
-                            LiveSetRecommendation(recommendedWeight, recommendedReps)
-                    }
-                }
-            }
+            val recommendations = recomputeRecommendationsUseCase(merge(), liftsById)
             overlay = overlay.copy(recommendations = recommendations)
         } catch (e: Exception) {
             logErrorUseCase(TAG, "Failed to recompute recommendations", e)
         }
-    }
-
-    /**
-     * Projects expected reps for the next upcoming set at the slot's RIR goal. Derives a
-     * baseline e1RM from the most recent performed set (`weight` × `reps + rir`) and
-     * applies the [FatigueModel] linear-decay one set-index forward. The fatigue model
-     * returns raw capacity reps at 0 RIR, so the slot's [rirGoal] is subtracted to express
-     * the recommendation at the same RIR intent as the target slot. Falls back to the
-     * target slot's `repMin` when no performed set is available yet (first set of the
-     * session — no e1RM derivable). Result is clamped to the slot's `repMin..repMax` so
-     * the placeholder never drifts outside the prescribed rep range.
-     */
-    private fun projectNextSetReps(
-        lastPerformed: LoggedSetValue?,
-        targetWeight: Weight,
-        upcomingSetIndex: Int,
-        repMin: Int,
-        repMax: Int,
-        rirGoal: Int,
-    ): Int {
-        if (lastPerformed == null || lastPerformed.weight.amount <= 0.0 || targetWeight.amount <= 0.0) {
-            return repMin.coerceAtLeast(0)
-        }
-        val effectiveRir = lastPerformed.rir ?: 0
-        val baselineReps = lastPerformed.reps + effectiveRir
-        if (baselineReps <= 0) return repMin.coerceAtLeast(0)
-        val baselineOneRm = com.stratum.domain.importing.EstimatedOneRm.calculate(
-            lastPerformed.weight.amount,
-            baselineReps,
-        )
-        val rawCapacityReps = fatigueModel.expectedRepsForAddedSet(
-            baselineOneRm = baselineOneRm,
-            targetWeight = targetWeight,
-            nextSetIndex = upcomingSetIndex,
-            perLiftSlope = null,
-            perLiftIntercept = null,
-        )
-        val atTargetRir = (rawCapacityReps - rirGoal).coerceAtLeast(1)
-        return if (repMin > 0 && repMax > 0) atTargetRir.coerceIn(repMin, repMax) else atTargetRir
     }
 
     private fun merge(): RenderedWorkout {
@@ -466,20 +376,6 @@ class WorkoutViewModel @Inject constructor(
     private fun anchorRecommendation(slotId: SetSlotId): SlotRecommendation? = snapshotBySlot[slotId]
 
     private fun currentSessionId(): com.stratum.domain.training.identity.TrainingSessionId? = cachedSessionId
-
-    private fun toSlot(rendered: com.stratum.domain.workout.RenderedSet): SetSlot =
-        SetSlot(
-            slotId = rendered.slotId,
-            workoutLiftId = rendered.workoutLiftId,
-            liftId = rendered.liftId,
-            position = rendered.position,
-            setType = rendered.setType,
-            isTopSet = rendered.isTopSet,
-            repMin = rendered.repMin,
-            repMax = rendered.repMax,
-            rirGoal = rendered.rirGoal,
-            restSeconds = rendered.restSeconds,
-        )
 
     private fun zeroWeight(): Weight = Weight(0.0, Weight.WeightUnit.Lb)
 
