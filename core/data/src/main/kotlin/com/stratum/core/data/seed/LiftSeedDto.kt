@@ -45,7 +45,6 @@ data class LiftSeedDto(
     val movementPatterns: List<MovementPattern> = emptyList(),
     val primaryMuscles: List<MuscleGroup> = emptyList(),
     val secondaryMuscles: List<MuscleGroup> = emptyList(),
-    val allowWeightChangeBetweenSets: Boolean = false,
     val incrementTiers: List<IncrementTierSeedDto>? = null,
     val presetTags: List<String> = emptyList(),
     val equipment: String? = null,

@@ -10,9 +10,9 @@ import com.stratum.domain.onboarding.MuscleGroup
  *
  * **Re-importing:** if the yuhonas dataset is ever refreshed and you want to regenerate the
  * seed asset, write a temporary `main()` that reads `dist/exercises.json`, calls
- * [classifyPattern] / [mapMuscle] / [allowWeightChangeBetweenSets] / [presetTags] /
- * [toSlugId] for each exercise, and writes the result as `seed-lifts.json`. The 44 unit tests
- * in [YuhonasImportMapperTest] pin the classification rules so changes are verified first.
+ * [classifyPattern] / [mapMuscle] / [presetTags] / [toSlugId] for each exercise, and writes
+ * the result as `seed-lifts.json`. The unit tests in [YuhonasImportMapperTest] pin the
+ * classification rules so changes are verified first.
  *
  * The yuhonas dataset (`dist/exercises.json`) uses a 17-value muscle vocabulary, a
  * push/pull/static `force`, a compound/isolation `mechanic`, and a `category`. Stratum uses a
@@ -29,7 +29,6 @@ import com.stratum.domain.onboarding.MuscleGroup
  * **Heuristics** (not from the source data):
  * - [MovementPattern] is classified from force + mechanic + name + primary muscle, because
  *   yuhonas has no movement-plane concept.
- * - [LiftSeedDto.allowWeightChangeBetweenSets] is derived from mechanic + equipment.
  * - [LiftSeedDto.presetTags] are derived from equipment (CommercialGym vs GarageGym).
  *
  * These heuristics are **not** embedded in the runtime seeder — they run once, offline, when
@@ -319,21 +318,6 @@ object YuhonasImportMapper {
     }
 
     // --- Heuristics ---------------------------------------------------------
-
-    /**
-     * Derives `allowWeightChangeBetweenSets` from mechanic + equipment. Isolation lifts change
-     * weight every set; barbell/bodyweight compounds hold weight; dumbbell/cable/machine
-     * compounds allow pin/plate changes between sets. See plan OS-4b §6.
-     */
-    fun allowWeightChangeBetweenSets(mechanic: String?, equipment: String?): Boolean {
-        if (mechanic == "isolation") return true
-        if (mechanic == "compound") {
-            return equipment !in FIXED_EQUIPMENT
-        }
-        return false
-    }
-
-    private val FIXED_EQUIPMENT: Set<String> = setOf("barbell", "e-z curl bar", "body only")
 
     /**
      * Derives preset tags from equipment. Cable/machine/specialty equipment is CommercialGym-only

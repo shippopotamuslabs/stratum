@@ -95,7 +95,6 @@ class LiftCatalogSeeder(
             movementPatternsBitmask = patterns.toBitmask(),
             primaryMusclesBitmask = primary.toBitmask(),
             secondaryMusclesBitmask = secondary.toBitmask(),
-            allowWeightChangeBetweenSets = dto.allowWeightChangeBetweenSets,
             presetTags = tags.toPresetCsv(),
             equipment = dto.equipment,
             isCustom = false,

@@ -151,7 +151,6 @@ class LiftSimilarityTest {
             movementPatterns = patterns,
             primaryMuscles = primary,
             secondaryMuscles = secondary,
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,

@@ -238,7 +238,6 @@ class LiftEffectivenessAnalyzerTest {
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),
             presetTags = emptySet(),
-            allowWeightChangeBetweenSets = false,
             enabled = true,
         )
 

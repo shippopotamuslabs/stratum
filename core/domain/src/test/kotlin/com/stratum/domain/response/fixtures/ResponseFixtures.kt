@@ -911,7 +911,6 @@ object ResponseFixtures {
             movementPatterns = setOf(pattern),
             primaryMuscles = setOf(muscle),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = true,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,

@@ -85,7 +85,6 @@ class GetOnboardingStepCapabilitiesUseCaseTest {
             movementPatterns = setOf(MovementPattern.SquatPattern),
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,

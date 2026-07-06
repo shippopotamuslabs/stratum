@@ -108,7 +108,6 @@ class ExtractTrainingInsightsUseCaseTest {
         secondaryMuscles = emptySet(),
         incrementTiers = emptyList(),
         presetTags = emptySet(),
-        allowWeightChangeBetweenSets = false,
         enabled = true,
     )
 

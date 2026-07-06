@@ -231,7 +231,6 @@ class WorkoutViewModelTest {
         movementPatterns = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = setOf(MuscleGroup.Glute),
-        allowWeightChangeBetweenSets = true,
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,

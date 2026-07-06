@@ -274,7 +274,6 @@ internal object OnboardingViewModelTestFixtures {
         movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
-        allowWeightChangeBetweenSets = false,
         incrementTiers = emptyList(),
         presetTags = tags,
         enabled = enabled,

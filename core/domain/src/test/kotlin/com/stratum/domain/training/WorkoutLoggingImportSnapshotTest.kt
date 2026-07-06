@@ -134,7 +134,6 @@ class WorkoutLoggingImportSnapshotTest {
                     secondaryMuscles = emptySet(),
                     incrementTiers = emptyList(),
                     presetTags = emptySet(),
-                    allowWeightChangeBetweenSets = false,
                     enabled = false,
                     isCustom = false,
                 )
