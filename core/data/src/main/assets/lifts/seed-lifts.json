@@ -788,7 +788,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "bent-arm-barbell-pullover",
@@ -958,7 +959,8 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "bodyweight-squat",
@@ -984,7 +986,8 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "bodyweight-walking-lunge",
@@ -1012,7 +1015,8 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "box-squat",
@@ -1645,7 +1649,8 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "close-grip-barbell-bench-press",
@@ -1974,7 +1979,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "decline-smith-press",
@@ -2073,7 +2079,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2089,7 +2094,9 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight",
+    "allowWeightChangeBetweenSets": true
   },
   {
     "id": "dips-triceps-version",
@@ -2116,7 +2123,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "donkey-calf-raise",
@@ -3206,7 +3214,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "jefferson-squats",
@@ -4109,7 +4118,8 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "one-arm-dumbbell-bench-press",
@@ -4465,7 +4475,8 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "pec-deck-fly",
@@ -4544,7 +4555,8 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "plie-dumbbell-squat",
@@ -4731,7 +4743,8 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "push-up-to-side-plank",
@@ -4759,7 +4772,8 @@
       "SpinalFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "pushups",
@@ -4787,7 +4801,8 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "reverse-barbell-preacher-curls",
@@ -5001,7 +5016,8 @@
       "ScapularElevation"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "seated-cable-rows",
@@ -5364,7 +5380,8 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "single-arm-cable-crossover",
@@ -6360,7 +6377,8 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "weighted-bench-dip",
@@ -6525,7 +6543,8 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "wide-grip-standing-barbell-curl",
@@ -6635,5 +6654,90 @@
     ],
     "mainstream": false,
     "kinematicProfile": "NonAxialCompound"
+  },
+  {
+    "id": "assisted-pull-up",
+    "name": "Assisted Pull-Up",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Pullups",
+    "description": "Grab the pull-up bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than your shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width. As you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position. Pull your torso up until the bar touches your upper chest by drawing the shoulders and the upper arms down and back. Exhale as you perform this portion of the movement. Tip: Concentrate on squeezing the back muscles once you reach the full contracted position. The upper torso should remain stationary as it moves through space and only the arms should move. The forearms should do no other work other than hold the bar. After a second on the contracted position, start to inhale and slowly lower your torso back to the starting position when your arms are fully extended and the lats are fully stretched. Repeat this motion for the prescribed amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Assisted"
+  },
+  {
+    "id": "assisted-chin-up",
+    "name": "Assisted Chin-Up",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep",
+      "Forearm"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Chin-Up",
+    "description": "Grab the pull-up bar with the palms facing your torso and a grip closer than the shoulder width. As you have both arms extended in front of you holding the bar at the chosen grip width, keep your torso as straight as possible while creating a curvature on your lower back and sticking your chest out. This is your starting position. Tip: Keeping the torso as straight as possible maximizes biceps stimulation while minimizing back involvement. As you breathe out, pull your torso up until your head is around the level of the pull-up bar. Concentrate on using the biceps muscles in order to perform the movement. Keep the elbows close to your body. Tip: The upper torso should remain stationary as it moves through space and only the arms should move. The forearms should do no other work other than hold the bar. After a second of squeezing the biceps in the contracted position, slowly lower your torso back to the starting position; when your arms are fully extended. Breathe in as you perform this portion of the movement. Repeat this motion for the prescribed amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chin-Up/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chin-Up/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Assisted"
+  },
+  {
+    "id": "assisted-dip",
+    "name": "Assisted Dip",
+    "primaryMuscles": [
+      "Chest"
+    ],
+    "secondaryMuscles": [
+      "AnteriorDeltoid",
+      "Tricep"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Dips_-_Chest_Version",
+    "description": "For this exercise you will need access to parallel bars. To get yourself into the starting position, hold your body at arms length (arms locked) above the bars. While breathing in, lower yourself slowly with your torso leaning forward around 30 degrees or so and your elbows flared out slightly until you feel a slight stretch in the chest. Once you feel the stretch, use your chest to bring your body back to the starting position as you breathe out. Tip: Remember to squeeze the chest at the top of the movement for a second. Repeat the movement for the prescribed amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Chest_Version/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Chest_Version/1.jpg"
+    ],
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ],
+    "mainstream": false,
+    "kinematicProfile": "Isolation",
+    "loadType": "Assisted"
   }
 ]

@@ -3,6 +3,7 @@ package com.stratum.core.data.seed
 import androidx.room.Room
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -106,5 +107,22 @@ class LiftCatalogSeederTest {
         assertEquals(first, second)
         val lifts = database.liftDao().observeLiftsWithTiers().first()
         assertEquals(first, lifts.size)
+    }
+
+    @Test
+    @DisplayName("Given the bundled asset when seeded then loadType is parsed and persisted per entry")
+    fun seedParsesLoadType() = runTest {
+        subject.seed(RuntimeEnvironment.getApplication())
+
+        val lifts = database.liftDao().observeLiftsWithTiers().first()
+        val pullUp = lifts.first { it.lift.id.value == "pull-up" }.lift
+        assertEquals(LoadType.Bodyweight, pullUp.loadType)
+
+        val assisted = lifts.first { it.lift.id.value == "assisted-pull-up" }.lift
+        assertEquals(LoadType.Assisted, assisted.loadType)
+
+        // Entries that omit loadType in the asset default to Weighted.
+        val bench = lifts.first { it.lift.id.value == "barbell-back-squat" }.lift
+        assertEquals(LoadType.Weighted, bench.loadType)
     }
 }

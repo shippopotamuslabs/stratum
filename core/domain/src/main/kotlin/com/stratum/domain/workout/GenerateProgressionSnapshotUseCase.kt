@@ -1,5 +1,7 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.lift.LoadType
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.ProgramId
@@ -23,6 +25,13 @@ data class SnapshotRequest(
     val programId: ProgramId,
     val workoutId: WorkoutId,
     val lifts: List<WorkoutLift>,
+    /**
+     * Per-lift [LoadType] from the catalog, used so the progression engine can branch on
+     * loading modality (bodyweight short-circuits to 0 load; assisted caps at 0). Absent
+     * entries default to [LoadType.Weighted] inside [GenerateProgressionSnapshotUseCase.invoke].
+     * Empty by default so existing callers/tests keep working unchanged.
+     */
+    val loadTypesById: Map<LiftId, LoadType> = emptyMap(),
 )
 
 /**
@@ -67,6 +76,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
             }
 
             val engine = engineFor(scheme)
+            val liftLoadType = request.loadTypesById[workoutLift.liftId] ?: LoadType.Weighted
             for ((index, liftSet) in workoutLift.sets.withIndex()) {
                 val slot = slots[index]
                 val history = progressionHistoryPort.historyForSlot(
@@ -77,6 +87,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                         slot = slot,
                         history = history,
                         fallbackOneRm = null,
+                        loadType = liftLoadType,
                     ),
                 )
             }

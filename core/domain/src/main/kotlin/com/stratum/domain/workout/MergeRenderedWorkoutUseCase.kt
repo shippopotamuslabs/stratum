@@ -77,6 +77,7 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 progressionScheme = lift.progressionScheme,
                 sets = renderedSets,
                 supersetGroupId = lift.supersetGroupId,
+                loadType = lift.loadType,
             )
         }
         return RenderedWorkout(

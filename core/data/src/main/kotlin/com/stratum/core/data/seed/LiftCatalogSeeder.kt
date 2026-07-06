@@ -9,6 +9,7 @@ import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
@@ -86,6 +87,7 @@ class LiftCatalogSeeder(
         val tags = dto.presetTags.mapNotNull { enumValueOfOrNull<GymPreset>(it) }.toSet()
         val bias = dto.muscleLengthBias ?: MuscleLengthBias.MidRange
         val profile = dto.kinematicProfile ?: KinematicProfile.Isolation
+        val loadType = dto.loadType ?: LoadType.Weighted
         val id = LiftId(dto.id)
         val lift = LiftEntity(
             id = id,
@@ -103,6 +105,7 @@ class LiftCatalogSeeder(
             muscleLengthBias = bias,
             mainstream = dto.mainstream,
             kinematicProfile = profile,
+            loadType = loadType,
         )
         val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).mapIndexed { _, t ->
             IncrementTierEntity(

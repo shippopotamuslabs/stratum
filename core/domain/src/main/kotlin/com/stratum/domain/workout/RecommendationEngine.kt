@@ -2,6 +2,7 @@ package com.stratum.domain.workout
 
 import com.stratum.domain.importing.EstimatedOneRm
 import com.stratum.domain.lift.IncrementTier
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_SLOPE
@@ -32,6 +33,16 @@ import javax.inject.Inject
  * realistic load jumps. `lastPerformed` is nullable: returns null when no performed set
  * exists yet for the lift (the upcoming set is the first set — no e1RM can be derived).
  * Never writes back into the snapshot.
+ *
+ * [loadType] (default [LoadType.Weighted]) shapes the math:
+ * - **Bodyweight** ([LoadType.Bodyweight]): there is no load lever — returns `null` so the
+ *   UI keeps the 0-weight placeholder. Rep projection is handled by [RecomputeRecommendationsUseCase].
+ * - **Assisted** ([LoadType.Assisted]): the e1RM formula assumes weight = positive load, but
+ *   assisted weights are negative, so the e1RM goes negative and trips the `> 0` guard. For
+ *   v1 the live engine defers to the snapshot baseline (returns `null`); the snapshot engine
+ *   already handles assisted progression correctly (increment toward 0, cap at 0). A future
+ *   abs-based e1RM reformulation could enable intra-session assisted recommendations.
+ * - **Weighted** ([LoadType.Weighted]): unchanged (current behavior).
  */
 class RecommendationEngine @Inject constructor() {
     fun recommendNextSet(
@@ -42,11 +53,23 @@ class RecommendationEngine @Inject constructor() {
         remainingCount: Int = 1,
         incrementTiers: List<IncrementTier> = emptyList(),
         perLiftSlope: Double? = null,
+        loadType: LoadType = LoadType.Weighted,
     ): RecommendationOutcome? {
+        // Bodyweight: no load lever — rep-only progression (rep projection upstream).
+        if (loadType == LoadType.Bodyweight) return null
+        // Assisted: the e1RM formula assumes positive load, but assisted weights are
+        // negative, so the e1RM goes negative and trips the > 0 guard. For v1 the live
+        // engine defers to the snapshot baseline (which handles assisted progression
+        // correctly); a future abs-based e1RM reformulation could enable this path.
+        if (loadType == LoadType.Assisted) return null
         if (lastPerformed == null || lastPerformed.weight.amount <= 0.0) return null
 
         // If next set is blank (currentWeight <= 0.0), use current set's weight as fallback
-        val effectiveWeight = if (currentWeight.amount <= 0.0) lastPerformed.weight else currentWeight
+        val effectiveWeight = if (currentWeight.amount <= 0.0) {
+            lastPerformed.weight
+        } else {
+            currentWeight
+        }
 
         val effectiveRir = lastPerformed.rir ?: 0
         val reps = lastPerformed.reps + effectiveRir
@@ -80,12 +103,14 @@ class RecommendationEngine @Inject constructor() {
             // slot's RIR goal. `weightForReps` is defined at 0 RIR, so the target reps are
             // shifted by `rirGoal` plus `fatigueForLastSet` (0-RIR rep decay to the last set).
             val reduced = EstimatedOneRm.weightForReps(e1rm, targetReps + targetSlot.rirGoal + fatigueForLastSet)
-            RecommendationOutcome.Reduce(incrementTiers.roundToIncrement(Weight(reduced, effectiveWeight.unit)))
+            RecommendationOutcome.Reduce(
+                incrementTiers.roundToIncrement(Weight(reduced, effectiveWeight.unit), loadType),
+            )
         } else if (isTooEasy) {
             // Bump up weight by a flat 5 lb (the e1RM-based bump round-trips back when the
             // user exceeded the target, so a fixed increment is the reliable signal).
             val bumpedWeight = Weight(effectiveWeight.amount + 5.0, effectiveWeight.unit)
-            RecommendationOutcome.Hold(incrementTiers.roundToIncrement(bumpedWeight))
+            RecommendationOutcome.Hold(incrementTiers.roundToIncrement(bumpedWeight, loadType))
         } else {
             val projectedReps = EstimatedOneRm.repsForWeight(e1rm, effectiveWeight.amount) - targetSlot.rirGoal
             if (projectedReps >= targetReps) {
@@ -93,7 +118,9 @@ class RecommendationEngine @Inject constructor() {
                 RecommendationOutcome.Hold(effectiveWeight)
             } else {
                 val reduced = EstimatedOneRm.weightForReps(e1rm, targetReps + targetSlot.rirGoal + fatigueForLastSet)
-                RecommendationOutcome.Reduce(incrementTiers.roundToIncrement(Weight(reduced, effectiveWeight.unit)))
+                RecommendationOutcome.Reduce(
+                    incrementTiers.roundToIncrement(Weight(reduced, effectiveWeight.unit), loadType),
+                )
             }
         }
     }

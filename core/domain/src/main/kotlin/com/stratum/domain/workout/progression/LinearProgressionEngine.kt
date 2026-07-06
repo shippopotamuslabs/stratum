@@ -1,5 +1,6 @@
 package com.stratum.domain.workout.progression
 
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
@@ -31,11 +32,25 @@ class LinearProgressionEngine @Inject constructor(
     override fun recommend(request: SlotProgressionRequest): SlotRecommendation {
         val slot = request.slot
         val latest = request.history.firstOrNull()
+        val prevWeight = latest?.loggedSet?.weight
+        val prevReps = latest?.loggedSet?.reps
+
+        // Bodyweight: no load lever — always recommend 0 weight, rep-only progression.
+        if (request.loadType == LoadType.Bodyweight) {
+            val zeroWeight = Weight(0.0, prevWeight?.unit ?: Weight.WeightUnit.Lb)
+            val baselineReps = latest?.loggedSet?.reps ?: slot.repMin
+            return SlotRecommendation(
+                slotId = slot.slotId,
+                recommendedWeight = zeroWeight,
+                baselineExpectedReps = baselineReps,
+                previousWeight = prevWeight,
+                previousReps = prevReps,
+            )
+        }
+
         val baseWeight = latest?.loggedSet?.weight
             ?: request.fallbackOneRm
             ?: defaultWeight()
-        val prevWeight = latest?.loggedSet?.weight
-        val prevReps = latest?.loggedSet?.reps
 
         // Backoff slot: inherits the working weight, no increment.
         if (!slot.isTopSet) {
@@ -51,6 +66,8 @@ class LinearProgressionEngine @Inject constructor(
 
         val increment = if (metBottomAtRir(latest, slot)) incrementFor(slot) else zero(baseWeight)
         val next = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
+            .capAssistedAtZero(request.loadType)
+
         return SlotRecommendation(
             slotId = slot.slotId,
             recommendedWeight = next,
