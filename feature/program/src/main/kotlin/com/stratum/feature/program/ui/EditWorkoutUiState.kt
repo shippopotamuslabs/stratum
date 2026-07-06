@@ -1,5 +1,6 @@
 package com.stratum.feature.program.ui
 
+import com.stratum.core.ui.component.SupersetLinkableLift
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.domain.program.ProgressionScheme
 
@@ -38,16 +39,16 @@ enum class SaveBlockedReason {
 // is carried verbatim rather than mapped to a label.
 @Suppress("ForbiddenDomainTypeInUiState")
 data class EditLiftState(
-    val workoutLiftId: String,
-    val liftId: String,
-    val name: String,
+    override val workoutLiftId: String,
+    override val liftId: String,
+    override val name: String,
     val position: Int,
     val sets: List<EditSetState>,
-    val supersetGroupId: String? = null,
-    val useRestTimerBetweenLifts: Boolean = false,
+    override val supersetGroupId: String? = null,
+    override val useRestTimerBetweenLifts: Boolean = false,
     val isCompound: Boolean = false,
     val progressionScheme: ProgressionScheme = ProgressionScheme.Double,
-)
+) : SupersetLinkableLift
 
 data class EditSetState(
     val setId: String,

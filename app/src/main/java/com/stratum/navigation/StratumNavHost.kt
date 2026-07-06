@@ -100,6 +100,9 @@ fun StratumNavHost() {
                     // Finalize route is wired in a future slice.
                     onNavigateBack()
                 },
+                onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
+                    backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
+                },
             )
         },
     )

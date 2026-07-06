@@ -1,5 +1,7 @@
 package com.stratum.feature.workout.ui
 
+import com.stratum.core.ui.component.SupersetLinkableLift
+
 /**
  * Presentation state for the live workout screen (Slice 7). Domain models never reach
  * composables (ARCHITECTURE.md §4.3).
@@ -9,6 +11,7 @@ sealed interface WorkoutUiState {
     data object NoActiveSession : WorkoutUiState
 
     data class Loaded(
+        val workoutId: String,
         val workoutName: String,
         val lifts: List<RenderedLiftUi>,
         val isFinalizing: Boolean,
@@ -19,10 +22,12 @@ sealed interface WorkoutUiState {
 }
 
 data class RenderedLiftUi(
-    val workoutLiftId: String,
+    override val workoutLiftId: String,
+    override val liftId: String,
     val liftName: String,
     val sets: List<RenderedSetUi>,
-    val supersetGroupId: String? = null,
+    override val supersetGroupId: String? = null,
+    override val useRestTimerBetweenLifts: Boolean = false,
     /**
      * Whether the per-set table renders a weight column. False for bodyweight lifts (no
      * external load to log). Derived from the lift's loading modality in [WorkoutUiMapper].
@@ -34,7 +39,9 @@ data class RenderedLiftUi(
      * domain `LoadType` never reaches composables (ARCHITECTURE.md §4.3).
      */
     val weightHeaderLabel: String = "Weight",
-)
+) : SupersetLinkableLift {
+    override val name: String get() = liftName
+}
 
 data class RenderedSetUi(
     val slotKey: String,

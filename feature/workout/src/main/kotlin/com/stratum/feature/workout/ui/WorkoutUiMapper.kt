@@ -27,9 +27,11 @@ internal object WorkoutUiMapper {
             val assistMode = lift.loadType == LoadType.Assisted
             RenderedLiftUi(
                 workoutLiftId = lift.workoutLiftId.value,
+                liftId = lift.liftId.value,
                 liftName = lift.liftName,
                 showWeightColumn = showWeightColumn,
                 weightHeaderLabel = weightHeaderLabel,
+                useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
                 sets = lift.sets.map { set ->
                     val prevWeight = set.previousWeight
                     val prevReps = set.previousReps
@@ -89,6 +91,7 @@ internal object WorkoutUiMapper {
             )
         }
         return WorkoutUiState.Loaded(
+            workoutId = rendered.workoutId.value,
             workoutName = rendered.workoutName,
             lifts = lifts,
             isFinalizing = false,

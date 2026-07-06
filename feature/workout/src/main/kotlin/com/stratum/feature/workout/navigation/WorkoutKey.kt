@@ -18,6 +18,7 @@ data class WorkoutKey(
 fun EntryProviderScope<NavKey>.workoutEntry(
     onNavigateBack: () -> Unit,
     onNavigateToFinalize: (sessionId: String) -> Unit,
+    onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     entry<WorkoutKey> { key ->
@@ -25,6 +26,7 @@ fun EntryProviderScope<NavKey>.workoutEntry(
             workoutId = key.workoutId,
             onNavigateBack = onNavigateBack,
             onNavigateToFinalize = onNavigateToFinalize,
+            onSwapLiftClick = onSwapLiftClick,
             modifier = modifier,
         )
     }

@@ -1,4 +1,4 @@
-package com.stratum.feature.program
+package com.stratum.domain.workout
 
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow

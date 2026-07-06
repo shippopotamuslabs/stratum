@@ -66,6 +66,14 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.LiftActionsBottomSheet
+import com.stratum.core.ui.component.SupersetLinkBottomSheet
+import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.core.ui.component.supersetLinkSheetOptions
+import com.stratum.core.ui.component.shouldKeepSupersetSheetOpenAfterLink
+import com.stratum.core.ui.component.isSupersetPairMember
+import com.stratum.core.ui.component.isLastInSupersetChain
+import com.stratum.core.ui.component.SupersetGroupChip
 import com.stratum.core.ui.theme.StratumSupersetGroupColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
@@ -114,6 +122,12 @@ fun WorkoutScreen(
     onAbandon: () -> Unit,
     onLogSet: (String, Weight, Int, Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
+    onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
+    onLinkSupersetWithPrevious: (String) -> Unit,
+    onLinkSupersetWithNext: (String) -> Unit,
+    onRemoveFromSuperset: (String) -> Unit,
+    onSetUseRestTimerBetweenLifts: (String, Boolean) -> Unit,
+    onRemoveLift: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var remainingRestSeconds by rememberSaveable { mutableIntStateOf(0) }
@@ -121,6 +135,8 @@ fun WorkoutScreen(
     var isTimerActive by rememberSaveable { mutableStateOf(false) }
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
+    var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
+    var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
 
     var elapsedTimeStr by remember(state.sessionStartedAtEpochMilli) { mutableStateOf("00:00") }
     LaunchedEffect(state.sessionStartedAtEpochMilli) {
@@ -207,7 +223,8 @@ fun WorkoutScreen(
                         lift = lift,
                         onLogSet = onLogSet,
                         onUnlogSet = onUnlogSet,
-                        onStartRestTimer = startRestTimer
+                        onStartRestTimer = startRestTimer,
+                        onShowLiftActions = { liftActionsLiftId = lift.workoutLiftId }
                     )
                 }
 
@@ -270,6 +287,59 @@ fun WorkoutScreen(
                 onNavigateBack()
             }
         )
+    }
+
+    liftActionsLiftId?.let { liftId ->
+        val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
+        if (lift != null) {
+            LiftActionsBottomSheet(
+                onConfigureSuperset = {
+                    liftActionsLiftId = null
+                    supersetSheetLiftId = liftId
+                },
+                onSwapLift = {
+                    liftActionsLiftId = null
+                    onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
+                },
+                onRemoveLift = {
+                    liftActionsLiftId = null
+                    onRemoveLift(liftId)
+                },
+                onDismiss = { liftActionsLiftId = null }
+            )
+        } else {
+            liftActionsLiftId = null
+        }
+    }
+
+    supersetSheetLiftId?.let { liftId ->
+        val currentLift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
+        val options = supersetLinkSheetOptions(lifts = state.lifts, workoutLiftId = liftId)
+        if (options.isNotEmpty() && currentLift != null) {
+            SupersetLinkBottomSheet(
+                options = options,
+                showRestBetweenLiftsToggle =
+                    isSupersetPairMember(currentLift, state.lifts) &&
+                        !isLastInSupersetChain(currentLift, state.lifts),
+                useRestTimerBetweenLifts = currentLift.useRestTimerBetweenLifts,
+                onUseRestTimerBetweenLiftsChange = { enabled ->
+                    onSetUseRestTimerBetweenLifts(liftId, enabled)
+                },
+                onOptionSelected = { direction ->
+                    when (direction) {
+                        SupersetLinkDirection.Previous -> onLinkSupersetWithPrevious(liftId)
+                        SupersetLinkDirection.Next -> onLinkSupersetWithNext(liftId)
+                        SupersetLinkDirection.Remove -> onRemoveFromSuperset(liftId)
+                    }
+                    if (!shouldKeepSupersetSheetOpenAfterLink(state.lifts, liftId, direction)) {
+                        supersetSheetLiftId = null
+                    }
+                },
+                onDismiss = { supersetSheetLiftId = null }
+            )
+        } else {
+            supersetSheetLiftId = null
+        }
     }
 }
 
@@ -336,6 +406,7 @@ private fun LiftSection(
     onLogSet: (String, Weight, Int, Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onStartRestTimer: (Int) -> Unit,
+    onShowLiftActions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -364,16 +435,22 @@ private fun LiftSection(
             StratumText(
                 text = lift.liftName,
                 style = StratumThemeAccessor.typography.titleLarge,
+                modifier = Modifier.weight(1f).padding(end = 20.dp),
             )
-            Icon(
-                painter = painterResource(CoreUiR.drawable.ic_more_vert),
-                contentDescription = "Lift Options",
-                tint = StratumThemeAccessor.colors.textMuted
-            )
+            StratumIconButton(
+                onClick = onShowLiftActions,
+                containerColor = Color.Transparent,
+            ) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_more_vert),
+                    contentDescription = "Lift Options",
+                    tint = StratumThemeAccessor.colors.textMuted
+                )
+            }
         }
 
         lift.supersetGroupId?.let { groupId ->
-            WorkoutSupersetGroupChip(
+            SupersetGroupChip(
                 groupId = groupId,
                 modifier = Modifier
                     .padding(vertical = 2.dp)
@@ -636,24 +713,7 @@ private fun InlineNumericCell(
     )
 }
 
-@Composable
-private fun WorkoutSupersetGroupChip(
-    groupId: String,
-    modifier: Modifier = Modifier,
-) {
-    StratumText(
-        text = "SUPERSET",
-        style = StratumThemeAccessor.typography.sectionLabel.copy(
-            color = StratumSupersetGroupColors.contentColor,
-        ),
-        modifier = modifier
-            .background(
-                color = StratumSupersetGroupColors.backgroundFor(groupId),
-                shape = StratumThemeAccessor.shapes.chip,
-            )
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-    )
-}
+
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

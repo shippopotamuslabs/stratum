@@ -78,6 +78,7 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 sets = renderedSets,
                 supersetGroupId = lift.supersetGroupId,
                 loadType = lift.loadType,
+                useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
             )
         }
         return RenderedWorkout(

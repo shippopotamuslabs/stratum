@@ -62,11 +62,15 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.feature.program.EditWorkoutViewModel
 import com.stratum.feature.program.R
-import com.stratum.feature.program.SupersetLinkDirection
+import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.core.ui.component.shouldKeepSupersetSheetOpenAfterLink
+import com.stratum.core.ui.component.SupersetLinkBottomSheet
+import com.stratum.core.ui.component.LiftActionsBottomSheet
+import com.stratum.core.ui.component.SupersetGroupChip
+import com.stratum.core.ui.component.supersetLinkSheetOptions
+import com.stratum.core.ui.component.isLastInSupersetChain
+import com.stratum.core.ui.component.isSupersetPairMember
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
-import com.stratum.feature.program.isLastInSupersetChain
-import com.stratum.feature.program.isSupersetPairMember
-import com.stratum.feature.program.ui.shouldKeepSupersetSheetOpenAfterLink
 
 private const val MIN_REST_SECONDS = 0
 private const val MAX_REST_SECONDS = 600
@@ -301,7 +305,7 @@ fun EditWorkoutScreen(
         val loaded = loadedState ?: return@let
         val lift = loaded.lifts.firstOrNull { it.workoutLiftId == liftId } ?: return@let
         LiftActionsBottomSheet(
-            onCreateSuperset = {
+            onConfigureSuperset = {
                 liftActionsLiftId = null
                 supersetSheetLiftId = liftId
             },
@@ -545,7 +549,7 @@ private fun EditLiftPanel(
             )
         }
 
-        if (lift.showsSupersetChip(allLifts)) {
+        if (isSupersetPairMember(lift, allLifts)) {
             lift.supersetGroupId?.let { groupId ->
                 SupersetGroupChip(groupId = groupId)
             }
@@ -760,83 +764,7 @@ private fun EditWorkoutDiscardBottomSheet(
     }
 }
 
-@Composable
-private fun LiftActionsBottomSheet(
-    onCreateSuperset: () -> Unit,
-    onSwapLift: () -> Unit,
-    onRemoveLift: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    StratumBottomSheet(
-        onDismissRequest = onDismiss,
-        title = stringResource(R.string.edit_workout_lift_menu),
-    ) {
-        LiftActionRow(
-            text = stringResource(R.string.edit_workout_create_superset),
-            leadingIconRes = CoreUiR.drawable.ic_join,
-            onClick = onCreateSuperset,
-        )
-        LiftActionRow(
-            text = stringResource(R.string.edit_workout_swap_lift),
-            leadingIconRes = CoreUiR.drawable.ic_swap_horiz,
-            onClick = onSwapLift,
-        )
-        LiftActionRow(
-            text = stringResource(R.string.edit_workout_remove_lift),
-            leadingIcon = Icons.Outlined.Delete,
-            isDestructive = true,
-            onClick = onRemoveLift,
-        )
-    }
-}
 
-@Composable
-private fun LiftActionRow(
-    text: String,
-    onClick: () -> Unit,
-    @DrawableRes leadingIconRes: Int? = null,
-    leadingIcon: ImageVector? = null,
-    isDestructive: Boolean = false,
-) {
-    val colors = StratumThemeAccessor.colors
-    val shapes = StratumThemeAccessor.shapes
-    val iconTint = if (isDestructive) colors.error else colors.textPrimary
-    val textColor = if (isDestructive) colors.error else colors.textPrimary
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        when {
-            leadingIcon != null ->
-                Icon(
-                    imageVector = leadingIcon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(24.dp),
-                )
-            leadingIconRes != null ->
-                Icon(
-                    painter = painterResource(leadingIconRes),
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(24.dp),
-                )
-        }
-        Text(
-            text = text,
-            style = StratumThemeAccessor.typography.bodyLarge,
-            color = textColor,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
 
 @Preview(name = "Edit workout loaded light")
 @Composable

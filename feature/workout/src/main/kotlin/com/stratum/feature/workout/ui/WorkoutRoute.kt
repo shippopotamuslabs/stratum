@@ -19,7 +19,10 @@ import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.workout.WorkoutViewModel
+
+import com.stratum.core.ui.component.SupersetLinkDirection
 
 /**
  * Compose route for the live workout screen (Slice 7). Navigation is hoisted to the
@@ -31,6 +34,7 @@ fun WorkoutRoute(
     workoutId: String,
     onNavigateBack: () -> Unit,
     onNavigateToFinalize: (sessionId: String) -> Unit,
+    onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WorkoutViewModel = hiltViewModel(),
 ) {
@@ -60,6 +64,12 @@ fun WorkoutRoute(
             onAbandon = viewModel::abandonSession,
             onLogSet = viewModel::logSet,
             onUnlogSet = viewModel::unlogSet,
+            onSwapLiftClick = onSwapLiftClick,
+            onLinkSupersetWithPrevious = { liftId -> viewModel.linkSuperset(WorkoutLiftId(liftId), SupersetLinkDirection.Previous) },
+            onLinkSupersetWithNext = { liftId -> viewModel.linkSuperset(WorkoutLiftId(liftId), SupersetLinkDirection.Next) },
+            onRemoveFromSuperset = { liftId -> viewModel.removeFromSuperset(WorkoutLiftId(liftId)) },
+            onSetUseRestTimerBetweenLifts = { liftId, enabled -> viewModel.setUseRestTimerBetweenLifts(WorkoutLiftId(liftId), enabled) },
+            onRemoveLift = { liftId -> viewModel.removeLift(WorkoutLiftId(liftId)) },
             modifier = modifier
         )
     }
