@@ -55,7 +55,8 @@ import com.stratum.core.ui.component.StratumDropdownMenu
 import com.stratum.core.ui.component.StratumDropdownMenuItem
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumMuscleFilterCardState
-import com.stratum.core.ui.component.StratumMuscleFilterRow
+import com.stratum.core.ui.component.SelectedMusclesRow
+import com.stratum.core.ui.component.MuscleFilterBottomSheet
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSearchField
 import com.stratum.core.ui.component.StratumText
@@ -120,6 +121,7 @@ fun LiftSwapScreen(
     modifier: Modifier = Modifier,
 ) {
     var allLiftsExpanded by remember { mutableStateOf(false) }
+    var showMuscleSheet by remember { mutableStateOf(false) }
     val isDefaultScreen = !state.hasActiveFilter && state.searchQuery.isBlank()
 
     StratumScaffold(
@@ -163,11 +165,10 @@ fun LiftSwapScreen(
             FilterDropdownRow(
                 state = state,
                 onFilterIntent = onFilterIntent,
+                onMuscleFilterClick = { showMuscleSheet = true },
             )
 
-            StratumMuscleFilterRow(
-                upperCards = state.muscleGroups.upper,
-                lowerCards = state.muscleGroups.lower,
+            SelectedMusclesRow(
                 selectedMuscles = state.selectedMuscles,
                 onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
             )
@@ -263,6 +264,16 @@ fun LiftSwapScreen(
                 onValueChange = onSearchQueryChanged,
             )
         }
+    }
+
+    if (showMuscleSheet) {
+        MuscleFilterBottomSheet(
+            onDismissRequest = { showMuscleSheet = false },
+            selectedMuscles = state.selectedMuscles,
+            muscleGroups = state.muscleGroups,
+            onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
+            onClearAll = { onFilterIntent(LiftSwapFilterIntent.ResetMuscles) },
+        )
     }
 }
 

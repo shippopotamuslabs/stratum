@@ -2,6 +2,7 @@ package com.stratum.feature.program.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Icon
@@ -590,36 +592,34 @@ private fun ProgressionSchemeToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StratumText(
-            text = stringResource(R.string.edit_workout_progression_scheme_label),
-            style = StratumThemeAccessor.typography.sectionLabel,
-            muted = true,
-        )
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.clickable(onClick = onInfoClick),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            StratumPillToggle(
-                segments = segments,
-                selectedIndex = if (selectedScheme == ProgressionScheme.Linear) 0 else 1,
-                onSelectedIndexChange = { index ->
-                    onSchemeSelected(
-                        if (index == 0) ProgressionScheme.Linear else ProgressionScheme.Double,
-                    )
-                },
+            StratumText(
+                text = stringResource(R.string.edit_workout_progression_scheme_label),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
             )
-            StratumIconButton(
-                onClick = onInfoClick,
-                containerColor = Color.Transparent,
-            ) {
-                Icon(
-                    painter = painterResource(CoreUiR.drawable.ic_info),
-                    contentDescription =
-                        stringResource(R.string.edit_workout_progression_scheme_info_content_description),
-                    tint = StratumThemeAccessor.colors.textMuted,
-                )
-            }
+            Icon(
+                painter = painterResource(CoreUiR.drawable.ic_info),
+                contentDescription =
+                    stringResource(R.string.edit_workout_progression_scheme_info_content_description),
+                modifier = Modifier.size(16.dp),
+                tint = StratumThemeAccessor.colors.textMuted,
+            )
         }
+        StratumPillToggle(
+            segments = segments,
+            selectedIndex = if (selectedScheme == ProgressionScheme.Linear) 0 else 1,
+            onSelectedIndexChange = { index ->
+                onSchemeSelected(
+                    if (index == 0) ProgressionScheme.Linear else ProgressionScheme.Double,
+                )
+            },
+            selectedColor = StratumThemeAccessor.colors.surfaceInset,
+        )
     }
 }
 
