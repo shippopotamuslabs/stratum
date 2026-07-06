@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "15867ac032e7f070935f5486335f5e74",
+    "identityHash": "59786e154c9ca63e0d46488dbd6f85d2",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -499,6 +499,17 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_logged_sets_completedAtEpochMillis` ON `${TABLE_NAME}` (`completedAtEpochMillis`)"
+          },
+          {
+            "name": "index_logged_sets_workoutLiftId_liftId_setIndex",
+            "unique": false,
+            "columnNames": [
+              "workoutLiftId",
+              "liftId",
+              "setIndex"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_logged_sets_workoutLiftId_liftId_setIndex` ON `${TABLE_NAME}` (`workoutLiftId`, `liftId`, `setIndex`)"
           }
         ],
         "foreignKeys": [
@@ -2105,7 +2116,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '15867ac032e7f070935f5486335f5e74')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '59786e154c9ca63e0d46488dbd6f85d2')"
     ]
   }
 }

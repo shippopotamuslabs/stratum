@@ -46,8 +46,10 @@ import com.stratum.core.data.repository.RoomImportAnalysisMetadataRepository
 import com.stratum.core.data.repository.RoomImportJobRepository
 import com.stratum.core.data.repository.RoomProgramChangeEventRepository
 import com.stratum.core.data.repository.RoomTrainingLogRepository
+import com.stratum.core.data.repository.ProgressionHistoryRepository
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.domain.workout.ProgressionHistoryPort
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
@@ -310,6 +312,12 @@ abstract class RepositoryModule {
     abstract fun bindTrainingLogRepository(
         impl: RoomTrainingLogRepository,
     ): TrainingLogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProgressionHistoryPort(
+        impl: ProgressionHistoryRepository,
+    ): ProgressionHistoryPort
 
     @Binds
     @Singleton

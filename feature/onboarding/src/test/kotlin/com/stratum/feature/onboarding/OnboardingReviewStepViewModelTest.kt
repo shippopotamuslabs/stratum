@@ -40,7 +40,7 @@ class OnboardingReviewStepViewModelTest {
         OnboardingViewModelTestFixtures.fakeProfileRepository.seed(
             UserTrainingProfile(
                 trainingAge = TrainingAge.Intermediate,
-                lastTrained = LastTrainedBucket.WithinLastMonth,
+                lastTrained = LastTrainedBucket.WithinLastThreeMonths,
                 weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
                 sessionLengthMinutes = 60,
             ),
@@ -82,7 +82,7 @@ class OnboardingReviewStepViewModelTest {
         OnboardingViewModelTestFixtures.fakeProfileRepository.seed(
             UserTrainingProfile(
                 trainingAge = TrainingAge.Beginner,
-                lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+                lastTrained = LastTrainedBucket.MoreThanThreeMonthsAgo,
                 weekdays = setOf(Weekday.Tuesday),
                 sessionLengthMinutes = 45,
             ),

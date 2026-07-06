@@ -400,7 +400,7 @@ internal fun WorkoutCard(
                 if (!isPreviewMode) {
                     StratumButton(
                         text = stringResource(R.string.programs_start_workout),
-                        onClick = { onStartWorkoutClick(workout.name) },
+                        onClick = { onStartWorkoutClick(workout.workoutId) },
                         modifier =
                             Modifier
                                 .fillMaxWidth()

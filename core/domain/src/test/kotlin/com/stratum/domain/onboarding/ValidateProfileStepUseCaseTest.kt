@@ -72,7 +72,7 @@ class ValidateProfileStepUseCaseTest {
     private fun aProfile(): UserTrainingProfile =
         UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
             weekdays = emptySet(),
             sessionLengthMinutes = 60,
         )

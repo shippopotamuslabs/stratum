@@ -1,0 +1,115 @@
+package com.stratum.domain.workout
+
+import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.SetType
+import com.stratum.domain.program.identity.LiftSetId
+import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.workout.dropset.DropSetConstraintResult
+import com.stratum.domain.workout.dropset.DropSetConstraintValidator
+import com.stratum.domain.workout.dropset.DropSetConstraintViolation
+import com.stratum.domain.workout.dropset.EstimateDropSetWeightUseCase
+import com.stratum.core.testing.workout.FakeFatigueModel
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+
+/**
+ * Slice 6 — Drop sets. 4 scenarios (S6-*).
+ */
+@DisplayName("Slice 6: Drop sets")
+class Slice6DropSetTest {
+
+    private val workoutLiftId = WorkoutLiftId("wl-1")
+    private val liftId = LiftId("L-1")
+
+    private fun lb(amount: Double) = Weight(amount, Weight.WeightUnit.Lb)
+
+    private fun standardSlot(id: SetSlotId, position: Int) = SetSlot(
+        slotId = id,
+        workoutLiftId = workoutLiftId,
+        liftId = liftId,
+        position = position,
+        setType = SetType.Standard,
+        isTopSet = true,
+        repMin = 4,
+        repMax = 6,
+        rirGoal = 2,
+        restSeconds = 120,
+    )
+
+    private fun dropSlot(id: SetSlotId, position: Int) = SetSlot(
+        slotId = id,
+        workoutLiftId = workoutLiftId,
+        liftId = liftId,
+        position = position,
+        setType = SetType.DropSet,
+        isTopSet = false,
+        repMin = 0,
+        repMax = 0,
+        rirGoal = 0,
+        restSeconds = 60,
+    )
+
+    private fun projection(slots: List<SetSlot>) = WorkoutLiftProjection(
+        workoutLiftId = workoutLiftId,
+        liftId = liftId,
+        liftName = "Curl",
+        progressionScheme = com.stratum.domain.program.ProgressionScheme.Double,
+        slots = slots,
+    )
+
+    // --- Constraint validator (2 scenarios) ---
+
+    @Test
+    @DisplayName("S6-drop-set-follows-another-set-valid")
+    fun `S6-drop-set-follows-another-set-valid`() {
+        val ls1 = SetSlotId.Template(LiftSetId("ls-1"))
+        val ls2 = SetSlotId.Template(LiftSetId("ls-2"))
+        val lift = projection(listOf(standardSlot(ls1, 0), dropSlot(ls2, 1)))
+        val result = DropSetConstraintValidator().invoke(lift)
+        assertEquals(DropSetConstraintResult.Valid, result)
+    }
+
+    @Test
+    @DisplayName("S6-drop-set-first-set-invalid")
+    fun `S6-drop-set-first-set-invalid`() {
+        val ls1 = SetSlotId.Template(LiftSetId("ls-1"))
+        val lift = projection(listOf(dropSlot(ls1, 0)))
+        val result = DropSetConstraintValidator().invoke(lift)
+        assertTrue(result is DropSetConstraintResult.Invalid, "drop set as first set must be invalid")
+        val reasons = (result as DropSetConstraintResult.Invalid).reasons
+        assertTrue(DropSetConstraintViolation.DropSetNotFollowingAnotherSet in reasons)
+    }
+
+    // --- Weight estimation (2 scenarios) ---
+
+    @Test
+    @DisplayName("S6-drop-set-fatigue-reduction-applied")
+    fun `S6-drop-set-fatigue-reduction-applied`() {
+        val useCase = EstimateDropSetWeightUseCase(FakeFatigueModel(populationReductionFraction = 0.10))
+        val result = useCase.invoke(
+            precedingWeight = lb(100.0),
+            nextSetIndex = 1,
+            perLiftSlope = null,
+            perLiftIntercept = null,
+        )
+        // 100.0 reduced by population fatigue projection (10%) → 90.0
+        assertEquals(lb(90.0), result)
+    }
+
+    @Test
+    @DisplayName("S6-drop-set-per-lift-slope-vs-population")
+    fun `S6-drop-set-per-lift-slope-vs-population`() {
+        val useCase = EstimateDropSetWeightUseCase(FakeFatigueModel(perLiftReductionFraction = 0.15))
+        val result = useCase.invoke(
+            precedingWeight = lb(100.0),
+            nextSetIndex = 1,
+            perLiftSlope = -3.0,
+            perLiftIntercept = null,
+        )
+        // 15% reduction (per-lift), not 10% → 85.0
+        assertEquals(lb(85.0), result)
+    }
+}

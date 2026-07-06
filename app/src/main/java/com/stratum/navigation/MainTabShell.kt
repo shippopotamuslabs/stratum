@@ -46,6 +46,7 @@ fun MainTabShell(
     onKeepProgramClick: () -> Unit = {},
     onNavigateToSwap: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
     onNavigateToEditWorkout: (workoutId: String) -> Unit = {},
+    onNavigateToWorkout: (workoutId: String) -> Unit = {},
     onCreateNewLift: () -> Unit = {},
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
@@ -98,6 +99,7 @@ fun MainTabShell(
                             onEditWorkoutClick = onNavigateToEditWorkout,
                         ),
                     onSwapLiftClick = onNavigateToSwap,
+                    onNavigateToWorkout = onNavigateToWorkout,
                 )
                 MainTab.Gym -> GymScreen(onCreateNewLift = onCreateNewLift)
             }

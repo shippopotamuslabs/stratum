@@ -51,7 +51,7 @@ class ReviewDraftMappingTest {
         fun fullyAnsweredOnboardingMapsAllSections() {
             val profile = UserTrainingProfile(
                 trainingAge = TrainingAge.Intermediate,
-                lastTrained = LastTrainedBucket.WithinLastMonth,
+                lastTrained = LastTrainedBucket.WithinLastThreeMonths,
                 weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
                 sessionLengthMinutes = 60,
             )

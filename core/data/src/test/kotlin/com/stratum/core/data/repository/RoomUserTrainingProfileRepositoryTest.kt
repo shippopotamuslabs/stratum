@@ -52,7 +52,7 @@ class RoomUserTrainingProfileRepositoryTest {
     fun savePersistsProfile() = runTest {
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
             weekdays = setOf(Weekday.Monday, Weekday.Friday),
             sessionLengthMinutes = 60,
         )
@@ -79,7 +79,7 @@ class RoomUserTrainingProfileRepositoryTest {
 
         val updated = UserTrainingProfile(
             trainingAge = TrainingAge.Advanced,
-            lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+            lastTrained = LastTrainedBucket.MoreThanThreeMonthsAgo,
             weekdays = setOf(Weekday.Saturday, Weekday.Sunday),
             sessionLengthMinutes = 90,
         )

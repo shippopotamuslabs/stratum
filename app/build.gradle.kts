@@ -70,6 +70,7 @@ dependencies {
     implementation(project(":core:inference"))
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:program"))
+    implementation(project(":feature:workout"))
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.crashlytics)

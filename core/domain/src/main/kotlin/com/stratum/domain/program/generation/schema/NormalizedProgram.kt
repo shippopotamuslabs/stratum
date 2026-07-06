@@ -8,6 +8,7 @@ import com.stratum.domain.program.SetType
 
 data class ProgramNormalizationRequest(
     val trainingAge: String,
+    val lastTrained: String?,
     val enabledLiftIds: Set<String>,
     val movementPatternByLiftId: Map<String, MovementPattern?>,
 )

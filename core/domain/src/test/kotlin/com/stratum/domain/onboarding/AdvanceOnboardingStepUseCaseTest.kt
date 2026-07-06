@@ -63,7 +63,7 @@ class AdvanceOnboardingStepUseCaseTest {
     fun forwardSuccess() = runTest {
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
         )
 
         val result = subject(

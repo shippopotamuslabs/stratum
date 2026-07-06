@@ -18,7 +18,7 @@ class UserProfileMapperTest {
     fun completeProfileRoundTrips() {
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
             weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
             sessionLengthMinutes = 60,
         )
@@ -50,7 +50,7 @@ class UserProfileMapperTest {
     fun allWeekdaysRoundTrip() {
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Advanced,
-            lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+            lastTrained = LastTrainedBucket.MoreThanThreeMonthsAgo,
             weekdays = Weekday.entries.toSet(),
             sessionLengthMinutes = 90,
         )
@@ -65,7 +65,7 @@ class UserProfileMapperTest {
     fun nullTrainingAgeRoundTripsToNull() {
         val entity = UserProfileEntity(
             trainingAge = null,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
             weekdays = setOf(Weekday.Monday, Weekday.Friday),
             sessionLengthMinutes = 60,
         )
@@ -73,7 +73,7 @@ class UserProfileMapperTest {
         val domain = entity.toDomain()
 
         assertNull(domain.trainingAge)
-        assertEquals(LastTrainedBucket.WithinLastMonth, domain.lastTrained)
+        assertEquals(LastTrainedBucket.WithinLastThreeMonths, domain.lastTrained)
         assertEquals(setOf(Weekday.Monday, Weekday.Friday), domain.weekdays)
     }
 }
