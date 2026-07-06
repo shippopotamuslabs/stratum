@@ -424,4 +424,94 @@ class RecommendationEngineRirMathTest {
             assertEquals(-5.0, defaultTiers.roundToIncrement(lb(-5.0)).amount, 0.0)
         }
     }
+
+    @Nested
+    @DisplayName("per-lift slope override")
+    inner class PerLiftSlopeOverride {
+
+        @Test
+        @DisplayName("steeper per-lift slope reduces weight more than population slope (2 remaining)")
+        fun `steeper slope reduces weight more`() {
+            // Same setup as S2 (75x2@2, top 4-12@2, 2 remaining). Population slope -2.0 →
+            // fatigueForLastSet = 2 → weightForReps(84.10, 4+2+2=8) = 65.9.
+            // With per-lift slope -3.0 → fatigueForLastSet = 3 → weightForReps(84.10, 4+2+3=9).
+            // repsForWeight(84.10, 65.9)≈8; one more rep of capacity → lower weight.
+            val outcome = engine.recommendNextSet(
+                lastPerformed = performed(75.0, 2, 2),
+                completedSlot = topSet(),
+                targetSlot = topSet(),
+                currentWeight = lb(75.0),
+                remainingCount = 2,
+                perLiftSlope = -3.0,
+            )
+            assertTrue(outcome is RecommendationOutcome.Reduce)
+            val reduced = (outcome as RecommendationOutcome.Reduce).weight.amount
+            // Steeper fatigue → must reduce more aggressively than the population-slope 65.9.
+            assertTrue(reduced < 65.9, "Steeper slope must reduce weight below 65.9, got $reduced")
+        }
+
+        @Test
+        @DisplayName("per-lift slope of null falls back to population slope (no behavior change)")
+        fun `null slope falls back to population`() {
+            val outcome = engine.recommendNextSet(
+                lastPerformed = performed(75.0, 2, 2),
+                completedSlot = topSet(),
+                targetSlot = topSet(),
+                currentWeight = lb(75.0),
+                remainingCount = 2,
+                perLiftSlope = null,
+            )
+            assertTrue(outcome is RecommendationOutcome.Reduce)
+            assertEquals(65.9, (outcome as RecommendationOutcome.Reduce).weight.amount, 0.05)
+        }
+
+        @Test
+        @DisplayName("shallower per-lift slope reduces weight less than population (2 remaining)")
+        fun `shallower slope reduces weight less`() {
+            // Same setup as S2 (population -2.0 → fatigueForLastSet=2 → 65.9). Shallower -1.0
+            // → fatigueForLastSet=1 → weightForReps(84.10, 4+2+1=7) → higher weight (less reduction).
+            val outcome = engine.recommendNextSet(
+                lastPerformed = performed(75.0, 2, 2),
+                completedSlot = topSet(),
+                targetSlot = topSet(),
+                currentWeight = lb(75.0),
+                remainingCount = 2,
+                perLiftSlope = -1.0,
+            )
+            assertTrue(outcome is RecommendationOutcome.Reduce)
+            val reduced = (outcome as RecommendationOutcome.Reduce).weight.amount
+            assertTrue(reduced > 65.9, "Shallower slope must reduce weight above 65.9, got $reduced")
+            assertTrue(reduced < 75.0, "Must still reduce below current weight 75.0, got $reduced")
+        }
+
+        @Test
+        @DisplayName("per-lift slope has no effect when remainingCount = 1 (fatigueForLastSet = 0)")
+        fun `per lift slope no effect when one remaining`() {
+            // remainingCount=1 → fatigueForLastSet = |slope| * 0 = 0 regardless of slope.
+            // So a steep -5.0 slope must produce the same weight as the population slope.
+            val populationOutcome = engine.recommendNextSet(
+                lastPerformed = performed(75.0, 2, 2),
+                completedSlot = topSet(),
+                targetSlot = topSet(),
+                currentWeight = lb(75.0),
+                remainingCount = 1,
+            )
+            val steepOutcome = engine.recommendNextSet(
+                lastPerformed = performed(75.0, 2, 2),
+                completedSlot = topSet(),
+                targetSlot = topSet(),
+                currentWeight = lb(75.0),
+                remainingCount = 1,
+                perLiftSlope = -5.0,
+            )
+            assertTrue(populationOutcome is RecommendationOutcome.Reduce)
+            assertTrue(steepOutcome is RecommendationOutcome.Reduce)
+            assertEquals(
+                (populationOutcome as RecommendationOutcome.Reduce).weight.amount,
+                (steepOutcome as RecommendationOutcome.Reduce).weight.amount,
+                0.01,
+                "Slope must not affect weight when remainingCount = 1",
+            )
+        }
+    }
 }

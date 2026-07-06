@@ -166,7 +166,12 @@ private fun buildLiftDrafts(
             sel.lift.kinematicProfile == KinematicProfile.AxialCompound ||
                 sel.lift.kinematicProfile == KinematicProfile.NonAxialCompound
         val scheme = schemeForTrainingAge(trainingAge, lastTrained, isCompound)
-        val repRir = repRirForSlot(sel.slot.toWorkoutSlotTemplate(), sel.lift)
+        val repRir = repRirForSlot(
+            slot = sel.slot.toWorkoutSlotTemplate(),
+            lift = sel.lift,
+            fatigueSlope = sel.lift.fatigueDecaySlope,
+            setCount = sel.slot.setCount,
+        )
         val setCount = sel.slot.setCount
         val sets = (0 until setCount).map { i ->
             val isTopSet = scheme == DomainProgressionScheme.Double && i == 0
