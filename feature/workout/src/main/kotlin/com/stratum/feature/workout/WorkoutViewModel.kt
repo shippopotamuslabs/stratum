@@ -84,6 +84,7 @@ class WorkoutViewModel @Inject constructor(
 
     private var activeWorkoutId: WorkoutId? = null
     private var cachedSessionId: com.stratum.domain.training.identity.TrainingSessionId? = null
+    private var sessionStartedAt: java.time.Instant? = null
     private var structure: WorkoutStructureProjection? = null
     private var snapshotBySlot: Map<SetSlotId, SlotRecommendation> = emptyMap()
     private var overlay: WorkoutOverlay = WorkoutOverlay()
@@ -108,6 +109,7 @@ class WorkoutViewModel @Inject constructor(
                     val program = progress.program ?: return@collect
                     val session = progress.activeSession ?: return@collect
                     cachedSessionId = session.id
+                    sessionStartedAt = session.startedAt
                     val workout = program.workouts.firstOrNull { it.id == workoutId } ?: return@collect
                     if (!snapshotLoaded) {
                         val projected = projectStructure(workout, liftNamesById)
@@ -338,12 +340,15 @@ class WorkoutViewModel @Inject constructor(
             val rendered = merge()
             val recommendations = mutableMapOf<SetSlotId, Weight>()
             for (lift in rendered.lifts) {
-                val lastPerformed = lift.sets
-                    .firstOrNull { it.loggedValue != null }?.loggedValue
+                val lastPerformedSet = lift.sets
+                    .firstOrNull { it.loggedValue != null }
+                val lastPerformed = lastPerformedSet?.loggedValue
+                val completedSlot = lastPerformedSet?.let { toSlot(it) }
                 val upcoming = lift.sets.filter { it.loggedValue == null }
                 for (set in upcoming) {
                     val rec = recommendationEngine.recommendNextSet(
                         lastPerformed = lastPerformed,
+                        completedSlot = completedSlot,
                         targetSlot = toSlot(set),
                         currentWeight = set.recommendedWeight,
                     )
@@ -383,7 +388,8 @@ class WorkoutViewModel @Inject constructor(
 
     private fun render() {
         val rendered = merge()
-        _uiState.value = WorkoutUiMapper.map(rendered)
+        val startedAtMilli = sessionStartedAt?.toEpochMilli() ?: java.time.Instant.now().toEpochMilli()
+        _uiState.value = WorkoutUiMapper.map(rendered, startedAtMilli)
     }
 
     private fun resolveSlot(slotId: SetSlotId): SetSlot? {

@@ -12,6 +12,7 @@ sealed interface WorkoutUiState {
         val workoutName: String,
         val lifts: List<RenderedLiftUi>,
         val isFinalizing: Boolean,
+        val sessionStartedAtEpochMilli: Long,
     ) : WorkoutUiState
 
     data class Error(val message: String) : WorkoutUiState
