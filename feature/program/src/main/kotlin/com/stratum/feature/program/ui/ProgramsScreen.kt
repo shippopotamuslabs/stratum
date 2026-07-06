@@ -24,8 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -172,13 +174,14 @@ internal fun ProgramsScreen(
                 }
             }
         },
-        horizontalPadding = 12.dp,
+        horizontalPadding = 0.dp,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp)
                     .padding(vertical = 16.dp)
                     .padding(bottom = if (activeWorkoutBar != null) 96.dp else 0.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -210,58 +213,116 @@ internal fun ProgramsScreen(
 
             if (activeWorkoutBar != null) {
                 var showCancelConfirm by remember { mutableStateOf(false) }
+                var elapsedTimeStr by remember(activeWorkoutBar.startedAtEpochMilli) { mutableStateOf("00:00") }
+
+                LaunchedEffect(activeWorkoutBar.startedAtEpochMilli) {
+                    while (true) {
+                        val now = System.currentTimeMillis()
+                        val diffMs = now - activeWorkoutBar.startedAtEpochMilli
+                        val diffSec = (diffMs / 1000).coerceAtLeast(0)
+                        val hrs = diffSec / 3600
+                        val mins = (diffSec % 3600) / 60
+                        val secs = diffSec % 60
+                        elapsedTimeStr = if (hrs > 0) {
+                            String.format(java.util.Locale.US, "%d:%02d:%02d", hrs, mins, secs)
+                        } else {
+                            String.format(java.util.Locale.US, "%02d:%02d", mins, secs)
+                        }
+                        kotlinx.coroutines.delay(1000L)
+                    }
+                }
+
+                val panelShape = StratumThemeAccessor.shapes.panel
+                val drawerShape = remember(panelShape) {
+                    if (panelShape is RoundedCornerShape) {
+                        RoundedCornerShape(
+                            topStart = panelShape.topStart,
+                            topEnd = panelShape.topEnd,
+                            bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp),
+                            bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp)
+                        )
+                    } else {
+                        RoundedCornerShape(
+                            topStart = 12.dp,
+                            topEnd = 12.dp,
+                            bottomStart = 0.dp,
+                            bottomEnd = 0.dp
+                        )
+                    }
+                }
 
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = drawerShape,
+                            clip = false
+                        )
                         .background(
                             color = StratumThemeAccessor.colors.surfaceRaised,
-                            shape = StratumThemeAccessor.shapes.panel
+                            shape = drawerShape
                         )
                         .border(
                             width = StratumThemeAccessor.shapes.borderWidth,
                             color = StratumThemeAccessor.colors.accent,
-                            shape = StratumThemeAccessor.shapes.panel
+                            shape = drawerShape
                         )
                         .clickable { onExpandWorkoutClick(activeWorkoutBar.workoutId) }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        StratumText(
-                            text = activeWorkoutBar.workoutName,
-                            style = StratumThemeAccessor.typography.titleLarge
-                        )
-                        StratumText(
-                            text = activeWorkoutBar.nextLiftName,
-                            style = StratumThemeAccessor.typography.sectionLabel,
-                            muted = true
+                    StratumIconButton(
+                        onClick = { showCancelConfirm = true },
+                        contentColor = StratumThemeAccessor.colors.error
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = "Cancel Workout",
+                            tint = StratumThemeAccessor.colors.error
                         )
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
                     ) {
-                        StratumIconButton(onClick = { onExpandWorkoutClick(activeWorkoutBar.workoutId) }) {
-                            Icon(
-                                painter = painterResource(CoreUiR.drawable.ic_chevron_down),
-                                contentDescription = "Resume Workout",
-                                tint = StratumThemeAccessor.colors.textPrimary,
-                                modifier = Modifier.rotate(180f)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            StratumText(
+                                text = activeWorkoutBar.workoutName,
+                                style = StratumThemeAccessor.typography.titleLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            StratumText(
+                                text = elapsedTimeStr,
+                                style = StratumThemeAccessor.typography.bodyLarge,
+                                muted = true
                             )
                         }
+                        StratumText(
+                            text = activeWorkoutBar.nextLiftName,
+                            style = StratumThemeAccessor.typography.sectionLabel,
+                            muted = true,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
-                        StratumIconButton(onClick = { showCancelConfirm = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Cancel Workout",
-                                tint = StratumThemeAccessor.colors.error
-                            )
-                        }
+                    StratumIconButton(onClick = { onExpandWorkoutClick(activeWorkoutBar.workoutId) }) {
+                        Icon(
+                            painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                            contentDescription = "Resume Workout",
+                            tint = StratumThemeAccessor.colors.textPrimary,
+                            modifier = Modifier.rotate(180f)
+                        )
                     }
                 }
 

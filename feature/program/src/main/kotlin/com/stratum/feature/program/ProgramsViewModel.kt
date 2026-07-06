@@ -148,7 +148,8 @@ class ProgramsViewModel @Inject constructor(
                             MinimizedWorkoutState(
                                 workoutId = workoutId.value,
                                 workoutName = workout.name,
-                                nextLiftName = nextLiftName ?: "All sets complete"
+                                nextLiftName = nextLiftName ?: "All sets complete",
+                                startedAtEpochMilli = session.startedAt.toEpochMilli(),
                             )
                         )
                     }
