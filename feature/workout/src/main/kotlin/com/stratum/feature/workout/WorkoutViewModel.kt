@@ -108,8 +108,19 @@ class WorkoutViewModel @Inject constructor(
                     observeLiftCatalog().first().associateBy { lift -> lift.id }
                 fatigueByLiftId = observeLiftTrainingInsights()
                 observeCycleProgress().collect { progress ->
-                    val program = progress.program ?: return@collect
-                    val session = progress.activeSession ?: return@collect
+                    val program = progress.program
+                    val session = progress.activeSession
+                    if (program == null || session == null || session.workoutId != workoutId) {
+                        cachedSessionId = null
+                        sessionStartedAt = null
+                        activeWorkoutId = null
+                        snapshotLoaded = false
+                        structure = null
+                        snapshotBySlot = emptyMap()
+                        overlay = WorkoutOverlay()
+                        _uiState.value = WorkoutUiState.NoActiveSession
+                        return@collect
+                    }
                     cachedSessionId = session.id
                     sessionStartedAt = session.startedAt
                     val workout = program.workouts.firstOrNull { it.id == workoutId } ?: return@collect

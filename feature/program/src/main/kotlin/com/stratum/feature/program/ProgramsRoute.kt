@@ -15,7 +15,7 @@ fun ProgramsRoute(
     viewModel: ProgramsViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
     callbacks: ProgramsScreenCallbacks = ProgramsScreenCallbacks(),
-    onSwapLiftClick: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
+    onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },
     onNavigateToWorkout: (workoutId: String) -> Unit = {},
     isPreviewMode: Boolean = false,
 ) {
@@ -40,8 +40,8 @@ fun ProgramsRoute(
                 onStartEmptyWorkoutClick = viewModel::startEmptyWorkout,
                 onStartWorkoutClick = viewModel::startProgramWorkout,
             ),
-        onSwapLiftClick = { target ->
-            onSwapLiftClick(target.workoutLiftId, target.liftId, target.name)
+        onSwapLiftClick = { workoutId, target ->
+            onSwapLiftClick(workoutId, target.workoutLiftId, target.liftId, target.name)
         },
         onCancelWorkoutClick = viewModel::abandonActiveSession,
         onExpandWorkoutClick = onNavigateToWorkout,

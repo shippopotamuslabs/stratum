@@ -40,7 +40,22 @@ class EditWorkoutViewModel @Inject constructor(
     private val computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
     private val estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val workoutEditSession: WorkoutEditSession,
 ) : ViewModel() {
+
+    init {
+        viewModelScope.launch {
+            workoutEditSession.events.collect { event ->
+                when (event) {
+                    is EditSessionEvent.LiftSelected -> {
+                        if (event.workoutId == targetWorkoutId.value) {
+                            handleLiftSelected(event.workoutLiftId, event.liftId)
+                        }
+                    }
+                }
+            }
+        }
+    }
     private val targetWorkoutId = MutableStateFlow<String?>(null)
     private val hasSnapshot = MutableStateFlow(false)
 
@@ -90,13 +105,7 @@ class EditWorkoutViewModel @Inject constructor(
                         hasSnapshot.value = true
                     }
                     else -> {
-                        val current = _uiState.value
-                        if (current is EditWorkoutUiState.Loaded) {
-                            _uiState.value =
-                                applyDerivedMetrics(
-                                    current.mergeSwappedLiftIdentity(workout, liftNamesById),
-                                )
-                        }
+                        // Active edit session exists. Baseline updates from Room are ignored to keep in-memory edits.
                     }
                 }
             }
@@ -118,6 +127,7 @@ class EditWorkoutViewModel @Inject constructor(
                     // progression scheme differs from the baseline (compounds only —
                     // isolation toggles are no-ops in setProgressionScheme). Append-only.
                     appendSchemeChangedEvents(baseline, updatedWorkout)
+                    appendLiftSwappedEvents(baseline, updatedWorkout)
                     baselineWorkout = updatedWorkout
                     programSnapshot =
                         programSnapshot?.mergeWorkout(WorkoutId(loaded.workoutId), updatedWorkout)
@@ -172,6 +182,75 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
+    private suspend fun appendLiftSwappedEvents(
+        baseline: Workout,
+        updated: Workout,
+    ) {
+        val program = programSnapshot ?: return
+        val baselineById = baseline.workoutLifts.associateBy { it.id }
+        val changed = updated.workoutLifts.mapNotNull { updatedLift ->
+            val baselineLift = baselineById[updatedLift.id]
+            if (baselineLift != null && baselineLift.liftId != updatedLift.liftId) {
+                baselineLift.liftId to updatedLift
+            } else {
+                null
+            }
+        }
+        for ((previous, updatedLift) in changed) {
+            programChangeEventRepository.append(
+                com.stratum.domain.training.ProgramChangeEvent(
+                    id = com.stratum.domain.training.identity.ProgramChangeEventId(
+                        java.util.UUID.randomUUID().toString(),
+                    ),
+                    programId = program.id,
+                    eventType = ProgramChangeEventType.LIFT_SWAPPED,
+                    occurredAt = java.time.Instant.now(),
+                    payload = ProgramChangeEventPayload.LiftSwapped(
+                        workoutLiftId = updatedLift.id,
+                        previousLiftId = previous,
+                        newLiftId = updatedLift.liftId,
+                    ),
+                ),
+            )
+        }
+    }
+
+    private fun handleLiftSelected(workoutLiftId: String?, liftId: String) {
+        val liftName = catalogLifts.firstOrNull { it.id.value == liftId }?.name ?: PLACEHOLDER_LIFT_NAME
+        val isCompound = catalogLifts.firstOrNull { it.id.value == liftId }?.isCompound ?: false
+        updateLoaded { loaded ->
+            if (workoutLiftId == null) {
+                val position = loaded.lifts.size
+                val newWorkoutLiftId = newWorkoutLiftId()
+                val newLift = EditLiftState(
+                    workoutLiftId = newWorkoutLiftId,
+                    liftId = liftId,
+                    name = liftName,
+                    position = position,
+                    sets = listOf(defaultEditSetState(setNumber = 1)),
+                    isCompound = isCompound,
+                    progressionScheme = ProgressionScheme.Double,
+                    supersetGroupId = null,
+                    useRestTimerBetweenLifts = false,
+                )
+                loaded.copy(lifts = loaded.lifts + newLift)
+            } else {
+                val updatedLifts = loaded.lifts.map { lift ->
+                    if (lift.workoutLiftId == workoutLiftId) {
+                        lift.copy(
+                            liftId = liftId,
+                            name = liftName,
+                            isCompound = isCompound,
+                        )
+                    } else {
+                        lift
+                    }
+                }
+                loaded.copy(lifts = updatedLifts)
+            }
+        }
+    }
+
     fun addSet(workoutLiftId: String) {
         updateLoaded { loaded ->
             loaded.copy(
@@ -188,22 +267,9 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
-    fun addLift(onNavigateToPicker: (workoutLiftId: String, liftId: String, liftName: String) -> Unit) {
-        val workoutLiftId = newWorkoutLiftId()
-        val liftId = newLiftId()
-        updateLoaded { loaded ->
-            val position = loaded.lifts.size
-            val newLift =
-                EditLiftState(
-                    workoutLiftId = workoutLiftId,
-                    liftId = liftId,
-                    name = PLACEHOLDER_LIFT_NAME,
-                    position = position,
-                    sets = listOf(defaultEditSetState(setNumber = 1)),
-                )
-            loaded.copy(lifts = loaded.lifts + newLift)
-        }
-        onNavigateToPicker(workoutLiftId, liftId, PLACEHOLDER_LIFT_NAME)
+    fun addLift(onNavigateToPicker: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit) {
+        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        onNavigateToPicker(loaded.workoutId, null, null, null)
     }
 
     fun removeLift(workoutLiftId: String) {
@@ -381,14 +447,6 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
-    fun linkSupersetWithPrevious(workoutLiftId: String) {
-        linkSuperset(workoutLiftId, SupersetLinkDirection.Previous)
-    }
-
-    fun linkSupersetWithNext(workoutLiftId: String) {
-        linkSuperset(workoutLiftId, SupersetLinkDirection.Next)
-    }
-
     fun removeFromSuperset(workoutLiftId: String) {
         updateLoaded { loaded ->
             loaded.copy(
@@ -397,7 +455,7 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
-    private fun linkSuperset(
+    fun linkSuperset(
         workoutLiftId: String,
         direction: SupersetLinkDirection,
     ) {
@@ -435,21 +493,10 @@ class EditWorkoutViewModel @Inject constructor(
         return copy(saveBlockedReason = blocked)
     }
 
-    private fun EditWorkoutUiState.Loaded.mergeSwappedLiftIdentity(
-        baseline: Workout,
-        liftNamesById: Map<String, String>,
-    ): EditWorkoutUiState.Loaded {
-        val baselineById = baseline.workoutLifts.associateBy { lift -> lift.id.value }
-        return copy(
-            lifts =
-                lifts.map { editLift ->
-                    val baselineLift = baselineById[editLift.workoutLiftId] ?: return@map editLift
-                    editLift.copy(
-                        liftId = baselineLift.liftId.value,
-                        name = resolveLiftDisplayName(baselineLift.liftId.value, liftNamesById),
-                    )
-                },
-        ).markSaveState()
+    fun clearSession() {
+        hasSnapshot.value = false
+        targetWorkoutId.value = null
+        _uiState.value = EditWorkoutUiState.Loading
     }
 
     private fun applyDerivedMetrics(state: EditWorkoutUiState): EditWorkoutUiState =

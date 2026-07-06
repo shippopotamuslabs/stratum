@@ -2,7 +2,7 @@ package com.stratum.feature.program
 
 import com.stratum.feature.program.ui.EditLiftState
 
-internal enum class SupersetLinkDirection {
+enum class SupersetLinkDirection {
     Previous,
     Next,
     Remove,

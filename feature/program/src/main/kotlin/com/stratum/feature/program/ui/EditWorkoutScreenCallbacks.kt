@@ -24,5 +24,5 @@ data class EditWorkoutScreenCallbacks(
     val onSetUseRestTimerBetweenLifts: (workoutLiftId: String, enabled: Boolean) -> Unit = { _, _ -> },
     val onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit = { _, _ -> },
     val onSaveWorkout: () -> Unit = {},
-    val onSwapLiftClick: (workoutLiftId: String, liftId: String, liftName: String) -> Unit = { _, _, _ -> },
+    val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },
 )

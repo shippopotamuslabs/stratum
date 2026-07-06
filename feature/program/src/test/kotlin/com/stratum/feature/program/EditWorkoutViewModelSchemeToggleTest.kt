@@ -53,11 +53,13 @@ class EditWorkoutViewModelSchemeToggleTest {
     private val workoutId = WorkoutId("w-1")
     private lateinit var repository: FakeProgramRepository
     private lateinit var programChangeEventRepository: FakeProgramChangeEventRepository
+    private lateinit var workoutEditSession: WorkoutEditSession
 
     @BeforeEach
     fun setUp() {
         repository = FakeProgramRepository(programWithCompoundAndIsolation())
         programChangeEventRepository = FakeProgramChangeEventRepository()
+        workoutEditSession = WorkoutEditSession()
     }
 
     @Test
@@ -201,6 +203,7 @@ class EditWorkoutViewModelSchemeToggleTest {
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
             programChangeEventRepository = programChangeEventRepository,
+            workoutEditSession = workoutEditSession,
         )
     }
 

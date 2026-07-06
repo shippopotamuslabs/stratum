@@ -42,6 +42,7 @@ data class LiftSwapSheetState(
     val selectedCategory: LiftCategory?,
     val selectedLibrary: LiftLibraryFilter?,
     val searchQuery: String,
+    val isAddMode: Boolean = false,
 ) {
     /** True when any filter axis is active (drives the reset button's visibility). */
     val hasActiveFilter: Boolean

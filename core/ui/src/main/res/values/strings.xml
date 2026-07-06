@@ -2,6 +2,7 @@
 <resources>
     <!-- StratumLiftSwapBottomSheet — shared lift swap UI -->
     <string name="lift_swap_title">Swapping %1$s</string>
+    <string name="lift_add_title">Add Lift</string>
     <string name="lift_swap_create_new_lift">Create New Lift</string>
     <string name="lift_swap_reset_filters_content_description">Clear all filters</string>
     <string name="lift_swap_filter_bias">Bias</string>
