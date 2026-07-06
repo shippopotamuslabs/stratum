@@ -55,6 +55,8 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                     recommendedWeight = recommendedWeight,
                     recommendedReps = recommendedReps,
                     loggedValue = logged,
+                    previousWeight = baseline?.previousWeight,
+                    previousReps = baseline?.previousReps,
                 )
             }
             RenderedWorkoutLift(
@@ -63,6 +65,7 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 liftName = lift.liftName,
                 progressionScheme = lift.progressionScheme,
                 sets = renderedSets,
+                supersetGroupId = lift.supersetGroupId,
             )
         }
         return RenderedWorkout(

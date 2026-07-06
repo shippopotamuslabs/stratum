@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +45,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
@@ -69,6 +72,9 @@ internal fun ProgramsScreen(
     callbacks: ProgramsScreenCallbacks,
     onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
+    activeWorkoutBar: MinimizedWorkoutState? = null,
+    onCancelWorkoutClick: () -> Unit = {},
+    onExpandWorkoutClick: (String) -> Unit = {},
     isPreviewMode: Boolean = false,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -168,35 +174,142 @@ internal fun ProgramsScreen(
         },
         horizontalPadding = 12.dp,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            if (!isPreviewMode) {
-                StratumButton(
-                    text = stringResource(R.string.programs_start_next_workout),
-                    onClick = callbacks.onStartNextWorkoutClick,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.programs_start_empty_workout),
-                    onClick = callbacks.onStartEmptyWorkoutClick,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 16.dp)
+                    .padding(bottom = if (activeWorkoutBar != null) 96.dp else 0.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (!isPreviewMode) {
+                    StratumButton(
+                        text = stringResource(R.string.programs_start_next_workout),
+                        onClick = callbacks.onStartNextWorkoutClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    StratumOutlinedButton(
+                        text = stringResource(R.string.programs_start_empty_workout),
+                        onClick = callbacks.onStartEmptyWorkoutClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                when (state) {
+                    is ProgramsUiState.Empty ->
+                        StratumText(text = stringResource(R.string.programs_empty), muted = true)
+                    is ProgramsUiState.Loaded -> LoadedProgramContent(
+                        state = state,
+                        callbacks = callbacks,
+                        onSwapLiftClick = onSwapLiftClick,
+                        isPreviewMode = isPreviewMode,
+                    )
+                }
             }
 
-            when (state) {
-                is ProgramsUiState.Empty ->
-                    StratumText(text = stringResource(R.string.programs_empty), muted = true)
-                is ProgramsUiState.Loaded -> LoadedProgramContent(
-                    state = state,
-                    callbacks = callbacks,
-                    onSwapLiftClick = onSwapLiftClick,
-                    isPreviewMode = isPreviewMode,
-                )
+            if (activeWorkoutBar != null) {
+                var showCancelConfirm by remember { mutableStateOf(false) }
+
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .background(
+                            color = StratumThemeAccessor.colors.surfaceRaised,
+                            shape = StratumThemeAccessor.shapes.panel
+                        )
+                        .border(
+                            width = StratumThemeAccessor.shapes.borderWidth,
+                            color = StratumThemeAccessor.colors.accent,
+                            shape = StratumThemeAccessor.shapes.panel
+                        )
+                        .clickable { onExpandWorkoutClick(activeWorkoutBar.workoutId) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        StratumText(
+                            text = activeWorkoutBar.workoutName,
+                            style = StratumThemeAccessor.typography.titleLarge
+                        )
+                        StratumText(
+                            text = activeWorkoutBar.nextLiftName,
+                            style = StratumThemeAccessor.typography.sectionLabel,
+                            muted = true
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StratumIconButton(onClick = { onExpandWorkoutClick(activeWorkoutBar.workoutId) }) {
+                            Icon(
+                                painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                                contentDescription = "Resume Workout",
+                                tint = StratumThemeAccessor.colors.textPrimary,
+                                modifier = Modifier.rotate(180f)
+                            )
+                        }
+
+                        StratumIconButton(onClick = { showCancelConfirm = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Cancel Workout",
+                                tint = StratumThemeAccessor.colors.error
+                            )
+                        }
+                    }
+                }
+
+                if (showCancelConfirm) {
+                    Dialog(onDismissRequest = { showCancelConfirm = false }) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = StratumThemeAccessor.colors.surfaceRaised,
+                                    shape = StratumThemeAccessor.shapes.panel
+                                )
+                                .border(
+                                    width = StratumThemeAccessor.shapes.borderWidth,
+                                    color = StratumThemeAccessor.colors.borderStrong,
+                                    shape = StratumThemeAccessor.shapes.panel
+                                )
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            StratumText(
+                                text = "Abandon Workout?",
+                                style = StratumThemeAccessor.typography.titleLarge
+                            )
+                            StratumText(
+                                text = "This will permanently delete the current training session and all logged sets. Are you sure?",
+                                style = StratumThemeAccessor.typography.bodyLarge,
+                                muted = true
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+                            ) {
+                                StratumOutlinedButton(
+                                    text = "Cancel",
+                                    onClick = { showCancelConfirm = false },
+                                )
+                                StratumButton(
+                                    text = "Abandon",
+                                    onClick = {
+                                        showCancelConfirm = false
+                                        onCancelWorkoutClick()
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

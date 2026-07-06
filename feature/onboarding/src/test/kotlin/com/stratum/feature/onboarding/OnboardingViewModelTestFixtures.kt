@@ -40,6 +40,9 @@ import com.stratum.domain.onboarding.SpecializationPreference
 import com.stratum.domain.onboarding.UpdateSpecializationUseCase
 import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.ValidateCurrentOnboardingStepUseCase
+import kotlinx.coroutines.runBlocking
+import java.time.Instant
+import com.stratum.core.testing.program.scenarioContext
 import com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase
 import com.stratum.domain.onboarding.ValidateProfileStepUseCase
 import com.stratum.domain.onboarding.ValidateScheduleStepUseCase

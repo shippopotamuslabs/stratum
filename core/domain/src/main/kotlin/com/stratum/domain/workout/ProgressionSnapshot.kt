@@ -11,6 +11,8 @@ data class SlotRecommendation(
     val slotId: SetSlotId,
     val recommendedWeight: Weight,
     val baselineExpectedReps: Int,
+    val previousWeight: Weight? = null,
+    val previousReps: Int? = null,
 )
 
 /**

@@ -26,6 +26,8 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.DefaultLoggedLiftContextFactory
+import com.stratum.domain.training.DeleteLoggedSetUseCase
+import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.TrainingSession
@@ -254,6 +256,9 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
             ),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+            getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
+            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
             fatigueModel = FakeFatigueModel(),
         )
     }
@@ -308,7 +313,7 @@ class WorkoutViewModelTest {
         viewModel.uiState.test {
             awaitLoaded()
             viewModel.logSet(
-                slotId = SetSlotId.Template(liftSetId),
+                slotKey = liftSetId.value,
                 weight = lb(135.0),
                 reps = 5,
                 rir = 2,
@@ -352,7 +357,7 @@ class WorkoutViewModelTest {
         viewModel.uiState.test {
             awaitLoaded()
             viewModel.logSet(
-                slotId = SetSlotId.Template(liftSetId),
+                slotKey = liftSetId.value,
                 weight = lb(135.0),
                 reps = 1,
                 rir = 0,
@@ -375,7 +380,7 @@ class WorkoutViewModelTest {
         viewModel.uiState.test {
             awaitLoaded()
             viewModel.logSet(
-                slotId = SetSlotId.Template(liftSetId),
+                slotKey = liftSetId.value,
                 weight = lb(130.0),
                 reps = 5,
                 rir = 2,

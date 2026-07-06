@@ -20,6 +20,7 @@ fun ProgramsRoute(
     isPreviewMode: Boolean = false,
 ) {
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
+    val activeWorkoutBar by viewModel.activeWorkoutBarState.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel, onNavigateToWorkout) {
         viewModel.events.collect { event ->
@@ -32,6 +33,7 @@ fun ProgramsRoute(
 
     ProgramsScreen(
         state = state,
+        activeWorkoutBar = activeWorkoutBar,
         callbacks =
             callbacks.copy(
                 onStartNextWorkoutClick = viewModel::startNextWorkout,
@@ -41,6 +43,8 @@ fun ProgramsRoute(
         onSwapLiftClick = { target ->
             onSwapLiftClick(target.workoutLiftId, target.liftId, target.name)
         },
+        onCancelWorkoutClick = viewModel::abandonActiveSession,
+        onExpandWorkoutClick = onNavigateToWorkout,
         modifier = modifier,
         isPreviewMode = isPreviewMode,
     )

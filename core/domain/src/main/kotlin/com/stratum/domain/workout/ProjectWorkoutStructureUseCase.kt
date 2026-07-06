@@ -19,6 +19,7 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
                 liftId = workoutLift.liftId,
                 liftName = liftNames[workoutLift.liftId].orEmpty(),
                 progressionScheme = workoutLift.progressionScheme,
+                supersetGroupId = workoutLift.supersetGroupId,
                 slots = workoutLift.sets.map { liftSet ->
                     SetSlot(
                         slotId = SetSlotId.Template(liftSet.id),
