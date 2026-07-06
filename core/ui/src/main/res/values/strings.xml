@@ -8,6 +8,8 @@
     <string name="lift_swap_filter_bias">Bias</string>
     <string name="lift_swap_filter_lift_type">Lift Type</string>
     <string name="lift_swap_filter_library">Library</string>
+    <string name="lift_swap_filter_muscles">Muscles</string>
+    <string name="lift_swap_filter_muscle_groups">Muscle Groups</string>
     <string name="lift_swap_filter_any">Any</string>
     <string name="lift_swap_filter_all">All</string>
     <string name="lift_swap_bias_lengthened">Lengthened</string>

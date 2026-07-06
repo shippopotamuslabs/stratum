@@ -86,6 +86,9 @@ class LiftSwapViewModel @Inject constructor(
                 is LiftSwapFilterIntent.SelectLibrary ->
                     swapFilters.value.copy(selectedLibrary = intent.library)
 
+                LiftSwapFilterIntent.ResetMuscles ->
+                    swapFilters.value.copy(selectedMuscles = emptySet())
+
                 LiftSwapFilterIntent.ResetAll -> LiftSwapFilters()
             }
     }

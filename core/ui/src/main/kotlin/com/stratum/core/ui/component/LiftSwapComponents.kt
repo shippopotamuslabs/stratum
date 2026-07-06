@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -39,11 +41,14 @@ import com.stratum.core.ui.R
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.LiftCategory
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.core.ui.component.toVolumeDisplayName
 
 @Composable
 fun FilterDropdownRow(
     state: LiftSwapSheetState,
     onFilterIntent: (LiftSwapFilterIntent) -> Unit,
+    onMuscleFilterClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = StratumThemeAccessor.colors
@@ -79,6 +84,12 @@ fun FilterDropdownRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            item(key = "muscles") {
+                MuscleFilterChip(
+                    selectedCount = state.selectedMuscles.size,
+                    onClick = onMuscleFilterClick,
+                )
+            }
             item(key = "bias") {
                 FilterDropdownChip(
                     label = stringResource(R.string.lift_swap_filter_bias),
@@ -104,6 +115,172 @@ fun FilterDropdownRow(
                     options = state.libraryOptions,
                     selectedValue = state.selectedLibrary,
                     onSelect = { library: LiftLibraryFilter? -> onFilterIntent(LiftSwapFilterIntent.SelectLibrary(library)) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MuscleFilterChip(
+    selectedCount: Int,
+    onClick: () -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val hasSelection = selectedCount > 0
+    val borderColor = if (hasSelection) colors.accent else colors.borderSubtle
+
+    Row(
+        modifier =
+            Modifier
+                .heightIn(min = MIN_TOUCH_HEIGHT)
+                .background(color = colors.surfaceRaised, shape = shapes.chip)
+                .border(width = shapes.borderWidth, color = borderColor, shape = shapes.chip)
+                .clickable { onClick() }
+                .semantics { role = Role.Button }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_accessibility),
+            contentDescription = null,
+            tint = if (hasSelection) colors.accent else colors.textMuted,
+        )
+        StratumText(
+            text = if (hasSelection) {
+                "${stringResource(R.string.lift_swap_filter_muscles)} ($selectedCount)"
+            } else {
+                stringResource(R.string.lift_swap_filter_muscles)
+            },
+            style = StratumThemeAccessor.typography.bodyLarge,
+            muted = !hasSelection,
+        )
+    }
+}
+
+@Composable
+fun SelectedMusclesRow(
+    selectedMuscles: Set<MuscleGroup>,
+    onMuscleToggled: (MuscleGroup) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (selectedMuscles.isEmpty()) return
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items(selectedMuscles.toList(), key = { it.name }) { muscle ->
+            StratumFilterChip(
+                label = muscle.toVolumeDisplayName(),
+                selected = true,
+                onSelectedChange = { onMuscleToggled(muscle) },
+                trailingIcon = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_close),
+                        contentDescription = "Remove ${muscle.toVolumeDisplayName()}",
+                        tint = StratumThemeAccessor.colors.onAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun MuscleFilterBottomSheet(
+    onDismissRequest: () -> Unit,
+    selectedMuscles: Set<MuscleGroup>,
+    muscleGroups: LiftSwapMuscleTiers,
+    onMuscleToggled: (MuscleGroup) -> Unit,
+    onClearAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    StratumBottomSheet(
+        onDismissRequest = onDismissRequest,
+        title = stringResource(R.string.lift_swap_filter_muscle_groups),
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item(key = "upper-body-header") {
+                    StratumText(
+                        text = "Upper Body",
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        muted = true,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+                item(key = "upper-body-grid") {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        muscleGroups.upper.forEach { card ->
+                            StratumMuscleFilterCard(
+                                state = card,
+                                selected = card.muscle in selectedMuscles,
+                                onClick = { onMuscleToggled(card.muscle) },
+                            )
+                        }
+                    }
+                }
+                item(key = "lower-body-header") {
+                    StratumText(
+                        text = "Lower Body",
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        muted = true,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+                item(key = "lower-body-grid") {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        muscleGroups.lower.forEach { card ->
+                            StratumMuscleFilterCard(
+                                state = card,
+                                selected = card.muscle in selectedMuscles,
+                                onClick = { onMuscleToggled(card.muscle) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (selectedMuscles.isNotEmpty()) {
+                    StratumOutlinedButton(
+                        text = "Clear All",
+                        onClick = onClearAll,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                StratumButton(
+                    text = "Done",
+                    onClick = onDismissRequest,
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -289,4 +466,4 @@ fun LibraryBadge() {
 
 private val MIN_TOUCH_HEIGHT = 48.dp
 private val THUMBNAIL_SIZE = 48.dp
-private val FILTER_CHIP_ORDER = listOf("bias", "lift-type", "library")
+private val FILTER_CHIP_ORDER = listOf("muscles", "bias", "lift-type", "library")
