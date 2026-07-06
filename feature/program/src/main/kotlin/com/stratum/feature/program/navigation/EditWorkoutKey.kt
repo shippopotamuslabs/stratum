@@ -17,7 +17,7 @@ data class EditWorkoutKey(
  */
 fun EntryProviderScope<NavKey>.editWorkoutEntry(
     onBackClick: () -> Unit,
-    onSwapLiftClick: (workoutLiftId: String, liftId: String, liftName: String) -> Unit,
+    onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     entry<EditWorkoutKey> { key ->

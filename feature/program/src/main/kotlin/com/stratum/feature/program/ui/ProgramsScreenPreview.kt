@@ -125,7 +125,7 @@ private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
                     ),
             ),
         callbacks = ProgramsScreenCallbacks(),
-        onSwapLiftClick = {},
+        onSwapLiftClick = { _, _ -> },
         isPreviewMode = isPreviewMode,
     )
 }
@@ -137,7 +137,7 @@ fun ProgramsScreenEmptyPreview() {
         ProgramsScreen(
             state = ProgramsUiState.Empty,
             callbacks = ProgramsScreenCallbacks(),
-            onSwapLiftClick = {},
+            onSwapLiftClick = { _, _ -> },
         )
     }
 }
@@ -255,7 +255,7 @@ private fun WorkoutCardPreviewContent(initiallyExpanded: Boolean = false) {
             onStartWorkoutClick = {},
             onEditWorkoutClick = {},
             onSkipWorkoutCheckedChange = { _, _ -> },
-            onSwapLiftClick = {},
+            onSwapLiftClick = { _, _ -> },
         )
     }
 }

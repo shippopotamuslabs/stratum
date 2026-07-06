@@ -68,8 +68,8 @@ fun StratumNavHost() {
                         backStack.removeAll { it is MainTabKey }
                         backStack.add(MainTabKey(isPreviewMode = false))
                     },
-                    onNavigateToSwap = { workoutLiftId, id, name ->
-                        backStack.add(LiftSwapKey(workoutLiftId, id, name))
+                    onNavigateToSwap = { workoutId, workoutLiftId, id, name ->
+                        backStack.add(LiftSwapKey(workoutId, workoutLiftId, id, name))
                     },
                     onNavigateToEditWorkout = { workoutId ->
                         backStack.add(EditWorkoutKey(workoutId))
@@ -90,8 +90,8 @@ fun StratumNavHost() {
             )
             editWorkoutEntry(
                 onBackClick = onNavigateBack,
-                onSwapLiftClick = { workoutLiftId, liftId, liftName ->
-                    backStack.add(LiftSwapKey(workoutLiftId, liftId, liftName))
+                onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
+                    backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
                 },
             )
             workoutEntry(

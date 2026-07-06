@@ -9,9 +9,10 @@ import kotlinx.serialization.Serializable
 /** Nav3 key for the Lift Swap screen (converting the bottom sheet to a screen). */
 @Serializable
 data class LiftSwapKey(
-    val workoutLiftId: String,
-    val liftId: String,
-    val liftName: String,
+    val workoutId: String,
+    val workoutLiftId: String? = null,
+    val liftId: String? = null,
+    val liftName: String? = null,
 ) : NavKey
 
 /**
@@ -24,6 +25,7 @@ fun EntryProviderScope<NavKey>.liftSwapEntry(
 ) {
     entry<LiftSwapKey> { key ->
         LiftSwapRoute(
+            workoutId = key.workoutId,
             workoutLiftId = key.workoutLiftId,
             liftId = key.liftId,
             liftName = key.liftName,

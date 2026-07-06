@@ -37,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
@@ -72,7 +73,7 @@ import com.stratum.feature.program.R
 internal fun ProgramsScreen(
     state: ProgramsUiState,
     callbacks: ProgramsScreenCallbacks,
-    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
     activeWorkoutBar: MinimizedWorkoutState? = null,
     onCancelWorkoutClick: () -> Unit = {},
@@ -382,7 +383,7 @@ internal fun ProgramsScreen(
 private fun LoadedProgramContent(
     state: ProgramsUiState.Loaded,
     callbacks: ProgramsScreenCallbacks,
-    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     isPreviewMode: Boolean,
 ) {
     if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
@@ -475,7 +476,7 @@ internal fun WorkoutCard(
     onStartWorkoutClick: (String) -> Unit,
     onEditWorkoutClick: (workoutId: String) -> Unit,
     onSkipWorkoutCheckedChange: (workoutName: String, checked: Boolean) -> Unit,
-    onSwapLiftClick: (WorkoutLiftLineState) -> Unit,
+    onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
     isPreviewMode: Boolean = false,
 ) {
@@ -490,8 +491,6 @@ internal fun WorkoutCard(
         } else {
             stringResource(R.string.programs_expand_workout_a11y, workout.name)
         }
-    val toggleInteractionSource = remember { MutableInteractionSource() }
-
     Column(
         modifier =
             modifier
@@ -504,7 +503,9 @@ internal fun WorkoutCard(
                     width = StratumThemeAccessor.shapes.borderWidth,
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = StratumThemeAccessor.shapes.panel,
-                ),
+                )
+                .clip(StratumThemeAccessor.shapes.panel)
+                .clickable { onEditWorkoutClick(workout.workoutId) },
     ) {
         Row(
             modifier =
@@ -520,26 +521,27 @@ internal fun WorkoutCard(
             Row(
                 modifier =
                     Modifier
-                        .weight(1f)
-                        .semantics { contentDescription = expandCollapseLabel }
-                        .clickable(
-                            interactionSource = toggleInteractionSource,
-                            indication = null,
-                            onClick = { onExpandedChange(!expanded) },
-                        ),
+                        .weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                Icon(
-                    painter = painterResource(CoreUiR.drawable.ic_chevron_down),
-                    contentDescription = null,
-                    modifier =
-                        Modifier
-                            .padding(top = 4.dp)
-                            .size(WorkoutChevronSize)
-                            .rotate(chevronRotation),
-                    tint = StratumThemeAccessor.colors.textMuted,
-                )
+                StratumIconButton(
+                    onClick = { onExpandedChange(!expanded) },
+                    modifier = Modifier
+                        .semantics { contentDescription = expandCollapseLabel }
+                        .padding(top = 2.dp)
+                        .size(24.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .size(WorkoutChevronSize)
+                                .rotate(chevronRotation),
+                        tint = StratumThemeAccessor.colors.textMuted,
+                    )
+                }
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -547,7 +549,6 @@ internal fun WorkoutCard(
                     StratumText(
                         text = workout.name,
                         style = StratumThemeAccessor.typography.titleLarge,
-                        modifier = Modifier.clickable { onEditWorkoutClick(workout.workoutId) },
                     )
                     StratumText(text = workout.weekdayLabel, muted = true)
                 }
@@ -567,7 +568,7 @@ internal fun WorkoutCard(
                 sortedLifts.forEachIndexed { index, lift ->
                     LiftRow(
                         lift = lift,
-                        onSwapLiftClick = { onSwapLiftClick(lift) },
+                        onSwapLiftClick = { onSwapLiftClick(workout.workoutId, lift) },
                     )
                     if (index < sortedLifts.lastIndex) {
                         WorkoutCardDivider(startPadding = WorkoutCardContentPadding)

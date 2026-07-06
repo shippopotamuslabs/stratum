@@ -16,6 +16,8 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.ui.WorkoutLiftLineState
 import com.stratum.core.ui.component.toVolumeDisplayName
 
+import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
+
 /**
  * Domain → presentation mapping for the lift swap bottom sheet. Pure functions — no use-case
  * or repository access (ARCHITECTURE.md §4.4). The ViewModel passes the ranked candidate list
@@ -28,6 +30,8 @@ internal fun buildLiftSwapSheetState(
     ranked: List<ScoredLift>,
     filters: LiftSwapFilters,
 ): LiftSwapSheetState {
+    val isAddMode = targetLiftName == PLACEHOLDER_LIFT_NAME
+
     val filtered =
         ranked
             .asSequence()
@@ -60,6 +64,7 @@ internal fun buildLiftSwapSheetState(
         selectedCategory = filters.selectedCategory,
         selectedLibrary = filters.selectedLibrary,
         searchQuery = filters.searchQuery,
+        isAddMode = isAddMode,
     )
 }
 

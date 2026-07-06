@@ -73,16 +73,17 @@ import com.stratum.feature.program.LiftSwapViewModel
  */
 @Composable
 fun LiftSwapRoute(
-    workoutLiftId: String,
-    liftId: String,
-    liftName: String,
+    workoutId: String,
+    workoutLiftId: String?,
+    liftId: String?,
+    liftName: String?,
     onBackClick: () -> Unit,
     onCreateNewLift: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LiftSwapViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(liftId, liftName) {
-        viewModel.initialize(liftId, liftName)
+    LaunchedEffect(workoutId, workoutLiftId, liftId, liftName) {
+        viewModel.initialize(workoutId, workoutLiftId, liftId, liftName)
     }
 
     val state by viewModel.liftSwapState.collectAsStateWithLifecycle()
@@ -91,8 +92,7 @@ fun LiftSwapRoute(
         LiftSwapScreen(
             state = activeState,
             onLiftSelected = { newLiftId ->
-                viewModel.swapLift(
-                    workoutLiftId = workoutLiftId,
+                viewModel.selectLift(
                     newLiftId = newLiftId,
                     onComplete = onBackClick
                 )
@@ -126,7 +126,11 @@ fun LiftSwapScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             StratumTopBar(
-                title = stringResource(R.string.lift_swap_title, state.targetLiftName),
+                title = if (state.isAddMode) {
+                    stringResource(R.string.lift_add_title)
+                } else {
+                    stringResource(R.string.lift_swap_title, state.targetLiftName)
+                },
                 navigationIcon = {
                     StratumTopBarBackButton(
                         onClick = onBackClick,
@@ -174,7 +178,7 @@ fun LiftSwapScreen(
                     .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (isDefaultScreen) {
+                if (isDefaultScreen && !state.isAddMode) {
                     val similarLifts = state.options.filter { it.similarity >= SIMILARITY_THRESHOLD }
                     val remainingLifts = state.options.filter { it.similarity < SIMILARITY_THRESHOLD }
 

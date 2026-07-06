@@ -870,6 +870,26 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("Given active session when abandoned then ViewModel clears all states and overlay")
+    fun abandonWorkoutSessionClearsStateAndOverlay() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertNotNull(loaded)
+
+            // Abandon the session
+            viewModel.abandonSession()
+
+            // Should transition to NoActiveSession and reset states
+            val noSession = awaitItem()
+            assertTrue(noSession is WorkoutUiState.NoActiveSession)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("S7-mutation-defense-no-verify")
     fun `S7-mutation-defense-no-verify`() {
         // This ViewModel test must not use MockK verify / coVerify (Detekt enforced).

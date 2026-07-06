@@ -30,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
@@ -71,7 +72,7 @@ private const val REORDER_DRAG_THRESHOLD_DP = 48f
 fun EditWorkoutRoute(
     workoutId: String,
     onBackClick: () -> Unit,
-    onSwapLiftClick: (workoutLiftId: String, liftId: String, liftName: String) -> Unit,
+    onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: EditWorkoutViewModel = hiltViewModel(),
 ) {
@@ -83,12 +84,21 @@ fun EditWorkoutRoute(
     val loadedState = state as? EditWorkoutUiState.Loaded
     var showDiscardDialog by remember { mutableStateOf(false) }
 
+    BackHandler(enabled = loadedState?.isDirty == true || loadedState?.isReorderMode == true) {
+        if (loadedState?.isReorderMode == true) {
+            viewModel.cancelReorderMode()
+        } else {
+            showDiscardDialog = true
+        }
+    }
+
     EditWorkoutScreen(
         state = state,
         showDiscardDialog = showDiscardDialog,
         onDismissDiscardDialog = { showDiscardDialog = false },
         onConfirmDiscard = {
             showDiscardDialog = false
+            viewModel.clearSession()
             onBackClick()
         },
         onBackClick = {
@@ -97,6 +107,7 @@ fun EditWorkoutRoute(
             } else if (loadedState?.isDirty == true) {
                 showDiscardDialog = true
             } else {
+                viewModel.clearSession()
                 onBackClick()
             }
         },
@@ -109,8 +120,8 @@ fun EditWorkoutRoute(
                 onRemoveSet = viewModel::removeSet,
                 onAddLift = { viewModel.addLift(onSwapLiftClick) },
                 onRemoveLift = viewModel::removeLift,
-                onLinkSupersetWithPrevious = viewModel::linkSupersetWithPrevious,
-                onLinkSupersetWithNext = viewModel::linkSupersetWithNext,
+                onLinkSupersetWithPrevious = { viewModel.linkSuperset(it, SupersetLinkDirection.Previous) },
+                onLinkSupersetWithNext = { viewModel.linkSuperset(it, SupersetLinkDirection.Next) },
                 onRemoveFromSuperset = viewModel::removeFromSuperset,
                 onSetRestSeconds = viewModel::setRestSeconds,
                 onSetRestSecondsForAllSetsOnLift = viewModel::setRestSecondsForAllSetsOnLift,
@@ -119,7 +130,14 @@ fun EditWorkoutRoute(
                 onSetRirGoal = viewModel::setRirGoal,
                 onSetUseRestTimerBetweenLifts = viewModel::setUseRestTimerBetweenLifts,
                 onSetProgressionScheme = viewModel::setProgressionScheme,
-                onSaveWorkout = { viewModel.saveWorkout(onComplete = onBackClick) },
+                onSaveWorkout = {
+                    viewModel.saveWorkout(
+                        onComplete = {
+                            viewModel.clearSession()
+                            onBackClick()
+                        },
+                    )
+                },
                 onSwapLiftClick = onSwapLiftClick,
             ),
         modifier = modifier,
@@ -399,7 +417,7 @@ private fun EditWorkoutContent(
                 onRemoveLift = { callbacks.onRemoveLift(lift.workoutLiftId) },
                 onCreateSupersetClick = { onCreateSupersetClick(lift.workoutLiftId) },
                 onSwapLiftClick = {
-                    callbacks.onSwapLiftClick(lift.workoutLiftId, lift.liftId, lift.name)
+                    callbacks.onSwapLiftClick(state.workoutId, lift.workoutLiftId, lift.liftId, lift.name)
                 },
                 onRestClick = onRestClick,
                 onRirClick = onRirClick,

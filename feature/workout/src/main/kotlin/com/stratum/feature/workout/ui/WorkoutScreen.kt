@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -68,6 +69,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumSupersetGroupColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
+import com.stratum.feature.workout.R
 
 @Composable
 fun WorkoutScreen(
@@ -318,7 +320,9 @@ private fun LiftSection(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -353,14 +357,18 @@ private fun LiftSection(
         lift.supersetGroupId?.let { groupId ->
             WorkoutSupersetGroupChip(
                 groupId = groupId,
-                modifier = Modifier.padding(vertical = 2.dp).padding(horizontal = 16.dp)
+                modifier = Modifier
+                    .padding(vertical = 2.dp)
+                    .padding(horizontal = 16.dp)
             )
         }
 
         Spacer(modifier = Modifier.height(4.dp))
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TableHeaderCell("Set", Modifier.weight(0.10f), alignment = Alignment.CenterStart)
@@ -466,7 +474,9 @@ private fun WorkoutSetRow(
             placeholder = set.recommendedWeightLabel,
             onValueChange = { weightState.value = it },
             enabled = !set.isComplete,
-            modifier = Modifier.weight(0.22f).padding(horizontal = 2.dp)
+            modifier = Modifier
+                .weight(0.22f)
+                .padding(horizontal = 2.dp)
         )
 
         InlineNumericCell(
@@ -474,7 +484,9 @@ private fun WorkoutSetRow(
             placeholder = set.recommendedRepsLabel,
             onValueChange = { repsState.value = it },
             enabled = !set.isComplete,
-            modifier = Modifier.weight(0.18f).padding(horizontal = 2.dp)
+            modifier = Modifier
+                .weight(0.18f)
+                .padding(horizontal = 2.dp)
         )
 
         Box(modifier = Modifier.weight(0.12f), contentAlignment = Alignment.Center) {
@@ -624,7 +636,9 @@ private fun RestTimerBottomSheet(
         StratumText(
             text = "Rest Timer",
             style = StratumThemeAccessor.typography.titleLarge,
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp)
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(bottom = 8.dp)
         )
 
         val progress = if (totalSeconds > 0) remainingSeconds.toFloat() / totalSeconds else 0f
@@ -646,7 +660,9 @@ private fun RestTimerBottomSheet(
 
         if (isTimerActive) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -690,18 +706,24 @@ private fun RestTimerBottomSheet(
             StratumButton(
                 text = "Skip",
                 onClick = onSkip,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
             )
         } else {
             StratumText(
                 text = "Choose Rest Time to Start Timer:",
                 style = StratumThemeAccessor.typography.bodyLarge,
                 muted = true,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp)
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 8.dp)
             )
 
             FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -755,11 +777,11 @@ private fun DiscardWorkoutDialog(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             StratumText(
-                text = "Abandon Workout?",
+                text = stringResource(R.string.workout_screen_discard_workout),
                 style = StratumThemeAccessor.typography.titleLarge
             )
             StratumText(
-                text = "This will permanently delete the current training session and all logged sets. Are you sure?",
+                text = stringResource(R.string.workout_screen_discard_confirm_body),
                 style = StratumThemeAccessor.typography.bodyLarge,
                 muted = true
             )
@@ -768,11 +790,11 @@ private fun DiscardWorkoutDialog(
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
             ) {
                 StratumOutlinedButton(
-                    text = "Cancel",
+                    text = stringResource(R.string.workout_screen_cancel_discard),
                     onClick = onDismiss,
                 )
                 StratumButton(
-                    text = "Abandon",
+                    text = stringResource(R.string.workout_screen_confirm_discard),
                     onClick = onConfirm,
                 )
             }
