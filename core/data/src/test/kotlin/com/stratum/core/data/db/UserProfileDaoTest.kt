@@ -51,7 +51,7 @@ class UserProfileDaoTest {
     fun upsertPersistsRowAndObserveEmitsIt() = runTest {
         val row = UserProfileEntity(
             trainingAge = TrainingAge.Intermediate,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
             weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
             sessionLengthMinutes = 60,
         )
@@ -85,7 +85,7 @@ class UserProfileDaoTest {
         subject.upsert(
             UserProfileEntity(
                 trainingAge = TrainingAge.Advanced,
-                lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+                lastTrained = LastTrainedBucket.MoreThanThreeMonthsAgo,
                 weekdays = setOf(Weekday.Saturday, Weekday.Sunday),
                 sessionLengthMinutes = 75,
             ),

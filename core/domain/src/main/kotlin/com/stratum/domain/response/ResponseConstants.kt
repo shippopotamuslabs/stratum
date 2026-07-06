@@ -31,3 +31,9 @@ const val REGRESSION_RSQUARED_EPSILON = 1e-9
 const val REGRESSION_R2_WEIGHT = 0.7
 const val REGRESSION_COMPLETENESS_WEIGHT = 0.3
 const val MAD_MIN_EPSILON = 1e-9
+
+/** Population-gradient default for within-session e1RM decay per set index (Q2 resolution). */
+const val POPULATION_FATIGUE_DECAY_SLOPE: Double = -2.0
+
+/** Intercept for the population-gradient fatigue default (Q2 resolution). */
+const val POPULATION_FATIGUE_DECAY_INTERCEPT: Double = 0.0

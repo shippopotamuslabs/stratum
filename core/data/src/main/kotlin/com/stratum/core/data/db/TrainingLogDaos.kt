@@ -6,6 +6,9 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.flow.Flow
@@ -111,6 +114,25 @@ interface TrainingLoggedSetDao {
 
     @Query("DELETE FROM logged_sets WHERE id = :id")
     suspend fun deleteById(id: LoggedSetId)
+
+    @Query(
+        """
+        SELECT ls.* FROM logged_sets ls
+        INNER JOIN training_sessions ts ON ls.sessionId = ts.id
+        WHERE ts.program_id = :programId
+          AND ls.liftId = :liftId
+          AND ls.setIndex = :setIndex
+        ORDER BY
+          CASE WHEN ts.workout_id = :workoutId THEN 0 ELSE 1 END,
+          ts.started_at_epoch_millis DESC
+        """,
+    )
+    suspend fun getHistoryForSlot(
+        programId: ProgramId,
+        workoutId: WorkoutId,
+        liftId: LiftId,
+        setIndex: Int,
+    ): List<LoggedSetEntity>
 
     @Query(
         """

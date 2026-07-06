@@ -42,7 +42,7 @@ class GetOnboardingStateUseCaseTest {
         val progress = OnboardingProgress(OnboardingStep.Schedule, startedAt = 1L, completedAt = null)
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
         )
         fakeOnboarding.seed(progress)
         fakeProfile.seed(profile)

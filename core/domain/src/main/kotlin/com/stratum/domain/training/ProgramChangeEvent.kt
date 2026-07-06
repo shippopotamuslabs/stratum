@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -12,6 +13,7 @@ enum class ProgramChangeEventType {
     WORKOUT_EDITED,
     PROGRAM_REGENERATED,
     CYCLE_COMPLETED,
+    SCHEME_CHANGED,
 }
 
 data class ProgramChangeEvent(
@@ -34,4 +36,12 @@ sealed interface ProgramChangeEventPayload {
     data object ProgramRegenerated : ProgramChangeEventPayload
 
     data class CycleCompleted(val completedCycleNumber: Int) : ProgramChangeEventPayload
+
+    /** NEW (Slice 8): a progression-scheme change on a [WorkoutLift]. Append-only. */
+    data class SchemeChanged(
+        val workoutLiftId: WorkoutLiftId,
+        val liftId: LiftId,
+        val previous: ProgressionScheme,
+        val current: ProgressionScheme,
+    ) : ProgramChangeEventPayload
 }

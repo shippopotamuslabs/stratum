@@ -41,6 +41,7 @@ import com.stratum.core.ui.component.StratumDurationStepper
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
+import com.stratum.core.ui.component.StratumPillToggle
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBarTextButton
@@ -51,6 +52,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.core.ui.component.StratumScopedMuscleVolumeRow
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.feature.program.EditWorkoutViewModel
 import com.stratum.feature.program.R
 import com.stratum.feature.program.SupersetLinkDirection
@@ -115,6 +117,7 @@ fun EditWorkoutRoute(
                 onSetRepMax = viewModel::setRepMax,
                 onSetRirGoal = viewModel::setRirGoal,
                 onSetUseRestTimerBetweenLifts = viewModel::setUseRestTimerBetweenLifts,
+                onSetProgressionScheme = viewModel::setProgressionScheme,
                 onSaveWorkout = { viewModel.saveWorkout(onComplete = onBackClick) },
                 onSwapLiftClick = onSwapLiftClick,
             ),
@@ -137,6 +140,7 @@ fun EditWorkoutScreen(
     var restSheetSeconds by remember { mutableIntStateOf(DEFAULT_REST_SECONDS) }
     var rirSheetSet by remember { mutableStateOf<EditSetState?>(null) }
     var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
+    var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
 
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
@@ -197,6 +201,7 @@ fun EditWorkoutScreen(
                         },
                         onRirClick = { set -> rirSheetSet = set },
                         onCreateSupersetClick = { liftId -> supersetSheetLiftId = liftId },
+                        onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
                         modifier = Modifier.padding(padding),
                     )
                 }
@@ -273,6 +278,10 @@ fun EditWorkoutScreen(
             onDismiss = onDismissDiscardDialog,
         )
     }
+
+    if (showProgressionSchemeExplainer) {
+        ProgressionSchemeExplainerSheet(onDismiss = { showProgressionSchemeExplainer = false })
+    }
 }
 
 @Composable
@@ -341,6 +350,7 @@ private fun EditWorkoutContent(
     onRestClick: (workoutLiftId: String, EditSetState) -> Unit,
     onRirClick: (EditSetState) -> Unit,
     onCreateSupersetClick: (workoutLiftId: String) -> Unit,
+    onShowProgressionSchemeInfo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -394,6 +404,8 @@ private fun EditWorkoutContent(
                 onRirClick = onRirClick,
                 onSetRepMin = callbacks.onSetRepMin,
                 onSetRepMax = callbacks.onSetRepMax,
+                onSetProgressionScheme = callbacks.onSetProgressionScheme,
+                onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
             )
         }
         item {
@@ -443,6 +455,8 @@ private fun EditLiftPanel(
     onRirClick: (EditSetState) -> Unit,
     onSetRepMin: (setId: String, repMin: Int) -> Unit,
     onSetRepMax: (setId: String, repMax: Int) -> Unit,
+    onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit,
+    onShowProgressionSchemeInfo: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -515,6 +529,14 @@ private fun EditLiftPanel(
             }
         }
 
+        if (lift.isCompound) {
+            ProgressionSchemeToggleRow(
+                selectedScheme = lift.progressionScheme,
+                onSchemeSelected = { scheme -> onSetProgressionScheme(lift.workoutLiftId, scheme) },
+                onInfoClick = onShowProgressionSchemeInfo,
+            )
+        }
+
         if (lift.showsSupersetChip(allLifts)) {
             lift.supersetGroupId?.let { groupId ->
                 SupersetGroupChip(groupId = groupId)
@@ -530,6 +552,55 @@ private fun EditLiftPanel(
             onRestClick = { set -> onRestClick(lift.workoutLiftId, set) },
             onRirClick = onRirClick,
         )
+    }
+}
+
+@Composable
+private fun ProgressionSchemeToggleRow(
+    selectedScheme: ProgressionScheme,
+    onSchemeSelected: (ProgressionScheme) -> Unit,
+    onInfoClick: () -> Unit,
+) {
+    val segments =
+        listOf(
+            stringResource(R.string.edit_workout_progression_scheme_linear),
+            stringResource(R.string.edit_workout_progression_scheme_double),
+        )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumText(
+            text = stringResource(R.string.edit_workout_progression_scheme_label),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StratumPillToggle(
+                segments = segments,
+                selectedIndex = if (selectedScheme == ProgressionScheme.Linear) 0 else 1,
+                onSelectedIndexChange = { index ->
+                    onSchemeSelected(
+                        if (index == 0) ProgressionScheme.Linear else ProgressionScheme.Double,
+                    )
+                },
+            )
+            StratumIconButton(
+                onClick = onInfoClick,
+                containerColor = Color.Transparent,
+            ) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_info),
+                    contentDescription =
+                        stringResource(R.string.edit_workout_progression_scheme_info_content_description),
+                    tint = StratumThemeAccessor.colors.textMuted,
+                )
+            }
+        }
     }
 }
 

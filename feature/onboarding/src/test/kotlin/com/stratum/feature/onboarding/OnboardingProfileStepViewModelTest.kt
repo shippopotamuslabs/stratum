@@ -69,7 +69,7 @@ class OnboardingProfileStepViewModelTest {
 
         val saved = OnboardingViewModelTestFixtures.fakeProfileRepository.current
         assertEquals(TrainingAge.Intermediate, saved?.trainingAge)
-        assertEquals(LastTrainedBucket.WithinLastMonth, saved?.lastTrained)
+        assertEquals(LastTrainedBucket.WithinLastThreeMonths, saved?.lastTrained)
     }
 
     @Test
@@ -78,7 +78,7 @@ class OnboardingProfileStepViewModelTest {
         OnboardingViewModelTestFixtures.fakeProfileRepository.seed(
             UserTrainingProfile(
                 trainingAge = TrainingAge.Advanced,
-                lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+                lastTrained = LastTrainedBucket.MoreThanThreeMonthsAgo,
             ),
         )
         subject = OnboardingViewModelTestFixtures.buildViewModel()

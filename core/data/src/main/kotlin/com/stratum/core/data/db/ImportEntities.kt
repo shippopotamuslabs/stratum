@@ -41,6 +41,7 @@ data class ImportJobEntity(
     indices = [
         Index("sessionId"),
         Index("completedAtEpochMillis"),
+        Index(value = ["workoutLiftId", "liftId", "setIndex"]),
     ],
 )
 data class LoggedSetEntity(

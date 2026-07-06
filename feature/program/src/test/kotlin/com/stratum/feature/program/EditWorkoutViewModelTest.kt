@@ -351,6 +351,7 @@ class EditWorkoutViewModelTest {
             saveWorkoutUseCase = SaveWorkoutUseCase(repository, com.stratum.core.testing.training.NoOpProgramChangeEventRepository()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
+            programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
         )
     }
 

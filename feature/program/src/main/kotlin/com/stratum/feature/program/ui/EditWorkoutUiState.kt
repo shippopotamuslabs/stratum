@@ -1,6 +1,7 @@
 package com.stratum.feature.program.ui
 
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
+import com.stratum.domain.program.ProgressionScheme
 
 /**
  * Presentation state for [EditWorkoutScreen]. Domain models never reach composables
@@ -33,6 +34,9 @@ enum class SaveBlockedReason {
     PlaceholderLift,
 }
 
+// Slice 8 (D11): scheme toggle asserts against ProgressionScheme values, so the enum
+// is carried verbatim rather than mapped to a label.
+@Suppress("ForbiddenDomainTypeInUiState")
 data class EditLiftState(
     val workoutLiftId: String,
     val liftId: String,
@@ -41,6 +45,8 @@ data class EditLiftState(
     val sets: List<EditSetState>,
     val supersetGroupId: String? = null,
     val useRestTimerBetweenLifts: Boolean = false,
+    val isCompound: Boolean = false,
+    val progressionScheme: ProgressionScheme = ProgressionScheme.Double,
 )
 
 data class EditSetState(

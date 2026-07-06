@@ -19,6 +19,7 @@ import java.util.UUID
 
 internal fun Workout.toEditWorkoutUiState(
     liftNamesById: Map<String, String>,
+    compoundByLiftId: Map<String, Boolean> = emptyMap(),
 ): EditWorkoutUiState.Loaded =
     EditWorkoutUiState.Loaded(
         workoutId = id.value,
@@ -27,10 +28,13 @@ internal fun Workout.toEditWorkoutUiState(
         lifts =
             workoutLifts
                 .sortedBy { lift -> lift.position }
-                .map { lift -> lift.toEditLiftState(liftNamesById) },
+                .map { lift -> lift.toEditLiftState(liftNamesById, compoundByLiftId) },
     )
 
-internal fun WorkoutLift.toEditLiftState(liftNamesById: Map<String, String>): EditLiftState =
+internal fun WorkoutLift.toEditLiftState(
+    liftNamesById: Map<String, String>,
+    compoundByLiftId: Map<String, Boolean> = emptyMap(),
+): EditLiftState =
     EditLiftState(
         workoutLiftId = id.value,
         liftId = liftId.value,
@@ -42,6 +46,8 @@ internal fun WorkoutLift.toEditLiftState(liftNamesById: Map<String, String>): Ed
                 .mapIndexed { index, set -> set.toEditSetState(index + 1) },
         supersetGroupId = supersetGroupId?.value,
         useRestTimerBetweenLifts = useRestTimerBetweenLifts,
+        isCompound = compoundByLiftId[liftId.value] ?: false,
+        progressionScheme = progressionScheme,
     )
 
 internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =

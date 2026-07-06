@@ -48,7 +48,7 @@ class ValidateCurrentOnboardingStepUseCaseTest {
             step = OnboardingStep.Profile,
             profile = UserTrainingProfile(
                 trainingAge = TrainingAge.Intermediate,
-                lastTrained = LastTrainedBucket.WithinLastMonth,
+                lastTrained = LastTrainedBucket.WithinLastThreeMonths,
             ),
             specialization = SpecializationPreference.Empty,
             lifts = emptyList(),

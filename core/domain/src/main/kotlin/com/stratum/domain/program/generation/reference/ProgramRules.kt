@@ -3,6 +3,8 @@
 package com.stratum.domain.program.generation.reference
 
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.onboarding.LastTrainedBucket
+import com.stratum.domain.onboarding.TrainingAge
 
 /** Movement patterns classified as major compound for back-off RIR clamping (§2.3). */
 val MAJOR_COMPOUND_PATTERNS: Set<MovementPattern> = setOf(
@@ -29,6 +31,24 @@ enum class ProgressionScheme {
  */
 fun schemeForTrainingAge(trainingAge: String): ProgressionScheme =
     if (trainingAge == "Beginner") ProgressionScheme.Linear else ProgressionScheme.Double
+
+/**
+ * NEW (D8): consults `lastTrained` + `isCompound` alongside `trainingAge`. Returns
+ * `Linear` iff `isCompound && (trainingAge == Beginner || lastTrained == MoreThanThreeMonthsAgo)`;
+ * else `Double`. Returns the domain [com.stratum.domain.program.ProgressionScheme].
+ */
+fun schemeForTrainingAge(
+    trainingAge: TrainingAge?,
+    lastTrained: LastTrainedBucket?,
+    isCompound: Boolean,
+): com.stratum.domain.program.ProgressionScheme {
+    // Isolation lifts never run Linear (D8 Rejected e/f).
+    if (!isCompound) return com.stratum.domain.program.ProgressionScheme.Double
+    // Beginner-gains OR returning from a >3 month layoff → Linear on compounds.
+    if (trainingAge == TrainingAge.Beginner) return com.stratum.domain.program.ProgressionScheme.Linear
+    if (lastTrained == LastTrainedBucket.MoreThanThreeMonthsAgo) return com.stratum.domain.program.ProgressionScheme.Linear
+    return com.stratum.domain.program.ProgressionScheme.Double
+}
 
 /**
  * Clamps a proposed back-off RIR to the §2.3 lift-class table: major compounds 1–2 (default 2 when

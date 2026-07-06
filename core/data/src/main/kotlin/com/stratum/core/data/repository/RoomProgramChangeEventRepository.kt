@@ -49,6 +49,8 @@ class RoomProgramChangeEventRepository @Inject constructor(
                     ProgramChangeEventPayload.CycleCompleted(
                         completedCycleNumber = requireNotNull(completedCycleNumber),
                     )
+                ProgramChangeEventType.SCHEME_CHANGED ->
+                    throw NotImplementedError("TDD Red")
             }
         return ProgramChangeEvent(
             id = id,

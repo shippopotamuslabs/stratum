@@ -17,7 +17,6 @@ internal fun List<EditLiftState>.toWorkout(
     baseline: Workout,
     workoutId: WorkoutId,
 ): Workout {
-    val baselineLiftsById = baseline.workoutLifts.associateBy { lift -> lift.id.value }
     val baselineSetsById =
         baseline.workoutLifts
             .flatMap { lift -> lift.sets }
@@ -27,8 +26,7 @@ internal fun List<EditLiftState>.toWorkout(
         workoutLifts =
             sortedBy { lift -> lift.position }
                 .map { editLift ->
-                    val baselineLift = baselineLiftsById[editLift.workoutLiftId]
-                    val progressionScheme = baselineLift?.progressionScheme ?: ProgressionScheme.Linear
+                    val progressionScheme = editLift.progressionScheme
                     WorkoutLift(
                         id = WorkoutLiftId(editLift.workoutLiftId),
                         workoutId = workoutId,

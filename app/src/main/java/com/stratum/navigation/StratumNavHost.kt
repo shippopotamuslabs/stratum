@@ -20,6 +20,8 @@ import com.stratum.feature.program.navigation.EditWorkoutKey
 import com.stratum.feature.program.navigation.editWorkoutEntry
 import com.stratum.feature.program.navigation.LiftSwapKey
 import com.stratum.feature.program.navigation.liftSwapEntry
+import com.stratum.feature.workout.navigation.WorkoutKey
+import com.stratum.feature.workout.navigation.workoutEntry
 
 @Composable
 fun StratumNavHost() {
@@ -72,6 +74,9 @@ fun StratumNavHost() {
                     onNavigateToEditWorkout = { workoutId ->
                         backStack.add(EditWorkoutKey(workoutId))
                     },
+                    onNavigateToWorkout = { workoutId ->
+                        backStack.add(WorkoutKey(workoutId))
+                    },
                     onCreateNewLift = {
                         // Navigate to custom lift screen in future slice
                     },
@@ -87,6 +92,13 @@ fun StratumNavHost() {
                 onBackClick = onNavigateBack,
                 onSwapLiftClick = { workoutLiftId, liftId, liftName ->
                     backStack.add(LiftSwapKey(workoutLiftId, liftId, liftName))
+                },
+            )
+            workoutEntry(
+                onNavigateBack = onNavigateBack,
+                onNavigateToFinalize = { _ ->
+                    // Finalize route is wired in a future slice.
+                    onNavigateBack()
                 },
             )
         },

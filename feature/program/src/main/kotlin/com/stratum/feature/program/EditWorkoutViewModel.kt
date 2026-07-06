@@ -12,6 +12,10 @@ import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.domain.program.mergeWorkout
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.training.ProgramChangeEventPayload
+import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -26,12 +30,16 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 @HiltViewModel
+// Slice 8 (D11): no AppendProgramChangeEventUseCase wrapper exists; SchemeChanged is
+// appended directly via the repository port (spec API-contracts note).
+@Suppress("ForbiddenRepositoryInViewModel")
 class EditWorkoutViewModel @Inject constructor(
     private val observeProgram: ObserveProgramUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val saveWorkoutUseCase: SaveWorkoutUseCase,
     private val computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
     private val estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
+    private val programChangeEventRepository: ProgramChangeEventRepository,
 ) : ViewModel() {
     private val targetWorkoutId = MutableStateFlow<String?>(null)
     private val hasSnapshot = MutableStateFlow(false)
@@ -76,7 +84,8 @@ class EditWorkoutViewModel @Inject constructor(
                         }
                     }
                     !hasSnapshot.value -> {
-                        val loaded = workout.toEditWorkoutUiState(liftNamesById).markSaveState()
+                        val compoundByLiftId = catalogLifts.associate { lift -> lift.id.value to lift.isCompound }
+                        val loaded = workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId).markSaveState()
                         _uiState.value = applyDerivedMetrics(loaded)
                         hasSnapshot.value = true
                     }
@@ -105,12 +114,19 @@ class EditWorkoutViewModel @Inject constructor(
             val updatedWorkout = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))
             saveWorkoutUseCase(WorkoutId(loaded.workoutId), updatedWorkout)
                 .onSuccess {
+                    // Slice 8 (D11): append a SchemeChanged event for each lift whose
+                    // progression scheme differs from the baseline (compounds only —
+                    // isolation toggles are no-ops in setProgressionScheme). Append-only.
+                    appendSchemeChangedEvents(baseline, updatedWorkout)
                     baselineWorkout = updatedWorkout
                     programSnapshot =
                         programSnapshot?.mergeWorkout(WorkoutId(loaded.workoutId), updatedWorkout)
                     val savedState =
                         updatedWorkout
-                            .toEditWorkoutUiState(catalogLifts.associate { lift -> lift.id.value to lift.name })
+                            .toEditWorkoutUiState(
+                                catalogLifts.associate { lift -> lift.id.value to lift.name },
+                                catalogLifts.associate { lift -> lift.id.value to lift.isCompound },
+                            )
                             .copy(isDirty = false, isSaving = false)
                             .markSaveState()
                     _uiState.value = applyDerivedMetrics(savedState)
@@ -119,6 +135,40 @@ class EditWorkoutViewModel @Inject constructor(
                 .onFailure {
                     _uiState.value = loaded.copy(isSaving = false)
                 }
+        }
+    }
+
+    private suspend fun appendSchemeChangedEvents(
+        baseline: Workout,
+        updated: Workout,
+    ) {
+        val program = programSnapshot ?: return
+        val baselineById = baseline.workoutLifts.associateBy { it.id }
+        val changed = updated.workoutLifts.mapNotNull { updatedLift ->
+            val baselineLift = baselineById[updatedLift.id]
+            if (baselineLift != null && baselineLift.progressionScheme != updatedLift.progressionScheme) {
+                baselineLift.progressionScheme to updatedLift
+            } else {
+                null
+            }
+        }
+        for ((previous, updatedLift) in changed) {
+            programChangeEventRepository.append(
+                com.stratum.domain.training.ProgramChangeEvent(
+                    id = com.stratum.domain.training.identity.ProgramChangeEventId(
+                        java.util.UUID.randomUUID().toString(),
+                    ),
+                    programId = program.id,
+                    eventType = ProgramChangeEventType.SCHEME_CHANGED,
+                    occurredAt = java.time.Instant.now(),
+                    payload = ProgramChangeEventPayload.SchemeChanged(
+                        workoutLiftId = updatedLift.id,
+                        liftId = updatedLift.liftId,
+                        previous = previous,
+                        current = updatedLift.progressionScheme,
+                    ),
+                ),
+            )
         }
     }
 
@@ -283,6 +333,30 @@ class EditWorkoutViewModel @Inject constructor(
                             lift
                         }
                     },
+            )
+        }
+    }
+
+    /**
+     * Slice 8 (D11) — per-lift progression-scheme toggle. Only compound lifts may move off
+     * `Double`; isolation lifts are pinned (no-op). On save, a `SchemeChanged` event is
+     * appended when the scheme actually changed (see [saveWorkout]).
+     *
+     * A no-op toggle (isolation lift, or same scheme) re-emits the current state so
+     * observers see a value, but does NOT mark the workout dirty — `isDirty` only flips
+     * when the scheme actually changes.
+     */
+    fun setProgressionScheme(workoutLiftId: String, scheme: ProgressionScheme) {
+        val current = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val lift = current.lifts.firstOrNull { it.workoutLiftId == workoutLiftId } ?: return
+        // Isolation lifts are pinned to Double; same-scheme is a no-op. Neither marks
+        // dirty — isDirty only flips when the scheme actually changes.
+        if (!lift.isCompound || lift.progressionScheme == scheme) return
+        updateLoaded { loaded ->
+            loaded.copy(
+                lifts = loaded.lifts.map { l ->
+                    if (l.workoutLiftId == workoutLiftId) l.copy(progressionScheme = scheme) else l
+                },
             )
         }
     }

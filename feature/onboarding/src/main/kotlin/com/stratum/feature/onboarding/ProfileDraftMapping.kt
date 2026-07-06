@@ -80,10 +80,8 @@ internal fun trainingAgeFromLabel(label: String): TrainingAge? =
 
 internal fun LastTrainedBucket.toDisplayLabel(): String = when (this) {
     LastTrainedBucket.Never -> "Never"
-    LastTrainedBucket.WithinLastMonth -> "Within the last month"
-    LastTrainedBucket.OneToSixMonthsAgo -> "1–6 months ago"
-    LastTrainedBucket.SixToTwelveMonthsAgo -> "6–12 months ago"
-    LastTrainedBucket.MoreThanAYearAgo -> "Over a year ago"
+    LastTrainedBucket.WithinLastThreeMonths -> "Within the last 3 months"
+    LastTrainedBucket.MoreThanThreeMonthsAgo -> "More than 3 months ago"
 }
 
 internal fun lastTrainedFromLabel(label: String): LastTrainedBucket? =

@@ -28,7 +28,7 @@ class CompleteOnboardingUseCaseTest {
     fun savesProfileAndMarksComplete() = runTest {
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
         )
 
         subject(profile)
