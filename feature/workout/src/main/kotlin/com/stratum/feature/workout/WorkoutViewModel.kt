@@ -3,6 +3,8 @@ package com.stratum.feature.workout
 import com.stratum.domain.logging.LogErrorUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.domain.importing.FatigueDecay
+import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.WorkoutId
@@ -67,6 +69,7 @@ class WorkoutViewModel @Inject constructor(
     private val getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
     private val deleteLoggedSet: DeleteLoggedSetUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
+    private val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     private val logErrorUseCase: LogErrorUseCase,
 ) : ViewModel() {
 
@@ -85,6 +88,7 @@ class WorkoutViewModel @Inject constructor(
     private var sessionObservationJob: Job? = null
     private var liftNamesById: Map<LiftId, String> = emptyMap()
     private var liftsById: Map<LiftId, com.stratum.domain.lift.Lift> = emptyMap()
+    private var fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap()
     private var snapshotLoaded = false
 
     fun startSession(workoutId: WorkoutId) {
@@ -102,6 +106,7 @@ class WorkoutViewModel @Inject constructor(
                     observeLiftCatalog().first().associate { lift -> lift.id to lift.name }
                 liftsById =
                     observeLiftCatalog().first().associateBy { lift -> lift.id }
+                fatigueByLiftId = observeLiftTrainingInsights()
                 observeCycleProgress().collect { progress ->
                     val program = progress.program ?: return@collect
                     val session = progress.activeSession ?: return@collect
@@ -221,11 +226,12 @@ class WorkoutViewModel @Inject constructor(
             restSeconds = anchor.restSeconds,
         )
         val baseline = snapshotBySlot[afterSlotId] ?: anchorRecommendation(afterSlotId)
+        val fatigue = fatigueByLiftId[anchor.liftId] ?: FatigueDecay(null, null)
         val estimatedReps = estimateAddedSetReps(
             previousRecommendation = baseline ?: SlotRecommendation(afterSlotId, zeroWeight(), anchor.repMin),
             nextSetIndex = newPosition,
-            perLiftSlope = null,
-            perLiftIntercept = null,
+            perLiftSlope = fatigue.slope,
+            perLiftIntercept = fatigue.intercept,
         )
         val addedWeight = baseline?.recommendedWeight ?: zeroWeight()
         val addedRecommendation = SlotRecommendation(added.slotId, addedWeight, estimatedReps)
@@ -313,6 +319,7 @@ class WorkoutViewModel @Inject constructor(
                 snapshotLoaded = false
                 structure = null
                 snapshotBySlot = emptyMap()
+                fatigueByLiftId = emptyMap()
                 overlay = WorkoutOverlay()
                 _uiState.value = WorkoutUiState.NoActiveSession
             }
@@ -323,6 +330,7 @@ class WorkoutViewModel @Inject constructor(
             snapshotLoaded = false
             structure = null
             snapshotBySlot = emptyMap()
+            fatigueByLiftId = emptyMap()
             overlay = WorkoutOverlay()
             _uiState.value = WorkoutUiState.NoActiveSession
         }
@@ -335,7 +343,7 @@ class WorkoutViewModel @Inject constructor(
      */
     private fun recomputeRecommendations() {
         try {
-            val recommendations = recomputeRecommendationsUseCase(merge(), liftsById)
+            val recommendations = recomputeRecommendationsUseCase(merge(), liftsById, fatigueByLiftId)
             overlay = overlay.copy(recommendations = recommendations)
         } catch (e: Exception) {
             logErrorUseCase(TAG, "Failed to recompute recommendations", e)

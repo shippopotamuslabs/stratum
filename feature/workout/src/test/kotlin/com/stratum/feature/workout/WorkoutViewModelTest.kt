@@ -273,6 +273,9 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
+                com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
+            ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
     }
@@ -312,6 +315,64 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
+                com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
+            ),
+            logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+        )
+    }
+
+    /**
+     * Builds a ViewModel wired with a per-lift [FatigueDecay] for [liftId]. Used to verify
+     * the end-to-end slope wiring: the VM loads insights at session start and threads them
+     * into [RecomputeRecommendationsUseCase] and [EstimateAddedSetRepsUseCase].
+     */
+    private fun buildViewModelWithFatigueSlope(
+        slope: Double?,
+        intercept: Double?,
+        program: Program = programWithTopSetRange(repMin = 4, repMax = 12, rirGoal = 2),
+    ): WorkoutViewModel {
+        programRepository = FakeProgramRepository(program)
+        progressionHistory = FakeProgressionHistoryRepository()
+        val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift()))
+        return WorkoutViewModel(
+            observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
+            generateSnapshot =
+                GenerateProgressionSnapshotUseCase(
+                    progressionHistoryPort = progressionHistory,
+                    doubleProgressionEngine = DoubleProgressionEngine(),
+                    linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
+                    programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                ),
+            mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            projectStructure = ProjectWorkoutStructureUseCase(),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
+            estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
+            logSetUseCase = LogSetUseCase(
+                trainingLogRepository = trainingLogRepository,
+                liftRepository = liftRepository,
+                programRepository = programRepository,
+                loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
+            ),
+            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+            getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
+            deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
+            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
+                com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(
+                    listOf(
+                        com.stratum.domain.importing.LiftTrainingInsights(
+                            liftId = liftId,
+                            estimatedOneRm = null,
+                            fatigueDecaySlope = slope,
+                            fatigueDecayIntercept = intercept,
+                            sessionCount = 5,
+                            progressTrend = null,
+                            lastPerformedAt = null,
+                        ),
+                    ),
+                ),
+            ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
     }
@@ -567,6 +628,28 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("S7-fatigue-slope: steeper per-lift slope projects fewer reps end-to-end (6 vs 7)")
+    fun `steeper per lift slope projects fewer reps end to end`() = runTest {
+        // Same scenario as `75x8 at 2 RIR holds weight and projects 7 reps` (population slope
+        // -2.0 → 7 reps). With a steeper per-lift slope (-3.0) wired via the insights cache,
+        // the VM should thread it into RecomputeRecommendationsUseCase and project 6 reps:
+        // raw set2 = 11 - 3 = 8 @ 0 RIR → 8 - 2 = 6 @ 2 RIR.
+        val viewModel = buildViewModelWithFatigueSlope(slope = -3.0, intercept = 0.0)
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.logSet(slotKey = liftSetId.value, weight = lb(75.0), reps = 8, rir = 2)
+            advanceUntilIdle()
+            val updated = viewModel.uiState.value as WorkoutUiState.Loaded
+            val nextSet = updated.lifts.first().sets.firstOrNull { it.slotKey.contains("ls-2") }
+            assertNotNull(nextSet, "an upcoming ls-2 set must be rendered")
+            assertTrue(nextSet!!.hasLiveRepsRecommendation)
+            assertEquals(6, nextSet.recommendedReps, "Steeper slope (-3.0) should project 6 reps, not the population 7")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("S7-weight-label-formatting: fractional weights round to 1 decimal, drop .0")
     fun `weight label formatting strips trailing zero and rounds to one decimal`() = runTest {
         // 100x3@1 RIR top set (5-8 range, rirGoal=1).
@@ -686,6 +769,9 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
+                com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
+            ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
 
@@ -736,6 +822,9 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
+                com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
+            ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
         )
 

@@ -75,16 +75,38 @@ data class RpRepRirBand(
     val backOffRirMax: Int,
 )
 
-/** TABLE 7.7 rep/RIR exercise classes. */
+/**
+ * TABLE 7.7 rep/RIR exercise classes — Stratum-tuned.
+ *
+ * Two adjustments from the raw RP table:
+ *
+ * 1. **Hypertrophic floor (repMin ≥ 8).** These bands land on the *top sets* of lifts. With a
+ *    typical 4-set scheme and ~2-rep/set fatigue decay (POPULATION_FATIGUE_DECAY_SLOPE = -2),
+ *    a floor of 4 would put the last set at ~5 reps — the strength/hypertrophy boundary.
+ *    Raising the floor to 8 keeps every set in the set across the whole top-set range
+ *    hypertrophic. When the original floor was below 8, the spread is retained by bumping the
+ *    ceiling by the same delta; when the original was already ≥ 8 (Isolation), the spread is
+ *    narrowed to bound the width (see point 2).
+ *
+ * 2. **Increment-relative width.** The rep-range spread reflects how much a single load
+ *    increment shifts intensity relative to the lift's typical load: a heavy barbell where 5 lb
+ *    is a small fraction of the load can hold a *narrower* practical range than a dumbbell curl
+ *    where one increment jumps intensity a lot. Per-lift increment tiers and typical-load
+ *    fields don't exist yet, so the spread is tiered by KinematicProfile (the only per-lift
+ *    loading signal available at generation time): AxialCompound = 4, NonAxialCompound = 6,
+ *    Isolation = 10. Spread strictly increases along the compound→isolation gradient.
+ *
+ * RIR fields are unchanged from the source table.
+ */
 val RP_REP_RIR_BANDS: Map<RpRepProfile, RpRepRirBand> = mapOf(
     RpRepProfile.LowerFreeWeightCompound to
-        RpRepRirBand(repMin = 4, repMax = 8, topSetRir = 4, backOffRirMin = 2, backOffRirMax = 4),
+        RpRepRirBand(repMin = 8, repMax = 12, topSetRir = 4, backOffRirMin = 2, backOffRirMax = 4),
     RpRepProfile.LowerMachineOrUpperPress to
-        RpRepRirBand(repMin = 4, repMax = 12, topSetRir = 3, backOffRirMin = 1, backOffRirMax = 3),
+        RpRepRirBand(repMin = 8, repMax = 14, topSetRir = 3, backOffRirMin = 1, backOffRirMax = 3),
     RpRepProfile.UpperMachineOrPull to
-        RpRepRirBand(repMin = 6, repMax = 15, topSetRir = 2, backOffRirMin = 0, backOffRirMax = 2),
+        RpRepRirBand(repMin = 8, repMax = 14, topSetRir = 2, backOffRirMin = 0, backOffRirMax = 2),
     RpRepProfile.Isolation to
-        RpRepRirBand(repMin = 8, repMax = 20, topSetRir = 1, backOffRirMin = 0, backOffRirMax = 1),
+        RpRepRirBand(repMin = 8, repMax = 18, topSetRir = 1, backOffRirMin = 0, backOffRirMax = 1),
 )
 
 data class PatternSecondaryMuscleCredit(

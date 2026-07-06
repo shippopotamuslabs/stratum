@@ -41,6 +41,7 @@ class RecommendationEngine @Inject constructor() {
         currentWeight: Weight,
         remainingCount: Int = 1,
         incrementTiers: List<IncrementTier> = emptyList(),
+        perLiftSlope: Double? = null,
     ): RecommendationOutcome? {
         if (lastPerformed == null || lastPerformed.weight.amount <= 0.0) return null
 
@@ -55,8 +56,11 @@ class RecommendationEngine @Inject constructor() {
         if (e1rm <= 0.0 || targetReps <= 0) return null
 
         // Fatigue decay (0-RIR reps) from the next set to the last remaining set. With
-        // remainingCount = 1, fatigueForLastSet = 0 (last set == next set).
-        val fatigueForLastSet = (POPULATION_FATIGUE_DECAY_SLOPE * (remainingCount - 1)).toInt().unaryMinus()
+        // remainingCount = 1, fatigueForLastSet = 0 (last set == next set). Per-lift slope
+        // overrides the population default when present, so the weight-reduction math stays
+        // consistent with the rep-projection math (both use the same slope).
+        val fatigueSlope = perLiftSlope ?: POPULATION_FATIGUE_DECAY_SLOPE
+        val fatigueForLastSet = (fatigueSlope * (remainingCount - 1)).toInt().unaryMinus()
 
         // achievedRepsAtTargetRir normalizes the performed reps to the completed slot's RIR
         // intent so the floor/ceiling comparisons are apples-to-apples.

@@ -1,6 +1,7 @@
 package com.stratum.domain.workout
 
 import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -29,12 +30,15 @@ class RecomputeRecommendationsUseCase @Inject constructor(
      *
      * @param rendered the merged rendered workout (structure + snapshot + overlay merged).
      * @param liftsById catalog lookup used to resolve each lift's [Lift.incrementTiers].
+     * @param fatigueByLiftId per-lift fatigue decay overrides from imported history; absent
+     *   entries fall back to the population defaults inside [FatigueModel].
      * @return map of upcoming [SetSlotId] to its live recommendation; slots with no
      *   derivable recommendation (e.g. first set of the session — no e1RM yet) are absent.
      */
     operator fun invoke(
         rendered: RenderedWorkout,
         liftsById: Map<LiftId, Lift>,
+        fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap(),
     ): Map<SetSlotId, LiveSetRecommendation> {
         val recommendations = mutableMapOf<SetSlotId, LiveSetRecommendation>()
         for (lift in rendered.lifts) {
@@ -47,6 +51,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
             // upcoming set count, used by the engine to target the last set.
             val remainingCount = upcoming.size
             val incrementTiers = liftsById[lift.liftId]?.incrementTiers ?: emptyList()
+            val fatigue = fatigueByLiftId[lift.liftId] ?: FatigueDecay(null, null)
             for (set in upcoming) {
                 val rec = recommendationEngine.recommendNextSet(
                     lastPerformed = lastPerformed,
@@ -55,6 +60,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                     currentWeight = set.recommendedWeight,
                     remainingCount = remainingCount,
                     incrementTiers = incrementTiers,
+                    perLiftSlope = fatigue.slope,
                 )
                 val recommendedWeight = when (rec) {
                     is RecommendationOutcome.Hold -> rec.weight
@@ -68,6 +74,8 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                     repMin = set.repMin,
                     repMax = set.repMax,
                     rirGoal = set.rirGoal,
+                    perLiftSlope = fatigue.slope,
+                    perLiftIntercept = fatigue.intercept,
                 )
                 if (recommendedWeight != null && recommendedReps > 0) {
                     recommendations[set.slotId] =
@@ -95,6 +103,8 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         repMin: Int,
         repMax: Int,
         rirGoal: Int,
+        perLiftSlope: Double?,
+        perLiftIntercept: Double?,
     ): Int {
         if (lastPerformed == null || lastPerformed.weight.amount <= 0.0 || targetWeight.amount <= 0.0) {
             return repMin.coerceAtLeast(0)
@@ -110,8 +120,8 @@ class RecomputeRecommendationsUseCase @Inject constructor(
             baselineOneRm = baselineOneRm,
             targetWeight = targetWeight,
             nextSetIndex = upcomingSetIndex,
-            perLiftSlope = null,
-            perLiftIntercept = null,
+            perLiftSlope = perLiftSlope,
+            perLiftIntercept = perLiftIntercept,
         )
         val atTargetRir = (rawCapacityReps - rirGoal).coerceAtLeast(1)
         return if (repMin > 0 && repMax > 0) atTargetRir.coerceIn(repMin, repMax) else atTargetRir
