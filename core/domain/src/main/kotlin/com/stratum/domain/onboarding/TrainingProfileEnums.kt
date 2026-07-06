@@ -36,9 +36,9 @@ enum class TrainingAge {
  * Schema-adjacent (v1 reinstall policy applies — stale old names decode to null).
  */
 enum class LastTrainedBucket {
-    Never,
     WithinLastThreeMonths,
     MoreThanThreeMonthsAgo,
+    Never,
     ;
 }
 
