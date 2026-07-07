@@ -148,6 +148,45 @@ class Slice2DoubleRecommendationTest {
         val recommendation = DoubleProgressionEngine()
             .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
         assertEquals(lb(135.0), recommendation.recommendedWeight)
+        // Weight held → reps lever advances: failure capacity 5 + 1 = 6, minus rirGoal 2 = 4.
+        assertEquals(4, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-hold-reps-scale-to-rir-goal-when-weight-held")
+    fun `S2-double-hold-reps-scale-to-rir-goal-when-weight-held`() {
+        // Slot RIR goal 1, range 8–12. User did 120 × 7 @ RIR 5 (failure capacity = 12).
+        // Weight is held (top not met), so reps scale to 12 − 1 = 11 instead of 7.
+        val slot = topSet(repMin = 8, repMax = 12, rirGoal = 1)
+        val history = listOf(historyEntry(reps = 7, rir = 5, weight = 120.0))
+        val recommendation = DoubleProgressionEngine()
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(120.0), recommendation.recommendedWeight, "weight held (top not met)")
+        assertEquals(11, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-hold-reps-coerced-to-repMax-when-failure-capacity-exceeds-range")
+    fun `S2-double-hold-reps-coerced-to-repMax-when-failure-capacity-exceeds-range`() {
+        // reps=5 < repMax=6 → weight held (no increment). Failure capacity 5 + 5 = 10,
+        // minus rirGoal 2 = 8 — past repMax, so it caps at 6.
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 5, rir = 5, weight = 135.0))
+        val recommendation = DoubleProgressionEngine()
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(6, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-hold-falls-back-to-previous-reps-when-rir-absent")
+    fun `S2-double-hold-falls-back-to-previous-reps-when-rir-absent`() {
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 5, rir = null, weight = 135.0))
+        val recommendation = DoubleProgressionEngine()
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        // No RIR signal → naive previous-reps repeat (coerced into range).
         assertEquals(5, recommendation.baselineExpectedReps)
     }
 
@@ -170,6 +209,32 @@ class Slice2DoubleRecommendationTest {
         val recommendation = DoubleProgressionEngine()
             .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
         assertEquals(lb(135.0), recommendation.recommendedWeight)
+    }
+
+    @Test
+    @DisplayName("S2-double-backoff-reps-scale-with-rir-when-weight-held")
+    fun `S2-double-backoff-reps-scale-with-rir-when-weight-held`() {
+        // Backoff slot rirGoal=2. User did 135 × 8 @ RIR 3 (failure capacity 11).
+        // Weight is always held for backoffs → reps scale to 11 − 2 = 9.
+        val slot = backoffSlot().copy(rirGoal = 2)
+        val history = listOf(historyEntry(reps = 8, rir = 3, weight = 135.0))
+        val recommendation = DoubleProgressionEngine()
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(9, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-backoff-reps-floored-at-backoff-floor")
+    fun `S2-double-backoff-reps-floored-at-backoff-floor`() {
+        // rirGoal=2. User did 135 × 5 @ RIR 1 (failure capacity 6), target 6 − 2 = 4,
+        // floored at BACKOFF_REP_FLOOR (5).
+        val slot = backoffSlot().copy(rirGoal = 2)
+        val history = listOf(historyEntry(reps = 5, rir = 1, weight = 135.0))
+        val recommendation = DoubleProgressionEngine()
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(5, recommendation.baselineExpectedReps)
     }
 
     // --- Recommendation engine (6 scenarios) ---

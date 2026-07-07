@@ -40,12 +40,19 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
         val baseWeight = latest?.loggedSet?.weight ?: request.fallbackOneRm ?: defaultWeight()
         val baselineExpectedReps = latest?.loggedSet?.reps ?: slot.repMin
 
-        // Backoff slot (RIR-only, no rep range): inherits the top-set weight.
+        // Backoff slot (RIR-only, no rep range): inherits the top-set weight. The reps
+        // lever still scales with the prior RIR deviation (held weight → rep progression).
         if (!slot.isTopSet) {
+            val prevSet = latest?.loggedSet
+            val backoffReps = rirAdjustedReps(
+                prevSet?.reps ?: slot.repMin,
+                prevSet?.rir,
+                slot,
+            ) ?: baselineExpectedReps
             return SlotRecommendation(
                 slotId = slot.slotId,
                 recommendedWeight = baseWeight,
-                baselineExpectedReps = baselineExpectedReps,
+                baselineExpectedReps = backoffReps,
                 previousWeight = prevWeight,
                 previousReps = prevReps,
             )
@@ -59,7 +66,12 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
         val recommendedReps = if (incremented) {
             slot.repMin
         } else {
-            (latest?.loggedSet?.reps ?: slot.repMin).coerceIn(slot.repMin, slot.repMax)
+            // Weight held → advance the reps lever. Scale toward the slot's RIR goal
+            // using the prior session's projected-to-failure capacity; fall back to the
+            // naive previous-reps repeat when no RIR was logged.
+            val prevSet = latest?.loggedSet
+            rirAdjustedReps(prevSet?.reps ?: slot.repMin, prevSet?.rir, slot)
+                ?: (prevSet?.reps ?: slot.repMin).coerceIn(slot.repMin, slot.repMax)
         }
 
         return SlotRecommendation(
