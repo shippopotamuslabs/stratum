@@ -3,7 +3,6 @@ package com.stratum.feature.program.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,7 +72,6 @@ import com.stratum.feature.program.formatEstimatedWorkoutDuration
 private const val MIN_REST_SECONDS = 0
 private const val MAX_REST_SECONDS = 600
 private const val REST_SECONDS_STEP = 30
-private const val REORDER_DRAG_THRESHOLD_DP = 48f
 
 @Composable
 fun EditWorkoutRoute(
@@ -94,12 +90,8 @@ fun EditWorkoutRoute(
     val loadedState = state as? EditWorkoutUiState.Loaded
     var showDiscardDialog by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = loadedState?.isDirty == true || loadedState?.isReorderMode == true) {
-        if (loadedState?.isReorderMode == true) {
-            viewModel.cancelReorderMode()
-        } else {
-            showDiscardDialog = true
-        }
+    BackHandler(enabled = loadedState?.isDirty == true) {
+        showDiscardDialog = true
     }
 
     EditWorkoutScreen(
@@ -112,9 +104,7 @@ fun EditWorkoutRoute(
             onBackClick()
         },
         onBackClick = {
-            if (loadedState?.isReorderMode == true) {
-                viewModel.cancelReorderMode()
-            } else if (loadedState?.isDirty == true) {
+            if (loadedState?.isDirty == true) {
                 showDiscardDialog = true
             } else {
                 viewModel.clearSession()
@@ -123,9 +113,6 @@ fun EditWorkoutRoute(
         },
         callbacks =
             EditWorkoutScreenCallbacks(
-                onToggleReorderMode = viewModel::toggleReorderMode,
-                onConfirmReorder = viewModel::confirmReorder,
-                onReorderLifts = viewModel::reorderLifts,
                 onAddSet = viewModel::addSet,
                 onRemoveSet = viewModel::removeSet,
                 onAddLift = { viewModel.addLift(onSwapLiftClick) },
@@ -186,8 +173,6 @@ fun EditWorkoutScreen(
             EditWorkoutTopBar(
                 state = state,
                 onBackClick = onBackClick,
-                onToggleReorderMode = callbacks.onToggleReorderMode,
-                onConfirmReorder = callbacks.onConfirmReorder,
                 onSaveWorkout = callbacks.onSaveWorkout,
             )
         },
@@ -222,27 +207,19 @@ fun EditWorkoutScreen(
                 }
 
             is EditWorkoutUiState.Loaded ->
-                if (state.isReorderMode) {
-                    EditWorkoutReorderList(
-                        lifts = state.pendingReorderLifts.orEmpty(),
-                        onReorderLifts = callbacks.onReorderLifts,
-                        modifier = Modifier.padding(padding),
-                    )
-                } else {
-                    EditWorkoutContent(
-                        state = state,
-                        callbacks = callbacks,
-                        onRestClick = { liftId, set ->
-                            restSheetSet = set
-                            restSheetLiftId = liftId
-                            restSheetSeconds = set.restSeconds
-                        },
-                        onRirClick = { set -> rirSheetSet = set },
-                        onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
-                        onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
-                        modifier = Modifier.padding(padding),
-                    )
-                }
+                EditWorkoutContent(
+                    state = state,
+                    callbacks = callbacks,
+                    onRestClick = { liftId, set ->
+                        restSheetSet = set
+                        restSheetLiftId = liftId
+                        restSheetSeconds = set.restSeconds
+                    },
+                    onRirClick = { set -> rirSheetSet = set },
+                    onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
+                    onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
+                    modifier = Modifier.padding(padding),
+                )
         }
     }
 
@@ -350,8 +327,6 @@ fun EditWorkoutScreen(
 private fun EditWorkoutTopBar(
     state: EditWorkoutUiState,
     onBackClick: () -> Unit,
-    onToggleReorderMode: () -> Unit,
-    onConfirmReorder: () -> Unit,
     onSaveWorkout: () -> Unit,
 ) {
     val title =
@@ -359,7 +334,6 @@ private fun EditWorkoutTopBar(
             is EditWorkoutUiState.Loaded -> state.workoutName
             else -> stringResource(R.string.edit_workout_title)
         }
-    val isReorderMode = state is EditWorkoutUiState.Loaded && state.isReorderMode
 
     StratumTopBar(
         title = title,
@@ -370,36 +344,17 @@ private fun EditWorkoutTopBar(
             )
         },
         actions = {
-            if (state is EditWorkoutUiState.Loaded) {
-                if (isReorderMode) {
-                    StratumTopBarTextButton(
-                        text = stringResource(R.string.edit_workout_confirm),
-                        onClick = onConfirmReorder,
-                    )
-                } else {
-                    StratumIconButton(
-                        onClick = onToggleReorderMode,
-                        containerColor = Color.Transparent,
-                    ) {
-                        Icon(
-                            painter = painterResource(CoreUiR.drawable.ic_swap_vert),
-                            contentDescription = stringResource(R.string.edit_workout_reorder_lifts),
-                            tint = StratumThemeAccessor.colors.textPrimary,
-                        )
-                    }
-                    if (state.isDirty) {
-                        StratumTopBarTextButton(
-                            text =
-                                if (state.isSaving) {
-                                    stringResource(R.string.edit_workout_saving)
-                                } else {
-                                    stringResource(R.string.edit_workout_confirm)
-                                },
-                            onClick = onSaveWorkout,
-                            enabled = !state.isSaving && state.saveBlockedReason == null,
-                        )
-                    }
-                }
+            if (state is EditWorkoutUiState.Loaded && state.isDirty) {
+                StratumTopBarTextButton(
+                    text =
+                        if (state.isSaving) {
+                            stringResource(R.string.edit_workout_saving)
+                        } else {
+                            stringResource(R.string.edit_workout_confirm)
+                        },
+                    onClick = onSaveWorkout,
+                    enabled = !state.isSaving && state.saveBlockedReason == null,
+                )
             }
         },
     )
@@ -628,91 +583,6 @@ private fun ProgressionSchemeToggleRow(
 }
 
 @Composable
-private fun EditWorkoutReorderList(
-    lifts: List<EditLiftReorderState>,
-    onReorderLifts: (fromIndex: Int, toIndex: Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var draggedIndex by remember { mutableIntStateOf(-1) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        itemsIndexed(lifts, key = { _, lift -> lift.workoutLiftId }) { index, lift ->
-            val isDragging = index == draggedIndex
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color =
-                                if (isDragging) {
-                                    StratumThemeAccessor.colors.surfaceInset
-                                } else {
-                                    StratumThemeAccessor.colors.surfaceRaised
-                                },
-                            shape = StratumThemeAccessor.shapes.panel,
-                        )
-                        .border(
-                            width = StratumThemeAccessor.shapes.borderWidth,
-                            color = StratumThemeAccessor.colors.borderSubtle,
-                            shape = StratumThemeAccessor.shapes.panel,
-                        )
-                        .pointerInput(lifts.size) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = {
-                                    draggedIndex = index
-                                    dragOffset = 0f
-                                },
-                                onDragEnd = {
-                                    draggedIndex = -1
-                                    dragOffset = 0f
-                                },
-                                onDragCancel = {
-                                    draggedIndex = -1
-                                    dragOffset = 0f
-                                },
-                                onDrag = { _, dragAmount ->
-                                    if (draggedIndex < 0) return@detectDragGesturesAfterLongPress
-                                    dragOffset += dragAmount.y
-                                    val thresholdPx = REORDER_DRAG_THRESHOLD_DP * density
-                                    while (dragOffset > thresholdPx && draggedIndex < lifts.lastIndex) {
-                                        onReorderLifts(draggedIndex, draggedIndex + 1)
-                                        draggedIndex += 1
-                                        dragOffset -= thresholdPx
-                                    }
-                                    while (dragOffset < -thresholdPx && draggedIndex > 0) {
-                                        onReorderLifts(draggedIndex, draggedIndex - 1)
-                                        draggedIndex -= 1
-                                        dragOffset += thresholdPx
-                                    }
-                                },
-                            )
-                        }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(
-                    painter = painterResource(CoreUiR.drawable.ic_swap_vert),
-                    contentDescription = null,
-                    tint = StratumThemeAccessor.colors.textMuted,
-                )
-                StratumText(
-                    text = lift.name,
-                    style = StratumThemeAccessor.typography.bodyLarge,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun RestTimeBottomSheet(
     totalSeconds: Int,
     onTotalSecondsChange: (Int) -> Unit,
@@ -829,30 +699,6 @@ fun EditWorkoutScreenLoadedPreview() {
                                         ),
                                     ),
                             ),
-                        ),
-                ),
-            onBackClick = {},
-            callbacks = EditWorkoutScreenCallbacks(),
-        )
-    }
-}
-
-@Preview(name = "Edit workout reorder light")
-@Composable
-fun EditWorkoutScreenReorderPreview() {
-    StratumTheme {
-        EditWorkoutScreen(
-            state =
-                EditWorkoutUiState.Loaded(
-                    workoutId = "w-1",
-                    workoutName = "Push Day",
-                    weekdayLabel = "Monday",
-                    lifts = emptyList(),
-                    isReorderMode = true,
-                    pendingReorderLifts =
-                        listOf(
-                            EditLiftReorderState("wl-1", "Barbell Bench Press"),
-                            EditLiftReorderState("wl-2", "Incline Dumbbell Press"),
                         ),
                 ),
             onBackClick = {},

@@ -312,52 +312,6 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
-    fun toggleReorderMode() {
-        updateLoaded { loaded ->
-            if (loaded.isReorderMode) {
-                loaded.copy(isReorderMode = false, pendingReorderLifts = null)
-            } else {
-                loaded.copy(
-                    isReorderMode = true,
-                    pendingReorderLifts = loaded.lifts.toReorderStates(),
-                )
-            }
-        }
-    }
-
-    fun cancelReorderMode() {
-        updateLoaded { loaded ->
-            loaded.copy(isReorderMode = false, pendingReorderLifts = null)
-        }
-    }
-
-    fun reorderLifts(fromIndex: Int, toIndex: Int) {
-        updateLoaded { loaded ->
-            val pending = loaded.pendingReorderLifts?.toMutableList() ?: return@updateLoaded loaded
-            if (fromIndex !in pending.indices || toIndex !in pending.indices || fromIndex == toIndex) {
-                return@updateLoaded loaded
-            }
-            val item = pending.removeAt(fromIndex)
-            pending.add(toIndex, item)
-            loaded.copy(pendingReorderLifts = pending)
-        }
-    }
-
-    fun confirmReorder() {
-        updateLoaded { loaded ->
-            val pending = loaded.pendingReorderLifts ?: return@updateLoaded loaded
-            val liftById = loaded.lifts.associateBy { lift -> lift.workoutLiftId }
-            val reordered =
-                pending.mapNotNull { row -> liftById[row.workoutLiftId] }
-                    .mapIndexed { index, lift -> lift.copy(position = index) }
-            loaded.copy(
-                lifts = reordered,
-                isReorderMode = false,
-                pendingReorderLifts = null,
-            )
-        }
-    }
-
     fun removeSet(setId: String) {
         updateLoaded { loaded ->
             loaded.copy(

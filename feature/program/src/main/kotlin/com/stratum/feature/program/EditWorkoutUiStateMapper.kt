@@ -10,7 +10,6 @@ import com.stratum.feature.program.ui.DEFAULT_REP_MAX
 import com.stratum.feature.program.ui.DEFAULT_REP_MIN
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
 import com.stratum.feature.program.ui.DEFAULT_RIR_GOAL
-import com.stratum.feature.program.ui.EditLiftReorderState
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -60,15 +59,6 @@ internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =
         rirGoal = rirGoal,
         isTopSet = isTopSet,
     )
-
-internal fun EditLiftState.toReorderState(): EditLiftReorderState =
-    EditLiftReorderState(
-        workoutLiftId = workoutLiftId,
-        name = name,
-    )
-
-internal fun List<EditLiftState>.toReorderStates(): List<EditLiftReorderState> =
-    map { lift -> lift.toReorderState() }
 
 internal fun renumberSets(sets: List<EditSetState>): List<EditSetState> =
     sets.mapIndexed { index, set -> set.copy(setNumber = index + 1) }

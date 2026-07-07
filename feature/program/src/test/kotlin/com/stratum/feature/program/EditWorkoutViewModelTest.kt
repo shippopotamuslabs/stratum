@@ -185,28 +185,6 @@ class EditWorkoutViewModelTest {
     }
 
     @Test
-    @DisplayName("Given lifts when reordered and confirmed then positions update")
-    fun reorderUpdatesPositions() = runTest {
-        val viewModel = buildViewModel()
-        viewModel.initialize(WORKOUT_ID)
-        viewModel.uiState.test {
-            awaitLoaded()
-            viewModel.toggleReorderMode()
-            val reorderMode = awaitItem() as EditWorkoutUiState.Loaded
-            assertTrue(reorderMode.isReorderMode)
-            viewModel.reorderLifts(fromIndex = 0, toIndex = 1)
-            awaitItem()
-            viewModel.confirmReorder()
-            val loaded = awaitItem() as EditWorkoutUiState.Loaded
-            assertFalse(loaded.isReorderMode)
-            assertEquals("Incline Press", loaded.lifts.first().name)
-            assertEquals(0, loaded.lifts.first().position)
-            assertEquals(1, loaded.lifts[1].position)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
     @DisplayName("Given loaded workout when session reorder confirmed then template lifts are reordered")
     fun reorderConfirmedUpdatesTemplateLifts() = runTest {
         val viewModel = buildViewModel()
