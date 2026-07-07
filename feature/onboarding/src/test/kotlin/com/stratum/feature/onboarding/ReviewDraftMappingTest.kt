@@ -70,7 +70,7 @@ class ReviewDraftMappingTest {
             val draft = profile.toReviewProfileSection(specialization, lifts, GymPreset.CommercialGym)
 
             assertEquals("4–7 years", draft.trainingAge)
-            assertEquals("Within the last month", draft.lastTrained)
+            assertEquals("Within the last 3 months", draft.lastTrained)
             assertEquals(listOf("Mon", "Wed", "Fri"), draft.weekdays)
             assertEquals(60, draft.sessionMinutes)
             assertEquals(listOf("Chest", "Quads"), draft.specialization) // ordinal-sorted labels
@@ -163,7 +163,6 @@ class ReviewDraftMappingTest {
         movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
-        allowWeightChangeBetweenSets = false,
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = enabled,
