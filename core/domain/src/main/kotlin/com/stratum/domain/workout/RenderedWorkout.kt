@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
@@ -42,6 +43,7 @@ data class RenderedWorkoutLift(
     val progressionScheme: ProgressionScheme,
     val sets: List<RenderedSet>,
     val supersetGroupId: WorkoutSupersetGroupId? = null,
+    val loadType: LoadType = LoadType.Weighted,
 )
 
 /** The fully merged rendered workout (D1). Pure output of `MergeRenderedWorkoutUseCase`. */

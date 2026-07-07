@@ -46,6 +46,7 @@ data class Lift(
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val mainstream: Boolean = false,
     val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+    val loadType: LoadType = LoadType.Weighted,
 ) {
     val isCompound: Boolean
         get() = movementPatterns.size > 1

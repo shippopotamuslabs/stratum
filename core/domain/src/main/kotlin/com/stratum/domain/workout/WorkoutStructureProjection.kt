@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutId
@@ -14,6 +15,7 @@ data class WorkoutLiftProjection(
     val progressionScheme: ProgressionScheme,
     val slots: List<SetSlot>,
     val supersetGroupId: WorkoutSupersetGroupId? = null,
+    val loadType: LoadType = LoadType.Weighted,
 )
 
 /**

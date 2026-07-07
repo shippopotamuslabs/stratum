@@ -52,6 +52,9 @@ class RecomputeRecommendationsUseCase @Inject constructor(
             val remainingCount = upcoming.size
             val incrementTiers = liftsById[lift.liftId]?.incrementTiers ?: emptyList()
             val fatigue = fatigueByLiftId[lift.liftId] ?: FatigueDecay(null, null)
+            // loadType drives the RecommendationEngine's bodyweight short-circuit and
+            // assisted sign handling; defaults to Weighted when the catalog lacks the lift.
+            val loadType = lift.loadType
             for (set in upcoming) {
                 val rec = recommendationEngine.recommendNextSet(
                     lastPerformed = lastPerformed,
@@ -61,6 +64,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                     remainingCount = remainingCount,
                     incrementTiers = incrementTiers,
                     perLiftSlope = fatigue.slope,
+                    loadType = loadType,
                 )
                 val recommendedWeight = when (rec) {
                     is RecommendationOutcome.Hold -> rec.weight

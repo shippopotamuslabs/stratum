@@ -6,6 +6,7 @@ import com.stratum.domain.importing.IntervalMethod
 import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
@@ -117,6 +118,13 @@ class EnumConverters {
     @TypeConverter
     fun toKinematicProfile(value: String?): KinematicProfile? =
         value?.let { runCatching { KinematicProfile.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromLoadType(loadType: LoadType?): String? = loadType?.name
+
+    @TypeConverter
+    fun toLoadType(value: String?): LoadType? =
+        value?.let { runCatching { LoadType.valueOf(it) }.getOrNull() }
 
     /**
      * Unwraps a typed [LiftId] to its String `.value` for SQL, and re-wraps on the way back

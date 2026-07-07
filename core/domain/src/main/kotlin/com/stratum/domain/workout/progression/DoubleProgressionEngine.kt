@@ -1,5 +1,6 @@
 package com.stratum.domain.workout.progression
 
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.workout.SlotRecommendation
@@ -20,10 +21,24 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
     override fun recommend(request: SlotProgressionRequest): SlotRecommendation {
         val slot = request.slot
         val latest = request.history.firstOrNull()
-        val baseWeight = latest?.loggedSet?.weight ?: request.fallbackOneRm ?: defaultWeight()
-        val baselineExpectedReps = latest?.loggedSet?.reps ?: slot.repMin
         val prevWeight = latest?.loggedSet?.weight
         val prevReps = latest?.loggedSet?.reps
+
+        // Bodyweight: no load lever — always recommend 0 weight, rep-only progression.
+        if (request.loadType == LoadType.Bodyweight) {
+            val zeroWeight = Weight(0.0, prevWeight?.unit ?: Weight.WeightUnit.Lb)
+            val baselineReps = latest?.loggedSet?.reps ?: slot.repMin
+            return SlotRecommendation(
+                slotId = slot.slotId,
+                recommendedWeight = zeroWeight,
+                baselineExpectedReps = baselineReps,
+                previousWeight = prevWeight,
+                previousReps = prevReps,
+            )
+        }
+
+        val baseWeight = latest?.loggedSet?.weight ?: request.fallbackOneRm ?: defaultWeight()
+        val baselineExpectedReps = latest?.loggedSet?.reps ?: slot.repMin
 
         // Backoff slot (RIR-only, no rep range): inherits the top-set weight.
         if (!slot.isTopSet) {
@@ -39,6 +54,8 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
         // Top-set slot: increment when TOP of rep range met at RIR target; hold otherwise.
         val increment = if (shouldIncrement(latest, slot)) incrementFor() else Weight(0.0, baseWeight.unit)
         val next = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
+            .capAssistedAtZero(request.loadType)
+
         return SlotRecommendation(
             slotId = slot.slotId,
             recommendedWeight = next,

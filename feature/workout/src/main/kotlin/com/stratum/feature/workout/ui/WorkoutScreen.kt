@@ -71,6 +71,41 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
 import com.stratum.feature.workout.R
 
+/** Rest seconds started after a set is logged. Shared by the weighted + bodyweight row branches. */
+private const val DEFAULT_REST_SECONDS = 90
+
+/**
+ * Column weight fractions for one set row. The weight column is present for weighted +
+ * assisted lifts and absent for bodyweight, so the two layouts redistribute the same five
+ * shared cells (label / prev / [weight] / reps / RIR / checkbox) across the row width.
+ */
+private data class SetRowWeights(
+    val label: Float,
+    val prev: Float,
+    val weight: Float,
+    val reps: Float,
+    val rir: Float,
+    val checkbox: Float,
+)
+
+private val weightedRowWeights = SetRowWeights(
+    label = 0.10f,
+    prev = 0.26f,
+    weight = 0.22f,
+    reps = 0.18f,
+    rir = 0.12f,
+    checkbox = 0.12f,
+)
+
+private val bodyweightRowWeights = SetRowWeights(
+    label = 0.12f,
+    prev = 0.30f,
+    weight = 0.0f,
+    reps = 0.28f,
+    rir = 0.18f,
+    checkbox = 0.12f,
+)
+
 @Composable
 fun WorkoutScreen(
     state: WorkoutUiState.Loaded,
@@ -371,12 +406,15 @@ private fun LiftSection(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TableHeaderCell("Set", Modifier.weight(0.10f), alignment = Alignment.CenterStart)
-            TableHeaderCell("Prev", Modifier.weight(0.26f))
-            TableHeaderCell("Weight", Modifier.weight(0.22f))
-            TableHeaderCell("Reps", Modifier.weight(0.18f))
-            TableHeaderCell("RIR", Modifier.weight(0.12f))
-            TableHeaderCell("", Modifier.weight(0.12f))
+            val weights = if (lift.showWeightColumn) weightedRowWeights else bodyweightRowWeights
+            TableHeaderCell("Set", Modifier.weight(weights.label), alignment = Alignment.CenterStart)
+            TableHeaderCell("Prev", Modifier.weight(weights.prev))
+            if (lift.showWeightColumn) {
+                TableHeaderCell(lift.weightHeaderLabel, Modifier.weight(weights.weight))
+            }
+            TableHeaderCell("Reps", Modifier.weight(weights.reps))
+            TableHeaderCell("RIR", Modifier.weight(weights.rir))
+            TableHeaderCell("", Modifier.weight(weights.checkbox))
         }
 
         Box(
@@ -454,14 +492,18 @@ private fun WorkoutSetRow(
             isDrop -> "D"
             else -> set.positionLabel
         }
-        Box(modifier = Modifier.weight(0.10f), contentAlignment = Alignment.CenterStart) {
+        val weights = if (set.showWeightInput) weightedRowWeights else bodyweightRowWeights
+
+        // Set label
+        Box(modifier = Modifier.weight(weights.label), contentAlignment = Alignment.CenterStart) {
             StratumText(
                 text = setLabel,
                 style = StratumThemeAccessor.typography.bodyLarge,
             )
         }
 
-        Box(modifier = Modifier.weight(0.26f), contentAlignment = Alignment.Center) {
+        // Previous best
+        Box(modifier = Modifier.weight(weights.prev), contentAlignment = Alignment.Center) {
             StratumText(
                 text = set.previousWeightLabel ?: "—",
                 style = StratumThemeAccessor.typography.bodyLarge,
@@ -469,27 +511,32 @@ private fun WorkoutSetRow(
             )
         }
 
-        InlineNumericCell(
-            value = weightState.value,
-            placeholder = set.recommendedWeightLabel,
-            onValueChange = { weightState.value = it },
-            enabled = !set.isComplete,
-            modifier = Modifier
-                .weight(0.22f)
-                .padding(horizontal = 2.dp)
-        )
+        // Weight input (omitted for bodyweight — weights.weight is 0f and the cell is skipped)
+        if (set.showWeightInput) {
+            InlineNumericCell(
+                value = weightState.value,
+                placeholder = set.recommendedWeightLabel,
+                onValueChange = { weightState.value = it },
+                enabled = !set.isComplete,
+                modifier = Modifier
+                    .weight(weights.weight)
+                    .padding(horizontal = 2.dp)
+            )
+        }
 
+        // Reps
         InlineNumericCell(
             value = repsState.value,
             placeholder = set.recommendedRepsLabel,
             onValueChange = { repsState.value = it },
             enabled = !set.isComplete,
             modifier = Modifier
-                .weight(0.18f)
+                .weight(weights.reps)
                 .padding(horizontal = 2.dp)
         )
 
-        Box(modifier = Modifier.weight(0.12f), contentAlignment = Alignment.Center) {
+        // RIR
+        Box(modifier = Modifier.weight(weights.rir), contentAlignment = Alignment.Center) {
             RirTargetBadge(
                 rirGoal = rirState.intValue,
                 onClick = {
@@ -500,22 +547,29 @@ private fun WorkoutSetRow(
             )
         }
 
-        Box(modifier = Modifier.weight(0.12f), contentAlignment = Alignment.Center) {
-            val isCheckboxEnabled = set.recommendedWeightAmount > 0.0 || weightState.value.isNotEmpty() || set.isComplete
+        // Checkbox + log. For bodyweight the weight is always 0; for assisted the
+        // checkbox gates on |recommended| so a -50 lb suggestion still enables logging.
+        Box(modifier = Modifier.weight(weights.checkbox), contentAlignment = Alignment.Center) {
+            val weightMagnitude = if (set.assistMode) kotlin.math.abs(set.recommendedWeightAmount) else set.recommendedWeightAmount
+            val isCheckboxEnabled = !set.showWeightInput ||
+                weightMagnitude > 0.0 || weightState.value.isNotEmpty() || set.isComplete
             StratumCheckbox(
                 checked = set.isComplete,
                 enabled = isCheckboxEnabled,
                 onCheckedChange = { checked ->
                     if (checked) {
-                        val weightEmpty = weightState.value.isEmpty()
                         val repsEmpty = repsState.value.isEmpty()
-                        val finalWeight = if (weightEmpty) set.recommendedWeightAmount else (weightState.value.toDoubleOrNull() ?: 0.0)
                         val finalReps = if (repsEmpty) set.repMin else (repsState.value.toIntOrNull() ?: 0)
                         val finalRir = rirState.intValue
+                        val finalWeight = if (set.showWeightInput) {
+                            val weightEmpty = weightState.value.isEmpty()
+                            if (weightEmpty) set.recommendedWeightAmount else (weightState.value.toDoubleOrNull() ?: 0.0)
+                        } else {
+                            0.0
+                        }
 
                         onLogSet(set.slotKey, Weight(finalWeight, Weight.WeightUnit.Lb), finalReps, finalRir)
-                        val restTime = 90
-                        onStartRestTimer(restTime)
+                        onStartRestTimer(DEFAULT_REST_SECONDS)
                     } else {
                         onUnlogSet(set.slotKey)
                     }

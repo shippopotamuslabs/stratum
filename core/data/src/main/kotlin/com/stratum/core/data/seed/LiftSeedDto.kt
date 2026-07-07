@@ -1,6 +1,7 @@
 package com.stratum.core.data.seed
 
 import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.onboarding.MuscleGroup
@@ -54,6 +55,13 @@ data class LiftSeedDto(
     val muscleLengthBias: MuscleLengthBias? = null,
     val mainstream: Boolean = false,
     val kinematicProfile: KinematicProfile? = null,
+    /**
+     * Loading modality (Weighted / Bodyweight / Assisted). Null defaults to
+     * [LoadType.Weighted] in [LiftCatalogSeeder.mapDto] so the bulk of the catalog — which
+     * is weighted — can omit the field. Bodyweight entries (pull-ups, dips, push-ups) and
+     * assisted entries (assisted pull-up, assisted dip) set this explicitly.
+     */
+    val loadType: LoadType? = null,
 )
 
 @Serializable

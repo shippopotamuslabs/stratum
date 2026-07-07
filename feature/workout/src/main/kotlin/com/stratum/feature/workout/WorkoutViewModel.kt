@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.WorkoutId
@@ -125,13 +126,18 @@ class WorkoutViewModel @Inject constructor(
                     sessionStartedAt = session.startedAt
                     val workout = program.workouts.firstOrNull { it.id == workoutId } ?: return@collect
                     if (!snapshotLoaded) {
-                        val projected = projectStructure(workout, liftNamesById)
+                        val projected = projectStructure(
+                            workout,
+                            liftNamesById,
+                            loadTypesById = liftsById.mapValues { it.value.loadType },
+                        )
                         structure = projected
                         val snapshotResult = generateSnapshot(
                             SnapshotRequest(
                                 programId = program.id,
                                 workoutId = workoutId,
                                 lifts = workout.workoutLifts,
+                                loadTypesById = liftsById.mapValues { it.value.loadType },
                             ),
                         )
                         val snapshot = snapshotResult.getOrDefault(
@@ -168,6 +174,18 @@ class WorkoutViewModel @Inject constructor(
         val session = currentSessionId() ?: return
         val slot = resolveSlotByKey(slotKey) ?: return
         val slotId = slot.slotId
+        // loadType-aware weight normalization before the value reaches the log use case:
+        //  - Bodyweight: force 0 (the UI hides the weight input, but guard anyway).
+        //  - Assisted: the user types a positive assistance amount; negate it so the
+        //    persisted value matches the negative-weight sign convention (LoadType.kt).
+        //  - Weighted: pass through unchanged.
+        val loadType = liftsById[slot.liftId]?.loadType ?: LoadType.Weighted
+        val normalizedWeight = when (loadType) {
+            LoadType.Bodyweight -> Weight(0.0, weight.unit)
+            LoadType.Assisted ->
+                if (weight.amount > 0.0) Weight(-weight.amount, weight.unit) else weight
+            LoadType.Weighted -> weight
+        }
         viewModelScope.launch {
             try {
                 logSetUseCase(
@@ -176,14 +194,14 @@ class WorkoutViewModel @Inject constructor(
                         liftId = slot.liftId,
                         workoutLiftId = slot.workoutLiftId,
                         setIndex = slot.position,
-                        weight = weight,
+                        weight = normalizedWeight,
                         reps = reps,
                         rir = rir,
                         completedAt = Instant.now(),
                     ),
                 )
                 overlay = overlay.copy(
-                    loggedSets = overlay.loggedSets + (slotId to LoggedSetValue(slotId, weight, reps, rir)),
+                    loggedSets = overlay.loggedSets + (slotId to LoggedSetValue(slotId, normalizedWeight, reps, rir)),
                 )
                 recomputeRecommendations()
                 render()
