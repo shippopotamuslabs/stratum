@@ -58,6 +58,19 @@ class Slice4LinearProgressionTest {
         restSeconds = 120,
     )
 
+    private fun linearBackoffSlot(rirGoal: Int = 2) = SetSlot(
+        slotId = SetSlotId.Template(LiftSetId("ls-2")),
+        workoutLiftId = workoutLiftId,
+        liftId = liftId,
+        position = 1,
+        setType = SetType.Standard,
+        isTopSet = false,
+        repMin = 0,
+        repMax = 0,
+        rirGoal = rirGoal,
+        restSeconds = 120,
+    )
+
     private fun config(strictness: StallStrictness = StallStrictness.RirBased) = LinearProgressionConfig(
         lowerBodyIncrement = lb(5.0),
         upperBodyIncrement = lb(2.5),
@@ -328,5 +341,71 @@ class Slice4LinearProgressionTest {
             absoluteState.currentStallCount > rirBasedState.currentStallCount,
             "AbsoluteFailure must report a stall where RirBased reports a hold",
         )
+    }
+
+    // --- RIR-adjusted rep recommendations (weight held → reps lever) ---
+
+    @Test
+    @DisplayName("S4-linear-top-set-reps-scale-to-rir-goal-when-weight-held")
+    fun `S4-linear-top-set-reps-scale-to-rir-goal-when-weight-held`() {
+        // Slot range 5–8, rirGoal=2. User did 200 × 6 @ RIR 3 (bottom met at RIR → would
+        // increment). To force a HOLD on Linear the bottom must NOT be met at RIR: reps=6
+        // ≥ repMin=5 but rir=1 < rirGoal=2 → hold. Failure capacity 6 + 1 = 7, target
+        // 7 − 2 = 5, coerced into [5, 8] → 5.
+        val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 6, rir = 1, weight = 200.0, sessionId = "s-n1"))
+        val recommendation = LinearProgressionEngine(config())
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(200.0), recommendation.recommendedWeight, "weight held (bottom not met at RIR)")
+        assertEquals(5, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S4-linear-top-set-reps-reset-to-repMin-on-increment")
+    fun `S4-linear-top-set-reps-reset-to-repMin-on-increment`() {
+        // Bottom met at RIR → increment fires → reps reset to repMin (no RIR scaling).
+        val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 7, rir = 3, weight = 200.0, sessionId = "s-n1"))
+        val recommendation = LinearProgressionEngine(config())
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(205.0), recommendation.recommendedWeight)
+        assertEquals(5, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S4-linear-top-set-reps-fall-back-to-repMin-when-rir-absent")
+    fun `S4-linear-top-set-reps-fall-back-to-repMin-when-rir-absent`() {
+        // No RIR signal and weight held → fall back to repMin.
+        val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 6, rir = null, weight = 200.0, sessionId = "s-n1"))
+        val recommendation = LinearProgressionEngine(config())
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(200.0), recommendation.recommendedWeight)
+        assertEquals(5, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S4-linear-backoff-reps-scale-with-rir-when-weight-held")
+    fun `S4-linear-backoff-reps-scale-with-rir-when-weight-held`() {
+        // Backoff rirGoal=2. User did 200 × 8 @ RIR 3 (failure capacity 11) → target 9.
+        val slot = linearBackoffSlot(rirGoal = 2)
+        val history = listOf(historyEntry(reps = 8, rir = 3, weight = 200.0, sessionId = "s-n1"))
+        val recommendation = LinearProgressionEngine(config())
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(200.0), recommendation.recommendedWeight, "backoff inherits working weight")
+        assertEquals(9, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S4-linear-backoff-reps-floored-at-backoff-floor")
+    fun `S4-linear-backoff-reps-floored-at-backoff-floor`() {
+        // rirGoal=2. User did 200 × 5 @ RIR 1 (failure capacity 6), target 6 − 2 = 4,
+        // floored at BACKOFF_REP_FLOOR (5).
+        val slot = linearBackoffSlot(rirGoal = 2)
+        val history = listOf(historyEntry(reps = 5, rir = 1, weight = 200.0, sessionId = "s-n1"))
+        val recommendation = LinearProgressionEngine(config())
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(200.0), recommendation.recommendedWeight)
+        assertEquals(5, recommendation.baselineExpectedReps)
     }
 }

@@ -3,6 +3,7 @@ package com.stratum.domain.workout.progression
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotRecommendation
@@ -33,3 +34,33 @@ interface ProgressionEngine {
  */
 fun Weight.capAssistedAtZero(loadType: LoadType): Weight =
     if (loadType == LoadType.Assisted && amount > 0.0) Weight(0.0, unit) else this
+
+/**
+ * RIR-aware rep projection for a held weight (D8). When the load lever is unchanged
+ * across sessions, the reps lever advances instead: a set logged at [prevReps] with
+ * [prevRir] reps-in-reserve implies a projected-to-failure capacity of
+ * `prevReps + prevRir`; the next session targets `failureCapacity − slot.rirGoal`.
+ *
+ * - **Top sets** (rep range present, [SetSlot.isTopSet] = true): the target is coerced
+ *   into `[slot.repMin, slot.repMax]` so it never leaves the prescribed band.
+ * - **Backoff sets** (RIR-only slots): the target is floored at [BACKOFF_REP_FLOOR]
+ *   so a wide gap doesn't prescribe an unreasonable last-set rep count.
+ *
+ * Returns `null` when RIR data is absent — callers fall back to the previous rep count
+ * (no rep-projection signal available). Pure and shared by both progression engines so
+ * the rep-scaling math is canonical.
+ */
+fun rirAdjustedReps(
+    prevReps: Int,
+    prevRir: Int?,
+    slot: SetSlot,
+): Int? {
+    if (prevRir == null) return null
+    val failureCapacity = prevReps + prevRir
+    val targetAtRir = failureCapacity - slot.rirGoal
+    return if (slot.isTopSet) {
+        targetAtRir.coerceIn(slot.repMin, slot.repMax)
+    } else {
+        targetAtRir.coerceAtLeast(BACKOFF_REP_FLOOR)
+    }
+}

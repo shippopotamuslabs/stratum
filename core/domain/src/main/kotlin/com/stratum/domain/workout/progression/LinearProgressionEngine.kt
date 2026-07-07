@@ -52,9 +52,15 @@ class LinearProgressionEngine @Inject constructor(
             ?: request.fallbackOneRm
             ?: defaultWeight()
 
-        // Backoff slot: inherits the working weight, no increment.
+        // Backoff slot: inherits the working weight, no increment. The reps lever still
+        // scales with the prior RIR deviation (held weight → rep progression).
         if (!slot.isTopSet) {
-            val baselineReps = latest?.loggedSet?.reps ?: slot.repMin
+            val prevSet = latest?.loggedSet
+            val baselineReps = rirAdjustedReps(
+                prevSet?.reps ?: slot.repMin,
+                prevSet?.rir,
+                slot,
+            ) ?: (prevSet?.reps ?: slot.repMin)
             return SlotRecommendation(
                 slotId = slot.slotId,
                 recommendedWeight = baseWeight,
@@ -68,10 +74,20 @@ class LinearProgressionEngine @Inject constructor(
         val next = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
             .capAssistedAtZero(request.loadType)
 
+        val baselineReps = if (increment.amount > 0.0) {
+            slot.repMin
+        } else {
+            // Weight held (bottom not met at RIR) → advance the reps lever. Scale toward
+            // the slot's RIR goal using the prior session's projected-to-failure capacity;
+            // fall back to repMin when no RIR was logged.
+            val prevSet = latest?.loggedSet
+            rirAdjustedReps(prevSet?.reps ?: slot.repMin, prevSet?.rir, slot) ?: slot.repMin
+        }
+
         return SlotRecommendation(
             slotId = slot.slotId,
             recommendedWeight = next,
-            baselineExpectedReps = slot.repMin,
+            baselineExpectedReps = baselineReps,
             previousWeight = prevWeight,
             previousReps = prevReps,
         )
