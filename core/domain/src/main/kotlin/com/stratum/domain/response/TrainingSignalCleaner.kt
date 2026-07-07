@@ -1,6 +1,6 @@
 package com.stratum.domain.response
 
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.LoggedSet

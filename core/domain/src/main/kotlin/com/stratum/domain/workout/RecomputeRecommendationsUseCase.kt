@@ -1,6 +1,6 @@
 package com.stratum.domain.workout
 
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight

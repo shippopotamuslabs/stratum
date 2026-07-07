@@ -4,6 +4,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import java.time.Duration
@@ -104,7 +105,7 @@ object TrainingInsightsExtractor {
             bySession.forEach { (_, sessionSets) ->
                 val ordered = sessionSets.filter { it.reps > 0 }.sortedBy { it.setIndex }
                 if (ordered.isEmpty()) return@forEach
-                val e1rms = ordered.map { EstimatedOneRm.calculate(it.weight.amount, it.reps) }
+                val e1rms = ordered.map { EstimatedOneRm.calculate(it.weight.amount, it.reps + (it.rir ?: 0)) }
                 if (e1rms.size >= 2) {
                     val regression = linearRegression(e1rms.indices.map { it + 1.0 }, e1rms)
                     slopes += regression.slope

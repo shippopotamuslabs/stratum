@@ -153,10 +153,10 @@ class RecomputeRecommendationsUseCaseTest {
     @Test
     @DisplayName("RIR-2: 75x8@2 RIR top set (4-12 range) -> next top set Hold 75, 7 reps")
     fun `75x8 at 2 RIR holds weight and projects 7 reps`() {
-        // e1RM from 75x10 = 102.81. At 75 lb, repsForWeight = 11 @ 0 RIR → 9 @ 2 RIR.
-        // targetReps (top, repMin=4) = 4. 9 >= 4 → Hold 75.
-        // Fatigue projection: raw set2 = 11 - 2 = 9 @ 0 RIR → 9 - 2 = 7 @ 2 RIR.
-        // Clamped to 4..12 → 7 reps.
+        // e1RM from 75x10 = 102.81. At 75 lb, repsForWeight = 10 @ 0 RIR → 8 @ 2 RIR.
+        // targetReps (top, repMin=4) = 4. 8 >= 4 → Hold 75.
+        // Fatigue projection: raw set2 = 10 - 2 = 8 @ 0 RIR → 8 - 2 = 6 @ 2 RIR.
+        // Clamped to 4..12 → 6 reps.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -169,7 +169,7 @@ class RecomputeRecommendationsUseCaseTest {
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(75.0, rec!!.weight.amount, 0.01)
-        assertEquals(7, rec.reps)
+        assertEquals(6, rec.reps)
     }
 
     @Test
@@ -355,8 +355,8 @@ class RecomputeRecommendationsUseCaseTest {
     @DisplayName("per-lift slope steeper than population yields fewer projected reps on set 2")
     fun `per lift slope steeper than population reduces projected reps`() {
         // Same setup as `75x8 at 2 RIR holds weight and projects 7 reps` (population slope -2.0
-        // → raw set2 = 9 @ 0 RIR → 7 @ 2 RIR). With a steeper -3.0 slope, raw set2 = 8 @ 0 RIR
-        // → 6 @ 2 RIR. FatigueDecay passed via the new fatigueByLiftId param.
+        // → raw set2 = 8 @ 0 RIR → 6 @ 2 RIR). With a steeper -3.0 slope, raw set2 = 7 @ 0 RIR
+        // → 5 @ 2 RIR. FatigueDecay passed via the new fatigueByLiftId param.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -369,14 +369,14 @@ class RecomputeRecommendationsUseCaseTest {
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
-        assertEquals(6, rec!!.reps, "Steeper slope (-3.0) should project fewer reps than population (-2.0) → 7")
+        assertEquals(5, rec!!.reps, "Steeper slope (-3.0) should project fewer reps than population (-2.0) → 6")
     }
 
     @Test
     @DisplayName("per-lift intercept shifts projected reps by a flat offset")
     fun `per lift intercept shifts projected reps`() {
-        // Baseline (population slope -2.0, intercept 0.0): 75x8@2 → raw set2 = 9 @ 0 RIR → 7 @ 2 RIR.
-        // With intercept -1.0 (one fewer rep across the board): raw set2 = 8 @ 0 RIR → 6 @ 2 RIR.
+        // Baseline (population slope -2.0, intercept 0.0): 75x8@2 → raw set2 = 8 @ 0 RIR → 6 @ 2 RIR.
+        // With intercept -1.0 (one fewer rep across the board): raw set2 = 7 @ 0 RIR → 5 @ 2 RIR.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -389,14 +389,14 @@ class RecomputeRecommendationsUseCaseTest {
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
-        assertEquals(6, rec!!.reps, "Intercept -1.0 should shift projected reps down by 1 vs population (7 → 6)")
+        assertEquals(5, rec!!.reps, "Intercept -1.0 should shift projected reps down by 1 vs population (6 → 5)")
     }
 
     @Test
     @DisplayName("shallower per-lift slope yields more projected reps than population")
     fun `shallower slope yields more projected reps`() {
-        // Population slope -2.0 → 7 reps (see `75x8 at 2 RIR holds weight and projects 7 reps`).
-        // Shallower -1.0 slope: raw set2 = 10 @ 0 RIR → 8 @ 2 RIR.
+        // Population slope -2.0 → 6 reps (see `75x8 at 2 RIR holds weight and projects 7 reps`).
+        // Shallower -1.0 slope: raw set2 = 9 @ 0 RIR → 7 @ 2 RIR.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -409,14 +409,14 @@ class RecomputeRecommendationsUseCaseTest {
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
-        assertEquals(8, rec!!.reps, "Shallower slope (-1.0) should project more reps than population (-2.0) → 7")
+        assertEquals(7, rec!!.reps, "Shallower slope (-1.0) should project more reps than population (-2.0) → 6")
     }
 
     @Test
     @DisplayName("lift absent from fatigueByLiftId falls back to population slope")
     fun `lift absent from fatigue map falls back to population`() {
-        // Same setup as the 7-rep population case, but fatigueByLiftId is empty (lift not in map).
-        // Must match the population-slope result (7 reps), not error or produce a different value.
+        // Same setup as the 6-rep population case, but fatigueByLiftId is empty (lift not in map).
+        // Must match the population-slope result (6 reps), not error or produce a different value.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -428,6 +428,6 @@ class RecomputeRecommendationsUseCaseTest {
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
-        assertEquals(7, rec!!.reps, "Absent lift must fall back to population slope (-2.0) → 7 reps")
+        assertEquals(6, rec!!.reps, "Absent lift must fall back to population slope (-2.0) → 6 reps")
     }
 }

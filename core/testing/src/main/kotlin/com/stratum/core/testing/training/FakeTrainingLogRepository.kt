@@ -132,6 +132,14 @@ class FakeTrainingLogRepository(
         setsBySession.values.forEach { bucket -> bucket.remove(id) }
     }
 
+    override suspend fun getPersonalRecordForLift(liftId: com.stratum.domain.lift.identity.LiftId): LoggedSet? {
+        return getAllSets().firstOrNull { it.liftId == liftId && it.isPersonalRecord }
+    }
+
+    override suspend fun updateSets(sets: List<LoggedSet>) {
+        sets.forEach { updateSet(it) }
+    }
+
     override suspend fun persistSessionWithCycleEffects(
         session: TrainingSession,
         cyclePointerUpdate: CyclePointerUpdate?,

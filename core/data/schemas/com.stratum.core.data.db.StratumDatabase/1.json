@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "cdc77c32d8c92303a44826a567465a0a",
+    "identityHash": "0ae9192d8fd4862cc3e5e834d8faac0c",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -348,7 +348,7 @@
       },
       {
         "tableName": "logged_sets",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `exerciseNameRaw` TEXT NOT NULL, `liftId` TEXT, `setIndex` INTEGER NOT NULL, `weightAmount` REAL NOT NULL, `weightUnit` TEXT NOT NULL, `reps` INTEGER NOT NULL, `rir` INTEGER, `completedAtEpochMillis` INTEGER NOT NULL, `liftName` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `muscleLengthBias` TEXT NOT NULL, `workoutLiftId` TEXT, `progressionScheme` TEXT, `setType` TEXT, `repMin` INTEGER, `repMax` INTEGER, `rirGoal` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `training_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `exerciseNameRaw` TEXT NOT NULL, `liftId` TEXT, `setIndex` INTEGER NOT NULL, `weightAmount` REAL NOT NULL, `weightUnit` TEXT NOT NULL, `reps` INTEGER NOT NULL, `rir` INTEGER, `completedAtEpochMillis` INTEGER NOT NULL, `liftName` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `muscleLengthBias` TEXT NOT NULL, `workoutLiftId` TEXT, `progressionScheme` TEXT, `setType` TEXT, `repMin` INTEGER, `repMax` INTEGER, `rirGoal` INTEGER, `isPersonalRecord` INTEGER, `estimatedOneRm` REAL, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `training_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -473,6 +473,16 @@
             "fieldPath": "rirGoal",
             "columnName": "rirGoal",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "isPersonalRecord",
+            "columnName": "isPersonalRecord",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "estimatedOneRm",
+            "columnName": "estimatedOneRm",
+            "affinity": "REAL"
           }
         ],
         "primaryKey": {
@@ -510,6 +520,16 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_logged_sets_workoutLiftId_liftId_setIndex` ON `${TABLE_NAME}` (`workoutLiftId`, `liftId`, `setIndex`)"
+          },
+          {
+            "name": "index_logged_sets_liftId_isPersonalRecord",
+            "unique": true,
+            "columnNames": [
+              "liftId",
+              "isPersonalRecord"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_logged_sets_liftId_isPersonalRecord` ON `${TABLE_NAME}` (`liftId`, `isPersonalRecord`)"
           }
         ],
         "foreignKeys": [
@@ -2116,7 +2136,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'cdc77c32d8c92303a44826a567465a0a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0ae9192d8fd4862cc3e5e834d8faac0c')"
     ]
   }
 }

@@ -29,6 +29,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.DefaultLoggedLiftContextFactory
 import com.stratum.domain.training.DeleteLoggedSetUseCase
+import com.stratum.domain.training.ComputePersonalRecordsUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
@@ -286,7 +287,7 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -332,7 +333,7 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -379,7 +380,7 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -792,10 +793,10 @@ class WorkoutViewModelTest {
     @Test
     @DisplayName("S7-rir-math-2: 75x8@2 RIR top set (4-12 range) -> next top set Hold 75, 7 reps")
     fun `75x8 at 2 RIR holds weight and projects 7 reps`() = runTest {
-        // e1RM from 75x10 = 102.81. At 75 lb, repsForWeight = 11 @ 0 RIR → 9 @ 2 RIR.
-        // targetReps (top, repMin=4) = 4. 9 >= 4 → Hold 75.
-        // Fatigue projection: raw set2 = 11 - 2 = 9 @ 0 RIR → 9 - 2 = 7 @ 2 RIR.
-        // Clamped to 4..12 → 7 reps. Weight label "75".
+        // e1RM from 75x10 = 102.81. At 75 lb, repsForWeight = 10 @ 0 RIR → 8 @ 2 RIR.
+        // targetReps (top, repMin=4) = 4. 8 >= 4 → Hold 75.
+        // Fatigue projection: raw set2 = 10 - 2 = 8 @ 0 RIR → 8 - 2 = 6 @ 2 RIR.
+        // Clamped to 4..12 → 6 reps. Weight label "75".
         val viewModel = buildViewModelWithProgram(programWithTopSetRange(repMin = 4, repMax = 12, rirGoal = 2))
         viewModel.startSession(workoutId)
         viewModel.uiState.test {
@@ -807,8 +808,8 @@ class WorkoutViewModelTest {
             assertNotNull(nextSet, "an upcoming ls-2 set must be rendered")
             assertEquals("75", nextSet!!.recommendedWeightLabel)
             assertTrue(nextSet.hasLiveRepsRecommendation)
-            assertEquals(7, nextSet.recommendedReps)
-            assertEquals("7", nextSet.recommendedRepsLabel)
+            assertEquals(6, nextSet.recommendedReps)
+            assertEquals("6", nextSet.recommendedRepsLabel)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -817,9 +818,9 @@ class WorkoutViewModelTest {
     @DisplayName("S7-fatigue-slope: steeper per-lift slope projects fewer reps end-to-end (6 vs 7)")
     fun `steeper per lift slope projects fewer reps end to end`() = runTest {
         // Same scenario as `75x8 at 2 RIR holds weight and projects 7 reps` (population slope
-        // -2.0 → 7 reps). With a steeper per-lift slope (-3.0) wired via the insights cache,
-        // the VM should thread it into RecomputeRecommendationsUseCase and project 6 reps:
-        // raw set2 = 11 - 3 = 8 @ 0 RIR → 8 - 2 = 6 @ 2 RIR.
+        // -2.0 → 6 reps). With a steeper per-lift slope (-3.0) wired via the insights cache,
+        // the VM should thread it into RecomputeRecommendationsUseCase and project 5 reps:
+        // raw set2 = 10 - 3 = 7 @ 0 RIR → 7 - 2 = 5 @ 2 RIR.
         val viewModel = buildViewModelWithFatigueSlope(slope = -3.0, intercept = 0.0)
         viewModel.startSession(workoutId)
         viewModel.uiState.test {
@@ -830,7 +831,7 @@ class WorkoutViewModelTest {
             val nextSet = updated.lifts.first().sets.firstOrNull { it.slotKey.contains("ls-2") }
             assertNotNull(nextSet, "an upcoming ls-2 set must be rendered")
             assertTrue(nextSet!!.hasLiveRepsRecommendation)
-            assertEquals(6, nextSet.recommendedReps, "Steeper slope (-3.0) should project 6 reps, not the population 7")
+            assertEquals(5, nextSet.recommendedReps, "Steeper slope (-3.0) should project 5 reps, not the population 6")
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -955,7 +956,7 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -1012,7 +1013,7 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(

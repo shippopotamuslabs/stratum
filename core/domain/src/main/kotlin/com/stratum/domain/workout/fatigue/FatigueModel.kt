@@ -1,6 +1,6 @@
 package com.stratum.domain.workout.fatigue
 
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_INTERCEPT
 import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_SLOPE

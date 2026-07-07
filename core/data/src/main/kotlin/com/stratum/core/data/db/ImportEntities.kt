@@ -42,6 +42,7 @@ data class ImportJobEntity(
         Index("sessionId"),
         Index("completedAtEpochMillis"),
         Index(value = ["workoutLiftId", "liftId", "setIndex"]),
+        Index(value = ["liftId", "isPersonalRecord"], unique = true),
     ],
 )
 data class LoggedSetEntity(
@@ -67,6 +68,8 @@ data class LoggedSetEntity(
     val repMin: Int? = null,
     val repMax: Int? = null,
     val rirGoal: Int? = null,
+    val isPersonalRecord: Boolean? = null,
+    val estimatedOneRm: Double? = null,
 )
 
 @Entity(tableName = "lift_training_insights")
