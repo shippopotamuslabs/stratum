@@ -49,7 +49,7 @@ class RoomTrainingLogRepositoryImportFkTest {
                     cycleLength = 2,
                 ),
             )
-            database.workoutDao().insertAll(
+            database.workoutDao().upsertAll(
                 listOf(
                     WorkoutEntity(
                         id = WorkoutLoggingFixtures.workoutAId,

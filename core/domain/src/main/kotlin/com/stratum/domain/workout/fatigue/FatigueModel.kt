@@ -1,6 +1,6 @@
 package com.stratum.domain.workout.fatigue
 
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_INTERCEPT
 import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_SLOPE
@@ -36,10 +36,11 @@ fun projectReps(
     perLiftIntercept: Double?,
 ): Int {
     if (baselineOneRm <= 0.0 || targetWeight.amount <= 0.0) return 1
-    val slope = perLiftSlope ?: POPULATION_FATIGUE_DECAY_SLOPE
-    val intercept = perLiftIntercept ?: POPULATION_FATIGUE_DECAY_INTERCEPT
+    val slope = (perLiftSlope ?: POPULATION_FATIGUE_DECAY_SLOPE).coerceAtMost(0.0)
+    val intercept = (perLiftIntercept ?: POPULATION_FATIGUE_DECAY_INTERCEPT).coerceAtMost(0.0)
     val baselineReps = EstimatedOneRm.repsForWeight(baselineOneRm, targetWeight.amount)
-    val projected = baselineReps + slope * (nextSetIndex - 1) + intercept
+    val decay = slope * (nextSetIndex - 1) + intercept
+    val projected = baselineReps + decay.coerceAtMost(0.0)
     return projected.coerceAtLeast(1.0).roundToInt()
 }
 

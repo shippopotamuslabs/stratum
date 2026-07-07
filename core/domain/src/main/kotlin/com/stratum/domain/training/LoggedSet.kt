@@ -17,4 +17,6 @@ data class LoggedSet(
     val rir: Int?,
     val completedAt: Instant,
     val liftContext: LoggedLiftContext,
+    val isPersonalRecord: Boolean = false,
+    val estimatedOneRm: Double? = null,
 )

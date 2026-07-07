@@ -19,6 +19,7 @@ import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
+import com.stratum.domain.training.ComputePersonalRecordsUseCase
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.core.testing.importing.FakeImportEquipmentInferencePort
 import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
@@ -359,6 +360,7 @@ class RunFullHistoricalImportUseCaseTest {
                 extractResponseProfile = extractResponseProfile,
                 responseProfilePersistence = persistence,
                 liftRepository = liftRepo,
+                computePersonalRecords = ComputePersonalRecordsUseCase(trainingLogRepo),
             )
         val rollback =
             RollbackHistoricalImportUseCase(

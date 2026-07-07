@@ -2,7 +2,7 @@ package com.stratum.feature.workout
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.workout.ui.LiftBestSetUi
@@ -35,8 +35,9 @@ class WorkoutCompleteViewModel @Inject constructor(
                                 liftName = best.liftName,
                                 performanceLabel = formatPerformance(best.weight, best.reps),
                                 rirLabel = best.rir?.toString() ?: RIR_NONE,
-                                estimatedOneRmLabel = formatEstimatedOneRm(best.weight, best.reps),
-                                isPersonalRecord = false,
+                                estimatedOneRmLabel = best.estimatedOneRm?.let { formatWeight(it) }
+                                    ?: formatEstimatedOneRm(best.weight, best.reps, best.rir),
+                                isPersonalRecord = best.isPersonalRecord,
                             )
                         },
                     )
@@ -61,8 +62,9 @@ class WorkoutCompleteViewModel @Inject constructor(
     private fun formatPerformance(weight: Double, reps: Int): String =
         if (weight == 0.0) reps.toString() else "${formatWeight(weight)} × $reps"
 
-    private fun formatEstimatedOneRm(weight: Double, reps: Int): String {
-        val e1Rm = EstimatedOneRm.calculate(weight, reps)
+    private fun formatEstimatedOneRm(weight: Double, reps: Int, rir: Int?): String {
+        val effectiveReps = reps + (rir ?: 0)
+        val e1Rm = EstimatedOneRm.calculate(weight, effectiveReps)
         return formatWeight(e1Rm)
     }
 

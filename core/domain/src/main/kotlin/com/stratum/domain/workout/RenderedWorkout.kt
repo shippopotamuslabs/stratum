@@ -33,6 +33,7 @@ data class RenderedSet(
     val loggedValue: LoggedSetValue?,
     val previousWeight: Weight? = null,
     val previousReps: Int? = null,
+    val isProjected: Boolean = false,
 )
 
 /** Merge-result read model for a single lift (D1). */

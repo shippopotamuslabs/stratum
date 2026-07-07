@@ -13,6 +13,7 @@ data class SlotRecommendation(
     val baselineExpectedReps: Int,
     val previousWeight: Weight? = null,
     val previousReps: Int? = null,
+    val isProjected: Boolean = false,
 )
 
 /**

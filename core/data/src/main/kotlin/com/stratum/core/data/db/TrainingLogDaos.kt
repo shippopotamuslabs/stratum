@@ -144,4 +144,7 @@ interface TrainingLoggedSetDao {
         """,
     )
     suspend fun deleteAllForImportedSessions()
+
+    @Query("SELECT * FROM logged_sets WHERE liftId = :liftId AND isPersonalRecord = 1 LIMIT 1")
+    suspend fun getPersonalRecordForLift(liftId: LiftId): LoggedSetEntity?
 }

@@ -8,6 +8,7 @@ import javax.inject.Inject
 class FinalizeTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
+    private val computePersonalRecords: ComputePersonalRecordsUseCase,
 ) {
     suspend operator fun invoke(sessionId: TrainingSessionId): Result<TrainingSession> = runCatching {
         val session =
@@ -22,6 +23,14 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
                 status = TrainingSessionStatus.COMPLETED,
                 endedAt = Instant.now(),
             )
+
+        val sessionSets = trainingLogRepository.getSetsForSession(sessionId)
+        val computation = computePersonalRecords(sessionSets).getOrThrow()
+
+        trainingLogRepository.updateSets(computation.updatedIncomingSets)
+        if (computation.oldPrSetsToUpdate.isNotEmpty()) {
+            trainingLogRepository.updateSets(computation.oldPrSetsToUpdate)
+        }
 
         val cycleEffects =
             if (completed.kind == TrainingSessionKind.PROGRAM_WORKOUT) {

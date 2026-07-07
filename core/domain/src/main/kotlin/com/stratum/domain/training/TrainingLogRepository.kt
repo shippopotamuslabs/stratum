@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
@@ -8,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Suppress("TooManyFunctions")
 interface TrainingLogRepository {
+    suspend fun getPersonalRecordForLift(liftId: LiftId): LoggedSet?
+    suspend fun updateSets(sets: List<LoggedSet>)
     suspend fun replaceAll(sessions: List<TrainingSession>, sets: List<LoggedSet>)
     suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>)
     suspend fun getAllSessions(): List<TrainingSession>

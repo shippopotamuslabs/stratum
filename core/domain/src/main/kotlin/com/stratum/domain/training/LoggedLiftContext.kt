@@ -8,11 +8,11 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 
 data class LoggedLiftContext(
     val liftName: String,
-    val movementPatternsBitmask: Int,
-    val primaryMusclesBitmask: Int,
-    val secondaryMusclesBitmask: Int,
-    val kinematicProfile: KinematicProfile,
-    val muscleLengthBias: MuscleLengthBias,
+    val movementPatternsBitmask: Int = 0,
+    val primaryMusclesBitmask: Int = 0,
+    val secondaryMusclesBitmask: Int = 0,
+    val kinematicProfile: KinematicProfile = KinematicProfile.NonAxialCompound,
+    val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val workoutLiftId: WorkoutLiftId? = null,
     val progressionScheme: ProgressionScheme? = null,
     val setType: SetType? = null,

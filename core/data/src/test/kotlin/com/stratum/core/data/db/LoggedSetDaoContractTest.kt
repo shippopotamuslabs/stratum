@@ -49,7 +49,7 @@ class LoggedSetDaoContractTest {
     @DisplayName("Given sets across a time range when queried by window then only in-range rows return")
     fun getInWindowReturnsMatchingSets() = runTest {
         val sessionId = TrainingSessionId("session-1")
-        sessionDao.insert(
+        sessionDao.upsert(
             TrainingSessionEntity(
                 id = sessionId,
                 programId = com.stratum.domain.program.identity.ProgramId("prog-1"),
@@ -69,7 +69,7 @@ class LoggedSetDaoContractTest {
         val insideLate = loggedSet("set-late", sessionId, completedAtEpochMillis = 8_000L)
         val outsideBefore = loggedSet("set-before", sessionId, completedAtEpochMillis = 500L)
         val outsideAfter = loggedSet("set-after", sessionId, completedAtEpochMillis = 10_000L)
-        setDao.insertAll(listOf(insideEarly, insideLate, outsideBefore, outsideAfter))
+        setDao.upsertAll(listOf(insideEarly, insideLate, outsideBefore, outsideAfter))
 
         val results = setDao.getInWindow(1_500L, 8_500L)
 
@@ -79,6 +79,58 @@ class LoggedSetDaoContractTest {
             setOf(LoggedSetId("set-early"), LoggedSetId("set-late")),
             results.map { it.id }.toSet(),
         )
+    }
+
+    @Test
+    @DisplayName("Unique constraint on (liftId, isPersonalRecord) rejects duplicate PRs but allows multiple null sets")
+    fun uniqueConstraintOnPr() = runTest {
+        val sessionId = TrainingSessionId("session-1")
+        sessionDao.upsert(
+            TrainingSessionEntity(
+                id = sessionId,
+                programId = com.stratum.domain.program.identity.ProgramId("prog-1"),
+                workoutId = null,
+                status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.IMPORT,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 1_000L,
+                endedAtEpochMillis = 9_000L,
+                sourceApp = null,
+            ),
+        )
+
+        val set1 = loggedSet("set-1", sessionId, completedAtEpochMillis = 2_000L).copy(
+            liftId = LiftId("lift-bench"),
+            isPersonalRecord = null
+        )
+        val set2 = loggedSet("set-2", sessionId, completedAtEpochMillis = 3_000L).copy(
+            liftId = LiftId("lift-bench"),
+            isPersonalRecord = null
+        )
+        setDao.upsertAll(listOf(set1, set2))
+
+        val prSet1 = loggedSet("pr-set-1", sessionId, completedAtEpochMillis = 4_000L).copy(
+            liftId = LiftId("lift-bench"),
+            isPersonalRecord = true
+        )
+        setDao.upsert(prSet1)
+
+        val prSet2 = loggedSet("pr-set-2", sessionId, completedAtEpochMillis = 5_000L).copy(
+            liftId = LiftId("lift-bench"),
+            isPersonalRecord = true
+        )
+        
+        try {
+            setDao.upsert(prSet2)
+        } catch (e: Exception) {
+            // Expected
+        }
+
+        val allSets = setDao.getForSession(sessionId)
+        assertTrue(allSets.any { it.id == LoggedSetId("pr-set-1") })
+        assertTrue(allSets.none { it.id == LoggedSetId("pr-set-2") })
     }
 
     private fun loggedSet(

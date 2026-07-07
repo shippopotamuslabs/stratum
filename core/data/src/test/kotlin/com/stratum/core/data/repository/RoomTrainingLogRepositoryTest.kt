@@ -47,7 +47,7 @@ class RoomTrainingLogRepositoryTest {
                     cycleLength = 2,
                 ),
             )
-            database.workoutDao().insertAll(
+            database.workoutDao().upsertAll(
                 listOf(
                     com.stratum.core.data.db.WorkoutEntity(
                         id = WorkoutLoggingFixtures.workoutAId,

@@ -9,6 +9,8 @@ import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.testing.workout.FakeFatigueModel
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.workout.FakeProgressionHistoryRepository
+import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
+import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -29,6 +31,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.DefaultLoggedLiftContextFactory
 import com.stratum.domain.training.DeleteLoggedSetUseCase
+import com.stratum.domain.training.ComputePersonalRecordsUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
@@ -39,8 +42,10 @@ import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
+import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
 import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RecommendationEngine
@@ -85,6 +90,7 @@ class WorkoutViewModelTest {
     private lateinit var trainingLogRepository: FakeTrainingLogRepository
     private lateinit var progressionHistory: FakeProgressionHistoryRepository
     private lateinit var workoutEditSession: WorkoutEditSession
+    private lateinit var overlayStore: FakeWorkoutOverlayStore
 
     @BeforeEach
     fun setUp() {
@@ -108,6 +114,7 @@ class WorkoutViewModelTest {
         )
         progressionHistory = FakeProgressionHistoryRepository()
         workoutEditSession = WorkoutEditSession()
+        overlayStore = FakeWorkoutOverlayStore()
         seedHistoryForTopSet()
     }
 
@@ -216,8 +223,8 @@ class WorkoutViewModelTest {
                                 workoutLiftId = workoutLiftId,
                                 position = 1,
                                 setType = SetType.Standard,
-                                repMin = 8,
-                                repMax = 12,
+                                repMin = 0,
+                                repMax = 0,
                                 rirGoal = 2,
                                 isTopSet = false,
                             ),
@@ -271,6 +278,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -286,13 +294,14 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
         )
     }
@@ -317,6 +326,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -332,13 +342,14 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
         )
     }
@@ -364,6 +375,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -379,7 +391,7 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
@@ -398,6 +410,7 @@ class WorkoutViewModelTest {
                 ),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
         )
     }
@@ -651,7 +664,11 @@ class WorkoutViewModelTest {
         viewModel.uiState.test {
             val loaded = awaitLoaded()
             val firstSet = loaded.lifts.first().sets.first()
-            assertEquals("135", firstSet.recommendedWeightLabel)
+            // History: slot 0 (top, 4-6 RIR 2) did 135×5 RIR 2; slot 1 (backoff, RIR 2)
+            // did 135×8 RIR 2. Same weight → capacity reorder: the backoff's 8@2 (cap 10)
+            // becomes the top-set baseline. 8 >= repMax 6 at RIR 2 → increment to 140,
+            // reps reset to repMin 4.
+            assertEquals("140", firstSet.recommendedWeightLabel)
             assertEquals("4", firstSet.recommendedRepsLabel)
             assertNull(firstSet.loggedWeightLabel)
             cancelAndIgnoreRemainingEvents()
@@ -749,10 +766,10 @@ class WorkoutViewModelTest {
                 ls2Set!!.hasLiveRepsRecommendation,
                 "upcoming set must carry a live reps recommendation after a prior completion",
             )
-            // The projected reps must be a concrete value within the backoff slot's
-            // prescribed 8..12 range (the fatigue model clamps to repMin..repMax).
+            // The projected reps must be a concrete positive value (the backoff slot has
+            // no rep range — only a floor and RIR target — so the projection is unclamped).
             val projected = ls2Set.recommendedReps
-            assertTrue(projected in 8..12, "projected reps must clamp to the slot's 8..12 range: $projected")
+            assertTrue(projected > 0, "projected reps must be a concrete positive value: $projected")
             assertEquals(projected.toString(), ls2Set.recommendedRepsLabel)
             cancelAndIgnoreRemainingEvents()
         }
@@ -792,10 +809,10 @@ class WorkoutViewModelTest {
     @Test
     @DisplayName("S7-rir-math-2: 75x8@2 RIR top set (4-12 range) -> next top set Hold 75, 7 reps")
     fun `75x8 at 2 RIR holds weight and projects 7 reps`() = runTest {
-        // e1RM from 75x10 = 102.81. At 75 lb, repsForWeight = 11 @ 0 RIR → 9 @ 2 RIR.
-        // targetReps (top, repMin=4) = 4. 9 >= 4 → Hold 75.
-        // Fatigue projection: raw set2 = 11 - 2 = 9 @ 0 RIR → 9 - 2 = 7 @ 2 RIR.
-        // Clamped to 4..12 → 7 reps. Weight label "75".
+        // e1RM from 75x10 = 102.81. At 75 lb, repsForWeight = 10 @ 0 RIR → 8 @ 2 RIR.
+        // targetReps (top, repMin=4) = 4. 8 >= 4 → Hold 75.
+        // Fatigue projection: raw set2 = 10 - 2 = 8 @ 0 RIR → 8 - 2 = 6 @ 2 RIR.
+        // Clamped to 4..12 → 6 reps. Weight label "75".
         val viewModel = buildViewModelWithProgram(programWithTopSetRange(repMin = 4, repMax = 12, rirGoal = 2))
         viewModel.startSession(workoutId)
         viewModel.uiState.test {
@@ -807,8 +824,8 @@ class WorkoutViewModelTest {
             assertNotNull(nextSet, "an upcoming ls-2 set must be rendered")
             assertEquals("75", nextSet!!.recommendedWeightLabel)
             assertTrue(nextSet.hasLiveRepsRecommendation)
-            assertEquals(7, nextSet.recommendedReps)
-            assertEquals("7", nextSet.recommendedRepsLabel)
+            assertEquals(6, nextSet.recommendedReps)
+            assertEquals("6", nextSet.recommendedRepsLabel)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -817,9 +834,9 @@ class WorkoutViewModelTest {
     @DisplayName("S7-fatigue-slope: steeper per-lift slope projects fewer reps end-to-end (6 vs 7)")
     fun `steeper per lift slope projects fewer reps end to end`() = runTest {
         // Same scenario as `75x8 at 2 RIR holds weight and projects 7 reps` (population slope
-        // -2.0 → 7 reps). With a steeper per-lift slope (-3.0) wired via the insights cache,
-        // the VM should thread it into RecomputeRecommendationsUseCase and project 6 reps:
-        // raw set2 = 11 - 3 = 8 @ 0 RIR → 8 - 2 = 6 @ 2 RIR.
+        // -2.0 → 6 reps). With a steeper per-lift slope (-3.0) wired via the insights cache,
+        // the VM should thread it into RecomputeRecommendationsUseCase and project 5 reps:
+        // raw set2 = 10 - 3 = 7 @ 0 RIR → 7 - 2 = 5 @ 2 RIR.
         val viewModel = buildViewModelWithFatigueSlope(slope = -3.0, intercept = 0.0)
         viewModel.startSession(workoutId)
         viewModel.uiState.test {
@@ -830,7 +847,7 @@ class WorkoutViewModelTest {
             val nextSet = updated.lifts.first().sets.firstOrNull { it.slotKey.contains("ls-2") }
             assertNotNull(nextSet, "an upcoming ls-2 set must be rendered")
             assertTrue(nextSet!!.hasLiveRepsRecommendation)
-            assertEquals(6, nextSet.recommendedReps, "Steeper slope (-3.0) should project 6 reps, not the population 7")
+            assertEquals(5, nextSet.recommendedReps, "Steeper slope (-3.0) should project 5 reps, not the population 6")
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -940,6 +957,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -955,13 +973,14 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = WorkoutEditSession(),
         )
 
@@ -973,8 +992,9 @@ class WorkoutViewModelTest {
             // The first set repMin=4, repMax=6. With no history, placeholder is "4-6"
             assertEquals("4-6", sets[0].recommendedRepsLabel)
 
-            // The second set repMin=8, repMax=12. With no history, placeholder is "8-12"
-            assertEquals("8-12", sets[1].recommendedRepsLabel)
+            // The second set is a backoff (repMin=0, repMax=0, RIR-only). With no history,
+            // the label is "0" (no rep range on backoff slots — only a floor and RIR target).
+            assertEquals("0", sets[1].recommendedRepsLabel)
 
             // With no history, recommended weight amount is 0.0, so recommendedWeightLabel should be "" (blank)
             assertEquals("", sets[0].recommendedWeightLabel)
@@ -997,6 +1017,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -1012,13 +1033,14 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
-            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository, ComputePersonalRecordsUseCase(trainingLogRepository)),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = WorkoutEditSession(),
         )
 
@@ -1134,6 +1156,77 @@ class WorkoutViewModelTest {
 
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Given persisted overlay when startSession then overlay is restored")
+    fun persistedOverlayIsRestoredOnStartSession() = runTest {
+        // Seed a persisted overlay (e.g. left behind by a prior process that was killed) with
+        // a swap + an added set, then start the session. The rendered state must reflect the
+        // restored swap and the restored added slot.
+        overlayStore.seed(
+            TrainingSessionId("ts-active"),
+            WorkoutOverlay(
+                swappedLifts = mapOf(workoutLiftId to LiftId("L-2")),
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        // The swap to L-2 (Bench Press) survives the process death.
+        assertEquals("Bench Press", loaded.lifts.first().liftName)
+        assertEquals("L-2", loaded.lifts.first().liftId)
+    }
+
+    @Test
+    @DisplayName("Given no persisted overlay when startSession then DB-resumed logged sets are used")
+    fun noOverlayFallsBackToDbResume() = runTest {
+        // With nothing persisted, startSession must fall back to the existing DB-resume path
+        // (template-slot logged sets recovered from Room). No persisted overlay means the
+        // store returns null and the resumedLoggedSets branch runs unchanged.
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        // First set starts unlogged (no logged sets in the seeded session).
+        assertNull(loaded.lifts.first().sets.first().loggedWeightLabel)
+        assertEquals(0, overlayStore.saveCallCount)
+    }
+
+    @Test
+    @DisplayName("When overlay mutated then it is persisted to the store")
+    fun overlayMutationIsPersisted() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+        advanceUntilIdle()
+
+        assertTrue(overlayStore.saveCallCount >= 1, "swap must persist the overlay")
+        val stored = overlayStore.storedOverlay()
+        assertEquals(LiftId("L-2"), stored.swappedLifts[workoutLiftId])
+    }
+
+    @Test
+    @DisplayName("Given active session when abandoned then persisted overlay is cleared")
+    fun abandonClearsPersistedOverlay() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+        advanceUntilIdle()
+        assertTrue(overlayStore.saveCallCount >= 1)
+
+        viewModel.abandonSession()
+        advanceUntilIdle()
+
+        assertEquals(1, overlayStore.clearCallCount)
+        assertNull(overlayStore.storedSessionId())
     }
 
     @Test
