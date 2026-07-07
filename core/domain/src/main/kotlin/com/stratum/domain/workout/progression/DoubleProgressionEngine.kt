@@ -3,7 +3,10 @@ package com.stratum.domain.workout.progression
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.training.EstimatedOneRm
+import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SlotRecommendation
+import com.stratum.domain.workout.fatigue.projectReps
 import javax.inject.Inject
 
 /**
@@ -40,46 +43,79 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
         val baseWeight = latest?.loggedSet?.weight ?: request.fallbackOneRm ?: defaultWeight()
         val baselineExpectedReps = latest?.loggedSet?.reps ?: slot.repMin
 
-        // Backoff slot (RIR-only, no rep range): inherits the top-set weight. The reps
-        // lever still scales with the prior RIR deviation (held weight → rep progression).
-        if (!slot.isTopSet) {
-            val prevSet = latest?.loggedSet
-            val backoffReps = rirAdjustedReps(
-                prevSet?.reps ?: slot.repMin,
-                prevSet?.rir,
-                slot,
-            ) ?: baselineExpectedReps
-            return SlotRecommendation(
-                slotId = slot.slotId,
-                recommendedWeight = baseWeight,
-                baselineExpectedReps = backoffReps,
-                previousWeight = prevWeight,
-                previousReps = prevReps,
-            )
+        val targetWeight = request.currentTopSetWeight ?: run {
+            if (!slot.isTopSet) {
+                baseWeight
+            } else {
+                val incremented = shouldIncrement(latest, slot)
+                val increment = if (incremented) incrementFor() else Weight(0.0, baseWeight.unit)
+                Weight(baseWeight.amount + increment.amount, baseWeight.unit)
+                    .capAssistedAtZero(request.loadType)
+            }
         }
 
-        val incremented = shouldIncrement(latest, slot)
-        val increment = if (incremented) incrementFor() else Weight(0.0, baseWeight.unit)
-        val next = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
-            .capAssistedAtZero(request.loadType)
-
-        val recommendedReps = if (incremented) {
-            slot.repMin
+        val recommendedReps = if (prevWeight != null && prevWeight == targetWeight) {
+            if (slot.isTopSet) {
+                val incremented = shouldIncrement(latest, slot)
+                if (incremented) {
+                    slot.repMin
+                } else {
+                    val prevSet = latest.loggedSet
+                    rirAdjustedReps(prevSet.reps, prevSet.rir, slot)
+                        ?: prevSet.reps.coerceIn(slot.repMin, slot.repMax)
+                }
+            } else {
+                val prevSet = latest.loggedSet
+                rirAdjustedReps(
+                    prevSet.reps,
+                    prevSet.rir,
+                    slot,
+                ) ?: baselineExpectedReps
+            }
         } else {
-            // Weight held → advance the reps lever. Scale toward the slot's RIR goal
-            // using the prior session's projected-to-failure capacity; fall back to the
-            // naive previous-reps repeat when no RIR was logged.
-            val prevSet = latest?.loggedSet
-            rirAdjustedReps(prevSet?.reps ?: slot.repMin, prevSet?.rir, slot)
-                ?: (prevSet?.reps ?: slot.repMin).coerceIn(slot.repMin, slot.repMax)
+            val priorRec = request.priorSlotRecommendation
+            val priorSlot = request.priorSlot
+            if (priorRec != null && priorSlot != null) {
+                val priorWeight = priorRec.recommendedWeight
+                val priorReps = priorRec.baselineExpectedReps
+                val priorRirGoal = priorSlot.rirGoal
+                val priorE1rm = EstimatedOneRm.calculate(priorWeight.amount, priorReps + priorRirGoal)
+                val rawCapacityReps = projectReps(
+                    baselineOneRm = priorE1rm,
+                    targetWeight = targetWeight,
+                    nextSetIndex = slot.position + 1,
+                    perLiftSlope = request.perLiftSlope,
+                    perLiftIntercept = request.perLiftIntercept,
+                )
+                val repsAtTargetRir = rawCapacityReps - slot.rirGoal
+                if (slot.isTopSet) {
+                    repsAtTargetRir.coerceIn(slot.repMin, slot.repMax)
+                } else {
+                    repsAtTargetRir.coerceAtLeast(BACKOFF_REP_FLOOR)
+                }
+            } else {
+                if (slot.isTopSet) {
+                    slot.repMin
+                } else {
+                    val prevSet = latest?.loggedSet
+                    rirAdjustedReps(
+                        prevSet?.reps ?: slot.repMin,
+                        prevSet?.rir,
+                        slot,
+                    ) ?: baselineExpectedReps
+                }
+            }
         }
+
+        val isProjected = latest != null || (request.priorSlotRecommendation?.isProjected == true)
 
         return SlotRecommendation(
             slotId = slot.slotId,
-            recommendedWeight = next,
+            recommendedWeight = targetWeight,
             baselineExpectedReps = recommendedReps,
             previousWeight = prevWeight,
             previousReps = prevReps,
+            isProjected = isProjected,
         )
     }
 

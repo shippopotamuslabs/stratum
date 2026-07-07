@@ -11,6 +11,7 @@ import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.identity.ProgramChangeEventId
+import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.domain.workout.progression.ProgressionEngine
@@ -43,12 +44,14 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
     private val doubleProgressionEngine: DoubleProgressionEngine,
     private val linearProgressionEngine: LinearProgressionEngine,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
 ) {
     suspend operator fun invoke(request: SnapshotRequest): Result<ProgressionSnapshot> {
         val bySlot = mutableMapOf<SetSlotId, SlotRecommendation>()
         for (workoutLift in request.lifts) {
             var scheme = workoutLift.progressionScheme
-            val slots = workoutLift.sets.mapIndexed { index, liftSet ->
+            val sortedSets = workoutLift.sets.sortedBy { it.position }
+            val slots = sortedSets.mapIndexed { index, liftSet ->
                 SetSlot(
                     slotId = SetSlotId.Template(liftSet.id),
                     workoutLiftId = workoutLift.id,
@@ -77,17 +80,46 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
 
             val engine = engineFor(scheme)
             val liftLoadType = request.loadTypesById[workoutLift.liftId] ?: LoadType.Weighted
-            for ((index, liftSet) in workoutLift.sets.withIndex()) {
+
+            val insights = liftTrainingInsightsRepository.getByLiftId(workoutLift.liftId)
+            val fatigueSlope = insights?.fatigueDecaySlope
+            val fatigueIntercept = insights?.fatigueDecayIntercept
+
+            // Compute top set recommended weight first to derive the target weight for all slots
+            val topIndex = slots.indexOfFirst { it.isTopSet }.takeIf { it >= 0 } ?: 0
+            val topSlot = slots[topIndex]
+            val topHistory = progressionHistoryPort.historyForSlot(
+                historyRequest(request, workoutLift, topIndex),
+            )
+            val topRec = engine.recommend(
+                SlotProgressionRequest(
+                    slot = topSlot,
+                    history = topHistory,
+                    fallbackOneRm = null,
+                    loadType = liftLoadType,
+                )
+            )
+            val currentTopSetWeight = topRec.recommendedWeight
+
+            for ((index, liftSet) in sortedSets.withIndex()) {
                 val slot = slots[index]
                 val history = progressionHistoryPort.historyForSlot(
                     historyRequest(request, workoutLift, index),
                 )
+                val priorSlot = if (index != topIndex) topSlot else null
+                val priorRec = if (index != topIndex) topRec else null
+
                 bySlot[slot.slotId] = engine.recommend(
                     SlotProgressionRequest(
                         slot = slot,
                         history = history,
                         fallbackOneRm = null,
                         loadType = liftLoadType,
+                        currentTopSetWeight = currentTopSetWeight,
+                        priorSlotRecommendation = priorRec,
+                        priorSlot = priorSlot,
+                        perLiftSlope = fatigueSlope,
+                        perLiftIntercept = fatigueIntercept,
                     ),
                 )
             }

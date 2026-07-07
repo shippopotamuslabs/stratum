@@ -23,6 +23,7 @@ import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.testing.workout.FakeProgressionHistoryRepository
+import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionDefaults
@@ -164,6 +165,7 @@ class Slice1SnapshotMergeTest {
                 doubleProgressionEngine = DoubleProgressionEngine(),
                 linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                 programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
             )
         val request = SnapshotRequest(programId, workoutId, oneLiftWorkout().workoutLifts)
 
