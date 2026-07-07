@@ -372,4 +372,94 @@ class Slice2DoubleRecommendationTest {
         assertNull(set.loggedValue)
         assertEquals(lb(120.0), set.recommendedWeight)
     }
+
+    @Test
+    @DisplayName("S2-double-straight-sets-and-fatigue-decay")
+    fun `S2-double-straight-sets-and-fatigue-decay`() {
+        val engine = DoubleProgressionEngine()
+        val topSlot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val boSlot = backoffSlot().copy(rirGoal = 2)
+
+        // Previous session had varying weights:
+        // Set 0 (top set): 120 x 7 @ 2 RIR (met top of range repMax=6 at rirGoal=2, so it progresses by +5 lb to 125)
+        // Set 1 (backoff): 110 x 8 @ 2 RIR
+        val topHistory = listOf(historyEntry(reps = 7, rir = 2, weight = 120.0))
+        val boHistory = listOf(historyEntry(reps = 8, rir = 2, weight = 110.0))
+
+        // Recommend for top set first:
+        val topRec = engine.recommend(
+            SlotProgressionRequest(
+                slot = topSlot,
+                history = topHistory,
+                fallbackOneRm = null
+            )
+        )
+        // Verify top set progressed to 125 lb and recommended reps is repMin = 4
+        assertEquals(lb(125.0), topRec.recommendedWeight)
+        assertEquals(4, topRec.baselineExpectedReps)
+
+        // Recommend for backoff set passing top set recommended weight and prior slot info
+        val boRec = engine.recommend(
+            SlotProgressionRequest(
+                slot = boSlot,
+                history = boHistory,
+                fallbackOneRm = null,
+                currentTopSetWeight = topRec.recommendedWeight,
+                priorSlotRecommendation = topRec,
+                priorSlot = topSlot,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0
+            )
+        )
+
+        // Verify backoff set inherits 125 lb (straight sets) instead of 110 lb
+        assertEquals(lb(125.0), boRec.recommendedWeight)
+
+        // Verify reps projected using top set's recommended X weight (125), Y reps (4) at Z RIR (2):
+        // priorSetE1rm = calculate(125.0, 4 + 2) = calculate(125.0, 6) = 152.76
+        // targetWeight = 125.0
+        // repsForWeight(152.76, 125.0) -> 6 reps at 0 RIR.
+        // projected capacity reps for next set (index 2 relative to index 1) = 6 + (-2.0 * 1) + 0 = 4.
+        // minus boSlot.rirGoal (2) = 2.
+        // coerced to at least BACKOFF_REP_FLOOR (5) = 5 reps.
+        assertEquals(5, boRec.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-hamstring-curl-debug")
+    fun `S2-hamstring-curl-debug`() {
+        val engine = DoubleProgressionEngine()
+        val slot1 = topSet(repMin = 8, repMax = 30, rirGoal = 2)
+        val slot2 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-2")), repMin = 8, repMax = 30, rirGoal = 1, position = 1)
+        val slot3 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-3")), repMin = 8, repMax = 30, rirGoal = 1, position = 2)
+
+        val hist1 = listOf(historyEntry(reps = 10, rir = 1, weight = 120.0))
+        val hist2 = listOf(historyEntry(reps = 7, rir = 0, weight = 120.0))
+        val hist3 = listOf(historyEntry(reps = 8, rir = null, weight = 115.0))
+
+        val rec1 = engine.recommend(SlotProgressionRequest(slot1, hist1, null, com.stratum.domain.lift.LoadType.Weighted))
+        assertTrue(rec1.isProjected)
+
+        val rec2 = engine.recommend(SlotProgressionRequest(slot2, hist2, null, com.stratum.domain.lift.LoadType.Weighted, rec1.recommendedWeight))
+        assertTrue(rec2.isProjected)
+
+        // Normal negative slope
+        val rec3Normal = engine.recommend(SlotProgressionRequest(slot3, hist3, null, com.stratum.domain.lift.LoadType.Weighted, rec1.recommendedWeight, rec1, slot1, -2.0, 0.0))
+        assertEquals(6, rec3Normal.baselineExpectedReps)
+        assertTrue(rec3Normal.isProjected)
+
+        // Positive slope (clamp test)
+        val rec3Positive = engine.recommend(SlotProgressionRequest(slot3, hist3, null, com.stratum.domain.lift.LoadType.Weighted, rec1.recommendedWeight, rec1, slot1, 25.0, 0.0))
+        // baseline = 11 reps, decay clamped to 0.0 -> capacity = 11. 11 - 1 RIR goal = 10.
+        assertEquals(10, rec3Positive.baselineExpectedReps)
+        assertTrue(rec3Positive.isProjected)
+
+        // No history for slot 3, but priorRec is projected -> should still project reps and set isProjected = true
+        val slot4 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-4")), repMin = 8, repMax = 30, rirGoal = 1, position = 3)
+        val rec4 = engine.recommend(SlotProgressionRequest(slot4, emptyList(), null, com.stratum.domain.lift.LoadType.Weighted, rec1.recommendedWeight, rec1, slot1, -2.0, 0.0))
+        // baseline = 11 reps, decay for nextSetIndex = 4 (decay 2 steps) -> projected = 11 + -2.0 * 3 = 5. 5 - 1 RIR goal = 4.
+        // coerced to BACKOFF_REP_FLOOR (5).
+        assertEquals(5, rec4.baselineExpectedReps)
+        assertTrue(rec4.isProjected)
+    }
 }

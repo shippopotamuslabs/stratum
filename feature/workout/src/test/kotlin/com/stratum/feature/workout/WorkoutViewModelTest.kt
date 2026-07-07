@@ -9,6 +9,7 @@ import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.testing.workout.FakeFatigueModel
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.workout.FakeProgressionHistoryRepository
+import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -272,6 +273,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -318,6 +320,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -365,6 +368,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -653,7 +657,7 @@ class WorkoutViewModelTest {
             val loaded = awaitLoaded()
             val firstSet = loaded.lifts.first().sets.first()
             assertEquals("135", firstSet.recommendedWeightLabel)
-            assertEquals("4", firstSet.recommendedRepsLabel)
+            assertEquals("5", firstSet.recommendedRepsLabel)
             assertNull(firstSet.loggedWeightLabel)
             cancelAndIgnoreRemainingEvents()
         }
@@ -941,6 +945,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
@@ -998,6 +1003,7 @@ class WorkoutViewModelTest {
                     doubleProgressionEngine = DoubleProgressionEngine(),
                     linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                     programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                    liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),

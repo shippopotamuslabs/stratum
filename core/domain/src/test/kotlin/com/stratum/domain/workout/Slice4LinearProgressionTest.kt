@@ -14,6 +14,7 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.generation.reference.schemeForTrainingAge
 import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
@@ -407,5 +408,57 @@ class Slice4LinearProgressionTest {
             .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
         assertEquals(lb(200.0), recommendation.recommendedWeight)
         assertEquals(5, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S4-linear-straight-sets-and-fatigue-decay")
+    fun `S4-linear-straight-sets-and-fatigue-decay`() {
+        val engine = LinearProgressionEngine(config())
+        val topSlot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val boSlot = linearBackoffSlot(rirGoal = 2)
+
+        // Previous session had varying weights:
+        // Set 0 (top set): 200 x 5 @ 2 RIR (met bottom of range repMin=5 at rirGoal=2, so it progresses by +5 lb to 205)
+        // Set 1 (backoff): 190 x 8 @ 2 RIR
+        val topHistory = listOf(historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-n1"))
+        val boHistory = listOf(historyEntry(reps = 8, rir = 2, weight = 190.0, sessionId = "s-n2"))
+
+        // Recommend for top set first:
+        val topRec = engine.recommend(
+            SlotProgressionRequest(
+                slot = topSlot,
+                history = topHistory,
+                fallbackOneRm = null
+            )
+        )
+        // Verify top set progressed to 205 lb and recommended reps is repMin = 5
+        assertEquals(lb(205.0), topRec.recommendedWeight)
+        assertEquals(5, topRec.baselineExpectedReps)
+
+        // Recommend for backoff set passing top set recommended weight and prior slot info
+        val boRec = engine.recommend(
+            SlotProgressionRequest(
+                slot = boSlot,
+                history = boHistory,
+                fallbackOneRm = null,
+                currentTopSetWeight = topRec.recommendedWeight,
+                priorSlotRecommendation = topRec,
+                priorSlot = topSlot,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0
+            )
+        )
+
+        // Verify backoff set inherits 205 lb (straight sets) instead of 190 lb
+        assertEquals(lb(205.0), boRec.recommendedWeight)
+
+        // Verify reps projected using top set's recommended X weight (205), Y reps (5) at Z RIR (2):
+        // priorSetE1rm = calculate(205.0, 5 + 2) = calculate(205.0, 7) = 252.87
+        // targetWeight = 205.0
+        // repsForWeight(252.87, 205.0) -> 7 reps at 0 RIR.
+        // projected capacity reps for next set (index 2 relative to index 1) = 7 + (-2.0 * 1) + 0 = 5.
+        // minus boSlot.rirGoal (2) = 3.
+        // coerced to at least BACKOFF_REP_FLOOR (5) = 5 reps.
+        assertEquals(5, boRec.baselineExpectedReps)
     }
 }

@@ -14,6 +14,11 @@ data class SlotProgressionRequest(
     val history: List<SlotHistoryEntry>,
     val fallbackOneRm: Weight?,
     val loadType: LoadType = LoadType.Weighted,
+    val currentTopSetWeight: Weight? = null,
+    val priorSlotRecommendation: SlotRecommendation? = null,
+    val priorSlot: SetSlot? = null,
+    val perLiftSlope: Double? = null,
+    val perLiftIntercept: Double? = null,
 )
 
 /**

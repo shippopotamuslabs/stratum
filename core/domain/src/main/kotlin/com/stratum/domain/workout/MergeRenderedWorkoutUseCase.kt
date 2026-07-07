@@ -46,9 +46,10 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 // concrete projected count or the `repMin-repMax` range placeholder.
                 val hasLiveRepsRecommendation =
                     recommendation != null && recommendation.reps > 0
-                val recommendedReps = when {
-                    hasLiveRepsRecommendation -> recommendation!!.reps
-                    else -> baseline?.baselineExpectedReps ?: 0
+                val recommendedReps = if (hasLiveRepsRecommendation) {
+                    recommendation.reps
+                } else {
+                    baseline?.baselineExpectedReps ?: 0
                 }
 
                 RenderedSet(
@@ -68,6 +69,7 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                     loggedValue = logged,
                     previousWeight = baseline?.previousWeight,
                     previousReps = baseline?.previousReps,
+                    isProjected = baseline?.isProjected ?: false,
                 )
             }
             RenderedWorkoutLift(

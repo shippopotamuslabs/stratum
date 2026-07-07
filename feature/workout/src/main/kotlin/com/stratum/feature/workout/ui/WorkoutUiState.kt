@@ -63,6 +63,7 @@ data class RenderedSetUi(
     val recommendedWeightAmount: Double,
     val recommendedReps: Int,
     val hasLiveRepsRecommendation: Boolean = false,
+    val isProjected: Boolean = false,
     val loggedRir: Int? = null,
     /**
      * Whether this set row shows an editable weight cell. False for bodyweight lifts — the
