@@ -82,6 +82,9 @@ import com.stratum.feature.workout.R
 /** Rest seconds started after a set is logged. Shared by the weighted + bodyweight row branches. */
 private const val DEFAULT_REST_SECONDS = 90
 
+/** Upper bound for the rest timer. Matches the largest preset (5:00) so +10s cannot push past it. */
+private const val MAX_REST_SECONDS = 300
+
 /**
  * Column weight fractions for one set row. The weight column is present for weighted +
  * assisted lifts and absent for bodyweight, so the two layouts redistribute the same five
@@ -266,7 +269,7 @@ fun WorkoutScreen(
             totalSeconds = totalRestSeconds,
             onDismiss = { showRestSheet = false },
             onAdd10s = {
-                remainingRestSeconds = (remainingRestSeconds + 10).coerceAtMost(3600)
+                remainingRestSeconds = (remainingRestSeconds + 10).coerceAtMost(MAX_REST_SECONDS)
                 if (remainingRestSeconds > totalRestSeconds) {
                     totalRestSeconds = remainingRestSeconds
                 }
@@ -806,7 +809,7 @@ private fun RestTimerBottomSheet(
             ) {
                 StratumIconButton(onClick = onSubtract10s) {
                     Icon(
-                        painter = painterResource(CoreUiR.drawable.ic_remove),
+                        painter = painterResource(R.drawable.back_10),
                         contentDescription = "Reduce 10 seconds",
                         tint = StratumThemeAccessor.colors.textPrimary
                     )
@@ -832,7 +835,7 @@ private fun RestTimerBottomSheet(
 
                 StratumIconButton(onClick = onAdd10s) {
                     Icon(
-                        painter = painterResource(CoreUiR.drawable.ic_add),
+                        painter = painterResource(R.drawable.forward_10),
                         contentDescription = "Add 10 seconds",
                         tint = StratumThemeAccessor.colors.textPrimary
                     )
@@ -865,7 +868,7 @@ private fun RestTimerBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val presets = (30..300 step 30).toList()
+                val presets = (30..MAX_REST_SECONDS step 30).toList()
                 presets.forEach { seconds ->
                     val min = seconds / 60
                     val sec = seconds % 60
