@@ -58,6 +58,7 @@ internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =
         repMax = repMax,
         restSeconds = restSeconds,
         rirGoal = rirGoal,
+        isTopSet = isTopSet,
     )
 
 internal fun EditLiftState.toReorderState(): EditLiftReorderState =
@@ -82,10 +83,11 @@ internal fun defaultEditSetState(setNumber: Int): EditSetState =
     EditSetState(
         setId = newSetId(),
         setNumber = setNumber,
-        repMin = DEFAULT_REP_MIN,
-        repMax = DEFAULT_REP_MAX,
+        repMin = if (setNumber == 1) DEFAULT_REP_MIN else 0,
+        repMax = if (setNumber == 1) DEFAULT_REP_MAX else 0,
         restSeconds = DEFAULT_REST_SECONDS,
         rirGoal = DEFAULT_RIR_GOAL,
+        isTopSet = setNumber == 1,
     )
 
 private fun Weekday.toDisplayLabel(): String =

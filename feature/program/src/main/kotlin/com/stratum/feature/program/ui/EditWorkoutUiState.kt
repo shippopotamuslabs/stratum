@@ -57,6 +57,7 @@ data class EditSetState(
     val repMax: Int,
     val restSeconds: Int,
     val rirGoal: Int,
+    val isTopSet: Boolean = true,
 )
 
 /** Minimal lift row shown during reorder mode. */
