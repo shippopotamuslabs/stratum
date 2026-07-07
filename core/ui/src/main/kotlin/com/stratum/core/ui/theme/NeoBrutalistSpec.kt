@@ -32,6 +32,7 @@ object NeoBrutalistSpec {
                     error = Color(0xFFEF4444),
                     onError = Color(0xFF1A1A1A),
                     setComplete = Color(0xFF14532D),
+                    prHighlight = Color(0xFFE0B040),
                 ),
             shapes = neoBrutalistShapes(),
             elevations =
@@ -64,6 +65,7 @@ object NeoBrutalistSpec {
                     error = Color(0xFFDC2626),
                     onError = Color(0xFFFFFFFF),
                     setComplete = Color(0xFFDCFCE7),
+                    prHighlight = Color(0xFF8A6708),
                 ),
             shapes = neoBrutalistShapes(),
             elevations =
