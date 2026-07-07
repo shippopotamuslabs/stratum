@@ -99,7 +99,6 @@ object WorkoutLoggingFixtures {
         movementPatterns = setOf(MovementPattern.HorizontalPress),
         primaryMuscles = setOf(MuscleGroup.Chest),
         secondaryMuscles = setOf(MuscleGroup.Tricep),
-        allowWeightChangeBetweenSets = true,
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,

@@ -219,7 +219,6 @@ class EditWorkoutViewModelSchemeToggleTest {
                 },
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = setOf(MuscleGroup.Hamstring),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,

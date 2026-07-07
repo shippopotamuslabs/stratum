@@ -57,7 +57,6 @@ class RecomputeRecommendationsUseCaseTest {
         movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
-        allowWeightChangeBetweenSets = true,
         incrementTiers = tiers,
         presetTags = emptySet(),
         enabled = true,

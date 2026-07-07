@@ -137,7 +137,6 @@ class GenerateProgramUseCaseTest {
                             movementPatterns = emptySet(),
                             primaryMuscles = emptySet(),
                             secondaryMuscles = emptySet(),
-                            allowWeightChangeBetweenSets = false,
                             incrementTiers = emptyList(),
                             presetTags = emptySet(),
                             enabled = true,

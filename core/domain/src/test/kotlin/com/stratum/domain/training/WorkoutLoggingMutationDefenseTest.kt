@@ -172,7 +172,6 @@ class WorkoutLoggingMutationDefenseTest {
                     secondaryMuscles = emptySet(),
                     incrementTiers = emptyList(),
                     presetTags = emptySet(),
-                    allowWeightChangeBetweenSets = false,
                     enabled = false,
                     isCustom = false,
                 )

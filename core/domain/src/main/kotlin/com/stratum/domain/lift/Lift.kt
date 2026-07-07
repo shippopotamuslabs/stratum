@@ -12,9 +12,6 @@ import com.stratum.domain.onboarding.MuscleGroup
  *   Up to 4 secondary muscles are supported so compound lifts can credit multiple co-movers
  *   (e.g. triceps + front delts on a press); [CustomLiftMusclePolicy] derives sensible
  *   pattern-based secondary defaults so credit stays accurate even if tags were omitted.
- * - [allowWeightChangeBetweenSets]: the deterministic progression seed. §2.2 maps it to a
- *   default scheme (`true → dynamic double progression`, `false → double progression`); OS-6
- *   applies that mapping when building `WorkoutLift`s.
  * - [incrementTiers]: realistic weight jumps per load band (§2.2).
  * - [presetTags]: which [GymPreset]s bulk-enable this lift (§2.1).
  * - [equipment]: optional display string for the specific equipment/brand (e.g. "Hammer Strength",
@@ -35,7 +32,6 @@ data class Lift(
     val movementPatterns: Set<MovementPattern>,
     val primaryMuscles: Set<MuscleGroup>,
     val secondaryMuscles: Set<MuscleGroup>,
-    val allowWeightChangeBetweenSets: Boolean,
     val incrementTiers: List<IncrementTier>,
     val presetTags: Set<GymPreset>,
     val equipment: String? = null,

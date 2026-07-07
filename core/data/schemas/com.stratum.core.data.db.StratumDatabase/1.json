@@ -104,7 +104,7 @@
       },
       {
         "tableName": "lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `allowWeightChangeBetweenSets` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `loadType` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `loadType` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -133,12 +133,6 @@
           {
             "fieldPath": "secondaryMusclesBitmask",
             "columnName": "secondaryMusclesBitmask",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "allowWeightChangeBetweenSets",
-            "columnName": "allowWeightChangeBetweenSets",
             "affinity": "INTEGER",
             "notNull": true
           },

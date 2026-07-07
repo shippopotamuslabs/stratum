@@ -39,7 +39,6 @@ data class LiftEntity(
     val movementPatternsBitmask: Int,
     val primaryMusclesBitmask: Int,
     val secondaryMusclesBitmask: Int,
-    val allowWeightChangeBetweenSets: Boolean,
     val presetTags: String,
     val equipment: String? = null,
     val isCustom: Boolean,
