@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -29,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -224,19 +227,11 @@ fun MuscleFilterBottomSheet(
                     )
                 }
                 item(key = "upper-body-grid") {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        muscleGroups.upper.forEach { card ->
-                            StratumMuscleFilterCard(
-                                state = card,
-                                selected = card.muscle in selectedMuscles,
-                                onClick = { onMuscleToggled(card.muscle) },
-                            )
-                        }
-                    }
+                    MuscleFilterGrid(
+                        cards = muscleGroups.upper,
+                        selectedMuscles = selectedMuscles,
+                        onMuscleToggled = onMuscleToggled,
+                    )
                 }
                 item(key = "lower-body-header") {
                     StratumText(
@@ -247,19 +242,11 @@ fun MuscleFilterBottomSheet(
                     )
                 }
                 item(key = "lower-body-grid") {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        muscleGroups.lower.forEach { card ->
-                            StratumMuscleFilterCard(
-                                state = card,
-                                selected = card.muscle in selectedMuscles,
-                                onClick = { onMuscleToggled(card.muscle) },
-                            )
-                        }
-                    }
+                    MuscleFilterGrid(
+                        cards = muscleGroups.lower,
+                        selectedMuscles = selectedMuscles,
+                        onMuscleToggled = onMuscleToggled,
+                    )
                 }
             }
 
@@ -286,6 +273,56 @@ fun MuscleFilterBottomSheet(
         }
     }
 }
+
+/**
+ * Grid of [StratumMuscleFilterCard]s that fills the available row width. Measures the
+ * available width via [BoxWithConstraints], computes how many cards fit per row at the
+ * minimum card width, then gives every card a fixed computed width so all cards share the
+ * same size and a trailing partial row leaves blank space on the right instead of
+ * stretching. The cards-per-row count adapts to sheet width, orientation, and font scale.
+ */
+@Composable
+private fun MuscleFilterGrid(
+    cards: List<StratumMuscleFilterCardState>,
+    selectedMuscles: Set<MuscleGroup>,
+    onMuscleToggled: (MuscleGroup) -> Unit,
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val density = LocalDensity.current
+        val maxWidthPx = with(density) { maxWidth.toPx() }
+        val gapPx = with(density) { MUSCLE_GRID_SPACING.toPx() }
+        val minCardWidthPx = with(density) { MUSCLE_MIN_CARD_WIDTH.toPx() }
+        val itemsPerRow = ((maxWidthPx + gapPx) / (minCardWidthPx + gapPx))
+            .toInt()
+            .coerceAtLeast(1)
+        // Equal fixed width per card: (totalWidth - (n-1)*gap) / n. Trailing cards in a
+        // partial row keep this same width so they don't stretch to fill the row.
+        val cardWidth = with(density) {
+            ((maxWidthPx - (itemsPerRow - 1) * gapPx) / itemsPerRow).toDp()
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(MUSCLE_GRID_SPACING)) {
+            cards.chunked(itemsPerRow).forEach { rowCards ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MUSCLE_GRID_SPACING),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    rowCards.forEach { card ->
+                        StratumMuscleFilterCard(
+                            state = card,
+                            selected = card.muscle in selectedMuscles,
+                            onClick = { onMuscleToggled(card.muscle) },
+                            modifier = Modifier.width(cardWidth),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val MUSCLE_GRID_SPACING = 8.dp
+private val MUSCLE_MIN_CARD_WIDTH = 100.dp
 
 @Composable
 private fun <T> FilterDropdownChip(
