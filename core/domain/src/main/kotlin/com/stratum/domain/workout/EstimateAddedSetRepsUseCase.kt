@@ -1,6 +1,6 @@
 package com.stratum.domain.workout
 
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.fatigue.FatigueModel
 import javax.inject.Inject
 

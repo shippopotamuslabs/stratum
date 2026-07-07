@@ -120,6 +120,7 @@ class WorkoutLoggingImportSnapshotTest {
             extractResponseProfile = extractResponseProfile,
             responseProfilePersistence = persistence,
             liftRepository = liftRepo,
+            computePersonalRecords = com.stratum.domain.training.ComputePersonalRecordsUseCase(trainingLogRepo),
         )
     }
 

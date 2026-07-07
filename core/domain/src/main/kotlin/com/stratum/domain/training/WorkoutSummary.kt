@@ -17,4 +17,6 @@ data class LiftBestSet(
     val weight: Double,
     val reps: Int,
     val rir: Int?,
+    val isPersonalRecord: Boolean,
+    val estimatedOneRm: Double?,
 )

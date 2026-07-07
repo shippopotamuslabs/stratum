@@ -6,7 +6,7 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -52,7 +52,7 @@ class WorkoutCompleteViewModelTest {
         assertEquals("Barbell Bench Press", bestSet.liftName)
         assertEquals("185 × 3", bestSet.performanceLabel)
         assertEquals("1", bestSet.rirLabel)
-        assertEquals(expectedOneRmLabel(185.0, 3), bestSet.estimatedOneRmLabel)
+        assertEquals(expectedOneRmLabel(185.0, 3, 1), bestSet.estimatedOneRmLabel)
     }
 
     @Test
@@ -159,8 +159,8 @@ class WorkoutCompleteViewModelTest {
     }
 
     /** Matches the VM's [WorkoutCompleteViewModel.formatWeight] rounding (1 decimal, no trailing .0). */
-    private fun expectedOneRmLabel(weight: Double, reps: Int): String {
-        val e1Rm = EstimatedOneRm.calculate(weight, reps)
+    private fun expectedOneRmLabel(weight: Double, reps: Int, rir: Int? = null): String {
+        val e1Rm = EstimatedOneRm.calculate(weight, reps + (rir ?: 0))
         val rounded = (e1Rm * 10).toInt() / 10.0
         return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
     }
