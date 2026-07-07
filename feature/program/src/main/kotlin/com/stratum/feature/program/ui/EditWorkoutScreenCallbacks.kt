@@ -6,9 +6,6 @@ import com.stratum.domain.program.ProgressionScheme
  * Bundles edit-workout mutation callbacks to keep [EditWorkoutScreen] under the detekt parameter threshold.
  */
 data class EditWorkoutScreenCallbacks(
-    val onToggleReorderMode: () -> Unit = {},
-    val onConfirmReorder: () -> Unit = {},
-    val onReorderLifts: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     val onAddSet: (workoutLiftId: String) -> Unit = {},
     val onRemoveSet: (setId: String) -> Unit = {},
     val onAddLift: () -> Unit = {},
