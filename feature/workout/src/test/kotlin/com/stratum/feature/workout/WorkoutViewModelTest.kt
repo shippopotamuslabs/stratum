@@ -9,6 +9,7 @@ import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.testing.workout.FakeFatigueModel
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.workout.FakeProgressionHistoryRepository
+import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
 import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.lift.Lift
@@ -41,8 +42,10 @@ import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
+import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
 import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RecommendationEngine
@@ -87,6 +90,7 @@ class WorkoutViewModelTest {
     private lateinit var trainingLogRepository: FakeTrainingLogRepository
     private lateinit var progressionHistory: FakeProgressionHistoryRepository
     private lateinit var workoutEditSession: WorkoutEditSession
+    private lateinit var overlayStore: FakeWorkoutOverlayStore
 
     @BeforeEach
     fun setUp() {
@@ -110,6 +114,7 @@ class WorkoutViewModelTest {
         )
         progressionHistory = FakeProgressionHistoryRepository()
         workoutEditSession = WorkoutEditSession()
+        overlayStore = FakeWorkoutOverlayStore()
         seedHistoryForTopSet()
     }
 
@@ -296,6 +301,7 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
         )
     }
@@ -343,6 +349,7 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
         )
     }
@@ -403,6 +410,7 @@ class WorkoutViewModelTest {
                 ),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
         )
     }
@@ -968,6 +976,7 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = WorkoutEditSession(),
         )
 
@@ -1026,6 +1035,7 @@ class WorkoutViewModelTest {
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = WorkoutEditSession(),
         )
 
@@ -1141,6 +1151,77 @@ class WorkoutViewModelTest {
 
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Given persisted overlay when startSession then overlay is restored")
+    fun persistedOverlayIsRestoredOnStartSession() = runTest {
+        // Seed a persisted overlay (e.g. left behind by a prior process that was killed) with
+        // a swap + an added set, then start the session. The rendered state must reflect the
+        // restored swap and the restored added slot.
+        overlayStore.seed(
+            TrainingSessionId("ts-active"),
+            WorkoutOverlay(
+                swappedLifts = mapOf(workoutLiftId to LiftId("L-2")),
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        // The swap to L-2 (Bench Press) survives the process death.
+        assertEquals("Bench Press", loaded.lifts.first().liftName)
+        assertEquals("L-2", loaded.lifts.first().liftId)
+    }
+
+    @Test
+    @DisplayName("Given no persisted overlay when startSession then DB-resumed logged sets are used")
+    fun noOverlayFallsBackToDbResume() = runTest {
+        // With nothing persisted, startSession must fall back to the existing DB-resume path
+        // (template-slot logged sets recovered from Room). No persisted overlay means the
+        // store returns null and the resumedLoggedSets branch runs unchanged.
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        // First set starts unlogged (no logged sets in the seeded session).
+        assertNull(loaded.lifts.first().sets.first().loggedWeightLabel)
+        assertEquals(0, overlayStore.saveCallCount)
+    }
+
+    @Test
+    @DisplayName("When overlay mutated then it is persisted to the store")
+    fun overlayMutationIsPersisted() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+        advanceUntilIdle()
+
+        assertTrue(overlayStore.saveCallCount >= 1, "swap must persist the overlay")
+        val stored = overlayStore.storedOverlay()
+        assertEquals(LiftId("L-2"), stored.swappedLifts[workoutLiftId])
+    }
+
+    @Test
+    @DisplayName("Given active session when abandoned then persisted overlay is cleared")
+    fun abandonClearsPersistedOverlay() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+        advanceUntilIdle()
+        assertTrue(overlayStore.saveCallCount >= 1)
+
+        viewModel.abandonSession()
+        advanceUntilIdle()
+
+        assertEquals(1, overlayStore.clearCallCount)
+        assertNull(overlayStore.storedSessionId())
     }
 
     @Test

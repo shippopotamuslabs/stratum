@@ -50,6 +50,8 @@ import com.stratum.core.data.repository.ProgressionHistoryRepository
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.workout.ProgressionHistoryPort
+import com.stratum.domain.workout.WorkoutOverlayStore
+import com.stratum.core.data.repository.DataStoreWorkoutOverlayStore
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
@@ -414,4 +416,8 @@ abstract class RepositoryModule {
     abstract fun bindProgramGenerationContextLoader(
         impl: com.stratum.domain.program.LoadProgramGenerationContextUseCase,
     ): com.stratum.domain.program.ProgramGenerationContextLoader
+
+    @Binds
+    @Singleton
+    abstract fun bindWorkoutOverlayStore(impl: DataStoreWorkoutOverlayStore): WorkoutOverlayStore
 }

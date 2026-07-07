@@ -33,6 +33,7 @@ import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.domain.workout.LoggedSetValue
+import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.ProjectWorkoutStructureUseCase
 import com.stratum.domain.workout.RecomputeRecommendationsUseCase
@@ -88,6 +89,7 @@ class WorkoutViewModel @Inject constructor(
     private val saveWorkoutUseCase: SaveWorkoutUseCase,
     private val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     private val logErrorUseCase: LogErrorUseCase,
+    private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     private val workoutEditSession: WorkoutEditSession,
 ) : ViewModel() {
 
@@ -200,7 +202,13 @@ class WorkoutViewModel @Inject constructor(
                                 )
                             }
                         }
-                        overlay = overlay.copy(loggedSets = resumedLoggedSets)
+                        // Prefer a persisted overlay (process-death restore). On a fresh
+                        // session nothing is stored, so fall back to the DB-resumed logged
+                        // sets. The persisted overlay is authoritative: every mutation
+                        // persists in lockstep, so loggedSets/addedSlots/undoStack/etc. are
+                        // all captured for the resumed session.
+                        val persisted = manageWorkoutOverlay.load(session.id)
+                        overlay = persisted ?: overlay.copy(loggedSets = resumedLoggedSets)
                         snapshotLoaded = true
                     }
                     recomputeRecommendations()
@@ -244,6 +252,7 @@ class WorkoutViewModel @Inject constructor(
                 )
                 recomputeRecommendations()
                 render()
+                persistOverlay()
             } catch (e: Exception) {
                 logErrorUseCase(TAG, "Failed to log set", e)
                 _events.send(WorkoutUiEvent.ShowMessage("Failed to log set: ${e.message}"))
@@ -269,6 +278,7 @@ class WorkoutViewModel @Inject constructor(
                 )
                 recomputeRecommendations()
                 render()
+                persistOverlay()
             } catch (e: Exception) {
                 logErrorUseCase(TAG, "Failed to unlog set", e)
                 _events.send(WorkoutUiEvent.ShowMessage("Failed to unlog set: ${e.message}"))
@@ -307,18 +317,21 @@ class WorkoutViewModel @Inject constructor(
             .copy(dynamicBaselines = overlay.dynamicBaselines + (added.slotId to addedRecommendation))
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun deleteSet(slotId: SetSlotId) {
         overlay = overlay.apply(StructuralMutation.DeleteSet(slotId))
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun undo() {
         overlay = overlay.undo()
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun generateMyoRepMiniSet(activationSlotId: SetSlotId) {
@@ -342,6 +355,7 @@ class WorkoutViewModel @Inject constructor(
         )
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun addDropSet(afterSlotId: SetSlotId) {
@@ -363,6 +377,7 @@ class WorkoutViewModel @Inject constructor(
         overlay = overlay.apply(StructuralMutation.AddDropSet(afterSlotId = afterSlotId, newSlot = drop))
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun swapLift(workoutLiftId: WorkoutLiftId, newLiftId: LiftId) {
@@ -371,6 +386,7 @@ class WorkoutViewModel @Inject constructor(
         )
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun startReorderLifts() {
@@ -383,6 +399,7 @@ class WorkoutViewModel @Inject constructor(
         overlay = overlay.copy(orderedLiftIds = orderedWorkoutLiftIds)
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun removeLift(workoutLiftId: WorkoutLiftId) {
@@ -401,6 +418,7 @@ class WorkoutViewModel @Inject constructor(
         )
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun linkSuperset(workoutLiftId: WorkoutLiftId, direction: SupersetLinkDirection) {
@@ -423,6 +441,7 @@ class WorkoutViewModel @Inject constructor(
         )
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun removeFromSuperset(workoutLiftId: WorkoutLiftId) {
@@ -440,6 +459,7 @@ class WorkoutViewModel @Inject constructor(
         )
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     fun setUseRestTimerBetweenLifts(workoutLiftId: WorkoutLiftId, enabled: Boolean) {
@@ -448,6 +468,7 @@ class WorkoutViewModel @Inject constructor(
         )
         recomputeRecommendations()
         render()
+        persistOverlay()
     }
 
     private fun getLinkableLifts(): List<com.stratum.core.ui.component.SupersetLinkableLiftState> {
@@ -473,6 +494,7 @@ class WorkoutViewModel @Inject constructor(
                 saveWorkoutUseCase(workoutId, updated)
             }
             finalizeTrainingSession(sessionId)
+            manageWorkoutOverlay.clear()
             _events.send(WorkoutUiEvent.NavigateToFinalize(sessionId.value))
         }
     }
@@ -490,6 +512,7 @@ class WorkoutViewModel @Inject constructor(
                 snapshotBySlot = emptyMap()
                 fatigueByLiftId = emptyMap()
                 overlay = WorkoutOverlay()
+                manageWorkoutOverlay.clear()
                 _uiState.value = WorkoutUiState.NoActiveSession
             }
         } else {
@@ -501,6 +524,9 @@ class WorkoutViewModel @Inject constructor(
             snapshotBySlot = emptyMap()
             fatigueByLiftId = emptyMap()
             overlay = WorkoutOverlay()
+            viewModelScope.launch {
+                manageWorkoutOverlay.clear()
+            }
             _uiState.value = WorkoutUiState.NoActiveSession
         }
     }
@@ -516,6 +542,24 @@ class WorkoutViewModel @Inject constructor(
             overlay = overlay.copy(recommendations = recommendations)
         } catch (e: Exception) {
             logErrorUseCase(TAG, "Failed to recompute recommendations", e)
+        }
+    }
+
+    /**
+     * Persists the current overlay to the DataStore-backed store so the session survives an
+     * app process death. Captures [overlay] by value before launching so concurrent
+     * mutations don't race the snapshot. Fire-and-forget: failure is logged, never surfaced
+     * — persistence is best-effort and must not break the in-workout flow.
+     */
+    private fun persistOverlay() {
+        val sessionId = currentSessionId() ?: return
+        val snapshot = overlay
+        viewModelScope.launch {
+            try {
+                manageWorkoutOverlay.save(sessionId, snapshot)
+            } catch (e: Exception) {
+                logErrorUseCase(TAG, "Failed to persist workout overlay", e)
+            }
         }
     }
 
