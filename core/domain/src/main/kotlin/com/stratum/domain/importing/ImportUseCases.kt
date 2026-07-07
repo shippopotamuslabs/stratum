@@ -430,6 +430,7 @@ class PersistImportedHistoryUseCase @Inject constructor(
     private val responseProfilePersistence: ResponseProfilePersistencePort,
     private val liftRepository: LiftRepository,
     private val loggedLiftContextFactory: com.stratum.domain.training.LoggedLiftContextFactory? = null,
+    private val computePersonalRecords: com.stratum.domain.training.ComputePersonalRecordsUseCase,
 ) {
     suspend operator fun invoke(
         sessions: List<TrainingSession>,
@@ -450,13 +451,21 @@ class PersistImportedHistoryUseCase @Inject constructor(
             outcome.resolvedSets.map { set ->
                 ImportHistoryTrainingMapper.enrichLiftContext(set, factory, lifts)
             }
+
+        val existingImportSets = trainingLogRepository.getImportSets()
+        val existingImportSetIds = existingImportSets.map { it.id.value }.toSet()
+        val computation = computePersonalRecords(enrichedSets, excludeSetIds = existingImportSetIds).getOrThrow()
+
         onProgress(
             ImportProgress(
                 phase = ImportProgressPhase.EnrichingCustomLifts,
                 catalogStep = ImportCatalogProgressStep.SavingHistory,
             ),
         )
-        trainingLogRepository.replaceImportHistory(sessions, enrichedSets)
+        trainingLogRepository.replaceImportHistory(sessions, computation.updatedIncomingSets)
+        if (computation.oldPrSetsToUpdate.isNotEmpty()) {
+            trainingLogRepository.updateSets(computation.oldPrSetsToUpdate)
+        }
         onProgress(
             ImportProgress(
                 phase = ImportProgressPhase.ExtractingInsights,

@@ -58,10 +58,12 @@ internal object WorkoutUiMapper {
                     // Show a concrete rep count when either (a) a live overlay
                     // recommendation projected the next-set reps from the most recent
                     // performed set (D4), or (b) the snapshot baseline carries a prior
-                    // performed set's reps. Otherwise fall back to the rep-range label.
-                    val recommendedRepsLabel = if (set.recommendedReps > 0 &&
-                        (set.hasLiveRepsRecommendation || set.previousReps != null)
-                    ) {
+                    // performed set's reps, or (c) it was projected via straight-sets/fatigue decay.
+                    // Otherwise fall back to the rep-range label.
+                    val showConcreteReps = set.recommendedReps > 0 &&
+                        (set.hasLiveRepsRecommendation || set.previousReps != null || set.isProjected)
+
+                    val recommendedRepsLabel = if (showConcreteReps) {
                         set.recommendedReps.toString()
                     } else {
                         if (set.repMin == 0 && set.repMax == 0) "0" else "${set.repMin}-${set.repMax}"
@@ -87,6 +89,7 @@ internal object WorkoutUiMapper {
                         recommendedWeightAmount = recommendedWeightAmount,
                         recommendedReps = set.recommendedReps,
                         hasLiveRepsRecommendation = set.hasLiveRepsRecommendation,
+                        isProjected = set.isProjected,
                         loggedRir = set.loggedValue?.rir,
                         showWeightInput = showWeightColumn,
                         assistMode = assistMode,

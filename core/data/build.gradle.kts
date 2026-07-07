@@ -54,6 +54,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.datastore)
     implementation(libs.hilt.android)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)

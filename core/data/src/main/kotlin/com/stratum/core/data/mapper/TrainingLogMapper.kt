@@ -59,6 +59,8 @@ internal fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(
             repMax = repMax,
             rirGoal = rirGoal,
         ),
+    isPersonalRecord = isPersonalRecord ?: false,
+    estimatedOneRm = estimatedOneRm,
 )
 
 internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
@@ -84,4 +86,6 @@ internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
     repMin = liftContext.repMin,
     repMax = liftContext.repMax,
     rirGoal = liftContext.rirGoal,
+    isPersonalRecord = if (isPersonalRecord) true else null,
+    estimatedOneRm = estimatedOneRm,
 )

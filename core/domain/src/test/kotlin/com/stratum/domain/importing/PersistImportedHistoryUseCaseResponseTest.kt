@@ -162,6 +162,7 @@ class PersistImportedHistoryUseCaseResponseTest {
             extractResponseProfile = extractResponseProfile,
             responseProfilePersistence = persistence,
             liftRepository = liftRepo,
+            computePersonalRecords = com.stratum.domain.training.ComputePersonalRecordsUseCase(trainingLogRepo),
         )
     }
 

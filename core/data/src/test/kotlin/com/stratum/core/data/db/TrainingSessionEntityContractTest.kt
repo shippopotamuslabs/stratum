@@ -40,7 +40,7 @@ class TrainingSessionEntityContractTest {
                 cycleLength = 2,
             ),
         )
-        database.workoutDao().insertAll(
+        database.workoutDao().upsertAll(
             listOf(
                 WorkoutEntity(
                 id = WorkoutId("wkt-a"),
@@ -74,7 +74,7 @@ class TrainingSessionEntityContractTest {
             endedAtEpochMillis = 1_700_003_600_000L,
             sourceApp = "liftlab",
         )
-        sessionDao.insert(entity)
+        sessionDao.upsert(entity)
 
         val read = sessionDao.getById(TrainingSessionId("ts-001"))
 

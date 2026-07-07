@@ -5,6 +5,8 @@ import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.importing.identity.LoggedSetId
+import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -59,6 +61,45 @@ class FinalizeTrainingSessionUseCaseTest {
         assertEquals(0, events.getEventsForProgram(WorkoutLoggingFixtures.programId).size)
     }
 
+    @Test
+    @DisplayName("Finalize updates sets in session with computed e1RMs and PRs")
+    fun finalizeUpdatesSetsWithPrs() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val events = FakeProgramChangeEventRepository()
+        val repo = FakeTrainingLogRepository(programRepository = programRepo, programChangeEventRepository = events)
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        
+        val liftId = com.stratum.domain.lift.identity.LiftId("lift-1")
+        val set1 = LoggedSet(
+            id = LoggedSetId("set-1"),
+            sessionId = TrainingSessionId("ts-live-1"),
+            exerciseNameRaw = "Squat",
+            liftId = liftId,
+            setIndex = 1,
+            weight = com.stratum.domain.lift.Weight(100.0, com.stratum.domain.lift.Weight.WeightUnit.Lb),
+            reps = 5,
+            rir = null,
+            completedAt = Instant.now(),
+            liftContext = LoggedLiftContext("Squat")
+        )
+        repo.seedSet(set1)
+
+        val computePersonalRecords = ComputePersonalRecordsUseCase(repo)
+        val useCase = FinalizeTrainingSessionUseCase(
+            trainingLogRepository = repo,
+            programRepository = programRepo,
+            computePersonalRecords = computePersonalRecords
+        )
+
+        useCase(TrainingSessionId("ts-live-1")).getOrThrow()
+
+        val updatedSets = repo.getSetsForSession(TrainingSessionId("ts-live-1"))
+        assertEquals(1, updatedSets.size)
+        val updatedSet = updatedSets.first()
+        assertTrue(updatedSet.isPersonalRecord)
+        assertEquals(100.0 * (1.0278 / (1.0278 - 0.0278 * 5)), updatedSet.estimatedOneRm!!, 0.01)
+    }
+
     private suspend fun buildUseCase(
         programRepo: FakeProgramRepository = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram()),
         eventRepository: FakeProgramChangeEventRepository = FakeProgramChangeEventRepository(),
@@ -76,9 +117,11 @@ class FinalizeTrainingSessionUseCaseTest {
                 kind = TrainingSessionKind.AD_HOC,
             ),
         )
+        val computePersonalRecords = ComputePersonalRecordsUseCase(repo)
         return FinalizeTrainingSessionUseCase(
             trainingLogRepository = repo,
             programRepository = programRepo,
+            computePersonalRecords = computePersonalRecords,
         )
     }
 }

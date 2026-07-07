@@ -45,7 +45,7 @@ class WorkoutLoggingLoggedSetContractTest {
                 cycleLength = 1,
             ),
         )
-        database.workoutDao().insertAll(
+        database.workoutDao().upsertAll(
             listOf(
                 WorkoutEntity(
                     id = WorkoutId("wkt-a"),
@@ -56,7 +56,7 @@ class WorkoutLoggingLoggedSetContractTest {
                 ),
             ),
         )
-        database.trainingSessionDao().insert(
+        database.trainingSessionDao().upsert(
             TrainingSessionEntity(
                 id = TrainingSessionId("ts-001"),
                 programId = ProgramId("prog-1"),
@@ -101,7 +101,7 @@ class WorkoutLoggingLoggedSetContractTest {
             workoutLiftId = null,
             progressionScheme = null,
         )
-        setDao.insert(entity)
+        setDao.upsert(entity)
 
         val read = setDao.getForSession(TrainingSessionId("ts-001")).single()
 

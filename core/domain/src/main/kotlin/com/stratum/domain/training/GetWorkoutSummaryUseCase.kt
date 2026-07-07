@@ -39,12 +39,14 @@ class GetWorkoutSummaryUseCase @Inject constructor(
             .filter { it.liftId != null }
             .groupBy { it.liftId!! }
             .map { (liftId: LiftId, sets) ->
-                val best = sets.maxByWith { it.weight.amount }
+                val best = sets.maxByOrNull { it.estimatedOneRm ?: it.weight.amount } ?: sets.first()
                 LiftBestSet(
                     liftName = liftNamesById[liftId] ?: "Unknown",
                     weight = best.weight.amount,
                     reps = best.reps,
                     rir = best.rir,
+                    isPersonalRecord = best.isPersonalRecord,
+                    estimatedOneRm = best.estimatedOneRm,
                 )
             }
             .sortedBy { it.liftName }
@@ -54,18 +56,5 @@ class GetWorkoutSummaryUseCase @Inject constructor(
             durationMillis = durationMillis.coerceAtLeast(0),
             bestSets = bestSets,
         )
-    }
-
-    private inline fun <T> List<T>.maxByWith(selector: (T) -> Double): T {
-        var best = first()
-        var bestValue = selector(best)
-        for (i in 1 until size) {
-            val value = selector(this[i])
-            if (value > bestValue) {
-                best = this[i]
-                bestValue = value
-            }
-        }
-        return best
     }
 }

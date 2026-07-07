@@ -21,6 +21,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionConfig
 import com.stratum.domain.workout.progression.LinearProgressionEngine
+import com.stratum.domain.workout.progression.ProgressionBaseline
 import com.stratum.domain.workout.progression.SlotProgressionRequest
 import com.stratum.domain.workout.progression.StallStrictness
 import java.time.Instant
@@ -105,6 +106,24 @@ class LoadTypeProgressionTest {
         IncrementTier(lb(100.0), null, lb(10.0)),
     )
 
+    /**
+     * Builds a [SlotProgressionRequest] with the math baseline wired to the first history
+     * entry (mirrors what the snapshot use case now produces). Bodyweight tests pass
+     * `baseline = null` since the engine short-circuits before reading it.
+     */
+    private fun request(
+        slot: SetSlot,
+        history: List<SlotHistoryEntry>,
+        loadType: LoadType,
+        baseline: ProgressionBaseline? = history.firstOrNull()?.let { ProgressionBaseline.FromRecent(it) },
+    ): SlotProgressionRequest = SlotProgressionRequest(
+        slot = slot,
+        history = history,
+        fallbackOneRm = null,
+        loadType = loadType,
+        progressionBaseline = baseline,
+    )
+
     private fun linearConfig(overrides: Map<LiftId, Weight> = emptyMap()) = LinearProgressionConfig(
         lowerBodyIncrement = lb(5.0),
         upperBodyIncrement = lb(2.5),
@@ -126,8 +145,7 @@ class LoadTypeProgressionTest {
         // History met the top of the range at RIR — would normally increment, but
         // bodyweight short-circuits to 0 weight.
         val history = listOf(historyEntry(reps = 8, rir = 2, weight = 0.0))
-        val rec = DoubleProgressionEngine()
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null, loadType = LoadType.Bodyweight))
+        val rec = DoubleProgressionEngine().recommend(request(slot, history, LoadType.Bodyweight))
         assertEquals(lb(0.0), rec.recommendedWeight)
         assertEquals(8, rec.baselineExpectedReps)
     }
@@ -137,7 +155,7 @@ class LoadTypeProgressionTest {
     fun `LT-double-bodyweight-no-history`() {
         val slot = topSet(repMin = 5, repMax = 10, rirGoal = 2)
         val rec = DoubleProgressionEngine()
-            .recommend(SlotProgressionRequest(slot, emptyList(), fallbackOneRm = null, loadType = LoadType.Bodyweight))
+            .recommend(request(slot, emptyList(), LoadType.Bodyweight, baseline = null))
         assertEquals(lb(0.0), rec.recommendedWeight)
         assertEquals(5, rec.baselineExpectedReps)
     }
@@ -150,8 +168,7 @@ class LoadTypeProgressionTest {
         val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
         // -50 lb assistance, hit the top at RIR → engine adds +5 → -45 (less assistance).
         val history = listOf(historyEntry(reps = 6, rir = 2, weight = -50.0))
-        val rec = DoubleProgressionEngine()
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null, loadType = LoadType.Assisted))
+        val rec = DoubleProgressionEngine().recommend(request(slot, history, LoadType.Assisted))
         assertEquals(lb(-45.0), rec.recommendedWeight)
     }
 
@@ -161,8 +178,7 @@ class LoadTypeProgressionTest {
         val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
         // -2.5 lb assistance + 5 lb increment = +2.5 (positive) → must cap at 0.
         val history = listOf(historyEntry(reps = 6, rir = 2, weight = -2.5))
-        val rec = DoubleProgressionEngine()
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null, loadType = LoadType.Assisted))
+        val rec = DoubleProgressionEngine().recommend(request(slot, history, LoadType.Assisted))
         assertEquals(lb(0.0), rec.recommendedWeight)
     }
 
@@ -171,8 +187,7 @@ class LoadTypeProgressionTest {
     fun `LT-double-assisted-holds`() {
         val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 1, weight = -50.0))
-        val rec = DoubleProgressionEngine()
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null, loadType = LoadType.Assisted))
+        val rec = DoubleProgressionEngine().recommend(request(slot, history, LoadType.Assisted))
         assertEquals(lb(-50.0), rec.recommendedWeight)
     }
 
@@ -185,9 +200,7 @@ class LoadTypeProgressionTest {
         // Bottom met at RIR would normally increment; bodyweight short-circuits.
         val history = listOf(historyEntry(reps = 5, rir = 2, weight = 0.0))
         val engine = LinearProgressionEngine(linearConfig())
-        val rec = engine.recommend(
-            SlotProgressionRequest(slot, history, fallbackOneRm = null, loadType = LoadType.Bodyweight),
-        )
+        val rec = engine.recommend(request(slot, history, LoadType.Bodyweight))
         assertEquals(lb(0.0), rec.recommendedWeight)
     }
 
@@ -197,9 +210,7 @@ class LoadTypeProgressionTest {
         val slot = topSet(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 2, weight = -80.0))
         val engine = LinearProgressionEngine(linearConfig(overrides = mapOf(liftId to lb(5.0))))
-        val rec = engine.recommend(
-            SlotProgressionRequest(slot, history, fallbackOneRm = null, loadType = LoadType.Assisted),
-        )
+        val rec = engine.recommend(request(slot, history, LoadType.Assisted))
         assertEquals(lb(-75.0), rec.recommendedWeight)
     }
 
@@ -210,9 +221,7 @@ class LoadTypeProgressionTest {
         // -2.5 + 5 = +2.5 → cap at 0.
         val history = listOf(historyEntry(reps = 5, rir = 2, weight = -2.5))
         val engine = LinearProgressionEngine(linearConfig(overrides = mapOf(liftId to lb(5.0))))
-        val rec = engine.recommend(
-            SlotProgressionRequest(slot, history, fallbackOneRm = null, loadType = LoadType.Assisted),
-        )
+        val rec = engine.recommend(request(slot, history, LoadType.Assisted))
         assertEquals(lb(0.0), rec.recommendedWeight)
     }
 

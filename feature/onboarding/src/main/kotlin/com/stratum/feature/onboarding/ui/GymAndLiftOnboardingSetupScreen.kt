@@ -269,6 +269,7 @@ private fun GymImportCard(
             importActive || importFailed ->
                 StratumIconButton(
                     onClick = onCancel,
+                    containerColor = StratumThemeAccessor.colors.borderSubtle,
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_stop),

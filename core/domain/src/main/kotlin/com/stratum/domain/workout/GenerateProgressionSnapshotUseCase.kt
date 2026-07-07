@@ -11,11 +11,14 @@ import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.identity.ProgramChangeEventId
+import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionEngine
+import com.stratum.domain.workout.progression.ProgressionBaseline
 import com.stratum.domain.workout.progression.ProgressionEngine
 import com.stratum.domain.workout.progression.SchemeTransitionEvent
 import com.stratum.domain.workout.progression.SlotProgressionRequest
+import com.stratum.domain.workout.progression.buildRecentSessionBlock
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -37,18 +40,29 @@ data class SnapshotRequest(
 /**
  * Computes the progression snapshot once per session from history (D3). Recomputed
  * only on exercise swap. Dispatches to the matching progression engine per lift.
+ *
+ * Per lift, builds a capacity-ordered recent-session block
+ * ([com.stratum.domain.workout.progression.buildRecentSessionBlock]) from the per-slot
+ * histories and assigns each slot a [ProgressionBaseline]. This corrects the
+ * "reps going up across sets at the same weight" pattern (misreported earlier-set RIR)
+ * by feeding the engines a descending-capacity baseline so recommendations come out
+ * monotonically non-increasing, and lets slots beyond the most-recent session's set
+ * count (e.g. 5→3→5) project from the top-set rec instead of falling back to stale
+ * positional history.
  */
 class GenerateProgressionSnapshotUseCase @Inject constructor(
     private val progressionHistoryPort: ProgressionHistoryPort,
     private val doubleProgressionEngine: DoubleProgressionEngine,
     private val linearProgressionEngine: LinearProgressionEngine,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
 ) {
     suspend operator fun invoke(request: SnapshotRequest): Result<ProgressionSnapshot> {
         val bySlot = mutableMapOf<SetSlotId, SlotRecommendation>()
         for (workoutLift in request.lifts) {
             var scheme = workoutLift.progressionScheme
-            val slots = workoutLift.sets.mapIndexed { index, liftSet ->
+            val sortedSets = workoutLift.sets.sortedBy { it.position }
+            val slots = sortedSets.mapIndexed { index, liftSet ->
                 SetSlot(
                     slotId = SetSlotId.Template(liftSet.id),
                     workoutLiftId = workoutLift.id,
@@ -63,12 +77,20 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                 )
             }
 
+            // Per-slot histories, pulled once and reused for the recent-block build and
+            // the per-slot engine dispatch (history is still passed for UI previous*).
+            val perSlotHistories = mutableMapOf<Int, List<SlotHistoryEntry>>()
+            for (index in sortedSets.indices) {
+                perSlotHistories[index] = progressionHistoryPort.historyForSlot(
+                    historyRequest(request, workoutLift, index),
+                )
+            }
+
             if (scheme == ProgressionScheme.Linear) {
                 val topIndex = slots.indexOfFirst { it.isTopSet }.takeIf { it >= 0 } ?: 0
-                val topHistory = progressionHistoryPort.historyForSlot(
-                    historyRequest(request, workoutLift, topIndex),
-                )
-                val transition = linearProgressionEngine.diagnose(workoutLift.liftId, topHistory).emittedEvent
+                val transition =
+                    linearProgressionEngine.diagnose(workoutLift.liftId, perSlotHistories[topIndex] ?: emptyList())
+                        .emittedEvent
                 if (transition != null) {
                     appendSchemeTransition(request.programId, workoutLift, transition)
                     scheme = ProgressionScheme.Double
@@ -77,22 +99,72 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
 
             val engine = engineFor(scheme)
             val liftLoadType = request.loadTypesById[workoutLift.liftId] ?: LoadType.Weighted
-            for ((index, liftSet) in workoutLift.sets.withIndex()) {
+
+            val insights = liftTrainingInsightsRepository.getByLiftId(workoutLift.liftId)
+            val fatigueSlope = insights?.fatigueDecaySlope
+            val fatigueIntercept = insights?.fatigueDecayIntercept
+
+            // Capacity-ordered recent block → per-slot math baselines. Null = cold start
+            // (no history for this lift at all); every slot gets a null baseline.
+            val recentBlock = buildRecentSessionBlock(perSlotHistories)
+
+            // Compute top set recommended weight first to derive the target weight for all slots
+            val topIndex = slots.indexOfFirst { it.isTopSet }.takeIf { it >= 0 } ?: 0
+            val topSlot = slots[topIndex]
+            val topBaseline = baselineForSlot(recentBlock, topIndex)
+            val topRec = engine.recommend(
+                SlotProgressionRequest(
+                    slot = topSlot,
+                    history = perSlotHistories[topIndex] ?: emptyList(),
+                    fallbackOneRm = null,
+                    loadType = liftLoadType,
+                    progressionBaseline = topBaseline,
+                ),
+            )
+            val currentTopSetWeight = topRec.recommendedWeight
+
+            for ((index, liftSet) in sortedSets.withIndex()) {
                 val slot = slots[index]
-                val history = progressionHistoryPort.historyForSlot(
-                    historyRequest(request, workoutLift, index),
-                )
+                val history = perSlotHistories[index] ?: emptyList()
+                val priorSlot = if (index != topIndex) topSlot else null
+                val priorRec = if (index != topIndex) topRec else null
+
                 bySlot[slot.slotId] = engine.recommend(
                     SlotProgressionRequest(
                         slot = slot,
                         history = history,
                         fallbackOneRm = null,
                         loadType = liftLoadType,
+                        currentTopSetWeight = currentTopSetWeight,
+                        priorSlotRecommendation = priorRec,
+                        priorSlot = priorSlot,
+                        perLiftSlope = fatigueSlope,
+                        perLiftIntercept = fatigueIntercept,
+                        progressionBaseline = baselineForSlot(recentBlock, index),
                     ),
                 )
             }
         }
         return Result.success(ProgressionSnapshot(request.workoutId, bySlot))
+    }
+
+    /**
+     * Maps a slot (by position order) to its progression math baseline from the
+     * capacity-descending recent block. Slot `i` receives `performances[i]`; slots
+     * beyond the block's size (most-recent session logged fewer sets than the current
+     * program) project from the prior slot rec.
+     */
+    private fun baselineForSlot(
+        recentBlock: com.stratum.domain.workout.progression.RecentSessionBlock?,
+        positionIndex: Int,
+    ): ProgressionBaseline? {
+        if (recentBlock == null) return null
+        val performances = recentBlock.performances
+        return if (positionIndex < performances.size) {
+            ProgressionBaseline.FromRecent(performances[positionIndex].entry)
+        } else {
+            ProgressionBaseline.ProjectFromPrior
+        }
     }
 
     private fun engineFor(scheme: ProgressionScheme): ProgressionEngine =

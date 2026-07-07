@@ -1,6 +1,6 @@
 package com.stratum.domain.workout
 
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MuscleLengthBias
@@ -17,6 +17,7 @@ import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
+import com.stratum.domain.workout.progression.ProgressionBaseline
 import com.stratum.domain.workout.progression.SlotProgressionRequest
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -100,6 +101,36 @@ class Slice2DoubleRecommendationTest {
             ),
         )
 
+    /**
+     * Builds a [SlotProgressionRequest] mirroring what the snapshot use case now produces:
+     * the math baseline is [ProgressionBaseline.FromRecent] pointing at the first history
+     * entry (the most-recent positional actual), so the engine reads it for math while
+     * `history` supplies `previousWeight`/`previousReps` for UI display.
+     */
+    private fun request(
+        slot: SetSlot,
+        history: List<SlotHistoryEntry>,
+        fallbackOneRm: Weight? = null,
+        loadType: com.stratum.domain.lift.LoadType = com.stratum.domain.lift.LoadType.Weighted,
+        currentTopSetWeight: Weight? = null,
+        priorSlotRecommendation: SlotRecommendation? = null,
+        priorSlot: SetSlot? = null,
+        perLiftSlope: Double? = null,
+        perLiftIntercept: Double? = null,
+        baseline: ProgressionBaseline? = history.firstOrNull()?.let { ProgressionBaseline.FromRecent(it) },
+    ): SlotProgressionRequest = SlotProgressionRequest(
+        slot = slot,
+        history = history,
+        fallbackOneRm = fallbackOneRm,
+        loadType = loadType,
+        currentTopSetWeight = currentTopSetWeight,
+        priorSlotRecommendation = priorSlotRecommendation,
+        priorSlot = priorSlot,
+        perLiftSlope = perLiftSlope,
+        perLiftIntercept = perLiftIntercept,
+        progressionBaseline = baseline,
+    )
+
     // --- Inverse e1RM (3 scenarios) ---
 
     @Test
@@ -132,8 +163,7 @@ class Slice2DoubleRecommendationTest {
     fun `S2-double-increment-when-top-of-range-at-rir`() {
         val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
         val history = listOf(historyEntry(reps = 6, rir = 2, weight = 135.0))
-        val recommendation = DoubleProgressionEngine()
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
         assertTrue(
             recommendation.recommendedWeight.amount > 135.0,
             "must increment when TOP of range met at RIR",
@@ -145,9 +175,55 @@ class Slice2DoubleRecommendationTest {
     fun `S2-double-hold-otherwise`() {
         val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 1, weight = 135.0))
-        val recommendation = DoubleProgressionEngine()
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
         assertEquals(lb(135.0), recommendation.recommendedWeight)
+        // Weight held → reps lever advances: failure capacity 5 + 1 = 6, minus rirGoal 2 = 4.
+        assertEquals(4, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-hold-reps-scale-to-rir-goal-when-weight-held")
+    fun `S2-double-hold-reps-scale-to-rir-goal-when-weight-held`() {
+        // Slot RIR goal 1, range 8–12. User did 120 × 7 @ RIR 5 (failure capacity = 12).
+        // Weight is held (top not met), so reps scale to 12 − 1 = 11 instead of 7.
+        val slot = topSet(repMin = 8, repMax = 12, rirGoal = 1)
+        val history = listOf(historyEntry(reps = 7, rir = 5, weight = 120.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(120.0), recommendation.recommendedWeight, "weight held (top not met)")
+        assertEquals(11, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-hold-reps-coerced-to-repMax-when-failure-capacity-exceeds-range")
+    fun `S2-double-hold-reps-coerced-to-repMax-when-failure-capacity-exceeds-range`() {
+        // reps=5 < repMax=6 → weight held (no increment). Failure capacity 5 + 5 = 10,
+        // minus rirGoal 2 = 8 — past repMax, so it caps at 6.
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 5, rir = 5, weight = 135.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(6, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-hold-falls-back-to-previous-reps-when-rir-absent")
+    fun `S2-double-hold-falls-back-to-previous-reps-when-rir-absent`() {
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 5, rir = null, weight = 135.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        // No RIR signal → naive previous-reps repeat (coerced into range).
+        assertEquals(5, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-hold-reps-coerced")
+    fun `S2-double-hold-reps-coerced`() {
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 7, rir = 1, weight = 135.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(6, recommendation.baselineExpectedReps)
     }
 
     @Test
@@ -155,9 +231,32 @@ class Slice2DoubleRecommendationTest {
     fun `S2-double-backoff-inherits-top-set-weight`() {
         val slot = backoffSlot()
         val history = listOf(historyEntry(reps = 6, rir = 2, weight = 135.0))
-        val recommendation = DoubleProgressionEngine()
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
         assertEquals(lb(135.0), recommendation.recommendedWeight)
+    }
+
+    @Test
+    @DisplayName("S2-double-backoff-reps-scale-with-rir-when-weight-held")
+    fun `S2-double-backoff-reps-scale-with-rir-when-weight-held`() {
+        // Backoff slot rirGoal=2. User did 135 × 8 @ RIR 3 (failure capacity 11).
+        // Weight is always held for backoffs → reps scale to 11 − 2 = 9.
+        val slot = backoffSlot().copy(rirGoal = 2)
+        val history = listOf(historyEntry(reps = 8, rir = 3, weight = 135.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(9, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-backoff-reps-floored-at-backoff-floor")
+    fun `S2-double-backoff-reps-floored-at-backoff-floor`() {
+        // rirGoal=2. User did 135 × 5 @ RIR 1 (failure capacity 6), target 6 − 2 = 4,
+        // floored at BACKOFF_REP_FLOOR (5).
+        val slot = backoffSlot().copy(rirGoal = 2)
+        val history = listOf(historyEntry(reps = 5, rir = 1, weight = 135.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(5, recommendation.baselineExpectedReps)
     }
 
     // --- Recommendation engine (6 scenarios) ---
@@ -294,5 +393,169 @@ class Slice2DoubleRecommendationTest {
         val set = rendered.lifts.first().sets.first()
         assertNull(set.loggedValue)
         assertEquals(lb(120.0), set.recommendedWeight)
+    }
+
+    @Test
+    @DisplayName("S2-double-straight-sets-and-fatigue-decay")
+    fun `S2-double-straight-sets-and-fatigue-decay`() {
+        val engine = DoubleProgressionEngine()
+        val topSlot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val boSlot = backoffSlot().copy(rirGoal = 2)
+
+        // Previous session had varying weights:
+        // Set 0 (top set): 120 x 7 @ 2 RIR (met top of range repMax=6 at rirGoal=2, so it progresses by +5 lb to 125)
+        // Set 1 (backoff): 110 x 8 @ 2 RIR
+        val topHistory = listOf(historyEntry(reps = 7, rir = 2, weight = 120.0))
+        val boHistory = listOf(historyEntry(reps = 8, rir = 2, weight = 110.0))
+
+        // Recommend for top set first:
+        val topRec = engine.recommend(request(topSlot, topHistory))
+        // Verify top set progressed to 125 lb and recommended reps is repMin = 4
+        assertEquals(lb(125.0), topRec.recommendedWeight)
+        assertEquals(4, topRec.baselineExpectedReps)
+
+        // Recommend for backoff set passing top set recommended weight and prior slot info
+        val boRec = engine.recommend(
+            request(
+                slot = boSlot,
+                history = boHistory,
+                currentTopSetWeight = topRec.recommendedWeight,
+                priorSlotRecommendation = topRec,
+                priorSlot = topSlot,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+            ),
+        )
+
+        // Verify backoff set inherits 125 lb (straight sets) instead of 110 lb
+        assertEquals(lb(125.0), boRec.recommendedWeight)
+
+        // Verify reps projected using top set's recommended X weight (125), Y reps (4) at Z RIR (2):
+        // priorSetE1rm = calculate(125.0, 4 + 2) = calculate(125.0, 6) = 152.76
+        // targetWeight = 125.0
+        // repsForWeight(152.76, 125.0) -> 6 reps at 0 RIR.
+        // projected capacity reps for next set (index 2 relative to index 1) = 6 + (-2.0 * 1) + 0 = 4.
+        // minus boSlot.rirGoal (2) = 2.
+        // coerced to at least BACKOFF_REP_FLOOR (5) = 5 reps.
+        assertEquals(5, boRec.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-hamstring-curl-debug")
+    fun `S2-hamstring-curl-debug`() {
+        val engine = DoubleProgressionEngine()
+        val slot1 = topSet(repMin = 8, repMax = 30, rirGoal = 2)
+        val slot2 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-2")), repMin = 8, repMax = 30, rirGoal = 1, position = 1)
+        val slot3 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-3")), repMin = 8, repMax = 30, rirGoal = 1, position = 2)
+
+        val hist1 = listOf(historyEntry(reps = 10, rir = 1, weight = 120.0))
+        val hist2 = listOf(historyEntry(reps = 7, rir = 0, weight = 120.0))
+        val hist3 = listOf(historyEntry(reps = 8, rir = null, weight = 115.0))
+
+        val rec1 = engine.recommend(request(slot1, hist1))
+        assertTrue(rec1.isProjected)
+
+        val rec2 = engine.recommend(request(slot2, hist2, currentTopSetWeight = rec1.recommendedWeight))
+        assertTrue(rec2.isProjected)
+
+        // Normal negative slope
+        val rec3Normal = engine.recommend(
+            request(
+                slot = slot3,
+                history = hist3,
+                currentTopSetWeight = rec1.recommendedWeight,
+                priorSlotRecommendation = rec1,
+                priorSlot = slot1,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+            ),
+        )
+        assertEquals(6, rec3Normal.baselineExpectedReps)
+        assertTrue(rec3Normal.isProjected)
+
+        // Positive slope (clamp test)
+        val rec3Positive = engine.recommend(
+            request(
+                slot = slot3,
+                history = hist3,
+                currentTopSetWeight = rec1.recommendedWeight,
+                priorSlotRecommendation = rec1,
+                priorSlot = slot1,
+                perLiftSlope = 25.0,
+                perLiftIntercept = 0.0,
+            ),
+        )
+        // baseline = 11 reps, decay clamped to 0.0 -> capacity = 11. 11 - 1 RIR goal = 10.
+        assertEquals(10, rec3Positive.baselineExpectedReps)
+        assertTrue(rec3Positive.isProjected)
+
+        // No history for slot 3, but priorRec is projected -> should still project reps and set isProjected = true
+        val slot4 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-4")), repMin = 8, repMax = 30, rirGoal = 1, position = 3)
+        val rec4 = engine.recommend(
+            request(
+                slot = slot4,
+                history = emptyList(),
+                currentTopSetWeight = rec1.recommendedWeight,
+                priorSlotRecommendation = rec1,
+                priorSlot = slot1,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+                baseline = ProgressionBaseline.ProjectFromPrior,
+            ),
+        )
+        // baseline = 11 reps, decay for nextSetIndex = 4 (decay 2 steps) -> projected = 11 + -2.0 * 3 = 5. 5 - 1 RIR goal = 4.
+        // coerced to BACKOFF_REP_FLOOR (5).
+        assertEquals(5, rec4.baselineExpectedReps)
+        assertTrue(rec4.isProjected)
+    }
+
+    // --- Reps going up across sets (capacity-ordered recent block) ---
+
+    @Test
+    @DisplayName("S2-reps-rising-across-sets-normalized-to-monotonic")
+    fun `S2-reps-rising-across-sets-normalized-to-monotonic`() {
+        // The exact edge case: 240×12 RIR 1, 240×13 RIR 1, 240×15 RIR 0 (same weight,
+        // reps rising across sets — earlier-set RIR was misreported). Capacity-descending
+        // baseline feeds the engine 15/13/12, so recommendations come out monotonic.
+        val engine = DoubleProgressionEngine()
+        val slot0 = topSet(repMin = 8, repMax = 16, rirGoal = 2).copy(position = 0)
+        val slot1 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-2")), repMin = 8, repMax = 16, rirGoal = 1, position = 1)
+        val slot2 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-3")), repMin = 8, repMax = 16, rirGoal = 1, position = 2)
+
+        // Positional history (UI display): slot 0 = 12@1, slot 1 = 13@1, slot 2 = 15@0
+        val hist0 = listOf(historyEntry(reps = 12, rir = 1, weight = 240.0))
+        val hist1 = listOf(historyEntry(reps = 13, rir = 1, weight = 240.0))
+        val hist2 = listOf(historyEntry(reps = 15, rir = 0, weight = 240.0))
+
+        // Capacity-descending baselines: slot 0 ← 15@0 (cap 15), slot 1 ← 13@1 (cap 14), slot 2 ← 12@1 (cap 13)
+        val rec0 = engine.recommend(request(slot0, hist0, baseline = ProgressionBaseline.FromRecent(hist2.first())))
+        val rec1 = engine.recommend(
+            request(
+                slot = slot1,
+                history = hist1,
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec0,
+                priorSlot = slot0,
+                baseline = ProgressionBaseline.FromRecent(hist1.first()),
+            ),
+        )
+        val rec2 = engine.recommend(
+            request(
+                slot = slot2,
+                history = hist2,
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec0,
+                priorSlot = slot0,
+                baseline = ProgressionBaseline.FromRecent(hist0.first()),
+            ),
+        )
+
+        // Recommendations must be monotonically non-increasing across slots.
+        assertTrue(rec0.baselineExpectedReps >= rec1.baselineExpectedReps, "rec0 (${rec0.baselineExpectedReps}) >= rec1 (${rec1.baselineExpectedReps})")
+        assertTrue(rec1.baselineExpectedReps >= rec2.baselineExpectedReps, "rec1 (${rec1.baselineExpectedReps}) >= rec2 (${rec2.baselineExpectedReps})")
+        // UI previous* stays honest to positional actuals
+        assertEquals(12, rec0.previousReps)
+        assertEquals(13, rec1.previousReps)
+        assertEquals(15, rec2.previousReps)
     }
 }
