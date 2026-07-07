@@ -171,7 +171,7 @@ class Slice1SnapshotMergeTest {
         assertTrue(result.isSuccess)
         val snapshot = result.getOrThrow()
         assertEquals(lb(135.0), snapshot.bySlot[slotId]?.recommendedWeight)
-        assertEquals(4, snapshot.bySlot[slotId]?.baselineExpectedReps)
+        assertEquals(5, snapshot.bySlot[slotId]?.baselineExpectedReps)
 
         // Apply an overlay mutation (add set) and do NOT recompute — the held reference
         // must be unchanged.

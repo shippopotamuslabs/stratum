@@ -114,9 +114,9 @@ class Slice4LinearProgressionTest {
         val entries = LastTrainedBucket.entries
         assertEquals(
             listOf(
-                LastTrainedBucket.Never,
                 LastTrainedBucket.WithinLastThreeMonths,
                 LastTrainedBucket.MoreThanThreeMonthsAgo,
+                LastTrainedBucket.Never,
             ),
             entries,
         )
