@@ -1,6 +1,6 @@
 package com.stratum.domain.workout
 
-import com.stratum.domain.importing.EstimatedOneRm
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MuscleLengthBias
@@ -148,6 +148,18 @@ class Slice2DoubleRecommendationTest {
         val recommendation = DoubleProgressionEngine()
             .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
         assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(5, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-hold-reps-coerced")
+    fun `S2-double-hold-reps-coerced`() {
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 7, rir = 1, weight = 135.0))
+        val recommendation = DoubleProgressionEngine()
+            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(6, recommendation.baselineExpectedReps)
     }
 
     @Test

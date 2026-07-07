@@ -51,15 +51,21 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
             )
         }
 
-        // Top-set slot: increment when TOP of rep range met at RIR target; hold otherwise.
-        val increment = if (shouldIncrement(latest, slot)) incrementFor() else Weight(0.0, baseWeight.unit)
+        val incremented = shouldIncrement(latest, slot)
+        val increment = if (incremented) incrementFor() else Weight(0.0, baseWeight.unit)
         val next = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
             .capAssistedAtZero(request.loadType)
+
+        val recommendedReps = if (incremented) {
+            slot.repMin
+        } else {
+            (latest?.loggedSet?.reps ?: slot.repMin).coerceIn(slot.repMin, slot.repMax)
+        }
 
         return SlotRecommendation(
             slotId = slot.slotId,
             recommendedWeight = next,
-            baselineExpectedReps = slot.repMin,
+            baselineExpectedReps = recommendedReps,
             previousWeight = prevWeight,
             previousReps = prevReps,
         )
