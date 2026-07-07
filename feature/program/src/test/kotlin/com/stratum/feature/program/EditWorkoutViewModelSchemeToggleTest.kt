@@ -25,6 +25,7 @@ import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -142,7 +143,7 @@ class EditWorkoutViewModelSchemeToggleTest {
             // Edit only a set's repMin — no scheme change. isDirty becomes true but no
             // SchemeChanged event should be appended on save.
             val setId = loaded.lifts.first().sets.first().setId
-            viewModel.setRepMin(setId, 6)
+            viewModel.setReps(setId, min = 6)
             awaitItem()
             viewModel.saveWorkout()
             awaitItem()

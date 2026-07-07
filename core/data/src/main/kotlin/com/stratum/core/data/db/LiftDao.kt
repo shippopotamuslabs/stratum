@@ -1,17 +1,16 @@
 package com.stratum.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Upsert
 import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.flow.Flow
 
 /**
  * DAO for the catalog + this user's availability. Mirrors the read/write shape of
  * [SpecializationPreferenceDao]: `@Transaction` relation queries for atomic parent+child
- * reads, `@Insert(REPLACE)` for upserts, typed [LiftId] params throughout.
+ * reads, `@Upsert` for upserts, typed [LiftId] params throughout.
  */
 @Dao
 interface LiftDao {
@@ -57,12 +56,12 @@ interface LiftDao {
     @Query("SELECT id FROM lifts WHERE presetTags LIKE :tagPattern")
     suspend fun idsForPresetTag(tagPattern: String): List<LiftId>
 
-    /** Insert or replace a catalog lift row (seed + custom both go through here). */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /** Upsert a catalog lift row (seed + custom both go through here). */
+    @Upsert
     suspend fun upsert(lift: LiftEntity)
 
-    /** Insert or replace many lift rows at once (seed load). */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /** Upsert many lift rows at once (seed load). */
+    @Upsert
     suspend fun upsertAll(lifts: List<LiftEntity>)
 
     /** Flip one lift's availability flag. */

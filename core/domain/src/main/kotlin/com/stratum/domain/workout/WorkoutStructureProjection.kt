@@ -16,6 +16,7 @@ data class WorkoutLiftProjection(
     val slots: List<SetSlot>,
     val supersetGroupId: WorkoutSupersetGroupId? = null,
     val loadType: LoadType = LoadType.Weighted,
+    val useRestTimerBetweenLifts: Boolean = false,
 )
 
 /**

@@ -58,34 +58,34 @@ class RoomResponseProfilePersistenceRepository @Inject constructor(
             snapshotDao.deleteAll()
             diagnosticDao.deleteAll()
             if (profile.epochs.isNotEmpty()) {
-                epochDao.insertAll(profile.epochs.map { it.toEntity() })
+                epochDao.upsertAll(profile.epochs.map { it.toEntity() })
             }
             if (profile.volumeResponses.isNotEmpty()) {
-                volumeDao.insertAll(profile.volumeResponses.map { it.toEntity() })
+                volumeDao.upsertAll(profile.volumeResponses.map { it.toEntity() })
             }
             if (profile.liftEffectiveness.isNotEmpty()) {
-                effectivenessDao.insertAll(profile.liftEffectiveness.map { it.toEntity() })
+                effectivenessDao.upsertAll(profile.liftEffectiveness.map { it.toEntity() })
             }
             if (profile.experimentBlocks.isNotEmpty()) {
-                experimentDao.insertAll(profile.experimentBlocks.map { it.toEntity() })
+                experimentDao.upsertAll(profile.experimentBlocks.map { it.toEntity() })
             }
             if (profile.weeklyStimulus.isNotEmpty()) {
-                stimulusDao.insertAll(profile.weeklyStimulus.map { it.toEntity() })
+                stimulusDao.upsertAll(profile.weeklyStimulus.map { it.toEntity() })
             }
             if (profile.liftPerformance.isNotEmpty()) {
-                liftPerformanceDao.insertAll(profile.liftPerformance.map { it.toEntity() })
+                liftPerformanceDao.upsertAll(profile.liftPerformance.map { it.toEntity() })
             }
             if (profile.outcomeIndices.isNotEmpty()) {
-                outcomeIndexDao.insertAll(profile.outcomeIndices.map { it.toEntity() })
+                outcomeIndexDao.upsertAll(profile.outcomeIndices.map { it.toEntity() })
             }
             if (profile.dosePoints.isNotEmpty()) {
-                dosePointDao.insertAll(profile.dosePoints.map { it.toEntity() })
+                dosePointDao.upsertAll(profile.dosePoints.map { it.toEntity() })
             }
             if (profile.volumeSnapshots.isNotEmpty()) {
-                snapshotDao.insertAll(profile.volumeSnapshots.map { it.toEntity() })
+                snapshotDao.upsertAll(profile.volumeSnapshots.map { it.toEntity() })
             }
             if (profile.modelDiagnostics.isNotEmpty()) {
-                diagnosticDao.insertAll(profile.modelDiagnostics.map { it.toEntity() })
+                diagnosticDao.upsertAll(profile.modelDiagnostics.map { it.toEntity() })
             }
             metadataDao.upsert(profile.metadata.toEntity())
         }
@@ -115,7 +115,7 @@ class RoomResponseEpochRepository @Inject constructor(
     override suspend fun replaceAll(epochs: List<Epoch>) {
         database.withTransaction {
             dao.deleteAll()
-            if (epochs.isNotEmpty()) dao.insertAll(epochs.map { it.toEntity() })
+            if (epochs.isNotEmpty()) dao.upsertAll(epochs.map { it.toEntity() })
         }
     }
 
@@ -129,7 +129,7 @@ class RoomVolumeResponseObservationRepository @Inject constructor(
     override suspend fun replaceAll(observations: List<VolumeResponseObservation>) {
         database.withTransaction {
             dao.deleteAll()
-            if (observations.isNotEmpty()) dao.insertAll(observations.map { it.toEntity() })
+            if (observations.isNotEmpty()) dao.upsertAll(observations.map { it.toEntity() })
         }
     }
 
@@ -144,7 +144,7 @@ class RoomLiftEffectivenessObservationRepository @Inject constructor(
     override suspend fun replaceAll(observations: List<LiftEffectivenessObservation>) {
         database.withTransaction {
             dao.deleteAll()
-            if (observations.isNotEmpty()) dao.insertAll(observations.map { it.toEntity() })
+            if (observations.isNotEmpty()) dao.upsertAll(observations.map { it.toEntity() })
         }
     }
 
@@ -159,7 +159,7 @@ class RoomExperimentBlockRepository @Inject constructor(
     override suspend fun replaceAll(blocks: List<ExperimentBlock>) {
         database.withTransaction {
             dao.deleteAll()
-            if (blocks.isNotEmpty()) dao.insertAll(blocks.map { it.toEntity() })
+            if (blocks.isNotEmpty()) dao.upsertAll(blocks.map { it.toEntity() })
         }
     }
 
@@ -187,7 +187,7 @@ class RoomMuscleVolumeResponseSnapshotRepository @Inject constructor(
     override suspend fun replaceAll(snapshots: List<MuscleVolumeResponseSnapshot>) {
         database.withTransaction {
             dao.deleteAll()
-            if (snapshots.isNotEmpty()) dao.insertAll(snapshots.map { it.toEntity() })
+            if (snapshots.isNotEmpty()) dao.upsertAll(snapshots.map { it.toEntity() })
         }
     }
 

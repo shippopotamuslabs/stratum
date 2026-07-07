@@ -1,8 +1,6 @@
 package com.stratum.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
@@ -41,8 +39,8 @@ interface ProgramDao {
 
 @Dao
 interface WorkoutDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<WorkoutEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<WorkoutEntity>)
 
     @Query("DELETE FROM workouts")
     suspend fun deleteAll()
@@ -56,8 +54,8 @@ interface WorkoutDao {
 
 @Dao
 interface WorkoutLiftDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<WorkoutLiftEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<WorkoutLiftEntity>)
 
     @Query("DELETE FROM workout_lifts")
     suspend fun deleteAll()
@@ -71,8 +69,8 @@ interface WorkoutLiftDao {
 
 @Dao
 interface LiftSetDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<LiftSetEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<LiftSetEntity>)
 
     @Query("DELETE FROM sets")
     suspend fun deleteAll()

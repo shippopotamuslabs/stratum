@@ -58,7 +58,7 @@ class RoomLiftTrainingInsightsRepository @Inject constructor(
 ) : LiftTrainingInsightsRepository {
     override suspend fun replaceAll(insights: List<LiftTrainingInsights>) {
         dao.deleteAll()
-        if (insights.isNotEmpty()) dao.insertAll(insights.map { it.toEntity() })
+        if (insights.isNotEmpty()) dao.upsertAll(insights.map { it.toEntity() })
     }
 
     override suspend fun getAll(): List<LiftTrainingInsights> =
@@ -73,7 +73,7 @@ class RoomSupersetAffinityRepository @Inject constructor(
 ) : SupersetAffinityRepository {
     override suspend fun replaceAll(affinities: List<SupersetAffinity>) {
         dao.deleteAll()
-        if (affinities.isNotEmpty()) dao.insertAll(affinities.map { it.toEntity() })
+        if (affinities.isNotEmpty()) dao.upsertAll(affinities.map { it.toEntity() })
     }
 
     override suspend fun getAll(): List<SupersetAffinity> =
@@ -85,7 +85,7 @@ class RoomMuscleVolumeBaselineRepository @Inject constructor(
 ) : MuscleVolumeBaselineRepository {
     override suspend fun replaceAll(baselines: List<MuscleVolumeBaseline>) {
         dao.deleteAll()
-        if (baselines.isNotEmpty()) dao.insertAll(baselines.map { it.toEntity() })
+        if (baselines.isNotEmpty()) dao.upsertAll(baselines.map { it.toEntity() })
     }
 
     override suspend fun getAll(): List<MuscleVolumeBaseline> =

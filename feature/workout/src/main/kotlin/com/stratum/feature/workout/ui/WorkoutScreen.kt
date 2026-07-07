@@ -66,6 +66,14 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.LiftActionsBottomSheet
+import com.stratum.core.ui.component.SupersetLinkBottomSheet
+import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.core.ui.component.supersetLinkSheetOptions
+import com.stratum.core.ui.component.shouldKeepSupersetSheetOpenAfterLink
+import com.stratum.core.ui.component.isSupersetPairMember
+import com.stratum.core.ui.component.isLastInSupersetChain
+import com.stratum.core.ui.component.SupersetGroupChip
 import com.stratum.core.ui.theme.StratumSupersetGroupColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
@@ -110,10 +118,17 @@ private val bodyweightRowWeights = SetRowWeights(
 fun WorkoutScreen(
     state: WorkoutUiState.Loaded,
     onNavigateBack: () -> Unit,
-    onFinalize: () -> Unit,
+    onCompleteWorkout: (saveTemplate: Boolean) -> Unit,
     onAbandon: () -> Unit,
     onLogSet: (String, Weight, Int, Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
+    onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
+    onLinkSupersetWithPrevious: (String) -> Unit,
+    onLinkSupersetWithNext: (String) -> Unit,
+    onRemoveFromSuperset: (String) -> Unit,
+    onSetUseRestTimerBetweenLifts: (String, Boolean) -> Unit,
+    onRemoveLift: (String) -> Unit,
+    onReorderLiftsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var remainingRestSeconds by rememberSaveable { mutableIntStateOf(0) }
@@ -121,6 +136,10 @@ fun WorkoutScreen(
     var isTimerActive by rememberSaveable { mutableStateOf(false) }
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
+    var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
+    var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
+    var showCompleteSheet by remember { mutableStateOf(false) }
+    var completeSheetPhase by remember { mutableStateOf(CompleteSheetPhase.Incomplete) }
 
     var elapsedTimeStr by remember(state.sessionStartedAtEpochMilli) { mutableStateOf("00:00") }
     LaunchedEffect(state.sessionStartedAtEpochMilli) {
@@ -182,8 +201,18 @@ fun WorkoutScreen(
                 },
                 actions = {
                     StratumTopBarTextButton(
-                        text = "Finish",
-                        onClick = onFinalize
+                        text = stringResource(R.string.workout_screen_complete),
+                        onClick = {
+                            if (!state.hasIncompleteLifts && !state.hasDirtyEdits) {
+                                onCompleteWorkout(false)
+                            } else if (state.hasIncompleteLifts) {
+                                completeSheetPhase = CompleteSheetPhase.Incomplete
+                                showCompleteSheet = true
+                            } else {
+                                completeSheetPhase = CompleteSheetPhase.SaveChanges
+                                showCompleteSheet = true
+                            }
+                        }
                     )
                 }
             )
@@ -207,7 +236,8 @@ fun WorkoutScreen(
                         lift = lift,
                         onLogSet = onLogSet,
                         onUnlogSet = onUnlogSet,
-                        onStartRestTimer = startRestTimer
+                        onStartRestTimer = startRestTimer,
+                        onShowLiftActions = { liftActionsLiftId = lift.workoutLiftId }
                     )
                 }
 
@@ -269,6 +299,87 @@ fun WorkoutScreen(
                 onAbandon()
                 onNavigateBack()
             }
+        )
+    }
+
+    liftActionsLiftId?.let { liftId ->
+        val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
+        if (lift != null) {
+            LiftActionsBottomSheet(
+                onConfigureSuperset = {
+                    liftActionsLiftId = null
+                    supersetSheetLiftId = liftId
+                },
+                onSwapLift = {
+                    liftActionsLiftId = null
+                    onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
+                },
+                onRemoveLift = {
+                    liftActionsLiftId = null
+                    onRemoveLift(liftId)
+                },
+                onReorderLifts = {
+                    liftActionsLiftId = null
+                    onReorderLiftsClick()
+                },
+                onDismiss = { liftActionsLiftId = null }
+            )
+        } else {
+            liftActionsLiftId = null
+        }
+    }
+
+    supersetSheetLiftId?.let { liftId ->
+        val currentLift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
+        val options = supersetLinkSheetOptions(lifts = state.lifts, workoutLiftId = liftId)
+        if (options.isNotEmpty() && currentLift != null) {
+            SupersetLinkBottomSheet(
+                options = options,
+                showRestBetweenLiftsToggle =
+                    isSupersetPairMember(currentLift, state.lifts) &&
+                        !isLastInSupersetChain(currentLift, state.lifts),
+                useRestTimerBetweenLifts = currentLift.useRestTimerBetweenLifts,
+                onUseRestTimerBetweenLiftsChange = { enabled ->
+                    onSetUseRestTimerBetweenLifts(liftId, enabled)
+                },
+                onOptionSelected = { direction ->
+                    when (direction) {
+                        SupersetLinkDirection.Previous -> onLinkSupersetWithPrevious(liftId)
+                        SupersetLinkDirection.Next -> onLinkSupersetWithNext(liftId)
+                        SupersetLinkDirection.Remove -> onRemoveFromSuperset(liftId)
+                    }
+                    if (!shouldKeepSupersetSheetOpenAfterLink(state.lifts, liftId, direction)) {
+                        supersetSheetLiftId = null
+                    }
+                },
+                onDismiss = { supersetSheetLiftId = null }
+            )
+        } else {
+            supersetSheetLiftId = null
+        }
+    }
+
+    if (showCompleteSheet) {
+        CompleteWorkoutSheet(
+            phase = completeSheetPhase,
+            onContinueWorkout = { showCompleteSheet = false },
+            onCompleteWorkout = {
+                if (completeSheetPhase == CompleteSheetPhase.Incomplete && state.hasDirtyEdits) {
+                    completeSheetPhase = CompleteSheetPhase.SaveChanges
+                } else {
+                    showCompleteSheet = false
+                    onCompleteWorkout(false)
+                }
+            },
+            onUpdateTemplate = {
+                showCompleteSheet = false
+                onCompleteWorkout(true)
+            },
+            onDiscardChanges = {
+                showCompleteSheet = false
+                onCompleteWorkout(false)
+            },
+            onDismiss = { showCompleteSheet = false },
         )
     }
 }
@@ -336,6 +447,7 @@ private fun LiftSection(
     onLogSet: (String, Weight, Int, Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onStartRestTimer: (Int) -> Unit,
+    onShowLiftActions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -364,16 +476,22 @@ private fun LiftSection(
             StratumText(
                 text = lift.liftName,
                 style = StratumThemeAccessor.typography.titleLarge,
+                modifier = Modifier.weight(1f).padding(end = 20.dp),
             )
-            Icon(
-                painter = painterResource(CoreUiR.drawable.ic_more_vert),
-                contentDescription = "Lift Options",
-                tint = StratumThemeAccessor.colors.textMuted
-            )
+            StratumIconButton(
+                onClick = onShowLiftActions,
+                containerColor = Color.Transparent,
+            ) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_more_vert),
+                    contentDescription = "Lift Options",
+                    tint = StratumThemeAccessor.colors.textMuted
+                )
+            }
         }
 
         lift.supersetGroupId?.let { groupId ->
-            WorkoutSupersetGroupChip(
+            SupersetGroupChip(
                 groupId = groupId,
                 modifier = Modifier
                     .padding(vertical = 2.dp)
@@ -636,24 +754,7 @@ private fun InlineNumericCell(
     )
 }
 
-@Composable
-private fun WorkoutSupersetGroupChip(
-    groupId: String,
-    modifier: Modifier = Modifier,
-) {
-    StratumText(
-        text = "SUPERSET",
-        style = StratumThemeAccessor.typography.sectionLabel.copy(
-            color = StratumSupersetGroupColors.contentColor,
-        ),
-        modifier = modifier
-            .background(
-                color = StratumSupersetGroupColors.backgroundFor(groupId),
-                shape = StratumThemeAccessor.shapes.chip,
-            )
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-    )
-}
+
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -844,4 +945,67 @@ private fun formatRestDisplay(seconds: Int): String {
     val s = seconds % 60
     val sStr = s.toString().padStart(2, '0')
     return "$m:$sStr"
+}
+
+enum class CompleteSheetPhase { Incomplete, SaveChanges }
+
+@Composable
+private fun CompleteWorkoutSheet(
+    phase: CompleteSheetPhase,
+    onContinueWorkout: () -> Unit,
+    onCompleteWorkout: () -> Unit,
+    onUpdateTemplate: () -> Unit,
+    onDiscardChanges: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    StratumBottomSheet(onDismissRequest = onDismiss) {
+        when (phase) {
+            CompleteSheetPhase.Incomplete -> {
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_incomplete_title),
+                    style = StratumThemeAccessor.typography.titleLarge,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_incomplete_message),
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    muted = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                StratumButton(
+                    text = stringResource(R.string.workout_sheet_continue_workout),
+                    onClick = onContinueWorkout,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                StratumOutlinedButton(
+                    text = stringResource(R.string.workout_sheet_complete_workout),
+                    onClick = onCompleteWorkout,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            CompleteSheetPhase.SaveChanges -> {
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_save_changes_title),
+                    style = StratumThemeAccessor.typography.titleLarge,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_save_changes_message),
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    muted = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                StratumButton(
+                    text = stringResource(R.string.workout_sheet_update_template),
+                    onClick = onUpdateTemplate,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                StratumOutlinedButton(
+                    text = stringResource(R.string.workout_sheet_discard_changes),
+                    onClick = onDiscardChanges,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
 }

@@ -200,6 +200,9 @@ class ProgramsViewModelTest {
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog),
             getLoggedSetsForSession = com.stratum.domain.training.GetLoggedSetsForSessionUseCase(trainingLog),
+            recordWorkoutSkip = com.stratum.domain.training.RecordWorkoutSkipUseCase(trainingLog, repository),
+            recordRestDaySkip = com.stratum.domain.training.RecordRestDaySkipUseCase(trainingLog, repository),
+            unskipWorkout = com.stratum.domain.training.UnskipWorkoutUseCase(trainingLog, repository),
         )
     }
 

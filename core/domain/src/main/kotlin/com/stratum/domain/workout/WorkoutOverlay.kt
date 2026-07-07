@@ -1,6 +1,9 @@
 package com.stratum.domain.workout
 
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 
 /** A logged value for a single slot (D2). Overlay layer — the only mutable layer. */
 data class LoggedSetValue(
@@ -35,7 +38,28 @@ data class WorkoutOverlay(
     val undoStack: List<StructuralMutation> = emptyList(),
     /** Fatigue-estimated baselines for dynamically-added slots (overlay-only; D3). */
     val dynamicBaselines: Map<SetSlotId, SlotRecommendation> = emptyMap(),
+    val swappedLifts: Map<WorkoutLiftId, LiftId> = emptyMap(),
+    val deletedLiftIds: Set<WorkoutLiftId> = emptySet(),
+    val supersetGroupIdOverrides: Map<WorkoutLiftId, WorkoutSupersetGroupId?> = emptyMap(),
+    val useRestTimerBetweenLiftsOverrides: Map<WorkoutLiftId, Boolean> = emptyMap(),
+    val orderedLiftIds: List<String>? = null,
 ) {
+    /**
+     * True when the overlay carries unsaved structural edits (swaps, added/deleted sets or
+     * lifts, superset/rest-timer overrides, reorder) that differ from the baseline workout
+     * template. Logged sets and recomputed recommendations are session activity, not dirty
+     * edits — they are excluded.
+     */
+    val isDirty: Boolean
+        get() =
+            addedSlots.isNotEmpty() ||
+                deletedSlotIds.isNotEmpty() ||
+                swappedLifts.isNotEmpty() ||
+                deletedLiftIds.isNotEmpty() ||
+                supersetGroupIdOverrides.isNotEmpty() ||
+                useRestTimerBetweenLiftsOverrides.isNotEmpty() ||
+                orderedLiftIds != null
+
     fun apply(mutation: StructuralMutation): WorkoutOverlay {
         val nextUndoStack = undoStack + mutation
         return when (mutation) {

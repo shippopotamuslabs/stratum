@@ -47,13 +47,13 @@ class RoomProgramRepository @Inject constructor(
             workoutDao.deleteAll()
             programDao.upsert(program.toEntity())
             if (program.workouts.isNotEmpty()) {
-                workoutDao.insertAll(program.workouts.map { it.toEntity() })
+                workoutDao.upsertAll(program.workouts.map { it.toEntity() })
                 val lifts = program.workouts.flatMap { it.workoutLifts }
                 if (lifts.isNotEmpty()) {
-                    workoutLiftDao.insertAll(lifts.map { it.toEntity() })
+                    workoutLiftDao.upsertAll(lifts.map { it.toEntity() })
                     val sets = lifts.flatMap { it.sets }
                     if (sets.isNotEmpty()) {
-                        liftSetDao.insertAll(sets.map { it.toEntity() })
+                        liftSetDao.upsertAll(sets.map { it.toEntity() })
                     }
                 }
             }

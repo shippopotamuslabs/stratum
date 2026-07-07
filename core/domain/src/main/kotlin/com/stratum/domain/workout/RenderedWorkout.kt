@@ -44,6 +44,7 @@ data class RenderedWorkoutLift(
     val sets: List<RenderedSet>,
     val supersetGroupId: WorkoutSupersetGroupId? = null,
     val loadType: LoadType = LoadType.Weighted,
+    val useRestTimerBetweenLifts: Boolean = false,
 )
 
 /** The fully merged rendered workout (D1). Pure output of `MergeRenderedWorkoutUseCase`. */

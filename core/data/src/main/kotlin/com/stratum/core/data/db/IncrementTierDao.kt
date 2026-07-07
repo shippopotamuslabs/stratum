@@ -1,9 +1,8 @@
 package com.stratum.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.stratum.domain.lift.identity.LiftId
 
 /**
@@ -13,7 +12,7 @@ import com.stratum.domain.lift.identity.LiftId
  */
 @Dao
 interface IncrementTierDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertAll(tiers: List<IncrementTierEntity>)
 
     @Query("DELETE FROM increment_tiers WHERE liftId = :liftId")

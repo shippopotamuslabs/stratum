@@ -2,10 +2,14 @@ package com.stratum.feature.program
 
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
-import com.stratum.feature.program.isSupersetPairMember
-import com.stratum.feature.program.ui.showsSupersetChip
-import com.stratum.feature.program.ui.shouldKeepSupersetSheetOpenAfterLink
-import com.stratum.feature.program.ui.supersetLinkSheetOptions
+import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.core.ui.component.isSupersetPairMember
+import com.stratum.core.ui.component.isLastInSupersetChain
+import com.stratum.core.ui.component.shouldKeepSupersetSheetOpenAfterLink
+import com.stratum.core.ui.component.supersetLinkSheetOptions
+import com.stratum.core.ui.component.linkSupersetWithAdjacent
+import com.stratum.core.ui.component.unlinkLiftFromSuperset
+import com.stratum.core.ui.component.cleanupSupersetGroups
 import com.stratum.feature.program.R
 import com.stratum.core.ui.R as CoreUiR
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -280,4 +284,7 @@ class EditWorkoutSupersetTest {
                 ),
             supersetGroupId = groupId,
         )
+
+    private fun EditLiftState.showsSupersetChip(allLifts: List<EditLiftState>): Boolean =
+        isSupersetPairMember(this, allLifts)
 }
