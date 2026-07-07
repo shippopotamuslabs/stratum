@@ -2,6 +2,7 @@ package com.stratum.feature.workout
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.domain.importing.EstimatedOneRm
 import com.stratum.domain.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.workout.ui.LiftBestSetUi
@@ -32,7 +33,10 @@ class WorkoutCompleteViewModel @Inject constructor(
                         bestSets = summary.bestSets.map { best ->
                             LiftBestSetUi(
                                 liftName = best.liftName,
-                                bestSetLabel = formatBestSet(best.weight, best.reps, best.rir),
+                                performanceLabel = formatPerformance(best.weight, best.reps),
+                                rirLabel = best.rir?.toString() ?: RIR_NONE,
+                                estimatedOneRmLabel = formatEstimatedOneRm(best.weight, best.reps),
+                                isPersonalRecord = false,
                             )
                         },
                     )
@@ -54,10 +58,12 @@ class WorkoutCompleteViewModel @Inject constructor(
         }
     }
 
-    private fun formatBestSet(weight: Double, reps: Int, rir: Int?): String {
-        val weightStr = if (weight == 0.0) "" else "${formatWeight(weight)} × "
-        val rirStr = rir?.let { " @$it" } ?: ""
-        return "$weightStr${reps} reps$rirStr"
+    private fun formatPerformance(weight: Double, reps: Int): String =
+        if (weight == 0.0) reps.toString() else "${formatWeight(weight)} × $reps"
+
+    private fun formatEstimatedOneRm(weight: Double, reps: Int): String {
+        val e1Rm = EstimatedOneRm.calculate(weight, reps)
+        return formatWeight(e1Rm)
     }
 
     private fun formatWeight(weight: Double): String {
@@ -70,5 +76,6 @@ class WorkoutCompleteViewModel @Inject constructor(
         const val SECS_PER_HOUR = 3600
         const val SECS_PER_MIN = 60
         const val TEN_FACTOR = 10
+        const val RIR_NONE = "—"
     }
 }

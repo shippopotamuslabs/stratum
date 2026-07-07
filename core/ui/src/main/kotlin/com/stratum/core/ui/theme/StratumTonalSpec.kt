@@ -34,6 +34,7 @@ object StratumTonalSpec {
                     error = Color(0xFFEF4444),
                     onError = Color(0xFFFFFFFF),
                     setComplete = Color(0xFF1B3D2F),
+                    prHighlight = Color(0xFFE0B040),
                 ),
             shapes = tonalShapes(),
             elevations =
@@ -66,6 +67,7 @@ object StratumTonalSpec {
                     error = Color(0xFFDC2626),
                     onError = Color(0xFFFFFFFF),
                     setComplete = Color(0xFFE8F5E9),
+                    prHighlight = Color(0xFF8A6708),
                 ),
             shapes = tonalShapes(),
             elevations =

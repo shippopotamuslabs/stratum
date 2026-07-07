@@ -15,7 +15,14 @@ sealed interface WorkoutCompleteUiState {
     ) : WorkoutCompleteUiState
 }
 
+/**
+ * One row in the per-lift performance table. All numeric values arrive as
+ * presentation strings — the composables never see raw doubles/ints.
+ */
 data class LiftBestSetUi(
     val liftName: String,
-    val bestSetLabel: String,
+    val performanceLabel: String,
+    val rirLabel: String,
+    val estimatedOneRmLabel: String,
+    val isPersonalRecord: Boolean,
 )

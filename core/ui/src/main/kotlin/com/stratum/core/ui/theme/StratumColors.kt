@@ -20,4 +20,5 @@ data class StratumColors(
     val error: Color,
     val onError: Color,
     val setComplete: Color,
+    val prHighlight: Color,
 )
