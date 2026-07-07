@@ -5,15 +5,23 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumNumber
@@ -22,6 +30,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.R as CoreUiR
 import com.stratum.feature.workout.R
 
 @Composable
@@ -57,72 +66,208 @@ fun WorkoutCompleteScreen(
                 style = StratumThemeAccessor.typography.titleLarge,
             )
 
-            // Duration
+            SummaryStatCards(state)
+
+            if (state.bestSets.isNotEmpty()) {
+                PerformanceTable(state.bestSets)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryStatCards(state: WorkoutCompleteUiState.Loaded) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        StatCard(
+            label = stringResource(R.string.workout_complete_duration),
+            value = state.durationFormatted,
+            leading = {
+                Icon(
+                    imageVector = Icons.Filled.Timer,
+                    contentDescription = null,
+                    tint = StratumThemeAccessor.colors.textMuted,
+                )
+            },
+            modifier = Modifier.weight(1f),
+        )
+        val prCount = state.bestSets.count { it.isPersonalRecord }
+        StatCard(
+            label = stringResource(R.string.workout_complete_personal_records),
+            value = prCount.toString(),
+            leading = {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_personal_record),
+                    contentDescription = null,
+                    tint = StratumThemeAccessor.colors.prHighlight,
+                )
+            },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun StatCard(
+    label: String,
+    value: String,
+    leading: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val panelShape = StratumThemeAccessor.shapes.panel
+    Column(
+        modifier = modifier
+            .background(
+                color = StratumThemeAccessor.colors.surfaceRaised,
+                shape = panelShape,
+            )
+            .border(
+                width = StratumThemeAccessor.shapes.borderWidth,
+                color = StratumThemeAccessor.colors.borderSubtle,
+                shape = panelShape,
+            )
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            leading()
+            StratumText(
+                text = label,
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+            )
+        }
+        StratumText(
+            text = value,
+            style = StratumThemeAccessor.typography.titleLarge,
+        )
+    }
+}
+
+@Composable
+private fun PerformanceTable(bestSets: List<LiftBestSetUi>) {
+    val panelShape = StratumThemeAccessor.shapes.panel
+    val borderWidth = StratumThemeAccessor.shapes.borderWidth
+    val borderColor = StratumThemeAccessor.colors.borderSubtle
+    val cardColor = StratumThemeAccessor.colors.surfaceRaised
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = cardColor, shape = panelShape)
+            .border(width = borderWidth, color = borderColor, shape = panelShape)
+    ) {
+        bestSets.forEachIndexed { index, bestSet ->
+            PerformanceItem(
+                bestSet = bestSet,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (index < bestSets.lastIndex) {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(borderWidth)
+                        .background(color = borderColor)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PerformanceItem(
+    bestSet: LiftBestSetUi,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        // Lift name and PR Badge
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (bestSet.isPersonalRecord) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_personal_record),
+                    contentDescription = stringResource(R.string.workout_complete_pr_cd),
+                    tint = StratumThemeAccessor.colors.prHighlight,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            StratumText(
+                text = bestSet.liftName,
+                style = StratumThemeAccessor.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        // 3-Column Stats Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            val labelStyle = StratumThemeAccessor.typography.sectionLabel
+            val valueStyle = StratumThemeAccessor.typography.dataLarge
+
+            // Performance Column
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = StratumThemeAccessor.colors.surfaceRaised,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .border(
-                        width = StratumThemeAccessor.shapes.borderWidth,
-                        color = StratumThemeAccessor.colors.borderSubtle,
-                        shape = StratumThemeAccessor.shapes.panel,
-                    )
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.weight(1.2f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 StratumText(
-                    text = stringResource(R.string.workout_complete_duration),
-                    style = StratumThemeAccessor.typography.sectionLabel,
+                    text = stringResource(R.string.workout_complete_table_performance),
+                    style = labelStyle,
                     muted = true,
                 )
-                StratumText(
-                    text = state.durationFormatted,
-                    style = StratumThemeAccessor.typography.titleLarge,
+                StratumNumber(
+                    text = bestSet.performanceLabel,
+                    style = valueStyle,
                 )
             }
 
-            // Best sets per lift
-            if (state.bestSets.isNotEmpty()) {
+            // RIR Column
+            Column(
+                modifier = Modifier.weight(0.8f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 StratumText(
-                    text = stringResource(R.string.workout_complete_best_set),
-                    style = StratumThemeAccessor.typography.sectionLabel,
+                    text = stringResource(R.string.workout_complete_table_rir),
+                    style = labelStyle,
                     muted = true,
                 )
-                state.bestSets.forEach { bestSet ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = StratumThemeAccessor.colors.surfaceRaised,
-                                shape = StratumThemeAccessor.shapes.panel,
-                            )
-                            .border(
-                                width = StratumThemeAccessor.shapes.borderWidth,
-                                color = StratumThemeAccessor.colors.borderSubtle,
-                                shape = StratumThemeAccessor.shapes.panel,
-                            )
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        StratumText(
-                            text = bestSet.liftName,
-                            style = StratumThemeAccessor.typography.bodyLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        StratumNumber(
-                            text = bestSet.bestSetLabel,
-                            style = StratumThemeAccessor.typography.sectionLabel.copy(
-                                fontFamily = FontFamily.Monospace,
-                            ),
-                        )
-                    }
-                }
+                StratumNumber(
+                    text = bestSet.rirLabel,
+                    style = valueStyle,
+                )
+            }
+
+            // Est. 1RM Column
+            Column(
+                modifier = Modifier.weight(1.0f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                StratumText(
+                    text = stringResource(R.string.workout_complete_table_est_1rm),
+                    style = labelStyle,
+                    muted = true,
+                )
+                StratumNumber(
+                    text = bestSet.estimatedOneRmLabel,
+                    style = valueStyle,
+                )
             }
         }
     }

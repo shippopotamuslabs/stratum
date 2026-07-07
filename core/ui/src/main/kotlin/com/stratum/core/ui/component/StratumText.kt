@@ -42,6 +42,7 @@ fun StratumNumber(
     modifier: Modifier = Modifier,
     style: TextStyle = StratumThemeAccessor.typography.dataLarge,
     maxLines: Int = Int.MAX_VALUE,
+    textAlign: TextAlign? = null,
     onTextLayout: (TextLayoutResult) -> Unit = {},
 ) {
     Text(
@@ -56,6 +57,7 @@ fun StratumNumber(
             },
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
+        textAlign = textAlign,
         onTextLayout = onTextLayout,
     )
 }

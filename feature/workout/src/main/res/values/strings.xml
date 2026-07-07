@@ -20,5 +20,11 @@
     <string name="workout_complete_title">Workout Complete</string>
     <string name="workout_complete_close">Close</string>
     <string name="workout_complete_duration">Duration</string>
-    <string name="workout_complete_best_set">Best Set</string>
+    <string name="workout_complete_personal_records">Personal Records</string>
+    <string name="workout_complete_table_lift">LIFT</string>
+    <string name="workout_complete_table_performance">PERFORMANCE</string>
+    <string name="workout_complete_table_rir">RIR</string>
+    <string name="workout_complete_table_est_1rm">EST. 1RM</string>
+    <string name="workout_complete_pr_cd">Personal record</string>
+    <string name="workout_complete_empty">No lifts logged</string>
 </resources>
