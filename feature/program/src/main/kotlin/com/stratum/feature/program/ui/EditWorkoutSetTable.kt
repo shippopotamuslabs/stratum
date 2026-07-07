@@ -180,13 +180,19 @@ private fun EditWorkoutSetTableRow(
             ) {
                 SetNumberBadge(number = set.setNumber)
             }
-            RepRangeCell(
-                repMin = set.repMin,
-                repMax = set.repMax,
-                onRepMinChange = onRepMinChange,
-                onRepMaxChange = onRepMaxChange,
-                modifier = Modifier.weight(REP_RANGE_COLUMN_WEIGHT),
-            )
+            if (set.isTopSet) {
+                RepRangeCell(
+                    repMin = set.repMin,
+                    repMax = set.repMax,
+                    onRepMinChange = onRepMinChange,
+                    onRepMaxChange = onRepMaxChange,
+                    modifier = Modifier.weight(REP_RANGE_COLUMN_WEIGHT),
+                )
+            } else {
+                BackoffRepRangeCell(
+                    modifier = Modifier.weight(REP_RANGE_COLUMN_WEIGHT),
+                )
+            }
             RestTimeCell(
                 restSeconds = set.restSeconds,
                 onClick = onRestClick,
@@ -305,6 +311,22 @@ private fun RepRangeCell(
                 onRepMaxChange(text.toIntOrNull()?.coerceAtLeast(0) ?: 0)
             },
             modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun BackoffRepRangeCell(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Backoff sets are RIR-only; the rep range is not prescribed (see Program.kt and
+        // BACKOFF_REP_FLOOR). Shown as a muted dash so the column stays aligned with top sets.
+        StratumText(
+            text = stringResource(R.string.edit_workout_rep_range_backoff_placeholder),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
         )
     }
 }

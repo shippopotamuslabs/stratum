@@ -23,8 +23,6 @@ sealed interface EditWorkoutUiState {
         val programUpperVolumeByMuscle: List<StratumMuscleVolumeCardState> = emptyList(),
         val programLowerVolumeByMuscle: List<StratumMuscleVolumeCardState> = emptyList(),
         val estimatedDurationMinutes: Int = 0,
-        val isReorderMode: Boolean = false,
-        val pendingReorderLifts: List<EditLiftReorderState>? = null,
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
         val saveBlockedReason: SaveBlockedReason? = null,
@@ -57,12 +55,7 @@ data class EditSetState(
     val repMax: Int,
     val restSeconds: Int,
     val rirGoal: Int,
-)
-
-/** Minimal lift row shown during reorder mode. */
-data class EditLiftReorderState(
-    val workoutLiftId: String,
-    val name: String,
+    val isTopSet: Boolean = true,
 )
 
 internal const val DEFAULT_REST_SECONDS = 120
