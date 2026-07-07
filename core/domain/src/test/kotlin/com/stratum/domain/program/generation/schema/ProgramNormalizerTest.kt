@@ -74,6 +74,7 @@ class ProgramNormalizerTest {
         val request =
             ProgramNormalizationRequest(
                 trainingAge = "Intermediate",
+                lastTrained = null,
                 enabledLiftIds = setOf("barbell-curl"),
                 movementPatternByLiftId = mapOf("barbell-curl" to MovementPattern.ElbowFlexion),
             )
@@ -128,6 +129,7 @@ class ProgramNormalizerTest {
         val request =
             ProgramNormalizationRequest(
                 trainingAge = "Intermediate",
+                lastTrained = null,
                 enabledLiftIds = setOf("barbell-bench-press"),
                 movementPatternByLiftId = mapOf("barbell-bench-press" to MovementPattern.HorizontalPress),
             )

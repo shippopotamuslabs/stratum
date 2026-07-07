@@ -48,7 +48,7 @@ class ValidateCurrentOnboardingStepUseCaseTest {
             step = OnboardingStep.Profile,
             profile = UserTrainingProfile(
                 trainingAge = TrainingAge.Intermediate,
-                lastTrained = LastTrainedBucket.WithinLastMonth,
+                lastTrained = LastTrainedBucket.WithinLastThreeMonths,
             ),
             specialization = SpecializationPreference.Empty,
             lifts = emptyList(),
@@ -100,7 +100,6 @@ class ValidateCurrentOnboardingStepUseCaseTest {
         movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
-        allowWeightChangeBetweenSets = false,
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,

@@ -19,6 +19,9 @@
 
     <string name="programs_keep_program">Keep Program</string>
     <string name="programs_discard_program">Discard Program</string>
+    <string name="programs_discard_workout">Discard Workout?</string>
+    <string name="programs_cancel_discard">Cancel</string>
+    <string name="programs_discard_confirm">Discard</string>
 
     <!-- Edit workout screen -->
     <string name="edit_workout_title">Edit Workout</string>
@@ -72,4 +75,16 @@
     <string name="edit_workout_discard_cancel">Keep editing</string>
     <string name="edit_workout_use_rest_timer_between_lifts">Use rest timer between lifts</string>
     <string name="edit_workout_save_blocked_placeholder_lift">Choose an exercise for each new lift before saving.</string>
+
+    <!-- Progression scheme toggle (Slice 8 / D11) -->
+    <string name="edit_workout_progression_scheme_label">Progression</string>
+    <string name="edit_workout_progression_scheme_linear">Linear</string>
+    <string name="edit_workout_progression_scheme_double">Double</string>
+    <string name="edit_workout_progression_scheme_info_content_description">About progression schemes</string>
+    <string name="edit_workout_progression_scheme_sheet_title">Progression schemes</string>
+    <string name="edit_workout_progression_scheme_linear_body">Linear adds weight each session when you hit the bottom of your rep range at the RIR target. Best for beginner gains or returning from a long layoff.</string>
+    <string name="edit_workout_progression_scheme_double_body">Double progression holds weight until you reach the top of your rep range at the RIR target, then adds load. The default for experienced lifters.</string>
+    <string name="edit_workout_progression_scheme_eligibility_body">Only compound lifts can use Linear. Isolation lifts always use Double progression.</string>
+    <string name="edit_workout_progression_scheme_graduation_body">After two reset cycles on Linear, Stratum automatically moves the lift to Double progression.</string>
+    <string name="confirm_discard_dialog_body_text">This will permanently delete the current training session and all logged sets. Are you sure?</string>
 </resources>

@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.stratum.core.data.db.LiftSetDao
 import com.stratum.core.data.db.ProgramDao
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.db.TrainingSessionDao
 import com.stratum.core.data.db.WorkoutDao
 import com.stratum.core.data.db.WorkoutLiftDao
 import com.stratum.core.data.mapper.rejoinProgram
@@ -29,6 +30,7 @@ class RoomProgramRepository @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val workoutLiftDao: WorkoutLiftDao,
     private val liftSetDao: LiftSetDao,
+    private val trainingSessionDao: TrainingSessionDao,
 ) : ProgramRepository {
     override fun observeProgram(): Flow<Program?> =
         programDao.observe().mapLatest { entity ->
@@ -39,10 +41,10 @@ class RoomProgramRepository @Inject constructor(
 
     override suspend fun saveProgram(program: Program) {
         database.withTransaction {
+            val existing = programDao.get()
             liftSetDao.deleteAll()
             workoutLiftDao.deleteAll()
             workoutDao.deleteAll()
-            programDao.deleteAll()
             programDao.upsert(program.toEntity())
             if (program.workouts.isNotEmpty()) {
                 workoutDao.insertAll(program.workouts.map { it.toEntity() })
@@ -54,6 +56,10 @@ class RoomProgramRepository @Inject constructor(
                         liftSetDao.insertAll(sets.map { it.toEntity() })
                     }
                 }
+            }
+            if (existing != null && existing.id != program.id) {
+                trainingSessionDao.reassignProgramId(existing.id, program.id)
+                programDao.deleteById(existing.id)
             }
         }
     }
@@ -67,5 +73,17 @@ class RoomProgramRepository @Inject constructor(
             .flatten()
             .associate { it.id.value to liftSetDao.getForWorkoutLift(it.id.value) }
         rejoinProgram(programEntity, workouts, liftsByWorkout, setsByLift)
+    }
+
+    override suspend fun updateCyclePointer(
+        programId: com.stratum.domain.program.identity.ProgramId,
+        currentCycleNumber: Int,
+        cyclePosition: Int,
+    ) {
+        programDao.updateCyclePointer(
+            programId = programId,
+            currentCycleNumber = currentCycleNumber,
+            cyclePosition = cyclePosition,
+        )
     }
 }

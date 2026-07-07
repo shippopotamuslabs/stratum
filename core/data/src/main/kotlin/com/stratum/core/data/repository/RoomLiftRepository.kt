@@ -93,34 +93,7 @@ class RoomLiftRepository @Inject constructor(
     override fun observeUsedHistoricalImport(): Flow<Boolean> =
         gymPreferenceDao.observe().map { it?.usedHistoricalImport ?: false }
 
-    override suspend fun addCustomLift(
-        name: String,
-        allowWeightChangeBetweenSets: Boolean,
-        increment: Weight?,
-    ): LiftId =
-        createCustomLift(
-            definition =
-                CustomLiftDefinition(
-                    name = name,
-                    movementPatterns = setOf(MovementPattern.SquatPattern),
-                    primaryMuscles = emptySet(),
-                    secondaryMuscles = emptySet(),
-                    equipment = null,
-                    increment = increment,
-                ),
-            allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
-        )
-
-    override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId =
-        createCustomLift(
-            definition = definition,
-            allowWeightChangeBetweenSets = false,
-        )
-
-    private suspend fun createCustomLift(
-        definition: CustomLiftDefinition,
-        allowWeightChangeBetweenSets: Boolean,
-    ): LiftId {
+    override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId {
         val id = LiftId(UUID.randomUUID().toString())
         val lift =
             Lift(
@@ -129,7 +102,6 @@ class RoomLiftRepository @Inject constructor(
                 movementPatterns = definition.movementPatterns,
                 primaryMuscles = definition.primaryMuscles,
                 secondaryMuscles = definition.secondaryMuscles,
-                allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
                 incrementTiers = definition.increment?.let { listOf(singleOpenTier(it)) } ?: defaultDomainTiers(),
                 presetTags = emptySet(),
                 equipment = definition.equipment,

@@ -1,13 +1,13 @@
 package com.stratum.domain.response.fixtures
 
-import com.stratum.domain.importing.HistoricalSession
+import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.LiftTrainingInsights
-import com.stratum.domain.importing.LoggedSet
 import com.stratum.domain.importing.MuscleVolumeBaseline
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -17,6 +17,10 @@ import com.stratum.domain.response.ResponseExtractionInput
 import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.WeeklyTrainingSignal
 import com.stratum.domain.response.identity.EpochId
+import com.stratum.domain.training.LoggedLiftContext
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -585,7 +589,7 @@ object ResponseFixtures {
         val benchSessions =
             squatSessions.mapIndexed { index, session ->
                 session.copy(
-                    id = HistoricalSessionId("s5-dual-bench-${session.id.value}"),
+                    id = TrainingSessionId("s5-dual-bench-${session.id.value}"),
                 )
             }
         val sessions = squatSessions + benchSessions
@@ -813,7 +817,7 @@ object ResponseFixtures {
         )
 
     fun input(
-        sessions: List<HistoricalSession>,
+        sessions: List<TrainingSession>,
         sets: List<LoggedSet>,
         lifts: List<Lift>,
         provenLiftIds: Set<LiftId> = emptySet(),
@@ -836,17 +840,27 @@ object ResponseFixtures {
             activeExperiments = emptyList(),
         )
 
-    private fun session(id: String, startedAt: Instant): HistoricalSession =
-        HistoricalSession(
-            id = HistoricalSessionId(id),
+    private fun session(id: String, startedAt: Instant): TrainingSession =
+        ImportHistoryTrainingMapper.parseSession(
+            id = id,
             startedAt = startedAt,
             endedAt = startedAt.plus(1, ChronoUnit.HOURS),
             sourceApp = "fixture",
         )
 
+    private fun placeholderLiftContext(): LoggedLiftContext =
+        LoggedLiftContext(
+            liftName = "Fixture Exercise",
+            movementPatternsBitmask = 0,
+            primaryMusclesBitmask = 0,
+            secondaryMusclesBitmask = 0,
+            kinematicProfile = KinematicProfile.NonAxialCompound,
+            muscleLengthBias = MuscleLengthBias.MidRange,
+        )
+
     private fun loggedSet(
         id: String,
-        sessionId: HistoricalSessionId,
+        sessionId: TrainingSessionId,
         liftId: LiftId,
         weightKg: Double,
         reps: Int,
@@ -865,7 +879,7 @@ object ResponseFixtures {
 
     private fun loggedSet(
         id: String,
-        sessionId: HistoricalSessionId,
+        sessionId: TrainingSessionId,
         liftId: LiftId,
         weight: Weight,
         reps: Int,
@@ -882,6 +896,7 @@ object ResponseFixtures {
             reps = reps,
             rir = rir,
             completedAt = completedAt,
+            liftContext = placeholderLiftContext(),
         )
 
     private fun lift(
@@ -896,7 +911,6 @@ object ResponseFixtures {
             movementPatterns = setOf(pattern),
             primaryMuscles = setOf(muscle),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = true,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,

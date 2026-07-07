@@ -6,6 +6,7 @@ import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
@@ -134,12 +135,15 @@ class RoomLiftRepositoryTest {
     @DisplayName("custom lift")
     inner class CustomLift {
         @Test
-        @DisplayName("Given a name and increment when a custom lift is added then it appears enabled with isCustom")
+        @DisplayName("Given a definition with increment when a custom lift is added then it appears enabled with isCustom")
         fun customLiftAppearsEnabled() = runTest {
             val id = subject.addCustomLift(
-                name = "Landmine Press",
-                allowWeightChangeBetweenSets = true,
-                increment = Weight(5.0, Weight.WeightUnit.Lb),
+                CustomLiftDefinition(
+                    name = "Landmine Press",
+                    movementPatterns = setOf(MovementPattern.HorizontalPress),
+                    primaryMuscles = setOf(MuscleGroup.Chest),
+                    increment = Weight(5.0, Weight.WeightUnit.Lb),
+                ),
             )
 
             assertNotNull(id)
@@ -154,9 +158,11 @@ class RoomLiftRepositoryTest {
         @DisplayName("Given no increment when a custom lift is added then it still gets default tiers")
         fun customLiftWithoutIncrementGetsDefaultTiers() = runTest {
             val id = subject.addCustomLift(
-                name = "Custom Move",
-                allowWeightChangeBetweenSets = false,
-                increment = null,
+                CustomLiftDefinition(
+                    name = "Custom Move",
+                    movementPatterns = setOf(MovementPattern.SquatPattern),
+                    primaryMuscles = emptySet(),
+                ),
             )
 
             val custom = firstLifts().single { it.id == id }
@@ -215,7 +221,6 @@ class RoomLiftRepositoryTest {
                 movementPatternsBitmask = patterns.toBitmask(),
                 primaryMusclesBitmask = 1 shl MuscleGroup.Quad.ordinal,
                 secondaryMusclesBitmask = 0,
-                allowWeightChangeBetweenSets = false,
                 presetTags = tagCsv,
                 isCustom = false,
                 enabled = enabled,

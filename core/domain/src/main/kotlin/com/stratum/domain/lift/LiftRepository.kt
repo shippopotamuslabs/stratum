@@ -66,17 +66,6 @@ interface LiftRepository {
 
     fun observeUsedHistoricalImport(): Flow<Boolean>
 
-    /**
-     * Create a user-defined lift (`isCustom = true`, `enabled = true`) and return its id. A
-     * single optional [increment] covers the minimal v1 custom form; full tier editing is
-     * deferred. When [increment] is null the lift still loads with sensible default tiers.
-     */
-    suspend fun addCustomLift(
-        name: String,
-        allowWeightChangeBetweenSets: Boolean,
-        increment: Weight?,
-    ): LiftId
-
-    /** Create a user-defined lift with full catalog metadata (import LLM enrichment path). */
+    /** Create a user-defined lift with full catalog metadata. Returns its id. */
     suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId
 }

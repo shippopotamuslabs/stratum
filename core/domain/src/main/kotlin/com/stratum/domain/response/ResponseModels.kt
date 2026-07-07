@@ -1,8 +1,6 @@
 package com.stratum.domain.response
 
-import com.stratum.domain.importing.HistoricalSession
 import com.stratum.domain.importing.LiftTrainingInsights
-import com.stratum.domain.importing.LoggedSet
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -10,6 +8,8 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.identity.EpochId
 import com.stratum.domain.response.identity.ExperimentId
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
 import java.time.Instant
 
 enum class EpochSplitReason {
@@ -152,7 +152,7 @@ data class ExperimentBlock(
 )
 
 data class ResponseExtractionInput(
-    val sessions: List<HistoricalSession>,
+    val sessions: List<TrainingSession>,
     val sets: List<LoggedSet>,
     val lifts: List<Lift>,
     val provenLiftIds: Set<LiftId>,

@@ -20,7 +20,6 @@ class ComputeWorkoutMuscleVolumeUseCaseTest {
                 movementPatterns = emptySet(),
                 primaryMuscles = setOf(MuscleGroup.Chest),
                 secondaryMuscles = setOf(MuscleGroup.Tricep),
-                allowWeightChangeBetweenSets = true,
                 incrementTiers = emptyList(),
                 presetTags = emptySet(),
                 enabled = true,

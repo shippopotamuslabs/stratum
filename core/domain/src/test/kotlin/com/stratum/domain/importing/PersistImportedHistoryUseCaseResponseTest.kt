@@ -6,6 +6,7 @@ import com.stratum.core.testing.importing.FakeLiftEquipmentCatalog
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.response.FailOnVolumeResponseProfilePersistencePort
+import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
@@ -29,14 +30,14 @@ class PersistImportedHistoryUseCaseResponseTest {
     @DisplayName("RP-S9-001 import orchestration order")
     fun rpS9_001_importOrchestrationOrder() = runTest {
         val fixture = ResponseFixtures.fixS9ImportOk()
-        val historyRepo = InMemoryTrainingHistoryRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
         val metadataRepo = InMemoryMetadataRepository()
         val insightsRepo = InMemoryLiftInsightsRepository()
         val liftRepo = FakeLiftRepository(initialLifts = catalogWithFixtureLifts(fixture))
         val persistence = FakeResponseProfilePersistencePort()
         val useCase = buildPersistUseCase(
             fixture = fixture,
-            historyRepo = historyRepo,
+            trainingLogRepo = trainingLogRepo,
             metadataRepo = metadataRepo,
             insightsRepo = insightsRepo,
             liftRepo = liftRepo,
@@ -56,11 +57,11 @@ class PersistImportedHistoryUseCaseResponseTest {
     @DisplayName("RP-S9-002 response failure rollback")
     fun rpS9_002_responseFailureRollback() = runTest {
         val fixture = ResponseFixtures.fixS9ImportOk()
-        val historyRepo = InMemoryTrainingHistoryRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
         val persistence = FailOnVolumeResponseProfilePersistencePort()
         val useCase = buildPersistUseCase(
             fixture = fixture,
-            historyRepo = historyRepo,
+            trainingLogRepo = trainingLogRepo,
             metadataRepo = InMemoryMetadataRepository(),
             insightsRepo = InMemoryLiftInsightsRepository(),
             liftRepo = FakeLiftRepository(initialLifts = catalogWithFixtureLifts(fixture)),
@@ -70,7 +71,7 @@ class PersistImportedHistoryUseCaseResponseTest {
         val result = useCase(fixture.sessions, fixture.sets)
 
         assertTrue(result.isFailure)
-        assertEquals(0, historyRepo.getAllSessions().size)
+        assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
         assertEquals(0, persistence.volumeRepository.getAll().size)
     }
@@ -79,11 +80,11 @@ class PersistImportedHistoryUseCaseResponseTest {
     @DisplayName("RP-S9-004 response failure on second repo rolls back persisted epochs")
     fun rpS9_004_responseFailureOnSecondRepoRollsBackEpochs() = runTest {
         val fixture = ResponseFixtures.fixS9ImportOk()
-        val historyRepo = InMemoryTrainingHistoryRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
         val persistence = FailOnVolumeResponseProfilePersistencePort()
         val useCase = buildPersistUseCase(
             fixture = fixture,
-            historyRepo = historyRepo,
+            trainingLogRepo = trainingLogRepo,
             metadataRepo = InMemoryMetadataRepository(),
             insightsRepo = InMemoryLiftInsightsRepository(),
             liftRepo = FakeLiftRepository(initialLifts = catalogWithFixtureLifts(fixture)),
@@ -102,11 +103,11 @@ class PersistImportedHistoryUseCaseResponseTest {
     @DisplayName("RP-S9-005 insight failure still rolls back")
     fun rpS9_005_insightFailureStillRollsBack() = runTest {
         val fixture = ResponseFixtures.fixS9ImportOk()
-        val historyRepo = InMemoryTrainingHistoryRepository()
+        val trainingLogRepo = FakeTrainingLogRepository()
         val persistence = FakeResponseProfilePersistencePort()
         val useCase = buildPersistUseCase(
             fixture = fixture,
-            historyRepo = historyRepo,
+            trainingLogRepo = trainingLogRepo,
             metadataRepo = InMemoryMetadataRepository(),
             insightsRepo = ThrowingLiftInsightsRepository(),
             liftRepo = FakeLiftRepository(initialLifts = catalogWithFixtureLifts(fixture)),
@@ -116,13 +117,13 @@ class PersistImportedHistoryUseCaseResponseTest {
         val result = useCase(fixture.sessions, fixture.sets)
 
         assertTrue(result.isFailure)
-        assertEquals(0, historyRepo.getAllSessions().size)
+        assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
     }
 
     private fun buildPersistUseCase(
         fixture: ResponseExtractionInput,
-        historyRepo: InMemoryTrainingHistoryRepository,
+        trainingLogRepo: FakeTrainingLogRepository,
         metadataRepo: InMemoryMetadataRepository,
         insightsRepo: LiftTrainingInsightsRepository,
         liftRepo: FakeLiftRepository,
@@ -130,7 +131,7 @@ class PersistImportedHistoryUseCaseResponseTest {
     ): PersistImportedHistoryUseCase {
         val extractResponseProfile =
             ExtractResponseProfileUseCase(
-                trainingHistoryRepository = historyRepo,
+                trainingLogRepository = trainingLogRepo,
                 liftRepository = liftRepo,
                 liftTrainingInsightsRepository = insightsRepo,
                 muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -140,7 +141,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 experimentRegistry = EmptyExperimentRegistry(),
             )
         return PersistImportedHistoryUseCase(
-            trainingHistoryRepository = historyRepo,
+            trainingLogRepository = trainingLogRepo,
             resolveImportLifts =
                 ResolveImportLiftsUseCase(
                     liftRepo,
@@ -151,7 +152,7 @@ class PersistImportedHistoryUseCaseResponseTest {
                 ),
             extractTrainingInsights =
                 ExtractTrainingInsightsUseCase(
-                    trainingHistoryRepository = historyRepo,
+                    trainingLogRepository = trainingLogRepo,
                     liftTrainingInsightsRepository = insightsRepo,
                     supersetAffinityRepository = InMemorySupersetRepository(),
                     muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -175,34 +176,11 @@ class PersistImportedHistoryUseCaseResponseTest {
                     secondaryMuscles = emptySet(),
                     incrementTiers = emptyList(),
                     presetTags = emptySet(),
-                    allowWeightChangeBetweenSets = false,
                     enabled = false,
                     isCustom = false,
                 )
             }
         return fillers + fixture.lifts
-    }
-
-    private class InMemoryTrainingHistoryRepository(
-        private var sessions: List<HistoricalSession> = emptyList(),
-        private var sets: List<LoggedSet> = emptyList(),
-    ) : TrainingHistoryRepository {
-        override suspend fun replaceAll(
-            sessions: List<HistoricalSession>,
-            sets: List<LoggedSet>,
-        ) {
-            this.sessions = sessions
-            this.sets = sets
-        }
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = sessions
-
-        override suspend fun getAllSets(): List<LoggedSet> = sets
-
-        override suspend fun getSetsInWindow(
-            windowStart: Instant,
-            windowEnd: Instant,
-        ): List<LoggedSet> = sets.filter { it.completedAt in windowStart..windowEnd }
     }
 
     private class InMemoryMetadataRepository : ImportAnalysisMetadataRepository {

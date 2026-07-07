@@ -50,7 +50,7 @@ class VolumePlannerTest {
     fun `conservative return-to-training profile uses PV for maintenance muscles`() {
         val targets = planWeeklyVolume(
             GenerationContextTestFixtures.volumePlannerContext(
-                profileOverrides = mapOf("lastTrained" to "MoreThanAYearAgo"),
+                profileOverrides = mapOf("lastTrained" to "MoreThanThreeMonthsAgo"),
                 specialization = mapOf(
                     "Bicep" to "Maintenance",
                     "Tricep" to "Maintenance",

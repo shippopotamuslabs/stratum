@@ -63,7 +63,7 @@ class AdvanceOnboardingStepUseCaseTest {
     fun forwardSuccess() = runTest {
         val profile = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
-            lastTrained = LastTrainedBucket.WithinLastMonth,
+            lastTrained = LastTrainedBucket.WithinLastThreeMonths,
         )
 
         val result = subject(
@@ -125,7 +125,6 @@ class AdvanceOnboardingStepUseCaseTest {
         movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
-        allowWeightChangeBetweenSets = false,
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,

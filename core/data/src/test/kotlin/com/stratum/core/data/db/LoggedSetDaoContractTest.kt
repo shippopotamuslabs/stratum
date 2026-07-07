@@ -1,9 +1,10 @@
 package com.stratum.core.data.db
 
 import androidx.room.Room
-import com.stratum.domain.importing.identity.HistoricalSessionId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.identity.TrainingSessionId
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -18,17 +19,25 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 @ExtendWith(RobolectricExtension::class)
 class LoggedSetDaoContractTest {
     private lateinit var database: StratumDatabase
-    private lateinit var sessionDao: HistoricalSessionDao
-    private lateinit var setDao: LoggedSetDao
+    private lateinit var sessionDao: TrainingSessionDao
+    private lateinit var setDao: TrainingLoggedSetDao
 
     @BeforeEach
-    fun setup() {
+    fun setup() = runBlocking {
         database = Room.inMemoryDatabaseBuilder(
             RuntimeEnvironment.getApplication(),
             StratumDatabase::class.java,
         ).allowMainThreadQueries().build()
-        sessionDao = database.historicalSessionDao()
-        setDao = database.loggedSetDao()
+        database.programDao().upsert(
+            ProgramEntity(
+                id = com.stratum.domain.program.identity.ProgramId("prog-1"),
+                name = "Test",
+                createdAt = "2025-01-01T00:00:00Z",
+                cycleLength = 1,
+            ),
+        )
+        sessionDao = database.trainingSessionDao()
+        setDao = database.trainingLoggedSetDao()
     }
 
     @AfterEach
@@ -39,15 +48,20 @@ class LoggedSetDaoContractTest {
     @Test
     @DisplayName("Given sets across a time range when queried by window then only in-range rows return")
     fun getInWindowReturnsMatchingSets() = runTest {
-        val sessionId = HistoricalSessionId("session-1")
-        sessionDao.insertAll(
-            listOf(
-                HistoricalSessionEntity(
-                    id = sessionId,
-                    startedAtEpochMillis = 1_000L,
-                    endedAtEpochMillis = 9_000L,
-                    sourceApp = null,
-                ),
+        val sessionId = TrainingSessionId("session-1")
+        sessionDao.insert(
+            TrainingSessionEntity(
+                id = sessionId,
+                programId = com.stratum.domain.program.identity.ProgramId("prog-1"),
+                workoutId = null,
+                status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.IMPORT,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 1_000L,
+                endedAtEpochMillis = 9_000L,
+                sourceApp = null,
             ),
         )
 
@@ -69,7 +83,7 @@ class LoggedSetDaoContractTest {
 
     private fun loggedSet(
         id: String,
-        sessionId: HistoricalSessionId,
+        sessionId: TrainingSessionId,
         completedAtEpochMillis: Long,
     ): LoggedSetEntity = LoggedSetEntity(
         id = LoggedSetId(id),

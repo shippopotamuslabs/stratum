@@ -1,8 +1,8 @@
 package com.stratum.domain.importing
 
-import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.Weight
+import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -13,24 +13,13 @@ class MergeImportedHistoryUseCaseTest {
 
     @Test
     fun `single file passes through with namespaced ids`() {
-        val session =
-            HistoricalSession(
-                id = HistoricalSessionId("s1"),
-                startedAt = Instant.parse("2025-01-01T00:00:00Z"),
-                endedAt = null,
-                sourceApp = null,
-            )
+        val session = WorkoutLoggingFixtures.importTrainingSession(id = "s1")
         val set =
-            LoggedSet(
-                id = LoggedSetId("set1"),
-                sessionId = session.id,
+            WorkoutLoggingFixtures.importLoggedSet(
+                id = "set1",
+                sessionId = "s1",
                 exerciseNameRaw = "Squat",
                 liftId = null,
-                setIndex = 0,
-                weight = Weight(100.0, Weight.WeightUnit.Lb),
-                reps = 5,
-                rir = null,
-                completedAt = Instant.parse("2025-01-01T01:00:00Z"),
             )
 
         val (sessions, sets) =
@@ -45,36 +34,25 @@ class MergeImportedHistoryUseCaseTest {
             )
 
         assertEquals(1, sessions.size)
-        assertEquals(HistoricalSessionId("f0::s1"), sessions.single().id)
+        assertEquals(TrainingSessionId("f0::s1"), sessions.single().id)
         assertEquals(LoggedSetId("f0::set1"), sets.single().id)
-        assertEquals(HistoricalSessionId("f0::s1"), sets.single().sessionId)
+        assertEquals(TrainingSessionId("f0::s1"), sets.single().sessionId)
     }
 
     @Test
     fun `colliding ids across files are namespaced independently`() {
         fun chunk(label: String, exercise: String): ImportedHistoryChunk {
-            val session =
-                HistoricalSession(
-                    id = HistoricalSessionId("1"),
-                    startedAt = Instant.parse("2025-01-01T00:00:00Z"),
-                    endedAt = null,
-                    sourceApp = null,
-                )
+            val session = WorkoutLoggingFixtures.importTrainingSession(id = "1")
             return ImportedHistoryChunk(
                 sourceLabel = label,
                 sessions = listOf(session),
                 sets =
                     listOf(
-                        LoggedSet(
-                            id = LoggedSetId("1"),
-                            sessionId = session.id,
+                        WorkoutLoggingFixtures.importLoggedSet(
+                            id = "1",
+                            sessionId = "1",
                             exerciseNameRaw = exercise,
                             liftId = null,
-                            setIndex = 0,
-                            weight = Weight(100.0, Weight.WeightUnit.Lb),
-                            reps = 5,
-                            rir = null,
-                            completedAt = Instant.parse("2025-01-01T01:00:00Z"),
                         ),
                     ),
             )
@@ -98,24 +76,13 @@ class MergeImportedHistoryUseCaseTest {
 
     @Test
     fun `skips empty file chunks`() {
-        val session =
-            HistoricalSession(
-                id = HistoricalSessionId("s1"),
-                startedAt = Instant.parse("2025-01-01T00:00:00Z"),
-                endedAt = null,
-                sourceApp = null,
-            )
+        val session = WorkoutLoggingFixtures.importTrainingSession(id = "s1")
         val set =
-            LoggedSet(
-                id = LoggedSetId("set1"),
-                sessionId = session.id,
+            WorkoutLoggingFixtures.importLoggedSet(
+                id = "set1",
+                sessionId = "s1",
                 exerciseNameRaw = "Squat",
                 liftId = null,
-                setIndex = 0,
-                weight = Weight(100.0, Weight.WeightUnit.Lb),
-                reps = 5,
-                rir = null,
-                completedAt = Instant.parse("2025-01-01T01:00:00Z"),
             )
 
         val (_, sets) =
@@ -142,27 +109,20 @@ class MergeImportedHistoryUseCaseTest {
 
     @Test
     fun `duplicate sets across files are deduped by workout fingerprint`() {
-        fun duplicateSet(exercise: String): LoggedSet =
-            LoggedSet(
-                id = LoggedSetId("1"),
-                sessionId = HistoricalSessionId("1"),
-                exerciseNameRaw = exercise,
-                liftId = null,
-                setIndex = 0,
-                weight = Weight(100.0, Weight.WeightUnit.Lb),
-                reps = 5,
-                rir = null,
-                completedAt = Instant.parse("2025-01-01T12:00:00Z"),
-            )
-
+        val completedAt = Instant.parse("2025-01-01T12:00:00Z")
         val session =
-            HistoricalSession(
-                id = HistoricalSessionId("1"),
-                startedAt = Instant.parse("2025-01-01T12:00:00Z"),
-                endedAt = null,
-                sourceApp = null,
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "1",
+                startedAt = completedAt,
             )
-        val set = duplicateSet("Bench Press")
+        val set =
+            WorkoutLoggingFixtures.importLoggedSet(
+                id = "1",
+                sessionId = "1",
+                exerciseNameRaw = "Bench Press",
+                liftId = null,
+                completedAt = completedAt,
+            )
 
         val (_, sets) =
             subject(
@@ -170,7 +130,7 @@ class MergeImportedHistoryUseCaseTest {
                     ImportedHistoryChunk("a.csv", listOf(session), listOf(set)),
                     ImportedHistoryChunk(
                         "b.csv",
-                        listOf(session.copy(id = HistoricalSessionId("1"))),
+                        listOf(session.copy(id = TrainingSessionId("1"))),
                         listOf(set.copy(id = LoggedSetId("1"), setIndex = 2)),
                     ),
                 ),

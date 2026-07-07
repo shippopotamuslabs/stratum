@@ -2,6 +2,8 @@
 
 package com.stratum.domain.program.generation.schema
 
+import com.stratum.domain.onboarding.LastTrainedBucket
+import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.draft.ProgramDraft
@@ -22,10 +24,9 @@ fun parseAndNormalizeProgram(
     program: ProgramDraft,
     request: ProgramNormalizationRequest,
 ): NormalizedProgram {
-    val scheme = schemeForTrainingAge(request.trainingAge).toDomain()
     val workouts = mutableListOf<NormalizedWorkout>()
     for (workout in program.workouts) {
-        val lifts = normalizeLifts(workout.workoutLifts.orEmpty(), request, scheme)
+        val lifts = normalizeLifts(workout.workoutLifts.orEmpty(), request)
         if (lifts.isEmpty()) continue
         workouts += NormalizedWorkout(
             name = workout.name ?: "Workout",
@@ -65,14 +66,16 @@ fun collectRejectedLiftIds(
 private fun normalizeLifts(
     rawLifts: List<ProgramLiftDraft>,
     request: ProgramNormalizationRequest,
-    scheme: ProgressionScheme,
 ): List<NormalizedLift> {
+    val trainingAge = parseTrainingAge(request.trainingAge)
+    val lastTrained = parseLastTrained(request.lastTrained)
     val out = mutableListOf<NormalizedLift>()
     for (lift in rawLifts) {
         val liftId = lift.liftId ?: continue
         if (liftId !in request.enabledLiftIds) continue
         val liftPattern = request.movementPatternByLiftId[liftId]
         val isMajorCompound = liftPattern != null && liftPattern in MAJOR_COMPOUND_PATTERNS
+        val scheme = schemeForTrainingAge(trainingAge, lastTrained, isMajorCompound)
         val sets = normalizeSets(lift, isMajorCompound, scheme)
         if (sets.isEmpty()) continue
         if (scheme == ProgressionScheme.Double) {
@@ -117,8 +120,8 @@ private fun normalizeSets(
     return out
 }
 
-private fun com.stratum.domain.program.generation.reference.ProgressionScheme.toDomain(): ProgressionScheme =
-    when (this) {
-        com.stratum.domain.program.generation.reference.ProgressionScheme.Linear -> ProgressionScheme.Linear
-        com.stratum.domain.program.generation.reference.ProgressionScheme.Double -> ProgressionScheme.Double
-    }
+private fun parseTrainingAge(trainingAge: String): TrainingAge? =
+    runCatching { TrainingAge.valueOf(trainingAge) }.getOrNull()
+
+private fun parseLastTrained(lastTrained: String?): LastTrainedBucket? =
+    lastTrained?.let { runCatching { LastTrainedBucket.valueOf(it) }.getOrNull() }

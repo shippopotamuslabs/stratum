@@ -2,9 +2,8 @@ package com.stratum.domain.importing
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
-import com.stratum.domain.importing.identity.HistoricalSessionId
-import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.Weight
+import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.EpochSplitReason
@@ -13,7 +12,6 @@ import com.stratum.domain.response.ExperimentStatus
 import com.stratum.domain.response.OutcomeMetric
 import com.stratum.domain.response.RegressionReliability
 import com.stratum.domain.response.ResponseProfileMetadata
-import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.StimulusDescriptor
 import com.stratum.domain.response.WeeklySetRange
 import com.stratum.domain.response.fixtures.ResponseFixtures
@@ -21,7 +19,6 @@ import com.stratum.domain.response.identity.EpochId
 import com.stratum.domain.response.identity.ExperimentId
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.response.ExperimentBlock
-import com.stratum.domain.response.LiftEffectivenessObservation
 import com.stratum.domain.response.OutcomeDescriptor
 import com.stratum.domain.response.VolumeResponseObservation
 import java.time.Instant
@@ -29,7 +26,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -40,7 +36,7 @@ class RollbackHistoricalImportUseCaseResponseTest {
         val persistence = FakeResponseProfilePersistencePort()
         seedResponseData(persistence)
         val rollback = buildRollback(
-            historyRepo = seededHistoryRepository(),
+            trainingLogRepo = seededTrainingLogRepository(),
             importMetadataRepo = InMemoryMetadataRepository(),
             persistence = persistence,
         )
@@ -57,7 +53,7 @@ class RollbackHistoricalImportUseCaseResponseTest {
     @Test
     @DisplayName("RP-S9-004 reconcile without metadata")
     fun rpS9_004_reconcileWithoutMetadata() = runTest {
-        val historyRepo = seededHistoryRepository()
+        val trainingLogRepo = seededTrainingLogRepository()
         val persistence = FakeResponseProfilePersistencePort()
         persistence.epochRepository.seed(
             listOf(
@@ -72,24 +68,24 @@ class RollbackHistoricalImportUseCaseResponseTest {
         val importMetadataRepo = InMemoryMetadataRepository()
         val rollback =
             buildRollback(
-                historyRepo = historyRepo,
+                trainingLogRepo = trainingLogRepo,
                 importMetadataRepo = importMetadataRepo,
                 persistence = persistence,
             )
         val reconcile = ReconcileHistoricalImportUseCase(importMetadataRepo, rollback)
 
         assertFalse(reconcile())
-        assertEquals(0, historyRepo.getAllSessions().size)
+        assertEquals(0, trainingLogRepo.getImportSessions().size)
         assertEquals(0, persistence.epochRepository.getAll().size)
     }
 
     private fun buildRollback(
-        historyRepo: InMemoryTrainingHistoryRepository,
+        trainingLogRepo: FakeTrainingLogRepository,
         importMetadataRepo: ImportAnalysisMetadataRepository,
         persistence: FakeResponseProfilePersistencePort,
     ): RollbackHistoricalImportUseCase =
         RollbackHistoricalImportUseCase(
-            trainingHistoryRepository = historyRepo,
+            trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = InMemoryLiftInsightsRepository(),
             supersetAffinityRepository = InMemorySupersetRepository(),
             muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -98,12 +94,13 @@ class RollbackHistoricalImportUseCaseResponseTest {
             liftRepository = FakeLiftRepository(),
         )
 
-    private fun seededHistoryRepository(): InMemoryTrainingHistoryRepository =
-        InMemoryTrainingHistoryRepository(
+    private suspend fun seededTrainingLogRepository(): FakeTrainingLogRepository {
+        val repo = FakeTrainingLogRepository()
+        repo.replaceImportHistory(
             sessions =
                 listOf(
-                    HistoricalSession(
-                        id = HistoricalSessionId("s1"),
+                    WorkoutLoggingFixtures.importTrainingSession(
+                        id = "s1",
                         startedAt = Instant.parse("2025-01-01T00:00:00Z"),
                         endedAt = null,
                         sourceApp = null,
@@ -111,19 +108,17 @@ class RollbackHistoricalImportUseCaseResponseTest {
                 ),
             sets =
                 listOf(
-                    LoggedSet(
-                        id = LoggedSetId("set1"),
-                        sessionId = HistoricalSessionId("s1"),
+                    WorkoutLoggingFixtures.importLoggedSet(
+                        id = "set1",
+                        sessionId = "s1",
                         exerciseNameRaw = "Squat",
                         liftId = null,
-                        setIndex = 0,
-                        weight = Weight(100.0, Weight.WeightUnit.Lb),
-                        reps = 5,
-                        rir = null,
                         completedAt = Instant.parse("2025-01-01T01:00:00Z"),
                     ),
                 ),
         )
+        return repo
+    }
 
     private suspend fun seedResponseData(
         persistence: FakeResponseProfilePersistencePort,
@@ -208,28 +203,6 @@ class RollbackHistoricalImportUseCaseResponseTest {
                 lastExtractedAt = Instant.parse("2026-01-15T00:00:00Z"),
             ),
         )
-    }
-
-    private class InMemoryTrainingHistoryRepository(
-        private var sessions: List<HistoricalSession> = emptyList(),
-        private var sets: List<LoggedSet> = emptyList(),
-    ) : TrainingHistoryRepository {
-        override suspend fun replaceAll(
-            sessions: List<HistoricalSession>,
-            sets: List<LoggedSet>,
-        ) {
-            this.sessions = sessions
-            this.sets = sets
-        }
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = sessions
-
-        override suspend fun getAllSets(): List<LoggedSet> = sets
-
-        override suspend fun getSetsInWindow(
-            windowStart: Instant,
-            windowEnd: Instant,
-        ): List<LoggedSet> = emptyList()
     }
 
     private class InMemoryMetadataRepository : ImportAnalysisMetadataRepository {

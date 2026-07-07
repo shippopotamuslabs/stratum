@@ -103,7 +103,6 @@ class EffectiveLiftSummaryBuilderTest {
             movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(primaryMuscle),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,

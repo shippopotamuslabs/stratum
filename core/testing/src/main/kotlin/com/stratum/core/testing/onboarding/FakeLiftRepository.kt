@@ -76,34 +76,7 @@ class FakeLiftRepository(
         if (used) selectedPreset.value = null
     }
 
-    override suspend fun addCustomLift(
-        name: String,
-        allowWeightChangeBetweenSets: Boolean,
-        increment: Weight?,
-    ): LiftId =
-        createCustomLift(
-            definition =
-                CustomLiftDefinition(
-                    name = name,
-                    movementPatterns = setOf(MovementPattern.SquatPattern),
-                    primaryMuscles = emptySet(),
-                    secondaryMuscles = emptySet(),
-                    equipment = null,
-                    increment = increment,
-                ),
-            allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
-        )
-
-    override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId =
-        createCustomLift(
-            definition = definition,
-            allowWeightChangeBetweenSets = false,
-        )
-
-    private fun createCustomLift(
-        definition: CustomLiftDefinition,
-        allowWeightChangeBetweenSets: Boolean,
-    ): LiftId {
+    override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId {
         val id = LiftId(UUID.randomUUID().toString())
         val lift =
             Lift(
@@ -112,7 +85,6 @@ class FakeLiftRepository(
                 movementPatterns = definition.movementPatterns,
                 primaryMuscles = definition.primaryMuscles,
                 secondaryMuscles = definition.secondaryMuscles,
-                allowWeightChangeBetweenSets = allowWeightChangeBetweenSets,
                 incrementTiers =
                     definition.increment?.let {
                         listOf(

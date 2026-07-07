@@ -25,6 +25,8 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.feature.program.ui.EditWorkoutUiState
+import com.stratum.domain.training.ProgramChangeEventPayload
+import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
 import com.stratum.feature.program.ui.SaveBlockedReason
 import app.cash.turbine.ReceiveTurbine
@@ -33,6 +35,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -42,10 +45,12 @@ import org.junit.jupiter.api.extension.ExtendWith
 @ExtendWith(MainDispatcherRule::class)
 class EditWorkoutViewModelTest {
     private lateinit var repository: FakeProgramRepository
+    private lateinit var workoutEditSession: WorkoutEditSession
 
     @BeforeEach
     fun setUp() {
         repository = FakeProgramRepository(PROGRAM)
+        workoutEditSession = WorkoutEditSession()
     }
 
     @Test
@@ -215,18 +220,33 @@ class EditWorkoutViewModelTest {
     }
 
     @Test
-    @DisplayName("Given loaded workout when addLift then placeholder exercise is appended")
-    fun addLiftAppendsPlaceholder() = runTest {
+    @DisplayName("Given loaded workout when addLift then navigates to picker with null target details")
+    fun addLiftNavigatesToPicker() = runTest {
         val viewModel = buildViewModel()
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
-            awaitLoaded()
-            viewModel.addLift { _, _, _ -> }
-            val loaded = awaitLoaded()
-            assertEquals(3, loaded.lifts.size)
-            assertEquals(PLACEHOLDER_LIFT_NAME, loaded.lifts.last().name)
-            assertEquals(SaveBlockedReason.PlaceholderLift, loaded.saveBlockedReason)
-            assertEquals(1, loaded.lifts.last().sets.size)
+            val initial = awaitLoaded()
+            var pickerWorkoutId: String? = null
+            var pickerWorkoutLiftId: String? = null
+            var pickerLiftId: String? = null
+            var pickerLiftName: String? = null
+
+            viewModel.addLift { wId, wlId, lId, name ->
+                pickerWorkoutId = wId
+                pickerWorkoutLiftId = wlId
+                pickerLiftId = lId
+                pickerLiftName = name
+            }
+
+            assertEquals(WORKOUT_ID, pickerWorkoutId)
+            assertNull(pickerWorkoutLiftId)
+            assertNull(pickerLiftId)
+            assertNull(pickerLiftName)
+
+            // Should not modify the loaded lifts in memory
+            val current = viewModel.uiState.value as EditWorkoutUiState.Loaded
+            assertEquals(initial.lifts.size, current.lifts.size)
+            assertFalse(current.isDirty)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -270,7 +290,7 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.linkSupersetWithPrevious("wl-2")
+            viewModel.linkSuperset("wl-2", com.stratum.feature.program.SupersetLinkDirection.Previous)
             val loaded = awaitItem() as EditWorkoutUiState.Loaded
             assertNotNull(loaded.lifts[0].supersetGroupId)
             assertEquals(loaded.lifts[0].supersetGroupId, loaded.lifts[1].supersetGroupId)
@@ -285,7 +305,7 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.linkSupersetWithPrevious("wl-2")
+            viewModel.linkSuperset("wl-2", com.stratum.feature.program.SupersetLinkDirection.Previous)
             awaitItem()
             viewModel.removeFromSuperset("wl-2")
             val loaded = awaitItem() as EditWorkoutUiState.Loaded
@@ -302,7 +322,7 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.linkSupersetWithPrevious("wl-2")
+            viewModel.linkSuperset("wl-2", com.stratum.feature.program.SupersetLinkDirection.Previous)
             awaitItem()
             viewModel.removeLift("wl-2")
             val loaded = awaitLoaded()
@@ -348,9 +368,11 @@ class EditWorkoutViewModelTest {
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, com.stratum.core.testing.training.NoOpProgramChangeEventRepository()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
+            programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+            workoutEditSession = workoutEditSession,
         )
     }
 
@@ -361,7 +383,6 @@ class EditWorkoutViewModelTest {
             movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = emptySet(),
-            allowWeightChangeBetweenSets = false,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
@@ -442,5 +463,128 @@ class EditWorkoutViewModelTest {
                         ),
                     ),
             )
+    }
+
+    @Test
+    @DisplayName("Given loaded workout when LiftSelected is emitted from session then lift is updated in memory")
+    fun handlesInMemoryLiftSelected() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            val liftToSwap = initial.lifts.first()
+
+            // Emit swap selection event
+            workoutEditSession.selectLift(
+                workoutId = WORKOUT_ID,
+                workoutLiftId = liftToSwap.workoutLiftId,
+                liftId = "incline-press"
+            )
+
+            // Should emit updated UI state reflecting swap
+            val updated = awaitItem() as EditWorkoutUiState.Loaded
+            val swappedLift = updated.lifts.first()
+            assertEquals("incline-press", swappedLift.liftId)
+            assertEquals("Incline Press", swappedLift.name)
+            assertTrue(updated.isDirty)
+
+            // Emit add selection event
+            workoutEditSession.selectLift(
+                workoutId = WORKOUT_ID,
+                workoutLiftId = null,
+                liftId = "bench-press"
+            )
+
+            // Should emit updated UI state reflecting add
+            val afterAdd = awaitItem() as EditWorkoutUiState.Loaded
+            assertEquals(3, afterAdd.lifts.size)
+            assertEquals("bench-press", afterAdd.lifts.last().liftId)
+            assertEquals("Barbell Bench Press", afterAdd.lifts.last().name)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given swapped lift in memory when saved then LIFT_SWAPPED event is recorded")
+    fun saveSwappedLiftRecordsEvent() = runTest {
+        val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
+        val liftRepository =
+            FakeLiftRepository(
+                initialLifts =
+                    listOf(
+                        catalogLift(LiftId("bench-press"), "Barbell Bench Press"),
+                        catalogLift(LiftId("incline-press"), "Incline Press"),
+                    ),
+            )
+        val viewModel = EditWorkoutViewModel(
+            observeProgram = ObserveProgramUseCase(repository),
+            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, events),
+            computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
+            estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
+            programChangeEventRepository = events,
+            workoutEditSession = workoutEditSession,
+        )
+
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            val liftToSwap = initial.lifts.first()
+
+            // Emit swap selection event
+            workoutEditSession.selectLift(
+                workoutId = WORKOUT_ID,
+                workoutLiftId = liftToSwap.workoutLiftId,
+                liftId = "incline-press"
+            )
+            awaitItem() // Consume swap state change
+
+            viewModel.saveWorkout()
+            awaitItem() // Consume saved state change
+
+            // Verify LIFT_SWAPPED event is appended
+            val appended = events.getEventsForProgram(ProgramId("p-1"))
+            val swapEvent = appended.firstOrNull { it.eventType == ProgramChangeEventType.LIFT_SWAPPED }
+            assertNotNull(swapEvent)
+            val payload = swapEvent?.payload as ProgramChangeEventPayload.LiftSwapped
+            assertEquals(liftToSwap.workoutLiftId, payload.workoutLiftId.value)
+            assertEquals("bench-press", payload.previousLiftId.value)
+            assertEquals("incline-press", payload.newLiftId.value)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given initialized viewModel when clearSession is called then state is reset and allows fresh initialization")
+    fun clearSessionResetsState() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+
+            // Mutate in-memory state
+            workoutEditSession.selectLift(
+                workoutId = WORKOUT_ID,
+                workoutLiftId = initial.lifts.first().workoutLiftId,
+                liftId = "incline-press"
+            )
+            val updated = awaitItem() as EditWorkoutUiState.Loaded
+            assertEquals("incline-press", updated.lifts.first().liftId)
+
+            // Clear session
+            viewModel.clearSession()
+            val loading = awaitItem()
+            assertTrue(loading is EditWorkoutUiState.Loading)
+
+            // Re-initialize: should load fresh from repository (bench-press instead of incline-press)
+            viewModel.initialize(WORKOUT_ID)
+            val reloaded = awaitLoaded()
+            assertEquals("bench-press", reloaded.lifts.first().liftId)
+            assertFalse(reloaded.isDirty)
+
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

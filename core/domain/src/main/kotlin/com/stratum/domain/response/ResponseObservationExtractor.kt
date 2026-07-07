@@ -1,6 +1,7 @@
 package com.stratum.domain.response
 
 import com.stratum.domain.response.modeling.ResponseModelingPipeline
+import com.stratum.domain.training.toMovementPatternSet
 import javax.inject.Inject
 
 interface ResponseObservationExtractor {
@@ -26,7 +27,15 @@ class DefaultResponseObservationExtractor @Inject constructor() : ResponseObserv
             )
         val volumeResponses = ResponseModelingPipeline.projectVolumeResponses(modeling, epochs)
 
-        val patterns = input.lifts.flatMap { it.movementPatterns }.distinct()
+        val patterns =
+            input.sets
+                .asSequence()
+                .map { it.liftContext.movementPatternsBitmask }
+                .filter { it != 0 }
+                .flatMap { it.toMovementPatternSet().asSequence() }
+                .distinct()
+                .toList()
+                .ifEmpty { input.lifts.flatMap { it.movementPatterns }.distinct() }
         val liftEffectiveness =
             patterns.flatMap { pattern ->
                 epochs.flatMap { epoch ->

@@ -1,18 +1,14 @@
 package com.stratum.core.data.mapper
 
-import com.stratum.core.data.db.HistoricalSessionEntity
 import com.stratum.core.data.db.ImportAnalysisMetadataEntity
 import com.stratum.core.data.db.ImportJobEntity
 import com.stratum.core.data.db.LiftTrainingInsightsEntity
-import com.stratum.core.data.db.LoggedSetEntity
 import com.stratum.core.data.db.MuscleVolumeBaselineEntity
 import com.stratum.core.data.db.SupersetAffinityEntity
-import com.stratum.domain.importing.HistoricalSession
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportJob
 import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.importing.LiftTrainingInsights
-import com.stratum.domain.importing.LoggedSet
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.ProgressTrend
 import com.stratum.domain.importing.SupersetAffinity
@@ -40,45 +36,6 @@ internal fun ImportJob.toEntity(): ImportJobEntity = ImportJobEntity(
     errorMessage = errorMessage,
     createdAtEpochMillis = createdAt.toEpochMilli(),
     updatedAtEpochMillis = updatedAt.toEpochMilli(),
-)
-
-internal fun HistoricalSessionEntity.toDomain(): HistoricalSession = HistoricalSession(
-    id = id,
-    startedAt = Instant.ofEpochMilli(startedAtEpochMillis),
-    endedAt = endedAtEpochMillis?.let(Instant::ofEpochMilli),
-    sourceApp = sourceApp,
-)
-
-internal fun HistoricalSession.toEntity(): HistoricalSessionEntity = HistoricalSessionEntity(
-    id = id,
-    startedAtEpochMillis = startedAt.toEpochMilli(),
-    endedAtEpochMillis = endedAt?.toEpochMilli(),
-    sourceApp = sourceApp,
-)
-
-internal fun LoggedSetEntity.toDomain(): LoggedSet = LoggedSet(
-    id = id,
-    sessionId = sessionId,
-    exerciseNameRaw = exerciseNameRaw,
-    liftId = liftId,
-    setIndex = setIndex,
-    weight = Weight(weightAmount, Weight.WeightUnit.parse(weightUnit)),
-    reps = reps,
-    rir = rir,
-    completedAt = Instant.ofEpochMilli(completedAtEpochMillis),
-)
-
-internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
-    id = id,
-    sessionId = sessionId,
-    exerciseNameRaw = exerciseNameRaw,
-    liftId = liftId,
-    setIndex = setIndex,
-    weightAmount = weight.amount,
-    weightUnit = weight.unit.name,
-    reps = reps,
-    rir = rir,
-    completedAtEpochMillis = completedAt.toEpochMilli(),
 )
 
 internal fun LiftTrainingInsightsEntity.toDomain(): LiftTrainingInsights = LiftTrainingInsights(

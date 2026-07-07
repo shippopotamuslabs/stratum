@@ -59,7 +59,7 @@ class OnboardingProfileStepViewModelTest {
     @DisplayName("Given a complete profile when next() then step advances and draft is persisted")
     fun completeProfileNextAdvancesAndPersists() = runTest {
         subject.onTrainingAgeSelected("4–7 years")
-        subject.onLastTrainedSelected("Within the last month")
+        subject.onLastTrainedSelected("Within the last 3 months")
         advanceUntilIdle()
         assertTrue(subject.uiState.value.canAdvance)
 
@@ -69,7 +69,7 @@ class OnboardingProfileStepViewModelTest {
 
         val saved = OnboardingViewModelTestFixtures.fakeProfileRepository.current
         assertEquals(TrainingAge.Intermediate, saved?.trainingAge)
-        assertEquals(LastTrainedBucket.WithinLastMonth, saved?.lastTrained)
+        assertEquals(LastTrainedBucket.WithinLastThreeMonths, saved?.lastTrained)
     }
 
     @Test
@@ -78,7 +78,7 @@ class OnboardingProfileStepViewModelTest {
         OnboardingViewModelTestFixtures.fakeProfileRepository.seed(
             UserTrainingProfile(
                 trainingAge = TrainingAge.Advanced,
-                lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+                lastTrained = LastTrainedBucket.MoreThanThreeMonthsAgo,
             ),
         )
         subject = OnboardingViewModelTestFixtures.buildViewModel()
@@ -86,7 +86,7 @@ class OnboardingProfileStepViewModelTest {
         subject.uiState.test {
             val draft = awaitItem().profileDraft
             assertEquals("10+ years", draft.trainingAgeSelection)
-            assertEquals("Over a year ago", draft.lastTrainedSelection)
+            assertEquals("More than 3 months ago", draft.lastTrainedSelection)
             cancelAndIgnoreRemainingEvents()
         }
     }

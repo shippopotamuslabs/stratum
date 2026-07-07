@@ -9,7 +9,6 @@
       "AnteriorDeltoid",
       "Back"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -36,7 +35,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -63,7 +61,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -92,7 +89,6 @@
       "Glute",
       "Hamstring"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -232,7 +228,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -598,7 +593,6 @@
     "primaryMuscles": [
       "Trap"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -629,7 +623,6 @@
       "Forearm",
       "Back"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -788,7 +781,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "bent-arm-barbell-pullover",
@@ -852,7 +846,6 @@
     "primaryMuscles": [
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -883,7 +876,6 @@
       "Bicep",
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -912,7 +904,6 @@
       "Bicep",
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -942,7 +933,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -958,7 +948,8 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "bodyweight-squat",
@@ -984,7 +975,8 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "bodyweight-walking-lunge",
@@ -996,7 +988,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1012,7 +1003,8 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "box-squat",
@@ -1052,7 +1044,6 @@
     "secondaryMuscles": [
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1076,7 +1067,6 @@
     "primaryMuscles": [
       "Chest"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1104,7 +1094,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1131,7 +1120,6 @@
     "secondaryMuscles": [
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1154,7 +1142,6 @@
     "primaryMuscles": [
       "Back"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1180,7 +1167,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1206,7 +1192,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1232,7 +1217,6 @@
     "primaryMuscles": [
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1258,7 +1242,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1284,7 +1267,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1314,7 +1296,6 @@
       "Bicep",
       "Back"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1337,7 +1318,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1366,7 +1346,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1390,7 +1369,6 @@
     "primaryMuscles": [
       "Trap"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1416,7 +1394,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1442,7 +1419,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1468,7 +1444,6 @@
     "primaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1517,7 +1492,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1542,7 +1516,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1573,7 +1546,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1601,7 +1573,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1645,7 +1616,8 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "close-grip-barbell-bench-press",
@@ -1685,7 +1657,6 @@
       "Chest",
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1713,7 +1684,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1768,7 +1738,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -1795,7 +1764,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1822,7 +1790,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1874,7 +1841,6 @@
     "primaryMuscles": [
       "Chest"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1899,7 +1865,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1926,7 +1891,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1957,7 +1921,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -1974,7 +1937,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "decline-smith-press",
@@ -1986,7 +1950,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -2046,7 +2009,6 @@
       "Chest",
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -2073,7 +2035,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2089,7 +2050,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "dips-triceps-version",
@@ -2116,7 +2078,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "donkey-calf-raise",
@@ -2124,7 +2087,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2153,7 +2115,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2181,7 +2142,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2205,7 +2165,6 @@
     "primaryMuscles": [
       "Chest"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2230,7 +2189,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2257,7 +2215,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2289,7 +2246,6 @@
       "Forearm",
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2314,7 +2270,6 @@
     "primaryMuscles": [
       "LateralDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2339,7 +2294,6 @@
     "primaryMuscles": [
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2367,7 +2321,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2392,7 +2345,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2424,7 +2376,6 @@
       "AnteriorDeltoid",
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2449,7 +2400,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2480,7 +2430,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2509,7 +2458,6 @@
       "Glute",
       "LowerBack"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2530,7 +2478,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2562,7 +2509,6 @@
       "Glute",
       "LowerBack"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2591,7 +2537,6 @@
       "Glute",
       "LowerBack"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2619,7 +2564,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2643,7 +2587,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2696,7 +2639,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2726,7 +2668,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2754,7 +2695,6 @@
       "Back",
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2779,7 +2719,6 @@
     "primaryMuscles": [
       "Ab"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2832,7 +2771,6 @@
     "primaryMuscles": [
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2860,7 +2798,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -2888,7 +2825,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2918,7 +2854,6 @@
       "Glute",
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2971,7 +2906,6 @@
     "primaryMuscles": [
       "Ab"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -2996,7 +2930,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3026,7 +2959,6 @@
       "PosteriorDeltoid",
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3055,7 +2987,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3082,7 +3013,6 @@
     "secondaryMuscles": [
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3109,7 +3039,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3134,7 +3063,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3161,7 +3089,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3206,7 +3133,8 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "jefferson-squats",
@@ -3295,7 +3223,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3322,7 +3249,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3350,7 +3276,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3405,7 +3330,6 @@
     "secondaryMuscles": [
       "Hamstring"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3433,7 +3357,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3462,7 +3385,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3491,7 +3413,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3519,7 +3440,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3547,7 +3467,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3575,7 +3494,6 @@
     "secondaryMuscles": [
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3598,7 +3516,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3629,7 +3546,6 @@
       "Bicep",
       "Trap"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3658,7 +3574,6 @@
       "Glute",
       "Quad"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3682,7 +3597,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3709,7 +3623,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3740,7 +3653,6 @@
       "Chest",
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3767,7 +3679,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -3792,7 +3703,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3821,7 +3731,6 @@
     "secondaryMuscles": [
       "Hamstring"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3841,7 +3750,6 @@
     "primaryMuscles": [
       "Quad"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3865,7 +3773,6 @@
     "primaryMuscles": [
       "Hamstring"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3890,7 +3797,6 @@
       "Hamstring"
     ],
     "secondaryMuscles": [],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3914,7 +3820,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3935,7 +3840,6 @@
       "Hamstring"
     ],
     "secondaryMuscles": [],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3958,7 +3862,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -3982,7 +3885,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4012,7 +3914,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4067,7 +3968,6 @@
       "Glute",
       "LowerBack"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4092,7 +3992,6 @@
       "Bicep",
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4109,7 +4008,8 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "one-arm-dumbbell-bench-press",
@@ -4121,7 +4021,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4146,7 +4045,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4177,7 +4075,6 @@
       "Bicep",
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4233,7 +4130,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4346,7 +4242,6 @@
     "secondaryMuscles": [
       "Hamstring"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4369,7 +4264,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4395,7 +4289,6 @@
     "primaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4420,7 +4313,6 @@
     "primaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4449,7 +4341,6 @@
       "Chest",
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4465,7 +4356,8 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "pec-deck-fly",
@@ -4473,7 +4365,6 @@
     "primaryMuscles": [
       "Chest"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4527,7 +4418,6 @@
     "primaryMuscles": [
       "Ab"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4544,7 +4434,8 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "plie-dumbbell-squat",
@@ -4557,7 +4448,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4585,7 +4475,6 @@
       "Calf",
       "Hamstring"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4609,7 +4498,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4629,7 +4517,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4659,7 +4546,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4687,7 +4573,6 @@
       "Hamstring",
       "LowerBack"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4731,7 +4616,8 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "push-up-to-side-plank",
@@ -4759,7 +4645,8 @@
       "SpinalFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "pushups",
@@ -4787,7 +4674,8 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "reverse-barbell-preacher-curls",
@@ -4798,7 +4686,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4825,7 +4712,6 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -4848,7 +4734,6 @@
     "primaryMuscles": [
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4933,7 +4818,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4961,7 +4845,6 @@
       "Glute",
       "LowerBack"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -4985,7 +4868,6 @@
     "secondaryMuscles": [
       "Back"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5001,7 +4883,8 @@
       "ScapularElevation"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "kinematicProfile": "Isolation",
+    "loadType": "Bodyweight"
   },
   {
     "id": "seated-cable-rows",
@@ -5013,7 +4896,6 @@
       "Bicep",
       "PosteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5037,7 +4919,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5062,7 +4943,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5086,7 +4966,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5110,7 +4989,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5134,7 +5012,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5159,7 +5036,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5184,7 +5060,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5209,7 +5084,6 @@
     "primaryMuscles": [
       "Calf"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5233,7 +5107,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5263,7 +5136,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5292,7 +5164,6 @@
       "Bicep",
       "Trap"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5316,7 +5187,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5347,7 +5217,6 @@
       "Bicep",
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5364,7 +5233,8 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "single-arm-cable-crossover",
@@ -5372,7 +5242,6 @@
     "primaryMuscles": [
       "Chest"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5399,7 +5268,6 @@
     "secondaryMuscles": [
       "Hamstring"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5426,7 +5294,6 @@
     "secondaryMuscles": [
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5450,7 +5317,6 @@
     "primaryMuscles": [
       "Quad"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5479,7 +5345,6 @@
       "Calf",
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5507,7 +5372,6 @@
       "Glute",
       "LowerBack"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5528,7 +5392,6 @@
       "Trap"
     ],
     "secondaryMuscles": [],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5554,7 +5417,6 @@
     "secondaryMuscles": [
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5577,7 +5439,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5659,7 +5520,6 @@
     "secondaryMuscles": [
       "Glute"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5715,7 +5575,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5767,7 +5626,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5793,7 +5651,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5824,7 +5681,6 @@
       "Chest",
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5875,7 +5731,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -5905,7 +5760,6 @@
       "AnteriorDeltoid",
       "Forearm"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5932,7 +5786,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -5960,7 +5813,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6016,7 +5868,6 @@
       "AnteriorDeltoid",
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6043,7 +5894,6 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6125,7 +5975,6 @@
       "Chest",
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6153,7 +6002,6 @@
       "Glute",
       "Hamstring"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6178,7 +6026,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6203,7 +6050,6 @@
     "primaryMuscles": [
       "Tricep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6230,7 +6076,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6260,7 +6105,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -6289,7 +6133,6 @@
       "AnteriorDeltoid",
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -6316,7 +6159,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6360,7 +6202,8 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "weighted-bench-dip",
@@ -6372,7 +6215,6 @@
       "Chest",
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6399,7 +6241,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6454,7 +6295,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym"
     ],
@@ -6481,7 +6321,6 @@
     "secondaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6525,7 +6364,8 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Bodyweight"
   },
   {
     "id": "wide-grip-standing-barbell-curl",
@@ -6533,7 +6373,6 @@
     "primaryMuscles": [
       "Bicep"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6591,7 +6430,6 @@
     "secondaryMuscles": [
       "AnteriorDeltoid"
     ],
-    "allowWeightChangeBetweenSets": true,
     "presetTags": [
       "CommercialGym",
       "GarageGym"
@@ -6635,5 +6473,90 @@
     ],
     "mainstream": false,
     "kinematicProfile": "NonAxialCompound"
+  },
+  {
+    "id": "assisted-pull-up",
+    "name": "Assisted Pull-Up",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Pullups",
+    "description": "Grab the pull-up bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than your shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width. As you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position. Pull your torso up until the bar touches your upper chest by drawing the shoulders and the upper arms down and back. Exhale as you perform this portion of the movement. Tip: Concentrate on squeezing the back muscles once you reach the full contracted position. The upper torso should remain stationary as it moves through space and only the arms should move. The forearms should do no other work other than hold the bar. After a second on the contracted position, start to inhale and slowly lower your torso back to the starting position when your arms are fully extended and the lats are fully stretched. Repeat this motion for the prescribed amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Assisted"
+  },
+  {
+    "id": "assisted-chin-up",
+    "name": "Assisted Chin-Up",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep",
+      "Forearm"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Chin-Up",
+    "description": "Grab the pull-up bar with the palms facing your torso and a grip closer than the shoulder width. As you have both arms extended in front of you holding the bar at the chosen grip width, keep your torso as straight as possible while creating a curvature on your lower back and sticking your chest out. This is your starting position. Tip: Keeping the torso as straight as possible maximizes biceps stimulation while minimizing back involvement. As you breathe out, pull your torso up until your head is around the level of the pull-up bar. Concentrate on using the biceps muscles in order to perform the movement. Keep the elbows close to your body. Tip: The upper torso should remain stationary as it moves through space and only the arms should move. The forearms should do no other work other than hold the bar. After a second of squeezing the biceps in the contracted position, slowly lower your torso back to the starting position; when your arms are fully extended. Breathe in as you perform this portion of the movement. Repeat this motion for the prescribed amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chin-Up/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chin-Up/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": false,
+    "kinematicProfile": "NonAxialCompound",
+    "loadType": "Assisted"
+  },
+  {
+    "id": "assisted-dip",
+    "name": "Assisted Dip",
+    "primaryMuscles": [
+      "Chest"
+    ],
+    "secondaryMuscles": [
+      "AnteriorDeltoid",
+      "Tricep"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Dips_-_Chest_Version",
+    "description": "For this exercise you will need access to parallel bars. To get yourself into the starting position, hold your body at arms length (arms locked) above the bars. While breathing in, lower yourself slowly with your torso leaning forward around 30 degrees or so and your elbows flared out slightly until you feel a slight stretch in the chest. Once you feel the stretch, use your chest to bring your body back to the starting position as you breathe out. Tip: Remember to squeeze the chest at the top of the movement for a second. Repeat the movement for the prescribed amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Chest_Version/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dips_-_Chest_Version/1.jpg"
+    ],
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ],
+    "mainstream": false,
+    "kinematicProfile": "Isolation",
+    "loadType": "Assisted"
   }
 ]

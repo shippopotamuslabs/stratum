@@ -1,6 +1,7 @@
 package com.stratum.domain.importing
 
 import com.stratum.domain.lift.identity.LiftId
+import kotlin.math.roundToInt
 
 data class Bm25LiftCandidate(
     val liftId: LiftId,
@@ -274,6 +275,7 @@ object EstimatedOneRm {
     private const val BRZYCKI_DENOMINATOR_BASE = 1.0278
     private const val BRZYCKI_DENOMINATOR_FACTOR = 0.0278
     private const val EPLEY_NUMERATOR_FACTOR = 1.0 / 30.0
+    private const val EPLEY_REPS_DIVISOR = 30.0
 
     fun calculate(weight: Double, reps: Int): Double {
         require(reps > 0) { "reps must be positive" }
@@ -281,6 +283,35 @@ object EstimatedOneRm {
             weight * (BRZYCKI_DENOMINATOR_BASE / (BRZYCKI_DENOMINATOR_BASE - BRZYCKI_DENOMINATOR_FACTOR * reps))
         } else {
             weight * (1 + reps * EPLEY_NUMERATOR_FACTOR)
+        }
+    }
+
+    /** NEW (D4): inverse — "what weight lets the lifter hit targetReps at the given e1RM". */
+    fun weightForReps(estimatedOneRm: Double, targetReps: Int): Double {
+        require(targetReps > 0) { "targetReps must be positive" }
+        return if (targetReps <= BRZYCKI_REP_THRESHOLD) {
+            estimatedOneRm *
+                (BRZYCKI_DENOMINATOR_BASE - BRZYCKI_DENOMINATOR_FACTOR * targetReps) /
+                BRZYCKI_DENOMINATOR_BASE
+        } else {
+            estimatedOneRm / (1 + targetReps * EPLEY_NUMERATOR_FACTOR)
+        }
+    }
+
+    /** NEW (D4): second inverse — "how many reps is the lifter good for at this weight at this e1RM". */
+    fun repsForWeight(estimatedOneRm: Double, weight: Double): Int {
+        require(weight > 0.0) { "weight must be positive" }
+        require(estimatedOneRm > 0.0) { "estimatedOneRm must be positive" }
+        // Solve the forward formulas for reps at the given weight.
+        // Brzycki forward:  e = w * B / (B - F*r)  →  r = (B - B*w/e) / F   (valid while r ≤ 10)
+        // Epley forward:    e = w * (1 + r/30)   →  r = 30*(e/w - 1)        (valid for r > 10)
+        val brzyckiReps = (BRZYCKI_DENOMINATOR_BASE -
+            BRZYCKI_DENOMINATOR_BASE * weight / estimatedOneRm) / BRZYCKI_DENOMINATOR_FACTOR
+        return if (brzyckiReps <= BRZYCKI_REP_THRESHOLD && brzyckiReps > 0) {
+            brzyckiReps.roundToInt()
+        } else {
+            val epleyReps = EPLEY_REPS_DIVISOR * (estimatedOneRm / weight - 1)
+            epleyReps.roundToInt()
         }
     }
 }

@@ -3,8 +3,12 @@
 package com.stratum.domain.program.generation.build
 
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.LastTrainedBucket
+import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.SpecializationLevel
+import com.stratum.domain.program.ProgressionScheme as DomainProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.LiftSetDraft
@@ -13,7 +17,6 @@ import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.prescription.repRirForSlot
-import com.stratum.domain.program.generation.reference.ProgressionScheme
 import com.stratum.domain.program.generation.reference.schemeForTrainingAge
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
 import com.stratum.domain.program.generation.synthesis.relabelPlaceholderSessionNamesByWeekday
@@ -154,13 +157,24 @@ private fun orderSelections(
 
 private fun buildLiftDrafts(
     selections: List<SelectedSlotLift>,
-    scheme: ProgressionScheme,
-): List<ProgramLiftDraft> =
-    selections.mapIndexed { liftIndex, sel ->
-        val repRir = repRirForSlot(sel.slot.toWorkoutSlotTemplate(), sel.lift)
+    context: ProgramGenerationContext,
+): List<ProgramLiftDraft> {
+    val trainingAge = runCatching { TrainingAge.valueOf(context.trainingAge) }.getOrNull()
+    val lastTrained = context.lastTrained?.let { runCatching { LastTrainedBucket.valueOf(it) }.getOrNull() }
+    return selections.mapIndexed { liftIndex, sel ->
+        val isCompound =
+            sel.lift.kinematicProfile == KinematicProfile.AxialCompound ||
+                sel.lift.kinematicProfile == KinematicProfile.NonAxialCompound
+        val scheme = schemeForTrainingAge(trainingAge, lastTrained, isCompound)
+        val repRir = repRirForSlot(
+            slot = sel.slot.toWorkoutSlotTemplate(),
+            lift = sel.lift,
+            fatigueSlope = sel.lift.fatigueDecaySlope,
+            setCount = sel.slot.setCount,
+        )
         val setCount = sel.slot.setCount
         val sets = (0 until setCount).map { i ->
-            val isTopSet = scheme == ProgressionScheme.Double && i == 0
+            val isTopSet = scheme == DomainProgressionScheme.Double && i == 0
             LiftSetDraft(
                 position = i,
                 setType = SetType.Standard,
@@ -176,6 +190,7 @@ private fun buildLiftDrafts(
             workoutLiftSets = sets.toMutableList(),
         )
     }
+}
 
 private val WEEKDAY_BY_INDEX = Weekday.entries
 
@@ -185,7 +200,6 @@ fun assembleWorkouts(
     context: ProgramGenerationContext,
     weekdayIndexByPosition: List<Int>? = null,
 ): List<ProgramWorkoutDraft> {
-    val scheme = schemeForTrainingAge(context.trainingAge)
     val workouts =
         plans.mapIndexed { idx, plan ->
             val selections = orderSelections(selectionsBySession.getOrElse(idx) { emptyList() }, context)
@@ -193,7 +207,7 @@ fun assembleWorkouts(
                 name = plan.name,
                 weekday = weekdayIndexByPosition?.getOrNull(plan.position)?.let { index -> WEEKDAY_BY_INDEX[index].name },
                 position = plan.position,
-                workoutLifts = buildLiftDrafts(selections, scheme).toMutableList(),
+                workoutLifts = buildLiftDrafts(selections, context).toMutableList(),
             )
         }
     return if (weekdayIndexByPosition != null) {

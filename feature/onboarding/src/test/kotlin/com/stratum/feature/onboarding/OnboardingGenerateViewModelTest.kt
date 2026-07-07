@@ -154,7 +154,7 @@ class OnboardingGenerateViewModelTest {
             validateGymLiftsStep = com.stratum.domain.lift.ValidateGymLiftsStepUseCase(),
         )
         val rollbackHistoricalImport = com.stratum.domain.importing.RollbackHistoricalImportUseCase(
-            com.stratum.core.testing.importing.FakeTrainingHistoryRepository(),
+            com.stratum.core.testing.training.FakeTrainingLogRepository(),
             com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             com.stratum.core.testing.importing.FakeSupersetAffinityRepository(),
             com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository(),
@@ -187,7 +187,6 @@ class OnboardingGenerateViewModelTest {
                         movementPatterns = emptySet(),
                         primaryMuscles = emptySet(),
                         secondaryMuscles = emptySet(),
-                        allowWeightChangeBetweenSets = false,
                         incrementTiers = emptyList(),
                         presetTags = emptySet(),
                         enabled = true,
@@ -246,6 +245,7 @@ class OnboardingGenerateViewModelTest {
                 liftRepository = liftRepo,
                 completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
                 profileRepository = profileRepo,
+                programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
                 generationDispatcher = generationDispatcher,
             ),
         )

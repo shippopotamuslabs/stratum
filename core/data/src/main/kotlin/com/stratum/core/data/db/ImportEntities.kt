@@ -5,11 +5,16 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.stratum.domain.importing.ImportJobStatus
-import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SetType
+import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.importing.identity.ImportJobId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.identity.WorkoutLiftId
 
 @Entity(tableName = "import_jobs")
 data class ImportJobEntity(
@@ -23,19 +28,11 @@ data class ImportJobEntity(
     val updatedAtEpochMillis: Long,
 )
 
-@Entity(tableName = "historical_sessions")
-data class HistoricalSessionEntity(
-    @PrimaryKey val id: HistoricalSessionId,
-    val startedAtEpochMillis: Long,
-    val endedAtEpochMillis: Long?,
-    val sourceApp: String?,
-)
-
 @Entity(
     tableName = "logged_sets",
     foreignKeys = [
         ForeignKey(
-            entity = HistoricalSessionEntity::class,
+            entity = TrainingSessionEntity::class,
             parentColumns = ["id"],
             childColumns = ["sessionId"],
             onDelete = ForeignKey.CASCADE,
@@ -44,11 +41,12 @@ data class HistoricalSessionEntity(
     indices = [
         Index("sessionId"),
         Index("completedAtEpochMillis"),
+        Index(value = ["workoutLiftId", "liftId", "setIndex"]),
     ],
 )
 data class LoggedSetEntity(
     @PrimaryKey val id: LoggedSetId,
-    val sessionId: HistoricalSessionId,
+    val sessionId: TrainingSessionId,
     val exerciseNameRaw: String,
     val liftId: LiftId?,
     val setIndex: Int,
@@ -57,6 +55,18 @@ data class LoggedSetEntity(
     val reps: Int,
     val rir: Int?,
     val completedAtEpochMillis: Long,
+    val liftName: String = "",
+    val movementPatternsBitmask: Int = 0,
+    val primaryMusclesBitmask: Int = 0,
+    val secondaryMusclesBitmask: Int = 0,
+    val kinematicProfile: KinematicProfile = KinematicProfile.NonAxialCompound,
+    val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
+    val workoutLiftId: WorkoutLiftId? = null,
+    val progressionScheme: ProgressionScheme? = null,
+    val setType: SetType? = null,
+    val repMin: Int? = null,
+    val repMax: Int? = null,
+    val rirGoal: Int? = null,
 )
 
 @Entity(tableName = "lift_training_insights")

@@ -2,9 +2,8 @@ package com.stratum.domain.importing
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
-import com.stratum.domain.importing.identity.HistoricalSessionId
-import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.Weight
+import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -14,11 +13,12 @@ import org.junit.jupiter.api.Test
 class ReconcileHistoricalImportUseCaseTest {
     @Test
     fun `clears orphan history and stale flag when analysis metadata is missing`() = runTest {
-        val historyRepo = InMemoryTrainingHistoryRepository(
+        val trainingLogRepo = FakeTrainingLogRepository()
+        trainingLogRepo.replaceImportHistory(
             sessions =
                 listOf(
-                    HistoricalSession(
-                        id = HistoricalSessionId("s1"),
+                    WorkoutLoggingFixtures.importTrainingSession(
+                        id = "s1",
                         startedAt = Instant.parse("2025-01-01T00:00:00Z"),
                         endedAt = null,
                         sourceApp = null,
@@ -26,15 +26,11 @@ class ReconcileHistoricalImportUseCaseTest {
                 ),
             sets =
                 listOf(
-                    LoggedSet(
-                        id = LoggedSetId("set1"),
-                        sessionId = HistoricalSessionId("s1"),
+                    WorkoutLoggingFixtures.importLoggedSet(
+                        id = "set1",
+                        sessionId = "s1",
                         exerciseNameRaw = "Squat",
                         liftId = null,
-                        setIndex = 0,
-                        weight = Weight(100.0, Weight.WeightUnit.Lb),
-                        reps = 5,
-                        rir = null,
                         completedAt = Instant.parse("2025-01-01T01:00:00Z"),
                     ),
                 ),
@@ -44,7 +40,7 @@ class ReconcileHistoricalImportUseCaseTest {
         liftRepo.seedUsedHistoricalImport(true)
         val rollback =
             RollbackHistoricalImportUseCase(
-                historyRepo,
+                trainingLogRepo,
                 InMemoryLiftInsightsRepository(),
                 InMemorySupersetRepository(),
                 InMemoryVolumeRepository(),
@@ -55,8 +51,8 @@ class ReconcileHistoricalImportUseCaseTest {
         val subject = ReconcileHistoricalImportUseCase(metadataRepo, rollback)
 
         assertFalse(subject())
-        assertTrue(historyRepo.getAllSessions().isEmpty())
-        assertTrue(historyRepo.getAllSets().isEmpty())
+        assertTrue(trainingLogRepo.getImportSessions().isEmpty())
+        assertTrue(trainingLogRepo.getImportSets().isEmpty())
         assertFalse(liftRepo.currentUsedHistoricalImport)
     }
 
@@ -75,7 +71,7 @@ class ReconcileHistoricalImportUseCaseTest {
         )
         val rollback =
             RollbackHistoricalImportUseCase(
-                InMemoryTrainingHistoryRepository(),
+                FakeTrainingLogRepository(),
                 InMemoryLiftInsightsRepository(),
                 InMemorySupersetRepository(),
                 InMemoryVolumeRepository(),
@@ -86,28 +82,6 @@ class ReconcileHistoricalImportUseCaseTest {
         val subject = ReconcileHistoricalImportUseCase(metadataRepo, rollback)
 
         assertTrue(subject())
-    }
-
-    private class InMemoryTrainingHistoryRepository(
-        private var sessions: List<HistoricalSession> = emptyList(),
-        private var sets: List<LoggedSet> = emptyList(),
-    ) : TrainingHistoryRepository {
-        override suspend fun replaceAll(
-            sessions: List<HistoricalSession>,
-            sets: List<LoggedSet>,
-        ) {
-            this.sessions = sessions
-            this.sets = sets
-        }
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = sessions
-
-        override suspend fun getAllSets(): List<LoggedSet> = sets
-
-        override suspend fun getSetsInWindow(
-            windowStart: Instant,
-            windowEnd: Instant,
-        ): List<LoggedSet> = emptyList()
     }
 
     private class InMemoryMetadataRepository : ImportAnalysisMetadataRepository {

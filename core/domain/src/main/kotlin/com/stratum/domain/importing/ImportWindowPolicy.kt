@@ -1,5 +1,6 @@
 package com.stratum.domain.importing
 
+import com.stratum.domain.training.LoggedSet
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 

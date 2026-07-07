@@ -47,8 +47,8 @@ class EpochSplitterTest {
             ResponseFixtures.input(
                 sessions =
                     listOf(
-                        com.stratum.domain.importing.HistoricalSession(
-                            id = com.stratum.domain.importing.identity.HistoricalSessionId("eq-kg"),
+                        com.stratum.core.testing.training.WorkoutLoggingFixtures.importTrainingSession(
+                            id = "eq-kg",
                             startedAt = weekStart,
                             endedAt = null,
                             sourceApp = "test",
@@ -58,8 +58,8 @@ class EpochSplitterTest {
                 lifts = listOf(ResponseFixtures.benchPressLift()),
             ).sessions.single()
         val sessionLb =
-            com.stratum.domain.importing.HistoricalSession(
-                id = com.stratum.domain.importing.identity.HistoricalSessionId("eq-lb"),
+            com.stratum.core.testing.training.WorkoutLoggingFixtures.importTrainingSession(
+                id = "eq-lb",
                 startedAt = weekStart.plus(7, ChronoUnit.DAYS),
                 endedAt = null,
                 sourceApp = "test",

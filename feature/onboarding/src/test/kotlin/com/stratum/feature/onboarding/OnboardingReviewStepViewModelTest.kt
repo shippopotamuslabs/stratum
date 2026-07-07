@@ -40,7 +40,7 @@ class OnboardingReviewStepViewModelTest {
         OnboardingViewModelTestFixtures.fakeProfileRepository.seed(
             UserTrainingProfile(
                 trainingAge = TrainingAge.Intermediate,
-                lastTrained = LastTrainedBucket.WithinLastMonth,
+                lastTrained = LastTrainedBucket.WithinLastThreeMonths,
                 weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
                 sessionLengthMinutes = 60,
             ),
@@ -66,7 +66,7 @@ class OnboardingReviewStepViewModelTest {
         subject.uiState.test {
             val draft = awaitItem().reviewDraft
             assertEquals("4–7 years", draft.trainingAge)
-            assertEquals("Within the last month", draft.lastTrained)
+            assertEquals("Within the last 3 months", draft.lastTrained)
             assertEquals(listOf("Mon", "Wed", "Fri"), draft.weekdays)
             assertEquals(60, draft.sessionMinutes)
             assertEquals(listOf("Chest", "Quads"), draft.specialization)
@@ -82,7 +82,7 @@ class OnboardingReviewStepViewModelTest {
         OnboardingViewModelTestFixtures.fakeProfileRepository.seed(
             UserTrainingProfile(
                 trainingAge = TrainingAge.Beginner,
-                lastTrained = LastTrainedBucket.MoreThanAYearAgo,
+                lastTrained = LastTrainedBucket.MoreThanThreeMonthsAgo,
                 weekdays = setOf(Weekday.Tuesday),
                 sessionLengthMinutes = 45,
             ),

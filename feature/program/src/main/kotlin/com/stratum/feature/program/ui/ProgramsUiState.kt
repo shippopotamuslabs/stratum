@@ -54,3 +54,10 @@ data class WorkoutLiftLineState(
     val topSetRpe: String,
     val position: Int,
 )
+
+data class MinimizedWorkoutState(
+    val workoutId: String,
+    val workoutName: String,
+    val nextLiftName: String,
+    val startedAtEpochMilli: Long,
+)

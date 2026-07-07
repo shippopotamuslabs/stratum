@@ -1,13 +1,16 @@
 package com.stratum.domain.importing
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.domain.importing.identity.HistoricalSessionId
+import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -27,20 +30,19 @@ class ExtractTrainingInsightsUseCaseTest {
         )
         val t0 = Instant.parse("2025-01-01T10:00:00Z")
         val sessions = (1..5).map { index ->
-            HistoricalSession(
-                id = HistoricalSessionId("session-$index"),
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
                 startedAt = t0.plusSeconds(index * 86_400L),
                 endedAt = null,
-                sourceApp = "test",
             )
         }
         val sets = buildList {
             sessions.forEachIndexed { sessionIndex, session ->
                 repeat(3) { setIndex ->
                     add(
-                        LoggedSet(
-                            id = LoggedSetId("${session.id.value}-squat-$setIndex"),
-                            sessionId = session.id,
+                        importSet(
+                            id = "${session.id.value}-squat-$setIndex",
+                            session = session,
                             exerciseNameRaw = "Hack Squat",
                             liftId = squatId,
                             setIndex = setIndex + 1,
@@ -53,10 +55,11 @@ class ExtractTrainingInsightsUseCaseTest {
                 }
             }
         }
-        val historyRepo = InMemoryTrainingHistoryRepository(sessions, sets)
+        val trainingLogRepo = FakeTrainingLogRepository()
+        trainingLogRepo.replaceImportHistory(sessions, sets)
         val insightsRepo = InMemoryLiftInsightsRepository()
         val useCase = ExtractTrainingInsightsUseCase(
-            trainingHistoryRepository = historyRepo,
+            trainingLogRepository = trainingLogRepo,
             liftTrainingInsightsRepository = insightsRepo,
             supersetAffinityRepository = InMemorySupersetRepository(),
             muscleVolumeBaselineRepository = InMemoryVolumeRepository(),
@@ -69,6 +72,28 @@ class ExtractTrainingInsightsUseCaseTest {
         assertTrue(summary.liftsWithInsights > 0)
         assertTrue(insightsRepo.stored.isNotEmpty())
     }
+
+    private fun importSet(
+        id: String,
+        session: TrainingSession,
+        exerciseNameRaw: String,
+        liftId: LiftId,
+        setIndex: Int,
+        weight: Weight,
+        reps: Int,
+        rir: Int?,
+        completedAt: Instant,
+    ): LoggedSet =
+        ImportHistoryTrainingMapper.parseSet(
+            id = LoggedSetId(id),
+            sessionId = session.id,
+            exerciseNameRaw = exerciseNameRaw,
+            setIndex = setIndex,
+            weight = weight,
+            reps = reps,
+            rir = rir,
+            completedAt = completedAt,
+        ).copy(liftId = liftId)
 
     private fun lift(
         id: LiftId,
@@ -83,20 +108,8 @@ class ExtractTrainingInsightsUseCaseTest {
         secondaryMuscles = emptySet(),
         incrementTiers = emptyList(),
         presetTags = emptySet(),
-        allowWeightChangeBetweenSets = false,
         enabled = true,
     )
-
-    private class InMemoryTrainingHistoryRepository(
-        private val sessions: List<HistoricalSession>,
-        private val sets: List<LoggedSet>,
-    ) : TrainingHistoryRepository {
-        override suspend fun replaceAll(sessions: List<HistoricalSession>, sets: List<LoggedSet>) = Unit
-        override suspend fun getAllSessions(): List<HistoricalSession> = sessions
-        override suspend fun getAllSets(): List<LoggedSet> = sets
-        override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
-            sets.filter { it.completedAt in windowStart..windowEnd }
-    }
 
     private class InMemoryLiftInsightsRepository : LiftTrainingInsightsRepository {
         val stored = mutableListOf<LiftTrainingInsights>()

@@ -10,6 +10,7 @@ import com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotReposit
 import com.stratum.core.testing.response.FakeVolumeResponseObservationRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
+import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -60,7 +61,6 @@ class RefreshPersistedImportStateUseCaseTest {
                     movementPatterns = setOf(MovementPattern.SquatPattern),
                     primaryMuscles = setOf(MuscleGroup.Quad),
                     secondaryMuscles = emptySet(),
-                    allowWeightChangeBetweenSets = false,
                     incrementTiers = emptyList(),
                     presetTags = emptySet(),
                     enabled = true,
@@ -82,7 +82,7 @@ class RefreshPersistedImportStateUseCaseTest {
     ): RefreshPersistedImportStateUseCase {
         val rollback =
             RollbackHistoricalImportUseCase(
-                InMemoryTrainingHistoryRepository(),
+                FakeTrainingLogRepository(),
                 FakeLiftTrainingInsightsRepository(),
                 FakeSupersetAffinityRepository(),
                 FakeMuscleVolumeBaselineRepository(),
@@ -103,21 +103,5 @@ class RefreshPersistedImportStateUseCaseTest {
                 liftRepo,
             )
         return RefreshPersistedImportStateUseCase(reconcile, loadSummary)
-    }
-
-    private class InMemoryTrainingHistoryRepository : TrainingHistoryRepository {
-        override suspend fun replaceAll(
-            sessions: List<HistoricalSession>,
-            sets: List<LoggedSet>,
-        ) = Unit
-
-        override suspend fun getAllSessions(): List<HistoricalSession> = emptyList()
-
-        override suspend fun getAllSets(): List<LoggedSet> = emptyList()
-
-        override suspend fun getSetsInWindow(
-            windowStart: Instant,
-            windowEnd: Instant,
-        ): List<LoggedSet> = emptyList()
     }
 }

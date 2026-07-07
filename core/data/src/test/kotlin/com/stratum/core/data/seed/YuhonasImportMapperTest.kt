@@ -323,52 +323,6 @@ class YuhonasImportMapperTest {
     }
 
     @Nested
-    @DisplayName("allowWeightChangeBetweenSets heuristic")
-    inner class AllowWeightChangeHeuristic {
-
-        @Test
-        @DisplayName("Given an isolation exercise when derived then it allows weight change")
-        fun isolationAllowsChange() {
-            assertTrue(YuhonasImportMapper.allowWeightChangeBetweenSets("isolation", "dumbbell"))
-            assertTrue(YuhonasImportMapper.allowWeightChangeBetweenSets("isolation", "cable"))
-            assertTrue(YuhonasImportMapper.allowWeightChangeBetweenSets("isolation", null))
-        }
-
-        @Test
-        @DisplayName("Given a barbell compound when derived then it does not allow weight change")
-        fun barbellCompoundHoldsWeight() {
-            assertEquals(
-                false,
-                YuhonasImportMapper.allowWeightChangeBetweenSets("compound", "barbell"),
-            )
-        }
-
-        @Test
-        @DisplayName("Given a bodyweight compound when derived then it does not allow weight change")
-        fun bodyweightCompoundHoldsWeight() {
-            assertEquals(
-                false,
-                YuhonasImportMapper.allowWeightChangeBetweenSets("compound", "body only"),
-            )
-        }
-
-        @Test
-        @DisplayName("Given a dumbbell compound when derived then it allows weight change")
-        fun dumbbellCompoundAllowsChange() {
-            assertTrue(YuhonasImportMapper.allowWeightChangeBetweenSets("compound", "dumbbell"))
-        }
-
-        @Test
-        @DisplayName("Given a null mechanic when derived then it does not allow weight change")
-        fun nullMechanicHoldsWeight() {
-            assertEquals(
-                false,
-                YuhonasImportMapper.allowWeightChangeBetweenSets(null, "barbell"),
-            )
-        }
-    }
-
-    @Nested
     @DisplayName("Preset tag heuristic")
     inner class PresetTagHeuristic {
 

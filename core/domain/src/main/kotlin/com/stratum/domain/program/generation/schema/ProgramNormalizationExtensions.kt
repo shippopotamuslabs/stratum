@@ -12,6 +12,7 @@ import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 fun ProgramGenerationContext.toProgramNormalizationRequest(): ProgramNormalizationRequest =
     ProgramNormalizationRequest(
         trainingAge = trainingAge,
+        lastTrained = lastTrained,
         enabledLiftIds = enabledLiftIds,
         movementPatternByLiftId = movementPatternByLiftId,
     )
