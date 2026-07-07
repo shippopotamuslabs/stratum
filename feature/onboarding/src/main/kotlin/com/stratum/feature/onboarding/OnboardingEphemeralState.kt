@@ -17,6 +17,7 @@ internal data class OnboardingEphemeralState(
     /** Furthest timeline step reached this run; keeps the UI monotonic when phases arrive quickly. */
     val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
+    val importProgramState: ImportProgramState = ImportProgramState.Idle,
     val presetApplyError: String? = null,
     /** True after import-based MV suggestions were auto-applied once this wizard run. */
     val minimumVolumeImportPrefillApplied: Boolean = false,

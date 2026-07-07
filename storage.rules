@@ -7,6 +7,11 @@ service firebase.storage {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Client uploads raw program-template files; server writes script/conversions via Admin SDK.
+    match /programImports/{userId}/{jobId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
