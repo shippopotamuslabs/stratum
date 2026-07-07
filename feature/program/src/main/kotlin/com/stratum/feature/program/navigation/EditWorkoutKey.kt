@@ -18,6 +18,7 @@ data class EditWorkoutKey(
 fun EntryProviderScope<NavKey>.editWorkoutEntry(
     onBackClick: () -> Unit,
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
+    onReorderLiftsClick: (workoutId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     entry<EditWorkoutKey> { key ->
@@ -25,6 +26,7 @@ fun EntryProviderScope<NavKey>.editWorkoutEntry(
             workoutId = key.workoutId,
             onBackClick = onBackClick,
             onSwapLiftClick = onSwapLiftClick,
+            onReorderLiftsClick = onReorderLiftsClick,
             modifier = modifier,
         )
     }

@@ -1,9 +1,8 @@
 package com.stratum.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
@@ -15,11 +14,11 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TrainingSessionDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(entity: TrainingSessionEntity)
+    @Upsert
+    suspend fun upsert(entity: TrainingSessionEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<TrainingSessionEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<TrainingSessionEntity>)
 
     @Query("SELECT * FROM training_sessions WHERE id = :id LIMIT 1")
     suspend fun getById(id: TrainingSessionId): TrainingSessionEntity?
@@ -72,15 +71,18 @@ interface TrainingSessionDao {
         """,
     )
     suspend fun getCompletedForCycle(programId: ProgramId, cycleNumber: Int): List<TrainingSessionEntity>
+
+    @Query("SELECT * FROM training_sessions ORDER BY started_at_epoch_millis DESC")
+    fun observeAll(): Flow<List<TrainingSessionEntity>>
 }
 
 @Dao
 interface TrainingLoggedSetDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(entity: LoggedSetEntity)
+    @Upsert
+    suspend fun upsert(entity: LoggedSetEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<LoggedSetEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<LoggedSetEntity>)
 
     @Query("SELECT * FROM logged_sets WHERE sessionId = :sessionId")
     suspend fun getForSession(sessionId: TrainingSessionId): List<LoggedSetEntity>

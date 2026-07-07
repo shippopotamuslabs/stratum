@@ -21,10 +21,16 @@ import java.util.Locale
 /**
  * Domain → presentation mapping for the Programs screen. `null` (no program) maps to
  * [ProgramsUiState.Empty]; a non-null [Program] maps to [ProgramsUiState.Loaded].
+ *
+ * [completedWorkoutIds] and [activeWorkoutId] come from [com.stratum.domain.training.CycleProgress]
+ * so that workout cards render the correct checkbox state and de-emphasis.
  */
 internal fun Program?.toProgramsUiState(
     liftNamesById: Map<String, String> = emptyMap(),
     volumeSummaries: List<MuscleVolumeSummary> = emptyList(),
+    completedWorkoutIds: Set<String> = emptySet(),
+    activeWorkoutId: String? = null,
+    completedRestDayWeekdays: Set<Weekday> = emptySet(),
 ): ProgramsUiState =
     if (this == null) {
         ProgramsUiState.Empty
@@ -33,7 +39,9 @@ internal fun Program?.toProgramsUiState(
             program = ProgramViewState(name = name),
             upperVolumeByMuscle = volumeSummaries.toUpperVolumeCards(),
             lowerVolumeByMuscle = volumeSummaries.toLowerVolumeCards(),
-            scheduleItems = buildWeeklySchedule(this).map { item -> item.toScheduleItemState(liftNamesById) },
+            scheduleItems = buildWeeklySchedule(this).map { item ->
+                item.toScheduleItemState(liftNamesById, completedWorkoutIds, activeWorkoutId, completedRestDayWeekdays)
+            },
         )
     }
 
@@ -93,17 +101,30 @@ internal fun buildLiftLineState(
         position = position,
     )
 
-private fun ScheduleDayItem.toScheduleItemState(liftNamesById: Map<String, String>): ScheduleItemState =
+private fun ScheduleDayItem.toScheduleItemState(
+    liftNamesById: Map<String, String>,
+    completedWorkoutIds: Set<String>,
+    activeWorkoutId: String?,
+    completedRestDayWeekdays: Set<Weekday>,
+): ScheduleItemState =
     when (this) {
         is ScheduleDayItem.RestDay ->
-            ScheduleItemState.RestDay(weekdayLabel = weekday.toDisplayLabel())
+            ScheduleItemState.RestDay(
+                weekdayLabel = weekday.toDisplayLabel(),
+                isCompleted = weekday in completedRestDayWeekdays,
+            )
         is ScheduleDayItem.WorkoutDay ->
             ScheduleItemState.Workout(
-                workout = workout.toViewState(liftNamesById, weekday),
+                workout = workout.toViewState(liftNamesById, weekday, completedWorkoutIds, activeWorkoutId),
             )
     }
 
-private fun Workout.toViewState(liftNamesById: Map<String, String>, weekday: Weekday): WorkoutViewState =
+private fun Workout.toViewState(
+    liftNamesById: Map<String, String>,
+    weekday: Weekday,
+    completedWorkoutIds: Set<String>,
+    activeWorkoutId: String?,
+): WorkoutViewState =
     WorkoutViewState(
         workoutId = id.value,
         name = name,
@@ -113,6 +134,8 @@ private fun Workout.toViewState(liftNamesById: Map<String, String>, weekday: Wee
             workoutLifts.sortedBy { lift -> lift.position }.map { lift ->
                 lift.toViewState(liftNamesById)
             },
+        isCompleted = id.value in completedWorkoutIds,
+        isActiveWorkout = id.value == activeWorkoutId,
     )
 
 private fun WorkoutLift.toViewState(liftNamesById: Map<String, String>): WorkoutLiftLineState =

@@ -13,6 +13,8 @@ import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
 
+import com.stratum.core.ui.component.isLastInSupersetChain
+
 internal fun List<EditLiftState>.toWorkout(
     baseline: Workout,
     workoutId: WorkoutId,
@@ -77,17 +79,5 @@ internal fun List<EditLiftState>.hasPlaceholderLift(catalogLiftIds: Set<String>)
     any { lift ->
         lift.name == PLACEHOLDER_LIFT_NAME || lift.liftId !in catalogLiftIds
     }
-
-internal fun isLastInSupersetChain(
-    lift: EditLiftState,
-    allLifts: List<EditLiftState>,
-): Boolean {
-    val groupId = lift.supersetGroupId ?: return true
-    val chain =
-        allLifts
-            .filter { member -> member.supersetGroupId == groupId }
-            .sortedBy { member -> member.position }
-    return chain.lastOrNull()?.workoutLiftId == lift.workoutLiftId
-}
 
 internal fun newSupersetGroupId(): String = WorkoutSupersetGroupId(java.util.UUID.randomUUID().toString()).value

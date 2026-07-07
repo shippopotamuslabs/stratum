@@ -16,7 +16,12 @@ import kotlin.math.roundToInt
  * before persisting); weighted lifts are unchanged.
  */
 internal object WorkoutUiMapper {
-    fun map(rendered: RenderedWorkout, sessionStartedAtEpochMilli: Long): WorkoutUiState.Loaded {
+    fun map(
+        rendered: RenderedWorkout,
+        sessionStartedAtEpochMilli: Long,
+        hasIncompleteLifts: Boolean = false,
+        hasDirtyEdits: Boolean = false,
+    ): WorkoutUiState.Loaded {
         val lifts = rendered.lifts.map { lift ->
             val showWeightColumn = lift.loadType != LoadType.Bodyweight
             val weightHeaderLabel = when (lift.loadType) {
@@ -27,9 +32,11 @@ internal object WorkoutUiMapper {
             val assistMode = lift.loadType == LoadType.Assisted
             RenderedLiftUi(
                 workoutLiftId = lift.workoutLiftId.value,
+                liftId = lift.liftId.value,
                 liftName = lift.liftName,
                 showWeightColumn = showWeightColumn,
                 weightHeaderLabel = weightHeaderLabel,
+                useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
                 sets = lift.sets.map { set ->
                     val prevWeight = set.previousWeight
                     val prevReps = set.previousReps
@@ -89,10 +96,13 @@ internal object WorkoutUiMapper {
             )
         }
         return WorkoutUiState.Loaded(
+            workoutId = rendered.workoutId.value,
             workoutName = rendered.workoutName,
             lifts = lifts,
             isFinalizing = false,
             sessionStartedAtEpochMilli = sessionStartedAtEpochMilli,
+            hasIncompleteLifts = hasIncompleteLifts,
+            hasDirtyEdits = hasDirtyEdits,
         )
     }
 

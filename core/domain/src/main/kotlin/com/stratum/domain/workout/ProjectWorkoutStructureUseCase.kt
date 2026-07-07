@@ -28,6 +28,7 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
                 progressionScheme = workoutLift.progressionScheme,
                 supersetGroupId = workoutLift.supersetGroupId,
                 loadType = loadTypesById[workoutLift.liftId] ?: LoadType.Weighted,
+                useRestTimerBetweenLifts = workoutLift.useRestTimerBetweenLifts,
                 slots = workoutLift.sets.map { liftSet ->
                     SetSlot(
                         slotId = SetSlotId.Template(liftSet.id),

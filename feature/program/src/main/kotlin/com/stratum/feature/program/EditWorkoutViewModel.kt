@@ -16,6 +16,15 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.domain.workout.EditSessionEvent
+import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.core.ui.component.isLastInSupersetChain
+import com.stratum.core.ui.component.isSupersetPairMember
+import com.stratum.core.ui.component.linkSupersetWithAdjacent
+import com.stratum.core.ui.component.unlinkLiftFromSuperset
+import com.stratum.core.ui.component.cleanupSupersetGroups
+import com.stratum.feature.program.formatEstimatedWorkoutDuration
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -50,6 +59,11 @@ class EditWorkoutViewModel @Inject constructor(
                     is EditSessionEvent.LiftSelected -> {
                         if (event.workoutId == targetWorkoutId.value) {
                             handleLiftSelected(event.workoutLiftId, event.liftId)
+                        }
+                    }
+                    is EditSessionEvent.LiftsReordered -> {
+                        if (event.workoutId == targetWorkoutId.value) {
+                            handleLiftsReordered(event.orderedWorkoutLiftIds)
                         }
                     }
                 }
@@ -215,6 +229,21 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
+    fun startReorderLifts() {
+        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val items = loaded.lifts.map { com.stratum.domain.workout.ReorderLiftItem(it.workoutLiftId, it.name) }
+        workoutEditSession.setReorderLifts(items)
+    }
+
+    private fun handleLiftsReordered(orderedWorkoutLiftIds: List<String>) {
+        updateLoaded { loaded ->
+            val liftById = loaded.lifts.associateBy { it.workoutLiftId }
+            val reordered = orderedWorkoutLiftIds.mapNotNull { liftById[it] }
+                .mapIndexed { index, lift -> lift.copy(position = index) }
+            loaded.copy(lifts = reordered)
+        }
+    }
+
     private fun handleLiftSelected(workoutLiftId: String?, liftId: String) {
         val liftName = catalogLifts.firstOrNull { it.id.value == liftId }?.name ?: PLACEHOLDER_LIFT_NAME
         val isCompound = catalogLifts.firstOrNull { it.id.value == liftId }?.isCompound ?: false
@@ -274,13 +303,11 @@ class EditWorkoutViewModel @Inject constructor(
 
     fun removeLift(workoutLiftId: String) {
         updateLoaded { loaded ->
+            val remainingLifts = loaded.lifts
+                .filterNot { lift -> lift.workoutLiftId == workoutLiftId }
+                .mapIndexed { index, lift -> lift.copy(position = index) }
             loaded.copy(
-                lifts =
-                    cleanupSupersetGroups(
-                        loaded.lifts
-                            .filterNot { lift -> lift.workoutLiftId == workoutLiftId }
-                            .mapIndexed { index, lift -> lift.copy(position = index) },
-                    ),
+                lifts = remainingLifts.applySupersetChanges(cleanupSupersetGroups(remainingLifts)),
             )
         }
     }
@@ -347,16 +374,12 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
-    fun setRestSeconds(setId: String, restSeconds: Int) {
-        updateSet(setId) { set -> set.copy(restSeconds = restSeconds.coerceAtLeast(0)) }
-    }
-
-    fun setRestSecondsForAllSetsOnLift(workoutLiftId: String, restSeconds: Int) {
+    fun setRestSeconds(setId: String?, workoutLiftId: String?, restSeconds: Int) {
         val clamped = restSeconds.coerceAtLeast(0)
-        updateLoaded { loaded ->
-            loaded.copy(
-                lifts =
-                    loaded.lifts.map { lift ->
+        if (workoutLiftId != null) {
+            updateLoaded { loaded ->
+                loaded.copy(
+                    lifts = loaded.lifts.map { lift ->
                         if (lift.workoutLiftId != workoutLiftId) {
                             lift
                         } else {
@@ -365,22 +388,26 @@ class EditWorkoutViewModel @Inject constructor(
                             )
                         }
                     },
-            )
+                )
+            }
+        } else if (setId != null) {
+            updateSet(setId) { set -> set.copy(restSeconds = clamped) }
         }
     }
 
-    fun setRepMin(setId: String, repMin: Int) {
+    fun setReps(setId: String, min: Int? = null, max: Int? = null) {
         updateSet(setId) { set ->
-            val clamped = repMin.coerceAtLeast(0)
-            val repMax = if (set.repMax in 1..<clamped) clamped else set.repMax
-            set.copy(repMin = clamped, repMax = repMax)
-        }
-    }
-
-    fun setRepMax(setId: String, repMax: Int) {
-        updateSet(setId) { set ->
-            val clamped = repMax.coerceAtLeast(0)
-            set.copy(repMax = clamped)
+            var next = set
+            if (min != null) {
+                val clampedMin = min.coerceAtLeast(0)
+                val repMax = if (next.repMax in 1..<clampedMin) clampedMin else next.repMax
+                next = next.copy(repMin = clampedMin, repMax = repMax)
+            }
+            if (max != null) {
+                val clampedMax = max.coerceAtLeast(0)
+                next = next.copy(repMax = clampedMax)
+            }
+            next
         }
     }
 
@@ -450,7 +477,7 @@ class EditWorkoutViewModel @Inject constructor(
     fun removeFromSuperset(workoutLiftId: String) {
         updateLoaded { loaded ->
             loaded.copy(
-                lifts = unlinkLiftFromSuperset(loaded.lifts, workoutLiftId),
+                lifts = loaded.lifts.applySupersetChanges(unlinkLiftFromSuperset(loaded.lifts, workoutLiftId)),
             )
         }
     }
@@ -461,14 +488,31 @@ class EditWorkoutViewModel @Inject constructor(
     ) {
         updateLoaded { loaded ->
             loaded.copy(
-                lifts =
+                lifts = loaded.lifts.applySupersetChanges(
                     linkSupersetWithAdjacent(
                         lifts = loaded.lifts,
                         workoutLiftId = workoutLiftId,
                         direction = direction,
                         nextGroupId = ::newSupersetGroupId,
-                    ),
+                    )
+                ),
             )
+        }
+    }
+
+    private fun List<EditLiftState>.applySupersetChanges(
+        updated: List<com.stratum.core.ui.component.SupersetLinkableLiftState>
+    ): List<EditLiftState> {
+        return this.map { lift ->
+            val match = updated.firstOrNull { it.workoutLiftId == lift.workoutLiftId }
+            if (match != null) {
+                lift.copy(
+                    supersetGroupId = match.supersetGroupId,
+                    useRestTimerBetweenLifts = match.useRestTimerBetweenLifts
+                )
+            } else {
+                lift
+            }
         }
     }
 
