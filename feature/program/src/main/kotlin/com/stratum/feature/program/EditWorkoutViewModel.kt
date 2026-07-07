@@ -395,7 +395,17 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Updates the rep range for a top set. Backoff sets are RIR-only — the progression
+     * engines floor them at [com.stratum.domain.workout.BACKOFF_REP_FLOOR] and never clamp
+     * into a rep range — so editing a backoff set's reps would be silently discarded. This
+     * is a no-op for backoff sets (defense-in-depth behind the UI gating in
+     * `EditWorkoutSetTable`).
+     */
     fun setReps(setId: String, min: Int? = null, max: Int? = null) {
+        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val target = loaded.lifts.flatMap { it.sets }.firstOrNull { it.setId == setId }
+        if (target?.isTopSet != true) return
         updateSet(setId) { set ->
             var next = set
             if (min != null) {

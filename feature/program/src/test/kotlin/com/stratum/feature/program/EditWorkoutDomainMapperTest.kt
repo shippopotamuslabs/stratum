@@ -70,8 +70,8 @@ class EditWorkoutDomainMapperTest {
                 ).copy(
                     sets =
                         listOf(
-                            EditSetState("ls-1", 1, 8, 12, 120, 2),
-                            EditSetState("new-set", 2, 8, 12, 60, 2),
+                            EditSetState("ls-1", 1, 8, 12, 120, 2, isTopSet = true),
+                            EditSetState("new-set", 2, 8, 12, 60, 2, isTopSet = false),
                         ),
                 ),
             )
@@ -82,6 +82,39 @@ class EditWorkoutDomainMapperTest {
         assertEquals(SetType.Standard, newSet.setType)
         assertFalse(newSet.isTopSet)
         assertEquals(60, newSet.restSeconds)
+    }
+
+    @Test
+    @DisplayName("toWorkout normalizes backoff rep ranges to 0/0 and preserves top-set ranges")
+    fun normalizesBackoffRepRanges() {
+        val baseline = baselineWorkout()
+        val edited =
+            listOf(
+                editLift(
+                    workoutLiftId = "wl-1",
+                    position = 0,
+                    setId = "ls-1",
+                    restSeconds = 120,
+                ).copy(
+                    sets =
+                        listOf(
+                            // Top set keeps its rep range.
+                            EditSetState("ls-1", 1, 5, 5, 120, 2, isTopSet = true),
+                            // Backoff set with a stale rep range — must be normalized to 0/0.
+                            EditSetState("new-set", 2, 8, 12, 60, 2, isTopSet = false),
+                        ),
+                ),
+            )
+
+        val workout = edited.toWorkout(baseline, WorkoutId("w-1"))
+        val sets = workout.workoutLifts.single().sets
+
+        assertEquals(5, sets[0].repMin)
+        assertEquals(5, sets[0].repMax)
+        assertTrue(sets[0].isTopSet)
+        assertEquals(0, sets[1].repMin)
+        assertEquals(0, sets[1].repMax)
+        assertFalse(sets[1].isTopSet)
     }
 
     @Test

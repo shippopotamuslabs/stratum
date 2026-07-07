@@ -318,6 +318,28 @@ class EditWorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("Given a backoff set when rep min changes then state is unchanged (RIR-only sets)")
+    fun setRepMinOnBackoffIsNoOp() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            // ls-2 is the backoff set in wl-1 (isTopSet = false).
+            val backoffSet = loaded.lifts.first().sets.first { !it.isTopSet }
+            val repMinBefore = backoffSet.repMin
+            val repMaxBefore = backoffSet.repMax
+            viewModel.setReps(backoffSet.setId, min = 6)
+            // No state emission expected — backoff sets are RIR-only and not editable.
+            expectNoEvents()
+            val current = viewModel.uiState.value as EditWorkoutUiState.Loaded
+            val currentBackoff = current.lifts.first().sets.first { it.setId == backoffSet.setId }
+            assertEquals(repMinBefore, currentBackoff.repMin)
+            assertEquals(repMaxBefore, currentBackoff.repMax)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given a set when RIR changes then state updates in memory")
     fun setRirGoalUpdatesState() = runTest {
         val viewModel = buildViewModel()

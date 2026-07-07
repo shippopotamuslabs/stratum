@@ -51,6 +51,7 @@
     <string name="edit_workout_column_rir">RIR</string>
     <string name="edit_workout_rep_range_to">to</string>
     <string name="edit_workout_rep_range_max_placeholder">-</string>
+    <string name="edit_workout_rep_range_backoff_placeholder">—</string>
     <string name="edit_workout_rir_sheet_title">RIR targets</string>
     <string name="edit_workout_rir_info_content_description">About RIR targets</string>
     <string name="edit_workout_rir_info_close">Close RIR description</string>
