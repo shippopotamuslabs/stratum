@@ -23,6 +23,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.workout.progression.LinearProgressionConfig
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionState
+import com.stratum.domain.workout.progression.ProgressionBaseline
 import com.stratum.domain.workout.progression.SlotProgressionRequest
 import com.stratum.domain.workout.progression.SchemeTransitionReason
 import com.stratum.domain.workout.progression.StallStrictness
@@ -119,6 +120,36 @@ class Slice4LinearProgressionTest {
                 ),
             ),
         )
+
+    /**
+     * Builds a [SlotProgressionRequest] mirroring what the snapshot use case now produces:
+     * the math baseline is [ProgressionBaseline.FromRecent] pointing at the first history
+     * entry (the most-recent positional actual), so the engine reads it for math while
+     * `history` supplies `previousWeight`/`previousReps` for UI display.
+     */
+    private fun request(
+        slot: SetSlot,
+        history: List<SlotHistoryEntry>,
+        fallbackOneRm: Weight? = null,
+        loadType: com.stratum.domain.lift.LoadType = com.stratum.domain.lift.LoadType.Weighted,
+        currentTopSetWeight: Weight? = null,
+        priorSlotRecommendation: SlotRecommendation? = null,
+        priorSlot: SetSlot? = null,
+        perLiftSlope: Double? = null,
+        perLiftIntercept: Double? = null,
+        baseline: ProgressionBaseline? = history.firstOrNull()?.let { ProgressionBaseline.FromRecent(it) },
+    ): SlotProgressionRequest = SlotProgressionRequest(
+        slot = slot,
+        history = history,
+        fallbackOneRm = fallbackOneRm,
+        loadType = loadType,
+        currentTopSetWeight = currentTopSetWeight,
+        priorSlotRecommendation = priorSlotRecommendation,
+        priorSlot = priorSlot,
+        perLiftSlope = perLiftSlope,
+        perLiftIntercept = perLiftIntercept,
+        progressionBaseline = baseline,
+    )
 
     // --- Enum collapse (3 scenarios) ---
 
@@ -238,8 +269,7 @@ class Slice4LinearProgressionTest {
     fun `S4-linear-increment-when-bottom-at-rir`() {
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-n1"))
-        val recommendation = LinearProgressionEngine(config())
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
         assertEquals(lb(205.0), recommendation.recommendedWeight)
     }
 
@@ -248,8 +278,7 @@ class Slice4LinearProgressionTest {
     fun `S4-linear-hold-when-rir-not-met`() {
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 0, weight = 200.0, sessionId = "s-n1"))
-        val recommendation = LinearProgressionEngine(config())
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
         assertEquals(lb(200.0), recommendation.recommendedWeight)
     }
 
@@ -319,8 +348,7 @@ class Slice4LinearProgressionTest {
         val cfg = config().copy(perLiftIncrementOverride = mapOf(liftId to lb(2.5)))
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 2, weight = 100.0, sessionId = "s-n1"))
-        val recommendation = LinearProgressionEngine(cfg)
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = LinearProgressionEngine(cfg).recommend(request(slot, history))
         // 100.0 + 2.5 override (not the default upper-body increment)
         assertEquals(lb(102.5), recommendation.recommendedWeight)
     }
@@ -355,8 +383,7 @@ class Slice4LinearProgressionTest {
         // 7 − 2 = 5, coerced into [5, 8] → 5.
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 6, rir = 1, weight = 200.0, sessionId = "s-n1"))
-        val recommendation = LinearProgressionEngine(config())
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
         assertEquals(lb(200.0), recommendation.recommendedWeight, "weight held (bottom not met at RIR)")
         assertEquals(5, recommendation.baselineExpectedReps)
     }
@@ -367,8 +394,7 @@ class Slice4LinearProgressionTest {
         // Bottom met at RIR → increment fires → reps reset to repMin (no RIR scaling).
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 7, rir = 3, weight = 200.0, sessionId = "s-n1"))
-        val recommendation = LinearProgressionEngine(config())
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
         assertEquals(lb(205.0), recommendation.recommendedWeight)
         assertEquals(5, recommendation.baselineExpectedReps)
     }
@@ -379,8 +405,7 @@ class Slice4LinearProgressionTest {
         // No RIR signal and weight held → fall back to repMin.
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 6, rir = null, weight = 200.0, sessionId = "s-n1"))
-        val recommendation = LinearProgressionEngine(config())
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
         assertEquals(lb(200.0), recommendation.recommendedWeight)
         assertEquals(5, recommendation.baselineExpectedReps)
     }
@@ -391,8 +416,7 @@ class Slice4LinearProgressionTest {
         // Backoff rirGoal=2. User did 200 × 8 @ RIR 3 (failure capacity 11) → target 9.
         val slot = linearBackoffSlot(rirGoal = 2)
         val history = listOf(historyEntry(reps = 8, rir = 3, weight = 200.0, sessionId = "s-n1"))
-        val recommendation = LinearProgressionEngine(config())
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
         assertEquals(lb(200.0), recommendation.recommendedWeight, "backoff inherits working weight")
         assertEquals(9, recommendation.baselineExpectedReps)
     }
@@ -404,8 +428,7 @@ class Slice4LinearProgressionTest {
         // floored at BACKOFF_REP_FLOOR (5).
         val slot = linearBackoffSlot(rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 1, weight = 200.0, sessionId = "s-n1"))
-        val recommendation = LinearProgressionEngine(config())
-            .recommend(SlotProgressionRequest(slot, history, fallbackOneRm = null))
+        val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
         assertEquals(lb(200.0), recommendation.recommendedWeight)
         assertEquals(5, recommendation.baselineExpectedReps)
     }
@@ -424,29 +447,22 @@ class Slice4LinearProgressionTest {
         val boHistory = listOf(historyEntry(reps = 8, rir = 2, weight = 190.0, sessionId = "s-n2"))
 
         // Recommend for top set first:
-        val topRec = engine.recommend(
-            SlotProgressionRequest(
-                slot = topSlot,
-                history = topHistory,
-                fallbackOneRm = null
-            )
-        )
+        val topRec = engine.recommend(request(topSlot, topHistory))
         // Verify top set progressed to 205 lb and recommended reps is repMin = 5
         assertEquals(lb(205.0), topRec.recommendedWeight)
         assertEquals(5, topRec.baselineExpectedReps)
 
         // Recommend for backoff set passing top set recommended weight and prior slot info
         val boRec = engine.recommend(
-            SlotProgressionRequest(
+            request(
                 slot = boSlot,
                 history = boHistory,
-                fallbackOneRm = null,
                 currentTopSetWeight = topRec.recommendedWeight,
                 priorSlotRecommendation = topRec,
                 priorSlot = topSlot,
                 perLiftSlope = -2.0,
-                perLiftIntercept = 0.0
-            )
+                perLiftIntercept = 0.0,
+            ),
         )
 
         // Verify backoff set inherits 205 lb (straight sets) instead of 190 lb
@@ -460,5 +476,53 @@ class Slice4LinearProgressionTest {
         // minus boSlot.rirGoal (2) = 3.
         // coerced to at least BACKOFF_REP_FLOOR (5) = 5 reps.
         assertEquals(5, boRec.baselineExpectedReps)
+    }
+
+    // --- Reps going up across sets (capacity-ordered recent block) ---
+
+    @Test
+    @DisplayName("S4-linear-reps-rising-across-sets-normalized-to-monotonic")
+    fun `S4-linear-reps-rising-across-sets-normalized-to-monotonic`() {
+        // Same edge case as S2: 240×12 RIR 1, 240×13 RIR 1, 240×15 RIR 0. Capacity-descending
+        // baseline feeds the engine 15/13/12 so recommendations come out monotonic.
+        val engine = LinearProgressionEngine(config())
+        val slot0 = linearSlot(repMin = 8, repMax = 16, rirGoal = 2).copy(position = 0)
+        val slot1 = linearBackoffSlot(rirGoal = 1).copy(
+            slotId = SetSlotId.Template(LiftSetId("ls-2")),
+            repMin = 8, repMax = 16, position = 1,
+        )
+        val slot2 = linearBackoffSlot(rirGoal = 1).copy(
+            slotId = SetSlotId.Template(LiftSetId("ls-3")),
+            repMin = 8, repMax = 16, position = 2,
+        )
+
+        val hist0 = listOf(historyEntry(reps = 12, rir = 1, weight = 240.0, sessionId = "s-n1"))
+        val hist1 = listOf(historyEntry(reps = 13, rir = 1, weight = 240.0, sessionId = "s-n1"))
+        val hist2 = listOf(historyEntry(reps = 15, rir = 0, weight = 240.0, sessionId = "s-n1"))
+
+        val rec0 = engine.recommend(request(slot0, hist0, baseline = ProgressionBaseline.FromRecent(hist2.first())))
+        val rec1 = engine.recommend(
+            request(
+                slot = slot1,
+                history = hist1,
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec0,
+                priorSlot = slot0,
+                baseline = ProgressionBaseline.FromRecent(hist1.first()),
+            ),
+        )
+        val rec2 = engine.recommend(
+            request(
+                slot = slot2,
+                history = hist2,
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec0,
+                priorSlot = slot0,
+                baseline = ProgressionBaseline.FromRecent(hist0.first()),
+            ),
+        )
+
+        assertTrue(rec0.baselineExpectedReps >= rec1.baselineExpectedReps, "rec0 (${rec0.baselineExpectedReps}) >= rec1 (${rec1.baselineExpectedReps})")
+        assertTrue(rec1.baselineExpectedReps >= rec2.baselineExpectedReps, "rec1 (${rec1.baselineExpectedReps}) >= rec2 (${rec2.baselineExpectedReps})")
     }
 }

@@ -19,6 +19,15 @@ data class SlotProgressionRequest(
     val priorSlot: SetSlot? = null,
     val perLiftSlope: Double? = null,
     val perLiftIntercept: Double? = null,
+    /**
+     * Progression-math baseline for this slot, built by the orchestrator from a
+     * capacity-ordered recent-session block. `null` = cold start (no history for this
+     * lift at all). See [ProgressionBaseline] for the two production modes.
+     *
+     * [history] is retained for `previousWeight`/`previousReps` (UI display of what was
+     * actually done at this slot position last time) — it is NOT used for math.
+     */
+    val progressionBaseline: ProgressionBaseline? = null,
 )
 
 /**

@@ -223,8 +223,8 @@ class WorkoutViewModelTest {
                                 workoutLiftId = workoutLiftId,
                                 position = 1,
                                 setType = SetType.Standard,
-                                repMin = 8,
-                                repMax = 12,
+                                repMin = 0,
+                                repMax = 0,
                                 rirGoal = 2,
                                 isTopSet = false,
                             ),
@@ -664,8 +664,12 @@ class WorkoutViewModelTest {
         viewModel.uiState.test {
             val loaded = awaitLoaded()
             val firstSet = loaded.lifts.first().sets.first()
-            assertEquals("135", firstSet.recommendedWeightLabel)
-            assertEquals("5", firstSet.recommendedRepsLabel)
+            // History: slot 0 (top, 4-6 RIR 2) did 135×5 RIR 2; slot 1 (backoff, RIR 2)
+            // did 135×8 RIR 2. Same weight → capacity reorder: the backoff's 8@2 (cap 10)
+            // becomes the top-set baseline. 8 >= repMax 6 at RIR 2 → increment to 140,
+            // reps reset to repMin 4.
+            assertEquals("140", firstSet.recommendedWeightLabel)
+            assertEquals("4", firstSet.recommendedRepsLabel)
             assertNull(firstSet.loggedWeightLabel)
             cancelAndIgnoreRemainingEvents()
         }
@@ -762,10 +766,10 @@ class WorkoutViewModelTest {
                 ls2Set!!.hasLiveRepsRecommendation,
                 "upcoming set must carry a live reps recommendation after a prior completion",
             )
-            // The projected reps must be a concrete value within the backoff slot's
-            // prescribed 8..12 range (the fatigue model clamps to repMin..repMax).
+            // The projected reps must be a concrete positive value (the backoff slot has
+            // no rep range — only a floor and RIR target — so the projection is unclamped).
             val projected = ls2Set.recommendedReps
-            assertTrue(projected in 8..12, "projected reps must clamp to the slot's 8..12 range: $projected")
+            assertTrue(projected > 0, "projected reps must be a concrete positive value: $projected")
             assertEquals(projected.toString(), ls2Set.recommendedRepsLabel)
             cancelAndIgnoreRemainingEvents()
         }
@@ -988,8 +992,9 @@ class WorkoutViewModelTest {
             // The first set repMin=4, repMax=6. With no history, placeholder is "4-6"
             assertEquals("4-6", sets[0].recommendedRepsLabel)
 
-            // The second set repMin=8, repMax=12. With no history, placeholder is "8-12"
-            assertEquals("8-12", sets[1].recommendedRepsLabel)
+            // The second set is a backoff (repMin=0, repMax=0, RIR-only). With no history,
+            // the label is "0" (no rep range on backoff slots — only a floor and RIR target).
+            assertEquals("0", sets[1].recommendedRepsLabel)
 
             // With no history, recommended weight amount is 0.0, so recommendedWeightLabel should be "" (blank)
             assertEquals("", sets[0].recommendedWeightLabel)
