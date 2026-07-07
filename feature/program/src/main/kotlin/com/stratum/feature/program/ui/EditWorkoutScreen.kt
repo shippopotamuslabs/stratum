@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -33,13 +37,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import androidx.annotation.DrawableRes
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
-import com.stratum.core.ui.component.StratumDropdownMenu
-import com.stratum.core.ui.component.StratumDropdownMenuItem
 import com.stratum.core.ui.component.StratumDurationStepper
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
@@ -161,6 +164,7 @@ fun EditWorkoutScreen(
     var restSheetSeconds by remember { mutableIntStateOf(DEFAULT_REST_SECONDS) }
     var rirSheetSet by remember { mutableStateOf<EditSetState?>(null) }
     var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
+    var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
     var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
 
     StratumScaffold(
@@ -221,7 +225,7 @@ fun EditWorkoutScreen(
                             restSheetSeconds = set.restSeconds
                         },
                         onRirClick = { set -> rirSheetSet = set },
-                        onCreateSupersetClick = { liftId -> supersetSheetLiftId = liftId },
+                        onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
                         onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
                         modifier = Modifier.padding(padding),
                     )
@@ -291,6 +295,26 @@ fun EditWorkoutScreen(
         } else {
             supersetSheetLiftId = null
         }
+    }
+
+    liftActionsLiftId?.let { liftId ->
+        val loaded = loadedState ?: return@let
+        val lift = loaded.lifts.firstOrNull { it.workoutLiftId == liftId } ?: return@let
+        LiftActionsBottomSheet(
+            onCreateSuperset = {
+                liftActionsLiftId = null
+                supersetSheetLiftId = liftId
+            },
+            onSwapLift = {
+                liftActionsLiftId = null
+                callbacks.onSwapLiftClick(loaded.workoutId, liftId, lift.liftId, lift.name)
+            },
+            onRemoveLift = {
+                liftActionsLiftId = null
+                callbacks.onRemoveLift(liftId)
+            },
+            onDismiss = { liftActionsLiftId = null },
+        )
     }
 
     if (showDiscardDialog) {
@@ -370,7 +394,7 @@ private fun EditWorkoutContent(
     callbacks: EditWorkoutScreenCallbacks,
     onRestClick: (workoutLiftId: String, EditSetState) -> Unit,
     onRirClick: (EditSetState) -> Unit,
-    onCreateSupersetClick: (workoutLiftId: String) -> Unit,
+    onShowLiftActions: (workoutLiftId: String) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -416,11 +440,7 @@ private fun EditWorkoutContent(
                 allLifts = state.lifts,
                 onAddSet = { callbacks.onAddSet(lift.workoutLiftId) },
                 onRemoveSet = callbacks.onRemoveSet,
-                onRemoveLift = { callbacks.onRemoveLift(lift.workoutLiftId) },
-                onCreateSupersetClick = { onCreateSupersetClick(lift.workoutLiftId) },
-                onSwapLiftClick = {
-                    callbacks.onSwapLiftClick(state.workoutId, lift.workoutLiftId, lift.liftId, lift.name)
-                },
+                onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
                 onRestClick = onRestClick,
                 onRirClick = onRirClick,
                 onSetRepMin = callbacks.onSetRepMin,
@@ -469,9 +489,7 @@ private fun EditLiftPanel(
     allLifts: List<EditLiftState>,
     onAddSet: () -> Unit,
     onRemoveSet: (setId: String) -> Unit,
-    onRemoveLift: () -> Unit,
-    onCreateSupersetClick: () -> Unit,
-    onSwapLiftClick: () -> Unit,
+    onShowLiftActions: () -> Unit,
     onRestClick: (workoutLiftId: String, EditSetState) -> Unit,
     onRirClick: (EditSetState) -> Unit,
     onSetRepMin: (setId: String, repMin: Int) -> Unit,
@@ -479,8 +497,6 @@ private fun EditLiftPanel(
     onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
-
     Column(
         modifier =
             Modifier
@@ -509,44 +525,15 @@ private fun EditLiftPanel(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Box {
-                StratumIconButton(
-                    onClick = { menuExpanded = true },
-                    containerColor = Color.Transparent,
-                ) {
-                    Icon(
-                        painter = painterResource(CoreUiR.drawable.ic_more_vert),
-                        contentDescription = stringResource(R.string.edit_workout_lift_menu),
-                        tint = StratumThemeAccessor.colors.textPrimary,
-                    )
-                }
-                StratumDropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                ) {
-                    StratumDropdownMenuItem(
-                        text = stringResource(R.string.edit_workout_create_superset),
-                        onClick = {
-                            menuExpanded = false
-                            onCreateSupersetClick()
-                        },
-                    )
-                    StratumDropdownMenuItem(
-                        text = stringResource(R.string.edit_workout_swap_lift),
-                        onClick = {
-                            menuExpanded = false
-                            onSwapLiftClick()
-                        },
-                    )
-                    StratumDropdownMenuItem(
-                        text = stringResource(R.string.edit_workout_remove_lift),
-                        onClick = {
-                            menuExpanded = false
-                            onRemoveLift()
-                        },
-                        isDestructive = true,
-                    )
-                }
+            StratumIconButton(
+                onClick = onShowLiftActions,
+                containerColor = Color.Transparent,
+            ) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_more_vert),
+                    contentDescription = stringResource(R.string.edit_workout_lift_menu),
+                    tint = StratumThemeAccessor.colors.textPrimary,
+                )
             }
         }
 
@@ -769,6 +756,84 @@ private fun EditWorkoutDiscardBottomSheet(
             text = stringResource(R.string.edit_workout_discard_cancel),
             onClick = onDismiss,
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun LiftActionsBottomSheet(
+    onCreateSuperset: () -> Unit,
+    onSwapLift: () -> Unit,
+    onRemoveLift: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.edit_workout_lift_menu),
+    ) {
+        LiftActionRow(
+            text = stringResource(R.string.edit_workout_create_superset),
+            leadingIconRes = CoreUiR.drawable.ic_join,
+            onClick = onCreateSuperset,
+        )
+        LiftActionRow(
+            text = stringResource(R.string.edit_workout_swap_lift),
+            leadingIconRes = CoreUiR.drawable.ic_swap_horiz,
+            onClick = onSwapLift,
+        )
+        LiftActionRow(
+            text = stringResource(R.string.edit_workout_remove_lift),
+            leadingIcon = Icons.Outlined.Delete,
+            isDestructive = true,
+            onClick = onRemoveLift,
+        )
+    }
+}
+
+@Composable
+private fun LiftActionRow(
+    text: String,
+    onClick: () -> Unit,
+    @DrawableRes leadingIconRes: Int? = null,
+    leadingIcon: ImageVector? = null,
+    isDestructive: Boolean = false,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val iconTint = if (isDestructive) colors.error else colors.textPrimary
+    val textColor = if (isDestructive) colors.error else colors.textPrimary
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        when {
+            leadingIcon != null ->
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp),
+                )
+            leadingIconRes != null ->
+                Icon(
+                    painter = painterResource(leadingIconRes),
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp),
+                )
+        }
+        Text(
+            text = text,
+            style = StratumThemeAccessor.typography.bodyLarge,
+            color = textColor,
+            modifier = Modifier.weight(1f),
         )
     }
 }

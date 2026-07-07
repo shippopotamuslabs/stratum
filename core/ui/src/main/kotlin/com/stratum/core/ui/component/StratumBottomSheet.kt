@@ -15,6 +15,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
@@ -49,8 +50,12 @@ fun StratumBottomSheet(
             title?.let {
                 StratumText(
                     text = it,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
                     style = StratumThemeAccessor.typography.titleLarge,
+                    textAlign = TextAlign.Center,
                 )
             }
             content()
