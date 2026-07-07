@@ -361,27 +361,10 @@ private fun LiftSection(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(StratumThemeAccessor.shapes.chip)
-                        .background(StratumThemeAccessor.colors.surfaceInset),
-                    contentAlignment = Alignment.Center
-                ) {
-                    StratumText(
-                        text = lift.liftName.take(1).uppercase(),
-                        style = StratumThemeAccessor.typography.titleLarge
-                    )
-                }
-                StratumText(
-                    text = lift.liftName,
-                    style = StratumThemeAccessor.typography.titleLarge,
-                )
-            }
+            StratumText(
+                text = lift.liftName,
+                style = StratumThemeAccessor.typography.titleLarge,
+            )
             Icon(
                 painter = painterResource(CoreUiR.drawable.ic_more_vert),
                 contentDescription = "Lift Options",
