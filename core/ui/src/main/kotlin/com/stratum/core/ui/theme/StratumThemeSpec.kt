@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.sp
 @Immutable
 data class StratumShapes(
     val panel: Shape,
+    val panelCorner: Dp,
     val button: Shape,
     val chip: Shape,
     val chipCorner: Dp,
@@ -80,6 +81,7 @@ internal val DefaultStratumTypography =
 internal fun tonalShapes(): StratumShapes =
     StratumShapes(
         panel = RoundedCornerShape(12.dp),
+        panelCorner = 12.dp,
         button = RoundedCornerShape(12.dp),
         chip = RoundedCornerShape(8.dp),
         chipCorner = 8.dp,
@@ -89,6 +91,7 @@ internal fun tonalShapes(): StratumShapes =
 internal fun neoBrutalistShapes(): StratumShapes =
     StratumShapes(
         panel = RoundedCornerShape(4.dp),
+        panelCorner = 4.dp,
         button = RoundedCornerShape(4.dp),
         chip = RoundedCornerShape(4.dp),
         chipCorner = 4.dp,
