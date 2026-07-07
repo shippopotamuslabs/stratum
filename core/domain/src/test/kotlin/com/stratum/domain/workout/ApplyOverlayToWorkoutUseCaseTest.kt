@@ -1,0 +1,202 @@
+package com.stratum.domain.workout
+
+import com.stratum.domain.program.LiftSet
+import com.stratum.domain.program.Workout
+import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.identity.LiftSetId
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SetType
+import java.time.Instant
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+
+class ApplyOverlayToWorkoutUseCaseTest {
+
+    private val useCase = ApplyOverlayToWorkoutUseCase()
+
+    @Test
+    @DisplayName("Overlay with no edits returns the baseline workout unchanged")
+    fun noEditsReturnsBaseline() {
+        val baseline = sampleWorkout()
+        val result = useCase(baseline, WorkoutOverlay())
+
+        assertEquals(baseline.workoutLifts.size, result.workoutLifts.size)
+        assertEquals(baseline.workoutLifts[0].liftId, result.workoutLifts[0].liftId)
+    }
+
+    @Test
+    @DisplayName("Deleted lifts are removed from the result")
+    fun deletedLiftsRemoved() {
+        val baseline = sampleWorkout()
+        val overlay = WorkoutOverlay(deletedLiftIds = setOf(WorkoutLiftId("wl-1")))
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(1, result.workoutLifts.size)
+        assertEquals(WorkoutLiftId("wl-2"), result.workoutLifts[0].id)
+    }
+
+    @Test
+    @DisplayName("Swapped lifts update the liftId on the workout lift")
+    fun swappedLiftsApplied() {
+        val baseline = sampleWorkout()
+        val newLiftId = LiftId("lift-deadlift")
+        val overlay = WorkoutOverlay(
+            swappedLifts = mapOf(WorkoutLiftId("wl-1") to newLiftId),
+        )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(newLiftId, result.workoutLifts[0].liftId)
+    }
+
+    @Test
+    @DisplayName("Deleted sets are removed from the workout lift")
+    fun deletedSetsRemoved() {
+        val baseline = sampleWorkout()
+        val overlay = WorkoutOverlay(
+            deletedSlotIds = setOf(SetSlotId.Template(LiftSetId("ls-1"))),
+        )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(1, result.workoutLifts[0].sets.size)
+        assertEquals(LiftSetId("ls-2"), result.workoutLifts[0].sets[0].id)
+    }
+
+    @Test
+    @DisplayName("Added sets are appended to the correct workout lift")
+    fun addedSetsAppended() {
+        val baseline = sampleWorkout()
+        val addedSlot = SetSlot(
+            slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-1")),
+            workoutLiftId = WorkoutLiftId("wl-1"),
+            liftId = LiftId("lift-bench"),
+            position = 2,
+            setType = SetType.Standard,
+            isTopSet = false,
+            repMin = 8,
+            repMax = 12,
+            rirGoal = 1,
+            restSeconds = 90,
+        )
+        val overlay = WorkoutOverlay(addedSlots = listOf(addedSlot))
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(3, result.workoutLifts[0].sets.size)
+        val addedSet = result.workoutLifts[0].sets[2]
+        assertEquals(2, addedSet.position)
+        assertEquals(8, addedSet.repMin)
+        assertEquals(12, addedSet.repMax)
+    }
+
+    @Test
+    @DisplayName("Superset group overrides are applied")
+    fun supersetGroupOverridesApplied() {
+        val baseline = sampleWorkout()
+        val groupId = WorkoutSupersetGroupId("ss-1")
+        val overlay = WorkoutOverlay(
+            supersetGroupIdOverrides = mapOf(WorkoutLiftId("wl-1") to groupId),
+        )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(groupId, result.workoutLifts[0].supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("Rest timer overrides are applied")
+    fun restTimerOverridesApplied() {
+        val baseline = sampleWorkout()
+        val overlay = WorkoutOverlay(
+            useRestTimerBetweenLiftsOverrides = mapOf(WorkoutLiftId("wl-1") to true),
+        )
+
+        val result = useCase(baseline, overlay)
+
+        assertTrue(result.workoutLifts[0].useRestTimerBetweenLifts)
+        assertFalse(result.workoutLifts[1].useRestTimerBetweenLifts)
+    }
+
+    @Test
+    @DisplayName("Reorder changes the lift order")
+    fun reorderChangesLiftOrder() {
+        val baseline = sampleWorkout()
+        val overlay = WorkoutOverlay(
+            orderedLiftIds = listOf("wl-2", "wl-1"),
+        )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(WorkoutLiftId("wl-2"), result.workoutLifts[0].id)
+        assertEquals(WorkoutLiftId("wl-1"), result.workoutLifts[1].id)
+    }
+
+    private fun sampleWorkout(): Workout = Workout(
+        id = WorkoutId("w-1"),
+        programId = ProgramId("p-1"),
+        name = "Test Workout",
+        weekday = Weekday.Monday,
+        position = 0,
+        workoutLifts = listOf(
+            WorkoutLift(
+                id = WorkoutLiftId("wl-1"),
+                workoutId = WorkoutId("w-1"),
+                liftId = LiftId("lift-bench"),
+                progressionScheme = ProgressionScheme.Double,
+                position = 0,
+                sets = listOf(
+                    LiftSet(
+                        id = LiftSetId("ls-1"),
+                        workoutLiftId = WorkoutLiftId("wl-1"),
+                        position = 0,
+                        setType = SetType.Standard,
+                        repMin = 6,
+                        repMax = 10,
+                        rirGoal = 2,
+                        isTopSet = true,
+                    ),
+                    LiftSet(
+                        id = LiftSetId("ls-2"),
+                        workoutLiftId = WorkoutLiftId("wl-1"),
+                        position = 1,
+                        setType = SetType.Standard,
+                        repMin = 6,
+                        repMax = 10,
+                        rirGoal = 2,
+                        isTopSet = false,
+                    ),
+                ),
+            ),
+            WorkoutLift(
+                id = WorkoutLiftId("wl-2"),
+                workoutId = WorkoutId("w-1"),
+                liftId = LiftId("lift-squat"),
+                progressionScheme = ProgressionScheme.Double,
+                position = 1,
+                sets = listOf(
+                    LiftSet(
+                        id = LiftSetId("ls-3"),
+                        workoutLiftId = WorkoutLiftId("wl-2"),
+                        position = 0,
+                        setType = SetType.Standard,
+                        repMin = 5,
+                        repMax = 5,
+                        rirGoal = 1,
+                        isTopSet = true,
+                    ),
+                ),
+            ),
+        ),
+    )
+}

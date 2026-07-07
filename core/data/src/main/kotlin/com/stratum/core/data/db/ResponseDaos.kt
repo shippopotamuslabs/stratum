@@ -1,15 +1,13 @@
 package com.stratum.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 
 @Dao
 interface ResponseEpochDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<ResponseEpochEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<ResponseEpochEntity>)
 
     @Query("DELETE FROM response_epochs")
     suspend fun deleteAll()
@@ -20,8 +18,8 @@ interface ResponseEpochDao {
 
 @Dao
 interface VolumeResponseObservationDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<VolumeResponseObservationEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<VolumeResponseObservationEntity>)
 
     @Query("DELETE FROM volume_response_observations")
     suspend fun deleteAll()
@@ -32,8 +30,8 @@ interface VolumeResponseObservationDao {
 
 @Dao
 interface LiftEffectivenessObservationDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<LiftEffectivenessObservationEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<LiftEffectivenessObservationEntity>)
 
     @Query("DELETE FROM lift_effectiveness_observations")
     suspend fun deleteAll()
@@ -44,8 +42,8 @@ interface LiftEffectivenessObservationDao {
 
 @Dao
 interface ExperimentBlockDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<ExperimentBlockEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<ExperimentBlockEntity>)
 
     @Query("DELETE FROM experiment_blocks")
     suspend fun deleteAll()

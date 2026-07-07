@@ -20,7 +20,7 @@ class RoomProgramChangeEventRepository @Inject constructor(
     private val dao: ProgramChangeEventDao,
 ) : ProgramChangeEventRepository {
     override suspend fun append(event: ProgramChangeEvent) {
-        dao.insert(event.toEntity())
+        dao.upsert(event.toEntity())
     }
 
     override suspend fun getEventsForProgram(programId: ProgramId, since: Instant?): List<ProgramChangeEvent> {

@@ -143,7 +143,7 @@ class EditWorkoutViewModelSchemeToggleTest {
             // Edit only a set's repMin — no scheme change. isDirty becomes true but no
             // SchemeChanged event should be appended on save.
             val setId = loaded.lifts.first().sets.first().setId
-            viewModel.setRepMin(setId, 6)
+            viewModel.setReps(setId, min = 6)
             awaitItem()
             viewModel.saveWorkout()
             awaitItem()

@@ -146,7 +146,7 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.setRestSecondsForAllSetsOnLift(WORKOUT_LIFT_ID, 90)
+            viewModel.setRestSeconds(setId = null, workoutLiftId = WORKOUT_LIFT_ID, restSeconds = 90)
             val updated = awaitItem() as EditWorkoutUiState.Loaded
             assertTrue(updated.lifts.first().sets.all { set -> set.restSeconds == 90 })
             cancelAndIgnoreRemainingEvents()
@@ -207,6 +207,55 @@ class EditWorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("Given loaded workout when session reorder confirmed then template lifts are reordered")
+    fun reorderConfirmedUpdatesTemplateLifts() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            assertEquals("bench-press", initial.lifts[0].liftId)
+            assertEquals("incline-press", initial.lifts[1].liftId)
+
+            // Verify starting reorder populates the session
+            viewModel.startReorderLifts()
+            val reorderLifts = workoutEditSession.getReorderLifts()
+            assertEquals(2, reorderLifts.size)
+            assertEquals("wl-1", reorderLifts[0].workoutLiftId)
+            assertEquals("wl-2", reorderLifts[1].workoutLiftId)
+
+            // Confirm a reordered sequence
+            workoutEditSession.confirmReorder(WORKOUT_ID, listOf("wl-2", "wl-1"))
+            val updated = awaitItem() as EditWorkoutUiState.Loaded
+            assertTrue(updated.isDirty)
+            assertEquals("incline-press", updated.lifts[0].liftId)
+            assertEquals("bench-press", updated.lifts[1].liftId)
+            assertEquals(0, updated.lifts[0].position)
+            assertEquals(1, updated.lifts[1].position)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given loaded workout when session reorder cancelled/ignored then template lifts order is unchanged")
+    fun reorderCancelledKeepsTemplateLiftsOrder() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            assertEquals("bench-press", initial.lifts[0].liftId)
+            assertEquals("incline-press", initial.lifts[1].liftId)
+
+            viewModel.startReorderLifts()
+            // No confirm event emitted (e.g. user pops back stack on Cancel)
+            // Assert that state remains dirty=false and order is unchanged
+            assertFalse(initial.isDirty)
+            assertEquals("bench-press", initial.lifts[0].liftId)
+            assertEquals("incline-press", initial.lifts[1].liftId)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given a lift when removeLift then it is removed from the list")
     fun removeLift() = runTest {
         val viewModel = buildViewModel()
@@ -261,7 +310,7 @@ class EditWorkoutViewModelTest {
         viewModel.uiState.test {
             val loaded = awaitLoaded()
             val setId = loaded.lifts.first().sets.first().setId
-            viewModel.setRepMin(setId, 6)
+            viewModel.setReps(setId, min = 6)
             val updated = awaitItem() as EditWorkoutUiState.Loaded
             assertEquals(6, updated.lifts.first().sets.first().repMin)
             cancelAndIgnoreRemainingEvents()
@@ -340,7 +389,7 @@ class EditWorkoutViewModelTest {
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
             awaitLoaded()
-            viewModel.setRestSecondsForAllSetsOnLift(WORKOUT_LIFT_ID, 45)
+            viewModel.setRestSeconds(setId = null, workoutLiftId = WORKOUT_LIFT_ID, restSeconds = 45)
             awaitItem()
             viewModel.saveWorkout()
             val saved = awaitItem() as EditWorkoutUiState.Loaded

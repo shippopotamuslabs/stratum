@@ -82,6 +82,7 @@ fun EditWorkoutRoute(
     workoutId: String,
     onBackClick: () -> Unit,
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
+    onReorderLiftsClick: (workoutId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: EditWorkoutViewModel = hiltViewModel(),
 ) {
@@ -132,10 +133,14 @@ fun EditWorkoutRoute(
                 onLinkSupersetWithPrevious = { viewModel.linkSuperset(it, SupersetLinkDirection.Previous) },
                 onLinkSupersetWithNext = { viewModel.linkSuperset(it, SupersetLinkDirection.Next) },
                 onRemoveFromSuperset = viewModel::removeFromSuperset,
-                onSetRestSeconds = viewModel::setRestSeconds,
-                onSetRestSecondsForAllSetsOnLift = viewModel::setRestSecondsForAllSetsOnLift,
-                onSetRepMin = viewModel::setRepMin,
-                onSetRepMax = viewModel::setRepMax,
+                onSetRestSeconds = { id, value ->
+                    viewModel.setRestSeconds(setId = id, workoutLiftId = null, restSeconds = value)
+                },
+                onSetRestSecondsForAllSetsOnLift = { id, value ->
+                    viewModel.setRestSeconds(setId = null, workoutLiftId = id, restSeconds = value)
+                },
+                onSetRepMin = { id, value -> viewModel.setReps(id, min = value) },
+                onSetRepMax = { id, value -> viewModel.setReps(id, max = value) },
                 onSetRirGoal = viewModel::setRirGoal,
                 onSetUseRestTimerBetweenLifts = viewModel::setUseRestTimerBetweenLifts,
                 onSetProgressionScheme = viewModel::setProgressionScheme,
@@ -148,6 +153,10 @@ fun EditWorkoutRoute(
                     )
                 },
                 onSwapLiftClick = onSwapLiftClick,
+                onReorderLiftsClick = {
+                    viewModel.startReorderLifts()
+                    onReorderLiftsClick(workoutId)
+                },
             ),
         modifier = modifier,
     )
@@ -316,6 +325,10 @@ fun EditWorkoutScreen(
             onRemoveLift = {
                 liftActionsLiftId = null
                 callbacks.onRemoveLift(liftId)
+            },
+            onReorderLifts = {
+                liftActionsLiftId = null
+                callbacks.onReorderLiftsClick()
             },
             onDismiss = { liftActionsLiftId = null },
         )

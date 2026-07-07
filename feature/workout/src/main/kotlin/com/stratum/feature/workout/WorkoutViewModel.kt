@@ -21,11 +21,15 @@ import com.stratum.core.ui.component.linkSupersetWithAdjacent
 import com.stratum.core.ui.component.unlinkLiftFromSuperset
 import com.stratum.core.ui.component.cleanupSupersetGroups
 import com.stratum.domain.training.DeleteLoggedSetUseCase
+import com.stratum.domain.training.FinalizeTrainingSessionUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetCommand
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.domain.program.SaveWorkoutUseCase
+import com.stratum.domain.program.Workout
+import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
 import com.stratum.domain.workout.LoggedSetValue
@@ -79,6 +83,9 @@ class WorkoutViewModel @Inject constructor(
     private val getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
     private val deleteLoggedSet: DeleteLoggedSetUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
+    private val finalizeTrainingSession: FinalizeTrainingSessionUseCase,
+    private val applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
+    private val saveWorkoutUseCase: SaveWorkoutUseCase,
     private val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     private val logErrorUseCase: LogErrorUseCase,
     private val workoutEditSession: WorkoutEditSession,
@@ -91,6 +98,11 @@ class WorkoutViewModel @Inject constructor(
                     is EditSessionEvent.LiftSelected -> {
                         if (event.workoutId == activeWorkoutId?.value && event.workoutLiftId != null) {
                             swapLift(WorkoutLiftId(event.workoutLiftId!!), LiftId(event.liftId))
+                        }
+                    }
+                    is EditSessionEvent.LiftsReordered -> {
+                        if (event.workoutId == activeWorkoutId?.value) {
+                            reorderLifts(event.orderedWorkoutLiftIds)
                         }
                     }
                 }
@@ -115,6 +127,7 @@ class WorkoutViewModel @Inject constructor(
     private var liftsById: Map<LiftId, com.stratum.domain.lift.Lift> = emptyMap()
     private var fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap()
     private var snapshotLoaded = false
+    private var baselineWorkout: Workout? = null
 
     fun startSession(workoutId: WorkoutId) {
         if (activeWorkoutId == workoutId && snapshotLoaded) return
@@ -143,12 +156,14 @@ class WorkoutViewModel @Inject constructor(
                         structure = null
                         snapshotBySlot = emptyMap()
                         overlay = WorkoutOverlay()
+                        baselineWorkout = null
                         _uiState.value = WorkoutUiState.NoActiveSession
                         return@collect
                     }
                     cachedSessionId = session.id
                     sessionStartedAt = session.startedAt
                     val workout = program.workouts.firstOrNull { it.id == workoutId } ?: return@collect
+                    baselineWorkout = workout
                     if (!snapshotLoaded) {
                         val projected = projectStructure(
                             workout,
@@ -358,6 +373,18 @@ class WorkoutViewModel @Inject constructor(
         render()
     }
 
+    fun startReorderLifts() {
+        val currentRendered = merge()
+        val items = currentRendered.lifts.map { com.stratum.domain.workout.ReorderLiftItem(it.workoutLiftId.value, it.liftName) }
+        workoutEditSession.setReorderLifts(items)
+    }
+
+    fun reorderLifts(orderedWorkoutLiftIds: List<String>) {
+        overlay = overlay.copy(orderedLiftIds = orderedWorkoutLiftIds)
+        recomputeRecommendations()
+        render()
+    }
+
     fun removeLift(workoutLiftId: WorkoutLiftId) {
         val currentLifts = getLinkableLifts().filterNot { it.workoutLiftId == workoutLiftId.value }
         val cleaned = cleanupSupersetGroups(currentLifts)
@@ -436,9 +463,18 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun finalizeSession() {
-        val session = currentSessionId() ?: return
-        viewModelScope.launch { _events.send(WorkoutUiEvent.NavigateToFinalize(session.value)) }
+    fun completeWorkout(saveTemplate: Boolean) {
+        val sessionId = currentSessionId() ?: return
+        val workoutId = activeWorkoutId ?: return
+        val workout = baselineWorkout
+        viewModelScope.launch {
+            if (saveTemplate && workout != null) {
+                val updated = applyOverlayToWorkout(workout, overlay)
+                saveWorkoutUseCase(workoutId, updated)
+            }
+            finalizeTrainingSession(sessionId)
+            _events.send(WorkoutUiEvent.NavigateToFinalize(sessionId.value))
+        }
     }
 
     fun abandonSession() {
@@ -532,7 +568,16 @@ class WorkoutViewModel @Inject constructor(
     private fun render() {
         val rendered = merge()
         val startedAtMilli = sessionStartedAt?.toEpochMilli() ?: java.time.Instant.now().toEpochMilli()
-        _uiState.value = WorkoutUiMapper.map(rendered, startedAtMilli)
+        val hasIncompleteLifts = rendered.lifts.any { lift ->
+            lift.sets.any { it.loggedValue == null }
+        }
+        val hasDirtyEdits = overlay.isDirty
+        _uiState.value = WorkoutUiMapper.map(
+            rendered,
+            startedAtMilli,
+            hasIncompleteLifts = hasIncompleteLifts,
+            hasDirtyEdits = hasDirtyEdits,
+        )
     }
 
     private fun resolveSlot(slotId: SetSlotId): SetSlot? {

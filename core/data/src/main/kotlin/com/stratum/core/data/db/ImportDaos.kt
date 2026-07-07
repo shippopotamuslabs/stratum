@@ -1,12 +1,9 @@
 package com.stratum.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import com.stratum.domain.lift.identity.LiftId
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ImportJobDao {
@@ -29,8 +26,8 @@ interface ImportJobDao {
 
 @Dao
 interface LiftTrainingInsightsDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<LiftTrainingInsightsEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<LiftTrainingInsightsEntity>)
 
     @Query("DELETE FROM lift_training_insights")
     suspend fun deleteAll()
@@ -44,8 +41,8 @@ interface LiftTrainingInsightsDao {
 
 @Dao
 interface SupersetAffinityDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<SupersetAffinityEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<SupersetAffinityEntity>)
 
     @Query("DELETE FROM superset_affinities")
     suspend fun deleteAll()
@@ -56,8 +53,8 @@ interface SupersetAffinityDao {
 
 @Dao
 interface MuscleVolumeBaselineDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<MuscleVolumeBaselineEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<MuscleVolumeBaselineEntity>)
 
     @Query("DELETE FROM muscle_volume_baselines")
     suspend fun deleteAll()

@@ -30,7 +30,7 @@ data class ProgramViewState(
 )
 
 sealed interface ScheduleItemState {
-    data class RestDay(val weekdayLabel: String) : ScheduleItemState
+    data class RestDay(val weekdayLabel: String, val isCompleted: Boolean = false) : ScheduleItemState
 
     data class Workout(val workout: WorkoutViewState) : ScheduleItemState
 }
@@ -42,6 +42,7 @@ data class WorkoutViewState(
     val position: Int,
     val lifts: List<WorkoutLiftLineState>,
     val isCompleted: Boolean = false,
+    val isActiveWorkout: Boolean = false,
 )
 
 /** Structured lift summary rendered as a two-row sub card on workout cards. */

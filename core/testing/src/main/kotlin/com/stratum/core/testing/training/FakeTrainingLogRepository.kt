@@ -31,6 +31,7 @@ class FakeTrainingLogRepository(
     private val activeSessionFlow = MutableStateFlow<TrainingSession?>(
         initialSessions.firstOrNull { it.status == TrainingSessionStatus.IN_PROGRESS },
     )
+    private val sessionsFlow = MutableStateFlow(sessions.values.toList())
 
     var insertSetCallCount: Int = 0
 
@@ -93,8 +94,11 @@ class FakeTrainingLogRepository(
 
     override fun observeActiveSession(): Flow<TrainingSession?> = activeSessionFlow.asStateFlow()
 
+    override fun observeAllSessions(): Flow<List<TrainingSession>> = sessionsFlow.asStateFlow()
+
     private fun refreshActiveSession() {
         activeSessionFlow.value = sessions.values.firstOrNull { it.status == TrainingSessionStatus.IN_PROGRESS }
+        sessionsFlow.value = sessions.values.toList()
     }
 
     override suspend fun insertSession(session: TrainingSession) {

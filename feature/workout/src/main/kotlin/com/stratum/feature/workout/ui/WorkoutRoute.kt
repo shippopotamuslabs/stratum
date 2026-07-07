@@ -35,6 +35,7 @@ fun WorkoutRoute(
     onNavigateBack: () -> Unit,
     onNavigateToFinalize: (sessionId: String) -> Unit,
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
+    onReorderLiftsClick: (workoutId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: WorkoutViewModel = hiltViewModel(),
 ) {
@@ -60,7 +61,7 @@ fun WorkoutRoute(
         is WorkoutUiState.Loaded -> WorkoutScreen(
             state = state,
             onNavigateBack = onNavigateBack,
-            onFinalize = viewModel::finalizeSession,
+            onCompleteWorkout = viewModel::completeWorkout,
             onAbandon = viewModel::abandonSession,
             onLogSet = viewModel::logSet,
             onUnlogSet = viewModel::unlogSet,
@@ -70,6 +71,10 @@ fun WorkoutRoute(
             onRemoveFromSuperset = { liftId -> viewModel.removeFromSuperset(WorkoutLiftId(liftId)) },
             onSetUseRestTimerBetweenLifts = { liftId, enabled -> viewModel.setUseRestTimerBetweenLifts(WorkoutLiftId(liftId), enabled) },
             onRemoveLift = { liftId -> viewModel.removeLift(WorkoutLiftId(liftId)) },
+            onReorderLiftsClick = {
+                viewModel.startReorderLifts()
+                onReorderLiftsClick(workoutId)
+            },
             modifier = modifier
         )
     }

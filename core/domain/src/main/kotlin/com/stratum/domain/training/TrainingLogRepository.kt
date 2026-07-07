@@ -6,6 +6,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
+@Suppress("TooManyFunctions")
 interface TrainingLogRepository {
     suspend fun replaceAll(sessions: List<TrainingSession>, sets: List<LoggedSet>)
     suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>)
@@ -19,6 +20,7 @@ interface TrainingLogRepository {
     suspend fun getCompletedSessionsForCycle(programId: ProgramId, cycleNumber: Int): List<TrainingSession>
     suspend fun getActiveSession(): TrainingSession?
     fun observeActiveSession(): Flow<TrainingSession?>
+    fun observeAllSessions(): Flow<List<TrainingSession>>
     suspend fun insertSession(session: TrainingSession)
     suspend fun updateSession(session: TrainingSession)
     suspend fun deleteSession(id: TrainingSessionId)

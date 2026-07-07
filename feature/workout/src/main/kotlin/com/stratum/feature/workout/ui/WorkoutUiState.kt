@@ -16,6 +16,8 @@ sealed interface WorkoutUiState {
         val lifts: List<RenderedLiftUi>,
         val isFinalizing: Boolean,
         val sessionStartedAtEpochMilli: Long,
+        val hasIncompleteLifts: Boolean = false,
+        val hasDirtyEdits: Boolean = false,
     ) : WorkoutUiState
 
     data class Error(val message: String) : WorkoutUiState

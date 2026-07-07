@@ -41,4 +41,8 @@
     <string name="edit_workout_swap_lift">Swap</string>
     <string name="edit_workout_remove_lift">Remove</string>
     <string name="edit_workout_use_rest_timer_between_lifts">Use rest timer between lifts</string>
+    <string name="edit_workout_reorder_lifts">Reorder Lifts</string>
+    <string name="reorder_lifts_title">Reorder Lifts</string>
+    <string name="reorder_lifts_cancel">Cancel</string>
+    <string name="reorder_lifts_confirm">Confirm</string>
 </resources>
