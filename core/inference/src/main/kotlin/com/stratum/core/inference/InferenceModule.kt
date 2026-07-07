@@ -8,6 +8,7 @@ import com.stratum.domain.importing.LiftNameEmbeddingPort
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.generation.naming.ProgramNamingPort
 import com.stratum.domain.program.generation.swap.LiftSwapPort
+import com.stratum.domain.program.importing.ProgramTemplateImportPort
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -50,6 +51,12 @@ abstract class InferenceModule {
     @Binds
     @Singleton
     abstract fun bindProgramNamingPort(impl: FirebaseProgramNamingAdapter): ProgramNamingPort
+
+    @Binds
+    @Singleton
+    abstract fun bindProgramTemplateImportPort(
+        impl: FirebaseProgramTemplateImportAdapter,
+    ): ProgramTemplateImportPort
 
     @Binds
     @Singleton

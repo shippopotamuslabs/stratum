@@ -21,6 +21,7 @@ data class OnboardingUiState(
     val generateProgress: ProgramGenerationProgressUi? = null,
     val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
+    val importProgramState: ImportProgramState = ImportProgramState.Idle,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast
@@ -107,6 +108,30 @@ enum class SessionLengthErrorKind {
  * `isComplete` flips and the existing `LaunchedEffect(state.isComplete)` consumes it.
  */
 enum class GenerateState { Idle, Loading, Error }
+
+/**
+ * State of the "Import Existing" program flow on the Generate step. `Idle` shows both CTAs;
+ * `Loading` shows phase copy; `Error` offers retry (choose another file) + back. `Rejected` is a
+ * distinct error for files the server determined are not a program. Success is implicit — the
+ * wizard's `isComplete` flips just like generation.
+ */
+sealed interface ImportProgramState {
+    data object Idle : ImportProgramState
+    data class Loading(val phase: ImportProgramPhaseUi) : ImportProgramState
+    data class Error(val message: String?) : ImportProgramState
+    data class Rejected(val message: String?) : ImportProgramState
+}
+
+/** Presentation phases for program-template import (mirrors the domain enum without leaking it). */
+enum class ImportProgramPhaseUi {
+    Uploading,
+    Sniffing,
+    Parsing,
+    ScriptGenerating,
+    ScriptTesting,
+    MatchingCatalog,
+    Complete,
+}
 
 /**
  * UI-shaped snapshot of the Specialization step (OS-3).

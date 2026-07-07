@@ -56,5 +56,6 @@ internal fun buildOnboardingUiState(
         generateProgress = ephemeral.generateProgress,
         generateMaxTimelineIndex = ephemeral.generateMaxTimelineIndex,
         generateErrorMessage = ephemeral.generateErrorMessage,
+        importProgramState = ephemeral.importProgramState,
     )
 }
