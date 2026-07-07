@@ -81,10 +81,18 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
             )
         }
+        val sortedLifts = if (overlay.orderedLiftIds != null) {
+            lifts.sortedBy { lift ->
+                val index = overlay.orderedLiftIds.indexOf(lift.workoutLiftId.value)
+                if (index != -1) index else Int.MAX_VALUE
+            }
+        } else {
+            lifts
+        }
         return RenderedWorkout(
             workoutId = structure.workoutId,
             workoutName = structure.workoutName,
-            lifts = lifts,
+            lifts = sortedLifts,
         )
     }
 }

@@ -1,9 +1,8 @@
 package com.stratum.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -17,6 +16,6 @@ interface SpecializationPreferenceDao {
     @Query("DELETE FROM specialization_preference")
     suspend fun clear()
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<SpecializationPreferenceEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<SpecializationPreferenceEntity>)
 }

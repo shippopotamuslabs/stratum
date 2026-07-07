@@ -25,4 +25,5 @@ data class EditWorkoutScreenCallbacks(
     val onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit = { _, _ -> },
     val onSaveWorkout: () -> Unit = {},
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },
+    val onReorderLiftsClick: () -> Unit = {},
 )

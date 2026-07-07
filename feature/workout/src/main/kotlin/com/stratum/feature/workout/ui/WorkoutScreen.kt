@@ -118,7 +118,7 @@ private val bodyweightRowWeights = SetRowWeights(
 fun WorkoutScreen(
     state: WorkoutUiState.Loaded,
     onNavigateBack: () -> Unit,
-    onFinalize: () -> Unit,
+    onCompleteWorkout: (saveTemplate: Boolean) -> Unit,
     onAbandon: () -> Unit,
     onLogSet: (String, Weight, Int, Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
@@ -128,6 +128,7 @@ fun WorkoutScreen(
     onRemoveFromSuperset: (String) -> Unit,
     onSetUseRestTimerBetweenLifts: (String, Boolean) -> Unit,
     onRemoveLift: (String) -> Unit,
+    onReorderLiftsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var remainingRestSeconds by rememberSaveable { mutableIntStateOf(0) }
@@ -137,6 +138,8 @@ fun WorkoutScreen(
     var showDiscardDialog by remember { mutableStateOf(false) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
     var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
+    var showCompleteSheet by remember { mutableStateOf(false) }
+    var completeSheetPhase by remember { mutableStateOf(CompleteSheetPhase.Incomplete) }
 
     var elapsedTimeStr by remember(state.sessionStartedAtEpochMilli) { mutableStateOf("00:00") }
     LaunchedEffect(state.sessionStartedAtEpochMilli) {
@@ -198,8 +201,18 @@ fun WorkoutScreen(
                 },
                 actions = {
                     StratumTopBarTextButton(
-                        text = "Finish",
-                        onClick = onFinalize
+                        text = stringResource(R.string.workout_screen_complete),
+                        onClick = {
+                            if (!state.hasIncompleteLifts && !state.hasDirtyEdits) {
+                                onCompleteWorkout(false)
+                            } else if (state.hasIncompleteLifts) {
+                                completeSheetPhase = CompleteSheetPhase.Incomplete
+                                showCompleteSheet = true
+                            } else {
+                                completeSheetPhase = CompleteSheetPhase.SaveChanges
+                                showCompleteSheet = true
+                            }
+                        }
                     )
                 }
             )
@@ -305,6 +318,10 @@ fun WorkoutScreen(
                     liftActionsLiftId = null
                     onRemoveLift(liftId)
                 },
+                onReorderLifts = {
+                    liftActionsLiftId = null
+                    onReorderLiftsClick()
+                },
                 onDismiss = { liftActionsLiftId = null }
             )
         } else {
@@ -340,6 +357,30 @@ fun WorkoutScreen(
         } else {
             supersetSheetLiftId = null
         }
+    }
+
+    if (showCompleteSheet) {
+        CompleteWorkoutSheet(
+            phase = completeSheetPhase,
+            onContinueWorkout = { showCompleteSheet = false },
+            onCompleteWorkout = {
+                if (completeSheetPhase == CompleteSheetPhase.Incomplete && state.hasDirtyEdits) {
+                    completeSheetPhase = CompleteSheetPhase.SaveChanges
+                } else {
+                    showCompleteSheet = false
+                    onCompleteWorkout(false)
+                }
+            },
+            onUpdateTemplate = {
+                showCompleteSheet = false
+                onCompleteWorkout(true)
+            },
+            onDiscardChanges = {
+                showCompleteSheet = false
+                onCompleteWorkout(false)
+            },
+            onDismiss = { showCompleteSheet = false },
+        )
     }
 }
 
@@ -904,4 +945,67 @@ private fun formatRestDisplay(seconds: Int): String {
     val s = seconds % 60
     val sStr = s.toString().padStart(2, '0')
     return "$m:$sStr"
+}
+
+enum class CompleteSheetPhase { Incomplete, SaveChanges }
+
+@Composable
+private fun CompleteWorkoutSheet(
+    phase: CompleteSheetPhase,
+    onContinueWorkout: () -> Unit,
+    onCompleteWorkout: () -> Unit,
+    onUpdateTemplate: () -> Unit,
+    onDiscardChanges: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    StratumBottomSheet(onDismissRequest = onDismiss) {
+        when (phase) {
+            CompleteSheetPhase.Incomplete -> {
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_incomplete_title),
+                    style = StratumThemeAccessor.typography.titleLarge,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_incomplete_message),
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    muted = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                StratumButton(
+                    text = stringResource(R.string.workout_sheet_continue_workout),
+                    onClick = onContinueWorkout,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                StratumOutlinedButton(
+                    text = stringResource(R.string.workout_sheet_complete_workout),
+                    onClick = onCompleteWorkout,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            CompleteSheetPhase.SaveChanges -> {
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_save_changes_title),
+                    style = StratumThemeAccessor.typography.titleLarge,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_save_changes_message),
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    muted = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                StratumButton(
+                    text = stringResource(R.string.workout_sheet_update_template),
+                    onClick = onUpdateTemplate,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                StratumOutlinedButton(
+                    text = stringResource(R.string.workout_sheet_discard_changes),
+                    onClick = onDiscardChanges,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
 }

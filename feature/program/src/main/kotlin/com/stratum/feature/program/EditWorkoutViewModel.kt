@@ -61,6 +61,11 @@ class EditWorkoutViewModel @Inject constructor(
                             handleLiftSelected(event.workoutLiftId, event.liftId)
                         }
                     }
+                    is EditSessionEvent.LiftsReordered -> {
+                        if (event.workoutId == targetWorkoutId.value) {
+                            handleLiftsReordered(event.orderedWorkoutLiftIds)
+                        }
+                    }
                 }
             }
         }
@@ -224,6 +229,21 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
+    fun startReorderLifts() {
+        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
+        val items = loaded.lifts.map { com.stratum.domain.workout.ReorderLiftItem(it.workoutLiftId, it.name) }
+        workoutEditSession.setReorderLifts(items)
+    }
+
+    private fun handleLiftsReordered(orderedWorkoutLiftIds: List<String>) {
+        updateLoaded { loaded ->
+            val liftById = loaded.lifts.associateBy { it.workoutLiftId }
+            val reordered = orderedWorkoutLiftIds.mapNotNull { liftById[it] }
+                .mapIndexed { index, lift -> lift.copy(position = index) }
+            loaded.copy(lifts = reordered)
+        }
+    }
+
     private fun handleLiftSelected(workoutLiftId: String?, liftId: String) {
         val liftName = catalogLifts.firstOrNull { it.id.value == liftId }?.name ?: PLACEHOLDER_LIFT_NAME
         val isCompound = catalogLifts.firstOrNull { it.id.value == liftId }?.isCompound ?: false
@@ -354,16 +374,12 @@ class EditWorkoutViewModel @Inject constructor(
         }
     }
 
-    fun setRestSeconds(setId: String, restSeconds: Int) {
-        updateSet(setId) { set -> set.copy(restSeconds = restSeconds.coerceAtLeast(0)) }
-    }
-
-    fun setRestSecondsForAllSetsOnLift(workoutLiftId: String, restSeconds: Int) {
+    fun setRestSeconds(setId: String?, workoutLiftId: String?, restSeconds: Int) {
         val clamped = restSeconds.coerceAtLeast(0)
-        updateLoaded { loaded ->
-            loaded.copy(
-                lifts =
-                    loaded.lifts.map { lift ->
+        if (workoutLiftId != null) {
+            updateLoaded { loaded ->
+                loaded.copy(
+                    lifts = loaded.lifts.map { lift ->
                         if (lift.workoutLiftId != workoutLiftId) {
                             lift
                         } else {
@@ -372,22 +388,26 @@ class EditWorkoutViewModel @Inject constructor(
                             )
                         }
                     },
-            )
+                )
+            }
+        } else if (setId != null) {
+            updateSet(setId) { set -> set.copy(restSeconds = clamped) }
         }
     }
 
-    fun setRepMin(setId: String, repMin: Int) {
+    fun setReps(setId: String, min: Int? = null, max: Int? = null) {
         updateSet(setId) { set ->
-            val clamped = repMin.coerceAtLeast(0)
-            val repMax = if (set.repMax in 1..<clamped) clamped else set.repMax
-            set.copy(repMin = clamped, repMax = repMax)
-        }
-    }
-
-    fun setRepMax(setId: String, repMax: Int) {
-        updateSet(setId) { set ->
-            val clamped = repMax.coerceAtLeast(0)
-            set.copy(repMax = clamped)
+            var next = set
+            if (min != null) {
+                val clampedMin = min.coerceAtLeast(0)
+                val repMax = if (next.repMax in 1..<clampedMin) clampedMin else next.repMax
+                next = next.copy(repMin = clampedMin, repMax = repMax)
+            }
+            if (max != null) {
+                val clampedMax = max.coerceAtLeast(0)
+                next = next.copy(repMax = clampedMax)
+            }
+            next
         }
     }
 

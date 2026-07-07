@@ -87,4 +87,16 @@
     <string name="edit_workout_progression_scheme_eligibility_body">Only compound lifts can use Linear. Isolation lifts always use Double progression.</string>
     <string name="edit_workout_progression_scheme_graduation_body">After two reset cycles on Linear, Stratum automatically moves the lift to Double progression.</string>
     <string name="confirm_discard_dialog_body_text">This will permanently delete the current training session and all logged sets. Are you sure?</string>
+
+    <!-- Un-skip workout warning -->
+    <string name="programs_unskip_warning_title">Reset Workout?</string>
+    <string name="programs_unskip_warning_body">This will delete all logged sets for this workout and reset it to uncompleted.</string>
+    <string name="programs_unskip_confirm">Reset</string>
+    <string name="programs_unskip_cancel">Cancel</string>
+
+    <!-- Start enforcement (active workout exists) -->
+    <string name="programs_start_discard_title">Discard Current Workout?</string>
+    <string name="programs_start_discard_body">This will discard the current workout. Continue?</string>
+    <string name="programs_start_discard_confirm">Discard and Start</string>
+    <string name="programs_start_discard_cancel">Cancel</string>
 </resources>

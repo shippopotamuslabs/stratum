@@ -1,14 +1,13 @@
 package com.stratum.core.data.db
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 
 @Dao
 interface MuscleWeeklyStimulusDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<MuscleWeeklyStimulusEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<MuscleWeeklyStimulusEntity>)
 
     @Query("DELETE FROM muscle_weekly_stimulus")
     suspend fun deleteAll()
@@ -19,8 +18,8 @@ interface MuscleWeeklyStimulusDao {
 
 @Dao
 interface LiftWeeklyPerformanceDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<LiftWeeklyPerformanceEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<LiftWeeklyPerformanceEntity>)
 
     @Query("DELETE FROM lift_weekly_performance")
     suspend fun deleteAll()
@@ -31,8 +30,8 @@ interface LiftWeeklyPerformanceDao {
 
 @Dao
 interface MuscleWeeklyOutcomeIndexDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<MuscleWeeklyOutcomeIndexEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<MuscleWeeklyOutcomeIndexEntity>)
 
     @Query("DELETE FROM muscle_weekly_outcome_indices")
     suspend fun deleteAll()
@@ -43,8 +42,8 @@ interface MuscleWeeklyOutcomeIndexDao {
 
 @Dao
 interface MuscleDoseResponsePointDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<MuscleDoseResponsePointEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<MuscleDoseResponsePointEntity>)
 
     @Query("DELETE FROM muscle_dose_response_points")
     suspend fun deleteAll()
@@ -55,8 +54,8 @@ interface MuscleDoseResponsePointDao {
 
 @Dao
 interface MuscleVolumeResponseSnapshotDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<MuscleVolumeResponseSnapshotEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<MuscleVolumeResponseSnapshotEntity>)
 
     @Query("DELETE FROM muscle_volume_response_snapshots")
     suspend fun deleteAll()
@@ -67,8 +66,8 @@ interface MuscleVolumeResponseSnapshotDao {
 
 @Dao
 interface MuscleResponseModelDiagnosticDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(entities: List<MuscleResponseModelDiagnosticEntity>)
+    @Upsert
+    suspend fun upsertAll(entities: List<MuscleResponseModelDiagnosticEntity>)
 
     @Query("DELETE FROM muscle_response_model_diagnostics")
     suspend fun deleteAll()

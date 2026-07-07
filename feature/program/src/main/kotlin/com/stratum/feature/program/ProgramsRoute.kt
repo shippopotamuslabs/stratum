@@ -39,6 +39,13 @@ fun ProgramsRoute(
                 onStartNextWorkoutClick = viewModel::startNextWorkout,
                 onStartEmptyWorkoutClick = viewModel::startEmptyWorkout,
                 onStartWorkoutClick = viewModel::startProgramWorkout,
+                onSkipWorkoutCheckedChange = { workoutId, checked ->
+                    if (checked) viewModel.skipWorkout(workoutId) else viewModel.unskipWorkout(workoutId)
+                },
+                onSkipRestDayCheckedChange = { weekday, checked ->
+                    if (checked) viewModel.skipRestDay(weekday) else viewModel.unskipRestDay(weekday)
+                },
+                onConfirmDiscardAndStart = viewModel::confirmDiscardAndStart,
             ),
         onSwapLiftClick = { workoutId, target ->
             onSwapLiftClick(workoutId, target.workoutLiftId, target.liftId, target.name)

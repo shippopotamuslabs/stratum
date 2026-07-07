@@ -26,7 +26,7 @@ class RoomSpecializationPreferenceRepository @Inject constructor(
     override suspend fun save(preference: SpecializationPreference) {
         database.withTransaction {
             dao.clear()
-            dao.insertAll(preference.toEntities())
+            dao.upsertAll(preference.toEntities())
         }
     }
 }

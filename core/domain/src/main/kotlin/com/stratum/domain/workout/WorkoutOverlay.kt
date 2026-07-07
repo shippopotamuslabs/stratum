@@ -42,7 +42,24 @@ data class WorkoutOverlay(
     val deletedLiftIds: Set<WorkoutLiftId> = emptySet(),
     val supersetGroupIdOverrides: Map<WorkoutLiftId, WorkoutSupersetGroupId?> = emptyMap(),
     val useRestTimerBetweenLiftsOverrides: Map<WorkoutLiftId, Boolean> = emptyMap(),
+    val orderedLiftIds: List<String>? = null,
 ) {
+    /**
+     * True when the overlay carries unsaved structural edits (swaps, added/deleted sets or
+     * lifts, superset/rest-timer overrides, reorder) that differ from the baseline workout
+     * template. Logged sets and recomputed recommendations are session activity, not dirty
+     * edits — they are excluded.
+     */
+    val isDirty: Boolean
+        get() =
+            addedSlots.isNotEmpty() ||
+                deletedSlotIds.isNotEmpty() ||
+                swappedLifts.isNotEmpty() ||
+                deletedLiftIds.isNotEmpty() ||
+                supersetGroupIdOverrides.isNotEmpty() ||
+                useRestTimerBetweenLiftsOverrides.isNotEmpty() ||
+                orderedLiftIds != null
+
     fun apply(mutation: StructuralMutation): WorkoutOverlay {
         val nextUndoStack = undoStack + mutation
         return when (mutation) {

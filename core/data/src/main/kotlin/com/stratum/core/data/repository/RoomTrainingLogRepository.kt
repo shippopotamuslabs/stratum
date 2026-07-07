@@ -39,10 +39,10 @@ class RoomTrainingLogRepository @Inject constructor(
             sessionDao.deleteAll()
             setDao.deleteAll()
             if (sessions.isNotEmpty()) {
-                sessionDao.insertAll(sessions.map { it.toEntity() })
+                sessionDao.upsertAll(sessions.map { it.toEntity() })
             }
             if (sets.isNotEmpty()) {
-                setDao.insertAll(sets.map { it.toEntity() })
+                setDao.upsertAll(sets.map { it.toEntity() })
             }
         }
     }
@@ -53,10 +53,10 @@ class RoomTrainingLogRepository @Inject constructor(
             setDao.deleteAllForImportedSessions()
             sessionDao.deleteAllImported()
             if (sessions.isNotEmpty()) {
-                sessionDao.insertAll(sessions.map { it.toEntity() })
+                sessionDao.upsertAll(sessions.map { it.toEntity() })
             }
             if (sets.isNotEmpty()) {
-                setDao.insertAll(sets.map { it.toEntity() })
+                setDao.upsertAll(sets.map { it.toEntity() })
             }
         }
     }
@@ -97,12 +97,17 @@ class RoomTrainingLogRepository @Inject constructor(
             entity?.toDomain()
         }
 
+    override fun observeAllSessions(): Flow<List<TrainingSession>> =
+        sessionDao.observeAll().map { entities ->
+            entities.map { it.toDomain() }
+        }
+
     override suspend fun insertSession(session: TrainingSession) {
-        sessionDao.insert(session.toEntity())
+        sessionDao.upsert(session.toEntity())
     }
 
     override suspend fun updateSession(session: TrainingSession) {
-        sessionDao.insert(session.toEntity())
+        sessionDao.upsert(session.toEntity())
     }
 
     override suspend fun deleteSession(id: TrainingSessionId) {
@@ -110,11 +115,11 @@ class RoomTrainingLogRepository @Inject constructor(
     }
 
     override suspend fun insertSet(set: LoggedSet) {
-        setDao.insert(set.toEntity())
+        setDao.upsert(set.toEntity())
     }
 
     override suspend fun updateSet(set: LoggedSet) {
-        setDao.insert(set.toEntity())
+        setDao.upsert(set.toEntity())
     }
 
     override suspend fun deleteSet(id: LoggedSetId) {
@@ -127,7 +132,7 @@ class RoomTrainingLogRepository @Inject constructor(
         cycleCompletedEvent: ProgramChangeEvent?,
     ) {
         database.withTransaction {
-            sessionDao.insert(session.toEntity())
+            sessionDao.upsert(session.toEntity())
             cyclePointerUpdate?.let { update ->
                 programDao.updateCyclePointer(
                     programId = update.programId,
@@ -136,7 +141,7 @@ class RoomTrainingLogRepository @Inject constructor(
                 )
             }
             cycleCompletedEvent?.let { event ->
-                programChangeEventDao.insert(event.toEntity())
+                programChangeEventDao.upsert(event.toEntity())
             }
         }
     }

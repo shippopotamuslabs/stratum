@@ -284,12 +284,18 @@ fun LiftActionsBottomSheet(
     onConfigureSuperset: () -> Unit,
     onSwapLift: () -> Unit,
     onRemoveLift: () -> Unit,
+    onReorderLifts: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
         title = stringResource(CoreUiR.string.edit_workout_lift_menu),
     ) {
+        LiftActionRow(
+            text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
+            leadingIconRes = CoreUiR.drawable.ic_swap_vert,
+            onClick = onReorderLifts,
+        )
         LiftActionRow(
             text = stringResource(CoreUiR.string.edit_workout_create_superset),
             leadingIconRes = CoreUiR.drawable.ic_join,

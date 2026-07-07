@@ -4,4 +4,21 @@
     <string name="workout_screen_discard_confirm_body">This will permanently delete the current training session and all logged sets. Are you sure?</string>
     <string name="workout_screen_cancel_discard">Cancel</string>
     <string name="workout_screen_confirm_discard">Discard</string>
+
+    <!-- Completion flow -->
+    <string name="workout_screen_complete">Complete</string>
+    <string name="workout_sheet_incomplete_title">Incomplete Lifts</string>
+    <string name="workout_sheet_incomplete_message">You haven\'t completed all of your lifts.</string>
+    <string name="workout_sheet_continue_workout">Continue Workout</string>
+    <string name="workout_sheet_complete_workout">Complete Workout</string>
+    <string name="workout_sheet_save_changes_title">Save Changes?</string>
+    <string name="workout_sheet_save_changes_message">Save the modifications you made to this workout template?</string>
+    <string name="workout_sheet_update_template">Update Workout Template</string>
+    <string name="workout_sheet_discard_changes">Discard Changes</string>
+
+    <!-- Workout complete screen -->
+    <string name="workout_complete_title">Workout Complete</string>
+    <string name="workout_complete_close">Close</string>
+    <string name="workout_complete_duration">Duration</string>
+    <string name="workout_complete_best_set">Best Set</string>
 </resources>

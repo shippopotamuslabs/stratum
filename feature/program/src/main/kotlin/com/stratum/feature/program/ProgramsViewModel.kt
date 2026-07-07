@@ -10,10 +10,15 @@ import com.stratum.domain.training.ActiveTrainingSessionExistsException
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.domain.training.RecordRestDaySkipUseCase
+import com.stratum.domain.training.RecordWorkoutSkipUseCase
 import com.stratum.domain.training.StartTrainingSessionRequest
 import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.UnskipWorkoutUseCase
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.feature.program.ui.MinimizedWorkoutState
+import com.stratum.feature.program.ui.ProgramsStartAction
 import com.stratum.feature.program.ui.ProgramsUiEvent
 import com.stratum.feature.program.ui.ProgramsUiState
 import com.stratum.feature.program.ui.findNextWorkoutId
@@ -52,12 +57,16 @@ class ProgramsViewModel @Inject constructor(
     private val observeCycleProgress: ObserveCycleProgressUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
     private val getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
+    private val recordWorkoutSkip: RecordWorkoutSkipUseCase,
+    private val recordRestDaySkip: RecordRestDaySkipUseCase,
+    private val unskipWorkout: UnskipWorkoutUseCase,
 ) : ViewModel() {
     val programsUiState: StateFlow<ProgramsUiState> =
         combine(
             observeProgram(),
             observeLiftCatalog(),
-        ) { program, lifts ->
+            observeCycleProgress(),
+        ) { program, lifts, progress ->
             val volumeSummaries =
                 program?.let { activeProgram ->
                     computeProgramMuscleVolume(activeProgram, lifts)
@@ -65,6 +74,11 @@ class ProgramsViewModel @Inject constructor(
             program.toProgramsUiState(
                 liftNamesById = lifts.associate { lift -> lift.id.value to lift.name },
                 volumeSummaries = volumeSummaries,
+                completedWorkoutIds = progress.completedWorkoutIdsThisCycle
+                    .map { it.value }
+                    .toSet(),
+                activeWorkoutId = progress.activeSession?.workoutId?.value,
+                completedRestDayWeekdays = progress.completedRestDayWeekdaysThisCycle,
             )
         }.stateIn(
             viewModelScope,
@@ -167,6 +181,47 @@ class ProgramsViewModel @Inject constructor(
             val activeSession = progress.activeSession ?: return@launch
             abandonTrainingSession(activeSession.id)
             _events.send(ProgramsUiEvent.ShowMessage("Workout cancelled."))
+        }
+    }
+
+    fun skipWorkout(workoutId: String) {
+        viewModelScope.launch {
+            recordWorkoutSkip(WorkoutId(workoutId))
+        }
+    }
+
+    fun unskipWorkout(workoutId: String) {
+        viewModelScope.launch {
+            unskipWorkout(WorkoutId(workoutId))
+        }
+    }
+
+    fun skipRestDay(weekday: Weekday) {
+        viewModelScope.launch {
+            recordRestDaySkip(weekday)
+        }
+    }
+
+    fun unskipRestDay(weekday: Weekday) {
+        viewModelScope.launch {
+            unskipWorkout(weekday)
+        }
+    }
+
+    fun confirmDiscardAndStart(action: ProgramsStartAction) {
+        viewModelScope.launch {
+            val progress = observeCycleProgress().first()
+            progress.activeSession?.let { abandonTrainingSession(it.id) }
+            when (action) {
+                is ProgramsStartAction.StartWorkout ->
+                    startOrResumeProgramWorkout(WorkoutId(action.workoutId))
+                ProgramsStartAction.StartNextWorkout -> {
+                    val loaded = programsUiState.value as? ProgramsUiState.Loaded ?: return@launch
+                    val nextId = findNextWorkoutId(loaded.scheduleItems) ?: return@launch
+                    startOrResumeProgramWorkout(WorkoutId(nextId))
+                }
+                ProgramsStartAction.StartEmptyWorkout -> startEmptyWorkout()
+            }
         }
     }
 

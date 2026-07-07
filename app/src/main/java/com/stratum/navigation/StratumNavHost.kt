@@ -21,7 +21,11 @@ import com.stratum.feature.program.navigation.editWorkoutEntry
 import com.stratum.feature.program.navigation.LiftSwapKey
 import com.stratum.feature.program.navigation.liftSwapEntry
 import com.stratum.feature.workout.navigation.WorkoutKey
+import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
+import com.stratum.feature.workout.navigation.workoutCompleteEntry
+import com.stratum.feature.program.navigation.ReorderLiftsKey
+import com.stratum.feature.program.navigation.reorderLiftsEntry
 
 @Composable
 fun StratumNavHost() {
@@ -93,16 +97,28 @@ fun StratumNavHost() {
                 onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
                     backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
                 },
+                onReorderLiftsClick = { workoutId ->
+                    backStack.add(ReorderLiftsKey(workoutId))
+                },
             )
             workoutEntry(
                 onNavigateBack = onNavigateBack,
-                onNavigateToFinalize = { _ ->
-                    // Finalize route is wired in a future slice.
-                    onNavigateBack()
+                onNavigateToFinalize = { sessionId ->
+                    backStack.removeAll { it is WorkoutKey }
+                    backStack.add(WorkoutCompleteKey(sessionId))
                 },
                 onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
                     backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
                 },
+                onReorderLiftsClick = { workoutId ->
+                    backStack.add(ReorderLiftsKey(workoutId))
+                },
+            )
+            workoutCompleteEntry(
+                onCloseClick = onNavigateBack,
+            )
+            reorderLiftsEntry(
+                onBackClick = onNavigateBack,
             )
         },
     )

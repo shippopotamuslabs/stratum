@@ -84,6 +84,7 @@ class WorkoutViewModelTest {
     private lateinit var programRepository: FakeProgramRepository
     private lateinit var trainingLogRepository: FakeTrainingLogRepository
     private lateinit var progressionHistory: FakeProgressionHistoryRepository
+    private lateinit var workoutEditSession: WorkoutEditSession
 
     @BeforeEach
     fun setUp() {
@@ -106,6 +107,7 @@ class WorkoutViewModelTest {
             ),
         )
         progressionHistory = FakeProgressionHistoryRepository()
+        workoutEditSession = WorkoutEditSession()
         seedHistoryForTopSet()
     }
 
@@ -284,11 +286,14 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
-            workoutEditSession = WorkoutEditSession(),
+            workoutEditSession = workoutEditSession,
         )
     }
 
@@ -327,11 +332,14 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
-            workoutEditSession = WorkoutEditSession(),
+            workoutEditSession = workoutEditSession,
         )
     }
 
@@ -371,6 +379,9 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(
                     listOf(
@@ -387,7 +398,7 @@ class WorkoutViewModelTest {
                 ),
             ),
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
-            workoutEditSession = WorkoutEditSession(),
+            workoutEditSession = workoutEditSession,
         )
     }
 
@@ -443,6 +454,167 @@ class WorkoutViewModelTest {
             ),
         ),
     )
+
+    @Test
+    @DisplayName("Given active session when session reorder confirmed then overlay and rendered lifts are reordered")
+    fun reorderConfirmedUpdatesOverlayAndRenderedLifts() = runTest {
+        // Workout has L-1 at index 0 and L-2 at index 1
+        val program = Program(
+            id = programId,
+            name = "Test Program",
+            createdAt = Instant.parse("2026-06-26T00:00:00Z"),
+            cycleLength = 1,
+            trainingWeekdays = setOf(Weekday.Monday),
+            workouts = listOf(
+                Workout(
+                    id = workoutId,
+                    programId = programId,
+                    name = "Workout 1",
+                    weekday = Weekday.Monday,
+                    position = 0,
+                    workoutLifts = listOf(
+                        WorkoutLift(
+                            id = WorkoutLiftId("wl-1"),
+                            workoutId = workoutId,
+                            liftId = LiftId("L-1"),
+                            progressionScheme = ProgressionScheme.Double,
+                            position = 0,
+                            sets = listOf(
+                                LiftSet(
+                                    id = LiftSetId("ls-1"),
+                                    workoutLiftId = WorkoutLiftId("wl-1"),
+                                    position = 0,
+                                    setType = SetType.Standard,
+                                    repMin = 5,
+                                    repMax = 5,
+                                    rirGoal = 2,
+                                    isTopSet = true,
+                                )
+                            )
+                        ),
+                        WorkoutLift(
+                            id = WorkoutLiftId("wl-2"),
+                            workoutId = workoutId,
+                            liftId = LiftId("L-2"),
+                            progressionScheme = ProgressionScheme.Double,
+                            position = 1,
+                            sets = listOf(
+                                LiftSet(
+                                    id = LiftSetId("ls-2"),
+                                    workoutLiftId = WorkoutLiftId("wl-2"),
+                                    position = 0,
+                                    setType = SetType.Standard,
+                                    repMin = 5,
+                                    repMax = 5,
+                                    rirGoal = 2,
+                                    isTopSet = true,
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        val vm = buildViewModelWithProgram(program, lifts = listOf(catalogLift(), catalogLift2()))
+        vm.startSession(workoutId)
+        advanceUntilIdle()
+
+        vm.uiState.test {
+            val loaded = awaitItem() as WorkoutUiState.Loaded
+            assertEquals("wl-1", loaded.lifts[0].workoutLiftId)
+            assertEquals("wl-2", loaded.lifts[1].workoutLiftId)
+
+            // Start reorder populates the session
+            vm.startReorderLifts()
+            val reorderLifts = workoutEditSession.getReorderLifts()
+            assertEquals(2, reorderLifts.size)
+            assertEquals("wl-1", reorderLifts[0].workoutLiftId)
+            assertEquals("wl-2", reorderLifts[1].workoutLiftId)
+
+            // Confirm a reordered sequence
+            workoutEditSession.confirmReorder(workoutId.value, listOf("wl-2", "wl-1"))
+            val updated = awaitItem() as WorkoutUiState.Loaded
+            assertEquals("wl-2", updated.lifts[0].workoutLiftId)
+            assertEquals("wl-1", updated.lifts[1].workoutLiftId)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given active session when session reorder cancelled/ignored then lifts order is unchanged")
+    fun reorderCancelledKeepsLiftsOrder() = runTest {
+        val program = Program(
+            id = programId,
+            name = "Test Program",
+            createdAt = Instant.parse("2026-06-26T00:00:00Z"),
+            cycleLength = 1,
+            trainingWeekdays = setOf(Weekday.Monday),
+            workouts = listOf(
+                Workout(
+                    id = workoutId,
+                    programId = programId,
+                    name = "Workout 1",
+                    weekday = Weekday.Monday,
+                    position = 0,
+                    workoutLifts = listOf(
+                        WorkoutLift(
+                            id = WorkoutLiftId("wl-1"),
+                            workoutId = workoutId,
+                            liftId = LiftId("L-1"),
+                            progressionScheme = ProgressionScheme.Double,
+                            position = 0,
+                            sets = listOf(
+                                LiftSet(
+                                    id = LiftSetId("ls-1"),
+                                    workoutLiftId = WorkoutLiftId("wl-1"),
+                                    position = 0,
+                                    setType = SetType.Standard,
+                                    repMin = 5,
+                                    repMax = 5,
+                                    rirGoal = 2,
+                                    isTopSet = true,
+                                )
+                            )
+                        ),
+                        WorkoutLift(
+                            id = WorkoutLiftId("wl-2"),
+                            workoutId = workoutId,
+                            liftId = LiftId("L-2"),
+                            progressionScheme = ProgressionScheme.Double,
+                            position = 1,
+                            sets = listOf(
+                                LiftSet(
+                                    id = LiftSetId("ls-2"),
+                                    workoutLiftId = WorkoutLiftId("wl-2"),
+                                    position = 0,
+                                    setType = SetType.Standard,
+                                    repMin = 5,
+                                    repMax = 5,
+                                    rirGoal = 2,
+                                    isTopSet = true,
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        val vm = buildViewModelWithProgram(program, lifts = listOf(catalogLift(), catalogLift2()))
+        vm.startSession(workoutId)
+        advanceUntilIdle()
+
+        vm.uiState.test {
+            val loaded = awaitItem() as WorkoutUiState.Loaded
+            assertEquals("wl-1", loaded.lifts[0].workoutLiftId)
+            assertEquals("wl-2", loaded.lifts[1].workoutLiftId)
+
+            vm.startReorderLifts()
+            // No confirm event emitted (e.g. user Cancelled)
+            assertEquals("wl-1", loaded.lifts[0].workoutLiftId)
+            assertEquals("wl-2", loaded.lifts[1].workoutLiftId)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     @Test
     @DisplayName("S7-no-navcontroller-in-feature")
@@ -783,6 +955,9 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
@@ -837,6 +1012,9 @@ class WorkoutViewModelTest {
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository),
             abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository),
+            finalizeTrainingSession = com.stratum.domain.training.FinalizeTrainingSessionUseCase(trainingLogRepository, programRepository),
+            applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
+            saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository()),
             observeLiftTrainingInsights = com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase(
                 com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository(),
             ),
