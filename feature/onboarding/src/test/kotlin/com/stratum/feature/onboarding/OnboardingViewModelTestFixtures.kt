@@ -189,6 +189,8 @@ internal object OnboardingViewModelTestFixtures {
                 refreshPersistedImportState,
             ),
             refreshPersistedImportState = refreshPersistedImportState,
+            updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
+            updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
             generateProgram = com.stratum.domain.program.GenerateProgramUseCase(
                 loadContext = com.stratum.domain.program.ProgramGenerationContextLoader {
                     scenarioContext(days = 3, specialization = emptyMap())

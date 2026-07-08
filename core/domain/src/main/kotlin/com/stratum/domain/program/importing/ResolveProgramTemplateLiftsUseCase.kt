@@ -124,12 +124,15 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
         }
 
         val resolvedCycleLength = template.cycleLength?.takeIf { it > 0 } ?: template.workouts.size
+        // trainingWeekdays is a denormalized cache of the per-workout weekday bindings above; derive
+        // it here so the imported Program is consistent at construction (rest-day slots consume a
+        // weekday index but emit no Workout, so the derived set correctly excludes them).
         return Program(
             id = programId,
             name = template.programName ?: DEFAULT_PROGRAM_NAME,
             createdAt = Instant.now(),
             cycleLength = resolvedCycleLength,
-            trainingWeekdays = emptySet(),
+            trainingWeekdays = workouts.mapNotNull { it.weekday }.toSet(),
             workouts = workouts,
         )
     }

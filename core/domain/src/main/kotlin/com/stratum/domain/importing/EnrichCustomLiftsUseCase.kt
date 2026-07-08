@@ -1,10 +1,14 @@
 package com.stratum.domain.importing
 
 import javax.inject.Inject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 /**
  * Batches unmatched import exercise names and requests LLM-inferred catalog metadata.
- * Partial batch failures are tolerated; callers fall back to stub customs per exercise.
+ * Batches run concurrently to reduce import latency; partial batch failures are tolerated and
+ * callers skip custom-lift creation for names with no inferred metadata.
  */
 class EnrichCustomLiftsUseCase @Inject constructor(
     private val customLiftInferencePort: CustomLiftInferencePort,
@@ -16,14 +20,16 @@ class EnrichCustomLiftsUseCase @Inject constructor(
             return EnrichCustomLiftsOutcome.EMPTY
         }
         val sorted = candidates.sortedByDescending { it.loggedSetCount }
+        val batches = sorted.chunked(MAX_BATCH)
+        val results =
+            coroutineScope {
+                batches.map { batch -> async { customLiftInferencePort.inferMetadata(batch) } }.awaitAll()
+            }
         val inferredByName = linkedMapOf<String, InferredCustomLiftMetadata>()
-        var batchesAttempted = 0
         var batchesFailed = 0
         var lastFailureMessage: String? = null
-        sorted.chunked(MAX_BATCH).forEach { batch ->
-            batchesAttempted += 1
-            customLiftInferencePort
-                .inferMetadata(batch)
+        results.forEach { result ->
+            result
                 .onSuccess { lifts ->
                     lifts.forEach { lift -> inferredByName[lift.exerciseNameRaw] = lift }
                 }.onFailure { error ->
@@ -33,7 +39,7 @@ class EnrichCustomLiftsUseCase @Inject constructor(
         }
         return EnrichCustomLiftsOutcome(
             inferredByName = inferredByName,
-            batchesAttempted = batchesAttempted,
+            batchesAttempted = batches.size,
             batchesFailed = batchesFailed,
             lastFailureMessage = lastFailureMessage,
         )

@@ -121,10 +121,16 @@ data class ResolveImportLiftsSummary(
     val customLiftInferenceBatchesAttempted: Int = 0,
     /** Callable batches that failed (timeout, auth, parse, etc.). */
     val customLiftInferenceBatchesFailed: Int = 0,
-    /** Custom lifts created from successful LLM inference (remainder used stub guesser). */
+    /** Custom lifts created from successful LLM inference. */
     val customLiftLlmInferredCount: Int = 0,
+    /** Unmatched names where LLM inference failed or returned no result; no custom lift was created. */
+    val customLiftsSkipped: Int = 0,
     /** Last inferCustomLifts error message when any batch failed. */
     val customLiftInferenceLastError: String? = null,
+    /** True when the lift-name embedding batch failed, degrading the resolver to pure BM25. */
+    val embeddingBatchFailed: Boolean = false,
+    /** Last embed_exercise_names error message when the embedding batch failed. */
+    val embeddingBatchError: String? = null,
 )
 
 data class UnmatchedExerciseSample(

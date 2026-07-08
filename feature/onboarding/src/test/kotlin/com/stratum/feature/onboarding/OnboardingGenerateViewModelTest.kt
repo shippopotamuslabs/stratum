@@ -238,6 +238,10 @@ class OnboardingGenerateViewModelTest {
                 refreshPersistedImportState,
             ),
             refreshPersistedImportState = refreshPersistedImportState,
+            updateUserTrainingProfile = com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase(profileRepo),
+            updateSpecialization = com.stratum.domain.onboarding.UpdateSpecializationUseCase(
+                com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
+            ),
             generateProgram = GenerateProgramUseCase(
                 loadContext = contextLoader,
                 pipeline = testProgramGenerationPipeline(),

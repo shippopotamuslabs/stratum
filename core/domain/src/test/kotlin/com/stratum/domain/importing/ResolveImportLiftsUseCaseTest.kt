@@ -17,9 +17,12 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import java.time.Instant
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -91,17 +94,17 @@ class ResolveImportLiftsUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given inference failure when names are unmatched then stub custom lifts are created")
-    fun fallsBackToStubCustomLiftsWhenInferenceFails() = runTest {
+    @DisplayName("Given inference failure when names are unmatched then no custom lift is created and set stays unresolved")
+    fun skipsCustomLiftWhenInferenceFails() = runTest {
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val subject = buildSubject(liftRepo, customInference = FakeCustomLiftInferencePort(fail = true))
 
-        subject(listOf(loggedSet(exerciseNameRaw = "Katana Triceps Extension")))
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Triceps Extension")))
 
-        val custom = liftRepo.currentLifts.single { it.isCustom }
-        assertEquals("Katana Triceps Extension", custom.name)
-        assertEquals(MovementPattern.ElbowExtension, custom.movementPatterns.first())
-        assertEquals(setOf(MuscleGroup.Tricep), custom.primaryMuscles)
+        assertTrue(liftRepo.currentLifts.none { it.isCustom })
+        assertEquals(0, outcome.summary.customLiftsCreated)
+        assertEquals(1, outcome.summary.customLiftsSkipped)
+        assertNull(outcome.resolvedSets.single().liftId)
     }
 
     @Test
@@ -149,14 +152,16 @@ class ResolveImportLiftsUseCaseTest {
 
         assertEquals(2, outcome.summary.inputSetCount)
         assertEquals(1, outcome.summary.firstPassCatalogMatches)
-        assertEquals(1, outcome.summary.customLiftsCreated)
-        assertEquals(2, outcome.summary.finalEnabledTotal)
+        assertEquals(0, outcome.summary.customLiftsCreated)
+        assertEquals(1, outcome.summary.customLiftsSkipped)
+        assertEquals(1, outcome.summary.finalEnabledTotal)
+        assertEquals(1, outcome.summary.unresolvedSetCount)
         assertEquals(1, outcome.summary.unmatchedExerciseSamples.size)
         assertTrue(outcome.summary.unmatchedExerciseSamples.first().bestScore < Bm25LiftNameResolver.MATCH_THRESHOLD)
     }
 
     @Test
-    @DisplayName("Given superset suffix variants when names are unmatched then one custom lift is created")
+    @DisplayName("Given superset suffix variants when inference returns no result then no custom lift is created and both sets stay unresolved")
     fun deduplicatesCustomLiftsByNormalizedName() = runTest {
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val subject = buildSubject(liftRepo, customInference = FakeCustomLiftInferencePort())
@@ -169,9 +174,11 @@ class ResolveImportLiftsUseCaseTest {
                 ),
             )
 
-        assertEquals(1, outcome.summary.customLiftsCreated)
+        assertEquals(0, outcome.summary.customLiftsCreated)
+        assertEquals(1, outcome.summary.customLiftsSkipped)
         assertEquals(1, outcome.summary.distinctUnmatchedExerciseNames)
-        assertEquals("Katana Triceps Extension", liftRepo.currentLifts.single { it.isCustom }.name)
+        assertTrue(liftRepo.currentLifts.none { it.isCustom })
+        assertTrue(outcome.resolvedSets.all { it.liftId == null })
     }
 
     @Test
@@ -311,12 +318,14 @@ class ResolveImportLiftsUseCaseTest {
         )
 
         assertEquals(4, progress.size)
-        val matching = progress[0] as ImportCatalogProgressStep.MatchingCatalog
-        assertEquals(2, matching.exerciseCount)
-        val custom = progress[1] as ImportCatalogProgressStep.IdentifyingCustomLifts
-        assertEquals(1, custom.exerciseCount)
-        val equipment = progress[2] as ImportCatalogProgressStep.InferringEquipment
+        // Equipment inference is launched concurrently before first-pass BM25, so its progress
+        // step is emitted first, followed by matching, custom-lift identification, and enablement.
+        val equipment = progress[0] as ImportCatalogProgressStep.InferringEquipment
         assertEquals(2, equipment.exerciseCount)
+        val matching = progress[1] as ImportCatalogProgressStep.MatchingCatalog
+        assertEquals(2, matching.exerciseCount)
+        val custom = progress[2] as ImportCatalogProgressStep.IdentifyingCustomLifts
+        assertEquals(1, custom.exerciseCount)
         assertEquals(ImportCatalogProgressStep.EnablingAvailableLifts, progress[3])
     }
 
@@ -336,6 +345,7 @@ class ResolveImportLiftsUseCaseTest {
                 enrichCustomLifts = EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
                 equipmentCatalogPort = FakeLiftEquipmentCatalog(),
                 equipmentInferencePort = FakeImportEquipmentInferencePort(),
+                resolutionDispatcher = UnconfinedTestDispatcher(testScheduler),
             )
 
         subject(List(100) { loggedSet(exerciseNameRaw = "Back Squat") })
@@ -360,7 +370,7 @@ class ResolveImportLiftsUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given non-recent unmatched exercise when importing then custom lift is created disabled and excluded from provenLiftIds but set is mapped")
+    @DisplayName("Given non-recent unmatched exercise when inference returns no result then no custom lift is created and set stays unresolved")
     fun nonRecentUnmatchedExerciseCreatedDisabledAndMapped() = runTest {
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val subject = buildSubject(liftRepo)
@@ -374,27 +384,18 @@ class ResolveImportLiftsUseCaseTest {
 
         val outcome = subject(listOf(recentSet, nonRecentSet))
 
-        // Find the custom lifts created
-        val currentLifts = liftRepo.currentLifts.filter { it.isCustom }
-        assertEquals(2, currentLifts.size)
+        // No custom lifts are created when LLM inference returns no metadata.
+        assertTrue(liftRepo.currentLifts.none { it.isCustom })
+        assertEquals(0, outcome.summary.customLiftsCreated)
+        assertEquals(2, outcome.summary.customLiftsSkipped)
+        assertTrue(outcome.provenLiftIds.isEmpty())
 
-        val recentCustomLift = currentLifts.first { it.name == "Recent Bench" }
-        val nonRecentCustomLift = currentLifts.first { it.name == "Old Incline Press" }
-
-        // Recent custom lift should be enabled and in provenLiftIds
-        assertTrue(recentCustomLift.enabled)
-        assertTrue(recentCustomLift.id in outcome.provenLiftIds)
-
-        // Non-recent custom lift should be disabled and NOT in provenLiftIds
-        assertFalse(nonRecentCustomLift.enabled)
-        assertFalse(nonRecentCustomLift.id in outcome.provenLiftIds)
-
-        // Both sets should still be resolved to their respective custom lift IDs!
+        // Both sets stay unresolved (liftId == null).
         val resolvedRecentSet = outcome.resolvedSets.first { it.exerciseNameRaw == "Recent Bench" }
         val resolvedNonRecentSet = outcome.resolvedSets.first { it.exerciseNameRaw == "Old Incline Press" }
 
-        assertEquals(recentCustomLift.id, resolvedRecentSet.liftId)
-        assertEquals(nonRecentCustomLift.id, resolvedNonRecentSet.liftId)
+        assertNull(resolvedRecentSet.liftId)
+        assertNull(resolvedNonRecentSet.liftId)
     }
 
     @Test
@@ -416,6 +417,7 @@ class ResolveImportLiftsUseCaseTest {
                 enrichCustomLifts = EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
                 equipmentCatalogPort = FakeLiftEquipmentCatalog(),
                 equipmentInferencePort = FakeImportEquipmentInferencePort(),
+                resolutionDispatcher = UnconfinedTestDispatcher(testScheduler),
             )
 
         subject(
@@ -455,6 +457,7 @@ class ResolveImportLiftsUseCaseTest {
         customInference: FakeCustomLiftInferencePort = FakeCustomLiftInferencePort(),
         equipmentCatalog: FakeLiftEquipmentCatalog = FakeLiftEquipmentCatalog(),
         equipmentInference: FakeImportEquipmentInferencePort = FakeImportEquipmentInferencePort(),
+        resolutionDispatcher: CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
     ): ResolveImportLiftsUseCase {
         val bm25 = Bm25LiftNameResolver()
         return ResolveImportLiftsUseCase(
@@ -468,6 +471,7 @@ class ResolveImportLiftsUseCaseTest {
             enrichCustomLifts = EnrichCustomLiftsUseCase(customInference),
             equipmentCatalogPort = equipmentCatalog,
             equipmentInferencePort = equipmentInference,
+            resolutionDispatcher = resolutionDispatcher,
         )
     }
 

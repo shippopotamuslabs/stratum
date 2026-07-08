@@ -91,8 +91,8 @@ class TrainingSignalCleanerTest {
     }
 
     @Test
-    @DisplayName("RP-S1-M001 RIR exactly 5 is excluded not working")
-    fun rpS1_M001_rirExactlyFiveExcluded() {
+    @DisplayName("RP-S1-M001 RIR at or above the threshold (4) is excluded not working")
+    fun rpS1_M001_rirAtThresholdExcluded() {
         val base = ResponseFixtures.fixS1Working()
         val input =
             base.copy(
@@ -101,7 +101,7 @@ class TrainingSignalCleanerTest {
                         base.sets.single().copy(
                             weight = Weight(80.0, Weight.WeightUnit.Kg),
                             reps = 8,
-                            rir = 5,
+                            rir = 4,
                         ),
                     ),
             )
@@ -109,5 +109,26 @@ class TrainingSignalCleanerTest {
 
         assertFalse(row.isWorkingSet)
         assertTrue(row.qualityFlags.contains(TrainingSignalQualityFlag.HighRirWarmupExcluded))
+    }
+
+    @Test
+    @DisplayName("RP-S1-M002 RIR 3 (RPE 7) is retained as a working set")
+    fun rpS1_M002_rirBelowThresholdRetained() {
+        val base = ResponseFixtures.fixS1Working()
+        val input =
+            base.copy(
+                sets =
+                    listOf(
+                        base.sets.single().copy(
+                            weight = Weight(80.0, Weight.WeightUnit.Kg),
+                            reps = 8,
+                            rir = 3,
+                        ),
+                    ),
+            )
+        val row = TrainingSignalCleaner.clean(input).single()
+
+        assertTrue(row.isWorkingSet)
+        assertFalse(row.qualityFlags.contains(TrainingSignalQualityFlag.HighRirWarmupExcluded))
     }
 }
