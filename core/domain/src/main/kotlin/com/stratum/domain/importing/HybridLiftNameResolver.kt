@@ -1,6 +1,7 @@
 package com.stratum.domain.importing
 
 import com.stratum.domain.lift.identity.LiftId
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * BM25-first resolver with embedding rerank in the gray zone and for low-confidence rescue.
@@ -14,16 +15,22 @@ class HybridLiftNameResolver(
     private val catalogEmbeddings: LiftEmbeddingCatalogPort,
     private val nameEmbedding: LiftNameEmbeddingPort,
 ) : LiftNameResolverPort {
-    private val queryEmbeddings = mutableMapOf<String, FloatArray>()
+    // ConcurrentHashMap so prepareBatch can populate concurrently with evaluate reads during
+    // parallelized import (high-confidence BM25 matches don't wait for embeddings).
+    private val queryEmbeddings = ConcurrentHashMap<String, FloatArray>()
+    @Volatile private var embeddingBatchError: String? = null
 
     override suspend fun prepareBatch(exerciseNames: List<String>) {
         queryEmbeddings.clear()
+        embeddingBatchError = null
         val distinct = exerciseNames.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         if (distinct.isEmpty()) return
         nameEmbedding.embedExerciseNames(distinct)
-            .getOrNull()
-            ?.let { queryEmbeddings.putAll(it) }
+            .onSuccess { embeddings -> queryEmbeddings.putAll(embeddings) }
+            .onFailure { error -> embeddingBatchError = error.message ?: error::class.simpleName }
     }
+
+    override fun embeddingBatchFailure(): String? = embeddingBatchError
 
     override fun resolve(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): LiftId? =
         evaluate(exerciseNameRaw, catalogNames).matchedLiftId
