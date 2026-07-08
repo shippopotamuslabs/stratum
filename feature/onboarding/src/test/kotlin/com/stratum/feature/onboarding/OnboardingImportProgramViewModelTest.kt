@@ -16,6 +16,8 @@ import com.stratum.domain.program.importing.ProgramTemplateJobSnapshot
 import com.stratum.domain.program.importing.ProgramTemplateRejectedException
 import com.stratum.domain.program.importing.RemoteProgramTemplateJobStatus
 import com.stratum.domain.program.importing.ResolveProgramTemplateLiftsUseCase
+import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -38,7 +40,7 @@ class OnboardingImportProgramViewModelTest {
     @Test
     fun `import success completes onboarding and persists the program`() = runTest {
         val importPort = FakeProgramTemplateImportPort()
-        val (viewModel, onboardingRepo, programRepo) = buildViewModel(importPort)
+        val (viewModel, onboardingRepo, programRepo) = buildViewModel(importPort, testScheduler)
 
         viewModel.importExistingProgram(ImportFileInput(byteArrayOf(1, 2, 3), "plan.csv"))
         advanceUntilIdle()
@@ -60,7 +62,7 @@ class OnboardingImportProgramViewModelTest {
                 ),
             ),
         )
-        val (viewModel, onboardingRepo, _) = buildViewModel(importPort)
+        val (viewModel, onboardingRepo, _) = buildViewModel(importPort, testScheduler)
 
         viewModel.importExistingProgram(ImportFileInput(byteArrayOf(1), "bad.csv"))
         advanceUntilIdle()
@@ -86,7 +88,7 @@ class OnboardingImportProgramViewModelTest {
                 ),
             ),
         )
-        val (viewModel, onboardingRepo, _) = buildViewModel(importPort)
+        val (viewModel, onboardingRepo, _) = buildViewModel(importPort, testScheduler)
 
         viewModel.importExistingProgram(ImportFileInput(byteArrayOf(1), "groceries.csv"))
         advanceUntilIdle()
@@ -121,7 +123,7 @@ class OnboardingImportProgramViewModelTest {
                 ),
             ),
         )
-        val (viewModel, _, _) = buildViewModel(importPort)
+        val (viewModel, _, _) = buildViewModel(importPort, testScheduler)
 
         viewModel.importExistingProgram(ImportFileInput(byteArrayOf(1), "plan.csv"))
         viewModel.importExistingProgram(ImportFileInput(byteArrayOf(2), "plan2.csv"))
@@ -150,6 +152,7 @@ class OnboardingImportProgramViewModelTest {
 
     private fun buildViewModel(
         importPort: FakeProgramTemplateImportPort,
+        testScheduler: TestCoroutineScheduler,
     ): Triple<OnboardingViewModel, FakeOnboardingRepository, FakeProgramRepository> {
         val onboardingRepo = FakeOnboardingRepository()
         val profileRepo = FakeUserTrainingProfileRepository(UserTrainingProfile.Empty)
@@ -163,6 +166,7 @@ class OnboardingImportProgramViewModelTest {
             completeOnboarding = completeOnboarding,
             profileRepository = profileRepo,
             programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+            importDispatcher = UnconfinedTestDispatcher(testScheduler),
         )
         val validateCurrentStep = com.stratum.domain.onboarding.ValidateCurrentOnboardingStepUseCase(
             validateProfileStep = com.stratum.domain.onboarding.ValidateProfileStepUseCase(),
@@ -242,6 +246,10 @@ class OnboardingImportProgramViewModelTest {
                 refreshPersistedImportState,
             ),
             refreshPersistedImportState = refreshPersistedImportState,
+            updateUserTrainingProfile = com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase(profileRepo),
+            updateSpecialization = com.stratum.domain.onboarding.UpdateSpecializationUseCase(
+                com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
+            ),
             generateProgram = com.stratum.domain.program.GenerateProgramUseCase(
                 loadContext = com.stratum.domain.program.ProgramGenerationContextLoader { error("not used") },
                 pipeline = com.stratum.core.testing.program.testProgramGenerationPipeline(),

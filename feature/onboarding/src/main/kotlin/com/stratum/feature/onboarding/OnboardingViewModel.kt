@@ -24,6 +24,8 @@ import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.OnboardingStepDirection
 import com.stratum.domain.onboarding.OnboardingWizardState
 import com.stratum.domain.onboarding.SpecializationPreference
+import com.stratum.domain.onboarding.UpdateSpecializationUseCase
+import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase
 import com.stratum.domain.onboarding.Weekday
@@ -59,6 +61,8 @@ class OnboardingViewModel @Inject constructor(
     private val executeHistoricalImport: ExecuteHistoricalImportUseCase,
     private val cancelHistoricalImport: CancelHistoricalImportUseCase,
     private val refreshPersistedImportState: RefreshPersistedImportStateUseCase,
+    private val updateUserTrainingProfile: UpdateUserTrainingProfileUseCase,
+    private val updateSpecialization: UpdateSpecializationUseCase,
     private val generateProgram: GenerateProgramUseCase,
     private val importProgramTemplate: ImportProgramTemplateUseCase,
 ) : ViewModel() {
@@ -463,6 +467,12 @@ class OnboardingViewModel @Inject constructor(
         generateJob =
             viewModelScope.launch {
                 try {
+                    // Flush the Review-step profile/specialization snapshot before generation reads
+                    // persisted onboarding state (LoadProgramGenerationContextUseCase). Without this,
+                    // a user who explored the Import path (which clears weekdays) and then re-walked
+                    // Generate could still have stale empty weekdays in Room.
+                    updateUserTrainingProfile(effectiveProfile.value)
+                    updateSpecialization(effectiveSpecialization.value)
                     val result =
                         generateProgram { progress ->
                             withContext(Dispatchers.Main.immediate) {

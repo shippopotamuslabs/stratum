@@ -4,6 +4,7 @@ import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.pipeline.PipelinePhase
 import com.stratum.domain.program.generation.pipeline.PipelineProgress
@@ -72,10 +73,13 @@ class GenerateProgramUseCase @Inject constructor(
                 var program =
                     normalized.toDomainProgram()
                         .retainOnlyKnownLifts(knownLiftIds)
+                        .withReconciledTrainingWeekdays()
                 require(program.workouts.isNotEmpty()) {
                     "Generated program has no workouts with known lift references"
                 }
-                program = bindProgramSchedule(program)
+                require(program.effectiveTrainingWeekdays().isNotEmpty()) {
+                    "Generated program has no bound training weekdays"
+                }
                 program = resolveAdjacentCalendarLiftCollisions(
                     program = program,
                     context = context,
@@ -100,8 +104,6 @@ class GenerateProgramUseCase @Inject constructor(
             }
         }
 }
-
-private fun bindProgramSchedule(program: Program): Program = program
 
 private fun PipelineProgress.toDomainProgress(): ProgramGenerationProgress =
     ProgramGenerationProgress(
