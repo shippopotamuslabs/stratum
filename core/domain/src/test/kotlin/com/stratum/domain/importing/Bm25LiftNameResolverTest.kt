@@ -34,10 +34,33 @@ class Bm25LiftNameResolverTest {
     }
 
     @Test
-    fun `subset query does not strongly align with longer catalog name`() {
+    fun `subset query strongly aligns with longer catalog name when extra token is equipment`() {
         val catalog = mapOf(LiftId("bench") to "Barbell Bench Press")
-        assertFalse(resolver.isStrongTokenAlignment("bench press", catalog.getValue(LiftId("bench"))))
-        assertFalse(resolver.evaluate("bench press", catalog).matched)
+        assertTrue(resolver.isStrongTokenAlignment("bench press", catalog.getValue(LiftId("bench"))))
+        assertTrue(resolver.evaluate("bench press", catalog).matched)
+    }
+
+    @Test
+    fun `equipment-qualified subset matches catalog with variant descriptor`() {
+        val catalog = mapOf(LiftId("back-squat") to "Barbell Back Squat")
+        val evaluation = resolver.evaluate("Squat (Barbell)", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("back-squat"), evaluation.matchedLiftId)
+    }
+
+    @Test
+    fun `subset query does not match when core tokens differ`() {
+        val catalog = mapOf(LiftId("jm-press") to "JM Press")
+        // "leg press" → query has "leg" not in catalog → queryRecall < 1.0 → no subset alignment
+        assertFalse(resolver.isStrongTokenAlignment("leg press", catalog.getValue(LiftId("jm-press"))))
+        assertFalse(resolver.evaluate("leg press", catalog).matched)
+    }
+
+    @Test
+    fun `overhead press does not match bench press despite shared tokens`() {
+        val catalog = mapOf(LiftId("bench") to "Barbell Bench Press")
+        // "overhead press (barbell)" → "barbell overhead press" — "overhead" not in catalog
+        assertFalse(resolver.evaluate("Overhead Press (Barbell)", catalog).matched)
     }
 
     @Test
