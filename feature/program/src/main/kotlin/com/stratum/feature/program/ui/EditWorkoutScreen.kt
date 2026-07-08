@@ -30,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
@@ -492,10 +491,8 @@ private fun EditLiftPanel(
         ) {
             StratumText(
                 text = lift.name,
-                style = StratumThemeAccessor.typography.titleLarge,
+                style = StratumThemeAccessor.typography.titleMedium,
                 modifier = Modifier.weight(1f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
             )
             StratumIconButton(
                 onClick = onShowLiftActions,
