@@ -38,10 +38,15 @@ def run_script(script: str, input_text: str) -> str:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         script_path = tmp_path / "converter.py"
-        input_path = tmp_path / "input.txt"
+        input_path = tmp_path / "input.bin"
         output_path = tmp_path / "output.json"
         script_path.write_text(script, encoding="utf-8")
-        input_path.write_text(input_text, encoding="utf-8")
+        # Write as binary so XLSX (a ZIP-based format) survives intact; the wrapper decodes as
+        # text for CSV and also exposes the raw path for openpyxl-based XLSX parsing.
+        input_path.write_bytes(
+            input_text.encode("utf-8") if isinstance(input_text, str)
+            else input_text
+        )
         wrapper = f"""
 import json
 import sys
@@ -50,16 +55,28 @@ from pathlib import Path
 INPUT_PATH = Path({repr(str(input_path))})
 OUTPUT_PATH = Path({repr(str(output_path))})
 
-with INPUT_PATH.open(encoding="utf-8") as f:
-    raw_input = f.read()
+# Try UTF-8 first (CSV); fall back to latin-1 so binary XLSX bytes don't crash the decode.
+# For XLSX, use INPUT_PATH with openpyxl.load_workbook(INPUT_PATH) instead of raw_input.
+try:
+    raw_input = INPUT_PATH.read_text(encoding="utf-8")
+except UnicodeDecodeError:
+    raw_input = INPUT_PATH.read_text(encoding="latin-1")
 
-# User script must define convert(raw_input: str) -> dict
+# User script must define convert(raw_input: str, input_path: str = None) -> dict
 """
         full_script = wrapper + script + """
 
 if "convert" not in dir():
-    raise RuntimeError("Script must define convert(raw_input: str) -> dict")
-result = convert(raw_input)
+    raise RuntimeError("Script must define convert(raw_input: str, input_path: str = None) -> dict")
+import inspect as _inspect
+try:
+    _sig = _inspect.signature(convert)
+    if len(_sig.parameters) >= 2:
+        result = convert(raw_input, str(INPUT_PATH))
+    else:
+        result = convert(raw_input)
+except (TypeError, ValueError):
+    result = convert(raw_input)
 OUTPUT_PATH.write_text(json.dumps(result), encoding="utf-8")
 """
         proc = subprocess.run(
