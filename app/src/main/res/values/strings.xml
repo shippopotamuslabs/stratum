@@ -15,6 +15,9 @@
     <string name="dashboard_trend_flat">Flat</string>
     <string name="dashboard_trend_down">Down</string>
     <string name="dashboard_trend_unknown">—</string>
+    <string name="dashboard_legend_progress">Progress</string>
+    <string name="dashboard_legend_strength">Strength</string>
+    <string name="dashboard_legend_volume">Volume</string>
     <string name="dashboard_sessions_format">%1$d sessions</string>
     <string name="dashboard_contributing_lifts_format">%1$d lifts</string>
     <string name="settings_title">Settings</string>

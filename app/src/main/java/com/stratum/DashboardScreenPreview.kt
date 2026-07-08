@@ -1,9 +1,16 @@
 package com.stratum
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.core.ui.theme.StratumTheme
+import com.stratum.core.ui.theme.StratumThemeAccessor
+
+private const val PREVIEW_VOLUME_GHOST_ALPHA = 0.5f
 
 @Preview(name = "Dashboard light", showBackground = true)
 @Composable
@@ -18,6 +25,53 @@ private fun DashboardScreenLightPreview() {
 private fun DashboardScreenDarkPreview() {
     StratumTheme(darkTheme = true) {
         DashboardScreenPreviewContent()
+    }
+}
+
+@Preview(name = "Dashboard legend — muscles", showBackground = true)
+@Composable
+private fun DashboardLegendMusclesLightPreview() {
+    LegendPreviewContent(isMuscles = true)
+}
+
+@Preview(name = "Dashboard legend — lifts", showBackground = true)
+@Composable
+private fun DashboardLegendLiftsLightPreview() {
+    LegendPreviewContent(isMuscles = false)
+}
+
+@Preview(name = "Dashboard legend — muscles dark", showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun DashboardLegendMusclesDarkPreview() {
+    LegendPreviewContent(isMuscles = true, dark = true)
+}
+
+@Preview(name = "Dashboard legend — lifts dark", showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun DashboardLegendLiftsDarkPreview() {
+    LegendPreviewContent(isMuscles = false, dark = true)
+}
+
+/**
+ * Renders [DashboardLegend] for a single tab. The legend is app-local and tab-aware (primary label
+ * + swatch color differ per tab), so these previews pin both configurations against light/dark.
+ */
+@Composable
+private fun LegendPreviewContent(isMuscles: Boolean, dark: Boolean = false) {
+    StratumTheme(darkTheme = dark) {
+        val colors = StratumThemeAccessor.colors
+        Box(modifier = Modifier.padding(16.dp)) {
+            DashboardLegend(
+                primaryLabel = if (isMuscles) "Progress" else "Strength",
+                primaryColor = if (isMuscles) colors.setComplete else colors.textData,
+                secondaryLabel = "Volume",
+                secondaryColor = if (isMuscles) {
+                    colors.textMuted
+                } else {
+                    colors.textMuted.copy(alpha = PREVIEW_VOLUME_GHOST_ALPHA)
+                },
+            )
+        }
     }
 }
 
