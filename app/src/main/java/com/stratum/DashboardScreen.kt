@@ -155,6 +155,28 @@ private fun EmptyState() {
 
 @Composable
 private fun ColumnScope.LoadedContent(state: DashboardUiState.Loaded, tab: Int) {
+    val items = if (tab == TAB_MUSCLES) state.muscles else state.lifts
+    if (items.isNotEmpty()) {
+        DashboardLegend(
+            primaryLabel = stringResource(
+                if (tab == TAB_MUSCLES) R.string.dashboard_legend_progress else R.string.dashboard_legend_strength,
+            ),
+            primaryColor = if (tab == TAB_MUSCLES) {
+                StratumThemeAccessor.colors.setComplete
+            } else {
+                StratumThemeAccessor.colors.textData
+            },
+            secondaryLabel = stringResource(R.string.dashboard_legend_volume),
+            secondaryColor = if (tab == TAB_MUSCLES) {
+                StratumThemeAccessor.colors.textMuted
+            } else {
+                StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
+        )
+    }
     when (tab) {
         TAB_MUSCLES -> {
             if (state.muscles.isEmpty()) {
@@ -214,7 +236,10 @@ private fun <T> ColumnScope.TrendCardGrid(
 private fun MuscleTrendCard(muscle: MuscleSeriesUi) {
     TrendCard(
         name = muscle.name,
-        badge = muscle.badge,
+        // No trend dot on muscle cards: the up/down/flat signal is derived from the progress index
+        // slope and is easy to misread in aggregate (a wall of red down-arrows reads as alarm, not
+        // insight). A top-of-board summary may surface trend direction more thoughtfully later.
+        badge = null,
         headline = muscle.headlineVolume,
         footer = stringResource(R.string.dashboard_contributing_lifts_format, muscle.contributingLifts),
     ) {
@@ -250,12 +275,12 @@ private fun LiftTrendCard(lift: LiftSeriesUi) {
 @Composable
 private fun TrendCard(
     name: String,
-    badge: TrendBadge,
+    badge: TrendBadge?,
     headline: String,
     footer: String,
     chart: @Composable () -> Unit,
 ) {
-    val badgeColor = badge.color()
+    val badgeColor = badge?.color()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -277,7 +302,7 @@ private fun TrendCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StratumText(text = name, style = StratumThemeAccessor.typography.titleMedium)
-            TrendDot(badge = badge, color = badgeColor)
+            if (badge != null) TrendDot(badge = badge, color = badgeColor!!)
         }
         StratumText(text = headline, style = StratumThemeAccessor.typography.bodyLarge)
         chart()
@@ -443,3 +468,47 @@ private val TAB_TOGGLE_LABEL_VERTICAL_PADDING = 6.dp
 private val TAB_TOGGLE_UNDERLINE_GAP = 4.dp
 private val TAB_TOGGLE_UNDERLINE_HEIGHT = 5.dp
 private const val TAB_TOGGLE_UNDERLINE_RATIO = 0.5f
+
+private val LEGEND_SPACING = 16.dp
+private val LEGEND_SWATCH_WIDTH = 16.dp
+private val LEGEND_SWATCH_HEIGHT = 2.dp
+private val LEGEND_SWATCH_GAP = 6.dp
+
+/**
+ * Global legend for the dashboard trend cards. Each card renders the same two-line chart, so a
+ * single legend above the grid is clearer than one per card. Tab-aware: the primary line means
+ * different things per tab (Muscles = composite progress index; Lifts = peak e1RM / strength), and
+ * each tab's charts use different line colors, so the swatch color must match what the cards render.
+ * Volume (weekly hard-set count) is the secondary line on both tabs.
+ */
+@Composable
+internal fun DashboardLegend(
+    primaryLabel: String,
+    primaryColor: Color,
+    secondaryLabel: String,
+    secondaryColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(LEGEND_SPACING),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LegendSwatch(color = primaryColor, label = primaryLabel)
+        LegendSwatch(color = secondaryColor, label = secondaryLabel)
+    }
+}
+
+@Composable
+private fun LegendSwatch(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(width = LEGEND_SWATCH_WIDTH, height = LEGEND_SWATCH_HEIGHT)
+                .clip(CircleShape)
+                .background(color),
+        )
+        Spacer(modifier = Modifier.width(LEGEND_SWATCH_GAP))
+        StratumText(text = label, muted = true, style = StratumThemeAccessor.typography.sectionLabel)
+    }
+}
