@@ -9,6 +9,7 @@ import com.stratum.domain.lift.ValidateGymLiftsStepUseCase
 import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -76,9 +77,9 @@ class AdvanceOnboardingStepUseCaseTest {
         )
 
         assertTrue(result is AdvanceOnboardingStepResult.Success)
-        assertEquals(OnboardingStep.Schedule, (result as AdvanceOnboardingStepResult.Success).newStep)
+        assertEquals(OnboardingStep.GymAndLifts, (result as AdvanceOnboardingStepResult.Success).newStep)
         assertEquals(profile, fakeProfile.current)
-        assertEquals(OnboardingStep.Schedule, fakeOnboarding.current.currentStep)
+        assertEquals(OnboardingStep.GymAndLifts, fakeOnboarding.current.currentStep)
     }
 
     @Test
@@ -117,6 +118,54 @@ class AdvanceOnboardingStepUseCaseTest {
         )
 
         assertEquals(AdvanceOnboardingStepResult.NoOp, result)
+    }
+
+    @Test
+    @DisplayName("Given ChoosePath when advancing with Import path then jumps to Review and clears schedule data")
+    fun choosePathImportJumpsToReviewAndClears() = runTest {
+        val profileWithSchedule = UserTrainingProfile(
+            trainingAge = TrainingAge.Intermediate,
+            weekdays = setOf(Weekday.Monday, Weekday.Wednesday),
+            sessionLengthMinutes = 60,
+        )
+        val specialization = SpecializationPreference.Empty
+
+        val result = subject(
+            currentStep = OnboardingStep.ChoosePath,
+            direction = OnboardingStepDirection.Forward,
+            profile = profileWithSchedule,
+            specialization = specialization,
+            lifts = emptyList(),
+            selectedPreset = null,
+            path = OnboardingPath.Import,
+        )
+
+        assertTrue(result is AdvanceOnboardingStepResult.Success)
+        assertEquals(OnboardingStep.Review, (result as AdvanceOnboardingStepResult.Success).newStep)
+        // Schedule and session length cleared; specialization reset.
+        assertTrue(fakeProfile.current?.weekdays.isNullOrEmpty())
+        assertNull(fakeProfile.current?.sessionLengthMinutes)
+        assertEquals(SpecializationPreference.Empty, fakeSpecialization.current)
+    }
+
+    @Test
+    @DisplayName("Given ChoosePath when advancing with Generate path then goes to Schedule and keeps data")
+    fun choosePathGenerateGoesToSchedule() = runTest {
+        val profile = UserTrainingProfile(trainingAge = TrainingAge.Intermediate)
+
+        val result = subject(
+            currentStep = OnboardingStep.ChoosePath,
+            direction = OnboardingStepDirection.Forward,
+            profile = profile,
+            specialization = SpecializationPreference.Empty,
+            lifts = emptyList(),
+            selectedPreset = null,
+            path = OnboardingPath.Generate,
+        )
+
+        assertTrue(result is AdvanceOnboardingStepResult.Success)
+        assertEquals(OnboardingStep.Schedule, (result as AdvanceOnboardingStepResult.Success).newStep)
+        assertEquals(profile, fakeProfile.current)
     }
 
     private fun enabledLift(): Lift = Lift(

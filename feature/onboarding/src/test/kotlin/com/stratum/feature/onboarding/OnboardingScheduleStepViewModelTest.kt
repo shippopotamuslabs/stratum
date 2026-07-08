@@ -85,7 +85,7 @@ class OnboardingScheduleStepViewModelTest {
 
         subject.next()
         advanceUntilIdle()
-        assertEquals("GymAndLifts", subject.uiState.value.step.id)
+        assertEquals("Specialization", subject.uiState.value.step.id)
 
         val saved = OnboardingViewModelTestFixtures.fakeProfileRepository.current
         assertEquals(setOf(Weekday.Monday, Weekday.Wednesday), saved?.weekdays)

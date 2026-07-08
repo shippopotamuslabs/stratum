@@ -18,7 +18,8 @@ internal fun buildOnboardingUiState(
     capabilities: OnboardingStepCapabilities,
     importResumeScalars: ImportResumeScalars,
 ): OnboardingUiState {
-    val step = current.currentStep.toWizardStepUi()
+    val path = current.onboardingPath
+    val step = current.currentStep.toWizardStepUi(path)
     val lifts = current.lifts
     val preset = current.selectedPreset
     val importing = ephemeral.importProgress?.let { progress ->
@@ -29,6 +30,8 @@ internal fun buildOnboardingUiState(
 
     return OnboardingUiState(
         step = step,
+        steps = allWizardSteps(path),
+        onboardingPath = path?.toOnboardingPathUi(),
         isComplete = current.isComplete,
         canAdvance = canAdvance,
         canGoBack = capabilities.canGoBack,
@@ -59,3 +62,9 @@ internal fun buildOnboardingUiState(
         importProgramState = ephemeral.importProgramState,
     )
 }
+
+private fun com.stratum.domain.onboarding.OnboardingPath.toOnboardingPathUi(): OnboardingPathUi =
+    when (this) {
+        com.stratum.domain.onboarding.OnboardingPath.Generate -> OnboardingPathUi.Generate
+        com.stratum.domain.onboarding.OnboardingPath.Import -> OnboardingPathUi.Import
+    }

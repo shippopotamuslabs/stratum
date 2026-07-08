@@ -7,6 +7,7 @@ package com.stratum.feature.onboarding
 data class OnboardingUiState(
     val step: WizardStepUi,
     val steps: List<WizardStepUi> = allWizardSteps(),
+    val onboardingPath: OnboardingPathUi? = null,
     val isComplete: Boolean = false,
     val canAdvance: Boolean = false,
     val canGoBack: Boolean = false,
@@ -32,6 +33,16 @@ data class OnboardingUiState(
             presetOptions = allGymPresetOptions(),
         )
     }
+}
+
+/**
+ * Presentation mirror of the domain onboarding path. `null` while the user is in the common prefix
+ * (before choosing at ChoosePath). Drives which summary cards the Review step shows and which
+ * action (Generate vs Import) it offers.
+ */
+enum class OnboardingPathUi {
+    Generate,
+    Import,
 }
 
 /**
@@ -127,8 +138,6 @@ enum class ImportProgramPhaseUi {
     Uploading,
     Sniffing,
     Parsing,
-    ScriptGenerating,
-    ScriptTesting,
     MatchingCatalog,
     Complete,
 }
