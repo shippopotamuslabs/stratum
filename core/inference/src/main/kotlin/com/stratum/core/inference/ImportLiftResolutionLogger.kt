@@ -35,20 +35,28 @@ class ImportLiftResolutionLogger @Inject constructor(
                     append(" inferenceBatches=${summary.customLiftInferenceBatchesAttempted}")
                     append(" inferenceFailedBatches=${summary.customLiftInferenceBatchesFailed}")
                     append(" llmInferred=${summary.customLiftLlmInferredCount}")
-                    append(" stubFallback=${summary.customLiftsCreated - summary.customLiftLlmInferredCount}")
+                    append(" skipped=${summary.customLiftsSkipped}")
                     summary.customLiftInferenceLastError?.let { append(" inferenceError=\"$it\"") }
                 }
             },
         )
 
-        if (summary.customLiftInferenceBatchesFailed > 0) {
+        if (summary.customLiftInferenceBatchesFailed > 0 || summary.customLiftsSkipped > 0) {
             loggingPort.warning(
                 TAG,
                 "Custom lift inference failed for ${summary.customLiftInferenceBatchesFailed}/" +
                     "${summary.customLiftInferenceBatchesAttempted} batches " +
                     "(${summary.customLiftLlmInferredCount} LLM, " +
-                    "${summary.customLiftsCreated - summary.customLiftLlmInferredCount} stub). " +
+                    "${summary.customLiftsSkipped} skipped). " +
                     "Last error: ${summary.customLiftInferenceLastError ?: "unknown"}",
+            )
+        }
+
+        if (summary.embeddingBatchFailed) {
+            loggingPort.warning(
+                TAG,
+                "Lift name embedding failed — gray-zone matches may be unresolved. " +
+                    "Error: ${summary.embeddingBatchError ?: "unknown"}",
             )
         }
 
