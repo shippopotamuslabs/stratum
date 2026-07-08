@@ -17,13 +17,17 @@ import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
 import com.stratum.domain.importing.RemoteImportJobStatus
 import com.stratum.domain.importing.StartHistoricalImportUseCase
+import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.domain.logging.LoggingPort
 import java.time.Instant
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 
 class RunFullHistoricalImportUseCase @Inject constructor(
     private val startHistoricalImport: StartHistoricalImportUseCase,
@@ -34,10 +38,20 @@ class RunFullHistoricalImportUseCase @Inject constructor(
     private val mergeImportedHistory: MergeImportedHistoryUseCase,
     private val importLiftResolutionLogger: ImportLiftResolutionLogger,
     private val loggingPort: LoggingPort,
+    // Import work (network upload/poll/download, JSON parsing, lift resolution) historically ran
+    // on Dispatchers.Main and caused ANRs. Defaulted so JVM tests can construct without Hilt.
+    @DefaultDispatcher private val importDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : HistoricalImportRunnerPort {
     override fun run(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
+        // emit() is called both directly here and from nested onProgress callbacks inside
+        // convertSingleFile / persistImportedHistory (which run on importDispatcher via flowOn).
+        // Wrapping those calls in withContext would make emit() fire on a different dispatcher than
+        // the collector, throwing the Flow context-preservation invariant. flowOn() shifts the whole
+        // upstream (body + all emissions) onto importDispatcher and bridges to the collector's
+        // context with a channel — the correct tool for a flow that emits from nested callbacks.
+        // Historically this body ran on Dispatchers.Main (the collector's context) and caused ANRs.
     ): Flow<HistoricalImportEvent> = flow {
         val allFiles = resume?.files ?: files
         if (allFiles.isEmpty()) {
@@ -99,7 +113,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                 ).takeIf { it.isResumable() }
             emit(HistoricalImportEvent.Failed(message = message, resume = resumeState))
         }
-    }
+    }.flowOn(importDispatcher)
 
     private suspend fun convertSingleFile(
         file: ImportFileInput,

@@ -41,6 +41,8 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import java.time.Instant
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -83,6 +85,7 @@ class RunFullHistoricalImportUseCaseTest {
             mergeImportedHistory = MergeImportedHistoryUseCase(),
             importLiftResolutionLogger = testImportLiftResolutionLogger(),
             loggingPort = FakeLoggingPort(),
+            importDispatcher = StandardTestDispatcher(testScheduler),
         )
 
         val events =
@@ -141,6 +144,7 @@ class RunFullHistoricalImportUseCaseTest {
                 mergeImportedHistory = MergeImportedHistoryUseCase(),
                 importLiftResolutionLogger = testImportLiftResolutionLogger(),
                 loggingPort = FakeLoggingPort(),
+                importDispatcher = StandardTestDispatcher(testScheduler),
             )
 
         val events =
@@ -199,6 +203,7 @@ class RunFullHistoricalImportUseCaseTest {
                 mergeImportedHistory = MergeImportedHistoryUseCase(),
                 importLiftResolutionLogger = testImportLiftResolutionLogger(),
                 loggingPort = FakeLoggingPort(),
+                importDispatcher = StandardTestDispatcher(testScheduler),
             )
 
         val events =
@@ -270,6 +275,7 @@ class RunFullHistoricalImportUseCaseTest {
                 mergeImportedHistory = MergeImportedHistoryUseCase(),
                 importLiftResolutionLogger = testImportLiftResolutionLogger(),
                 loggingPort = FakeLoggingPort(),
+                importDispatcher = StandardTestDispatcher(testScheduler),
             )
         val fileA = ImportFileInput("a".toByteArray(), "a.csv")
         val fileB = ImportFileInput("b".toByteArray(), "b.csv")

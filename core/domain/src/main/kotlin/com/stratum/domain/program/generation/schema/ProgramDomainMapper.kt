@@ -52,12 +52,16 @@ fun NormalizedProgram.toDomainProgram(createdAt: Instant = Instant.now()): Progr
             },
         )
     }
+    // trainingWeekdays is a denormalized cache of Workout.weekday bindings (the single source of
+    // truth). Derive it here so the mapper never emits a half-bound Program — callers that drop
+    // workouts after this point (e.g. retainOnlyKnownLifts) must re-derive via
+    // withReconciledTrainingWeekdays().
     return Program(
         id = programId,
         name = name,
         createdAt = createdAt,
         cycleLength = cycleLength,
-        trainingWeekdays = emptySet(),
+        trainingWeekdays = workouts.mapNotNull { it.weekday }.toSet(),
         workouts = workouts,
     )
 }

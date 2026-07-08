@@ -9,9 +9,29 @@ import com.stratum.domain.program.generation.split.primaryMusclesForSessionType
 
 private const val MAX_SESSION_LETTER_INDEX = 25
 
-/** Training weekdays persisted on the program, or inferred from bound workouts when unset. */
-fun Program.effectiveTrainingWeekdays(): Set<Weekday> =
-    trainingWeekdays.ifEmpty { workouts.mapNotNull { it.weekday }.toSet() }
+/**
+ * Training weekdays for schedule rendering. [Workout.weekday] is the single source of truth; this
+ * function prefers it and falls back to [Program.trainingWeekdays] only when no workout carries a
+ * weekday binding (a defensive path for callers that construct a Program without per-session
+ * bindings). Under normal generation/import flows the two are kept equal by
+ * [withReconciledTrainingWeekdays], so this fallback is a no-op.
+ */
+fun Program.effectiveTrainingWeekdays(): Set<Weekday> {
+    val fromWorkouts = workouts.mapNotNull { workout -> workout.weekday }.toSet()
+    if (fromWorkouts.isNotEmpty()) return fromWorkouts
+    return trainingWeekdays
+}
+
+/**
+ * Re-derives [Program.trainingWeekdays] from bound [Workout.weekday] rows. Call this whenever the
+ * workout list may have changed (e.g. after sanitization drops workouts) to keep the denormalized
+ * cache in sync with the authoritative per-session bindings. Re-derives unconditionally — when no
+ * workout carries a weekday, the cache is cleared rather than left stale.
+ */
+fun Program.withReconciledTrainingWeekdays(): Program {
+    val fromWorkouts = workouts.mapNotNull { workout -> workout.weekday }.toSet()
+    return if (trainingWeekdays == fromWorkouts) this else copy(trainingWeekdays = fromWorkouts)
+}
 
 /**
  * Binds workouts using CP-SAT weekday indices (Mon=0 … Sun=6) and renumbers session letters.

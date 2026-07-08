@@ -14,10 +14,14 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -61,13 +65,19 @@ fun OnboardingRoute(
     BackHandler(enabled = state.canGoBack) { viewModel.back() }
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
-        val files = readImportFilesFromUris(context.contentResolver, uris)
-        if (files.isEmpty()) return@rememberLauncherForActivityResult
-        viewModel.onImportFilesSelected(files)
+        // SAF result callbacks run on the main thread; reading file bytes (openInputStream,
+        // readBytes, openFileDescriptor) is blocking IPC + disk I/O and must not run there.
+        // Reading historically caused ANRs ("Input dispatching timed out") on the import step.
+        scope.launch {
+            val files = withContext(Dispatchers.IO) { readImportFilesFromUris(context.contentResolver, uris) }
+            if (files.isEmpty()) return@launch
+            viewModel.onImportFilesSelected(files)
+        }
     }
 
     // Single-file picker for the "Import Existing" program flow (CSV/XLSX).
@@ -75,28 +85,37 @@ fun OnboardingRoute(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        // Cloud providers (Drive) deny reads unless the URI permission grant is explicitly taken,
-        // even for the transient OpenDocument grant. Take it before reading the bytes.
-        val granted = ensureReadPermission(context, uri)
-        val result =
-            if (granted) readImportFileFromUri(context.contentResolver, uri)
-            else Result.failure(java.io.IOException("Could not get permission to read the file."))
-        result
-            .onSuccess { file ->
-                // Reject oversized files before upload — program templates are tiny, so even 1 MB
-                // is generous. Saves bandwidth and protects the server-side LLM budget.
-                if (file.bytes.size > ProgramTemplateImportLimits.MAX_FILE_BYTES) {
-                    viewModel.showImportProgramError(
-                        context.getString(
-                            R.string.onboarding_import_error_too_large,
-                            ProgramTemplateImportLimits.MAX_FILE_SIZE_MB,
-                        ),
-                    )
-                } else {
-                    viewModel.importExistingProgram(file)
+        // SAF result callbacks run on the main thread; both permission-taking (an IPC) and file
+        // reads (openInputStream/readBytes/openFileDescriptor) are blocking and must not run there.
+        scope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    // Cloud providers (Drive) deny reads unless the URI permission grant is explicitly
+                    // taken, even for the transient OpenDocument grant. Take it before reading the bytes.
+                    val granted = ensureReadPermission(context, uri)
+                    if (granted) {
+                        readImportFileFromUri(context.contentResolver, uri)
+                    } else {
+                        Result.failure(java.io.IOException("Could not get permission to read the file."))
+                    }
                 }
-            }
-            .onFailure { error -> viewModel.showImportProgramError(error.message) }
+            result
+                .onSuccess { file ->
+                    // Reject oversized files before upload — program templates are tiny, so even 1 MB
+                    // is generous. Saves bandwidth and protects the server-side LLM budget.
+                    if (file.bytes.size > ProgramTemplateImportLimits.MAX_FILE_BYTES) {
+                        viewModel.showImportProgramError(
+                            context.getString(
+                                R.string.onboarding_import_error_too_large,
+                                ProgramTemplateImportLimits.MAX_FILE_SIZE_MB,
+                            ),
+                        )
+                    } else {
+                        viewModel.importExistingProgram(file)
+                    }
+                }
+                .onFailure { error -> viewModel.showImportProgramError(error.message) }
+        }
     }
 
     OnboardingWizard(

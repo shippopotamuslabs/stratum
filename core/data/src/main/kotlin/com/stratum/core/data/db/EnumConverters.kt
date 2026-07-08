@@ -73,7 +73,15 @@ class EnumConverters {
 
     @TypeConverter
     fun toOnboardingStep(value: String?): OnboardingStep? =
-        value?.let { runCatching { OnboardingStep.valueOf(it) }.getOrNull() }
+        value?.let { raw ->
+            runCatching { OnboardingStep.valueOf(raw) }.getOrNull()
+                // Pre-fork wizard stored a terminal Generate step; map it to Review on read.
+                ?: if (raw == LEGACY_GENERATE_STEP) OnboardingStep.Review else null
+        }
+
+    private companion object {
+        const val LEGACY_GENERATE_STEP = "Generate"
+    }
 
     @TypeConverter
     fun fromTrainingAge(age: TrainingAge?): String? = age?.name
