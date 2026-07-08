@@ -14,7 +14,9 @@ class GetOnboardingStepCapabilitiesUseCase @Inject constructor(
         lifts: List<Lift>,
         selectedPreset: GymPreset? = null,
         usedHistoricalImport: Boolean = false,
+        path: OnboardingPath? = null,
     ): OnboardingStepCapabilities {
+        val resolvedPath = path ?: resolvePath(step, profile)
         val stepValid =
             validateCurrentStep(
                 step = step,
@@ -36,7 +38,22 @@ class GetOnboardingStepCapabilitiesUseCase @Inject constructor(
         return OnboardingStepCapabilities(
             stepValid = stepValid,
             gymLiftsValid = gymLiftsValid,
-            canGoBack = step.previous() != null,
+            canGoBack = step.previous(resolvedPath) != null,
         )
     }
+
+    private fun resolvePath(step: OnboardingStep, profile: UserTrainingProfile): OnboardingPath? =
+        when (step) {
+            OnboardingStep.Welcome,
+            OnboardingStep.Profile,
+            OnboardingStep.GymAndLifts,
+            OnboardingStep.ChoosePath,
+            -> null
+            OnboardingStep.Schedule,
+            OnboardingStep.Specialization,
+            OnboardingStep.MinimumVolume,
+            -> OnboardingPath.Generate
+            OnboardingStep.Review ->
+                if (profile.weekdays.isEmpty()) OnboardingPath.Import else OnboardingPath.Generate
+        }
 }

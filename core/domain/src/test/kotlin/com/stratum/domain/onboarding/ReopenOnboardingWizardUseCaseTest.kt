@@ -10,12 +10,12 @@ import org.junit.jupiter.api.Test
 
 class ReopenOnboardingWizardUseCaseTest {
     @Test
-    fun `reopen clears completion and returns to Generate`() = runTest {
+    fun `reopen clears completion and returns to Review`() = runTest {
         val repository =
             FakeOnboardingRepository(
                 initial =
                     OnboardingProgress(
-                        currentStep = OnboardingStep.Generate,
+                        currentStep = OnboardingStep.Review,
                         startedAt = FakeOnboardingRepository.STARTED_AT,
                         completedAt = FakeOnboardingRepository.COMPLETED_AT,
                     ),
@@ -25,6 +25,6 @@ class ReopenOnboardingWizardUseCaseTest {
         subject()
 
         assertNull(repository.current.completedAt)
-        assertEquals(OnboardingStep.Generate, repository.current.currentStep)
+        assertEquals(OnboardingStep.Review, repository.current.currentStep)
     }
 }

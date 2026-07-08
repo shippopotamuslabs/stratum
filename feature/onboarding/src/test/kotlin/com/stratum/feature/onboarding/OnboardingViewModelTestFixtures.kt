@@ -200,6 +200,17 @@ internal object OnboardingViewModelTestFixtures {
                 profileRepository = fakeProfileRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
+            importProgramTemplate = com.stratum.domain.program.importing.ImportProgramTemplateUseCase(
+                importPort = com.stratum.core.testing.importing.FakeProgramTemplateImportPort(),
+                resolver = com.stratum.domain.program.importing.ResolveProgramTemplateLiftsUseCase(
+                    liftRepository = fakeLiftRepository,
+                    liftNameResolver = com.stratum.core.testing.importing.FakeLiftNameResolverPort(),
+                ),
+                repository = fakeProgramRepository,
+                completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
+                profileRepository = fakeProfileRepository,
+                programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+            ),
         )
     }
 

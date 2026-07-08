@@ -9,6 +9,9 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeId
+import com.stratum.feature.onboarding.GenerateState
+import com.stratum.feature.onboarding.ImportProgramState
+import com.stratum.feature.onboarding.OnboardingPathUi
 import com.stratum.feature.onboarding.ReviewDraftUi
 
 @PreviewLightDark
@@ -25,14 +28,34 @@ private fun ReviewScreenNeoPreview() {
 
 @Composable
 private fun ReviewScreenPreviewGrid(family: StratumThemeId) {
-    // Two states back-to-back: a fully-answered summary and the empty/"Balanced" state.
+    // Two states back-to-back: a fully-answered Generate summary and the Import summary.
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            ReviewScreen(draft = completedReviewDraft())
-            ReviewScreen(draft = ReviewDraftUi())
+            ReviewScreen(
+                draft = completedReviewDraft(),
+                path = OnboardingPathUi.Generate,
+                onGenerate = {},
+                onImportExisting = {},
+                generateState = GenerateState.Idle,
+                generateProgress = null,
+                generateMaxTimelineIndex = 0,
+                generateErrorMessage = null,
+                importProgramState = ImportProgramState.Idle,
+            )
+            ReviewScreen(
+                draft = ReviewDraftUi(),
+                path = OnboardingPathUi.Import,
+                onGenerate = {},
+                onImportExisting = {},
+                generateState = GenerateState.Idle,
+                generateProgress = null,
+                generateMaxTimelineIndex = 0,
+                generateErrorMessage = null,
+                importProgramState = ImportProgramState.Idle,
+            )
         }
     }
 }

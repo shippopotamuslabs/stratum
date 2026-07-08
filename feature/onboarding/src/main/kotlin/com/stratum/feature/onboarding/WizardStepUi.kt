@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingStep
 
 /**
@@ -15,31 +16,62 @@ data class WizardStepUi(
     val stepIndicatorCount: Int,
 )
 
-internal fun OnboardingStep.toWizardStepUi(): WizardStepUi {
-    val entries = OnboardingStep.entries
-    return WizardStepUi(
-        id = name,
-        displayName = toStepDisplayName(),
-        index = ordinal,
-        isFirst = isFirst,
-        isLast = isLast,
-        stepIndicatorCount = entries.size,
+/**
+ * The steps shown for a given [path]. `null` covers the common prefix (before the user chooses at
+ * [OnboardingStep.ChoosePath]). The Import path skips Schedule/Specialization/MinimumVolume.
+ */
+internal fun stepsForPath(path: OnboardingPath?): List<OnboardingStep> = when (path) {
+    null -> listOf(
+        OnboardingStep.Welcome,
+        OnboardingStep.Profile,
+        OnboardingStep.GymAndLifts,
+        OnboardingStep.ChoosePath,
+    )
+    OnboardingPath.Import -> listOf(
+        OnboardingStep.Welcome,
+        OnboardingStep.Profile,
+        OnboardingStep.GymAndLifts,
+        OnboardingStep.ChoosePath,
+        OnboardingStep.Review,
+    )
+    OnboardingPath.Generate -> listOf(
+        OnboardingStep.Welcome,
+        OnboardingStep.Profile,
+        OnboardingStep.GymAndLifts,
+        OnboardingStep.ChoosePath,
+        OnboardingStep.Schedule,
+        OnboardingStep.Specialization,
+        OnboardingStep.MinimumVolume,
+        OnboardingStep.Review,
     )
 }
 
-internal fun allWizardSteps(): List<WizardStepUi> =
-    OnboardingStep.entries.map { it.toWizardStepUi() }
+internal fun OnboardingStep.toWizardStepUi(path: OnboardingPath? = null): WizardStepUi {
+    val steps = stepsForPath(path)
+    val indexInPath = steps.indexOf(this).let { if (it == -1) ordinal else it }
+    return WizardStepUi(
+        id = name,
+        displayName = toStepDisplayName(),
+        index = indexInPath,
+        isFirst = isFirst,
+        isLast = isLast,
+        stepIndicatorCount = steps.size,
+    )
+}
+
+internal fun allWizardSteps(path: OnboardingPath? = null): List<WizardStepUi> =
+    stepsForPath(path).map { it.toWizardStepUi(path) }
 
 internal fun OnboardingStep.toStepDisplayName(): String = when (this) {
     OnboardingStep.Welcome -> "Welcome"
     OnboardingStep.Profile -> "Profile"
+    OnboardingStep.GymAndLifts -> "Gym & Lifts"
+    OnboardingStep.ChoosePath -> "Program Option"
     OnboardingStep.Schedule -> "Schedule"
     OnboardingStep.Specialization -> "Specialization"
     OnboardingStep.MinimumVolume -> "Minimum Volume"
-    OnboardingStep.GymAndLifts -> "Gym & Lifts"
     OnboardingStep.Review -> "Review"
-    OnboardingStep.Generate -> "Create Program"
 }
 
-internal fun wizardStepFromId(id: String): WizardStepUi? =
-    OnboardingStep.entries.firstOrNull { it.name == id }?.toWizardStepUi()
+internal fun wizardStepFromId(id: String, path: OnboardingPath? = null): WizardStepUi? =
+    OnboardingStep.entries.firstOrNull { it.name == id }?.toWizardStepUi(path)

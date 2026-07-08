@@ -65,7 +65,7 @@ class OnboardingProfileStepViewModelTest {
 
         subject.next()
         advanceUntilIdle()
-        assertEquals("Schedule", subject.uiState.value.step.id)
+        assertEquals("GymAndLifts", subject.uiState.value.step.id)
 
         val saved = OnboardingViewModelTestFixtures.fakeProfileRepository.current
         assertEquals(TrainingAge.Intermediate, saved?.trainingAge)

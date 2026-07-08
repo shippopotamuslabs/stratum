@@ -7,6 +7,7 @@ package com.stratum.feature.onboarding
 data class OnboardingUiState(
     val step: WizardStepUi,
     val steps: List<WizardStepUi> = allWizardSteps(),
+    val onboardingPath: OnboardingPathUi? = null,
     val isComplete: Boolean = false,
     val canAdvance: Boolean = false,
     val canGoBack: Boolean = false,
@@ -21,6 +22,7 @@ data class OnboardingUiState(
     val generateProgress: ProgramGenerationProgressUi? = null,
     val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
+    val importProgramState: ImportProgramState = ImportProgramState.Idle,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast
@@ -31,6 +33,16 @@ data class OnboardingUiState(
             presetOptions = allGymPresetOptions(),
         )
     }
+}
+
+/**
+ * Presentation mirror of the domain onboarding path. `null` while the user is in the common prefix
+ * (before choosing at ChoosePath). Drives which summary cards the Review step shows and which
+ * action (Generate vs Import) it offers.
+ */
+enum class OnboardingPathUi {
+    Generate,
+    Import,
 }
 
 /**
@@ -107,6 +119,28 @@ enum class SessionLengthErrorKind {
  * `isComplete` flips and the existing `LaunchedEffect(state.isComplete)` consumes it.
  */
 enum class GenerateState { Idle, Loading, Error }
+
+/**
+ * State of the "Import Existing" program flow on the Generate step. `Idle` shows both CTAs;
+ * `Loading` shows phase copy; `Error` offers retry (choose another file) + back. `Rejected` is a
+ * distinct error for files the server determined are not a program. Success is implicit — the
+ * wizard's `isComplete` flips just like generation.
+ */
+sealed interface ImportProgramState {
+    data object Idle : ImportProgramState
+    data class Loading(val phase: ImportProgramPhaseUi) : ImportProgramState
+    data class Error(val message: String?) : ImportProgramState
+    data class Rejected(val message: String?) : ImportProgramState
+}
+
+/** Presentation phases for program-template import (mirrors the domain enum without leaking it). */
+enum class ImportProgramPhaseUi {
+    Uploading,
+    Sniffing,
+    Parsing,
+    MatchingCatalog,
+    Complete,
+}
 
 /**
  * UI-shaped snapshot of the Specialization step (OS-3).
