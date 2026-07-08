@@ -1,6 +1,5 @@
 /**
- * Normalized program-template shape produced by the deterministic program-import parsers and the
- * LLM-conversion fallback path.
+ * Normalized program-template shape produced by the deterministic program-import parsers.
  *
  * This is the server-side mirror of the Kotlin `NormalizedProgramTemplate` in `:core:domain`. Lifts
  * are **name-keyed** — the client resolves them to catalog lift ids via the `LiftNameResolverPort`,
@@ -54,8 +53,8 @@ export interface NormalizedProgramTemplateSet {
  * Which known program-template export format a file was identified as.
  *
  * Only Alpha Progression and MacroFactor ship program-template exports today. Hevy and Strong do
- * not export programs, so their files fall through to the LLM path (which will reject them when no
- * program structure is found). The list is intentionally closed.
+ * not export programs, so their files never match and are rejected as unsupported. The list is
+ * intentionally closed.
  */
 export type ProgramTemplateFormat = "alpha_progression" | "macrofactor";
 
@@ -70,7 +69,7 @@ export interface ProgramTemplateDeterministicResult {
  * Rules: workouts non-empty; every non-rest workout has at least one lift; every lift has a
  * non-empty name and at least one set; every set has positive reps (repMin > 0, repMax >= repMin
  * when both present). Rest days (restDay=true) are allowed zero lifts. Requires at least one
- * non-rest workout. Throws on violation so the caller can treat a miss as "fall back to the LLM".
+ * non-rest workout. Throws on violation so the caller can treat a miss as an unsupported file.
  */
 export function validateProgramTemplate(template: NormalizedProgramTemplate): NormalizedProgramTemplate {
   if (!Array.isArray(template.workouts) || template.workouts.length === 0) {
@@ -90,6 +89,12 @@ export function validateProgramTemplate(template: NormalizedProgramTemplate): No
       if (typeof lift.name !== "string" || lift.name.trim() === "") {
         throw new Error(`Workout ${wi} lift ${li} has no name`);
       }
+      // Reject names that look like garbled binary (control chars or mostly non-printable) — this
+      // guards against a parser mis-decoding cell contents. Normal exercise names never contain
+      // control characters.
+      if (looksCorrupt(lift.name)) {
+        throw new Error(`Workout ${wi} lift ${li} has a corrupt name`);
+      }
       if (!Array.isArray(lift.sets) || lift.sets.length === 0) {
         throw new Error(`Workout ${wi} lift ${li} (${lift.name}) has no sets`);
       }
@@ -107,4 +112,25 @@ export function validateProgramTemplate(template: NormalizedProgramTemplate): No
     });
   });
   return template;
+}
+
+/**
+ * Detect names that look like garbled binary — control characters or mostly non-printable content.
+ * Normal exercise names are ASCII/Unicode letters, digits, spaces, and punctuation — never control
+ * chars. A corrupt name signals a parser mis-decode rather than a real lift, so the template is
+ * rejected as unsupported.
+ */
+function looksCorrupt(name: string): boolean {
+  let printable = 0;
+  for (const ch of name) {
+    const code = ch.charCodeAt(0);
+    if (code < 0x20 && ch !== "\t") {
+      return true; // control character
+    }
+    if (code >= 0x20 && code !== 0x7f) {
+      printable++;
+    }
+  }
+  // If fewer than 50% printable chars, it's garbled binary.
+  return printable < name.length / 2;
 }

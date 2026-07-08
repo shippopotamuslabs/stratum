@@ -9,7 +9,7 @@ value class ProgramTemplateImportJobId(val value: String)
 
 /**
  * Provider-agnostic normalized representation of an imported program template, produced by the
- * server (deterministic parser or LLM-conversion path) and consumed by the client.
+ * server's deterministic parser and consumed by the client.
  *
  * Lifts are **name-keyed** (`[ProgramTemplateLift.name]`) — the client resolves them to catalog
  * `LiftId`s via [com.stratum.domain.importing.LiftNameResolverPort], creating custom lifts for any

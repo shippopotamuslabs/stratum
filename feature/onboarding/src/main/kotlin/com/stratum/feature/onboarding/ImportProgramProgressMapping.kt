@@ -7,8 +7,6 @@ internal fun ProgramTemplateImportPhase.toUi(): ImportProgramPhaseUi = when (thi
     ProgramTemplateImportPhase.Uploading -> ImportProgramPhaseUi.Uploading
     ProgramTemplateImportPhase.Sniffing -> ImportProgramPhaseUi.Sniffing
     ProgramTemplateImportPhase.Parsing -> ImportProgramPhaseUi.Parsing
-    ProgramTemplateImportPhase.ScriptGenerating -> ImportProgramPhaseUi.ScriptGenerating
-    ProgramTemplateImportPhase.ScriptTesting -> ImportProgramPhaseUi.ScriptTesting
     ProgramTemplateImportPhase.MatchingCatalog -> ImportProgramPhaseUi.MatchingCatalog
     ProgramTemplateImportPhase.Complete -> ImportProgramPhaseUi.Complete
     ProgramTemplateImportPhase.Failed -> ImportProgramPhaseUi.MatchingCatalog

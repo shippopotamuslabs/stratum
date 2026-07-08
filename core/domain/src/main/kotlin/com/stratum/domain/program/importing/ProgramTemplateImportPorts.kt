@@ -10,8 +10,6 @@ enum class ProgramTemplateImportPhase {
     Uploading,
     Sniffing,
     Parsing,
-    ScriptGenerating,
-    ScriptTesting,
     MatchingCatalog,
     Complete,
     Failed,
@@ -29,8 +27,8 @@ enum class RemoteProgramTemplateJobStatus {
 /**
  * Hard caps for program-template import. Program files are tiny structured documents (real-world
  * samples are single-digit KB), so this is deliberately far tighter than the historical-import
- * limit. Enforced client-side (before upload) and server-side (before any LLM call) so a direct
- * Callable invocation cannot bypass it and burn LLM budget on a huge or junk file.
+ * limit. Enforced client-side (before upload) and server-side (before parsing) so a direct
+ * Callable invocation cannot bypass it.
  */
 object ProgramTemplateImportLimits {
     const val MAX_FILE_BYTES = 1 * 1024 * 1024

@@ -18,11 +18,10 @@ function isXlsxBytes(bytes: Buffer): boolean {
  * Detect which known program-template export format a raw file is, and parse it if recognised.
  *
  * Returns the parsed template and detected format on success, or `null` when the file does not
- * match any known format — in which case the caller falls back to the LLM conversion path (which
- * will itself reject files with no program structure).
+ * match any known format — in which case the caller rejects the job as an unsupported file.
  *
  * Order: XLSX first (binary, not UTF-8 decodable), then Alpha Progression plan CSV (sectional).
- * Hevy and Strong do not export programs, so their files never match here and go to the LLM path.
+ * Hevy and Strong do not export programs, so their files never match here and are rejected.
  */
 export function detectAndParseProgramTemplate(
   rawBytes: Buffer,

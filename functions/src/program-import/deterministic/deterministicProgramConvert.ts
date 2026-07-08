@@ -13,14 +13,15 @@ export interface DeterministicProgramConvertDeps {
 }
 
 /**
- * Try a deterministic program-template conversion before falling back to the LLM.
+ * Try a deterministic program-template conversion.
  *
  * Downloads the raw upload, sniffs its format, parses it, validates the result against the
  * program-template contract, persists the normalized JSON to Storage, and marks the job `ready`.
  *
- * Returns `null` for any non-fatal outcome the caller should treat as "try the LLM instead":
- * unrecognised format, parse failure, or validation failure. A thrown error from Storage/Firestore
- * is allowed to propagate so the caller's error handling (which marks the job `failed`) takes over.
+ * Returns `null` for any non-fatal outcome the caller should reject as an unsupported file:
+ * unrecognised format, parse failure, or validation failure. `ProgramTemplateTooLargeError` from
+ * the size guard propagates so the caller can surface the distinct "too large" rejection; any
+ * other thrown error is also treated by the caller as an unsupported-file rejection.
  */
 export async function deterministicProgramConvert(
   deps: DeterministicProgramConvertDeps,
@@ -35,7 +36,7 @@ export async function deterministicProgramConvert(
   const rawBytes = await deps.storage.download(rawStoragePath);
 
   // Abuse guard: reject oversized files before any parse. Throws ProgramTemplateTooLargeError,
-  // which the trigger handler surfaces as a rejection rather than falling back to the LLM.
+  // which the trigger handler surfaces as a distinct "too large" rejection.
   assertWithinSizeLimit(rawBytes.length);
 
   const detected = detectAndParseProgramTemplate(rawBytes);
