@@ -2,8 +2,10 @@
 
 package com.stratum.domain.program.generation.context
 
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 
@@ -38,6 +40,21 @@ data class LiftContext(
     val equipment: String? = null,
     /** Loading category — drives recovery classification (AxialCompound/NonAxialCompound/Isolation). */
     val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+    /**
+     * Weight-banded increment steps (from the [com.stratum.domain.lift.Lift]). Drives the
+     * rep-range *width* via the increment:typical-load ratio — a small increment on a light
+     * isolation lift shifts intensity more per jump than a large increment on a heavy compound,
+     * so the former carries a wider practical progression band. Empty when the lift has no
+     * tier data, in which case generation falls back to the static [RP_REP_RIR_BANDS] spread.
+     */
+    val incrementTiers: List<IncrementTier> = emptyList(),
+    /**
+     * Estimated one-rep max from training insights (reps+RIR against the Brzycki/exponential
+     * engine). Used as the typical-load anchor for the increment:typical-load ratio: the
+     * per-increment rep shift is computed at `weightForReps(e1rm, 10)`. Null when no proven
+     * history exists, in which case generation falls back to the static band width.
+     */
+    val estimatedOneRm: Weight? = null,
 )
 
 enum class VolumeSnapshotSource {

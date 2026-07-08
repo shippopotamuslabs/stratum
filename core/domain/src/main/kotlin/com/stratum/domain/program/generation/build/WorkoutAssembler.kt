@@ -169,7 +169,6 @@ private fun buildLiftDrafts(
         val repRir = repRirForSlot(
             slot = sel.slot.toWorkoutSlotTemplate(),
             lift = sel.lift,
-            fatigueSlope = sel.lift.fatigueDecaySlope,
             setCount = sel.slot.setCount,
         )
         val setCount = sel.slot.setCount
