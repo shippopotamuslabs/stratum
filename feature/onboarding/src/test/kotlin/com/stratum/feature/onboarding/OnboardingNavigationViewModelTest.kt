@@ -106,15 +106,12 @@ class OnboardingNavigationViewModelTest {
         }
 
         @Test
-        @DisplayName("Given the Review step when next() then it advances to Generate with no validation")
-        fun nextAdvancesFromReviewToGenerate() = runTest {
-            subject.uiState.test {
-                assertEquals("Review", awaitItem().step.id)
-                subject.next()
-                assertEquals("Generate", awaitItem().step.id)
-                cancelAndIgnoreRemainingEvents()
-            }
-            assertEquals(OnboardingStep.Generate, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
+        @DisplayName("Given the Review step when next() then it stays on Review (terminal step)")
+        fun reviewIsTerminal() = runTest {
+            assertEquals(OnboardingStep.Review, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
+            subject.next()
+            // Review is the terminal step — next() is a NoOp, no advance.
+            assertEquals(OnboardingStep.Review, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
         }
     }
 }

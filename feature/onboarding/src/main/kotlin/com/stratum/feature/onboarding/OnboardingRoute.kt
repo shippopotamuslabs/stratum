@@ -28,8 +28,10 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.program.importing.ProgramTemplateImportLimits
-import com.stratum.feature.onboarding.ui.GenerateScreen
+import com.stratum.feature.onboarding.OnboardingPathUi
+import com.stratum.feature.onboarding.ui.ChoosePathScreen
 import com.stratum.feature.onboarding.ui.GymAndLiftOnboardingSetupScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
@@ -103,6 +105,8 @@ fun OnboardingRoute(
         onBack = viewModel::back,
         onGenerate = viewModel::generate,
         onImportExisting = { programImportLauncher.launch(PROGRAM_IMPORT_MIME_TYPES) },
+        onSelectGenerate = { viewModel.selectPath(OnboardingPath.Generate) },
+        onSelectImport = { viewModel.selectPath(OnboardingPath.Import) },
         profileSchedule = ProfileScheduleHandlers(
             onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
             onLastTrainedSelected = viewModel::onLastTrainedSelected,
@@ -137,6 +141,8 @@ private fun OnboardingWizard(
     onBack: () -> Unit,
     onGenerate: () -> Unit,
     onImportExisting: () -> Unit,
+    onSelectGenerate: () -> Unit,
+    onSelectImport: () -> Unit,
     profileSchedule: ProfileScheduleHandlers,
     onMuscleToggled: (String) -> Unit,
     minimumVolume: MinimumVolumeHandlers,
@@ -195,23 +201,28 @@ private fun OnboardingWizard(
                         onImportClick = onImportClick,
                         onImportCancel = onImportCancel,
                     )
-                    WIZARD_STEP_REVIEW -> ReviewScreen(draft = state.reviewDraft)
-                    WIZARD_STEP_GENERATE -> GenerateScreen(
+                    WIZARD_STEP_REVIEW -> ReviewScreen(
+                        draft = state.reviewDraft,
+                        path = state.onboardingPath ?: OnboardingPathUi.Import,
                         onGenerate = onGenerate,
                         onImportExisting = onImportExisting,
-                        onBack = onBack,
                         generateState = state.generateState,
                         generateProgress = state.generateProgress,
                         generateMaxTimelineIndex = state.generateMaxTimelineIndex,
                         generateErrorMessage = state.generateErrorMessage,
                         importProgramState = state.importProgramState,
                     )
+                    WIZARD_STEP_CHOOSE_PATH -> ChoosePathScreen(
+                        onSelectGenerate = onSelectGenerate,
+                        onSelectImport = onSelectImport,
+                    )
                 }
             }
-            if (!state.isLast &&
-                state.generateState != GenerateState.Loading &&
-                state.importProgramState !is ImportProgramState.Loading
-            ) {
+            val stepDrivesOwnAction = state.isLast || state.step.id == WIZARD_STEP_CHOOSE_PATH
+            val actionInProgress =
+                state.generateState == GenerateState.Loading ||
+                    state.importProgramState is ImportProgramState.Loading
+            if (!stepDrivesOwnAction && !actionInProgress) {
                 WizardControls(
                     canAdvance = state.canAdvance,
                     onNext = onNext,
@@ -271,7 +282,7 @@ private const val WIZARD_STEP_SPECIALIZATION = "Specialization"
 private const val WIZARD_STEP_MINIMUM_VOLUME = "MinimumVolume"
 private const val WIZARD_STEP_GYM_AND_LIFTS = "GymAndLifts"
 private const val WIZARD_STEP_REVIEW = "Review"
-private const val WIZARD_STEP_GENERATE = "Generate"
+private const val WIZARD_STEP_CHOOSE_PATH = "ChoosePath"
 
 /**
  * MIME types accepted by the program-template import picker (CSV + XLSX). The picker ORs these

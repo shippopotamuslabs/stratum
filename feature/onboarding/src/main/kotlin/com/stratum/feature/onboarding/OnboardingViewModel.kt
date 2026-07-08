@@ -19,6 +19,7 @@ import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
 import com.stratum.domain.onboarding.GetOnboardingStepCapabilitiesUseCase
 import com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.OnboardingStepDirection
 import com.stratum.domain.onboarding.OnboardingWizardState
@@ -370,6 +371,7 @@ class OnboardingViewModel @Inject constructor(
 
     fun next() {
         val current = wizardState.value
+        val path = current.onboardingPath
         viewModelScope.launch {
             val result = advanceOnboardingStep(
                 currentStep = current.currentStep,
@@ -379,6 +381,7 @@ class OnboardingViewModel @Inject constructor(
                 lifts = current.lifts,
                 selectedPreset = current.selectedPreset,
                 usedHistoricalImport = current.usedHistoricalImport,
+                path = path,
             )
             when (result) {
                 AdvanceOnboardingStepResult.ValidationFailed ->
@@ -398,6 +401,7 @@ class OnboardingViewModel @Inject constructor(
 
     fun back() {
         val current = wizardState.value
+        val path = current.onboardingPath
         viewModelScope.launch {
             val result = advanceOnboardingStep(
                 currentStep = current.currentStep,
@@ -407,6 +411,7 @@ class OnboardingViewModel @Inject constructor(
                 lifts = current.lifts,
                 selectedPreset = current.selectedPreset,
                 usedHistoricalImport = current.usedHistoricalImport,
+                path = path,
             )
             if (result is AdvanceOnboardingStepResult.Success) {
                 edits.value = ProfileEdit()
@@ -414,6 +419,31 @@ class OnboardingViewModel @Inject constructor(
                 if (result.newStep == OnboardingStep.MinimumVolume) {
                     maybePrefillMinimumVolumeFromImport()
                 }
+            }
+        }
+    }
+
+    /**
+     * Advance from [OnboardingStep.ChoosePath] down the chosen [path]. The use case handles clearing
+     * schedule/specialization data when committing to Import.
+     */
+    fun selectPath(path: OnboardingPath) {
+        val current = wizardState.value
+        if (current.currentStep != OnboardingStep.ChoosePath) return
+        viewModelScope.launch {
+            val result = advanceOnboardingStep(
+                currentStep = current.currentStep,
+                direction = OnboardingStepDirection.Forward,
+                profile = effectiveProfile.value,
+                specialization = effectiveSpecialization.value,
+                lifts = current.lifts,
+                selectedPreset = current.selectedPreset,
+                usedHistoricalImport = current.usedHistoricalImport,
+                path = path,
+            )
+            if (result is AdvanceOnboardingStepResult.Success) {
+                edits.value = ProfileEdit()
+                specializationEdits.value = SpecializationEdit()
             }
         }
     }

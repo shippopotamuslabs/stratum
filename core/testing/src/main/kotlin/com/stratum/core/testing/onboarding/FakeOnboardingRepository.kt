@@ -32,7 +32,7 @@ class FakeOnboardingRepository(
     override suspend fun reopenWizard() {
         progress.value =
             progress.value.copy(
-                currentStep = OnboardingStep.Generate,
+                currentStep = OnboardingStep.Review,
                 completedAt = null,
             )
     }
