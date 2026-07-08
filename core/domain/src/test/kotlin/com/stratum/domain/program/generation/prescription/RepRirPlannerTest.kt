@@ -196,6 +196,14 @@ class RepRirPlannerTest {
     }
 
     @Test
+    @DisplayName("repRangeFromFatigue: extremely shallow slope (-0.1, 4 sets) clamps range spread to at least 2 (8–10)")
+    fun repRangeFromFatigueExtremelyShallowSlopeClamped() {
+        val band = RP_REP_RIR_BANDS.getValue(RpRepProfile.LowerFreeWeightCompound)
+        assertEquals(8 to 10, repRangeFromFatigue(-0.1, 4, band))
+    }
+
+
+    @Test
     @DisplayName("repRirForSlot: default setCount=0 with a slope falls back to the static band")
     fun repRirForSlotDefaultSetCountFallsBack() {
         // The default setCount=0 means no set-count signal → fallback, even if a slope is passed.
