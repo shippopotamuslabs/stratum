@@ -15,6 +15,12 @@ interface TrainingLogRepository {
     suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>)
     suspend fun getAllSessions(): List<TrainingSession>
     suspend fun getAllSets(): List<LoggedSet>
+
+    /**
+     * Earliest logged-set timestamp per lift across all history. Keys are lifts with at least one
+     * logged set; used by the dashboard to answer "how long have I been on this lift?"
+     */
+    suspend fun getFirstSetDatePerLift(): Map<LiftId, Instant>
     suspend fun getImportSessions(): List<TrainingSession>
     suspend fun getImportSets(): List<LoggedSet>
     suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet>

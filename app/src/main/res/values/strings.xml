@@ -3,8 +3,23 @@
     <string name="tab_dashboard">Dashboard</string>
     <string name="tab_program">Program</string>
     <string name="tab_gym">Gym</string>
-    <string name="dashboard_placeholder_title">Dashboard</string>
-    <string name="dashboard_placeholder_subtitle">Training metrics land in a later slice.</string>
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_empty_title">No training history yet</string>
+    <string name="dashboard_empty_subtitle">Log a workout or import history to see your progress here.</string>
+    <string name="dashboard_loading">Loading progress…</string>
+    <string name="dashboard_tab_muscles">Muscles</string>
+    <string name="dashboard_tab_lifts">Lifts</string>
+    <string name="dashboard_empty_muscles_window">No muscle data in the last 3 months.</string>
+    <string name="dashboard_empty_lifts_program">Add lifts to your active program to see trends.</string>
+    <string name="dashboard_trend_up">Up</string>
+    <string name="dashboard_trend_flat">Flat</string>
+    <string name="dashboard_trend_down">Down</string>
+    <string name="dashboard_trend_unknown">—</string>
+    <string name="dashboard_sessions_format">%1$d sessions</string>
+    <string name="dashboard_contributing_lifts_format">%1$d lifts</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_placeholder">Settings land in a later slice.</string>
+    <string name="settings_navigate_back">Go back</string>
     <string name="gym_placeholder_title">Gym</string>
     <string name="gym_placeholder_subtitle">Lift catalog and history land in a later slice.</string>
 </resources>

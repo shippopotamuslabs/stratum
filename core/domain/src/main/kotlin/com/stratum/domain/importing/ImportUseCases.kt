@@ -21,6 +21,21 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
+/**
+ * Which history an insights extraction covers.
+ *
+ * - [ImportOnly]: original import-orchestration scope — only sessions/sets whose origin is
+ *   `IMPORT`. Used by [PersistImportedHistoryUseCase] so a re-import never pulls live work into
+ *   the import-derived provenance window.
+ * - [All]: every session/set, imported + live. Used by [com.stratum.domain.training.FinalizeTrainingSessionUseCase]
+ *   so the dashboard never reflects a frozen import snapshot — a workout logged and completed
+ *   after import updates `lift_training_insights` / `muscle_volume_baselines` immediately.
+ */
+enum class InsightsAnalysisScope {
+    ImportOnly,
+    All,
+}
+
 class ExtractTrainingInsightsUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
@@ -31,12 +46,32 @@ class ExtractTrainingInsightsUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
+        scope: InsightsAnalysisScope = InsightsAnalysisScope.ImportOnly,
     ): Result<ExtractTrainingInsightsSummary> = runCatching {
-        val sessions = trainingLogRepository.getImportSessions()
-        val sets = trainingLogRepository.getImportSets()
+        // A live refresh over All history must not clobber proven-lift provenance recorded at
+        // import time — re-read the previously persisted metadata and carry its proven ids forward.
+        // ImportOnly callers always pass an explicit provenLiftIds set (from lift resolution).
+        val effectiveProvenLiftIds =
+            if (scope == InsightsAnalysisScope.All && provenLiftIds.isEmpty()) {
+                importAnalysisMetadataRepository.get()?.provenLiftIds?.toSet() ?: emptySet()
+            } else {
+                provenLiftIds
+            }
+        val sessions =
+            if (scope == InsightsAnalysisScope.All) {
+                trainingLogRepository.getAllSessions()
+            } else {
+                trainingLogRepository.getImportSessions()
+            }
+        val sets =
+            if (scope == InsightsAnalysisScope.All) {
+                trainingLogRepository.getAllSets()
+            } else {
+                trainingLogRepository.getImportSets()
+            }
         val lifts = liftRepository.observeLifts().first()
         val output = TrainingInsightsExtractor.analyze(
-            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts, provenLiftIds),
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts, effectiveProvenLiftIds),
         )
         liftTrainingInsightsRepository.replaceAll(output.liftInsights)
         supersetAffinityRepository.replaceAll(output.supersetAffinities)

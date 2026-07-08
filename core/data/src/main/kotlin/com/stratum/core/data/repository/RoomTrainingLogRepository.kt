@@ -73,6 +73,11 @@ class RoomTrainingLogRepository @Inject constructor(
     override suspend fun getAllSets(): List<LoggedSet> =
         setDao.getAll().map { it.toTrainingDomain() }
 
+    override suspend fun getFirstSetDatePerLift(): Map<com.stratum.domain.lift.identity.LiftId, Instant> =
+        setDao.getFirstSetEpochPerLift().associate { row ->
+            com.stratum.domain.lift.identity.LiftId(row.liftId) to Instant.ofEpochMilli(row.firstEpochMillis)
+        }
+
     override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
         setDao.getInWindow(windowStart.toEpochMilli(), windowEnd.toEpochMilli())
             .map { it.toTrainingDomain() }
