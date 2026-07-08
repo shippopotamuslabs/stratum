@@ -15,6 +15,8 @@ import com.stratum.domain.di.DefaultDispatcher
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -84,30 +86,55 @@ class ResolveImportLiftsUseCase @Inject constructor(
         val firstPassCatalogMatchIds = mutableSetOf<LiftId>()
         val firstPassMatchedExerciseNames = mutableSetOf<String>()
         var firstPassCatalogMatches = 0
+        val distinctExerciseNames = sets.map { it.exerciseNameRaw }.distinct()
+        // Equipment inference input depends only on `sets`, not on lift resolution — launch it
+        // concurrently to hide the Firebase round-trip behind BM25 + LLM enrichment.
+        val equipmentDistinctNames =
+            ImportWindowPolicy.recentSetsForLiftEnablement(sets)
+                .map { it.exerciseNameRaw }
+                .distinct()
         onProgress(
             ImportProgress(
                 phase = ImportProgressPhase.EnrichingCustomLifts,
                 catalogStep =
-                    ImportCatalogProgressStep.MatchingCatalog(
-                        exerciseCount = sets.map { it.exerciseNameRaw }.distinct().size,
+                    ImportCatalogProgressStep.InferringEquipment(
+                        exerciseCount = equipmentDistinctNames.size,
                     ),
             ),
         )
-        val distinctExerciseNames = sets.map { it.exerciseNameRaw }.distinct()
-        liftNameResolver.prepareBatch(distinctExerciseNames)
-        // BM25 over the full seed catalog per distinct exercise name is the heaviest CPU work in
-        // import (O(distinctNames × catalogSize × nameLen²) Levenshtein). Offload just this and the
-        // custom-lift enrichment; onProgress must stay on the caller's context so that, when this
-        // use case is invoked from a Flow producer, the progress callback's emit() doesn't cross
-        // dispatcher boundaries (which would violate the Flow context-preservation invariant).
-        val firstPassByExerciseName =
-            withContext(resolutionDispatcher) {
-                resolveDistinctExerciseNames(
-                    sets = sets,
-                    catalogNames = seedCatalogNames,
-                    catalogIds = seedCatalogIds,
-                )
+        // Embedding fetch and equipment inference run concurrently with first-pass BM25.
+        // High-confidence BM25 matches resolve without embeddings; gray-zone names are caught by
+        // the second pass after the embedding job completes.
+        return coroutineScope {
+            val embeddingJob = async { liftNameResolver.prepareBatch(distinctExerciseNames) }
+            val equipmentJob = async {
+                equipmentInferencePort.inferEquipment(equipmentDistinctNames).getOrDefault(emptyMap())
             }
+
+            onProgress(
+                ImportProgress(
+                    phase = ImportProgressPhase.EnrichingCustomLifts,
+                    catalogStep =
+                        ImportCatalogProgressStep.MatchingCatalog(
+                            exerciseCount = sets.map { it.exerciseNameRaw }.distinct().size,
+                        ),
+                ),
+            )
+            // BM25 over the full seed catalog per distinct exercise name is the heaviest CPU work in
+            // import (O(distinctNames × catalogSize × nameLen²) Levenshtein). Offload to the
+            // resolution dispatcher; onProgress stays on the caller's context so that, when this
+            // use case is invoked from a Flow producer, emit() doesn't cross dispatcher boundaries.
+            val firstPassByExerciseName =
+                withContext(resolutionDispatcher) {
+                    resolveDistinctExerciseNames(
+                        sets = sets,
+                        catalogNames = seedCatalogNames,
+                        catalogIds = seedCatalogIds,
+                    )
+                }
+            // Ensure embeddings are ready before the second pass needs them for gray-zone rerank.
+            embeddingJob.await()
+
         val catalogLiftsToEnable = mutableSetOf<LiftId>()
         val resolvedSets =
             sets.map { set ->
@@ -132,6 +159,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
             }
 
         var customLiftsCreated = 0
+        var customLiftsSkipped = 0
         val customLiftIds = mutableSetOf<LiftId>()
         var secondPassAdditionalMatches = 0
         var customLiftInferenceBatchesAttempted = 0
@@ -167,24 +195,23 @@ class ResolveImportLiftsUseCase @Inject constructor(
 
                 unmatchedCounts.values.forEach { aggregate ->
                     val inferred = inferredByName[aggregate.displayName]
-                    val createdId =
-                        if (inferred != null) {
-                            customLiftLlmInferredCount += 1
+                    if (inferred != null) {
+                        val createdId =
                             liftRepository.addCustomLift(inferred.toCustomLiftDefinition(defaultIncrement))
+                        customLiftLlmInferredCount += 1
+                        if (aggregate.isRecent) {
+                            customLiftIds += createdId
                         } else {
-                            liftRepository.addCustomLift(
-                                ImportStubLiftGuesser.definitionFromName(
-                                    aggregate.displayName,
-                                    defaultIncrement,
-                                ),
-                            )
+                            liftRepository.setLiftEnabled(createdId, false)
                         }
-                    if (aggregate.isRecent) {
-                        customLiftIds += createdId
+                        customLiftsCreated += 1
                     } else {
-                        liftRepository.setLiftEnabled(createdId, false)
+                        // LLM inference returned no metadata for this name. Skip creating a custom
+                        // lift rather than persisting a stub with guessed movement patterns/muscles
+                        // — a broken lift in the catalog pollutes program generation. The set stays
+                        // unresolved (liftId == null) and may match the catalog on the second pass.
+                        customLiftsSkipped += 1
                     }
-                    customLiftsCreated += 1
                 }
 
                 val updatedCatalog = liftRepository.observeLifts().first()
@@ -224,24 +251,11 @@ class ResolveImportLiftsUseCase @Inject constructor(
         // Tier A proven set: first-pass catalog matches + custom lifts created from the import.
         val provenLiftIds: Set<LiftId> = firstPassCatalogMatchIds + customLiftIds
 
-        // Transient equipment inference: map the user's distinct import names to equipment, then
-        // union with equipment required by the Tier A catalog matches (looked up in the asset).
+        // Equipment inference was launched concurrently with first-pass BM25. Await the result
+        // here and union with equipment required by the Tier A catalog matches.
+        val inferredEquipment = equipmentJob.await()
         val confirmedEquipment: Set<GymEquipment> = run {
-            val distinctNames =
-                ImportWindowPolicy.recentSetsForLiftEnablement(sets)
-                    .map { it.exerciseNameRaw }
-                    .distinct()
-            onProgress(
-                ImportProgress(
-                    phase = ImportProgressPhase.EnrichingCustomLifts,
-                    catalogStep =
-                        ImportCatalogProgressStep.InferringEquipment(
-                            exerciseCount = distinctNames.size,
-                        ),
-                ),
-            )
-            val inferred = equipmentInferencePort.inferEquipment(distinctNames).getOrDefault(emptyMap())
-            val fromNames = inferred.values.flatten().toSet()
+            val fromNames = inferredEquipment.values.flatten().toSet()
             val fromTierA = firstPassCatalogMatchIds.flatMap { equipmentCatalogPort.equipmentFor(it) }.toSet()
             fromNames + fromTierA
         }
@@ -277,15 +291,22 @@ class ResolveImportLiftsUseCase @Inject constructor(
         val finalEnabledCustomLiftCount = finalEnabledLifts.count { it.isCustom }
         val unresolvedSetCount = finalResolvedSets.count { it.liftId == null }
 
-        // Diagnostic samples run BM25 evaluation (evaluate) per unmatched name — offload the batch.
+        // Diagnostic samples: evaluate each unmatched name once and derive both sample lists from
+        // the cached evaluations (previously evaluate ran twice per name).
         val (unmatchedSamples, nearMissSamples) =
             withContext(resolutionDispatcher) {
+                val cachedEvaluations = mutableMapOf<String, LiftNameMatchEvaluation>()
+                fun evaluationFor(displayName: String): LiftNameMatchEvaluation =
+                    cachedEvaluations.getOrPut(displayName) {
+                        liftNameResolver.evaluate(displayName, seedCatalogNames)
+                    }
+
                 val unmatched =
                     unmatchedCounts.values
                         .sortedByDescending { it.loggedSetCount }
                         .take(MAX_DIAGNOSTIC_SAMPLES)
                         .map { aggregate ->
-                            val evaluation = liftNameResolver.evaluate(aggregate.displayName, seedCatalogNames)
+                            val evaluation = evaluationFor(aggregate.displayName)
                             UnmatchedExerciseSample(
                                 exerciseNameRaw = aggregate.displayName,
                                 loggedSetCount = aggregate.loggedSetCount,
@@ -297,7 +318,7 @@ class ResolveImportLiftsUseCase @Inject constructor(
                 val nearMiss =
                     unmatchedCounts.values
                         .mapNotNull { aggregate ->
-                            val evaluation = liftNameResolver.evaluate(aggregate.displayName, seedCatalogNames)
+                            val evaluation = evaluationFor(aggregate.displayName)
                             val bestName = evaluation.bestCatalogName ?: return@mapNotNull null
                             if (evaluation.bestScore < NEAR_MISS_MIN_SCORE ||
                                 evaluation.bestScore >= Bm25LiftNameResolver.MATCH_THRESHOLD
@@ -316,7 +337,8 @@ class ResolveImportLiftsUseCase @Inject constructor(
                 unmatched to nearMiss
             }
 
-        return ResolveImportLiftsResult(
+        val embeddingBatchError = liftNameResolver.embeddingBatchFailure()
+        ResolveImportLiftsResult(
             resolvedSets = finalResolvedSets,
             provenLiftIds = provenLiftIds,
             summary =
@@ -345,9 +367,13 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     customLiftInferenceBatchesAttempted = customLiftInferenceBatchesAttempted,
                     customLiftInferenceBatchesFailed = customLiftInferenceBatchesFailed,
                     customLiftLlmInferredCount = customLiftLlmInferredCount,
+                    customLiftsSkipped = customLiftsSkipped,
                     customLiftInferenceLastError = customLiftInferenceLastError,
+                    embeddingBatchFailed = embeddingBatchError != null,
+                    embeddingBatchError = embeddingBatchError,
                 ),
         )
+        } // coroutineScope
     }
 
     private suspend fun awaitSeedCatalog(): List<Lift> =
