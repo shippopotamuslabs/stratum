@@ -96,8 +96,6 @@ class FirebaseProgramTemplateImportAdapter @Inject constructor(
     private fun parseProgressPhase(value: String?): ProgramTemplateImportPhase? = when (value) {
         "sniffing" -> ProgramTemplateImportPhase.Sniffing
         "parsing" -> ProgramTemplateImportPhase.Parsing
-        "script_generating" -> ProgramTemplateImportPhase.ScriptGenerating
-        "script_testing" -> ProgramTemplateImportPhase.ScriptTesting
         "failed" -> ProgramTemplateImportPhase.Failed
         null -> null
         else -> null

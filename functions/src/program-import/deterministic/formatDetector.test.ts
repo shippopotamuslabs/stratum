@@ -34,7 +34,7 @@ describe("program-template formatDetector", () => {
     assert.ok(result!.template.workouts.length > 0);
   });
 
-  it("returns null for an unrecognized file (falls back to LLM)", () => {
+  it("returns null for an unrecognized file (caller rejects)", () => {
     const junk = Buffer.from("name,reps\nSquat,5\n", "utf8");
     assert.equal(detectAndParseProgramTemplate(junk), null);
   });
@@ -78,7 +78,7 @@ describe("deterministicProgramConvert", () => {
     assert.equal(jobRef.data.status, "ready");
   });
 
-  it("returns null for an unrecognized format so the caller falls back to the LLM", async () => {
+  it("returns null for an unrecognized format so the caller rejects the job", async () => {
     const { storage, jobRef } = deps(Buffer.from("foo,bar\n1,2\n", "utf8"));
     const result = await deterministicProgramConvert({ uid: UID, jobId: JOB_ID, jobRef, storage });
     assert.equal(result, null);
@@ -93,7 +93,7 @@ describe("deterministicProgramConvert", () => {
     assert.equal(result, null);
   });
 
-  it("throws ProgramTemplateTooLargeError for an oversized file (does not fall to LLM)", async () => {
+  it("throws ProgramTemplateTooLargeError for an oversized file (caller rejects as too large)", async () => {
     const oversized = Buffer.alloc(MAX_PROGRAM_TEMPLATE_FILE_BYTES + 1, 0);
     const { storage, jobRef } = deps(oversized);
     await assert.rejects(

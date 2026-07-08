@@ -30,10 +30,12 @@ typealias ProgramTemplateImportProgressCallback = suspend (ProgramTemplateImport
  *    and mark onboarding complete.
  *
  * Mirrors [com.stratum.domain.program.GenerateProgramUseCase] but sources the program from an
- * uploaded file instead of the deterministic generation pipeline. A Rejected job (the file is not a
- * program) throws [ProgramTemplateRejectedException] so the UI can show a distinct message.
+ * uploaded file instead of the generation pipeline. Parsing on the server is deterministic — the
+ * two supported formats (Alpha Progression plan CSV, MacroFactor program XLSX) convert in
+ * milliseconds, and any other file is rejected as unsupported. A Rejected job (unsupported or
+ * unrecognized file) throws [ProgramTemplateRejectedException] so the UI can show a distinct message.
  *
- * @throws ProgramTemplateRejectedException when the server determines the file is not a program.
+ * @throws ProgramTemplateRejectedException when the server rejects the file as unsupported.
  */
 class ImportProgramTemplateUseCase @Inject constructor(
     private val importPort: ProgramTemplateImportPort,
@@ -115,7 +117,7 @@ class ImportProgramTemplateUseCase @Inject constructor(
 
     private companion object {
         const val POLL_INTERVAL_MS = 2_000L
-        const val POLL_TIMEOUT_MS = 540_000L
+        const val POLL_TIMEOUT_MS = 60_000L
     }
 }
 
