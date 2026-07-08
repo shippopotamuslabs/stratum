@@ -10,7 +10,6 @@ import com.stratum.feature.program.ui.DEFAULT_REP_MAX
 import com.stratum.feature.program.ui.DEFAULT_REP_MIN
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
 import com.stratum.feature.program.ui.DEFAULT_RIR_GOAL
-import com.stratum.feature.program.ui.EditLiftReorderState
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -58,16 +57,8 @@ internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =
         repMax = repMax,
         restSeconds = restSeconds,
         rirGoal = rirGoal,
+        isTopSet = isTopSet,
     )
-
-internal fun EditLiftState.toReorderState(): EditLiftReorderState =
-    EditLiftReorderState(
-        workoutLiftId = workoutLiftId,
-        name = name,
-    )
-
-internal fun List<EditLiftState>.toReorderStates(): List<EditLiftReorderState> =
-    map { lift -> lift.toReorderState() }
 
 internal fun renumberSets(sets: List<EditSetState>): List<EditSetState> =
     sets.mapIndexed { index, set -> set.copy(setNumber = index + 1) }
@@ -82,10 +73,11 @@ internal fun defaultEditSetState(setNumber: Int): EditSetState =
     EditSetState(
         setId = newSetId(),
         setNumber = setNumber,
-        repMin = DEFAULT_REP_MIN,
-        repMax = DEFAULT_REP_MAX,
+        repMin = if (setNumber == 1) DEFAULT_REP_MIN else 0,
+        repMax = if (setNumber == 1) DEFAULT_REP_MAX else 0,
         restSeconds = DEFAULT_REST_SECONDS,
         rirGoal = DEFAULT_RIR_GOAL,
+        isTopSet = setNumber == 1,
     )
 
 private fun Weekday.toDisplayLabel(): String =

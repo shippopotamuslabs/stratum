@@ -43,8 +43,11 @@ internal fun List<EditLiftState>.toWorkout(
                                     workoutLiftId = WorkoutLiftId(editLift.workoutLiftId),
                                     position = editSet.setNumber - 1,
                                     setType = baselineSet?.setType ?: SetType.Standard,
-                                    repMin = editSet.repMin,
-                                    repMax = editSet.repMax,
+                                    // Backoff sets are RIR-only — the progression engines floor them at
+                                    // BACKOFF_REP_FLOOR and never use a rep range. Normalize to the
+                                    // documented 0/0 convention (Program.kt) regardless of stale state.
+                                    repMin = if (editSet.isTopSet) editSet.repMin else 0,
+                                    repMax = if (editSet.isTopSet) editSet.repMax else 0,
                                     rirGoal = editSet.rirGoal,
                                     isTopSet =
                                         baselineSet?.isTopSet

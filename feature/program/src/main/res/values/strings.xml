@@ -28,9 +28,7 @@
     <string name="edit_workout_back">Back</string>
     <string name="edit_workout_loading">Loading workout…</string>
     <string name="edit_workout_not_found">Workout not found</string>
-    <string name="edit_workout_reorder_lifts">Reorder lifts</string>
     <string name="edit_workout_confirm">Confirm</string>
-    <string name="edit_workout_confirm_reorder">Confirm lift order</string>
     <string name="edit_workout_add_exercise">Add exercise</string>
     <string name="edit_workout_add_set">Add set</string>
     <string name="edit_workout_remove_set">Remove set</string>
@@ -51,6 +49,7 @@
     <string name="edit_workout_column_rir">RIR</string>
     <string name="edit_workout_rep_range_to">to</string>
     <string name="edit_workout_rep_range_max_placeholder">-</string>
+    <string name="edit_workout_rep_range_backoff_placeholder">—</string>
     <string name="edit_workout_rir_sheet_title">RIR targets</string>
     <string name="edit_workout_rir_info_content_description">About RIR targets</string>
     <string name="edit_workout_rir_info_close">Close RIR description</string>

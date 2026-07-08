@@ -185,28 +185,6 @@ class EditWorkoutViewModelTest {
     }
 
     @Test
-    @DisplayName("Given lifts when reordered and confirmed then positions update")
-    fun reorderUpdatesPositions() = runTest {
-        val viewModel = buildViewModel()
-        viewModel.initialize(WORKOUT_ID)
-        viewModel.uiState.test {
-            awaitLoaded()
-            viewModel.toggleReorderMode()
-            val reorderMode = awaitItem() as EditWorkoutUiState.Loaded
-            assertTrue(reorderMode.isReorderMode)
-            viewModel.reorderLifts(fromIndex = 0, toIndex = 1)
-            awaitItem()
-            viewModel.confirmReorder()
-            val loaded = awaitItem() as EditWorkoutUiState.Loaded
-            assertFalse(loaded.isReorderMode)
-            assertEquals("Incline Press", loaded.lifts.first().name)
-            assertEquals(0, loaded.lifts.first().position)
-            assertEquals(1, loaded.lifts[1].position)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
     @DisplayName("Given loaded workout when session reorder confirmed then template lifts are reordered")
     fun reorderConfirmedUpdatesTemplateLifts() = runTest {
         val viewModel = buildViewModel()
@@ -313,6 +291,28 @@ class EditWorkoutViewModelTest {
             viewModel.setReps(setId, min = 6)
             val updated = awaitItem() as EditWorkoutUiState.Loaded
             assertEquals(6, updated.lifts.first().sets.first().repMin)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given a backoff set when rep min changes then state is unchanged (RIR-only sets)")
+    fun setRepMinOnBackoffIsNoOp() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            // ls-2 is the backoff set in wl-1 (isTopSet = false).
+            val backoffSet = loaded.lifts.first().sets.first { !it.isTopSet }
+            val repMinBefore = backoffSet.repMin
+            val repMaxBefore = backoffSet.repMax
+            viewModel.setReps(backoffSet.setId, min = 6)
+            // No state emission expected — backoff sets are RIR-only and not editable.
+            expectNoEvents()
+            val current = viewModel.uiState.value as EditWorkoutUiState.Loaded
+            val currentBackoff = current.lifts.first().sets.first { it.setId == backoffSet.setId }
+            assertEquals(repMinBefore, currentBackoff.repMin)
+            assertEquals(repMaxBefore, currentBackoff.repMax)
             cancelAndIgnoreRemainingEvents()
         }
     }

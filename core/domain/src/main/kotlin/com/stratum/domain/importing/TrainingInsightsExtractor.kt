@@ -99,24 +99,39 @@ object TrainingInsightsExtractor {
             if (bySession.size < MIN_SESSIONS_FOR_FATIGUE) return@mapNotNull null
 
             val slopes = mutableListOf<Double>()
-            val intercepts = mutableListOf<Double>()
             val sessionPeaks = mutableListOf<Pair<Instant, Double>>()
 
             bySession.forEach { (_, sessionSets) ->
                 val ordered = sessionSets.filter { it.reps > 0 }.sortedBy { it.setIndex }
                 if (ordered.isEmpty()) return@forEach
                 val e1rms = ordered.map { EstimatedOneRm.calculate(it.weight.amount, it.reps + (it.rir ?: 0)) }
-                if (e1rms.size >= 2) {
-                    val regression = linearRegression(e1rms.indices.map { it + 1.0 }, e1rms)
+                // Regress failure-reps (reps + RIR) against set index to derive a per-set fatigue
+                // slope in REPS PER SET — the unit every downstream consumer expects
+                // (RepRirPlanner.repRangeFromFatigue, FatigueModel.projectReps,
+                // POPULATION_FATIGUE_DECAY_SLOPE = -2.0). Regressing e1RM in load units (lbs/set)
+                // instead would inflate the slope ~10× for a 165 lb lift and saturate the
+                // rep-range cap at 30 for any setCount ≥ 3.
+                val failureReps = ordered.map { (it.reps + (it.rir ?: 0)).toDouble() }
+                if (failureReps.size >= 2) {
+                    val regression = linearRegression(failureReps.indices.map { it + 1.0 }, failureReps)
                     slopes += regression.slope
-                    intercepts += regression.intercept
                 }
                 val peak = e1rms.maxOrNull() ?: return@forEach
                 sessionPeaks += ordered.last().completedAt to peak
             }
 
             val avgSlope = slopes.average().takeIf { slopes.isNotEmpty() }
-            val avgIntercept = intercepts.average().takeIf { intercepts.isNotEmpty() }
+            // Fatigue only reduces capacity across sets. A non-negative average slope indicates
+            // misjudged RIR (e.g. 120x8@2 → 120x10@2 — reps rising at the same weight) rather than
+            // genuine positive decay. Discard the measurement so downstream falls back to the
+            // population fatigue decay default instead of compounding the error.
+            val safeSlope = avgSlope?.takeIf { it < 0.0 }
+            // The decay contract is `decay = slope * (setIndex - 1) + intercept`, where intercept
+            // represents decay at the first set — which is zero by definition (no sets completed
+            // yet). A regression intercept on reps-vs-index is the extrapolated failure-reps at
+            // index 0, which is meaningless in this model and would double-count capacity. Pin to 0
+            // to match POPULATION_FATIGUE_DECAY_INTERCEPT.
+            val safeIntercept = if (safeSlope != null) 0.0 else null
             val estimatedOneRm = sessionPeaks.maxByOrNull { it.second }?.second?.let { value ->
                 val unit = liftSets.first().weight.unit
                 Weight(value, unit)
@@ -127,8 +142,8 @@ object TrainingInsightsExtractor {
             LiftTrainingInsights(
                 liftId = liftId,
                 estimatedOneRm = estimatedOneRm,
-                fatigueDecaySlope = avgSlope,
-                fatigueDecayIntercept = avgIntercept,
+                fatigueDecaySlope = safeSlope,
+                fatigueDecayIntercept = safeIntercept,
                 sessionCount = bySession.size,
                 progressTrend = progressTrend,
                 lastPerformedAt = lastPerformed,
