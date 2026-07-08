@@ -30,7 +30,7 @@ class RoomOnboardingRepository @Inject constructor(
     override suspend fun markComplete() {
         val current = dao.getOrNull()
         val startedAt = current?.startedAt ?: System.currentTimeMillis()
-        val step = current?.currentStep ?: OnboardingStep.Generate
+        val step = current?.currentStep ?: OnboardingStep.Review
         dao.upsert(
             OnboardingProgress(
                 currentStep = step,
@@ -45,7 +45,7 @@ class RoomOnboardingRepository @Inject constructor(
         val startedAt = current?.startedAt ?: System.currentTimeMillis()
         dao.upsert(
             OnboardingProgress(
-                currentStep = OnboardingStep.Generate,
+                currentStep = OnboardingStep.Review,
                 startedAt = startedAt,
                 completedAt = null,
             ).toEntity(),

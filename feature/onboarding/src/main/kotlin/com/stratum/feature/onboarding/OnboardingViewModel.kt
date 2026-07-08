@@ -19,6 +19,7 @@ import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
 import com.stratum.domain.onboarding.GetOnboardingStepCapabilitiesUseCase
 import com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.OnboardingStepDirection
 import com.stratum.domain.onboarding.OnboardingWizardState
@@ -31,6 +32,9 @@ import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
 import com.stratum.domain.program.GenerateProgramUseCase
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
+import com.stratum.domain.program.importing.ImportProgramTemplateUseCase
+import com.stratum.domain.program.importing.ProgramTemplateImportPhase
+import com.stratum.domain.program.importing.ProgramTemplateRejectedException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -56,6 +60,7 @@ class OnboardingViewModel @Inject constructor(
     private val cancelHistoricalImport: CancelHistoricalImportUseCase,
     private val refreshPersistedImportState: RefreshPersistedImportStateUseCase,
     private val generateProgram: GenerateProgramUseCase,
+    private val importProgramTemplate: ImportProgramTemplateUseCase,
 ) : ViewModel() {
 
     private val edits = MutableStateFlow(ProfileEdit())
@@ -64,6 +69,7 @@ class OnboardingViewModel @Inject constructor(
     private val importResumeState = MutableStateFlow<HistoricalImportResumeState?>(null)
     private var importJob: Job? = null
     private var generateJob: Job? = null
+    private var importProgramJob: Job? = null
 
     private val wizardState: StateFlow<OnboardingWizardState> =
         getOnboardingWizardState().stateIn(
@@ -365,6 +371,7 @@ class OnboardingViewModel @Inject constructor(
 
     fun next() {
         val current = wizardState.value
+        val path = current.onboardingPath
         viewModelScope.launch {
             val result = advanceOnboardingStep(
                 currentStep = current.currentStep,
@@ -374,6 +381,7 @@ class OnboardingViewModel @Inject constructor(
                 lifts = current.lifts,
                 selectedPreset = current.selectedPreset,
                 usedHistoricalImport = current.usedHistoricalImport,
+                path = path,
             )
             when (result) {
                 AdvanceOnboardingStepResult.ValidationFailed ->
@@ -393,6 +401,7 @@ class OnboardingViewModel @Inject constructor(
 
     fun back() {
         val current = wizardState.value
+        val path = current.onboardingPath
         viewModelScope.launch {
             val result = advanceOnboardingStep(
                 currentStep = current.currentStep,
@@ -402,6 +411,7 @@ class OnboardingViewModel @Inject constructor(
                 lifts = current.lifts,
                 selectedPreset = current.selectedPreset,
                 usedHistoricalImport = current.usedHistoricalImport,
+                path = path,
             )
             if (result is AdvanceOnboardingStepResult.Success) {
                 edits.value = ProfileEdit()
@@ -409,6 +419,31 @@ class OnboardingViewModel @Inject constructor(
                 if (result.newStep == OnboardingStep.MinimumVolume) {
                     maybePrefillMinimumVolumeFromImport()
                 }
+            }
+        }
+    }
+
+    /**
+     * Advance from [OnboardingStep.ChoosePath] down the chosen [path]. The use case handles clearing
+     * schedule/specialization data when committing to Import.
+     */
+    fun selectPath(path: OnboardingPath) {
+        val current = wizardState.value
+        if (current.currentStep != OnboardingStep.ChoosePath) return
+        viewModelScope.launch {
+            val result = advanceOnboardingStep(
+                currentStep = current.currentStep,
+                direction = OnboardingStepDirection.Forward,
+                profile = effectiveProfile.value,
+                specialization = effectiveSpecialization.value,
+                lifts = current.lifts,
+                selectedPreset = current.selectedPreset,
+                usedHistoricalImport = current.usedHistoricalImport,
+                path = path,
+            )
+            if (result is AdvanceOnboardingStepResult.Success) {
+                edits.value = ProfileEdit()
+                specializationEdits.value = SpecializationEdit()
             }
         }
     }
@@ -469,6 +504,77 @@ class OnboardingViewModel @Inject constructor(
                 generateProgress = ui,
                 generateMaxTimelineIndex = maxOf(state.generateMaxTimelineIndex, index),
             )
+        }
+    }
+
+    /**
+     * Import a program-template file (CSV/XLSX). Mirrors [generate]: success flips the wizard's
+     * `isComplete` so the existing `LaunchedEffect(state.isComplete)` consumes it and routes to the
+     * preview-mode Programs screen. A rejection (file is not a program) and a failure are surfaced
+     * as distinct UI states.
+     */
+    fun importExistingProgram(file: ImportFileInput) {
+        if (ephemeral.value.importProgramState is ImportProgramState.Loading) return
+        ephemeral.update {
+            it.copy(
+                importProgramState = ImportProgramState.Loading(ImportProgramPhaseUi.Uploading),
+            )
+        }
+        importProgramJob?.cancel()
+        importProgramJob =
+            viewModelScope.launch {
+                try {
+                    val result =
+                        importProgramTemplate(file.bytes, file.fileName) { phase ->
+                            withContext(Dispatchers.Main.immediate) {
+                                publishImportProgramProgress(phase)
+                            }
+                        }
+                    result.exceptionOrNull()?.let { error -> setImportProgramError(error) }
+                    if (result.isSuccess) {
+                        ephemeral.update { it.copy(importProgramState = ImportProgramState.Idle) }
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    setImportProgramError(error)
+                }
+            }
+    }
+
+    /**
+     * Surface an import error without starting a job — used when the file itself cannot be read
+     * (e.g. a virtual doc that won't materialize). Logs the detail via `android.util.Log` and
+     * shows the generic error UI; the raw [message] is never displayed to the user.
+     */
+    fun showImportProgramError(message: String?) {
+        logImportFailure("File read failed: ${message ?: "unknown"}")
+        ephemeral.update { it.copy(importProgramState = ImportProgramState.Error(null)) }
+    }
+
+    private fun publishImportProgramProgress(phase: ProgramTemplateImportPhase) {
+        ephemeral.update { state ->
+            state.copy(importProgramState = ImportProgramState.Loading(phase.toUi()))
+        }
+    }
+
+    private fun setImportProgramError(error: Throwable) {
+        // Log the full detail for debugging; the UI shows only a generic message so raw Firebase
+        // error codes (NOT_FOUND, PERMISSION_DENIED, …) never leak to the user.
+        logImportFailure("Program import failed", error)
+        val state = if (error is ProgramTemplateRejectedException) {
+            ImportProgramState.Rejected(null)
+        } else {
+            ImportProgramState.Error(null)
+        }
+        ephemeral.update { it.copy(importProgramState = state) }
+    }
+
+    private fun logImportFailure(message: String, error: Throwable? = null) {
+        try {
+            if (error != null) Log.e(TAG_IMPORT, message, error) else Log.e(TAG_IMPORT, message)
+        } catch (_: RuntimeException) {
+            // android.util.Log is not mocked in JVM unit tests.
         }
     }
 
@@ -535,6 +641,7 @@ class OnboardingViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "OnboardingViewModel"
+        const val TAG_IMPORT = "ProgramTemplateImport"
 
         private fun logGenerateFailure(error: Throwable) {
             try {

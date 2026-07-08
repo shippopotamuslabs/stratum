@@ -28,7 +28,7 @@ class OnboardingProgressMapperTest {
     @DisplayName("Given completed onboarding when mapped then it round-trips")
     fun completedRoundTrips() {
         val progress = OnboardingProgress(
-            currentStep = OnboardingStep.Generate,
+            currentStep = OnboardingStep.Review,
             startedAt = 100L,
             completedAt = 200L,
         )

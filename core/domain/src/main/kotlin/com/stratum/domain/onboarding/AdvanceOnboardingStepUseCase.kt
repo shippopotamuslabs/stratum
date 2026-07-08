@@ -20,6 +20,11 @@ sealed interface AdvanceOnboardingStepResult {
 /**
  * Encapsulates the triple-write on step navigation: validate (forward only), persist profile,
  * persist specialization, save new step.
+ *
+ * Navigation is path-aware: after the [OnboardingStep.ChoosePath] fork, the [path] determines
+ * whether the user walks the Generate-only steps or jumps straight to Review. When the user commits
+ * to the Import path (advancing from ChoosePath to Review), any schedule/specialization/minimum-volume
+ * data from a prior Generate-path exploration is cleared so it doesn't persist on completion.
  */
 class AdvanceOnboardingStepUseCase @Inject constructor(
     private val validateCurrentStep: ValidateCurrentOnboardingStepUseCase,
@@ -35,10 +40,12 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
         lifts: List<Lift>,
         selectedPreset: GymPreset?,
         usedHistoricalImport: Boolean = false,
+        path: OnboardingPath? = null,
     ): AdvanceOnboardingStepResult {
+        val resolvedPath = path ?: resolvePath(currentStep, profile)
         val targetStep = when (direction) {
-            OnboardingStepDirection.Forward -> currentStep.next()
-            OnboardingStepDirection.Backward -> currentStep.previous()
+            OnboardingStepDirection.Forward -> currentStep.next(resolvedPath)
+            OnboardingStepDirection.Backward -> currentStep.previous(resolvedPath)
         } ?: return AdvanceOnboardingStepResult.NoOp
 
         if (direction == OnboardingStepDirection.Forward) {
@@ -55,9 +62,45 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
             }
         }
 
-        updateUserTrainingProfile(profile)
-        updateSpecialization(specialization)
+        // Clearing the Generate-path inputs when committing to Import keeps the persisted profile
+        // and specialization clean — the Review summary hides those cards, and completion won't
+        // carry stale schedule/specialization data forward.
+        val isCommittingToImport =
+            currentStep == OnboardingStep.ChoosePath && resolvedPath == OnboardingPath.Import
+        val profileToSave = if (isCommittingToImport) {
+            profile.copy(weekdays = emptySet(), sessionLengthMinutes = null)
+        } else {
+            profile
+        }
+        val specializationToSave = if (isCommittingToImport) {
+            SpecializationPreference.Empty
+        } else {
+            specialization
+        }
+
+        updateUserTrainingProfile(profileToSave)
+        updateSpecialization(specializationToSave)
         saveOnboardingProgress(targetStep)
         return AdvanceOnboardingStepResult.Success(targetStep)
     }
+
+    /**
+     * Best-effort path resolution when the caller doesn't pass one explicitly. Mirrors
+     * [OnboardingWizardState.onboardingPath] using the current step and profile. Returns `null`
+     * (common prefix) when the step is at or before ChoosePath.
+     */
+    private fun resolvePath(currentStep: OnboardingStep, profile: UserTrainingProfile): OnboardingPath? =
+        when (currentStep) {
+            OnboardingStep.Welcome,
+            OnboardingStep.Profile,
+            OnboardingStep.GymAndLifts,
+            OnboardingStep.ChoosePath,
+            -> null
+            OnboardingStep.Schedule,
+            OnboardingStep.Specialization,
+            OnboardingStep.MinimumVolume,
+            -> OnboardingPath.Generate
+            OnboardingStep.Review ->
+                if (profile.weekdays.isEmpty()) OnboardingPath.Import else OnboardingPath.Generate
+        }
 }

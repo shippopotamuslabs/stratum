@@ -162,7 +162,7 @@ class OnboardingGymLiftsStepViewModelTest {
     }
 
     @Test
-    @DisplayName("Given a preset with enabled lifts when next() then it advances to Specialization")
+    @DisplayName("Given a preset with enabled lifts when next() then it advances to ChoosePath")
     fun nextAdvancesAfterPresetSelection() = runTest {
         OnboardingViewModelTestFixtures.fakeLiftRepository.seedLifts(
             listOf(OnboardingViewModelTestFixtures.aLift("squat", tags = setOf(GymPreset.CommercialGym))),
@@ -175,10 +175,10 @@ class OnboardingGymLiftsStepViewModelTest {
             assertEquals("GymAndLifts", awaitItem().step.id)
             subject.next()
             advanceUntilIdle()
-            assertEquals("Specialization", awaitItem().step.id)
+            assertEquals("ChoosePath", awaitItem().step.id)
             cancelAndIgnoreRemainingEvents()
         }
-        assertEquals(OnboardingStep.Specialization, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
+        assertEquals(OnboardingStep.ChoosePath, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
     }
 
     @Test

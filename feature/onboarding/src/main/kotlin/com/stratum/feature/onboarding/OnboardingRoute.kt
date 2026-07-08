@@ -28,7 +28,10 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.feature.onboarding.ui.GenerateScreen
+import com.stratum.domain.onboarding.OnboardingPath
+import com.stratum.domain.program.importing.ProgramTemplateImportLimits
+import com.stratum.feature.onboarding.OnboardingPathUi
+import com.stratum.feature.onboarding.ui.ChoosePathScreen
 import com.stratum.feature.onboarding.ui.GymAndLiftOnboardingSetupScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
@@ -67,11 +70,43 @@ fun OnboardingRoute(
         viewModel.onImportFilesSelected(files)
     }
 
+    // Single-file picker for the "Import Existing" program flow (CSV/XLSX).
+    val programImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        // Cloud providers (Drive) deny reads unless the URI permission grant is explicitly taken,
+        // even for the transient OpenDocument grant. Take it before reading the bytes.
+        val granted = ensureReadPermission(context, uri)
+        val result =
+            if (granted) readImportFileFromUri(context.contentResolver, uri)
+            else Result.failure(java.io.IOException("Could not get permission to read the file."))
+        result
+            .onSuccess { file ->
+                // Reject oversized files before upload — program templates are tiny, so even 1 MB
+                // is generous. Saves bandwidth and protects the server-side LLM budget.
+                if (file.bytes.size > ProgramTemplateImportLimits.MAX_FILE_BYTES) {
+                    viewModel.showImportProgramError(
+                        context.getString(
+                            R.string.onboarding_import_error_too_large,
+                            ProgramTemplateImportLimits.MAX_FILE_SIZE_MB,
+                        ),
+                    )
+                } else {
+                    viewModel.importExistingProgram(file)
+                }
+            }
+            .onFailure { error -> viewModel.showImportProgramError(error.message) }
+    }
+
     OnboardingWizard(
         state = state,
         onNext = viewModel::next,
         onBack = viewModel::back,
         onGenerate = viewModel::generate,
+        onImportExisting = { programImportLauncher.launch(PROGRAM_IMPORT_MIME_TYPES) },
+        onSelectGenerate = { viewModel.selectPath(OnboardingPath.Generate) },
+        onSelectImport = { viewModel.selectPath(OnboardingPath.Import) },
         profileSchedule = ProfileScheduleHandlers(
             onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
             onLastTrainedSelected = viewModel::onLastTrainedSelected,
@@ -105,6 +140,9 @@ private fun OnboardingWizard(
     onNext: () -> Unit,
     onBack: () -> Unit,
     onGenerate: () -> Unit,
+    onImportExisting: () -> Unit,
+    onSelectGenerate: () -> Unit,
+    onSelectImport: () -> Unit,
     profileSchedule: ProfileScheduleHandlers,
     onMuscleToggled: (String) -> Unit,
     minimumVolume: MinimumVolumeHandlers,
@@ -163,18 +201,28 @@ private fun OnboardingWizard(
                         onImportClick = onImportClick,
                         onImportCancel = onImportCancel,
                     )
-                    WIZARD_STEP_REVIEW -> ReviewScreen(draft = state.reviewDraft)
-                    WIZARD_STEP_GENERATE -> GenerateScreen(
+                    WIZARD_STEP_REVIEW -> ReviewScreen(
+                        draft = state.reviewDraft,
+                        path = state.onboardingPath ?: OnboardingPathUi.Import,
                         onGenerate = onGenerate,
-                        onBack = onBack,
+                        onImportExisting = onImportExisting,
                         generateState = state.generateState,
                         generateProgress = state.generateProgress,
                         generateMaxTimelineIndex = state.generateMaxTimelineIndex,
                         generateErrorMessage = state.generateErrorMessage,
+                        importProgramState = state.importProgramState,
+                    )
+                    WIZARD_STEP_CHOOSE_PATH -> ChoosePathScreen(
+                        onSelectGenerate = onSelectGenerate,
+                        onSelectImport = onSelectImport,
                     )
                 }
             }
-            if (!state.isLast && state.generateState != GenerateState.Loading) {
+            val stepDrivesOwnAction = state.isLast || state.step.id == WIZARD_STEP_CHOOSE_PATH
+            val actionInProgress =
+                state.generateState == GenerateState.Loading ||
+                    state.importProgramState is ImportProgramState.Loading
+            if (!stepDrivesOwnAction && !actionInProgress) {
                 WizardControls(
                     canAdvance = state.canAdvance,
                     onNext = onNext,
@@ -234,4 +282,18 @@ private const val WIZARD_STEP_SPECIALIZATION = "Specialization"
 private const val WIZARD_STEP_MINIMUM_VOLUME = "MinimumVolume"
 private const val WIZARD_STEP_GYM_AND_LIFTS = "GymAndLifts"
 private const val WIZARD_STEP_REVIEW = "Review"
-private const val WIZARD_STEP_GENERATE = "Generate"
+private const val WIZARD_STEP_CHOOSE_PATH = "ChoosePath"
+
+/**
+ * MIME types accepted by the program-template import picker (CSV + XLSX). The picker ORs these
+ * together. Local files (Downloads, Files app) report the correct MIME types, so CSV/XLSX files
+ * are selectable and unrelated files are greyed out. Providers that mis-report `.xlsx` as
+ * `application/octet-stream` (some cloud providers) will grey out those files — the user can
+ * download such a file locally first, which is a reasonable expectation for a small program file.
+ */
+private val PROGRAM_IMPORT_MIME_TYPES = arrayOf(
+    "text/csv",
+    "text/comma-separated-values",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)

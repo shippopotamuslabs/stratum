@@ -2,6 +2,8 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { runImportAgentSession } from "./ImportAgentSession";
+import { createAdminToolStorage } from "./toolStorage";
+import { deterministicConvert } from "./deterministic/deterministicConvert";
 
 export const processImportJob = onDocumentWritten(
   {
@@ -26,6 +28,30 @@ export const processImportJob = onDocumentWritten(
 
     const uid = event.params.uid;
     const jobId = event.params.jobId;
+    const jobRef = admin.firestore().doc(`users/${uid}/importJobs/${jobId}`);
+
+    // Try a deterministic parser first: for known export formats (Hevy, Strong,
+    // MacroFactor, Alpha Progression) this produces the same normalized.json the
+    // agent would, in milliseconds and without an LLM call. On any miss it
+    // returns null and we fall through to the agent unchanged.
+    try {
+      const deterministic = await deterministicConvert({
+        uid,
+        jobId,
+        jobRef,
+        storage: createAdminToolStorage(),
+      });
+      if (deterministic) {
+        return;
+      }
+    } catch (err) {
+      // Infrastructure failure (Storage/Firestore) is non-fatal here — the
+      // agent path below has its own error handling and will mark the job
+      // failed if it cannot proceed. Log and continue.
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`deterministicConvert threw for ${uid}/${jobId}: ${message}`);
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     const model = process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4-pro";
     if (!apiKey) {
@@ -38,7 +64,6 @@ export const processImportJob = onDocumentWritten(
       return;
     }
 
-    const jobRef = admin.firestore().doc(`users/${uid}/importJobs/${jobId}`);
     try {
       const result = await runImportAgentSession(uid, jobId, apiKey, model);
       if (result.status === "failed") {

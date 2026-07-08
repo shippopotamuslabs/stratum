@@ -6,12 +6,11 @@
     <string name="onboarding_step_schedule">Schedule</string>
     <string name="onboarding_step_specialization">Specialization</string>
     <string name="onboarding_step_gym_and_lifts">Gym &amp; Lifts</string>
+    <string name="onboarding_step_choose_path">Program Option</string>
     <string name="onboarding_step_review">Review</string>
-    <string name="onboarding_step_generate">Create Program</string>
     <string name="onboarding_button_back">Back</string>
     <string name="onboarding_button_next">Next</string>
     <string name="onboarding_button_generate">Generate</string>
-    <string name="onboarding_generate_title">Ready to build your program?</string>
     <string name="onboarding_generate_loading">Building your program…</string>
     <string name="onboarding_generate_timeline_checkmark">✓</string>
     <string name="onboarding_generate_phase_preparing">Preparing your profile…</string>
@@ -30,7 +29,29 @@
     <string name="onboarding_generate_phase_complete">Program ready</string>
     <string name="onboarding_generate_error_title">Something went wrong</string>
     <string name="onboarding_generate_error_retry">Try again</string>
-    <string name="onboarding_generate_error_back_to_review">Back to review</string>
+
+    <!-- Choose Path step -->
+    <string name="choose_path_title">How would you like to set up your program?</string>
+    <string name="choose_path_generate_title">Generate Custom Program</string>
+    <string name="choose_path_generate_description">Let Stratum guide you through a schedule, focus muscles, and build a custom program.</string>
+    <string name="choose_path_import_title">Import Existing Workout</string>
+    <string name="choose_path_import_description">Import your own workout program from Alpha Progression or MacroFactor Workouts.</string>
+
+    <!-- Import Existing program (Generate step) -->
+    <string name="onboarding_import_existing_button">Import Existing</string>
+    <string name="onboarding_import_supported_hint">Supports Alpha Progression and MacroFactor exports</string>
+    <string name="onboarding_import_loading">Importing your program…</string>
+    <string name="onboarding_import_phase_uploading">Uploading your file…</string>
+    <string name="onboarding_import_phase_sniffing">Reading your file…</string>
+    <string name="onboarding_import_phase_parsing">Parsing your program…</string>
+    <string name="onboarding_import_phase_matching_catalog">Matching exercises to your catalog…</string>
+    <string name="onboarding_import_phase_complete">Program ready</string>
+    <string name="onboarding_import_error_title">Couldn\'t import that file</string>
+    <string name="onboarding_import_error_rejected">We can only import Alpha Progression plan exports and MacroFactor program exports. Choose a supported file.</string>
+    <string name="onboarding_import_error_generic">Something went wrong reading that file. Try a different file.</string>
+    <string name="onboarding_import_error_too_large">That file is too large. Program files should be under %1$d MB.</string>
+    <string name="onboarding_import_error_retry">Choose another file</string>
+    <string name="onboarding_import_error_back">Back</string>
     <string name="onboarding_content_description_back">Go back</string>
 
     <!-- Welcome -->
@@ -168,7 +189,8 @@
     <string name="gym_preset_garage_description">Home setup: barbells, dumbbells, and bodyweight. No cables or machines.</string>
 
     <!-- Review -->
-    <string name="review_intro">Here\'s everything we\'ll use to build your program. Tap Next to generate.</string>
+    <string name="review_intro_generate">Here\'s everything we\'ll use to build your program.</string>
+    <string name="review_intro_import">Here\'s everything we\'ll use to set up your program.</string>
     <string name="review_section_profile">Profile</string>
     <string name="review_section_schedule">Schedule</string>
     <string name="review_section_specialization">Specialization</string>
