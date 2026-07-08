@@ -1,6 +1,9 @@
 package com.stratum.domain.response
 
+import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
+import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
+import java.time.Instant
 
 interface ResponseEpochRepository {
     suspend fun replaceAll(epochs: List<Epoch>)
@@ -38,6 +41,32 @@ interface MuscleVolumeResponseSnapshotRepository {
     suspend fun replaceAll(snapshots: List<MuscleVolumeResponseSnapshot>)
 
     suspend fun getAll(): List<MuscleVolumeResponseSnapshot>
+}
+
+/**
+ * Read access to the per-muscle/week hard-set stimulus series. The dashboard reads a bounded window
+ * ([getSince]) for its 3-month charts; the series is refreshed by
+ * [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on workout completion.
+ */
+interface MuscleWeeklyStimulusRepository {
+    suspend fun replaceAll(stimulus: List<MuscleWeeklyStimulus>)
+
+    suspend fun getAll(): List<MuscleWeeklyStimulus>
+
+    suspend fun getSince(windowStart: Instant): List<MuscleWeeklyStimulus>
+}
+
+/**
+ * Read access to the per-lift/week peak-e1RM performance series. The dashboard reads a bounded
+ * window ([getSince]) for its 3-month charts; the series is refreshed by
+ * [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on workout completion.
+ */
+interface LiftWeeklyPerformanceRepository {
+    suspend fun replaceAll(performance: List<LiftWeeklyPerformance>)
+
+    suspend fun getAll(): List<LiftWeeklyPerformance>
+
+    suspend fun getSince(windowStart: Instant): List<LiftWeeklyPerformance>
 }
 
 interface ExperimentRegistry {

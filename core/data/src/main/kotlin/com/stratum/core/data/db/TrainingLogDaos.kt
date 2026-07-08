@@ -147,4 +147,26 @@ interface TrainingLoggedSetDao {
 
     @Query("SELECT * FROM logged_sets WHERE liftId = :liftId AND isPersonalRecord = 1 LIMIT 1")
     suspend fun getPersonalRecordForLift(liftId: LiftId): LoggedSetEntity?
+
+    /**
+     * Earliest logged-set epoch per lift — the "how long have I been running this lift?" tenure
+     * signal for the dashboard. Projection over existing columns only (no schema change).
+     */
+    @Query(
+        """
+        SELECT liftId AS liftId, MIN(completedAtEpochMillis) AS firstEpochMillis
+        FROM logged_sets
+        WHERE liftId IS NOT NULL
+        GROUP BY liftId
+        """,
+    )
+    suspend fun getFirstSetEpochPerLift(): List<LiftFirstSetRow>
 }
+
+/**
+ * Projection row for [TrainingLoggedSetDao.getFirstSetEpochPerLift].
+ */
+data class LiftFirstSetRow(
+    val liftId: String,
+    val firstEpochMillis: Long,
+)

@@ -14,6 +14,9 @@ interface MuscleWeeklyStimulusDao {
 
     @Query("SELECT * FROM muscle_weekly_stimulus")
     suspend fun getAll(): List<MuscleWeeklyStimulusEntity>
+
+    @Query("SELECT * FROM muscle_weekly_stimulus WHERE weekStartEpochMillis >= :weekStartEpochMillis ORDER BY weekStartEpochMillis")
+    suspend fun getSince(weekStartEpochMillis: Long): List<MuscleWeeklyStimulusEntity>
 }
 
 @Dao
@@ -26,6 +29,9 @@ interface LiftWeeklyPerformanceDao {
 
     @Query("SELECT * FROM lift_weekly_performance")
     suspend fun getAll(): List<LiftWeeklyPerformanceEntity>
+
+    @Query("SELECT * FROM lift_weekly_performance WHERE weekStartEpochMillis >= :weekStartEpochMillis ORDER BY weekStartEpochMillis")
+    suspend fun getSince(weekStartEpochMillis: Long): List<LiftWeeklyPerformanceEntity>
 }
 
 @Dao

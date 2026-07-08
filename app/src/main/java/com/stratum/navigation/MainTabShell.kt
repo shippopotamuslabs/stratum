@@ -18,7 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.stratum.DashboardPlaceholder
+import com.stratum.DashboardScreen
 import com.stratum.GymScreen
 import com.stratum.R
 import com.stratum.core.ui.component.StratumNavigationBar
@@ -47,6 +47,7 @@ fun MainTabShell(
     onNavigateToSwap: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },
     onNavigateToEditWorkout: (workoutId: String) -> Unit = {},
     onNavigateToWorkout: (workoutId: String) -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     onCreateNewLift: () -> Unit = {},
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
@@ -89,7 +90,7 @@ fun MainTabShell(
                     .padding(PaddingValues(bottom = padding.calculateBottomPadding())),
         ) {
             when (MainTab.fromIndex(selectedTabIndex)) {
-                MainTab.Dashboard -> DashboardPlaceholder()
+                MainTab.Dashboard -> DashboardScreen(onNavigateToSettings = onNavigateToSettings)
                 MainTab.Program -> ProgramsRoute(
                     isPreviewMode = isPreviewMode,
                     callbacks =
