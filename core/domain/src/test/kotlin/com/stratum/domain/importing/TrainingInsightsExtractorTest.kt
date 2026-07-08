@@ -252,7 +252,111 @@ class TrainingInsightsExtractorTest {
         assertEquals(2, output.metadata.totalSets)
     }
 
+    @Test
+    fun `extractor handles fluctuating or reversed fatigue sets in sessions if overall trend is negative`() {
+        // Test fluctuating reps: 8 -> 10 -> 7 (RIR is null).
+        // Regression on [8.0, 10.0, 7.0] yields slope of -0.5.
+        // Since -0.5 is negative, it should be kept as a valid fatigue slope.
+        val squatId = LiftId("hack-squat")
+        val lifts = listOf(
+            lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
+        )
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        val sessions = (1..3).map { index ->
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
+                startedAt = t0.plusSeconds(index * 86_400L),
+                endedAt = null,
+            )
+        }
+        val sets = buildList {
+            sessions.forEach { session ->
+                add(importSet("${session.id.value}-s1", session, "Hack Squat", squatId, 1, Weight(100.0, Weight.WeightUnit.Lb), 8, null, session.startedAt.plusSeconds(1)))
+                add(importSet("${session.id.value}-s2", session, "Hack Squat", squatId, 2, Weight(100.0, Weight.WeightUnit.Lb), 10, null, session.startedAt.plusSeconds(61)))
+                add(importSet("${session.id.value}-s3", session, "Hack Squat", squatId, 3, Weight(100.0, Weight.WeightUnit.Lb), 7, null, session.startedAt.plusSeconds(121)))
+            }
+        }
+        val output = TrainingInsightsExtractor.analyze(
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
+        )
+        val insights = output.liftInsights.first { it.liftId == squatId }
+        assertEquals(-0.5, insights.fatigueDecaySlope!!, 0.001, "Fluctuating slope must be kept if overall trend is negative")
+    }
+
+    @Test
+    fun `extractor handles mix of valid sessions and single invalid session`() {
+        // Session 1: 10 -> 8 -> 6 (slope -2.0)
+        // Session 2: 10 -> 8 -> 6 (slope -2.0)
+        // Session 3: 8 -> 10 -> 12 (slope +2.0)
+        // Average: (-2.0 - 2.0 + 2.0) / 3 = -0.667. Since negative, it should be kept.
+        val squatId = LiftId("hack-squat")
+        val lifts = listOf(
+            lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
+        )
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        val sessions = (1..3).map { index ->
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
+                startedAt = t0.plusSeconds(index * 86_400L),
+                endedAt = null,
+            )
+        }
+        val sets = buildList {
+            // Session 1 (Valid decay)
+            val s1 = sessions[0]
+            add(importSet("s1-1", s1, "Hack Squat", squatId, 1, Weight(100.0, Weight.WeightUnit.Lb), 10, null, s1.startedAt.plusSeconds(1)))
+            add(importSet("s1-2", s1, "Hack Squat", squatId, 2, Weight(100.0, Weight.WeightUnit.Lb), 8, null, s1.startedAt.plusSeconds(61)))
+            add(importSet("s1-3", s1, "Hack Squat", squatId, 3, Weight(100.0, Weight.WeightUnit.Lb), 6, null, s1.startedAt.plusSeconds(121)))
+
+            // Session 2 (Valid decay)
+            val s2 = sessions[1]
+            add(importSet("s2-1", s2, "Hack Squat", squatId, 1, Weight(100.0, Weight.WeightUnit.Lb), 10, null, s2.startedAt.plusSeconds(1)))
+            add(importSet("s2-2", s2, "Hack Squat", squatId, 2, Weight(100.0, Weight.WeightUnit.Lb), 8, null, s2.startedAt.plusSeconds(61)))
+            add(importSet("s2-3", s2, "Hack Squat", squatId, 3, Weight(100.0, Weight.WeightUnit.Lb), 6, null, s2.startedAt.plusSeconds(121)))
+
+            // Session 3 (Invalid positive slope)
+            val s3 = sessions[2]
+            add(importSet("s3-1", s3, "Hack Squat", squatId, 1, Weight(100.0, Weight.WeightUnit.Lb), 8, null, s3.startedAt.plusSeconds(1)))
+            add(importSet("s3-2", s3, "Hack Squat", squatId, 2, Weight(100.0, Weight.WeightUnit.Lb), 10, null, s3.startedAt.plusSeconds(61)))
+            add(importSet("s3-3", s3, "Hack Squat", squatId, 3, Weight(100.0, Weight.WeightUnit.Lb), 12, null, s3.startedAt.plusSeconds(121)))
+        }
+        val output = TrainingInsightsExtractor.analyze(
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
+        )
+        val insights = output.liftInsights.first { it.liftId == squatId }
+        assertEquals(-0.667, insights.fatigueDecaySlope!!, 0.001, "Average slope is kept if overall average remains negative")
+    }
+
+    @Test
+    fun `extractor ignores single-set sessions when computing fatigue decay`() {
+        // If sessions have only 1 set, they cannot produce a regression slope.
+        val squatId = LiftId("hack-squat")
+        val lifts = listOf(
+            lift(squatId, "Hack Squat", MovementPattern.SquatPattern, MuscleGroup.Quad),
+        )
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        val sessions = (1..3).map { index ->
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
+                startedAt = t0.plusSeconds(index * 86_400L),
+                endedAt = null,
+            )
+        }
+        val sets = buildList {
+            sessions.forEach { session ->
+                add(importSet("${session.id.value}-s1", session, "Hack Squat", squatId, 1, Weight(100.0, Weight.WeightUnit.Lb), 10, null, session.startedAt.plusSeconds(1)))
+            }
+        }
+        val output = TrainingInsightsExtractor.analyze(
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
+        )
+        val insights = output.liftInsights.firstOrNull { it.liftId == squatId }
+        // If there were no multi-set sessions, we should have null insights for fatigue decay.
+        assertEquals(null, insights?.fatigueDecaySlope, "Fatigue slope must be null if all sessions are single-set")
+    }
+
     private fun importSet(
+
         id: String,
         session: TrainingSession,
         exerciseNameRaw: String,

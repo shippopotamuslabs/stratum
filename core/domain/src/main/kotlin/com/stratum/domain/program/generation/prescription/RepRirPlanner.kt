@@ -79,6 +79,7 @@ fun repRirForSlot(
  * Guards:
  * - Floor is always ≥ 8 (enforced).
  * - Ceiling is capped at [REP_RANGE_CEILING_CAP] to avoid runaway spreads from extreme slopes.
+ * - Spread is clamped to be at least 2 reps wide (repMax is at least repMin + 2) when slope-derived.
  * - `setCount <= 1` or `slope == null` → pure fallback to the static band.
  */
 fun repRangeFromFatigue(
@@ -91,7 +92,7 @@ fun repRangeFromFatigue(
     }
     val repMin = HYPERTROPHIC_FLOOR
     val spread = (kotlin.math.abs(fatigueSlope) * (setCount - 1)).roundToInt()
-    val repMax = (repMin + spread).coerceAtMost(REP_RANGE_CEILING_CAP)
+    val repMax = (repMin + spread).coerceIn(repMin + 2, REP_RANGE_CEILING_CAP)
     return repMin to repMax
 }
 

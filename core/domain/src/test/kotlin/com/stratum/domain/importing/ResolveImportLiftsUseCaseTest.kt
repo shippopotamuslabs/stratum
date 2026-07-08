@@ -17,6 +17,8 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import java.time.Instant
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -336,6 +338,7 @@ class ResolveImportLiftsUseCaseTest {
                 enrichCustomLifts = EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
                 equipmentCatalogPort = FakeLiftEquipmentCatalog(),
                 equipmentInferencePort = FakeImportEquipmentInferencePort(),
+                resolutionDispatcher = UnconfinedTestDispatcher(testScheduler),
             )
 
         subject(List(100) { loggedSet(exerciseNameRaw = "Back Squat") })
@@ -416,6 +419,7 @@ class ResolveImportLiftsUseCaseTest {
                 enrichCustomLifts = EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort()),
                 equipmentCatalogPort = FakeLiftEquipmentCatalog(),
                 equipmentInferencePort = FakeImportEquipmentInferencePort(),
+                resolutionDispatcher = UnconfinedTestDispatcher(testScheduler),
             )
 
         subject(
@@ -455,6 +459,7 @@ class ResolveImportLiftsUseCaseTest {
         customInference: FakeCustomLiftInferencePort = FakeCustomLiftInferencePort(),
         equipmentCatalog: FakeLiftEquipmentCatalog = FakeLiftEquipmentCatalog(),
         equipmentInference: FakeImportEquipmentInferencePort = FakeImportEquipmentInferencePort(),
+        resolutionDispatcher: CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
     ): ResolveImportLiftsUseCase {
         val bm25 = Bm25LiftNameResolver()
         return ResolveImportLiftsUseCase(
@@ -468,6 +473,7 @@ class ResolveImportLiftsUseCaseTest {
             enrichCustomLifts = EnrichCustomLiftsUseCase(customInference),
             equipmentCatalogPort = equipmentCatalog,
             equipmentInferencePort = equipmentInference,
+            resolutionDispatcher = resolutionDispatcher,
         )
     }
 
