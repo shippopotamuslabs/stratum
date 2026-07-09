@@ -480,6 +480,7 @@ internal fun EditWorkoutContent(
             EditWorkoutExerciseSummaryHeader(
                 exerciseCount = state.lifts.size,
                 estimatedDurationMinutes = state.estimatedDurationMinutes,
+                onAddLift = callbacks.onAddLift,
             )
         }
         if (state.saveBlockedReason == SaveBlockedReason.PlaceholderLift) {
@@ -520,23 +521,40 @@ internal fun EditWorkoutContent(
 private fun EditWorkoutExerciseSummaryHeader(
     exerciseCount: Int,
     estimatedDurationMinutes: Int,
+    onAddLift: () -> Unit,
 ) {
-    Column(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        StratumText(
-            text = stringResource(R.string.edit_workout_exercise_count_header, exerciseCount),
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
-        StratumText(
-            text =
-                stringResource(
-                    R.string.edit_workout_estimated_duration,
-                    formatEstimatedWorkoutDuration(estimatedDurationMinutes),
-                ),
-            muted = true,
-        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            StratumText(
+                text = stringResource(R.string.edit_workout_exercise_count_header, exerciseCount),
+                style = StratumThemeAccessor.typography.titleLarge,
+            )
+            StratumText(
+                text =
+                    stringResource(
+                        R.string.edit_workout_estimated_duration,
+                        formatEstimatedWorkoutDuration(estimatedDurationMinutes),
+                    ),
+                muted = true,
+            )
+        }
+        StratumIconButton(
+            onClick = onAddLift,
+            containerColor = Color.Transparent,
+        ) {
+            Icon(
+                painter = painterResource(CoreUiR.drawable.ic_add),
+                contentDescription = stringResource(R.string.edit_workout_add_lift),
+                tint = StratumThemeAccessor.colors.textPrimary,
+            )
+        }
     }
 }
 
