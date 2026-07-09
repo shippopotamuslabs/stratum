@@ -94,7 +94,7 @@ class LoadDashboardUseCase @Inject constructor(
 
             MuscleSeries(
                 muscle = muscle,
-                displayName = muscle.displayName(),
+                displayName = muscle.displayLabel,
                 volumeSeries = volumeSeries,
                 progressSeries = progressSeries,
                 progressSlope = progressSlope,
@@ -158,8 +158,6 @@ class LoadDashboardUseCase @Inject constructor(
             .thenBy { it.name }
 
     private fun Double?.orZero(): Double = this ?: 0.0
-
-    private fun MuscleGroup.displayName(): String = name.lowercase().replaceFirstChar { it.uppercase() }
 
     private companion object {
         val WINDOW: Period = Period.ofWeeks(DASHBOARD_PERFORMANCE_WINDOW_WEEKS)

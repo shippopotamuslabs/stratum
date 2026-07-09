@@ -26,6 +26,28 @@
     <string name="dashboard_section_upper">Upper</string>
     <string name="dashboard_section_lower">Lower</string>
     <string name="dashboard_contributing_lifts_format">%1$d lifts</string>
+    <!-- Fullscreen graph detail -->
+    <string name="dashboard_graph_back">Back</string>
+    <string name="dashboard_graph_loading_title">Graph</string>
+    <string name="dashboard_graph_empty_title">No data</string>
+    <string name="dashboard_graph_empty_body">Not enough weekly history for this chart yet.</string>
+    <string name="dashboard_graph_metric_e1rm">e1RM</string>
+    <string name="dashboard_graph_metric_volume">Volume</string>
+    <string name="dashboard_graph_metric_progress">Progress</string>
+    <string name="dashboard_graph_metric_both">Both</string>
+    <string name="dashboard_graph_avg_e1rm">Avg e1RM</string>
+    <string name="dashboard_graph_best_e1rm">Best e1RM</string>
+    <string name="dashboard_graph_avg_volume">Avg volume</string>
+    <string name="dashboard_graph_peak_volume">Peak volume</string>
+    <string name="dashboard_graph_avg_progress">Avg progress</string>
+    <string name="dashboard_graph_best_progress">Best progress</string>
+    <string name="dashboard_graph_range_1w">1W</string>
+    <string name="dashboard_graph_range_1m">1M</string>
+    <string name="dashboard_graph_range_3m">3M</string>
+    <string name="dashboard_graph_range_6m">6M</string>
+    <string name="dashboard_graph_range_1y">1Y</string>
+    <string name="dashboard_graph_range_all">All</string>
+    <string name="dashboard_graph_chart_cd">%1$s detail chart</string>
     <!-- Content description for the shell settings entry point (screen chrome lives in :feature:settings). -->
     <string name="settings_title">Settings</string>
     <string name="gym_placeholder_title">Gym</string>

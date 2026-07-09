@@ -6,15 +6,19 @@ import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.domain.dashboard.CalloutDirection
 import com.stratum.domain.dashboard.CalloutKind
 import com.stratum.domain.dashboard.DashboardSummary
+import com.stratum.domain.dashboard.GraphDetailSubject
 import com.stratum.domain.dashboard.LIFT_E1RM_SLOPE_THRESHOLD
 import com.stratum.domain.dashboard.LiftSeries
 import com.stratum.domain.dashboard.LoadDashboardUseCase
+import com.stratum.domain.dashboard.LoadGraphDetailUseCase
 import com.stratum.domain.dashboard.MUSCLE_PROGRESS_SLOPE_THRESHOLD
 import com.stratum.domain.dashboard.MuscleSeries
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsSlope
 import com.stratum.domain.dashboard.slopeToDirection
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.MuscleGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -26,12 +30,18 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val loadDashboard: LoadDashboardUseCase,
+    private val loadGraphDetail: LoadGraphDetailUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
+    private val _graphDetailState = MutableStateFlow<GraphDetailUiState>(GraphDetailUiState.Hidden)
+    val graphDetailState: StateFlow<GraphDetailUiState> = _graphDetailState.asStateFlow()
+
     private var loadJob: Job? = null
+    private var detailJob: Job? = null
+    private var detailSession: GraphDetailSession? = null
 
     init {
         load()
@@ -53,6 +63,67 @@ class DashboardViewModel @Inject constructor(
             _uiState.value = summary?.toUiState() ?: DashboardUiState.Empty
         }
     }
+
+    fun openLiftGraph(liftId: String) {
+        openGraphDetail(GraphDetailSubject.Lift(LiftId(liftId)))
+    }
+
+    fun openMuscleGraph(muscleKey: String) {
+        val muscle = runCatching { MuscleGroup.valueOf(muscleKey) }.getOrNull() ?: return
+        openGraphDetail(GraphDetailSubject.Muscle(muscle))
+    }
+
+    fun dismissGraphDetail() {
+        detailJob?.cancel()
+        detailSession = null
+        _graphDetailState.value = GraphDetailUiState.Hidden
+    }
+
+    fun selectGraphMetric(metric: GraphMetricTabUi) {
+        val session = detailSession ?: return
+        if (metric !in metricTabsForKind(session.kind)) return
+        detailSession = session.withMetric(metric)
+        publishReady()
+    }
+
+    fun selectGraphTimeRange(range: GraphTimeRangeUi) {
+        val session = detailSession ?: return
+        detailSession = session.withRange(range)
+        publishReady()
+    }
+
+    private fun openGraphDetail(subject: GraphDetailSubject) {
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
+            _graphDetailState.value = GraphDetailUiState.Loading
+            val series = loadGraphDetail(subject)
+            if (series == null) {
+                detailSession = null
+                _graphDetailState.value = GraphDetailUiState.Empty
+                return@launch
+            }
+            detailSession = series.toSession()
+            publishReady()
+        }
+    }
+
+    private fun publishReady() {
+        val session = detailSession ?: return
+        _graphDetailState.value = session.toReadyUi()
+    }
+}
+
+private fun metricTabsForKind(kind: GraphDetailKindUi): List<GraphMetricTabUi> = when (kind) {
+    GraphDetailKindUi.Lift -> listOf(
+        GraphMetricTabUi.E1rm,
+        GraphMetricTabUi.Volume,
+        GraphMetricTabUi.Both,
+    )
+    GraphDetailKindUi.Muscle -> listOf(
+        GraphMetricTabUi.Progress,
+        GraphMetricTabUi.Volume,
+        GraphMetricTabUi.Both,
+    )
 }
 
 /** Presentation-only dashboard state — no domain types leak into composables (Detekt-enforced). */
@@ -74,6 +145,8 @@ enum class CalloutDirectionUi { Progressing, Regressing }
 
 data class MuscleSeriesUi(
     val name: String,
+    /** Stable [MuscleGroup.name] for opening graph detail. */
+    val muscleKey: String,
     val headlineVolume: String,
     val badge: TrendBadge,
     val progressPoints: List<TrendPointUi>,
@@ -89,6 +162,8 @@ data class LiftSectionUi(
 
 data class LiftSeriesUi(
     val name: String,
+    /** Stable lift id for opening graph detail. */
+    val liftId: String,
     val e1rmText: String?,
     val badge: TrendBadge,
     val performancePoints: List<TrendPointUi>,
@@ -160,6 +235,7 @@ private fun MuscleSeries.toUi(highlight: CalloutDirectionUi?): MuscleSeriesUi {
     val (progressPoints, volumePoints) = alignMuscleSeries(progressSeries, volumeSeries)
     return MuscleSeriesUi(
         name = displayName,
+        muscleKey = muscle.name,
         headlineVolume = "${meanWeeklyHardSets.toInt()} sets/wk",
         badge = progressDirection.toBadge(),
         progressPoints = progressPoints,
@@ -200,6 +276,7 @@ private fun LiftSeries.toUi(highlight: CalloutDirectionUi?): LiftSeriesUi {
     val direction = slopeToDirection(slope, LIFT_E1RM_SLOPE_THRESHOLD)
     return LiftSeriesUi(
         name = name,
+        liftId = liftId.value,
         e1rmText = latestE1rm?.let { "${it.amount.toInt()} ${it.unit.shortLabel()}" },
         badge = direction.toBadge(),
         performancePoints = performanceSeries.toPoints(),

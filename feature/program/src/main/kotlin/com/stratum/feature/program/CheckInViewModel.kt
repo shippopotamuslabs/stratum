@@ -67,7 +67,7 @@ class CheckInViewModel @Inject constructor(
                         muscles.map { muscle ->
                             CheckInMuscleOptionUi(
                                 muscleKey = muscle.name,
-                                displayName = muscle.displayLabel(),
+                                displayName = muscle.displayLabel,
                             )
                         },
                 )
@@ -330,5 +330,3 @@ private fun RecoverySignalUi.toDomain(): RecoverySignal =
         RecoverySignalUi.JointPain -> RecoverySignal.JointPain
     }
 
-private fun MuscleGroup.displayLabel(): String =
-    name.lowercase().replaceFirstChar { it.uppercase() }
