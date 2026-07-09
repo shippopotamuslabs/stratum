@@ -14,6 +14,7 @@ class FakeResponseProfilePersistencePort(
     val snapshotRepository: FakeMuscleVolumeResponseSnapshotRepository = FakeMuscleVolumeResponseSnapshotRepository(),
     val weeklyStimulusRepository: FakeMuscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
     val liftPerformanceRepository: FakeLiftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
+    val outcomeIndexRepository: FakeMuscleWeeklyOutcomeIndexRepository = FakeMuscleWeeklyOutcomeIndexRepository(),
 ) : ResponseProfilePersistencePort {
     override suspend fun replaceExtractedProfile(profile: ExtractedResponseProfile) {
         epochRepository.replaceAll(profile.epochs)
@@ -24,6 +25,7 @@ class FakeResponseProfilePersistencePort(
         snapshotRepository.replaceAll(profile.volumeSnapshots)
         weeklyStimulusRepository.replaceAll(profile.weeklyStimulus)
         liftPerformanceRepository.replaceAll(profile.liftPerformance)
+        outcomeIndexRepository.replaceAll(profile.outcomeIndices)
     }
 
     override suspend fun replaceWeeklySeries(profile: ExtractedResponseProfile) {
@@ -40,6 +42,7 @@ class FakeResponseProfilePersistencePort(
         snapshotRepository.replaceAll(emptyList())
         weeklyStimulusRepository.replaceAll(emptyList())
         liftPerformanceRepository.replaceAll(emptyList())
+        outcomeIndexRepository.replaceAll(emptyList())
     }
 }
 

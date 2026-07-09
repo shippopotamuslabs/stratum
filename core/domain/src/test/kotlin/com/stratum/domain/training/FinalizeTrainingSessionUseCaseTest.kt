@@ -16,6 +16,7 @@ import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import java.time.Instant
 import kotlin.coroutines.ContinuationInterceptor
@@ -136,6 +137,7 @@ class FinalizeTrainingSessionUseCaseTest {
         repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
         val insights = buildInsightsComponents(repo)
         val persistence = FakeResponseProfilePersistencePort()
+        val modelingScheduler = FakeResponseModelingSchedulerPort()
         // StandardTestDispatcher does NOT run eagerly — launched coroutines queue until the
         // scheduler advances. Both the scope and the dispatcher use the test scheduler so we can
         // prove invoke() returns before the refresh runs.
@@ -146,6 +148,7 @@ class FinalizeTrainingSessionUseCaseTest {
             computePersonalRecords = ComputePersonalRecordsUseCase(repo),
             extractTrainingInsights = insights.useCase,
             refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            responseModelingScheduler = modelingScheduler,
             refreshScope = refreshScope,
             refreshDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
         )
@@ -155,6 +158,8 @@ class FinalizeTrainingSessionUseCaseTest {
         assertTrue(result.isSuccess)
         assertEquals(TrainingSessionStatus.COMPLETED, result.getOrThrow().status)
         assertTrue(insights.metadataRepo.saved == null, "refresh must not have run before the scheduler advances")
+        // Modeling enqueue is synchronous schedule-only (not on refreshDispatcher) and must not block.
+        assertEquals(1, modelingScheduler.enqueueCount, "dose-response work enqueued without awaiting")
 
         // Advance the dispatcher — the refresh now runs. No sets were seeded so the weekly series
         // use case no-ops, but the rollup refresh still persists metadata.

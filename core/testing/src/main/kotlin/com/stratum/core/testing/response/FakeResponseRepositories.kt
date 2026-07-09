@@ -6,13 +6,16 @@ import com.stratum.domain.response.ExperimentBlockRepository
 import com.stratum.domain.response.LiftEffectivenessObservation
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
+import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
 import com.stratum.domain.response.MuscleWeeklyStimulusRepository
 import com.stratum.domain.response.ResponseEpochRepository
+import com.stratum.domain.response.ResponseModelingSchedulerPort
 import com.stratum.domain.response.ResponseProfileMetadata
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.VolumeResponseObservationRepository
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
+import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import java.time.Instant
 
@@ -128,5 +131,36 @@ class FakeLiftWeeklyPerformanceRepository(
     fun seed(performance: List<LiftWeeklyPerformance>) {
         this.performance.clear()
         this.performance.addAll(performance)
+    }
+}
+
+class FakeMuscleWeeklyOutcomeIndexRepository(
+    initial: List<MuscleWeeklyOutcomeIndex> = emptyList(),
+) : MuscleWeeklyOutcomeIndexRepository {
+    private val indices = initial.toMutableList()
+
+    override suspend fun replaceAll(indices: List<MuscleWeeklyOutcomeIndex>) {
+        this.indices.clear()
+        this.indices.addAll(indices)
+    }
+
+    override suspend fun getAll(): List<MuscleWeeklyOutcomeIndex> = indices.toList()
+
+    override suspend fun getSince(windowStart: Instant): List<MuscleWeeklyOutcomeIndex> =
+        indices.filter { !it.weekStart.isBefore(windowStart) }
+
+    fun seed(indices: List<MuscleWeeklyOutcomeIndex>) {
+        this.indices.clear()
+        this.indices.addAll(indices)
+    }
+}
+
+/** Records enqueue calls for finalize / scheduler unit tests. */
+class FakeResponseModelingSchedulerPort : ResponseModelingSchedulerPort {
+    var enqueueCount: Int = 0
+        private set
+
+    override fun enqueueRefresh() {
+        enqueueCount++
     }
 }

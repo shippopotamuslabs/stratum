@@ -25,7 +25,18 @@ const val EFFECTIVENESS_R2_WEIGHT = 0.6
 const val EFFECTIVENESS_SESSION_WEIGHT = 0.4
 const val MIN_PEERS_FOR_PATTERN_RANK = 2
 const val PROVEN_EPOCH_AGREEMENT_COUNT = 2
+/**
+ * Recency half-life scale (days) for anchor-lift scoring — **not** the worker re-extract cadence.
+ * @see com.stratum.domain.response.AnchorLiftSelector
+ */
 const val RE_EXTRACT_MIN_INTERVAL_DAYS = 28
+
+/**
+ * Minimum completed workouts (program + ad-hoc, not rest days) since [ResponseProfileMetadata.lastExtractedAt]
+ * before the response-modeling worker re-runs the full extract. Preferable to a calendar interval:
+ * time off does not trigger a no-op re-extract, and sparse training waits until there is new signal.
+ */
+const val RE_EXTRACT_MIN_COMPLETED_WORKOUTS = 20
 const val REGRESSION_DENOM_EPSILON = 1e-9
 const val REGRESSION_RSQUARED_EPSILON = 1e-9
 const val REGRESSION_R2_WEIGHT = 0.7
