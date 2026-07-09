@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,25 +44,23 @@ import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.common.Fill
 import com.patrykandpatrick.vico.compose.common.component.LineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
+import com.patrykandpatrick.vico.compose.common.component.rememberShapeComponent
 import com.patrykandpatrick.vico.compose.common.data.ExtraStore
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import java.time.Instant
-import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
 /**
  * Fullscreen detail chart with real Y values and date X labels.
  *
- * **Progress** ([DetailYScale.Progress]) uses **signed bars about zero** — same visual language as
- * the dashboard [StratumIndexVolumeChart] — so above/below early baseline is obvious. e1RM and
- * volume stay as lines.
+ * **Progress** uses signed bars about zero (dashboard language). e1RM / volume use lines, including
+ * a single-point marker when only one week exists.
  *
- * Dual Y remounts under [key] so layer↔model pairing stays stable (avoids Vico
- * `Key null is missing in the map` when switching single ↔ dual).
+ * Dual Y remounts under [key] for stable Vico layer↔model pairing.
  */
 @Composable
 fun StratumDetailChart(
@@ -89,16 +88,13 @@ fun StratumDetailChart(
         }
 
     val progressAsBars = primaryYScale == DetailYScale.Progress
-    // Progress bars need only one point; lines need two.
-    val hasPrimary = if (progressAsBars) {
-        primarySeries.isNotEmpty()
-    } else {
-        primarySeries.size >= MIN_POINTS_FOR_LINE
-    }
-    val hasSecondary = secondarySeries != null && secondarySeries.size >= MIN_POINTS_FOR_LINE
+    // Single weekly point is valid (bars or marked line). Never promote secondary to primary.
+    val hasPrimary = primarySeries.isNotEmpty()
+    val hasSecondary = secondarySeries != null && secondarySeries.isNotEmpty()
     val dualMode = hasPrimary && hasSecondary
 
-    if (!hasPrimary && !hasSecondary) {
+    if (!hasPrimary) {
+        // Empty primary (e.g. Dual with no progress weeks) — honest empty, no silent volume swap.
         DetailBaselineOnly(
             modifier = modifier.semantics { this.contentDescription = contentDescription },
             color = colors.borderSubtle,
@@ -106,36 +102,23 @@ fun StratumDetailChart(
         return
     }
 
-    val effectivePrimary = when {
-        hasPrimary -> primarySeries
-        else -> secondarySeries.orEmpty()
-    }
-    val effectivePrimaryColor = when {
-        hasPrimary -> resolvedPrimary
-        else -> resolvedSecondary
-    }
-    val effectivePrimaryScale = when {
-        hasPrimary -> primaryYScale
-        else -> secondaryYScale
-    }
-    // Structure id for key(): bars-only / bars+line / line-only / dual-line.
     val structureKey = when {
-        effectivePrimaryScale == DetailYScale.Progress && dualMode -> "progress+volume"
-        effectivePrimaryScale == DetailYScale.Progress -> "progress"
+        progressAsBars && dualMode -> "progress+volume"
+        progressAsBars -> "progress"
         dualMode -> "dual-line"
         else -> "single-line"
     }
 
     key(structureKey) {
         DetailChartContent(
-            primarySeries = effectivePrimary,
-            secondarySeries = if (dualMode) secondarySeries.orEmpty() else null,
-            primaryColor = effectivePrimaryColor,
+            primarySeries = primarySeries,
+            secondarySeries = if (dualMode) secondarySeries else null,
+            primaryColor = resolvedPrimary,
             secondaryColor = resolvedSecondary,
-            primaryYScale = effectivePrimaryScale,
+            primaryYScale = primaryYScale,
             secondaryYScale = secondaryYScale,
             dualMode = dualMode,
-            progressAsBars = effectivePrimaryScale == DetailYScale.Progress,
+            progressAsBars = progressAsBars,
             contentDescription = contentDescription,
             modifier = modifier,
         )
@@ -159,17 +142,8 @@ private fun DetailChartContent(
     val modelProducer = remember { CartesianChartModelProducer() }
     val secondaryValues = secondarySeries.orEmpty()
 
-    // Signed progress colors match dashboard index bars.
-    val positiveBarColor = if (progressAsBars) {
-        primaryColor
-    } else {
-        colors.setComplete
-    }
-    val negativeBarColor = if (progressAsBars) {
-        lerp(primaryColor, colors.textPrimary, INDEX_NEGATIVE_LIGHTEN_FRACTION)
-    } else {
-        primaryColor
-    }
+    val positiveBarColor = primaryColor
+    val negativeBarColor = lerp(primaryColor, colors.textPrimary, INDEX_NEGATIVE_LIGHTEN_FRACTION)
 
     LaunchedEffect(primarySeries, secondaryValues, dualMode, progressAsBars) {
         modelProducer.runTransaction {
@@ -228,19 +202,19 @@ private fun DetailChartContent(
     val dateFormatter = remember {
         DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
     }
-    val zone = remember { ZoneId.systemDefault() }
-    val xFormatter = remember(dateFormatter, zone) {
+    // Week starts are Monday 00:00 UTC — format in UTC so labels don't slip to Sunday locally.
+    val xFormatter = remember(dateFormatter) {
         CartesianValueFormatter { _, value, _ ->
             val day = value.toLong()
             val instant = Instant.ofEpochSecond(day * SECONDS_PER_DAY)
-            dateFormatter.format(instant.atZone(zone))
+            dateFormatter.format(instant.atZone(ZoneOffset.UTC))
         }
     }
     val primaryYFormatter = remember(primaryYScale) {
-        CartesianValueFormatter { _, value, _ -> formatDetailAxisY(value, primaryYScale) }
+        CartesianValueFormatter { _, value, _ -> formatChartNumber(value, primaryYScale) }
     }
     val secondaryYFormatter = remember(secondaryYScale) {
-        CartesianValueFormatter { _, value, _ -> formatDetailAxisY(value, secondaryYScale) }
+        CartesianValueFormatter { _, value, _ -> formatChartNumber(value, secondaryYScale) }
     }
     val yItemPlacer = remember {
         VerticalAxis.ItemPlacer.count(count = { Y_AXIS_MAX_LABELS })
@@ -264,6 +238,26 @@ private fun DetailChartContent(
         DetailSignedColumnProvider(positive = positiveColumn, negative = negativeColumn)
     }
 
+    val primaryPointComponent = rememberShapeComponent(
+        fill = Fill(primaryColor),
+        shape = CircleShape,
+    )
+    val secondaryPointComponent = rememberShapeComponent(
+        fill = Fill(secondaryColor),
+        shape = CircleShape,
+    )
+    // Always show points so a single-week series is visible (line stroke alone needs 2+ points).
+    val primaryPointProvider = remember(primaryPointComponent) {
+        LineCartesianLayer.PointProvider.single(
+            LineCartesianLayer.Point(component = primaryPointComponent, size = POINT_SIZE_DP.dp),
+        )
+    }
+    val secondaryPointProvider = remember(secondaryPointComponent) {
+        LineCartesianLayer.PointProvider.single(
+            LineCartesianLayer.Point(component = secondaryPointComponent, size = POINT_SIZE_DP.dp),
+        )
+    }
+
     val columnLayer = rememberColumnCartesianLayer(
         columnProvider = columnProvider,
         columnCollectionSpacing = DETAIL_COLUMN_SPACING_DP.dp,
@@ -278,6 +272,7 @@ private fun DetailChartContent(
                     thickness = LINE_STROKE_DP.dp,
                     cap = StrokeCap.Round,
                 ),
+                pointProvider = primaryPointProvider,
             ),
         ),
         rangeProvider = primaryRangeProvider,
@@ -291,6 +286,7 @@ private fun DetailChartContent(
                     thickness = LINE_STROKE_DP.dp,
                     cap = StrokeCap.Round,
                 ),
+                pointProvider = secondaryPointProvider,
             ),
         ),
         rangeProvider = secondaryRangeProvider,
@@ -337,7 +333,6 @@ private fun DetailChartContent(
         valueFormatter = xFormatter,
     )
 
-    // structure is fixed inside key(...); branch is stable for this composition subtree.
     val chart = when {
         progressAsBars && dualMode -> rememberCartesianChart(
             columnLayer,
@@ -392,7 +387,6 @@ data class DetailChartPoint(
     val value: Float,
 )
 
-/** Positive progress bars use [positive]; below-baseline bars use [negative]. */
 @Immutable
 private class DetailSignedColumnProvider(
     private val positive: LineComponent,
@@ -410,40 +404,9 @@ private class DetailSignedColumnProvider(
     ): LineComponent = positive
 }
 
-/**
- * Compact Y labels: avoids "-0", repeated 0.1-style stamps, and progress indexes that need more
- * than one decimal place.
- */
-internal fun formatDetailAxisY(value: Double, scale: DetailYScale): String {
-    if (abs(value) < ZERO_EPSILON) return "0"
-    return when (scale) {
-        DetailYScale.Weight -> {
-            if (abs(value) >= WEIGHT_INTEGER_THRESHOLD) {
-                value.toInt().toString()
-            } else {
-                trimTrailingZeros(String.format(Locale.US, "%.1f", value))
-            }
-        }
-        DetailYScale.Volume -> {
-            if (abs(value - value.toLong()) < ZERO_EPSILON) {
-                value.toLong().toString()
-            } else {
-                trimTrailingZeros(String.format(Locale.US, "%.1f", value))
-            }
-        }
-        DetailYScale.Progress -> {
-            val magnitude = abs(value)
-            val raw = when {
-                magnitude >= PROGRESS_THRESHOLD_ONES -> String.format(Locale.US, "%.2f", value)
-                magnitude >= PROGRESS_THRESHOLD_TENTHS -> String.format(Locale.US, "%.2f", value)
-                magnitude >= PROGRESS_THRESHOLD_HUNDREDTHS -> String.format(Locale.US, "%.3f", value)
-                magnitude >= PROGRESS_THRESHOLD_THOUSANDTHS -> String.format(Locale.US, "%.4f", value)
-                else -> String.format(Locale.US, "%.2e", value)
-            }
-            if (raw.contains('e', ignoreCase = true)) raw else trimTrailingZeros(raw)
-        }
-    }
-}
+/** @deprecated Use [formatChartNumber] — kept for existing tests during transition. */
+internal fun formatDetailAxisY(value: Double, scale: DetailYScale): String =
+    formatChartNumber(value, scale)
 
 internal fun rangeProviderFor(scale: DetailYScale): CartesianLayerRangeProvider = when (scale) {
     DetailYScale.Weight -> CartesianLayerRangeProvider.Intrinsic
@@ -471,9 +434,6 @@ internal fun progressYRange(dataMin: Double, dataMax: Double): Pair<Double, Doub
     return (expandedMin - pad) to (expandedMax + pad)
 }
 
-private fun trimTrailingZeros(formatted: String): String =
-    formatted.trimEnd('0').trimEnd('.')
-
 @Composable
 private fun DetailBaselineOnly(modifier: Modifier, color: Color) {
     Canvas(
@@ -491,8 +451,8 @@ private fun DetailBaselineOnly(modifier: Modifier, color: Color) {
     }
 }
 
-private const val MIN_POINTS_FOR_LINE = 2
 private const val LINE_STROKE_DP = 2.5f
+private const val POINT_SIZE_DP = 6f
 private const val DETAIL_COLUMN_WIDTH_DP = 6f
 private const val DETAIL_COLUMN_SPACING_DP = 2f
 private const val AXIS_LINE_THICKNESS_DP = 1f
@@ -505,12 +465,6 @@ private const val AXIS_LABEL_SP = 11
 private const val EMPTY_HEIGHT_DP = 120
 private const val SECONDS_PER_DAY = 86_400L
 private const val Y_AXIS_MAX_LABELS = 5
-private const val ZERO_EPSILON = 1e-12
-private const val WEIGHT_INTEGER_THRESHOLD = 100.0
-private const val PROGRESS_THRESHOLD_ONES = 1.0
-private const val PROGRESS_THRESHOLD_TENTHS = 0.1
-private const val PROGRESS_THRESHOLD_HUNDREDTHS = 0.01
-private const val PROGRESS_THRESHOLD_THOUSANDTHS = 0.001
 private const val PROGRESS_MIN_SPAN = 0.02
 private const val PROGRESS_PAD_FRACTION = 0.08
 private const val INDEX_NEGATIVE_LIGHTEN_FRACTION = 0.55f

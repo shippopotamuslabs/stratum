@@ -84,7 +84,7 @@ fun DashboardScreen(
     DashboardGraphDetailHost(
         state = graphDetail,
         onDismiss = viewModel::dismissGraphDetail,
-        onSelectMetric = viewModel::selectGraphMetric,
+        onSelectMode = viewModel::selectGraphMode,
         onSelectRange = viewModel::selectGraphTimeRange,
     )
 }

@@ -31,12 +31,18 @@ data class GraphDetailSeries(
     val secondary: List<TrendPoint>,
 )
 
-/** Time window applied client-side after a full-history [GraphDetailSeries] load. */
+/**
+ * Time window applied client-side after a full-history [GraphDetailSeries] load.
+ *
+ * Windows are week-oriented (data is one point per Monday UTC week start). There is no 1-week chip:
+ * a 7-day window can include at most one bucket and is useless for trends.
+ */
 enum class GraphDetailTimeRange(
     val period: Period?,
 ) {
-    OneWeek(Period.ofDays(7)),
-    OneMonth(Period.ofDays(30)),
+    /** ~4 week buckets — shortest useful line window. */
+    OneMonth(Period.ofWeeks(4)),
+    /** Matches [DASHBOARD_PERFORMANCE_WINDOW_WEEKS] board lookback. */
     ThreeMonths(Period.ofWeeks(DASHBOARD_PERFORMANCE_WINDOW_WEEKS)),
     SixMonths(Period.ofWeeks(26)),
     OneYear(Period.ofWeeks(52)),
