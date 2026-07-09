@@ -253,12 +253,13 @@ class OnboardingImportProgramViewModelTest {
             generateProgram = com.stratum.domain.program.GenerateProgramUseCase(
                 loadContext = com.stratum.domain.program.ProgramGenerationContextLoader { error("not used") },
                 pipeline = com.stratum.core.testing.program.testProgramGenerationPipeline(),
-                repository = programRepo,
                 liftRepository = liftRepo,
-                completeOnboarding = completeOnboarding,
-                profileRepository = profileRepo,
+            ),
+            activateProgram = com.stratum.domain.program.ActivateProgramUseCase(
+                programRepository = programRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
+            completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
         )
         return Triple(viewModel, onboardingRepo, programRepo)

@@ -1,27 +1,16 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.domain.lift.LiftRepository
-import com.stratum.domain.onboarding.CompleteOnboardingUseCase
-import com.stratum.domain.onboarding.UserTrainingProfile
-import com.stratum.domain.onboarding.UserTrainingProfileRepository
-import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.generation.integration.resolveAdjacentCalendarLiftCollisions
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.pipeline.PipelinePhase
 import com.stratum.domain.program.generation.pipeline.PipelineProgress
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.domain.program.generation.schema.toDomainProgram
-import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
-import com.stratum.domain.program.generation.integration.resolveAdjacentCalendarLiftCollisions
-import com.stratum.domain.di.DefaultDispatcher
-import com.stratum.domain.training.ProgramChangeEvent
-import com.stratum.domain.training.ProgramChangeEventPayload
-import com.stratum.domain.training.ProgramChangeEventRepository
-import com.stratum.domain.training.ProgramChangeEventType
-import com.stratum.domain.training.identity.ProgramChangeEventId
 import javax.inject.Inject
-import java.time.Instant
-import java.util.UUID
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -29,27 +18,24 @@ import kotlinx.coroutines.withContext
 
 /**
  * Orchestrates on-device program generation: load context → run the deterministic pipeline (with
- * optional lift-swap Callable) → persist → mark onboarding complete.
+ * optional lift-swap Callable) → return a [Program] draft.
  *
- * Progress phases are emitted from a background thread as each pipeline step runs — no Firestore
- * polling. Callers should hop to [Dispatchers.Main] when updating UI from [onProgress].
+ * Does **not** persist or complete onboarding. Callers decide persistence:
+ * - Onboarding: [ActivateProgramUseCase] + [com.stratum.domain.onboarding.CompleteOnboardingUseCase]
+ * - Create Program: hold draft until Save to Library / Activate
  *
- * Ordering guarantee (D2): generation runs to success **before** persist or completion, so a failed
- * generation never leaves a partial program nor a completed onboarding.
+ * Progress phases are emitted from a background thread as each pipeline step runs. Callers should
+ * hop to [Dispatchers.Main] when updating UI from [onProgress].
  */
 class GenerateProgramUseCase @Inject constructor(
     private val loadContext: ProgramGenerationContextLoader,
     private val pipeline: ProgramGenerationPipeline,
-    private val repository: ProgramRepository,
     private val liftRepository: LiftRepository,
-    private val completeOnboarding: CompleteOnboardingUseCase,
-    private val profileRepository: UserTrainingProfileRepository,
-    private val programChangeEventRepository: ProgramChangeEventRepository,
     @DefaultDispatcher private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
         onProgress: ProgramGenerationProgressCallback = {},
-    ): Result<Unit> =
+    ): Result<Program> =
         withContext(generationDispatcher) {
             try {
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload))
@@ -74,6 +60,7 @@ class GenerateProgramUseCase @Inject constructor(
                     normalized.toDomainProgram()
                         .retainOnlyKnownLifts(knownLiftIds)
                         .withReconciledTrainingWeekdays()
+                        .copy(isActive = false)
                 require(program.workouts.isNotEmpty()) {
                     "Generated program has no workouts with known lift references"
                 }
@@ -83,22 +70,9 @@ class GenerateProgramUseCase @Inject constructor(
                 program = resolveAdjacentCalendarLiftCollisions(
                     program = program,
                     context = context,
-                )
-                onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram))
-                repository.saveProgram(program)
-                programChangeEventRepository.append(
-                    ProgramChangeEvent(
-                        id = ProgramChangeEventId(UUID.randomUUID().toString()),
-                        programId = program.id,
-                        eventType = ProgramChangeEventType.PROGRAM_REGENERATED,
-                        occurredAt = Instant.now(),
-                        payload = ProgramChangeEventPayload.ProgramRegenerated,
-                    ),
-                )
-                val profile = profileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
-                completeOnboarding(profile)
+                ).copy(isActive = false)
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))
-                Result.success(Unit)
+                Result.success(program)
             } catch (error: Throwable) {
                 Result.failure(error)
             }

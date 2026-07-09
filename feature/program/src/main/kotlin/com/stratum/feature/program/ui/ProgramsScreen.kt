@@ -61,8 +61,6 @@ import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumCheckbox
-import com.stratum.core.ui.component.StratumDropdownMenu
-import com.stratum.core.ui.component.StratumDropdownMenuItem
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumMuscleVolumeRow
 import com.stratum.core.ui.component.StratumVolumeBodyTier
@@ -73,6 +71,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.feature.program.R
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Read-only Programs overview. Renders volume summary, weekly schedule with rest days, and workout
@@ -89,7 +88,7 @@ internal fun ProgramsScreen(
     onExpandWorkoutClick: (String) -> Unit = {},
     isPreviewMode: Boolean = false,
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
+    var showOptionsSheet by remember { mutableStateOf(false) }
     var pendingUnskipWorkoutId by remember { mutableStateOf<String?>(null) }
     var pendingUnskipWorkoutName by remember { mutableStateOf<String?>(null) }
     var pendingStartAction by remember { mutableStateOf<ProgramsStartAction?>(null) }
@@ -112,52 +111,11 @@ internal fun ProgramsScreen(
                 },
                 actions = if (isPreviewMode) null else {
                     {
-                        StratumIconButton(onClick = { menuExpanded = true }) {
+                        StratumIconButton(onClick = { showOptionsSheet = true }) {
                             Icon(
                                 painter = painterResource(CoreUiR.drawable.ic_more_vert),
                                 contentDescription = stringResource(R.string.programs_menu_content_description),
                                 tint = StratumThemeAccessor.colors.textPrimary,
-                            )
-                        }
-                        StratumDropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false },
-                        ) {
-                            StratumDropdownMenuItem(
-                                text = stringResource(R.string.programs_menu_create_program),
-                                onClick = {
-                                    menuExpanded = false
-                                    callbacks.onCreateProgramClick()
-                                },
-                                leadingIcon = {
-                                    ProgramMenuLeadingIcon(
-                                        iconRes = CoreUiR.drawable.ic_add,
-                                    )
-                                },
-                            )
-                            StratumDropdownMenuItem(
-                                text = stringResource(R.string.programs_menu_generate_program),
-                                onClick = {
-                                    menuExpanded = false
-                                    callbacks.onGenerateProgramClick()
-                                },
-                                leadingIcon = {
-                                    ProgramMenuLeadingIcon(
-                                        iconRes = CoreUiR.drawable.ic_auto_awesome,
-                                    )
-                                },
-                            )
-                            StratumDropdownMenuItem(
-                                text = stringResource(R.string.programs_menu_program_library),
-                                onClick = {
-                                    menuExpanded = false
-                                    callbacks.onProgramLibraryClick()
-                                },
-                                leadingIcon = {
-                                    ProgramMenuLeadingIcon(
-                                        iconRes = CoreUiR.drawable.ic_library_books,
-                                    )
-                                },
                             )
                         }
                     }
@@ -276,6 +234,20 @@ internal fun ProgramsScreen(
                 },
             )
         }
+
+        if (showOptionsSheet) {
+            ProgramsOptionsBottomSheet(
+                onNewProgram = {
+                    showOptionsSheet = false
+                    callbacks.onCreateProgramClick()
+                },
+                onProgramLibrary = {
+                    showOptionsSheet = false
+                    callbacks.onProgramLibraryClick()
+                },
+                onDismiss = { showOptionsSheet = false },
+            )
+        }
     }
 }
 
@@ -302,7 +274,7 @@ private fun ActiveWorkoutBar(
             } else {
                 String.format(java.util.Locale.US, "%02d:%02d", mins, secs)
             }
-            kotlinx.coroutines.delay(1000L)
+            kotlinx.coroutines.delay(1000L.milliseconds)
         }
     }
 
@@ -812,17 +784,6 @@ private fun WorkoutCardDivider(startPadding: Dp = 0.dp) {
                     .background(StratumThemeAccessor.colors.borderSubtle),
         )
     }
-}
-
-@Composable
-private fun ProgramMenuLeadingIcon(
-    @androidx.annotation.DrawableRes iconRes: Int,
-) {
-    Icon(
-        painter = painterResource(iconRes),
-        contentDescription = null,
-        tint = StratumThemeAccessor.colors.textMuted,
-    )
 }
 
 @Composable

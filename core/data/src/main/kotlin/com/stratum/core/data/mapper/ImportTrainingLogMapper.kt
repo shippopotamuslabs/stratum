@@ -10,4 +10,5 @@ internal fun importHistoryProgramEntity(): ProgramEntity =
         name = "Imported History",
         createdAt = Instant.EPOCH.toString(),
         cycleLength = 1,
+        isActive = false,
     )

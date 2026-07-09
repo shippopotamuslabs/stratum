@@ -53,7 +53,6 @@ class RoomProgramRepositoryTest {
             workoutDao = database.workoutDao(),
             workoutLiftDao = database.workoutLiftDao(),
             liftSetDao = database.liftSetDao(),
-            trainingSessionDao = database.trainingSessionDao(),
         )
     }
 
@@ -145,29 +144,57 @@ class RoomProgramRepositoryTest {
     }
 
     @Nested
-    @DisplayName("PROG-GEN-203 second saveProgram replaces the entire program")
-    inner class ReplaceNotAppend {
+    @DisplayName("PROG-GEN-203 multi-program: save demotes prior active; same-id replace scoped children")
+    inner class MultiProgram {
         @Test
-        fun `saving a smaller program after a larger one leaves only the new rows`() = runTest {
+        fun `saving a second active program keeps the first as library inventory`() = runTest {
             seedReferencedLifts()
-            repository.saveProgram(PROGRAM_P1) // 1 workout, 1 workoutLift, 2 sets
-            repository.saveProgram(PROGRAM_P2) // 1 workout, 1 workoutLift, 1 set
+            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            repository.saveProgram(PROGRAM_P2.copy(isActive = true))
+
+            val active = repository.getProgram()
+            assertEquals(PROGRAM_P2.copy(isActive = true), active)
+            assertEquals(2, database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM programs").use { c ->
+                c.moveToFirst(); c.getInt(0)
+            })
+            val library = repository.getProgramById(PROGRAM_P1.id)
+            assertEquals(PROGRAM_P1.copy(isActive = false), library)
+        }
+
+        @Test
+        fun `re-saving the same program id replaces only that program children`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            val slim =
+                PROGRAM_P1.copy(
+                    isActive = true,
+                    workouts =
+                        PROGRAM_P1.workouts.map { workout ->
+                            workout.copy(
+                                workoutLifts =
+                                    workout.workoutLifts.map { lift ->
+                                        lift.copy(sets = lift.sets.take(1))
+                                    },
+                            )
+                        },
+                )
+            repository.saveProgram(slim)
 
             val loaded = repository.getProgram()
-            assertEquals(PROGRAM_P2, loaded)
-            // Mutation defense: a "no deleteAll" implementation would leave P1's extra set behind.
-            assertEquals(1, database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM programs").use { c ->
-                c.moveToFirst(); c.getInt(0)
-            })
-            assertEquals(1, database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM workouts").use { c ->
-                c.moveToFirst(); c.getInt(0)
-            })
-            assertEquals(1, database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM workout_lifts").use { c ->
-                c.moveToFirst(); c.getInt(0)
-            })
+            assertEquals(slim, loaded)
             assertEquals(1, database.openHelper.writableDatabase.query("SELECT COUNT(*) FROM sets").use { c ->
                 c.moveToFirst(); c.getInt(0)
             })
+        }
+
+        @Test
+        fun `saveToLibrary does not change the active program`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            repository.saveToLibrary(PROGRAM_P2)
+
+            assertEquals(PROGRAM_P1.copy(isActive = true), repository.getProgram())
+            assertEquals(PROGRAM_P2.copy(isActive = false), repository.getProgramById(PROGRAM_P2.id))
         }
     }
 
@@ -198,6 +225,7 @@ class RoomProgramRepositoryTest {
             createdAt = Instant.parse("2026-06-26T12:00:00Z"),
             cycleLength = 1,
             trainingWeekdays = setOf(Weekday.Monday),
+            isActive = true,
             workouts = listOf(
                 Workout(
                     id = WorkoutId("w-1"),
@@ -234,6 +262,7 @@ class RoomProgramRepositoryTest {
             createdAt = Instant.parse("2026-06-26T12:00:00Z"),
             cycleLength = 1,
             trainingWeekdays = setOf(Weekday.Tuesday),
+            isActive = true,
             workouts = listOf(
                 Workout(
                     id = WorkoutId("w-2"),

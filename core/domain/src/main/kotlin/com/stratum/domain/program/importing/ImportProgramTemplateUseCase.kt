@@ -86,7 +86,7 @@ class ImportProgramTemplateUseCase @Inject constructor(
             val template = parse(templateJson)
             require(template.workouts.isNotEmpty()) { "Imported template has no workouts" }
 
-            val program = resolver.invoke(template)
+            val program = resolver.invoke(template).copy(isActive = true)
             repository.saveProgram(program)
             programChangeEventRepository.append(
                 ProgramChangeEvent(

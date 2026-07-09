@@ -24,6 +24,7 @@ import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.OnboardingStepDirection
 import com.stratum.domain.onboarding.OnboardingWizardState
 import com.stratum.domain.onboarding.SpecializationPreference
+import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UpdateSpecializationUseCase
 import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
@@ -31,6 +32,7 @@ import com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.onboarding.applyAdditiveSetEdit
 import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
+import com.stratum.domain.program.ActivateProgramUseCase
 import com.stratum.domain.program.GenerateProgramUseCase
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
@@ -64,6 +66,8 @@ class OnboardingViewModel @Inject constructor(
     private val updateUserTrainingProfile: UpdateUserTrainingProfileUseCase,
     private val updateSpecialization: UpdateSpecializationUseCase,
     private val generateProgram: GenerateProgramUseCase,
+    private val activateProgram: ActivateProgramUseCase,
+    private val completeOnboarding: CompleteOnboardingUseCase,
     private val importProgramTemplate: ImportProgramTemplateUseCase,
 ) : ViewModel() {
 
@@ -473,18 +477,51 @@ class OnboardingViewModel @Inject constructor(
                     // Generate could still have stale empty weekdays in Room.
                     updateUserTrainingProfile(effectiveProfile.value)
                     updateSpecialization(effectiveSpecialization.value)
-                    val result =
+                    val generateResult =
                         generateProgram { progress ->
                             withContext(Dispatchers.Main.immediate) {
                                 publishGenerateProgress(progress)
                             }
                         }
-                    result.exceptionOrNull()?.let { error ->
+                    val program = generateResult.getOrElse { error ->
                         logGenerateFailure(error)
+                        ephemeral.update {
+                            it.copy(
+                                generateState = GenerateState.Error,
+                                generateProgress = null,
+                                generateMaxTimelineIndex = 0,
+                                generateErrorMessage = null,
+                            )
+                        }
+                        return@launch
+                    }
+                    withContext(Dispatchers.Main.immediate) {
+                        publishGenerateProgress(
+                            ProgramGenerationProgress(ProgramGenerationProgressPhase.SavingProgram),
+                        )
+                    }
+                    val activateResult = activateProgram(program)
+                    activateResult.exceptionOrNull()?.let { error ->
+                        logGenerateFailure(error)
+                        ephemeral.update {
+                            it.copy(
+                                generateState = GenerateState.Error,
+                                generateProgress = null,
+                                generateMaxTimelineIndex = 0,
+                                generateErrorMessage = null,
+                            )
+                        }
+                        return@launch
+                    }
+                    completeOnboarding(effectiveProfile.value)
+                    withContext(Dispatchers.Main.immediate) {
+                        publishGenerateProgress(
+                            ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete),
+                        )
                     }
                     ephemeral.update {
                         it.copy(
-                            generateState = if (result.isSuccess) GenerateState.Idle else GenerateState.Error,
+                            generateState = GenerateState.Idle,
                             generateProgress = null,
                             generateMaxTimelineIndex = 0,
                             generateErrorMessage = null,

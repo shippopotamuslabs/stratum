@@ -53,6 +53,7 @@ fun OnboardingRoute(
     onComplete: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: OnboardingViewModel = hiltViewModel(),
+    onBuildFromScratch: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -124,8 +125,11 @@ fun OnboardingRoute(
         onBack = viewModel::back,
         onGenerate = viewModel::generate,
         onImportExisting = { programImportLauncher.launch(PROGRAM_IMPORT_MIME_TYPES) },
-        onSelectGenerate = { viewModel.selectPath(OnboardingPath.Generate) },
-        onSelectImport = { viewModel.selectPath(OnboardingPath.Import) },
+        pathHandlers = ChoosePathHandlers(
+            onSelectGenerate = { viewModel.selectPath(OnboardingPath.Generate) },
+            onSelectScratch = onBuildFromScratch,
+            onSelectImport = { viewModel.selectPath(OnboardingPath.Import) },
+        ),
         profileSchedule = ProfileScheduleHandlers(
             onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
             onLastTrainedSelected = viewModel::onLastTrainedSelected,
@@ -160,8 +164,7 @@ private fun OnboardingWizard(
     onBack: () -> Unit,
     onGenerate: () -> Unit,
     onImportExisting: () -> Unit,
-    onSelectGenerate: () -> Unit,
-    onSelectImport: () -> Unit,
+    pathHandlers: ChoosePathHandlers,
     profileSchedule: ProfileScheduleHandlers,
     onMuscleToggled: (String) -> Unit,
     minimumVolume: MinimumVolumeHandlers,
@@ -232,8 +235,9 @@ private fun OnboardingWizard(
                         importProgramState = state.importProgramState,
                     )
                     WIZARD_STEP_CHOOSE_PATH -> ChoosePathScreen(
-                        onSelectGenerate = onSelectGenerate,
-                        onSelectImport = onSelectImport,
+                        onSelectGenerate = pathHandlers.onSelectGenerate,
+                        onSelectScratch = pathHandlers.onSelectScratch,
+                        onSelectImport = pathHandlers.onSelectImport,
                     )
                 }
             }
