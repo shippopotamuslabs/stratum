@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">Settings</string>
+    <string name="settings_navigate_back">Go back</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_appearance_description">Light, dark, or match the system setting.</string>
+    <string name="settings_appearance_system">System</string>
+    <string name="settings_appearance_light">Light</string>
+    <string name="settings_appearance_dark">Dark</string>
+    <string name="settings_theme_family_title">Theme</string>
+    <string name="settings_theme_family_description">Stratum Tonal chrome or Neo Brutalist iron and concrete.</string>
+    <string name="settings_theme_family_stratum">Stratum</string>
+    <string name="settings_theme_family_neo_brutalist">Neo Brutalist</string>
+</resources>

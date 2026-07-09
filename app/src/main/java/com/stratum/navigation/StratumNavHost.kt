@@ -23,12 +23,14 @@ import com.stratum.feature.program.navigation.EditWorkoutKey
 import com.stratum.feature.program.navigation.editWorkoutEntry
 import com.stratum.feature.program.navigation.LiftSwapKey
 import com.stratum.feature.program.navigation.liftSwapEntry
+import com.stratum.feature.program.navigation.ReorderLiftsKey
+import com.stratum.feature.program.navigation.reorderLiftsEntry
+import com.stratum.feature.settings.navigation.SettingsKey
+import com.stratum.feature.settings.navigation.settingsEntry
 import com.stratum.feature.workout.navigation.WorkoutKey
 import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
 import com.stratum.feature.workout.navigation.workoutCompleteEntry
-import com.stratum.feature.program.navigation.ReorderLiftsKey
-import com.stratum.feature.program.navigation.reorderLiftsEntry
 
 @Composable
 fun StratumNavHost(
