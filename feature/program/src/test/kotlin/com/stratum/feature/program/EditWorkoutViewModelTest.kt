@@ -557,6 +557,61 @@ class EditWorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("Given loaded workout when LiftsSelected with asSuperset then new lifts share a group id")
+    fun handlesLiftsSelectedAsSuperset() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            val beforeCount = initial.lifts.size
+
+            workoutEditSession.selectLifts(
+                workoutId = WORKOUT_ID,
+                liftIds = listOf("incline-press", "bench-press"),
+                asSuperset = true,
+            )
+
+            val updated = awaitItem() as EditWorkoutUiState.Loaded
+            assertEquals(beforeCount + 2, updated.lifts.size)
+            val added = updated.lifts.takeLast(2)
+            assertEquals("incline-press", added[0].liftId)
+            assertEquals("bench-press", added[1].liftId)
+            assertNotNull(added[0].supersetGroupId)
+            assertEquals(added[0].supersetGroupId, added[1].supersetGroupId)
+            assertFalse(added[0].useRestTimerBetweenLifts)
+            assertFalse(added[1].useRestTimerBetweenLifts)
+            assertTrue(updated.isDirty)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given loaded workout when LiftsSelected without superset then new lifts have null group id")
+    fun handlesLiftsSelectedWithoutSuperset() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            val beforeCount = initial.lifts.size
+
+            workoutEditSession.selectLifts(
+                workoutId = WORKOUT_ID,
+                liftIds = listOf("incline-press", "bench-press"),
+                asSuperset = false,
+            )
+
+            val updated = awaitItem() as EditWorkoutUiState.Loaded
+            assertEquals(beforeCount + 2, updated.lifts.size)
+            val added = updated.lifts.takeLast(2)
+            assertNull(added[0].supersetGroupId)
+            assertNull(added[1].supersetGroupId)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given swapped lift in memory when saved then LIFT_SWAPPED event is recorded")
     fun saveSwappedLiftRecordsEvent() = runTest {
         val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()

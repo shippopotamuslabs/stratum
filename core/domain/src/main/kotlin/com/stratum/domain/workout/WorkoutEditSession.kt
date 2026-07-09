@@ -13,6 +13,17 @@ sealed interface EditSessionEvent {
         val liftId: String,
     ) : EditSessionEvent
 
+    /**
+     * Multi-add from the lift picker. [liftIds] are catalog lift IDs in selection order.
+     * When [asSuperset] is true and there are at least two lifts, consumers should assign
+     * the newly appended rows a shared [com.stratum.domain.program.identity.WorkoutSupersetGroupId].
+     */
+    data class LiftsSelected(
+        val workoutId: String,
+        val liftIds: List<String>,
+        val asSuperset: Boolean,
+    ) : EditSessionEvent
+
     data class LiftsReordered(
         val workoutId: String,
         val orderedWorkoutLiftIds: List<String>,
@@ -33,6 +44,11 @@ class WorkoutEditSession @Inject constructor() {
 
     fun selectLift(workoutId: String, workoutLiftId: String?, liftId: String) {
         _events.tryEmit(EditSessionEvent.LiftSelected(workoutId, workoutLiftId, liftId))
+    }
+
+    fun selectLifts(workoutId: String, liftIds: List<String>, asSuperset: Boolean) {
+        if (liftIds.isEmpty()) return
+        _events.tryEmit(EditSessionEvent.LiftsSelected(workoutId, liftIds, asSuperset))
     }
 
     fun setReorderLifts(lifts: List<ReorderLiftItem>) {
