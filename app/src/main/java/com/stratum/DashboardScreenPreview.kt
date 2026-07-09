@@ -110,6 +110,7 @@ private fun DashboardScreenPreviewContent() {
             muscles = listOf(
                 MuscleSeriesUi(
                     name = "Chest",
+                    muscleKey = "Chest",
                     headlineVolume = "14 sets/wk",
                     badge = TrendBadge.Up,
                     progressPoints = risingIndexSeries(),
@@ -119,6 +120,7 @@ private fun DashboardScreenPreviewContent() {
                 ),
                 MuscleSeriesUi(
                     name = "Back",
+                    muscleKey = "Back",
                     headlineVolume = "10 sets/wk",
                     badge = TrendBadge.Down,
                     progressPoints = fallingIndexSeries(),
@@ -128,6 +130,7 @@ private fun DashboardScreenPreviewContent() {
                 ),
                 MuscleSeriesUi(
                     name = "Quad",
+                    muscleKey = "Quad",
                     headlineVolume = "8 sets/wk",
                     badge = TrendBadge.Flat,
                     progressPoints = flatIndexSeries(),
@@ -136,6 +139,7 @@ private fun DashboardScreenPreviewContent() {
                 ),
                 MuscleSeriesUi(
                     name = "Bicep",
+                    muscleKey = "Bicep",
                     headlineVolume = "6 sets/wk",
                     badge = TrendBadge.Unknown,
                     progressPoints = emptyList(),
@@ -149,6 +153,7 @@ private fun DashboardScreenPreviewContent() {
                     lifts = listOf(
                         LiftSeriesUi(
                             name = "Bench Press",
+                            liftId = "bench",
                             e1rmText = "225 lb",
                             badge = TrendBadge.Up,
                             performancePoints = ascendingSeries(),
@@ -158,6 +163,7 @@ private fun DashboardScreenPreviewContent() {
                         ),
                         LiftSeriesUi(
                             name = "Barbell Row",
+                            liftId = "row",
                             e1rmText = "185 lb",
                             badge = TrendBadge.Down,
                             performancePoints = descendingSeries(),
@@ -172,6 +178,7 @@ private fun DashboardScreenPreviewContent() {
                     lifts = listOf(
                         LiftSeriesUi(
                             name = "Hack Squat",
+                            liftId = "hack",
                             e1rmText = "315 lb",
                             badge = TrendBadge.Flat,
                             performancePoints = flatSeries(),

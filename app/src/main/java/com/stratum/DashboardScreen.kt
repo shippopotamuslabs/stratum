@@ -71,11 +71,21 @@ fun DashboardScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val graphDetail by viewModel.graphDetailState.collectAsStateWithLifecycle()
 
     DashboardScreen(
         state = state,
         onNavigateToSettings = onNavigateToSettings,
+        onOpenLiftGraph = viewModel::openLiftGraph,
+        onOpenMuscleGraph = viewModel::openMuscleGraph,
         modifier = modifier,
+    )
+
+    DashboardGraphDetailHost(
+        state = graphDetail,
+        onDismiss = viewModel::dismissGraphDetail,
+        onSelectMode = viewModel::selectGraphMode,
+        onSelectRange = viewModel::selectGraphTimeRange,
     )
 }
 
@@ -84,6 +94,8 @@ internal fun DashboardScreen(
     state: DashboardUiState,
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenLiftGraph: (String) -> Unit = {},
+    onOpenMuscleGraph: (String) -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableIntStateOf(TAB_MUSCLES) }
 
@@ -116,7 +128,12 @@ internal fun DashboardScreen(
         when (state) {
             DashboardUiState.Loading -> LoadingState()
             DashboardUiState.Empty -> EmptyState()
-            is DashboardUiState.Loaded -> LoadedContent(state, tab)
+            is DashboardUiState.Loaded -> LoadedContent(
+                state = state,
+                tab = tab,
+                onOpenLiftGraph = onOpenLiftGraph,
+                onOpenMuscleGraph = onOpenMuscleGraph,
+            )
         }
     }
 }
@@ -156,7 +173,12 @@ private fun EmptyState() {
 }
 
 @Composable
-private fun ColumnScope.LoadedContent(state: DashboardUiState.Loaded, tab: Int) {
+private fun ColumnScope.LoadedContent(
+    state: DashboardUiState.Loaded,
+    tab: Int,
+    onOpenLiftGraph: (String) -> Unit,
+    onOpenMuscleGraph: (String) -> Unit,
+) {
     val hasItems = if (tab == TAB_MUSCLES) {
         state.muscles.isNotEmpty()
     } else {
@@ -197,7 +219,10 @@ private fun ColumnScope.LoadedContent(state: DashboardUiState.Loaded, tab: Int) 
                 EmptyTabMessage(stringResource(R.string.dashboard_empty_muscles_window))
             } else {
                 TrendCardGrid(items = state.muscles, key = { "muscle-${it.name}" }) { muscle ->
-                    MuscleTrendCard(muscle)
+                    MuscleTrendCard(
+                        muscle = muscle,
+                        onClick = { onOpenMuscleGraph(muscle.muscleKey) },
+                    )
                 }
             }
         }
@@ -205,7 +230,10 @@ private fun ColumnScope.LoadedContent(state: DashboardUiState.Loaded, tab: Int) 
             if (state.liftSections.isEmpty()) {
                 EmptyTabMessage(stringResource(R.string.dashboard_empty_lifts_program))
             } else {
-                LiftSectionGrid(sections = state.liftSections)
+                LiftSectionGrid(
+                    sections = state.liftSections,
+                    onOpenLiftGraph = onOpenLiftGraph,
+                )
             }
         }
     }
@@ -245,7 +273,10 @@ private fun <T> ColumnScope.TrendCardGrid(
 }
 
 @Composable
-private fun MuscleTrendCard(muscle: MuscleSeriesUi) {
+private fun MuscleTrendCard(
+    muscle: MuscleSeriesUi,
+    onClick: () -> Unit,
+) {
     TrendCard(
         name = muscle.name,
         // No per-card trend arrow: high-confidence direction is the border accent (see legend dots).
@@ -254,6 +285,7 @@ private fun MuscleTrendCard(muscle: MuscleSeriesUi) {
         // Baseline semantics live under the global legend — keep card footers to lift count only.
         footer = stringResource(R.string.dashboard_contributing_lifts_format, muscle.contributingLifts),
         highlight = muscle.highlight,
+        onClick = onClick,
     ) {
         StratumIndexVolumeChart(
             indexSeries = muscle.progressPoints,
@@ -266,6 +298,7 @@ private fun MuscleTrendCard(muscle: MuscleSeriesUi) {
 @Composable
 private fun ColumnScope.LiftSectionGrid(
     sections: List<LiftSectionUi>,
+    onOpenLiftGraph: (String) -> Unit,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(CARDS_PER_ROW),
@@ -287,7 +320,10 @@ private fun ColumnScope.LiftSectionGrid(
                 items = section.lifts,
                 key = { lift -> "lift-${section.title}-${lift.name}" },
             ) { lift ->
-                LiftTrendCard(lift = lift)
+                LiftTrendCard(
+                    lift = lift,
+                    onClick = { onOpenLiftGraph(lift.liftId) },
+                )
             }
         }
     }
@@ -313,7 +349,10 @@ private fun sectionTitle(key: String): String = when (key) {
 }
 
 @Composable
-private fun LiftTrendCard(lift: LiftSeriesUi) {
+private fun LiftTrendCard(
+    lift: LiftSeriesUi,
+    onClick: () -> Unit,
+) {
     TrendCard(
         name = lift.name,
         // Match muscles: no per-card slope arrow. Mild e1RM noise was rendering as a loud red
@@ -324,6 +363,7 @@ private fun LiftTrendCard(lift: LiftSeriesUi) {
         // Window is stated once in the lifts legend caption — footer is session count only.
         footer = stringResource(R.string.dashboard_lift_footer_format, lift.sessions),
         highlight = lift.highlight,
+        onClick = onClick,
     ) {
         StratumTrendChart(
             primarySeries = lift.performancePoints,
@@ -342,6 +382,7 @@ private fun TrendCard(
     headline: String,
     footer: String,
     highlight: CalloutDirectionUi? = null,
+    onClick: (() -> Unit)? = null,
     chart: @Composable () -> Unit,
 ) {
     val badgeColor = badge?.color()
@@ -351,6 +392,14 @@ private fun TrendCard(
         CalloutDirectionUi.Progressing -> StratumThemeAccessor.colors.accent
         CalloutDirectionUi.Regressing -> StratumThemeAccessor.colors.error
         null -> StratumThemeAccessor.colors.borderSubtle
+    }
+    val clickModifier = if (onClick != null) {
+        Modifier.clickable(
+            role = Role.Button,
+            onClick = onClick,
+        )
+    } else {
+        Modifier
     }
     Column(
         modifier = Modifier
@@ -364,6 +413,7 @@ private fun TrendCard(
                 color = borderColor,
                 shape = StratumThemeAccessor.shapes.panel,
             )
+            .then(clickModifier)
             .padding(CARD_PADDING_DP.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {

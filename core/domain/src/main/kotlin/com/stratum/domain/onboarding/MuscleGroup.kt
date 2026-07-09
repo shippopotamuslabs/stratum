@@ -40,7 +40,10 @@ enum class MuscleGroup {
     Adductor,
     ;
 
-    /** Human-readable label — single source of truth for UI and lift summaries. */
+    /**
+     * Human-readable label — single source of truth for UI and lift summaries.
+     * Never expose [name] / `toString()` in product chrome (e.g. "LateralDeltoid", "Calf").
+     */
     val displayLabel: String
         get() = when (this) {
             Chest -> "Chest"
@@ -54,7 +57,8 @@ enum class MuscleGroup {
             Tricep -> "Triceps"
             Bicep -> "Biceps"
             Trap -> "Traps"
-            Calf -> "PlantarFlexion"
+            // Not "PlantarFlexion" (that's a [com.stratum.domain.lift.MovementPattern] enum name).
+            Calf -> "Calves"
             Forearm -> "Forearms"
             Ab -> "Abs"
             LowerBack -> "Lower Back"
