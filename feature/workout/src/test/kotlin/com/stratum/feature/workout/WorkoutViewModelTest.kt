@@ -295,6 +295,22 @@ class WorkoutViewModelTest {
         enabled = true,
     )
 
+    private fun fakeLiveWorkoutSurfaces(): com.stratum.feature.workout.notification.LiveWorkoutSurfaces {
+        val restTimer = com.stratum.feature.workout.notification.RestTimerController(
+            clock = com.stratum.feature.workout.notification.EpochMilliClock {
+                System.currentTimeMillis()
+            },
+        )
+        return com.stratum.feature.workout.notification.LiveWorkoutSurfaces(
+            activeWorkout = com.stratum.feature.workout.notification.ActiveWorkoutTracker(),
+            restTimer = restTimer,
+            restCompletion = com.stratum.feature.workout.notification.RestTimerCompletion(
+                restTimer = restTimer,
+                announcer = com.stratum.feature.workout.notification.RestCompleteAnnouncer { _, _ -> },
+            ),
+        )
+    }
+
     private fun buildViewModel(): WorkoutViewModel {
         // Uses the seeded [programRepository] / [progressionHistory] from [setUp].
         val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift(), catalogLift2()))
@@ -331,6 +347,7 @@ class WorkoutViewModelTest {
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
+            liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
         )
     }
 
@@ -379,6 +396,7 @@ class WorkoutViewModelTest {
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
+            liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
         )
     }
 
@@ -440,6 +458,7 @@ class WorkoutViewModelTest {
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = workoutEditSession,
+            liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
         )
     }
 
@@ -1010,6 +1029,7 @@ class WorkoutViewModelTest {
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = WorkoutEditSession(),
+            liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
         )
 
         localViewModel.startSession(workoutId)
@@ -1070,6 +1090,7 @@ class WorkoutViewModelTest {
             logErrorUseCase = LogErrorUseCase(FakeLoggingPort()),
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore),
             workoutEditSession = WorkoutEditSession(),
+            liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
         )
 
         localViewModel.startSession(workoutId)

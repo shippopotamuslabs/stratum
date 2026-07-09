@@ -3,6 +3,7 @@ package com.stratum
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.stratum.feature.workout.notification.WorkoutNotificationCoordinator
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -17,6 +18,14 @@ class StratumApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject
+    lateinit var workoutNotificationCoordinator: WorkoutNotificationCoordinator
+
+    override fun onCreate() {
+        super.onCreate()
+        workoutNotificationCoordinator.start()
+    }
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
