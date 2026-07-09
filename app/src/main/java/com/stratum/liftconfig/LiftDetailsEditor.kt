@@ -26,7 +26,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as UiR
-import com.stratum.core.ui.component.LiftSwapMuscleTiers
 import com.stratum.core.ui.component.MuscleFilterBottomSheet
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
@@ -38,7 +37,7 @@ import com.stratum.core.ui.component.StratumMuscleFilterCardState
 import com.stratum.core.ui.component.StratumPillToggle
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
-import com.stratum.core.ui.component.toVolumeDisplayName
+import com.stratum.core.ui.component.defaultMuscleFilterTiers
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.onboarding.MuscleGroup
@@ -137,7 +136,7 @@ fun LiftDetailsEditor(
         MuscleFilterBottomSheet(
             onDismissRequest = { actions.onShowAddMuscleSheet(false) },
             selectedMuscles = selected,
-            muscleGroups = allMuscleTiers(),
+            muscleGroups = defaultMuscleFilterTiers(),
             // Multi-select: keep the sheet open until Done; toggle adds or removes.
             onMuscleToggled = { muscle ->
                 if (muscle in selected) {
@@ -595,37 +594,6 @@ private fun DetailOptionRow(
             )
         }
     }
-}
-
-private fun allMuscleTiers(): LiftSwapMuscleTiers {
-    val upper =
-        listOf(
-            MuscleGroup.Chest,
-            MuscleGroup.Back,
-            MuscleGroup.AnteriorDeltoid,
-            MuscleGroup.LateralDeltoid,
-            MuscleGroup.PosteriorDeltoid,
-            MuscleGroup.Tricep,
-            MuscleGroup.Bicep,
-            MuscleGroup.Trap,
-            MuscleGroup.Forearm,
-            // Core movers live on the upper tier so custom core lifts can be tagged.
-            MuscleGroup.Ab,
-            MuscleGroup.LowerBack,
-        )
-    val lower =
-        listOf(
-            MuscleGroup.Quad,
-            MuscleGroup.Hamstring,
-            MuscleGroup.Glute,
-            MuscleGroup.Calf,
-            MuscleGroup.Abductor,
-            MuscleGroup.Adductor,
-        )
-    return LiftSwapMuscleTiers(
-        upper = upper.map { StratumMuscleFilterCardState(it, it.toVolumeDisplayName()) },
-        lower = lower.map { StratumMuscleFilterCardState(it, it.toVolumeDisplayName()) },
-    )
 }
 
 private val DetailsMuscleCardWidth = 76.dp

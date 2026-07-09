@@ -37,19 +37,48 @@ class ResolvedDefaultRestSecondsTest {
         assertEquals(90, lift.resolvedDefaultRestSeconds())
     }
 
+    @Test
+    @DisplayName("Single-pattern NonAxialCompound (hack squat style) uses compound rest")
+    fun kinematicCompoundUsesCompoundRest() {
+        val lift =
+            sampleLift(
+                patterns = setOf(MovementPattern.SquatPattern),
+                override = null,
+                kinematic = KinematicProfile.NonAxialCompound,
+                primary = setOf(MuscleGroup.Quad),
+            )
+        assertEquals(DEFAULT_COMPOUND_REST_SECONDS, lift.resolvedDefaultRestSeconds())
+    }
+
+    @Test
+    @DisplayName("Single-pattern AxialCompound (back squat style) uses compound rest")
+    fun axialKinematicUsesCompoundRest() {
+        val lift =
+            sampleLift(
+                patterns = setOf(MovementPattern.SquatPattern),
+                override = null,
+                kinematic = KinematicProfile.AxialCompound,
+                primary = setOf(MuscleGroup.Quad),
+            )
+        assertEquals(DEFAULT_COMPOUND_REST_SECONDS, lift.resolvedDefaultRestSeconds())
+    }
+
     private fun sampleLift(
         patterns: Set<MovementPattern>,
         override: Int?,
+        kinematic: KinematicProfile = KinematicProfile.Isolation,
+        primary: Set<MuscleGroup> = setOf(MuscleGroup.Chest),
     ): Lift =
         Lift(
             id = LiftId("lift-1"),
             name = "Sample",
             movementPatterns = patterns,
-            primaryMuscles = setOf(MuscleGroup.Chest),
+            primaryMuscles = primary,
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
+            kinematicProfile = kinematic,
             defaultRestSeconds = override,
         )
 }

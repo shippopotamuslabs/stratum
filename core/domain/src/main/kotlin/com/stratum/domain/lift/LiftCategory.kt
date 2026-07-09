@@ -88,11 +88,7 @@ fun Lift.classifyLiftCategory(): LiftCategory {
 /**
  * Whether this lift should appear under Compound Upper/Lower in the Gym / swap filters.
  *
- * Prefer the catalog's first-class [Lift.kinematicProfile] when it is compound; fall back to
- * multi-pattern [Lift.isCompound] for older rows that only encode compound via co-patterns
- * (press + elbow extension, hinge + hip extension, etc.).
+ * Delegates to [Lift.isCompound] so category, default rest, and programming UI share one
+ * multi-joint definition (multi-pattern **or** axial/non-axial kinematic profile).
  */
-fun Lift.isCompoundForCategory(): Boolean =
-    isCompound ||
-        kinematicProfile == KinematicProfile.AxialCompound ||
-        kinematicProfile == KinematicProfile.NonAxialCompound
+fun Lift.isCompoundForCategory(): Boolean = isCompound
