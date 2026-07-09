@@ -1,65 +1,60 @@
 package com.stratum.domain.program
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.core.testing.onboarding.FakeOnboardingRepository
-import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
-import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.core.testing.program.FakeProgramRepository
-import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
-import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.scenarioContext
+import com.stratum.core.testing.program.testProgramGenerationPipeline
+import com.stratum.core.testing.training.FakeProgramChangeEventRepository
+import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.onboarding.CompleteOnboardingUseCase
-import com.stratum.domain.onboarding.TrainingAge
-import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.program.ScheduleDayItem
 import com.stratum.domain.program.buildWeeklySchedule
-import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
+import com.stratum.domain.training.ProgramChangeEventRepository
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 /**
- * [GenerateProgramUseCase] orchestration tests. Scenarios PROG-GEN-100, PROG-GEN-204, PROG-GEN-205.
+ * [GenerateProgramUseCase] orchestration tests. Generation returns a draft; persistence is the
+ * caller's responsibility ([ActivateProgramUseCase] / [SaveProgramToLibraryUseCase]).
  */
 class GenerateProgramUseCaseTest {
     @Nested
-    @DisplayName("PROG-GEN-100 happy path persists program and completes onboarding")
+    @DisplayName("PROG-GEN-100 happy path returns a generated program draft")
     inner class HappyPath {
         @Test
-        fun `invoke persists a generated program and completes onboarding`() = runTest {
+        fun `invoke returns a generated program without persisting`() = runTest {
             val useCase = buildUseCase(this)
 
             val result = useCase.invoke()
 
             assertTrue(result.isSuccess)
-            assertTrue(programRepository.current != null)
-            assertTrue(programRepository.saveProgramCalls.isNotEmpty())
-            assertTrue(onboardingRepository.current.isComplete)
-            assertEquals(SEEDED_PROFILE, profileRepository.current)
+            assertNotNull(result.getOrNull())
+            assertTrue(programRepository.saveProgramCalls.isEmpty())
+            assertNull(programRepository.current)
+            assertFalse(result.getOrThrow().isActive)
         }
 
         @Test
         fun `invoke binds training weekdays so weekly schedule has workout days`() = runTest {
             val useCase = buildUseCase(this)
 
-            useCase.invoke().getOrThrow()
+            val program = useCase.invoke().getOrThrow()
 
-            val program = programRepository.current!!
             val workoutDays =
                 buildWeeklySchedule(program).filterIsInstance<ScheduleDayItem.WorkoutDay>()
             assertTrue(workoutDays.isNotEmpty(), "expected workout days in weekly schedule")
             assertEquals(program.workouts.size, workoutDays.size)
             assertTrue(program.trainingWeekdays.isNotEmpty())
-            // trainingWeekdays is a denormalized cache of Workout.weekday — the single source of
-            // truth. The two must always agree after generation.
             assertEquals(
                 program.workouts.mapNotNull { it.weekday }.toSet(),
                 program.trainingWeekdays,
@@ -69,9 +64,6 @@ class GenerateProgramUseCaseTest {
         @Test
         @DisplayName("retainOnlyKnownLifts dropping workouts keeps trainingWeekdays consistent with survivors")
         fun `invoke keeps training weekdays consistent when sanitization drops workouts`() = runTest {
-            // Seed only upper-body lifts: lower-dominant workouts lose all their lifts to
-            // retainOnlyKnownLifts and are dropped, so the surviving trainingWeekdays must
-            // re-derive from the workouts that remain — no orphan weekdays, no crash.
             val upperOnlyLiftIds =
                 setOf(
                     "bench",
@@ -91,44 +83,26 @@ class GenerateProgramUseCaseTest {
             val result = useCase.invoke()
 
             assertTrue(result.isSuccess, "generation should succeed even with a partial lift catalog")
-            val program = programRepository.current!!
-            // Invariant: trainingWeekdays equals the set of bound workout weekdays among survivors.
+            val program = result.getOrThrow()
             val boundFromWorkouts = program.workouts.mapNotNull { it.weekday }.toSet()
             assertEquals(boundFromWorkouts, program.trainingWeekdays)
-            // buildWeeklySchedule must not crash and must show exactly the surviving workout days.
             val schedule = buildWeeklySchedule(program)
             assertEquals(boundFromWorkouts.size, schedule.filterIsInstance<ScheduleDayItem.WorkoutDay>().size)
         }
     }
 
     @Nested
-    @DisplayName("PROG-GEN-204 generation failure leaves no program and no completion")
+    @DisplayName("PROG-GEN-204 generation failure leaves no program")
     inner class FailurePath {
         @Test
-        fun `invoke does not persist or complete on generation failure`() = runTest {
+        fun `invoke does not persist on generation failure`() = runTest {
             val useCase = buildUseCase(this, contextLoader = ProgramGenerationContextLoader { error("boom") })
 
             val result = useCase.invoke()
 
             assertTrue(result.isFailure)
             assertTrue(programRepository.saveProgramCalls.isEmpty())
-            assertEquals(null, programRepository.current)
-            assertFalse(onboardingRepository.current.isComplete)
-        }
-    }
-
-    @Nested
-    @DisplayName("PROG-GEN-205 persist failure leaves onboarding incomplete")
-    inner class PersistFailurePath {
-        @Test
-        fun `invoke does not complete onboarding when saveProgram fails`() = runTest {
-            val useCase = buildUseCase(this, repositoryFailOnSave = true)
-
-            val result = useCase.invoke()
-
-            assertTrue(result.isFailure)
-            assertEquals(null, programRepository.current)
-            assertFalse(onboardingRepository.current.isComplete)
+            assertNull(programRepository.current)
         }
     }
 
@@ -156,7 +130,6 @@ class GenerateProgramUseCaseTest {
                     ProgramGenerationProgressPhase.SelectingExercises,
                     ProgramGenerationProgressPhase.PolishingProgram,
                     ProgramGenerationProgressPhase.FinalizingProgram,
-                    ProgramGenerationProgressPhase.SavingProgram,
                     ProgramGenerationProgressPhase.Complete,
                 ),
                 collapsed,
@@ -165,25 +138,18 @@ class GenerateProgramUseCaseTest {
     }
 
     private lateinit var programRepository: FakeProgramRepository
-    private lateinit var onboardingRepository: FakeOnboardingRepository
-    private lateinit var profileRepository: FakeUserTrainingProfileRepository
 
     private fun buildUseCase(
         testScope: TestScope,
-        events: ProgramChangeEventRepository = NoOpProgramChangeEventRepository(),
         contextLoader: ProgramGenerationContextLoader = ProgramGenerationContextLoader {
             scenarioContext(days = 3, specialization = emptyMap())
         },
-        repositoryFailOnSave: Boolean = false,
         enabledLiftIds: Set<LiftId> = SCENARIO_LIFT_CATALOG.map { LiftId(it.id) }.toSet(),
     ): GenerateProgramUseCase {
-        programRepository = FakeProgramRepository(failOnSave = repositoryFailOnSave)
-        onboardingRepository = FakeOnboardingRepository()
-        profileRepository = FakeUserTrainingProfileRepository(initial = SEEDED_PROFILE)
+        programRepository = FakeProgramRepository()
         return GenerateProgramUseCase(
             loadContext = contextLoader,
             pipeline = testProgramGenerationPipeline(),
-            repository = programRepository,
             liftRepository = FakeLiftRepository(
                 initialLifts =
                     enabledLiftIds.map { id ->
@@ -199,24 +165,24 @@ class GenerateProgramUseCaseTest {
                         )
                     },
             ),
-            completeOnboarding = CompleteOnboardingUseCase(onboardingRepository, profileRepository),
-            profileRepository = profileRepository,
-            programChangeEventRepository = events,
             generationDispatcher = UnconfinedTestDispatcher(testScope.testScheduler),
         )
     }
 
-    private val SEEDED_PROFILE = UserTrainingProfile.Empty.copy(trainingAge = TrainingAge.Advanced)
-
     @Test
-    @DisplayName("WL-037 GenerateProgramUseCase appends PROGRAM_REGENERATED event")
-    fun wl037_generateProgramAppendsRegeneratedEvent() = runTest {
-        val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
-        val useCase = buildUseCase(this, events)
+    @DisplayName("ActivateProgramUseCase persists and appends PROGRAM_REGENERATED")
+    fun activateProgramPersistsAndAppendsEvent() = runTest {
+        val events = FakeProgramChangeEventRepository()
+        val repo = FakeProgramRepository()
+        val generate = buildUseCase(this)
+        val program = generate.invoke().getOrThrow()
+        val activate = ActivateProgramUseCase(repo, events)
 
-        useCase.invoke().getOrThrow()
+        activate(program).getOrThrow()
 
-        val appended = events.getEventsForProgram(programRepository.current!!.id)
+        assertNotNull(repo.current)
+        assertTrue(repo.current!!.isActive)
+        val appended = events.getEventsForProgram(repo.current!!.id)
         assertEquals(1, appended.size)
         assertEquals(
             com.stratum.domain.training.ProgramChangeEventType.PROGRAM_REGENERATED,

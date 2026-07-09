@@ -359,8 +359,95 @@ private fun EditWorkoutTopBar(
     )
 }
 
+/**
+ * Workout lift editor body without scaffold/top bar — for embedding in Create Program.
+ */
 @Composable
-private fun EditWorkoutContent(
+internal fun EditWorkoutEmbeddedContent(
+    state: EditWorkoutUiState.Loaded,
+    callbacks: EditWorkoutScreenCallbacks,
+    modifier: Modifier = Modifier,
+) {
+    var restSheetSet by remember { mutableStateOf<EditSetState?>(null) }
+    var restSheetLiftId by remember { mutableStateOf<String?>(null) }
+    var restSheetSeconds by remember { mutableIntStateOf(DEFAULT_REST_SECONDS) }
+    var rirSheetSet by remember { mutableStateOf<EditSetState?>(null) }
+    var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
+    var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
+
+    EditWorkoutContent(
+        state = state,
+        callbacks = callbacks,
+        onRestClick = { liftId, set ->
+            restSheetSet = set
+            restSheetLiftId = liftId
+            restSheetSeconds = set.restSeconds
+        },
+        onRirClick = { set -> rirSheetSet = set },
+        onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
+        onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
+        modifier = modifier,
+    )
+
+    restSheetSet?.let { targetSet ->
+        val liftId = restSheetLiftId
+        if (liftId != null) {
+            RestTimeBottomSheet(
+                totalSeconds = restSheetSeconds,
+                onTotalSecondsChange = { seconds -> restSheetSeconds = seconds },
+                onApplyToSet = {
+                    callbacks.onSetRestSeconds(targetSet.setId, restSheetSeconds)
+                    restSheetSet = null
+                    restSheetLiftId = null
+                },
+                onApplyToAllSets = {
+                    callbacks.onSetRestSecondsForAllSetsOnLift(liftId, restSheetSeconds)
+                    restSheetSet = null
+                    restSheetLiftId = null
+                },
+                onDismiss = {
+                    restSheetSet = null
+                    restSheetLiftId = null
+                },
+            )
+        }
+    }
+
+    rirSheetSet?.let { targetSet ->
+        RirTargetBottomSheet(
+            selectedRirGoal = targetSet.rirGoal,
+            onRirSelected = { rir -> callbacks.onSetRirGoal(targetSet.setId, rir) },
+            onDismiss = { rirSheetSet = null },
+        )
+    }
+
+    liftActionsLiftId?.let { liftId ->
+        val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId } ?: return@let
+        LiftActionsBottomSheet(
+            onConfigureSuperset = { liftActionsLiftId = null },
+            onSwapLift = {
+                liftActionsLiftId = null
+                callbacks.onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.name)
+            },
+            onRemoveLift = {
+                liftActionsLiftId = null
+                callbacks.onRemoveLift(liftId)
+            },
+            onReorderLifts = {
+                liftActionsLiftId = null
+                callbacks.onReorderLiftsClick()
+            },
+            onDismiss = { liftActionsLiftId = null },
+        )
+    }
+
+    if (showProgressionSchemeExplainer) {
+        ProgressionSchemeExplainerSheet(onDismiss = { showProgressionSchemeExplainer = false })
+    }
+}
+
+@Composable
+internal fun EditWorkoutContent(
     state: EditWorkoutUiState.Loaded,
     callbacks: EditWorkoutScreenCallbacks,
     onRestClick: (workoutLiftId: String, EditSetState) -> Unit,
