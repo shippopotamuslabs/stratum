@@ -12,6 +12,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.stratum.domain.auth.AuthManager
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
+import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -30,7 +31,7 @@ class FirebaseGoogleAuthManager @Inject constructor(
     private val credentialManager: CredentialManager,
     private val signInHostContext: SignInHostContext,
     private val loggingPort: LoggingPort,
-    @com.stratum.core.data.di.ApplicationScope private val externalScope: CoroutineScope,
+    @ApplicationScope private val externalScope: CoroutineScope,
 ) : AuthManager {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     override val authState: StateFlow<AuthState> = _authState.asStateFlow()

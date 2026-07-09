@@ -38,6 +38,8 @@ import com.stratum.core.data.db.SupersetAffinityDao
 import com.stratum.core.data.db.VolumeResponseObservationDao
 import com.stratum.core.data.repository.RoomExperimentBlockRepository
 import com.stratum.core.data.repository.RoomLiftEffectivenessObservationRepository
+import com.stratum.core.data.repository.RoomLiftWeeklyPerformanceRepository
+import com.stratum.core.data.work.WorkManagerResponseModelingScheduler
 import com.stratum.core.data.repository.RoomResponseEpochRepository
 import com.stratum.core.data.repository.RoomResponseProfileMetadataRepository
 import com.stratum.core.data.repository.RoomResponseProfilePersistenceRepository
@@ -54,6 +56,8 @@ import com.stratum.domain.workout.WorkoutOverlayStore
 import com.stratum.core.data.repository.DataStoreWorkoutOverlayStore
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
+import com.stratum.core.data.repository.RoomMuscleWeeklyOutcomeIndexRepository
+import com.stratum.core.data.repository.RoomMuscleWeeklyStimulusRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.data.repository.RoomSupersetAffinityRepository
 import com.stratum.domain.importing.Bm25LiftNameResolver
@@ -72,7 +76,11 @@ import com.stratum.domain.response.EmptyExperimentRegistry
 import com.stratum.domain.response.ExperimentBlockRepository
 import com.stratum.domain.response.ExperimentRegistry
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
+import com.stratum.domain.response.LiftWeeklyPerformanceRepository
+import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
+import com.stratum.domain.response.MuscleWeeklyStimulusRepository
 import com.stratum.domain.response.ResponseEpochRepository
+import com.stratum.domain.response.ResponseModelingSchedulerPort
 import com.stratum.domain.response.ResponseObservationExtractor
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
@@ -392,6 +400,30 @@ abstract class RepositoryModule {
     abstract fun bindMuscleVolumeResponseSnapshotRepository(
         impl: RoomMuscleVolumeResponseSnapshotRepository,
     ): MuscleVolumeResponseSnapshotRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMuscleWeeklyStimulusRepository(
+        impl: RoomMuscleWeeklyStimulusRepository,
+    ): MuscleWeeklyStimulusRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLiftWeeklyPerformanceRepository(
+        impl: RoomLiftWeeklyPerformanceRepository,
+    ): LiftWeeklyPerformanceRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMuscleWeeklyOutcomeIndexRepository(
+        impl: RoomMuscleWeeklyOutcomeIndexRepository,
+    ): MuscleWeeklyOutcomeIndexRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindResponseModelingSchedulerPort(
+        impl: WorkManagerResponseModelingScheduler,
+    ): ResponseModelingSchedulerPort
 
     @Binds
     @Singleton

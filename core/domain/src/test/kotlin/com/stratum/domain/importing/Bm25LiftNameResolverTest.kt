@@ -41,6 +41,28 @@ class Bm25LiftNameResolverTest {
     }
 
     @Test
+    fun `query with standing qualifier strongly aligns with shorter catalog name`() {
+        val catalog = mapOf(LiftId("smith-calf") to "Smith Machine Calf Raise")
+        assertTrue(
+            resolver.isStrongTokenAlignment(
+                "Standing Smith Machine Calf Raise",
+                catalog.getValue(LiftId("smith-calf")),
+            ),
+        )
+        val evaluation = resolver.evaluate("Standing Smith Machine Calf Raise", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("smith-calf"), evaluation.matchedLiftId)
+    }
+
+    @Test
+    fun `mojibake superset suffix still matches catalog name`() {
+        val catalog = mapOf(LiftId("katana") to "Katana Triceps Extension")
+        val evaluation = resolver.evaluate("Katana Triceps Extension Ã¢ÂˆÂˆ SS1", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("katana"), evaluation.matchedLiftId)
+    }
+
+    @Test
     fun `equipment-qualified subset matches catalog with variant descriptor`() {
         val catalog = mapOf(LiftId("back-squat") to "Barbell Back Squat")
         val evaluation = resolver.evaluate("Squat (Barbell)", catalog)

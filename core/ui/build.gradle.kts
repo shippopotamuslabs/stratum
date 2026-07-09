@@ -48,6 +48,24 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.credentials)
+    // Vico 3.x is built on JetBrains Compose Multiplatform, whose KMP facade artifacts
+    // (org.jetbrains.compose.*) fight our AndroidX Compose BOM at runtime. We are a native
+    // Android app, so the JetBrains Maven coordinates are stripped via module-scoped excludes;
+    // Vico's bytecode then resolves cleanly against the BOM-managed androidx.compose.* deps.
+    // (Note: vico has no separate `core` module in 3.x — everything lives in `compose`.)
+    implementation(libs.vico.compose) {
+        exclude(group = "org.jetbrains.compose.runtime")
+        exclude(group = "org.jetbrains.compose.foundation")
+        exclude(group = "org.jetbrains.compose.ui")
+        exclude(group = "org.jetbrains.compose.animation")
+    }
+    implementation(libs.vico.compose.m3) {
+        exclude(group = "org.jetbrains.compose.runtime")
+        exclude(group = "org.jetbrains.compose.foundation")
+        exclude(group = "org.jetbrains.compose.ui")
+        exclude(group = "org.jetbrains.compose.animation")
+        exclude(group = "org.jetbrains.compose.material3")
+    }
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test.junit5)

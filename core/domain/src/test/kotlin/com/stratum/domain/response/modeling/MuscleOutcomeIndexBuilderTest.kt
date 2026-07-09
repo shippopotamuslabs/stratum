@@ -35,5 +35,19 @@ class MuscleOutcomeIndexBuilderTest {
         val credits = MuscleOutcomeIndexBuilder.creditsForMuscle(MuscleGroup.Chest, input.lifts)
         assertTrue(credits.any { it.liftId == ResponseFixtures.liftBench })
         assertTrue(credits.any { it.liftId == ResponseFixtures.liftFly })
+        assertTrue(credits.all { it.isPrimary })
+    }
+
+    @Test
+    @DisplayName("MOI-003 excludes secondary-only contributions (e.g. triceps from bench)")
+    fun creditsExcludeSecondaryOnly() {
+        // HorizontalPress injects Tricep as a pattern secondary via CustomLiftMusclePolicy,
+        // but outcome index must not credit secondaries.
+        val credits =
+            MuscleOutcomeIndexBuilder.creditsForMuscle(
+                MuscleGroup.Tricep,
+                listOf(ResponseFixtures.benchPressLift()),
+            )
+        assertTrue(credits.isEmpty())
     }
 }

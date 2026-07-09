@@ -1,6 +1,7 @@
 package com.stratum.domain.response
 
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
+import com.stratum.domain.importing.InsightsAnalysisScope
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.lift.LiftRepository
@@ -12,8 +13,16 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
 /**
- * v1 runs only from import orchestration. Future WorkManager worker should call [invoke] when
- * `Instant.now() - metadata.lastExtractedAt >= RE_EXTRACT_MIN_INTERVAL_DAYS`.
+ * Runs the full dose-response pipeline ([ResponseObservationExtractor] → Model-tier tables) and
+ * replaces the extracted profile via [ResponseProfilePersistencePort.replaceExtractedProfile].
+ *
+ * Call sites:
+ * - Import orchestration ([com.stratum.domain.importing.PersistImportedHistoryUseCase]) with
+ *   [InsightsAnalysisScope.ImportOnly] so a re-import never pulls live sessions into the import
+ *   provenance window.
+ * - Background worker ([RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed sessions since last extract)
+ *   with [InsightsAnalysisScope.All] so live workouts refresh outcome indices, volume posture,
+ *   and MEV/PV/RC landmarks.
  */
 class ExtractResponseProfileUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -27,28 +36,60 @@ class ExtractResponseProfileUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(
         provenLiftIds: Set<LiftId> = emptySet(),
+        scope: InsightsAnalysisScope = InsightsAnalysisScope.ImportOnly,
     ): Result<ExtractResponseProfileSummary> = runCatching {
-        val sessions = trainingLogRepository.getImportSessions()
-        val sets = trainingLogRepository.getImportSets()
+        // All-history refresh must not clobber proven-lift provenance recorded at import.
+        val effectiveProvenLiftIds =
+            if (scope == InsightsAnalysisScope.All && provenLiftIds.isEmpty()) {
+                importAnalysisMetadataRepository.get()?.provenLiftIds?.toSet() ?: emptySet()
+            } else {
+                provenLiftIds.ifEmpty {
+                    importAnalysisMetadataRepository.get()?.provenLiftIds?.toSet() ?: emptySet()
+                }
+            }
+        val sessions =
+            if (scope == InsightsAnalysisScope.All) {
+                trainingLogRepository.getAllSessions()
+            } else {
+                trainingLogRepository.getImportSessions()
+            }
+        val sets =
+            if (scope == InsightsAnalysisScope.All) {
+                trainingLogRepository.getAllSets()
+            } else {
+                trainingLogRepository.getImportSets()
+            }
         val lifts = liftRepository.observeLifts().first()
         val metadata = importAnalysisMetadataRepository.get()
+        // ImportOnly keeps the import-analysis window for provenance. All uses the full session
+        // span so live workouts expand the modeling window past the original import bounds.
+        val analysisWindowStart =
+            if (scope == InsightsAnalysisScope.All) {
+                sessions.minOfOrNull { it.startedAt } ?: Instant.EPOCH
+            } else {
+                metadata?.windowStart
+                    ?: sessions.minOfOrNull { it.startedAt }
+                    ?: Instant.EPOCH
+            }
+        val analysisWindowEnd =
+            if (scope == InsightsAnalysisScope.All) {
+                sessions.maxOfOrNull { it.startedAt } ?: Instant.now()
+            } else {
+                metadata?.windowEnd
+                    ?: sessions.maxOfOrNull { it.startedAt }
+                    ?: Instant.now()
+            }
         val input =
             ResponseExtractionInput(
                 sessions = sessions,
                 sets = sets,
                 lifts = lifts,
-                provenLiftIds = provenLiftIds.ifEmpty { metadata?.provenLiftIds?.toSet() ?: emptySet() },
+                provenLiftIds = effectiveProvenLiftIds,
                 specializeMuscles = emptySet(),
                 liftInsights = liftTrainingInsightsRepository.getAll(),
                 volumeBaselines = muscleVolumeBaselineRepository.getAll(),
-                analysisWindowStart =
-                    metadata?.windowStart
-                        ?: sessions.minOfOrNull { it.startedAt }
-                        ?: Instant.EPOCH,
-                analysisWindowEnd =
-                    metadata?.windowEnd
-                        ?: sessions.maxOfOrNull { it.startedAt }
-                        ?: Instant.now(),
+                analysisWindowStart = analysisWindowStart,
+                analysisWindowEnd = analysisWindowEnd,
                 activeExperiments = experimentRegistry.active(),
             )
         val output = extractor.extract(input)

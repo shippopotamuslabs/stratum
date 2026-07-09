@@ -13,6 +13,28 @@ class ImportExerciseNameNormalizerTest {
     }
 
     @Test
+    fun `strips mojibake macrofactor superset suffix`() {
+        // Real MacroFactor exports often double-encode ∈ as Ã¢ÂˆÂˆ (or similar).
+        val raw = "Katana Triceps Extension Ã¢ÂˆÂˆ SS1"
+        assertEquals(
+            "katana triceps extension",
+            ImportExerciseNameNormalizer.normalizeForMatching(raw),
+        )
+        assertEquals(
+            "Katana Triceps Extension",
+            ImportExerciseNameNormalizer.displayName(raw),
+        )
+    }
+
+    @Test
+    fun `strips bare trailing SSn without element-of marker`() {
+        assertEquals(
+            "pec deck fly",
+            ImportExerciseNameNormalizer.normalizeForMatching("Pec Deck Fly SS2"),
+        )
+    }
+
+    @Test
     fun `display name preserves casing and strips only superset suffix`() {
         assertEquals(
             "Katana Triceps Extension",

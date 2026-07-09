@@ -2,14 +2,20 @@
 
 package com.stratum.domain.response.modeling
 
-import com.stratum.domain.importing.CustomLiftMusclePolicy
 import com.stratum.domain.importing.ImportStubLiftGuesser
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.response.MuscleVolumeCredit
 import com.stratum.domain.response.TrainingSignalQualityFlag
 import kotlin.math.sqrt
 
+/**
+ * Builds a weekly muscle strength index from log-e1RM of lifts where [muscle] is a **primary**
+ * mover only. Secondary co-movers (e.g. triceps on bench) are excluded so the index tracks direct
+ * target strength rather than being diluted by compounds limited by other muscles. Volume/stimulus
+ * accounting still credits secondaries via [MuscleVolumeCredit].
+ */
 object MuscleOutcomeIndexBuilder {
     data class LiftMuscleCredit(
         val liftId: LiftId,
@@ -21,18 +27,14 @@ object MuscleOutcomeIndexBuilder {
         lifts.mapNotNull { lift ->
             val movementPattern = ImportStubLiftGuesser.effectiveMovementPattern(lift)
             val primaryMuscles = ImportStubLiftGuesser.effectivePrimaryMuscles(lift, movementPattern)
-            val secondaryMuscles =
-                CustomLiftMusclePolicy.effectiveSecondaryMuscles(
-                    movementPattern = movementPattern,
-                    primaryMuscles = primaryMuscles,
-                    secondaryMuscles = lift.secondaryMuscles,
+            if (muscle in primaryMuscles) {
+                LiftMuscleCredit(
+                    liftId = lift.id,
+                    credit = MuscleVolumeCredit.PRIMARY_SET_CREDIT,
+                    isPrimary = true,
                 )
-            when {
-                muscle in primaryMuscles ->
-                    LiftMuscleCredit(lift.id, com.stratum.domain.response.MuscleVolumeCredit.PRIMARY_SET_CREDIT, true)
-                muscle in secondaryMuscles ->
-                    LiftMuscleCredit(lift.id, com.stratum.domain.response.MuscleVolumeCredit.SECONDARY_SET_CREDIT, false)
-                else -> null
+            } else {
+                null
             }
         }
 
@@ -63,24 +65,24 @@ object MuscleOutcomeIndexBuilder {
                             ?: return@mapNotNull null
                         val baseline = baselines[credit.liftId] ?: return@mapNotNull null
                         val normalized = row.logE1rm - baseline
-                        val weight = credit.credit * row.reliability * if (credit.isPrimary) 1.0 else 0.85
+                        val weight = credit.credit * row.reliability
                         Triple(normalized, weight, credit)
                     }
                 if (contributions.isEmpty()) return@mapNotNull null
                 val totalWeight = contributions.sumOf { it.second }
                 if (totalWeight <= 0.0) return@mapNotNull null
                 val indexValue = contributions.sumOf { it.first * it.second } / totalWeight
-                val primaryWeight = contributions.filter { it.third.isPrimary }.sumOf { it.second }
                 val compositionHash =
                     contributions.sortedBy { it.third.liftId.value }
-                        .joinToString("|") { (norm, weight, credit) ->
+                        .joinToString("|") { (_, weight, credit) ->
                             "${credit.liftId.value}:${(weight * 10).toInt()}"
                         }
                 weekStart to IndexWeekDraft(
                     indexValue = indexValue,
                     contributingLiftCount = contributions.size,
                     effectiveLiftCount = contributions.count { it.second >= 0.25 },
-                    primaryCoverage = if (totalWeight > 0.0) primaryWeight / totalWeight else 0.0,
+                    // All contributors are primary by construction.
+                    primaryCoverage = 1.0,
                     compositionHash = compositionHash,
                     qualityFlags = contributions.flatMap { performanceByLift[it.third.liftId].orEmpty() }
                         .filter { it.weekStart == weekStart }
