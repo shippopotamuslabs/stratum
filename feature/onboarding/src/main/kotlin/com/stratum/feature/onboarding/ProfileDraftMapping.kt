@@ -57,7 +57,8 @@ internal fun UserTrainingProfile.toScheduleDraft(
 
 internal val SESSION_PRESET_MINUTES: Set<Int> = setOf(45, 60, 75)
 
-internal const val DEFAULT_CUSTOM_SESSION_MINUTES: Int = 90
+internal const val DEFAULT_CUSTOM_SESSION_MINUTES: Int =
+    com.stratum.core.ui.trainingsetup.DEFAULT_CUSTOM_SESSION_MINUTES
 
 private val SESSION_PRESET_VALUES: Map<Int, String> = mapOf(45 to "45", 60 to "60", 75 to "75")
 

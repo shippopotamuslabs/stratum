@@ -26,6 +26,7 @@ import com.stratum.feature.onboarding.R
 /**
  * The path-fork step. The user chooses how to finish onboarding:
  * - **Generate**: walk through Schedule → Specialization → Minimum Volume, then generate a program.
+ * - **Build From Scratch**: skip generation prefs and open the Create Program editor (app navigation).
  * - **Import**: skip those steps and import an existing program file (CSV/XLSX) directly.
  *
  * Each option is a tappable card built with the same surface-raised + bordered-panel idiom the
@@ -34,6 +35,7 @@ import com.stratum.feature.onboarding.R
 @Composable
 internal fun ChoosePathScreen(
     onSelectGenerate: () -> Unit,
+    onSelectScratch: () -> Unit,
     onSelectImport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -50,6 +52,11 @@ internal fun ChoosePathScreen(
             title = stringResource(R.string.choose_path_generate_title),
             description = stringResource(R.string.choose_path_generate_description),
             onClick = onSelectGenerate,
+        )
+        ChoosePathCard(
+            title = stringResource(R.string.choose_path_scratch_title),
+            description = stringResource(R.string.choose_path_scratch_description),
+            onClick = onSelectScratch,
         )
         ChoosePathCard(
             title = stringResource(R.string.choose_path_import_title),

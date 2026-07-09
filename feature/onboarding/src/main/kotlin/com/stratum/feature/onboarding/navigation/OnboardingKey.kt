@@ -13,15 +13,19 @@ data object OnboardingKey : NavKey
 
 /**
  * Registers the onboarding entry in a Nav3 [EntryProviderScope]. Completion is handled by
- * the app shell via [onComplete] (typically navigating to [com.stratum.navigation.HomeKey]).
+ * the app shell via [onComplete] (typically navigating to main tabs).
+ * [onBuildFromScratch] opens Create Program in scratch mode without leaving the onboarding stack
+ * underneath (back returns to Choose Path).
  */
 fun EntryProviderScope<NavKey>.onboardingEntry(
     onComplete: () -> Unit,
+    onBuildFromScratch: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     entry<OnboardingKey> {
         OnboardingRoute(
             onComplete = onComplete,
+            onBuildFromScratch = onBuildFromScratch,
             modifier = modifier,
         )
     }

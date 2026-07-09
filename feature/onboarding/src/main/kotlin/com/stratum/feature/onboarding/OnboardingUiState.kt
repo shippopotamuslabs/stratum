@@ -1,5 +1,11 @@
 package com.stratum.feature.onboarding
 
+// Shared training-setup drafts live in :core:ui (onboarding + create program).
+typealias ScheduleDraftUi = com.stratum.core.ui.trainingsetup.ScheduleDraftUi
+typealias SpecializationDraftUi = com.stratum.core.ui.trainingsetup.SpecializationDraftUi
+typealias MinimumVolumeDraftUi = com.stratum.core.ui.trainingsetup.MinimumVolumeDraftUi
+typealias SessionLengthErrorKind = com.stratum.core.ui.trainingsetup.SessionLengthErrorKind
+
 /**
  * Presentation model for the onboarding wizard. Domain types are mapped here; composables
  * never receive domain enums (ARCHITECTURE.md §4.3).
@@ -66,54 +72,6 @@ data class ProfileDraftUi(
 }
 
 /**
- * UI-shaped snapshot of the Schedule step.
- */
-data class ScheduleDraftUi(
-    val selectedWeekdays: Set<String> = emptySet(),
-    val sessionLengthSelection: String? = null,
-    val customSessionMinutes: Int = DEFAULT_CUSTOM_SESSION_MINUTES,
-    val showErrors: Boolean = false,
-) {
-    val resolvedSessionMinutes: Int?
-        get() = when (sessionLengthSelection) {
-            null -> null
-            CUSTOM_KEY -> customSessionMinutes
-            else -> sessionLengthSelection.toIntOrNull()
-        }
-
-    val hasWeekdaysError: Boolean
-        get() = showErrors && selectedWeekdays.isEmpty()
-
-    val sessionLengthErrorKind: SessionLengthErrorKind?
-        get() {
-            if (!showErrors) return null
-            val minutes = resolvedSessionMinutes
-            return when {
-                sessionLengthSelection == null -> SessionLengthErrorKind.Required
-                minutes == null -> SessionLengthErrorKind.NotANumber
-                minutes < OnboardingValidationConstants.MIN_SESSION_MINUTES ->
-                    SessionLengthErrorKind.TooShort
-                minutes > OnboardingValidationConstants.MAX_SESSION_MINUTES ->
-                    SessionLengthErrorKind.TooLong
-                else -> null
-            }
-        }
-
-    companion object {
-        const val CUSTOM_KEY = "custom"
-        val Empty = ScheduleDraftUi()
-    }
-}
-
-enum class SessionLengthErrorKind {
-    Required,
-    CustomBlank,
-    NotANumber,
-    TooShort,
-    TooLong,
-}
-
-/**
  * State of the Generate step (OS-7 D4). `Idle` shows the Generate CTA; `Loading` shows progress copy
  * and disables the CTA; `Error` offers retry + back-to-review. Success is implicit — the wizard's
  * `isComplete` flips and the existing `LaunchedEffect(state.isComplete)` consumes it.
@@ -143,45 +101,6 @@ enum class ImportProgramPhaseUi {
 }
 
 /**
- * UI-shaped snapshot of the Specialization step (OS-3).
- */
-data class SpecializationDraftUi(
-    val selectedMuscleLabels: Set<String> = emptySet(),
-    val saturatedSpecializeWarningLabels: List<String> = emptyList(),
-    val showErrors: Boolean = false,
-) {
-    val specializedCount: Int get() = selectedMuscleLabels.size
-
-    val atCap: Boolean get() = specializedCount >= OnboardingValidationConstants.MAX_SPECIALIZE
-
-    val isValid: Boolean get() = specializedCount <= OnboardingValidationConstants.MAX_SPECIALIZE
-
-    companion object {
-        val Empty = SpecializationDraftUi()
-    }
-}
-
-/**
- * UI-shaped snapshot of the Minimum Volume step.
- */
-data class MinimumVolumeDraftUi(
-    val selectedMuscleLabels: Set<String> = emptySet(),
-    val excludedMuscleLabels: Set<String> = emptySet(),
-    val suggestedMuscleLabels: Set<String> = emptySet(),
-    val showErrors: Boolean = false,
-) {
-    val selectedCount: Int get() = selectedMuscleLabels.size
-
-    val atCap: Boolean get() = selectedCount >= OnboardingValidationConstants.MAX_MINIMUM_VOLUME
-
-    val isValid: Boolean get() = selectedCount <= OnboardingValidationConstants.MAX_MINIMUM_VOLUME
-
-    companion object {
-        val Empty = MinimumVolumeDraftUi()
-    }
-}
-
-/**
  * UI-shaped snapshot of one catalog lift for the toggle list. Kept for future post-onboarding
  * catalog management mapping in [GymLiftsDraftMapping].
  */
@@ -202,6 +121,15 @@ data class ProfileScheduleHandlers(
     val onWeekdayToggled: (String) -> Unit,
     val onSessionPresetSelected: (String?) -> Unit,
     val onCustomSessionMinutesChange: (Int) -> Unit,
+)
+
+/**
+ * Choose-path fork callbacks. [onSelectScratch] is app-navigated Create Program (no domain path).
+ */
+data class ChoosePathHandlers(
+    val onSelectGenerate: () -> Unit,
+    val onSelectScratch: () -> Unit,
+    val onSelectImport: () -> Unit,
 )
 
 /**

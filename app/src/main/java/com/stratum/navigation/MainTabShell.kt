@@ -49,6 +49,8 @@ fun MainTabShell(
     onNavigateToWorkout: (workoutId: String) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onCreateNewLift: () -> Unit = {},
+    onCreateProgramClick: () -> Unit = {},
+    onProgramLibraryClick: () -> Unit = {},
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
     val items =
@@ -98,6 +100,8 @@ fun MainTabShell(
                             onKeepProgramClick = onKeepProgramClick,
                             onDiscardProgramClick = onDiscardProgramClick,
                             onEditWorkoutClick = onNavigateToEditWorkout,
+                            onCreateProgramClick = onCreateProgramClick,
+                            onProgramLibraryClick = onProgramLibraryClick,
                         ),
                     onSwapLiftClick = onNavigateToSwap,
                     onNavigateToWorkout = onNavigateToWorkout,
