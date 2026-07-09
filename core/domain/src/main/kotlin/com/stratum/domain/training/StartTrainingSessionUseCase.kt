@@ -1,5 +1,6 @@
 package com.stratum.domain.training
 
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -10,6 +11,7 @@ import javax.inject.Inject
 class StartTrainingSessionUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(request: StartTrainingSessionRequest): Result<TrainingSession> = runCatching {
         val activeSession = trainingLogRepository.getActiveSession()
@@ -60,5 +62,14 @@ class StartTrainingSessionUseCase @Inject constructor(
 
         trainingLogRepository.insertSession(session)
         session
+    }.onFailure { error ->
+        // Active-session conflict is an expected business outcome — skip error-level noise.
+        if (error !is ActiveTrainingSessionExistsException) {
+            loggingPort.error(TAG, "Failed to start training session: ${error.message}", error)
+        }
+    }
+
+    private companion object {
+        const val TAG = "StartTrainingSession"
     }
 }

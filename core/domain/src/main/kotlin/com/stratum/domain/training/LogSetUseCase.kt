@@ -2,6 +2,7 @@ package com.stratum.domain.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.LiftRepository
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.ProgramRepository
 import java.util.UUID
 import javax.inject.Inject
@@ -12,6 +13,7 @@ class LogSetUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val programRepository: ProgramRepository,
     private val loggedLiftContextFactory: LoggedLiftContextFactory,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(command: LogSetCommand): Result<LoggedSet> = runCatching {
         val session =
@@ -57,5 +59,11 @@ class LogSetUseCase @Inject constructor(
 
         trainingLogRepository.insertSet(loggedSet)
         loggedSet
+    }.onFailure { error ->
+        loggingPort.error(TAG, "Failed to log set: ${error.message}", error)
+    }
+
+    private companion object {
+        const val TAG = "LogSetUseCase"
     }
 }

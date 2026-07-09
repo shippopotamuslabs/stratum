@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
@@ -20,7 +21,7 @@ class ReopenOnboardingWizardUseCaseTest {
                         completedAt = FakeOnboardingRepository.COMPLETED_AT,
                     ),
             )
-        val subject = ReopenOnboardingWizardUseCase(repository)
+        val subject = ReopenOnboardingWizardUseCase(repository, FakeLoggingPort())
 
         subject()
 

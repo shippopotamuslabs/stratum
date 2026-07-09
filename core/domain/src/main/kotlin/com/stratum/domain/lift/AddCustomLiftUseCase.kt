@@ -1,6 +1,8 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 
 /**
@@ -9,6 +11,7 @@ import javax.inject.Inject
  */
 class AddCustomLiftUseCase @Inject constructor(
     private val repository: LiftRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(definition: CustomLiftDefinition): Result<LiftId> {
         val name = definition.name.trim()
@@ -42,7 +45,7 @@ class AddCustomLiftUseCase @Inject constructor(
                 ?.trim()
                 ?.takeIf { it.isNotEmpty() }
         val secondary = definition.secondaryMuscles - definition.primaryMuscles
-        return runCatching {
+        return runCatchingLogged(loggingPort, TAG, "Failed to add custom lift") {
             repository.addCustomLift(
                 definition.copy(
                     name = name,
@@ -51,5 +54,9 @@ class AddCustomLiftUseCase @Inject constructor(
                 ),
             )
         }
+    }
+
+    private companion object {
+        const val TAG = "AddCustomLift"
     }
 }

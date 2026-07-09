@@ -19,6 +19,8 @@ internal data class OnboardingEphemeralState(
     val generateErrorMessage: String? = null,
     val importProgramState: ImportProgramState = ImportProgramState.Idle,
     val presetApplyError: String? = null,
+    /** Transient snackbar for step-navigation I/O failures (not validation). */
+    val navigationError: String? = null,
     /** True after import-based MV suggestions were auto-applied once this wizard run. */
     val minimumVolumeImportPrefillApplied: Boolean = false,
 ) {

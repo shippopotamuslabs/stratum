@@ -1,5 +1,6 @@
 package com.stratum.domain.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
@@ -21,7 +22,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("Given active program when save workout then only target workout is replaced")
     fun saveWorkoutMergesSingleWorkout() = runTest {
         val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM)
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
         val updatedWorkout =
             TWO_WORKOUT_PROGRAM.workouts.first().copy(
                 workoutLifts =
@@ -67,7 +68,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("When no active program exists then save returns failure")
     fun saveFailsWhenNoProgram() = runTest {
         val repository = FakeProgramRepository(null)
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
 
         val result = useCase(WorkoutId("w-1"), sampleWorkout())
 
@@ -79,7 +80,7 @@ class SaveWorkoutUseCaseTest {
     @DisplayName("When workout id is missing then save returns failure")
     fun saveFailsWhenWorkoutNotFound() = runTest {
         val repository = FakeProgramRepository(TWO_WORKOUT_PROGRAM)
-        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository())
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
 
         val result = useCase(WorkoutId("missing"), sampleWorkout())
 
@@ -172,7 +173,7 @@ class SaveWorkoutUseCaseTest {
     fun wl036_saveWorkoutAppendsWorkoutEditedEvent() = runTest {
         val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
         val program = com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram()
-        val useCase = SaveWorkoutUseCase(FakeProgramRepository(program), events)
+        val useCase = SaveWorkoutUseCase(FakeProgramRepository(program), events, FakeLoggingPort())
 
         useCase(com.stratum.core.testing.training.WorkoutLoggingFixtures.workoutAId, program.workouts.first()).getOrThrow()
 
@@ -203,6 +204,7 @@ class SaveWorkoutUseCaseTest {
         val useCase = SaveWorkoutUseCase(
             FakeProgramRepository(com.stratum.core.testing.training.WorkoutLoggingFixtures.twoWorkoutProgram()),
             events,
+            FakeLoggingPort(),
         )
 
         useCase(

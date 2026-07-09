@@ -54,6 +54,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @HiltViewModel
+// Wizard exposes many step handlers (profile/import/generate); threshold is a product of surface width.
+@Suppress("TooManyFunctions")
 class OnboardingViewModel @Inject constructor(
     private val getOnboardingWizardState: GetOnboardingWizardStateUseCase,
     private val advanceOnboardingStep: AdvanceOnboardingStepUseCase,
@@ -397,12 +399,14 @@ class OnboardingViewModel @Inject constructor(
                 is AdvanceOnboardingStepResult.Success -> {
                     edits.value = ProfileEdit()
                     specializationEdits.value = SpecializationEdit()
-                    ephemeral.update { it.copy(showErrors = false) }
+                    ephemeral.update { it.copy(showErrors = false, navigationError = null) }
                     if (result.newStep == OnboardingStep.MinimumVolume) {
                         maybePrefillMinimumVolumeFromImport()
                     }
                 }
                 AdvanceOnboardingStepResult.NoOp -> Unit
+                AdvanceOnboardingStepResult.PersistenceFailed ->
+                    ephemeral.update { it.copy(navigationError = MSG_NAVIGATION_FAILED) }
             }
         }
     }
@@ -421,12 +425,18 @@ class OnboardingViewModel @Inject constructor(
                 usedHistoricalImport = current.usedHistoricalImport,
                 path = path,
             )
-            if (result is AdvanceOnboardingStepResult.Success) {
-                edits.value = ProfileEdit()
-                specializationEdits.value = SpecializationEdit()
-                if (result.newStep == OnboardingStep.MinimumVolume) {
-                    maybePrefillMinimumVolumeFromImport()
+            when (result) {
+                is AdvanceOnboardingStepResult.Success -> {
+                    edits.value = ProfileEdit()
+                    specializationEdits.value = SpecializationEdit()
+                    ephemeral.update { it.copy(navigationError = null) }
+                    if (result.newStep == OnboardingStep.MinimumVolume) {
+                        maybePrefillMinimumVolumeFromImport()
+                    }
                 }
+                AdvanceOnboardingStepResult.PersistenceFailed ->
+                    ephemeral.update { it.copy(navigationError = MSG_NAVIGATION_FAILED) }
+                else -> Unit
             }
         }
     }
@@ -449,11 +459,21 @@ class OnboardingViewModel @Inject constructor(
                 usedHistoricalImport = current.usedHistoricalImport,
                 path = path,
             )
-            if (result is AdvanceOnboardingStepResult.Success) {
-                edits.value = ProfileEdit()
-                specializationEdits.value = SpecializationEdit()
+            when (result) {
+                is AdvanceOnboardingStepResult.Success -> {
+                    edits.value = ProfileEdit()
+                    specializationEdits.value = SpecializationEdit()
+                    ephemeral.update { it.copy(navigationError = null) }
+                }
+                AdvanceOnboardingStepResult.PersistenceFailed ->
+                    ephemeral.update { it.copy(navigationError = MSG_NAVIGATION_FAILED) }
+                else -> Unit
             }
         }
+    }
+
+    fun navigationErrorShown() {
+        ephemeral.update { it.copy(navigationError = null) }
     }
 
     fun generate() {
@@ -689,6 +709,7 @@ class OnboardingViewModel @Inject constructor(
     private companion object {
         const val TAG = "OnboardingViewModel"
         const val TAG_IMPORT = "ProgramTemplateImport"
+        const val MSG_NAVIGATION_FAILED = "Couldn't save progress. Try again."
 
         private fun logGenerateFailure(error: Throwable) {
             try {

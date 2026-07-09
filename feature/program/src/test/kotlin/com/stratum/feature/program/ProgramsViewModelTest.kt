@@ -1,5 +1,6 @@
 package com.stratum.feature.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -196,9 +197,9 @@ class ProgramsViewModelTest {
             observeProgram = com.stratum.domain.program.ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
-            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository),
+            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, FakeLoggingPort()),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
-            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog),
+            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog, FakeLoggingPort()),
             getLoggedSetsForSession = com.stratum.domain.training.GetLoggedSetsForSessionUseCase(trainingLog),
             recordWorkoutSkip = com.stratum.domain.training.RecordWorkoutSkipUseCase(trainingLog, repository),
             recordRestDaySkip = com.stratum.domain.training.RecordRestDaySkipUseCase(trainingLog, repository),

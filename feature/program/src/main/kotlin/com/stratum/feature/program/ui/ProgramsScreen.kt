@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -90,6 +91,7 @@ internal fun ProgramsScreen(
     showCheckInBanner: Boolean = false,
     onCheckInBannerClick: () -> Unit = {},
     onCheckInSkipClick: () -> Unit = {},
+    snackbarHostState: SnackbarHostState? = null,
 ) {
     var showOptionsSheet by remember { mutableStateOf(false) }
     var pendingUnskipWorkoutId by remember { mutableStateOf<String?>(null) }
@@ -98,6 +100,7 @@ internal fun ProgramsScreen(
 
     StratumTabScaffold(
         modifier = modifier,
+        snackbarHostState = snackbarHostState,
         topBar = {
             StratumTopBar(
                 title = stringResource(R.string.programs_screen_title),

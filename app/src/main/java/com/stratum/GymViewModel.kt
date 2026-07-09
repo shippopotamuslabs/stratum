@@ -51,6 +51,12 @@ class GymViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val filters = MutableStateFlow(GymFilters())
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
 
     val uiState: StateFlow<LiftSwapSheetState> =
         combine(observeLiftCatalog(), filters.asStateFlow()) { catalog, filters ->
@@ -103,8 +109,14 @@ class GymViewModel @Inject constructor(
 
     fun toggleLiftEnabled(id: String, enabled: Boolean) {
         viewModelScope.launch {
-            setLiftEnabled(LiftId(id), enabled)
+            setLiftEnabled(LiftId(id), enabled).onFailure {
+                _userMessage.value = MSG_TOGGLE_FAILED
+            }
         }
+    }
+
+    private companion object {
+        const val MSG_TOGGLE_FAILED = "Couldn't update that lift. Try again."
     }
 
     private fun <T> Set<T>.toggle(value: T): Set<T> =

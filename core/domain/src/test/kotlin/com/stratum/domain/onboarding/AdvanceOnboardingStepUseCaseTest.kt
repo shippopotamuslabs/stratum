@@ -1,5 +1,6 @@
 package com.stratum.domain.onboarding
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
 import com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository
 import com.stratum.core.testing.onboarding.FakeUserTrainingProfileRepository
@@ -40,6 +41,7 @@ class AdvanceOnboardingStepUseCaseTest {
             updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfile),
             updateSpecialization = UpdateSpecializationUseCase(fakeSpecialization),
             saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeOnboarding),
+            loggingPort = FakeLoggingPort(),
         )
     }
 

@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.stratum.core.data.auth.FirebaseGoogleAuthManager
 import com.stratum.domain.auth.AuthManager
 import com.stratum.domain.di.ApplicationScope
+import com.stratum.domain.logging.ProcessErrorSafetyNet
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -23,8 +24,12 @@ object AuthProvidesModule {
     @Provides
     @Singleton
     @ApplicationScope
-    fun provideApplicationScope(): CoroutineScope =
-        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    fun provideApplicationScope(safetyNet: ProcessErrorSafetyNet): CoroutineScope =
+        CoroutineScope(
+            SupervisorJob() +
+                Dispatchers.Main.immediate +
+                safetyNet.applicationCoroutineExceptionHandler(),
+        )
 
     @Provides
     @Singleton

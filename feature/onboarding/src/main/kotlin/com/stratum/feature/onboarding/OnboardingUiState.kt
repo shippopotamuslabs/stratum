@@ -29,6 +29,8 @@ data class OnboardingUiState(
     val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
     val importProgramState: ImportProgramState = ImportProgramState.Idle,
+    /** Transient snackbar for step-navigation I/O failures (not validation). */
+    val navigationError: String? = null,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,7 @@ import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumSearchField
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.liftconfig.LiftConfigBottomSheet
 
@@ -45,6 +47,13 @@ fun GymScreen(
     viewModel: GymViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    UserMessageEffect(
+        userMessage = userMessage,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::userMessageShown,
+    )
 
     GymScreen(
         state = state,
@@ -54,6 +63,7 @@ fun GymScreen(
         onNavigateToIncrements = onNavigateToIncrements,
         onNavigateToInformation = onNavigateToInformation,
         onCreateNewLift = onCreateNewLift,
+        snackbarHostState = snackbarHostState,
         modifier = modifier,
     )
 }
@@ -68,12 +78,14 @@ fun GymScreen(
     onNavigateToInformation: (String) -> Unit,
     onCreateNewLift: () -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState? = null,
 ) {
     var showMuscleSheet by remember { mutableStateOf(false) }
     var selectedLift by remember { mutableStateOf<LiftSwapOptionState?>(null) }
 
     StratumTabScaffold(
         modifier = modifier,
+        snackbarHostState = snackbarHostState,
         verticalArrangement = Arrangement.spacedBy(12.dp),
         topBar = {
             StratumTopBar(

@@ -1,6 +1,8 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
@@ -11,6 +13,7 @@ import kotlinx.coroutines.flow.first
  */
 class SetLiftDefaultRestUseCase @Inject constructor(
     private val repository: LiftRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(id: LiftId, restSeconds: Int): Result<Unit> {
         if (restSeconds < MIN_REST_SECONDS || restSeconds > MAX_REST_SECONDS) {
@@ -20,13 +23,15 @@ class SetLiftDefaultRestUseCase @Inject constructor(
                 ),
             )
         }
-        repository.observeLifts().first().firstOrNull { it.id == id }
-            ?: return Result.failure(IllegalArgumentException("Lift not found"))
-        repository.setDefaultRestSeconds(id, restSeconds)
-        return Result.success(Unit)
+        return runCatchingLogged(loggingPort, TAG, "Failed to set default rest") {
+            repository.observeLifts().first().firstOrNull { it.id == id }
+                ?: error("Lift not found")
+            repository.setDefaultRestSeconds(id, restSeconds)
+        }
     }
 
     companion object {
+        const val TAG = "SetLiftDefaultRest"
         const val MIN_REST_SECONDS = 0
         const val MAX_REST_SECONDS = 600
     }

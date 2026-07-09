@@ -1,5 +1,6 @@
 package com.stratum.domain.checkin
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.test
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
 import java.time.Instant
@@ -25,10 +26,10 @@ class CheckInUseCasesTest {
     fun setup() {
         fake.seed(CheckInPreferences())
         observePending = ObservePendingCheckInUseCase(fake)
-        setEnabled = SetCheckInEnabledUseCase(fake)
-        markPending = MarkCheckInPendingUseCase(fake)
-        skip = SkipCheckInUseCase(fake)
-        complete = CompleteCheckInUseCase(fake)
+        setEnabled = SetCheckInEnabledUseCase(fake, FakeLoggingPort())
+        markPending = MarkCheckInPendingUseCase(fake, FakeLoggingPort())
+        skip = SkipCheckInUseCase(fake, FakeLoggingPort())
+        complete = CompleteCheckInUseCase(fake, FakeLoggingPort())
     }
 
     @Test

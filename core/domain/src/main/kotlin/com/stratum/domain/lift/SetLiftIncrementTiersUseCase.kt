@@ -1,6 +1,8 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 
 /**
@@ -11,6 +13,7 @@ import javax.inject.Inject
 class SetLiftIncrementTiersUseCase @Inject constructor(
     private val repository: LiftRepository,
     private val validate: ValidateIncrementTiersUseCase,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         id: LiftId,
@@ -21,8 +24,13 @@ class SetLiftIncrementTiersUseCase @Inject constructor(
                 return Result.failure(IncrementTiersInvalidException(result.errors))
             IncrementTiersValidationResult.Valid -> Unit
         }
-        repository.setIncrementTiers(id, tiers)
-        return Result.success(Unit)
+        return runCatchingLogged(loggingPort, TAG, "Failed to set increment tiers") {
+            repository.setIncrementTiers(id, tiers)
+        }
+    }
+
+    private companion object {
+        const val TAG = "SetLiftIncrementTiers"
     }
 }
 

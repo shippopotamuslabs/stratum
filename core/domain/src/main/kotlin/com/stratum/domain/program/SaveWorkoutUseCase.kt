@@ -1,5 +1,7 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
@@ -17,12 +19,13 @@ import javax.inject.Inject
 class SaveWorkoutUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(workoutId: WorkoutId, updatedWorkout: Workout): Result<Unit> {
         val program =
             programRepository.getProgram()
                 ?: return Result.failure(IllegalStateException("No active program found to save workout"))
-        return runCatching {
+        return runCatchingLogged(loggingPort, TAG, "Failed to save workout") {
             val merged = program.mergeWorkout(workoutId, updatedWorkout)
             programRepository.saveProgram(merged)
             programChangeEventRepository.append(
@@ -35,5 +38,9 @@ class SaveWorkoutUseCase @Inject constructor(
                 ),
             )
         }
+    }
+
+    private companion object {
+        const val TAG = "SaveWorkout"
     }
 }
