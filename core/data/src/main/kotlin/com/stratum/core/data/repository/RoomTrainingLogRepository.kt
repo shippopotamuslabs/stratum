@@ -134,6 +134,9 @@ class RoomTrainingLogRepository @Inject constructor(
     override suspend fun getPersonalRecordForLift(liftId: com.stratum.domain.lift.identity.LiftId): LoggedSet? =
         setDao.getPersonalRecordForLift(liftId)?.toTrainingDomain()
 
+    override suspend fun getSetsForLift(liftId: com.stratum.domain.lift.identity.LiftId): List<LoggedSet> =
+        setDao.getSetsForLift(liftId).map { it.toTrainingDomain() }
+
     override suspend fun updateSets(sets: List<LoggedSet>) {
         if (sets.isNotEmpty()) {
             setDao.upsertAll(sets.map { it.toEntity() })

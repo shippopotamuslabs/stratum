@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 @Suppress("TooManyFunctions")
 interface TrainingLogRepository {
     suspend fun getPersonalRecordForLift(liftId: LiftId): LoggedSet?
+
+    /** All logged sets for [liftId], newest first by [LoggedSet.completedAt]. */
+    suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet>
     suspend fun updateSets(sets: List<LoggedSet>)
     suspend fun replaceAll(sessions: List<TrainingSession>, sets: List<LoggedSet>)
     suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>)

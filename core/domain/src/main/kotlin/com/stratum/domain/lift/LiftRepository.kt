@@ -68,4 +68,34 @@ interface LiftRepository {
 
     /** Create a user-defined lift with full catalog metadata. Returns its id. */
     suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId
+
+    /**
+     * Replaces the full increment-tier list for [id] (delete + insert). Empty list clears
+     * tiers so consumers fall back to global defaults. Caller validates before invoking.
+     */
+    suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>)
+
+    /**
+     * Updates primary/secondary muscle tags for [id]. Bitmasks are derived in the data
+     * mapper; no schema change. No-op when the lift is missing or not custom — catalog
+     * lifts are immutable from the Details tab.
+     */
+    suspend fun updateLiftMuscles(
+        id: LiftId,
+        primaryMuscles: Set<com.stratum.domain.onboarding.MuscleGroup>,
+        secondaryMuscles: Set<com.stratum.domain.onboarding.MuscleGroup>,
+    )
+
+    /**
+     * Updates non-derived metadata for a custom lift. No-op when the lift is missing or
+     * not custom. Category is never persisted — it is derived via [classifyLiftCategory].
+     */
+    suspend fun updateCustomLiftDetails(id: LiftId, details: CustomLiftDetails)
+
+    /**
+     * Persists a per-lift default rest override (seconds). Applies to catalog and custom lifts.
+     * Null clears the override so [resolvedDefaultRestSeconds] falls back to compound/isolation
+     * defaults. Does not rewrite existing workout set rest values.
+     */
+    suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?)
 }

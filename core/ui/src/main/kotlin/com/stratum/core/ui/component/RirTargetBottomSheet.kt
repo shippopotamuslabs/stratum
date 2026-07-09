@@ -32,7 +32,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.theme.StratumRirTargetColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -229,14 +231,27 @@ fun RirTargetBadge(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    size: Dp = RirTargetBadgeDefaultSize,
 ) {
     val label = formatRirLabel(rirGoal)
     val background = StratumRirTargetColors.backgroundFor(rirGoal)
     val contentColor = StratumRirTargetColors.contentColor
+    val labelStyle =
+        if (size < RirTargetBadgeDefaultSize) {
+            StratumThemeAccessor.typography.sectionLabel.copy(
+                color = contentColor,
+                fontSize = CompactRirBadgeFontSize,
+                lineHeight = CompactRirBadgeLineHeight,
+            )
+        } else {
+            StratumThemeAccessor.typography.sectionLabel.copy(
+                color = contentColor,
+            )
+        }
     Box(
         modifier =
             modifier
-                .size(32.dp)
+                .size(size)
                 .clip(CircleShape)
                 .background(background)
                 .then(
@@ -250,13 +265,16 @@ fun RirTargetBadge(
     ) {
         StratumNumber(
             text = label,
-            style =
-                StratumThemeAccessor.typography.sectionLabel.copy(
-                    color = contentColor,
-                ),
+            style = labelStyle,
         )
     }
 }
+
+/** Default diameter for [RirTargetBadge] (workout logging). Compact history uses a smaller size. */
+val RirTargetBadgeDefaultSize = 32.dp
+
+private val CompactRirBadgeFontSize = 11.sp
+private val CompactRirBadgeLineHeight = 12.sp
 
 private data class RirTargetOption(
     val value: Int,
