@@ -41,13 +41,35 @@ data class IncrementTier(
  */
 private fun List<IncrementTier>.roundMagnitude(amount: Double): Double {
     if (isEmpty()) return amount
+    val inc = incrementForAmount(amount)
+    if (inc <= 0.0) return amount
+    return (amount / inc).roundToLong() * inc
+}
+
+/**
+ * Resolves the increment step (in raw amount) for the band [amount] falls into. The matching
+ * band is the first tier whose `[lowerBound, upperBound)` range contains the amount; if none
+ * matches (the amount is below the lowest band), the first tier is used. Returns 0.0 for an
+ * empty tier list. Shared by [roundMagnitude] and the program-generation rep-width math so
+ * both resolve the same tier for a given load.
+ */
+fun List<IncrementTier>.incrementForAmount(amount: Double): Double {
+    if (isEmpty()) return 0.0
     val tier = firstOrNull {
         amount >= it.lowerBound.amount &&
             (it.upperBound == null || amount < it.upperBound.amount)
     } ?: first()
-    val inc = tier.increment.amount
-    if (inc <= 0.0) return amount
-    return (amount / inc).roundToLong() * inc
+    return tier.increment.amount
+}
+
+/**
+ * Resolves the increment step as a [Weight] for the band [weight] falls into. Convenience
+ * wrapper around [incrementForAmount] preserving the weight unit. Returns null for an empty
+ * tier list.
+ */
+fun List<IncrementTier>.incrementFor(weight: Weight): Weight? {
+    if (isEmpty()) return null
+    return Weight(incrementForAmount(weight.amount), weight.unit)
 }
 
 /**

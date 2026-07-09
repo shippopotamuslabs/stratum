@@ -26,6 +26,26 @@ object TrainingInsightsExtractor {
     private const val P90_QUANTILE = 0.9
     private const val REGRESSION_DENOM_EPSILON = 1e-9
 
+    /**
+     * Minimum sets in a session for its fatigue slope to contribute to the per-lift average.
+     * A 2-point OLS is an exact line through two points (zero residual) — any RIR noise maps
+     * 1:1 to the slope. For example, a top set at RPE 8 (RIR 2, ~14 failure-reps) followed by
+     * a failure set at RPE 10 (~7 failure-reps) yields a slope of −7.0, which is not real
+     * fatigue but a subtraction. Requiring 3+ points gives a real fit with residuals so the
+     * regression can distinguish fatigue from RIR misjudgment.
+     */
+    private const val MIN_SETS_PER_SESSION_FOR_SLOPE = 3
+
+    /**
+     * Plausible upper bound on per-set fatigue decay (reps/set). Real fatigue slopes in
+     * imported history range from −1.0 to −4.0 reps/set; the steepest observed is a drop-set
+     * pattern (Crunch Machine) at −4.0. Anything steeper is RIR noise (e.g. a 2-point
+     * regression through a high-RPE top set and a failure set) rather than genuine
+     * physiology. Slopes steeper than this are discarded so downstream rep-range generation
+     * falls back to the population default (−2.0) instead of producing absurd rep floors.
+     */
+    private const val MAX_FATIGUE_SLOPE_MAGNITUDE = 4.0
+
     data class AnalysisInput(
         val sessions: List<TrainingSession>,
         val sets: List<LoggedSet>,
@@ -112,7 +132,10 @@ object TrainingInsightsExtractor {
                 // instead would inflate the slope ~10× for a 165 lb lift and saturate the
                 // rep-range cap at 30 for any setCount ≥ 3.
                 val failureReps = ordered.map { (it.reps + (it.rir ?: 0)).toDouble() }
-                if (failureReps.size >= 2) {
+                // Require ≥3 sets per session: a 2-point OLS is an exact line (zero residual),
+                // so RIR noise maps 1:1 to the slope. A top set at RPE 8 followed by a failure
+                // set at RPE 10 would yield a slope of −7, which is noise, not fatigue.
+                if (failureReps.size >= MIN_SETS_PER_SESSION_FOR_SLOPE) {
                     val regression = linearRegression(failureReps.indices.map { it + 1.0 }, failureReps)
                     slopes += regression.slope
                 }
@@ -125,7 +148,12 @@ object TrainingInsightsExtractor {
             // misjudged RIR (e.g. 120x8@2 → 120x10@2 — reps rising at the same weight) rather than
             // genuine positive decay. Discard the measurement so downstream falls back to the
             // population fatigue decay default instead of compounding the error.
-            val safeSlope = avgSlope?.takeIf { it < 0.0 }
+            //
+            // Also discard slopes steeper than [MAX_FATIGUE_SLOPE_MAGNITUDE]: real fatigue ranges
+            // from −1.0 to −4.0 reps/set. Anything steeper is RIR noise (e.g. a 2-point
+            // regression through a high-RPE top set and a failure set) that would produce absurd
+            // rep-range floors (e.g. repMin 12 for a 2-set lift from a −7.0 slope).
+            val safeSlope = avgSlope?.takeIf { it < 0.0 && abs(it) <= MAX_FATIGUE_SLOPE_MAGNITUDE }
             // The decay contract is `decay = slope * (setIndex - 1) + intercept`, where intercept
             // represents decay at the first set — which is zero by definition (no sets completed
             // yet). A regression intercept on reps-vs-index is the extrapolated failure-reps at
