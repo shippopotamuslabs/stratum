@@ -262,13 +262,13 @@ class DashboardViewModelTest {
         val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
         assertEquals("Bench Press", detail.title)
         assertEquals(GraphDetailKindUi.Lift, detail.kind)
-        assertEquals(GraphMetricTabUi.E1rm, detail.selectedMetric)
+        assertEquals(GraphViewMode.Primary, detail.selectedMode)
         assertEquals(GraphTimeRangeUi.ThreeMonths, detail.selectedRange, "default matches board window")
         assertEquals(1, detail.primaryPoints.size, "3M filters out the 140-day-old week")
         assertTrue(detail.secondaryPoints == null, "single-series tabs hide overlay")
         assertEquals(
-            listOf(GraphMetricTabUi.E1rm, GraphMetricTabUi.Volume, GraphMetricTabUi.Both),
-            detail.metricTabs,
+            listOf(GraphViewMode.Primary, GraphViewMode.Volume, GraphViewMode.Dual),
+            detail.modes,
         )
 
         viewModel.selectGraphTimeRange(GraphTimeRangeUi.All)
@@ -277,8 +277,8 @@ class DashboardViewModelTest {
     }
 
     @Test
-    @DisplayName("selectGraphMetric Volume switches primary series to hard sets")
-    fun switchMetricToVolume() = runTest {
+    @DisplayName("selectGraphMode Volume switches primary series to hard sets")
+    fun switchModeToVolume() = runTest {
         val benchId = LiftId("bench")
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
@@ -293,17 +293,17 @@ class DashboardViewModelTest {
 
         viewModel.openLiftGraph(benchId.value)
         advanceUntilIdle()
-        viewModel.selectGraphMetric(GraphMetricTabUi.Volume)
+        viewModel.selectGraphMode(GraphViewMode.Volume)
 
         val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
-        assertEquals(GraphMetricTabUi.Volume, detail.selectedMetric)
+        assertEquals(GraphViewMode.Volume, detail.selectedMode)
         assertEquals(4f, detail.primaryPoints.single().value)
         assertTrue(detail.secondaryPoints == null)
     }
 
     @Test
-    @DisplayName("selectGraphMetric Both exposes e1RM primary and volume secondary")
-    fun bothMetricTab() = runTest {
+    @DisplayName("selectGraphMode Dual exposes e1RM primary and volume secondary")
+    fun dualMode() = runTest {
         val benchId = LiftId("bench")
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
@@ -323,14 +323,14 @@ class DashboardViewModelTest {
 
         viewModel.openLiftGraph(benchId.value)
         advanceUntilIdle()
-        viewModel.selectGraphMetric(GraphMetricTabUi.Both)
+        viewModel.selectGraphMode(GraphViewMode.Dual)
 
         val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
-        assertEquals(GraphMetricTabUi.Both, detail.selectedMetric)
+        assertEquals(GraphViewMode.Dual, detail.selectedMode)
         assertEquals(2, detail.primaryPoints.size)
         assertEquals(2, detail.secondaryPoints?.size)
-        assertEquals(GraphYScaleUi.Weight, detail.primaryYScale)
-        assertEquals(GraphYScaleUi.Volume, detail.secondaryYScale)
+        assertEquals(com.stratum.core.ui.component.DetailYScale.Weight, detail.primaryYScale)
+        assertEquals(com.stratum.core.ui.component.DetailYScale.Volume, detail.secondaryYScale)
     }
 
     @Test
@@ -351,17 +351,6 @@ class DashboardViewModelTest {
         advanceUntilIdle()
         viewModel.dismissGraphDetail()
         assertEquals(GraphDetailUiState.Hidden, viewModel.graphDetailState.value)
-    }
-
-    @Test
-    @DisplayName("formatStatValue formats e1RM and volume")
-    fun formatStats() {
-        assertEquals("110", formatStatValue(110.0, GraphMetricTabUi.E1rm))
-        assertEquals("4", formatStatValue(4.0, GraphMetricTabUi.Volume))
-        assertEquals("0.015", formatStatValue(0.015, GraphMetricTabUi.Progress))
-        assertEquals("0", formatProgressValue(0.0))
-        assertEquals("0", formatProgressValue(-0.0))
-        assertEquals("0.12", formatProgressValue(0.12))
     }
 
     private fun buildViewModel(

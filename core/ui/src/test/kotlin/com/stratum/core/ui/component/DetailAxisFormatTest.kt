@@ -1,5 +1,6 @@
 package com.stratum.core.ui.component
 
+import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -9,24 +10,32 @@ class DetailAxisFormatTest {
     @Test
     @DisplayName("progress axis collapses near-zero and avoids -0")
     fun progressNearZero() {
-        assertEquals("0", formatDetailAxisY(0.0, DetailYScale.Progress))
-        assertEquals("0", formatDetailAxisY(-1e-15, DetailYScale.Progress))
+        assertEquals("0", formatChartNumber(0.0, DetailYScale.Progress))
+        assertEquals("0", formatChartNumber(-1e-15, DetailYScale.Progress))
     }
 
     @Test
     @DisplayName("progress axis uses enough precision for sub-1 values")
     fun progressSmall() {
-        assertEquals("0.12", formatDetailAxisY(0.12, DetailYScale.Progress))
-        assertEquals("0.015", formatDetailAxisY(0.015, DetailYScale.Progress))
-        assertEquals("0.0012", formatDetailAxisY(0.0012, DetailYScale.Progress))
+        assertEquals("0.12", formatChartNumber(0.12, DetailYScale.Progress))
+        assertEquals("0.015", formatChartNumber(0.015, DetailYScale.Progress))
+        assertEquals("0.0012", formatChartNumber(0.0012, DetailYScale.Progress))
     }
 
     @Test
     @DisplayName("weight and volume format sensibly")
     fun weightAndVolume() {
-        assertEquals("225", formatDetailAxisY(225.0, DetailYScale.Weight))
-        assertEquals("12", formatDetailAxisY(12.0, DetailYScale.Volume))
-        assertEquals("7.5", formatDetailAxisY(7.5, DetailYScale.Volume))
+        assertEquals("225", formatChartNumber(225.0, DetailYScale.Weight))
+        assertEquals("12", formatChartNumber(12.0, DetailYScale.Volume))
+        assertEquals("7.5", formatChartNumber(7.5, DetailYScale.Volume))
+    }
+
+    @Test
+    @DisplayName("week-start labels use UTC (no local Sunday slip)")
+    fun weekStartUtcLabel() {
+        // Monday 2026-01-05 00:00 UTC
+        val monday = Instant.parse("2026-01-05T00:00:00Z")
+        assertEquals("Jan 5", formatWeekStartLabel(monday, "MMM d"))
     }
 
     @Test

@@ -79,16 +79,17 @@ class DashboardViewModel @Inject constructor(
         _graphDetailState.value = GraphDetailUiState.Hidden
     }
 
-    fun selectGraphMetric(metric: GraphMetricTabUi) {
+    fun selectGraphMode(mode: GraphViewMode) {
         val session = detailSession ?: return
-        if (metric !in metricTabsForKind(session.kind)) return
-        detailSession = session.withMetric(metric)
+        if (mode !in modesFor()) return
+        detailSession = session.copy(selectedMode = mode)
         publishReady()
     }
 
     fun selectGraphTimeRange(range: GraphTimeRangeUi) {
         val session = detailSession ?: return
-        detailSession = session.withRange(range)
+        if (range !in GraphTimeRangeUi.entries) return
+        detailSession = session.copy(selectedRange = range)
         publishReady()
     }
 
@@ -111,19 +112,6 @@ class DashboardViewModel @Inject constructor(
         val session = detailSession ?: return
         _graphDetailState.value = session.toReadyUi()
     }
-}
-
-private fun metricTabsForKind(kind: GraphDetailKindUi): List<GraphMetricTabUi> = when (kind) {
-    GraphDetailKindUi.Lift -> listOf(
-        GraphMetricTabUi.E1rm,
-        GraphMetricTabUi.Volume,
-        GraphMetricTabUi.Both,
-    )
-    GraphDetailKindUi.Muscle -> listOf(
-        GraphMetricTabUi.Progress,
-        GraphMetricTabUi.Volume,
-        GraphMetricTabUi.Both,
-    )
 }
 
 /** Presentation-only dashboard state — no domain types leak into composables (Detekt-enforced). */

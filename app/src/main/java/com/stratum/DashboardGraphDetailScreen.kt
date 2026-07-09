@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,26 +36,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.stratum.core.ui.component.DetailChartPoint
-import com.stratum.core.ui.component.DetailYScale
 import com.stratum.core.ui.component.StratumDetailChart
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import java.time.Instant
-import java.time.ZoneOffset
 
 /**
  * Fullscreen Hevy-style graph detail hosted as a dialog over the dashboard. [state] is presentation
- * only; all domain mapping stays in [DashboardViewModel].
+ * only; chart points and Y-scales arrive pre-mapped (no domain types).
  */
 @Composable
 fun DashboardGraphDetailHost(
     state: GraphDetailUiState,
     onDismiss: () -> Unit,
-    onSelectMetric: (GraphMetricTabUi) -> Unit,
+    onSelectMode: (GraphViewMode) -> Unit,
     onSelectRange: (GraphTimeRangeUi) -> Unit,
 ) {
     if (state is GraphDetailUiState.Hidden) return
@@ -69,7 +66,8 @@ fun DashboardGraphDetailHost(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(StratumThemeAccessor.colors.surfaceBase),
+                .background(StratumThemeAccessor.colors.surfaceBase)
+                .safeDrawingPadding(),
         ) {
             when (state) {
                 GraphDetailUiState.Hidden -> Unit
@@ -78,7 +76,7 @@ fun DashboardGraphDetailHost(
                 is GraphDetailUiState.Ready -> GraphDetailReady(
                     state = state,
                     onDismiss = onDismiss,
-                    onSelectMetric = onSelectMetric,
+                    onSelectMode = onSelectMode,
                     onSelectRange = onSelectRange,
                 )
             }
@@ -88,26 +86,16 @@ fun DashboardGraphDetailHost(
 
 @Composable
 private fun GraphDetailLoading(onDismiss: () -> Unit) {
-    StratumScaffold(
-        topBar = {
-            StratumTopBar(
-                title = stringResource(R.string.dashboard_graph_loading_title),
-                navigationIcon = {
-                    StratumTopBarBackButton(
-                        onClick = onDismiss,
-                        contentDescription = stringResource(R.string.dashboard_graph_back),
-                    )
-                },
-            )
-        },
-    ) { padding ->
+    GraphDetailFrame(
+        title = stringResource(R.string.dashboard_graph_loading_title),
+        onDismiss = onDismiss,
+    ) {
         StratumText(
             text = stringResource(R.string.dashboard_loading),
             muted = true,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(padding)
                 .padding(vertical = 48.dp),
         )
     }
@@ -115,10 +103,31 @@ private fun GraphDetailLoading(onDismiss: () -> Unit) {
 
 @Composable
 private fun GraphDetailEmpty(onDismiss: () -> Unit) {
+    GraphDetailFrame(
+        title = stringResource(R.string.dashboard_graph_empty_title),
+        onDismiss = onDismiss,
+    ) {
+        StratumText(
+            text = stringResource(R.string.dashboard_graph_empty_body),
+            muted = true,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 48.dp, horizontal = 16.dp),
+        )
+    }
+}
+
+@Composable
+private fun GraphDetailFrame(
+    title: String,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
     StratumScaffold(
         topBar = {
             StratumTopBar(
-                title = stringResource(R.string.dashboard_graph_empty_title),
+                title = title,
                 navigationIcon = {
                     StratumTopBarBackButton(
                         onClick = onDismiss,
@@ -128,15 +137,9 @@ private fun GraphDetailEmpty(onDismiss: () -> Unit) {
             )
         },
     ) { padding ->
-        StratumText(
-            text = stringResource(R.string.dashboard_graph_empty_body),
-            muted = true,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(padding)
-                .padding(vertical = 48.dp, horizontal = 16.dp),
-        )
+        Box(Modifier.padding(padding)) {
+            content()
+        }
     }
 }
 
@@ -144,32 +147,20 @@ private fun GraphDetailEmpty(onDismiss: () -> Unit) {
 private fun GraphDetailReady(
     state: GraphDetailUiState.Ready,
     onDismiss: () -> Unit,
-    onSelectMetric: (GraphMetricTabUi) -> Unit,
+    onSelectMode: (GraphViewMode) -> Unit,
     onSelectRange: (GraphTimeRangeUi) -> Unit,
 ) {
-    StratumScaffold(
-        topBar = {
-            StratumTopBar(
-                title = state.title,
-                navigationIcon = {
-                    StratumTopBarBackButton(
-                        onClick = onDismiss,
-                        contentDescription = stringResource(R.string.dashboard_graph_back),
-                    )
-                },
-            )
-        },
-    ) { padding ->
+    GraphDetailFrame(title = state.title, onDismiss = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
-            MetricTabRow(
-                tabs = state.metricTabs,
-                selected = state.selectedMetric,
-                onSelect = onSelectMetric,
+            ModeTabRow(
+                modes = state.modes,
+                selected = state.selectedMode,
+                kind = state.kind,
+                onSelect = onSelectMode,
             )
             Spacer(modifier = Modifier.height(16.dp))
             StatsRow(stats = state.stats)
@@ -177,12 +168,13 @@ private fun GraphDetailReady(
             val primaryColor = colorForRole(state.primaryColorRole)
             val secondaryColor = state.secondaryColorRole?.let { colorForRole(it) }
             StratumDetailChart(
-                primarySeries = state.primaryPoints.toChartPoints(),
-                secondarySeries = state.secondaryPoints?.toChartPoints(),
+                primarySeries = state.primaryPoints,
+                secondarySeries = state.secondaryPoints,
                 primaryColor = primaryColor,
                 secondaryColor = secondaryColor ?: StratumThemeAccessor.colors.textMuted,
-                primaryYScale = state.primaryYScale.toDetailYScale(),
-                secondaryYScale = state.secondaryYScale?.toDetailYScale() ?: DetailYScale.Volume,
+                primaryYScale = state.primaryYScale,
+                secondaryYScale = state.secondaryYScale
+                    ?: com.stratum.core.ui.component.DetailYScale.Volume,
                 contentDescription = stringResource(
                     R.string.dashboard_graph_chart_cd,
                     state.title,
@@ -211,38 +203,35 @@ private fun colorForRole(role: GraphSeriesColorRole) = when (role) {
     GraphSeriesColorRole.Volume -> StratumThemeAccessor.colors.textMuted.copy(alpha = 0.55f)
 }
 
-private fun GraphYScaleUi.toDetailYScale(): DetailYScale = when (this) {
-    GraphYScaleUi.Weight -> DetailYScale.Weight
-    GraphYScaleUi.Volume -> DetailYScale.Volume
-    GraphYScaleUi.Progress -> DetailYScale.Progress
-}
-
 @Composable
-private fun MetricTabRow(
-    tabs: List<GraphMetricTabUi>,
-    selected: GraphMetricTabUi,
-    onSelect: (GraphMetricTabUi) -> Unit,
+private fun ModeTabRow(
+    modes: List<GraphViewMode>,
+    selected: GraphViewMode,
+    kind: GraphDetailKindUi,
+    onSelect: (GraphViewMode) -> Unit,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(24.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        tabs.forEach { tab ->
+        modes.forEach { mode ->
             UnderlineTab(
-                label = metricTabLabel(tab),
-                selected = tab == selected,
-                onClick = { onSelect(tab) },
+                label = modeLabel(mode, kind),
+                selected = mode == selected,
+                onClick = { onSelect(mode) },
             )
         }
     }
 }
 
 @Composable
-private fun metricTabLabel(tab: GraphMetricTabUi): String = when (tab) {
-    GraphMetricTabUi.E1rm -> stringResource(R.string.dashboard_graph_metric_e1rm)
-    GraphMetricTabUi.Volume -> stringResource(R.string.dashboard_graph_metric_volume)
-    GraphMetricTabUi.Progress -> stringResource(R.string.dashboard_graph_metric_progress)
-    GraphMetricTabUi.Both -> stringResource(R.string.dashboard_graph_metric_both)
+private fun modeLabel(mode: GraphViewMode, kind: GraphDetailKindUi): String = when (mode) {
+    GraphViewMode.Primary -> when (kind) {
+        GraphDetailKindUi.Lift -> stringResource(R.string.dashboard_graph_metric_e1rm)
+        GraphDetailKindUi.Muscle -> stringResource(R.string.dashboard_graph_metric_progress)
+    }
+    GraphViewMode.Volume -> stringResource(R.string.dashboard_graph_metric_volume)
+    GraphViewMode.Dual -> stringResource(R.string.dashboard_graph_metric_both)
 }
 
 @Composable
@@ -372,9 +361,6 @@ private fun StatBlock(
     }
 }
 
-/**
- * Centered Hevy-style range pills: selected fills with a light pill; others stay quiet.
- */
 @Composable
 private fun TimeRangePicker(
     ranges: List<GraphTimeRangeUi>,
@@ -433,19 +419,9 @@ private fun TimeRangePicker(
 
 @Composable
 private fun rangeLabel(range: GraphTimeRangeUi): String = when (range) {
-    GraphTimeRangeUi.OneWeek -> stringResource(R.string.dashboard_graph_range_1w)
     GraphTimeRangeUi.OneMonth -> stringResource(R.string.dashboard_graph_range_1m)
     GraphTimeRangeUi.ThreeMonths -> stringResource(R.string.dashboard_graph_range_3m)
     GraphTimeRangeUi.SixMonths -> stringResource(R.string.dashboard_graph_range_6m)
     GraphTimeRangeUi.OneYear -> stringResource(R.string.dashboard_graph_range_1y)
     GraphTimeRangeUi.All -> stringResource(R.string.dashboard_graph_range_all)
 }
-
-private fun List<DetailPointUi>.toChartPoints(): List<DetailChartPoint> =
-    map { point ->
-        val epochDay = Instant.ofEpochMilli(point.weekStartEpochMillis)
-            .atZone(ZoneOffset.UTC)
-            .toLocalDate()
-            .toEpochDay()
-        DetailChartPoint(xEpochDay = epochDay, value = point.value)
-    }
