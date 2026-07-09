@@ -30,6 +30,7 @@ class OnboardingStatusViewModel @Inject constructor(
 
     fun reopenOnboarding() {
         viewModelScope.launch {
+            // Failure is logged in the use case; navigation is driven by isComplete flow.
             reopenOnboardingWizard()
         }
     }

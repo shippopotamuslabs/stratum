@@ -281,6 +281,8 @@ class CreateProgramViewModel @Inject constructor(
                             return@launch
                         }
                     loadProgramIntoEditor(program)
+                } catch (error: kotlinx.coroutines.CancellationException) {
+                    throw error
                 } catch (error: Exception) {
                     _uiState.update {
                         it.copy(
@@ -461,7 +463,10 @@ class CreateProgramViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     _uiState.update {
-                        it.copy(isSaving = false, saveErrorMessage = error.message)
+                        it.copy(
+                            isSaving = false,
+                            saveErrorMessage = error.message ?: "Couldn't save program. Try again.",
+                        )
                     }
                 }
         }

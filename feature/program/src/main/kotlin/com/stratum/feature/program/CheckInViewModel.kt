@@ -82,7 +82,12 @@ class CheckInViewModel @Inject constructor(
     fun skip() {
         viewModelScope.launch {
             skipCheckIn()
-            dismiss()
+                .onSuccess { dismiss() }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(errorMessage = error.message ?: "Could not skip check-in")
+                    }
+                }
         }
     }
 

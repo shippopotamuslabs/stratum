@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.padding
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +33,7 @@ import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.program.importing.ProgramTemplateImportLimits
@@ -56,6 +59,12 @@ fun OnboardingRoute(
     onBuildFromScratch: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    UserMessageEffect(
+        userMessage = state.navigationError,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::navigationErrorShown,
+    )
 
     LaunchedEffect(state.isComplete) {
         if (state.isComplete) onComplete()
@@ -153,6 +162,7 @@ fun OnboardingRoute(
             }
         },
         onImportCancel = viewModel::onCancelImport,
+        snackbarHostState = snackbarHostState,
         modifier = modifier,
     )
 }
@@ -172,9 +182,11 @@ private fun OnboardingWizard(
     onImportClick: () -> Unit,
     onImportCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState? = null,
 ) {
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHostState = snackbarHostState,
         topBar = {
             StratumTopBar(
                 title = state.step.displayName,

@@ -83,6 +83,13 @@ class EditWorkoutViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<EditWorkoutUiState>(EditWorkoutUiState.Loading)
     val uiState: StateFlow<EditWorkoutUiState> = _uiState.asStateFlow()
 
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
+
     private var catalogLifts: List<Lift> = emptyList()
     private var programSnapshot: Program? = null
     private var baselineWorkout: Workout? = null
@@ -165,8 +172,13 @@ class EditWorkoutViewModel @Inject constructor(
                 }
                 .onFailure {
                     _uiState.value = loaded.copy(isSaving = false)
+                    _userMessage.value = MSG_SAVE_FAILED
                 }
         }
+    }
+
+    private companion object {
+        const val MSG_SAVE_FAILED = "Couldn't save workout. Try again."
     }
 
     private suspend fun appendSchemeChangedEvents(

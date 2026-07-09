@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -40,6 +42,7 @@ import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 @Composable
@@ -52,9 +55,17 @@ fun LiftInformationRoute(
         viewModel.initialize(liftId)
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    UserMessageEffect(
+        userMessage = userMessage,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::userMessageShown,
+    )
     LiftInformationScreen(
         state = state,
         onBackClick = onBackClick,
+        snackbarHostState = snackbarHostState,
         actions =
             LiftInformationActions(
                 onTabSelected = viewModel::onTabSelected,
@@ -84,6 +95,7 @@ fun LiftInformationScreen(
     onBackClick: () -> Unit,
     actions: LiftInformationActions,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState? = null,
 ) {
     val tabs =
         listOf(
@@ -93,6 +105,7 @@ fun LiftInformationScreen(
         )
     StratumScaffold(
         modifier = modifier,
+        snackbarHostState = snackbarHostState,
         topBar = {
             StratumTopBar(
                 title = state.liftName.ifBlank { stringResource(UiR.string.lift_info_title) },

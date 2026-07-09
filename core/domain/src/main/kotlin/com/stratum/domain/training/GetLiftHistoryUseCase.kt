@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
@@ -28,8 +29,20 @@ data class LiftHistory(
 class GetLiftHistoryUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
+    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(liftId: LiftId): LiftHistory {
+    /**
+     * Returns history for [liftId]. On unexpected failure logs and returns empty history so
+     * the UI stays up.
+     */
+    suspend operator fun invoke(liftId: LiftId): LiftHistory =
+        runCatching { load(liftId) }
+            .onFailure { error ->
+                loggingPort.error(TAG, "Failed to load lift history: ${error.message}", error)
+            }
+            .getOrDefault(LiftHistory(personalRecord = null, sessions = emptyList()))
+
+    private suspend fun load(liftId: LiftId): LiftHistory {
         val pr = trainingLogRepository.getPersonalRecordForLift(liftId)
         val sets = trainingLogRepository.getSetsForLift(liftId)
         if (sets.isEmpty()) {
@@ -77,4 +90,8 @@ class GetLiftHistoryUseCase @Inject constructor(
             compareBy<LoggedSet> { it.estimatedOneRm ?: 0.0 }
                 .thenBy { it.weight.amount * it.reps },
         )
+
+    private companion object {
+        const val TAG = "GetLiftHistory"
+    }
 }

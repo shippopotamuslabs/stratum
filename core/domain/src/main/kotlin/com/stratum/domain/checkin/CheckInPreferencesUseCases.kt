@@ -1,5 +1,7 @@
 package com.stratum.domain.checkin
 
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -20,25 +22,43 @@ class ObservePendingCheckInUseCase @Inject constructor(
 
 class SetCheckInEnabledUseCase @Inject constructor(
     private val repository: CheckInPreferencesRepository,
+    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(enabled: Boolean) {
-        repository.setEnabled(enabled)
+    suspend operator fun invoke(enabled: Boolean): Result<Unit> =
+        runCatchingLogged(loggingPort, TAG, "Failed to set check-in enabled") {
+            repository.setEnabled(enabled)
+        }
+
+    private companion object {
+        const val TAG = "SetCheckInEnabled"
     }
 }
 
 class SkipCheckInUseCase @Inject constructor(
     private val repository: CheckInPreferencesRepository,
+    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(now: Instant = Instant.now()) {
-        repository.skip(now)
+    suspend operator fun invoke(now: Instant = Instant.now()): Result<Unit> =
+        runCatchingLogged(loggingPort, TAG, "Failed to skip check-in") {
+            repository.skip(now)
+        }
+
+    private companion object {
+        const val TAG = "SkipCheckIn"
     }
 }
 
 class CompleteCheckInUseCase @Inject constructor(
     private val repository: CheckInPreferencesRepository,
+    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(now: Instant = Instant.now()) {
-        repository.complete(now)
+    suspend operator fun invoke(now: Instant = Instant.now()): Result<Unit> =
+        runCatchingLogged(loggingPort, TAG, "Failed to complete check-in") {
+            repository.complete(now)
+        }
+
+    private companion object {
+        const val TAG = "CompleteCheckIn"
     }
 }
 
@@ -49,8 +69,14 @@ class CompleteCheckInUseCase @Inject constructor(
  */
 class MarkCheckInPendingUseCase @Inject constructor(
     private val repository: CheckInPreferencesRepository,
+    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(extractedAt: Instant = Instant.now()) {
-        repository.markPending(extractedAt)
+    suspend operator fun invoke(extractedAt: Instant = Instant.now()): Result<Unit> =
+        runCatchingLogged(loggingPort, TAG, "Failed to mark check-in pending") {
+            repository.markPending(extractedAt)
+        }
+
+    private companion object {
+        const val TAG = "MarkCheckInPending"
     }
 }

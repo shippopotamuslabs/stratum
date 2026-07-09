@@ -2,6 +2,7 @@ package com.stratum.domain.dashboard
 
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
 import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
@@ -14,17 +15,27 @@ import kotlinx.coroutines.flow.first
  *
  * Unlike [LoadDashboardUseCase] (board window ~13 weeks), this reads **all** rows for the subject
  * so time-range chips (1Y / All) reflect real history. Returns null when the subject has no
- * primary or secondary points.
+ * primary or secondary points. Unexpected failures are logged and returned as null.
  */
 class LoadGraphDetailUseCase @Inject constructor(
     private val liftWeeklyPerformanceRepository: LiftWeeklyPerformanceRepository,
     private val muscleWeeklyStimulusRepository: MuscleWeeklyStimulusRepository,
     private val muscleWeeklyOutcomeIndexRepository: MuscleWeeklyOutcomeIndexRepository,
     private val liftRepository: LiftRepository,
+    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(subject: GraphDetailSubject): GraphDetailSeries? = when (subject) {
-        is GraphDetailSubject.Lift -> loadLift(subject.liftId)
-        is GraphDetailSubject.Muscle -> loadMuscle(subject.muscle)
+    suspend operator fun invoke(subject: GraphDetailSubject): GraphDetailSeries? =
+        runCatching {
+            when (subject) {
+                is GraphDetailSubject.Lift -> loadLift(subject.liftId)
+                is GraphDetailSubject.Muscle -> loadMuscle(subject.muscle)
+            }
+        }.onFailure { error ->
+            loggingPort.error(TAG, "Failed to load graph detail: ${error.message}", error)
+        }.getOrNull()
+
+    private companion object {
+        const val TAG = "LoadGraphDetail"
     }
 
     private suspend fun loadLift(liftId: LiftId): GraphDetailSeries? {
