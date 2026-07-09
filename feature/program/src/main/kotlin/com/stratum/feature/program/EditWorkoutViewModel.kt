@@ -61,6 +61,11 @@ class EditWorkoutViewModel @Inject constructor(
                             handleLiftSelected(event.workoutLiftId, event.liftId)
                         }
                     }
+                    is EditSessionEvent.LiftsSelected -> {
+                        if (event.workoutId == targetWorkoutId.value) {
+                            handleLiftsSelected(event.liftIds, event.asSuperset)
+                        }
+                    }
                     is EditSessionEvent.LiftsReordered -> {
                         if (event.workoutId == targetWorkoutId.value) {
                             handleLiftsReordered(event.orderedWorkoutLiftIds)
@@ -277,6 +282,35 @@ class EditWorkoutViewModel @Inject constructor(
                 }
                 loaded.copy(lifts = updatedLifts)
             }
+        }
+    }
+
+    private fun handleLiftsSelected(liftIds: List<String>, asSuperset: Boolean) {
+        if (liftIds.isEmpty()) return
+        updateLoaded { loaded ->
+            val groupId =
+                if (asSuperset && liftIds.size >= 2) {
+                    newSupersetGroupId()
+                } else {
+                    null
+                }
+            val startPosition = loaded.lifts.size
+            val newLifts =
+                liftIds.mapIndexed { index, liftId ->
+                    val catalog = catalogLifts.firstOrNull { it.id.value == liftId }
+                    EditLiftState(
+                        workoutLiftId = newWorkoutLiftId(),
+                        liftId = liftId,
+                        name = catalog?.name ?: PLACEHOLDER_LIFT_NAME,
+                        position = startPosition + index,
+                        sets = listOf(defaultEditSetState(setNumber = 1)),
+                        isCompound = catalog?.isCompound ?: false,
+                        progressionScheme = ProgressionScheme.Double,
+                        supersetGroupId = groupId,
+                        useRestTimerBetweenLifts = false,
+                    )
+                }
+            loaded.copy(lifts = loaded.lifts + newLifts)
         }
     }
 
