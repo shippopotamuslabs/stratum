@@ -31,6 +31,9 @@ import com.stratum.domain.lift.identity.LiftId
  * schema adds per-lift unit persistence. [loadType] classifies the loading modality
  * (Weighted / Bodyweight / Assisted) so the progression engine and UI can branch; stored as
  * the enum `.name` via `EnumConverters`. Defaults to [LoadType.Weighted].
+ * [defaultRestSeconds] is an optional per-lift rest override (seconds) for new sets when the
+ * lift is added/swapped into a workout; null falls back to compound/isolation defaults in
+ * domain. v1 reinstall, no migration (AGENTS.md §4.5).
  */
 @Entity(tableName = "lifts")
 data class LiftEntity(
@@ -49,4 +52,5 @@ data class LiftEntity(
     val mainstream: Boolean = false,
     val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
     val loadType: LoadType = LoadType.Weighted,
+    val defaultRestSeconds: Int? = null,
 )

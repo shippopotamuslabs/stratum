@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.ObserveProgramUseCase
@@ -25,6 +26,7 @@ import com.stratum.core.ui.component.linkSupersetWithAdjacent
 import com.stratum.core.ui.component.unlinkLiftFromSuperset
 import com.stratum.core.ui.component.cleanupSupersetGroups
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
+import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -250,8 +252,10 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     private fun handleLiftSelected(workoutLiftId: String?, liftId: String) {
-        val liftName = catalogLifts.firstOrNull { it.id.value == liftId }?.name ?: PLACEHOLDER_LIFT_NAME
-        val isCompound = catalogLifts.firstOrNull { it.id.value == liftId }?.isCompound ?: false
+        val catalog = catalogLifts.firstOrNull { it.id.value == liftId }
+        val liftName = catalog?.name ?: PLACEHOLDER_LIFT_NAME
+        val isCompound = catalog?.isCompound ?: false
+        val restSeconds = catalog?.resolvedDefaultRestSeconds() ?: DEFAULT_REST_SECONDS
         updateLoaded { loaded ->
             if (workoutLiftId == null) {
                 val position = loaded.lifts.size
@@ -261,7 +265,7 @@ class EditWorkoutViewModel @Inject constructor(
                     liftId = liftId,
                     name = liftName,
                     position = position,
-                    sets = listOf(defaultEditSetState(setNumber = 1)),
+                    sets = listOf(defaultEditSetState(setNumber = 1, restSeconds = restSeconds)),
                     isCompound = isCompound,
                     progressionScheme = ProgressionScheme.Double,
                     supersetGroupId = null,
@@ -269,12 +273,14 @@ class EditWorkoutViewModel @Inject constructor(
                 )
                 loaded.copy(lifts = loaded.lifts + newLift)
             } else {
+                // Swap: replace identity and apply the new lift's default rest to all sets.
                 val updatedLifts = loaded.lifts.map { lift ->
                     if (lift.workoutLiftId == workoutLiftId) {
                         lift.copy(
                             liftId = liftId,
                             name = liftName,
                             isCompound = isCompound,
+                            sets = lift.sets.map { set -> set.copy(restSeconds = restSeconds) },
                         )
                     } else {
                         lift
@@ -298,12 +304,13 @@ class EditWorkoutViewModel @Inject constructor(
             val newLifts =
                 liftIds.mapIndexed { index, liftId ->
                     val catalog = catalogLifts.firstOrNull { it.id.value == liftId }
+                    val restSeconds = catalog?.resolvedDefaultRestSeconds() ?: DEFAULT_REST_SECONDS
                     EditLiftState(
                         workoutLiftId = newWorkoutLiftId(),
                         liftId = liftId,
                         name = catalog?.name ?: PLACEHOLDER_LIFT_NAME,
                         position = startPosition + index,
-                        sets = listOf(defaultEditSetState(setNumber = 1)),
+                        sets = listOf(defaultEditSetState(setNumber = 1, restSeconds = restSeconds)),
                         isCompound = catalog?.isCompound ?: false,
                         progressionScheme = ProgressionScheme.Double,
                         supersetGroupId = groupId,
@@ -322,7 +329,17 @@ class EditWorkoutViewModel @Inject constructor(
                         if (lift.workoutLiftId != workoutLiftId) {
                             lift
                         } else {
-                            val newSet = defaultEditSetState(lift.sets.size + 1)
+                            val restSeconds =
+                                lift.sets.lastOrNull()?.restSeconds
+                                    ?: catalogLifts
+                                        .firstOrNull { it.id.value == lift.liftId }
+                                        ?.resolvedDefaultRestSeconds()
+                                    ?: DEFAULT_REST_SECONDS
+                            val newSet =
+                                defaultEditSetState(
+                                    setNumber = lift.sets.size + 1,
+                                    restSeconds = restSeconds,
+                                )
                             lift.copy(sets = renumberSets(lift.sets + newSet))
                         }
                     },

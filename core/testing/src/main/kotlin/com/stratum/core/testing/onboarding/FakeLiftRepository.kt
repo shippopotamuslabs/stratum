@@ -169,4 +169,10 @@ class FakeLiftRepository(
             }
         }
     }
+
+    override suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id) lift.copy(defaultRestSeconds = restSeconds) else lift
+        }
+    }
 }

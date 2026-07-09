@@ -41,6 +41,7 @@ import com.stratum.core.ui.component.MuscleFilterBottomSheet
 import com.stratum.core.ui.component.RirTargetBadge
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumDurationStepper
 import com.stratum.core.ui.component.StratumFilterChip
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumLiftImage
@@ -56,6 +57,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.toVolumeDisplayName
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 
 @Composable
@@ -88,6 +90,8 @@ fun LiftInformationRoute(
                 onConfirmMovementPatterns = viewModel::onConfirmMovementPatterns,
                 onEquipmentDraftChange = viewModel::onEquipmentDraftChange,
                 onSaveEquipment = viewModel::onSaveEquipment,
+                onRestDraftChange = viewModel::onRestDraftChange,
+                onSaveDefaultRest = viewModel::onSaveDefaultRest,
             ),
     )
 }
@@ -208,6 +212,13 @@ fun LiftInformationScreen(
                 onDismiss = actions.onDismissDetailEditor,
                 onSave = actions.onSaveEquipment,
             )
+        LiftDetailEditField.DefaultRest ->
+            DefaultRestBottomSheet(
+                totalSeconds = state.restDraftSeconds,
+                onTotalSecondsChange = actions.onRestDraftChange,
+                onSave = actions.onSaveDefaultRest,
+                onDismiss = actions.onDismissDetailEditor,
+            )
         null -> Unit
     }
 }
@@ -326,6 +337,15 @@ private fun DetailsTab(
                     ),
                 )
             }
+            add(
+                DetailSpec(
+                    label = stringResource(UiR.string.lift_info_default_rest),
+                    value = state.defaultRestLabel.ifBlank { "—" },
+                    editField = LiftDetailEditField.DefaultRest,
+                    // Personal programming preference — editable for catalog and custom lifts.
+                    alwaysEditable = true,
+                ),
+            )
         }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -422,13 +442,15 @@ private fun DetailsTab(
                         .padding(horizontal = 14.dp, vertical = 4.dp),
             ) {
                 specRows.forEachIndexed { index, row ->
+                    val editable =
+                        row.editField != null && (canEdit || row.alwaysEditable)
                     DetailSpecRow(
                         label = row.label,
                         value = row.value,
-                        editable = canEdit && row.editField != null,
+                        editable = editable,
                         onClick =
                             row.editField
-                                ?.takeIf { canEdit }
+                                ?.takeIf { editable }
                                 ?.let { field -> { onOpenDetailEditor(field) } },
                     )
                     if (index != specRows.lastIndex) {
@@ -450,6 +472,7 @@ private data class DetailSpec(
     val label: String,
     val value: String,
     val editField: LiftDetailEditField?,
+    val alwaysEditable: Boolean = false,
 )
 
 @Composable
@@ -570,6 +593,43 @@ private fun EquipmentDetailSheet(
         )
     }
 }
+
+/**
+ * Same duration stepper as Edit Workout rest sheet; single Save applies the lift-level default
+ * (not per-set apply actions).
+ */
+@Composable
+private fun DefaultRestBottomSheet(
+    totalSeconds: Int,
+    onTotalSecondsChange: (Int) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(UiR.string.lift_info_rest_sheet_title),
+    ) {
+        StratumDurationStepper(
+            totalMinutes = totalSeconds,
+            onTotalMinutesChange = onTotalSecondsChange,
+            minMinutes = SetLiftDefaultRestUseCase.MIN_REST_SECONDS,
+            maxMinutes = SetLiftDefaultRestUseCase.MAX_REST_SECONDS,
+            minutesStep = REST_SECONDS_STEP,
+            hoursLabel = stringResource(UiR.string.lift_info_rest_minutes_label),
+            minutesLabel = stringResource(UiR.string.lift_info_rest_seconds_label),
+            incrementContentDescription = stringResource(UiR.string.lift_info_rest_increment),
+            decrementContentDescription = stringResource(UiR.string.lift_info_rest_decrement),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        StratumButton(
+            text = stringResource(UiR.string.lift_info_rest_save),
+            onClick = onSave,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+private const val REST_SECONDS_STEP = 30
 
 @Composable
 private fun DetailOptionRow(
