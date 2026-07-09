@@ -24,13 +24,23 @@ object StratumThemeSpecFactory {
         }
 }
 
+/**
+ * Root Stratum theme. Prefer [preferences] for production; [themeId] + [darkTheme] remain for
+ * previews and one-off forced modes.
+ *
+ * When [darkTheme] is null, dark tokens follow [ThemePreferences.colorMode] (System / Light /
+ * Dark). Explicit [darkTheme] wins so existing `@Preview` call sites stay valid.
+ */
 @Composable
 fun StratumTheme(
-    themeId: StratumThemeId = StratumThemeId.Tonal,
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    preferences: ThemePreferences = ThemePreferences(),
+    themeId: StratumThemeId = preferences.family,
+    darkTheme: Boolean? = null,
     content: @Composable () -> Unit,
 ) {
-    val spec = StratumThemeSpecFactory.resolve(themeId, darkTheme)
+    val resolvedDark =
+        darkTheme ?: preferences.colorMode.resolveDark(isSystemInDarkTheme())
+    val spec = StratumThemeSpecFactory.resolve(themeId, resolvedDark)
     val materialScheme =
         if (spec.dark) {
             darkColorScheme(
