@@ -49,6 +49,8 @@ fun MainTabShell(
     onNavigateToWorkout: (workoutId: String) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onCreateNewLift: () -> Unit = {},
+    onNavigateToLiftIncrements: (liftId: String) -> Unit = {},
+    onNavigateToLiftInformation: (liftId: String) -> Unit = {},
     onCreateProgramClick: () -> Unit = {},
     onProgramLibraryClick: () -> Unit = {},
 ) {
@@ -106,7 +108,12 @@ fun MainTabShell(
                     onSwapLiftClick = onNavigateToSwap,
                     onNavigateToWorkout = onNavigateToWorkout,
                 )
-                MainTab.Gym -> GymScreen(onCreateNewLift = onCreateNewLift)
+                MainTab.Gym ->
+                    GymScreen(
+                        onCreateNewLift = onCreateNewLift,
+                        onNavigateToIncrements = onNavigateToLiftIncrements,
+                        onNavigateToInformation = onNavigateToLiftInformation,
+                    )
             }
         }
     }

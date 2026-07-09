@@ -6,10 +6,12 @@ import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.mapper.toTierEntities
 import com.stratum.domain.lift.CustomLiftDefinition
+import com.stratum.domain.lift.CustomLiftDetails
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
@@ -114,6 +116,50 @@ class RoomLiftRepository @Inject constructor(
             incrementTierDao.upsertAll(lift.toTierEntities())
         }
         return id
+    }
+
+    override suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>) {
+        database.withTransaction {
+            incrementTierDao.deleteForLift(id)
+            if (tiers.isNotEmpty()) {
+                val entities =
+                    tiers.map { tier ->
+                        com.stratum.core.data.db.IncrementTierEntity(
+                            liftId = id,
+                            lowerBound = tier.lowerBound.amount,
+                            upperBound = tier.upperBound?.amount,
+                            increment = tier.increment.amount,
+                        )
+                    }
+                incrementTierDao.upsertAll(entities)
+            }
+        }
+    }
+
+    override suspend fun updateLiftMuscles(
+        id: LiftId,
+        primaryMuscles: Set<com.stratum.domain.onboarding.MuscleGroup>,
+        secondaryMuscles: Set<com.stratum.domain.onboarding.MuscleGroup>,
+    ) {
+        liftDao.updateMuscles(
+            id = id,
+            primaryBitmask = primaryMuscles.toBitmask(),
+            secondaryBitmask = secondaryMuscles.toBitmask(),
+        )
+    }
+
+    override suspend fun updateCustomLiftDetails(
+        id: LiftId,
+        details: CustomLiftDetails,
+    ) {
+        liftDao.updateCustomDetails(
+            id = id,
+            movementPatternsBitmask = details.movementPatterns.toBitmask(),
+            muscleLengthBias = details.muscleLengthBias,
+            kinematicProfile = details.kinematicProfile,
+            loadType = details.loadType,
+            equipment = details.equipment,
+        )
     }
 
     private fun singleOpenTier(increment: Weight): IncrementTier =

@@ -4,6 +4,9 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.LoadType
+import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.flow.Flow
 
@@ -67,6 +70,43 @@ interface LiftDao {
     /** Flip one lift's availability flag. */
     @Query("UPDATE lifts SET enabled = :enabled WHERE id = :id")
     suspend fun setEnabled(id: LiftId, enabled: Boolean)
+
+    /**
+     * Update primary/secondary muscle bitmasks for a **custom** lift only. Catalog rows are
+     * left untouched (`isCustom = 1` predicate).
+     */
+    @Query(
+        """
+        UPDATE lifts
+        SET primaryMusclesBitmask = :primaryBitmask,
+            secondaryMusclesBitmask = :secondaryBitmask
+        WHERE id = :id AND isCustom = 1
+        """,
+    )
+    suspend fun updateMuscles(id: LiftId, primaryBitmask: Int, secondaryBitmask: Int)
+
+    /**
+     * Update non-derived metadata for a **custom** lift only. Category is not stored.
+     */
+    @Query(
+        """
+        UPDATE lifts
+        SET movementPatternsBitmask = :movementPatternsBitmask,
+            muscleLengthBias = :muscleLengthBias,
+            kinematicProfile = :kinematicProfile,
+            loadType = :loadType,
+            equipment = :equipment
+        WHERE id = :id AND isCustom = 1
+        """,
+    )
+    suspend fun updateCustomDetails(
+        id: LiftId,
+        movementPatternsBitmask: Int,
+        muscleLengthBias: MuscleLengthBias,
+        kinematicProfile: KinematicProfile,
+        loadType: LoadType,
+        equipment: String?,
+    )
 
     /** Enable every lift in [ids] in a single statement (preset apply). */
     @Query("UPDATE lifts SET enabled = 1 WHERE id IN (:ids)")

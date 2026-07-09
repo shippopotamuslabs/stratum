@@ -1,12 +1,15 @@
 package com.stratum.core.testing.onboarding
 
 import com.stratum.domain.lift.CustomLiftDefinition
+import com.stratum.domain.lift.CustomLiftDetails
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.MuscleGroup
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,4 +130,43 @@ class FakeLiftRepository(
 
     /** Test hook: current historical-import flag. */
     val currentUsedHistoricalImport: Boolean get() = usedHistoricalImport.value
+
+    override suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id) lift.copy(incrementTiers = tiers) else lift
+        }
+    }
+
+    override suspend fun updateLiftMuscles(
+        id: LiftId,
+        primaryMuscles: Set<MuscleGroup>,
+        secondaryMuscles: Set<MuscleGroup>,
+    ) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id && lift.isCustom) {
+                lift.copy(
+                    primaryMuscles = primaryMuscles,
+                    secondaryMuscles = secondaryMuscles,
+                )
+            } else {
+                lift
+            }
+        }
+    }
+
+    override suspend fun updateCustomLiftDetails(id: LiftId, details: CustomLiftDetails) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id && lift.isCustom) {
+                lift.copy(
+                    movementPatterns = details.movementPatterns,
+                    muscleLengthBias = details.muscleLengthBias,
+                    kinematicProfile = details.kinematicProfile,
+                    loadType = details.loadType,
+                    equipment = details.equipment,
+                )
+            } else {
+                lift
+            }
+        }
+    }
 }

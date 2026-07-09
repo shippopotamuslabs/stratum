@@ -2,6 +2,8 @@ package com.stratum.domain.workout.progression
 
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.incrementFor
+import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.BACKOFF_REP_FLOOR
@@ -53,8 +55,15 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
                 baseWeight
             } else {
                 val incremented = shouldIncrement(baselineEntry, slot)
-                val increment = if (incremented) incrementFor() else Weight(0.0, baseWeight.unit)
-                Weight(baseWeight.amount + increment.amount, baseWeight.unit)
+                val increment =
+                    if (incremented) {
+                        incrementFor(request, baseWeight)
+                    } else {
+                        Weight(0.0, baseWeight.unit)
+                    }
+                val raw = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
+                request.incrementTiers
+                    .roundToIncrement(raw, request.loadType)
                     .capAssistedAtZero(request.loadType)
             }
         }
@@ -171,8 +180,11 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
         return set.reps >= slot.repMax && (set.rir != null && set.rir >= slot.rirGoal)
     }
 
-    private fun incrementFor(): Weight =
-        Weight(DEFAULT_DOUBLE_INCREMENT_LB, Weight.WeightUnit.Lb)
+    private fun incrementFor(request: SlotProgressionRequest, baseWeight: Weight): Weight {
+        val fromTiers = request.incrementTiers.incrementFor(baseWeight)
+        if (fromTiers != null) return fromTiers
+        return Weight(DEFAULT_DOUBLE_INCREMENT_LB, baseWeight.unit)
+    }
 
     private fun defaultWeight(): Weight =
         Weight(0.0, Weight.WeightUnit.Lb)
