@@ -26,9 +26,8 @@
     <string name="dashboard_section_upper">Upper</string>
     <string name="dashboard_section_lower">Lower</string>
     <string name="dashboard_contributing_lifts_format">%1$d lifts</string>
+    <!-- Content description for the shell settings entry point (screen chrome lives in :feature:settings). -->
     <string name="settings_title">Settings</string>
-    <string name="settings_placeholder">Settings land in a later slice.</string>
-    <string name="settings_navigate_back">Go back</string>
     <string name="gym_placeholder_title">Gym</string>
     <string name="gym_placeholder_subtitle">Lift catalog and history land in a later slice.</string>
 </resources>
