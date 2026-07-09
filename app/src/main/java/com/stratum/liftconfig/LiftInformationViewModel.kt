@@ -27,6 +27,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -186,6 +187,7 @@ class LiftInformationViewModel @Inject constructor(
         restDraftSeconds.value = DEFAULT_ISOLATION_REST_DISPLAY
         viewModelScope.launch {
             history.value = getLiftHistory(LiftId(id))
+            // getLiftHistory logs failures and returns empty; no UI toast required.
         }
     }
 
@@ -226,6 +228,7 @@ class LiftInformationViewModel @Inject constructor(
         val id = liftId.value ?: return
         viewModelScope.launch {
             updateLiftMuscles(LiftId(id), pending.primary, pending.secondary)
+                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
         }
     }
 
@@ -263,6 +266,7 @@ class LiftInformationViewModel @Inject constructor(
                     lift.secondaryMuscles - muscle
                 }
             updateLiftMuscles(LiftId(id), primary, secondary)
+                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
         }
     }
 
@@ -298,6 +302,7 @@ class LiftInformationViewModel @Inject constructor(
                     lift.secondaryMuscles
                 }
             updateLiftMuscles(LiftId(id), primary, secondary)
+                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
         }
     }
 
@@ -337,7 +342,8 @@ class LiftInformationViewModel @Inject constructor(
         val id = liftId.value ?: return
         viewModelScope.launch {
             setLiftDefaultRest(LiftId(id), restDraftSeconds.value)
-            editingField.value = null
+                .onSuccess { editingField.value = null }
+                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
         }
     }
 
@@ -387,8 +393,16 @@ class LiftInformationViewModel @Inject constructor(
                 LiftId(id),
                 transform(lift.toDetails()),
             )
-            editingField.value = null
+                .onSuccess { editingField.value = null }
+                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
         }
+    }
+
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
     }
 
     /** Latest domain lift from the catalog stream — write paths read this snapshot. */
@@ -520,5 +534,6 @@ class LiftInformationViewModel @Inject constructor(
     private companion object {
         val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
         const val DEFAULT_ISOLATION_REST_DISPLAY = 120
+        const val MSG_SAVE_FAILED = "Couldn't save lift changes. Try again."
     }
 }

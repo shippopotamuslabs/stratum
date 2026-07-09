@@ -6,6 +6,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
@@ -44,10 +45,22 @@ class LoadDashboardUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(): DashboardSummary? = invoke(now = Instant.now())
 
-    suspend operator fun invoke(now: Instant): DashboardSummary? {
+    /**
+     * Returns the summary, or `null` when there is no data (empty board). Unexpected failures
+     * are logged and also returned as `null` so the UI shows empty rather than crashing.
+     */
+    suspend operator fun invoke(now: Instant): DashboardSummary? =
+        runCatching { load(now) }
+            .onFailure { error ->
+                loggingPort.error(TAG, "Failed to load dashboard: ${error.message}", error)
+            }
+            .getOrNull()
+
+    private suspend fun load(now: Instant): DashboardSummary? {
         val windowStart = now.minus(WINDOW)
         val stimulus = muscleWeeklyStimulusRepository.getSince(windowStart)
         val performance = liftWeeklyPerformanceRepository.getSince(windowStart)
@@ -160,6 +173,7 @@ class LoadDashboardUseCase @Inject constructor(
     private fun Double?.orZero(): Double = this ?: 0.0
 
     private companion object {
+        const val TAG = "LoadDashboard"
         val WINDOW: Period = Period.ofWeeks(DASHBOARD_PERFORMANCE_WINDOW_WEEKS)
         /** Minimum weekly outcome-index points before a progress series is shown. */
         const val MIN_PROGRESS_POINTS = 3

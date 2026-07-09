@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -18,7 +19,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
     @DisplayName("Given custom lift when details updated then repository reflects them")
     fun updatesCustomDetails() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = true)))
-        val useCase = UpdateCustomLiftDetailsUseCase(repo)
+        val useCase = UpdateCustomLiftDetailsUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(
@@ -44,7 +45,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
     @DisplayName("Given catalog lift when details updated then fails without writing")
     fun rejectsCatalogLift() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = false)))
-        val useCase = UpdateCustomLiftDetailsUseCase(repo)
+        val useCase = UpdateCustomLiftDetailsUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(
@@ -69,7 +70,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
     @DisplayName("Given empty movement patterns when updated then fails")
     fun rejectsEmptyPatterns() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = true)))
-        val useCase = UpdateCustomLiftDetailsUseCase(repo)
+        val useCase = UpdateCustomLiftDetailsUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(

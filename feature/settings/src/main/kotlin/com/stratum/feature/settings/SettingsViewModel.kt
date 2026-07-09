@@ -16,6 +16,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -31,6 +32,12 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val debugStatusMessage = MutableStateFlow<String?>(null)
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
 
     val uiState: StateFlow<SettingsUiState> =
         combine(
@@ -53,19 +60,25 @@ class SettingsViewModel @Inject constructor(
 
     fun onAppearanceSelected(appearance: AppearanceUi) {
         viewModelScope.launch {
-            setColorMode(appearance.toDomain())
+            setColorMode(appearance.toDomain()).onFailure {
+                _userMessage.value = MSG_PREFS_FAILED
+            }
         }
     }
 
     fun onThemeFamilySelected(family: ThemeFamilyUi) {
         viewModelScope.launch {
-            setThemeFamily(family.toDomain())
+            setThemeFamily(family.toDomain()).onFailure {
+                _userMessage.value = MSG_PREFS_FAILED
+            }
         }
     }
 
     fun onCheckInsEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
-            setCheckInEnabled(enabled)
+            setCheckInEnabled(enabled).onFailure {
+                _userMessage.value = MSG_PREFS_FAILED
+            }
         }
     }
 
@@ -76,10 +89,18 @@ class SettingsViewModel @Inject constructor(
     fun forceCheckInPending() {
         if (!BuildConfig.DEBUG) return
         viewModelScope.launch {
-            setCheckInEnabled(true)
-            markCheckInPending(Instant.now())
+            val enable = setCheckInEnabled(true)
+            val pending = markCheckInPending(Instant.now())
+            if (enable.isFailure || pending.isFailure) {
+                _userMessage.value = MSG_PREFS_FAILED
+                return@launch
+            }
             debugStatusMessage.value = "Check-in pending — open Programs"
         }
+    }
+
+    private companion object {
+        const val MSG_PREFS_FAILED = "Couldn't save that setting. Try again."
     }
 }
 

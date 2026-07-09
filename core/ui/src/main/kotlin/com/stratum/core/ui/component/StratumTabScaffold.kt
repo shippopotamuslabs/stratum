@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,7 @@ fun StratumTabScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    snackbarHostState: SnackbarHostState? = null,
     horizontalPadding: Dp = 12.dp,
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     horizontalAlignment: Alignment.Horizontal = Alignment.Start,
@@ -43,6 +45,7 @@ fun StratumTabScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = topBar,
         bottomBar = bottomBar,
+        snackbarHostState = snackbarHostState,
         contentWindowInsets = WindowInsets(0),
     ) { paddingValues ->
         val colModifier = Modifier

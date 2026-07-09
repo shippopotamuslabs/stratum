@@ -1,5 +1,7 @@
 package com.stratum
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -70,7 +72,7 @@ class GymViewModelTest {
         fakeLiftRepository.seedLifts(seedLifts)
         subject = GymViewModel(
             observeLiftCatalog = ObserveLiftCatalogUseCase(fakeLiftRepository),
-            setLiftEnabled = SetLiftEnabledUseCase(fakeLiftRepository),
+            setLiftEnabled = SetLiftEnabledUseCase(fakeLiftRepository, FakeLoggingPort()),
         )
     }
 

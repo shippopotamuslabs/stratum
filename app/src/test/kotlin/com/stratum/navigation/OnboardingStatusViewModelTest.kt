@@ -1,5 +1,7 @@
 package com.stratum.navigation
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
@@ -36,7 +38,7 @@ class OnboardingStatusViewModelTest {
     private fun buildViewModel(): OnboardingStatusViewModel =
         OnboardingStatusViewModel(
             observeComplete = ObserveOnboardingCompleteUseCase(fakeRepository),
-            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(fakeRepository),
+            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(fakeRepository, FakeLoggingPort()),
         )
 
     @Test

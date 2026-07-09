@@ -1,5 +1,7 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.importing.FakeHistoricalImportRunnerPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
@@ -174,6 +176,7 @@ internal object OnboardingViewModelTestFixtures {
                 updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
                 updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
                 saveOnboardingProgress = SaveOnboardingProgressUseCase(fakeRepository),
+                loggingPort = FakeLoggingPort(),
             ),
             getOnboardingStepCapabilities = GetOnboardingStepCapabilitiesUseCase(validateCurrentStep),
             applyGymPreset = ApplyGymPresetUseCase(fakeLiftRepository),

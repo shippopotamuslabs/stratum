@@ -1,6 +1,8 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 
 /**
@@ -10,8 +12,14 @@ import javax.inject.Inject
  */
 class SetLiftEnabledUseCase @Inject constructor(
     private val repository: LiftRepository,
+    private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(id: LiftId, enabled: Boolean) {
-        repository.setLiftEnabled(id, enabled)
+    suspend operator fun invoke(id: LiftId, enabled: Boolean): Result<Unit> =
+        runCatchingLogged(loggingPort, TAG, "Failed to set lift enabled") {
+            repository.setLiftEnabled(id, enabled)
+        }
+
+    private companion object {
+        const val TAG = "SetLiftEnabled"
     }
 }

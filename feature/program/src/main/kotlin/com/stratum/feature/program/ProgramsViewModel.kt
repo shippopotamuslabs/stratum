@@ -26,8 +26,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -89,6 +91,18 @@ class ProgramsViewModel @Inject constructor(
     private val _events = Channel<ProgramsUiEvent>(Channel.BUFFERED)
     val events: Flow<ProgramsUiEvent> = _events.receiveAsFlow()
 
+    /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
+
+    private fun showUserMessage(message: String) {
+        _userMessage.value = message
+    }
+
     fun startNextWorkout() {
         val loaded = programsUiState.value as? ProgramsUiState.Loaded ?: return
         val nextId = findNextWorkoutId(loaded.scheduleItems) ?: return
@@ -105,11 +119,7 @@ class ProgramsViewModel @Inject constructor(
         viewModelScope.launch {
             val result = startTrainingSession(StartTrainingSessionRequest.AdHocEmpty)
             if (result.isSuccess) {
-                _events.send(
-                    ProgramsUiEvent.ShowMessage(
-                        "Empty workout session started. Structured workout screen requires a program workout.",
-                    ),
-                )
+                showUserMessage(MSG_EMPTY_WORKOUT_STARTED)
                 return@launch
             }
             handleStartFailure(result)
@@ -126,18 +136,17 @@ class ProgramsViewModel @Inject constructor(
     }
 
     private suspend fun handleStartFailure(result: Result<TrainingSession>) {
-        if (result.exceptionOrNull() is ActiveTrainingSessionExistsException) {
-            val progress = observeCycleProgress().first()
-            val activeWorkoutId = progress.activeSession?.workoutId?.value
-            if (activeWorkoutId != null) {
-                _events.send(ProgramsUiEvent.NavigateToWorkout(activeWorkoutId))
-            } else {
-                _events.send(
-                    ProgramsUiEvent.ShowMessage(
-                        "An empty workout is already in progress. Finish it before starting a program workout.",
-                    ),
-                )
+        when (result.exceptionOrNull()) {
+            is ActiveTrainingSessionExistsException -> {
+                val progress = observeCycleProgress().first()
+                val activeWorkoutId = progress.activeSession?.workoutId?.value
+                if (activeWorkoutId != null) {
+                    _events.send(ProgramsUiEvent.NavigateToWorkout(activeWorkoutId))
+                } else {
+                    showUserMessage(MSG_EMPTY_WORKOUT_IN_PROGRESS)
+                }
             }
+            else -> showUserMessage(MSG_START_WORKOUT_FAILED)
         }
     }
 
@@ -154,15 +163,19 @@ class ProgramsViewModel @Inject constructor(
                     if (workout == null) {
                         emit(null)
                     } else {
-                        val loggedSets = getLoggedSetsForSession(session.id)
-                        val lifts = observeLiftCatalog().first()
-                        val liftNames = lifts.associate { it.id to it.name }
-                        val nextLiftName = findNextLiftName(workout, loggedSets, liftNames)
+                        // Soft-fail set/catalog load so a bad read never kills the bar or the VM.
+                        val nextLiftName =
+                            runCatching {
+                                val loggedSets = getLoggedSetsForSession(session.id)
+                                val lifts = observeLiftCatalog().first()
+                                val liftNames = lifts.associate { it.id to it.name }
+                                findNextLiftName(workout, loggedSets, liftNames)
+                            }.getOrNull()
                         emit(
                             MinimizedWorkoutState(
                                 workoutId = workoutId.value,
                                 workoutName = workout.name,
-                                nextLiftName = nextLiftName ?: "All sets complete",
+                                nextLiftName = nextLiftName ?: "Workout in progress",
                                 startedAtEpochMilli = session.startedAt.toEpochMilli(),
                             )
                         )
@@ -179,39 +192,52 @@ class ProgramsViewModel @Inject constructor(
         viewModelScope.launch {
             val progress = observeCycleProgress().first()
             val activeSession = progress.activeSession ?: return@launch
-            abandonTrainingSession(activeSession.id)
-            _events.send(ProgramsUiEvent.ShowMessage("Workout cancelled."))
+            val result = abandonTrainingSession(activeSession.id)
+            // Success is silent — cancel from the chip is intentional, not a failure to report.
+            if (result.isFailure) {
+                showUserMessage(MSG_ABANDON_FAILED)
+            }
         }
     }
 
     fun skipWorkout(workoutId: String) {
         viewModelScope.launch {
             recordWorkoutSkip(WorkoutId(workoutId))
+                .onFailure { showUserMessage(MSG_SKIP_FAILED) }
         }
     }
 
     fun unskipWorkout(workoutId: String) {
         viewModelScope.launch {
             unskipWorkout(WorkoutId(workoutId))
+                .onFailure { showUserMessage(MSG_UNSKIP_FAILED) }
         }
     }
 
     fun skipRestDay(weekday: Weekday) {
         viewModelScope.launch {
             recordRestDaySkip(weekday)
+                .onFailure { showUserMessage(MSG_SKIP_FAILED) }
         }
     }
 
     fun unskipRestDay(weekday: Weekday) {
         viewModelScope.launch {
             unskipWorkout(weekday)
+                .onFailure { showUserMessage(MSG_UNSKIP_FAILED) }
         }
     }
 
     fun confirmDiscardAndStart(action: ProgramsStartAction) {
         viewModelScope.launch {
             val progress = observeCycleProgress().first()
-            progress.activeSession?.let { abandonTrainingSession(it.id) }
+            progress.activeSession?.let { session ->
+                val abandonResult = abandonTrainingSession(session.id)
+                if (abandonResult.isFailure) {
+                    showUserMessage(MSG_ABANDON_FAILED)
+                    return@launch
+                }
+            }
             when (action) {
                 is ProgramsStartAction.StartWorkout ->
                     startOrResumeProgramWorkout(WorkoutId(action.workoutId))
@@ -243,5 +269,16 @@ class ProgramsViewModel @Inject constructor(
             }
         }
         return null
+    }
+
+    private companion object {
+        const val MSG_EMPTY_WORKOUT_STARTED =
+            "Empty workout session started. Structured workout screen requires a program workout."
+        const val MSG_EMPTY_WORKOUT_IN_PROGRESS =
+            "An empty workout is already in progress. Finish it before starting a program workout."
+        const val MSG_START_WORKOUT_FAILED = "Couldn't start that workout. Try again."
+        const val MSG_ABANDON_FAILED = "Couldn't cancel the workout. Try again."
+        const val MSG_SKIP_FAILED = "Couldn't skip. Try again."
+        const val MSG_UNSKIP_FAILED = "Couldn't undo skip. Try again."
     }
 }

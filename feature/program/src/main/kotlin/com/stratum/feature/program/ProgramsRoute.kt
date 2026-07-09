@@ -1,11 +1,14 @@
 package com.stratum.feature.program
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.feature.program.ui.CheckInScreen
 import com.stratum.feature.program.ui.ProgramsScreen
 import com.stratum.feature.program.ui.ProgramsScreenCallbacks
@@ -25,15 +28,22 @@ fun ProgramsRoute(
     val activeWorkoutBar by viewModel.activeWorkoutBarState.collectAsStateWithLifecycle()
     val showCheckInBanner by checkInViewModel.showBanner.collectAsStateWithLifecycle()
     val checkInUiState by checkInViewModel.uiState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(viewModel, onNavigateToWorkout) {
         viewModel.events.collect { event ->
             when (event) {
                 is ProgramsUiEvent.NavigateToWorkout -> onNavigateToWorkout(event.workoutId)
-                is ProgramsUiEvent.ShowMessage -> Unit
             }
         }
     }
+
+    UserMessageEffect(
+        userMessage = userMessage,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::userMessageShown,
+    )
 
     if (checkInUiState.isOpen) {
         CheckInScreen(
@@ -77,6 +87,7 @@ fun ProgramsRoute(
             showCheckInBanner = showCheckInBanner && !isPreviewMode,
             onCheckInBannerClick = checkInViewModel::openCheckIn,
             onCheckInSkipClick = checkInViewModel::skip,
+            snackbarHostState = snackbarHostState,
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.stratum.domain.dashboard
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
@@ -151,7 +152,7 @@ class LoadGraphDetailUseCaseTest {
         muscleWeeklyStimulusRepository = stimulusRepo,
         muscleWeeklyOutcomeIndexRepository = outcomeRepo,
         liftRepository = liftRepo,
-    )
+     FakeLoggingPort())
 
     private fun lift(id: LiftId, name: String, muscle: MuscleGroup): Lift = Lift(
         id = id,

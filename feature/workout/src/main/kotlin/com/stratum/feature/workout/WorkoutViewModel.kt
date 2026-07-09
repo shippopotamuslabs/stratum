@@ -1,6 +1,5 @@
 package com.stratum.feature.workout
 
-import com.stratum.domain.logging.LogErrorUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.importing.FatigueDecay
@@ -90,7 +89,6 @@ class WorkoutViewModel @Inject constructor(
     private val applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
     private val saveWorkoutUseCase: SaveWorkoutUseCase,
     private val observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
-    private val logErrorUseCase: LogErrorUseCase,
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val liveWorkoutSurfaces: LiveWorkoutSurfaces,
@@ -121,6 +119,10 @@ class WorkoutViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
+    /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
     val restTimerState: StateFlow<RestTimerState> = liveWorkoutSurfaces.restTimer.state
 
     /** Process-scoped rest timer; adjust/skip/remaining are exposed for the route + notifications. */
@@ -131,6 +133,10 @@ class WorkoutViewModel @Inject constructor(
 
     private val _events = Channel<WorkoutUiEvent>(Channel.BUFFERED)
     val events: Flow<WorkoutUiEvent> = _events.receiveAsFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
 
     private var activeWorkoutId: WorkoutId? = null
     private var cachedSessionId: com.stratum.domain.training.identity.TrainingSessionId? = null
@@ -251,29 +257,28 @@ class WorkoutViewModel @Inject constructor(
             LoadType.Weighted -> weight
         }
         viewModelScope.launch {
-            try {
-                logSetUseCase(
-                    LogSetCommand(
-                        sessionId = session,
-                        liftId = slot.liftId,
-                        workoutLiftId = slot.workoutLiftId,
-                        setIndex = slot.position,
-                        weight = normalizedWeight,
-                        reps = reps,
-                        rir = rir,
-                        completedAt = Instant.now(),
-                    ),
-                )
-                overlay = overlay.copy(
-                    loggedSets = overlay.loggedSets + (slotId to LoggedSetValue(slotId, normalizedWeight, reps, rir)),
-                )
-                recomputeRecommendations()
-                render()
-                persistOverlay()
-            } catch (e: Exception) {
-                logErrorUseCase(TAG, "Failed to log set", e)
-                _events.send(WorkoutUiEvent.ShowMessage("Failed to log set: ${e.message}"))
+            val result = logSetUseCase(
+                LogSetCommand(
+                    sessionId = session,
+                    liftId = slot.liftId,
+                    workoutLiftId = slot.workoutLiftId,
+                    setIndex = slot.position,
+                    weight = normalizedWeight,
+                    reps = reps,
+                    rir = rir,
+                    completedAt = Instant.now(),
+                ),
+            )
+            if (result.isFailure) {
+                _userMessage.value = MSG_LOG_SET_FAILED
+                return@launch
             }
+            overlay = overlay.copy(
+                loggedSets = overlay.loggedSets + (slotId to LoggedSetValue(slotId, normalizedWeight, reps, rir)),
+            )
+            recomputeRecommendations()
+            render()
+            persistOverlay()
         }
     }
 
@@ -282,24 +287,23 @@ class WorkoutViewModel @Inject constructor(
         val slot = resolveSlotByKey(slotKey) ?: return
         val slotId = slot.slotId
         viewModelScope.launch {
-            try {
-                val dbSets = getLoggedSetsForSession(session)
-                val dbSet = dbSets.firstOrNull {
-                    it.liftContext.workoutLiftId == slot.workoutLiftId && it.setIndex == slot.position
-                }
-                if (dbSet != null) {
-                    deleteLoggedSet(dbSet.id)
-                }
-                overlay = overlay.copy(
-                    loggedSets = overlay.loggedSets - slotId,
-                )
-                recomputeRecommendations()
-                render()
-                persistOverlay()
-            } catch (e: Exception) {
-                logErrorUseCase(TAG, "Failed to unlog set", e)
-                _events.send(WorkoutUiEvent.ShowMessage("Failed to unlog set: ${e.message}"))
+            val dbSets = getLoggedSetsForSession(session)
+            val dbSet = dbSets.firstOrNull {
+                it.liftContext.workoutLiftId == slot.workoutLiftId && it.setIndex == slot.position
             }
+            if (dbSet != null) {
+                val deleteResult = deleteLoggedSet(dbSet.id)
+                if (deleteResult.isFailure) {
+                    _userMessage.value = MSG_UNLOG_SET_FAILED
+                    return@launch
+                }
+            }
+            overlay = overlay.copy(
+                loggedSets = overlay.loggedSets - slotId,
+            )
+            recomputeRecommendations()
+            render()
+            persistOverlay()
         }
     }
 
@@ -508,9 +512,17 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             if (saveTemplate && workout != null) {
                 val updated = applyOverlayToWorkout(workout, overlay)
-                saveWorkoutUseCase(workoutId, updated)
+                val saveResult = saveWorkoutUseCase(workoutId, updated)
+                if (saveResult.isFailure) {
+                    _userMessage.value = MSG_COMPLETE_FAILED
+                    return@launch
+                }
             }
-            finalizeTrainingSession(sessionId)
+            val finalizeResult = finalizeTrainingSession(sessionId)
+            if (finalizeResult.isFailure) {
+                _userMessage.value = MSG_COMPLETE_FAILED
+                return@launch
+            }
             manageWorkoutOverlay.clear()
             liveWorkoutSurfaces.clearSession()
             _events.send(WorkoutUiEvent.NavigateToFinalize(sessionId.value))
@@ -521,7 +533,11 @@ class WorkoutViewModel @Inject constructor(
         val session = currentSessionId()
         if (session != null) {
             viewModelScope.launch {
-                abandonTrainingSession(session)
+                val result = abandonTrainingSession(session)
+                if (result.isFailure) {
+                    _userMessage.value = MSG_ABANDON_FAILED
+                    return@launch
+                }
                 sessionObservationJob?.cancel()
                 sessionObservationJob = null
                 activeWorkoutId = null
@@ -559,29 +575,25 @@ class WorkoutViewModel @Inject constructor(
      * [RecomputeRecommendationsUseCase]; never writes back into the snapshot.
      */
     private fun recomputeRecommendations() {
-        try {
-            val recommendations = recomputeRecommendationsUseCase(merge(), liftsById, fatigueByLiftId)
+        // Best-effort: keep the last good recommendations if recompute throws.
+        runCatching {
+            recomputeRecommendationsUseCase(merge(), liftsById, fatigueByLiftId)
+        }.onSuccess { recommendations ->
             overlay = overlay.copy(recommendations = recommendations)
-        } catch (e: Exception) {
-            logErrorUseCase(TAG, "Failed to recompute recommendations", e)
         }
     }
 
     /**
      * Persists the current overlay to the DataStore-backed store so the session survives an
      * app process death. Captures [overlay] by value before launching so concurrent
-     * mutations don't race the snapshot. Fire-and-forget: failure is logged, never surfaced
-     * — persistence is best-effort and must not break the in-workout flow.
+     * mutations don't race the snapshot. Fire-and-forget: [ManageWorkoutOverlayUseCase]
+     * logs failures; never surface to the user — must not break the in-workout flow.
      */
     private fun persistOverlay() {
         val sessionId = currentSessionId() ?: return
         val snapshot = overlay
         viewModelScope.launch {
-            try {
-                manageWorkoutOverlay.save(sessionId, snapshot)
-            } catch (e: Exception) {
-                logErrorUseCase(TAG, "Failed to persist workout overlay", e)
-            }
+            manageWorkoutOverlay.save(sessionId, snapshot)
         }
     }
 
@@ -676,6 +688,9 @@ class WorkoutViewModel @Inject constructor(
     }
 
     private companion object {
-        const val TAG = "WorkoutViewModel"
+        const val MSG_LOG_SET_FAILED = "Couldn't save that set. Try again."
+        const val MSG_UNLOG_SET_FAILED = "Couldn't remove that set. Try again."
+        const val MSG_COMPLETE_FAILED = "Couldn't finish the workout. Try again."
+        const val MSG_ABANDON_FAILED = "Couldn't cancel the workout. Try again."
     }
 }

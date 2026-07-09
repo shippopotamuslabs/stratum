@@ -1,5 +1,6 @@
 package com.stratum.feature.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
@@ -200,7 +201,7 @@ class EditWorkoutViewModelSchemeToggleTest {
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository, FakeLoggingPort()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
             programChangeEventRepository = programChangeEventRepository,

@@ -1,5 +1,6 @@
 package com.stratum.feature.workout
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -154,7 +155,7 @@ class WorkoutCompleteViewModelTest {
             programRepository = programRepo,
         )
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo))
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
         return WorkoutCompleteViewModel(useCase)
     }
 

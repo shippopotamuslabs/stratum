@@ -1,5 +1,6 @@
 package com.stratum.domain.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -30,7 +31,7 @@ class GetLiftHistoryUseCaseTest {
             GetLiftHistoryUseCase(
                 trainingLogRepository = FakeTrainingLogRepository(),
                 programRepository = FakeProgramRepository(),
-            )
+             FakeLoggingPort())
 
         val history = useCase(liftId)
 
@@ -115,7 +116,7 @@ class GetLiftHistoryUseCaseTest {
             GetLiftHistoryUseCase(
                 trainingLogRepository = logRepo,
                 programRepository = FakeProgramRepository(program),
-            )
+             FakeLoggingPort())
 
         val history = useCase(liftId)
 

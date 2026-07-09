@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.test.runTest
@@ -15,7 +16,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given a valid definition when added then catalog contains the custom lift")
     fun addsValidCustomLift() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo)
+        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(
@@ -51,7 +52,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given blank name when added then fails without writing")
     fun rejectsBlankName() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo)
+        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(
@@ -70,7 +71,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given empty movement patterns when added then fails")
     fun rejectsEmptyPatterns() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo)
+        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(
@@ -89,7 +90,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given empty primary muscles when added then fails")
     fun rejectsEmptyPrimaryMuscles() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo)
+        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(
@@ -108,7 +109,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given rest outside allowed range when added then fails")
     fun rejectsInvalidRest() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo)
+        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(
@@ -128,7 +129,7 @@ class AddCustomLiftUseCaseTest {
     @DisplayName("Given blank equipment when added then equipment is null")
     fun blankEquipmentBecomesNull() = runTest {
         val repo = FakeLiftRepository()
-        val useCase = AddCustomLiftUseCase(repo)
+        val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
 
         val result =
             useCase(

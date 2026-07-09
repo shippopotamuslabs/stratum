@@ -1,6 +1,8 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.onboarding.MuscleGroup
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
@@ -12,6 +14,7 @@ import kotlinx.coroutines.flow.first
  */
 class UpdateLiftMusclesUseCase @Inject constructor(
     private val repository: LiftRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         id: LiftId,
@@ -21,17 +24,18 @@ class UpdateLiftMusclesUseCase @Inject constructor(
         if (primaryMuscles.isEmpty()) {
             return Result.failure(IllegalArgumentException("At least one primary muscle is required"))
         }
-        val lift =
-            repository.observeLifts().first().firstOrNull { it.id == id }
-                ?: return Result.failure(IllegalArgumentException("Lift not found"))
-        if (!lift.isCustom) {
-            return Result.failure(
-                IllegalArgumentException("Catalog lifts cannot be edited"),
-            )
+        return runCatchingLogged(loggingPort, TAG, "Failed to update lift muscles") {
+            val lift =
+                repository.observeLifts().first().firstOrNull { it.id == id }
+                    ?: error("Lift not found")
+            require(lift.isCustom) { "Catalog lifts cannot be edited" }
+            // Secondary must not overlap primary (primary wins).
+            val secondary = secondaryMuscles - primaryMuscles
+            repository.updateLiftMuscles(id, primaryMuscles, secondary)
         }
-        // Secondary must not overlap primary (primary wins).
-        val secondary = secondaryMuscles - primaryMuscles
-        repository.updateLiftMuscles(id, primaryMuscles, secondary)
-        return Result.success(Unit)
+    }
+
+    private companion object {
+        const val TAG = "UpdateLiftMuscles"
     }
 }

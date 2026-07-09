@@ -1,5 +1,6 @@
 package com.stratum.domain.dashboard
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
@@ -369,7 +370,7 @@ class LoadDashboardUseCaseTest {
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
             programRepository = FakeProgramRepository(program),
-        )
+         FakeLoggingPort())
     }
 
     private fun lift(

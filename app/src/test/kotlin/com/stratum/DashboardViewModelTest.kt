@@ -1,5 +1,7 @@
 package com.stratum
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
@@ -388,12 +390,14 @@ class DashboardViewModelTest {
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
             programRepository = FakeProgramRepository(program),
+            loggingPort = FakeLoggingPort(),
         )
         val detailUseCase = LoadGraphDetailUseCase(
             liftWeeklyPerformanceRepository = performanceRepo,
             muscleWeeklyStimulusRepository = stimulusRepo,
             muscleWeeklyOutcomeIndexRepository = outcomeIndexRepo,
             liftRepository = liftRepo,
+            loggingPort = FakeLoggingPort(),
         )
         return DashboardViewModel(
             loadDashboard = useCase,

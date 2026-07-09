@@ -37,6 +37,7 @@ data class CreateLiftUiState(
     val details: LiftDetailsEditorState = LiftDetailsEditorState(canEdit = true),
     val canConfirm: Boolean = false,
     val isSaving: Boolean = false,
+    val errorMessage: String? = null,
 )
 
 @HiltViewModel
@@ -69,17 +70,24 @@ class CreateLiftViewModel @Inject constructor(
 
     private val draft = MutableStateFlow(Draft())
     private val sheets = MutableStateFlow(SheetState())
+    private val errorOverride = MutableStateFlow<String?>(null)
 
     private val _events = Channel<CreateLiftEvent>(Channel.BUFFERED)
     val events: Flow<CreateLiftEvent> = _events.receiveAsFlow()
 
     val uiState: StateFlow<CreateLiftUiState> =
-        combine(draft, sheets) { d, s -> mapState(d, s) }
+        combine(draft, sheets, errorOverride) { d, s, error ->
+            mapState(d, s).copy(errorMessage = error)
+        }
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
                 CreateLiftUiState(details = LiftDetailsEditorState(canEdit = true)),
             )
+
+    fun errorMessageShown() {
+        errorOverride.value = null
+    }
 
     fun onNameChange(value: String) {
         draft.update { it.copy(name = value) }
@@ -221,26 +229,26 @@ class CreateLiftViewModel @Inject constructor(
         if (current.patterns.isEmpty()) return
         viewModelScope.launch {
             sheets.update { it.copy(saving = true) }
-            try {
-                val result =
-                    addCustomLift(
-                        CustomLiftDefinition(
-                            name = current.name,
-                            movementPatterns = current.patterns,
-                            primaryMuscles = current.primary,
-                            secondaryMuscles = current.secondary,
-                            equipment = current.equipment,
-                            muscleLengthBias = current.bias,
-                            kinematicProfile = current.kinematic,
-                            loadType = current.load,
-                            defaultRestSeconds = current.restOverride,
-                        ),
-                    )
-                if (result.isSuccess) {
-                    _events.send(CreateLiftEvent.NavigateBack)
-                }
-            } finally {
-                sheets.update { it.copy(saving = false) }
+            val result =
+                addCustomLift(
+                    CustomLiftDefinition(
+                        name = current.name,
+                        movementPatterns = current.patterns,
+                        primaryMuscles = current.primary,
+                        secondaryMuscles = current.secondary,
+                        equipment = current.equipment,
+                        muscleLengthBias = current.bias,
+                        kinematicProfile = current.kinematic,
+                        loadType = current.load,
+                        defaultRestSeconds = current.restOverride,
+                    ),
+                )
+            sheets.update { it.copy(saving = false) }
+            if (result.isSuccess) {
+                _events.send(CreateLiftEvent.NavigateBack)
+            } else {
+                errorOverride.value = result.exceptionOrNull()?.message
+                    ?: "Couldn't create lift. Try again."
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.stratum.domain.theme
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.test
 import com.stratum.core.testing.theme.FakeThemePreferencesRepository
 import kotlinx.coroutines.test.runTest
@@ -19,8 +20,8 @@ class ThemePreferencesUseCasesTest {
     fun setup() {
         fakeRepository.seed(ThemePreferences())
         observe = ObserveThemePreferencesUseCase(fakeRepository)
-        setFamily = SetThemeFamilyUseCase(fakeRepository)
-        setColorMode = SetColorModeUseCase(fakeRepository)
+        setFamily = SetThemeFamilyUseCase(fakeRepository, FakeLoggingPort())
+        setColorMode = SetColorModeUseCase(fakeRepository, FakeLoggingPort())
     }
 
     @Test
