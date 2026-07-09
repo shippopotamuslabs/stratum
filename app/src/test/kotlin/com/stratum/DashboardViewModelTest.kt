@@ -9,6 +9,7 @@ import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.dashboard.LoadDashboardUseCase
+import com.stratum.domain.dashboard.LoadGraphDetailUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -20,12 +21,16 @@ import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
 class DashboardViewModelTest {
     @Test
@@ -229,6 +234,125 @@ class DashboardViewModelTest {
         assertTrue(viewModel.uiState.value is DashboardUiState.Loaded, "keep Loaded on reload")
     }
 
+    @Test
+    @DisplayName("openLiftGraph loads full history into Ready detail state")
+    fun openLiftGraphReady() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        val now = Instant.now()
+        val old = now.minus(140, ChronoUnit.DAYS)
+        val recent = now.minus(7, ChronoUnit.DAYS)
+        performanceRepo.seed(
+            listOf(
+                perf(benchId, old, 90.0),
+                perf(benchId, recent, 110.0),
+            ),
+        )
+        val viewModel = buildViewModel(
+            performanceRepo = performanceRepo,
+            liftRepo = liftRepo,
+            programLiftIds = setOf(benchId),
+        )
+
+        viewModel.openLiftGraph(benchId.value)
+        advanceUntilIdle()
+
+        val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        assertEquals("Bench Press", detail.title)
+        assertEquals(GraphDetailKindUi.Lift, detail.kind)
+        assertEquals(GraphViewMode.Primary, detail.selectedMode)
+        assertEquals(GraphTimeRangeUi.ThreeMonths, detail.selectedRange, "default matches board window")
+        assertEquals(1, detail.primaryPoints.size, "3M filters out the 140-day-old week")
+        assertTrue(detail.secondaryPoints == null, "single-series tabs hide overlay")
+        assertEquals(
+            listOf(GraphViewMode.Primary, GraphViewMode.Volume, GraphViewMode.Dual),
+            detail.modes,
+        )
+
+        viewModel.selectGraphTimeRange(GraphTimeRangeUi.All)
+        val allRange = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        assertEquals(2, allRange.primaryPoints.size, "All shows full history")
+    }
+
+    @Test
+    @DisplayName("selectGraphMode Volume switches primary series to hard sets")
+    fun switchModeToVolume() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        val now = Instant.now()
+        performanceRepo.seed(listOf(perf(benchId, now.minus(7, ChronoUnit.DAYS), 100.0)))
+        val viewModel = buildViewModel(
+            performanceRepo = performanceRepo,
+            liftRepo = liftRepo,
+            programLiftIds = setOf(benchId),
+        )
+
+        viewModel.openLiftGraph(benchId.value)
+        advanceUntilIdle()
+        viewModel.selectGraphMode(GraphViewMode.Volume)
+
+        val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        assertEquals(GraphViewMode.Volume, detail.selectedMode)
+        assertEquals(4f, detail.primaryPoints.single().value)
+        assertTrue(detail.secondaryPoints == null)
+    }
+
+    @Test
+    @DisplayName("selectGraphMode Dual exposes e1RM primary and volume secondary")
+    fun dualMode() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        val now = Instant.now()
+        performanceRepo.seed(
+            listOf(
+                perf(benchId, now.minus(14, ChronoUnit.DAYS), 100.0),
+                perf(benchId, now.minus(7, ChronoUnit.DAYS), 105.0),
+            ),
+        )
+        val viewModel = buildViewModel(
+            performanceRepo = performanceRepo,
+            liftRepo = liftRepo,
+            programLiftIds = setOf(benchId),
+        )
+
+        viewModel.openLiftGraph(benchId.value)
+        advanceUntilIdle()
+        viewModel.selectGraphMode(GraphViewMode.Dual)
+
+        val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        assertEquals(GraphViewMode.Dual, detail.selectedMode)
+        assertEquals(2, detail.primaryPoints.size)
+        assertEquals(2, detail.secondaryPoints?.size)
+        assertEquals(com.stratum.core.ui.component.DetailYScale.Weight, detail.primaryYScale)
+        assertEquals(com.stratum.core.ui.component.DetailYScale.Volume, detail.secondaryYScale)
+    }
+
+    @Test
+    @DisplayName("dismissGraphDetail returns to Hidden")
+    fun dismissDetail() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        performanceRepo.seed(listOf(perf(benchId, Instant.now().minus(7, ChronoUnit.DAYS), 100.0)))
+        val viewModel = buildViewModel(
+            performanceRepo = performanceRepo,
+            liftRepo = liftRepo,
+            programLiftIds = setOf(benchId),
+        )
+
+        viewModel.openLiftGraph(benchId.value)
+        advanceUntilIdle()
+        viewModel.dismissGraphDetail()
+        assertEquals(GraphDetailUiState.Hidden, viewModel.graphDetailState.value)
+    }
+
     private fun buildViewModel(
         stimulusRepo: FakeMuscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
         performanceRepo: FakeLiftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
@@ -265,7 +389,16 @@ class DashboardViewModelTest {
             trainingLogRepository = trainingLog,
             programRepository = FakeProgramRepository(program),
         )
-        return DashboardViewModel(loadDashboard = useCase)
+        val detailUseCase = LoadGraphDetailUseCase(
+            liftWeeklyPerformanceRepository = performanceRepo,
+            muscleWeeklyStimulusRepository = stimulusRepo,
+            muscleWeeklyOutcomeIndexRepository = outcomeIndexRepo,
+            liftRepository = liftRepo,
+        )
+        return DashboardViewModel(
+            loadDashboard = useCase,
+            loadGraphDetail = detailUseCase,
+        )
     }
 
     private fun lift(id: LiftId, name: String, muscle: MuscleGroup): Lift = Lift(
