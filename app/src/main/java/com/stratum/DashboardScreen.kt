@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
@@ -46,6 +47,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumIconButton
+import com.stratum.core.ui.component.StratumIndexVolumeChart
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTrendChart
@@ -155,8 +157,17 @@ private fun EmptyState() {
 
 @Composable
 private fun ColumnScope.LoadedContent(state: DashboardUiState.Loaded, tab: Int) {
-    val items = if (tab == TAB_MUSCLES) state.muscles else state.lifts
-    if (items.isNotEmpty()) {
+    val hasItems = if (tab == TAB_MUSCLES) {
+        state.muscles.isNotEmpty()
+    } else {
+        state.liftSections.any { it.lifts.isNotEmpty() }
+    }
+    if (hasItems) {
+        val showStatusLegend = if (tab == TAB_MUSCLES) {
+            state.muscles.any { it.highlight != null }
+        } else {
+            state.liftSections.any { section -> section.lifts.any { it.highlight != null } }
+        }
         DashboardLegend(
             primaryLabel = stringResource(
                 if (tab == TAB_MUSCLES) R.string.dashboard_legend_progress else R.string.dashboard_legend_strength,
@@ -166,12 +177,15 @@ private fun ColumnScope.LoadedContent(state: DashboardUiState.Loaded, tab: Int) 
             } else {
                 StratumThemeAccessor.colors.textData
             },
+            primaryStyle = if (tab == TAB_MUSCLES) LegendSwatchStyle.Bar else LegendSwatchStyle.Line,
             secondaryLabel = stringResource(R.string.dashboard_legend_volume),
-            secondaryColor = if (tab == TAB_MUSCLES) {
-                StratumThemeAccessor.colors.textMuted
+            secondaryColor = StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA),
+            caption = if (tab == TAB_MUSCLES) {
+                stringResource(R.string.dashboard_legend_baseline_caption)
             } else {
-                StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA)
+                stringResource(R.string.dashboard_legend_lifts_window_caption, state.windowWeeks)
             },
+            showStatusLegend = showStatusLegend,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
@@ -188,12 +202,10 @@ private fun ColumnScope.LoadedContent(state: DashboardUiState.Loaded, tab: Int) 
             }
         }
         TAB_LIFTS -> {
-            if (state.lifts.isEmpty()) {
+            if (state.liftSections.isEmpty()) {
                 EmptyTabMessage(stringResource(R.string.dashboard_empty_lifts_program))
             } else {
-                TrendCardGrid(items = state.lifts, key = { "lift-${it.name}" }) { lift ->
-                    LiftTrendCard(lift)
-                }
+                LiftSectionGrid(sections = state.liftSections)
             }
         }
     }
@@ -236,31 +248,82 @@ private fun <T> ColumnScope.TrendCardGrid(
 private fun MuscleTrendCard(muscle: MuscleSeriesUi) {
     TrendCard(
         name = muscle.name,
-        // No trend dot on muscle cards: the up/down/flat signal is derived from the progress index
-        // slope and is easy to misread in aggregate (a wall of red down-arrows reads as alarm, not
-        // insight). A top-of-board summary may surface trend direction more thoughtfully later.
+        // No per-card trend arrow: high-confidence direction is the border accent (see legend dots).
         badge = null,
         headline = muscle.headlineVolume,
+        // Baseline semantics live under the global legend — keep card footers to lift count only.
         footer = stringResource(R.string.dashboard_contributing_lifts_format, muscle.contributingLifts),
+        highlight = muscle.highlight,
     ) {
-        StratumTrendChart(
-            primarySeries = muscle.progressPoints,
-            secondarySeries = muscle.volumePoints,
-            contentDescription = "${muscle.name} progress and volume",
+        StratumIndexVolumeChart(
+            indexSeries = muscle.progressPoints,
+            volumeSeries = muscle.volumePoints,
+            contentDescription = "${muscle.name} progress index and volume",
         )
     }
+}
+
+@Composable
+private fun ColumnScope.LiftSectionGrid(
+    sections: List<LiftSectionUi>,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(CARDS_PER_ROW),
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f),
+        horizontalArrangement = Arrangement.spacedBy(CARD_SPACING_DP.dp),
+        verticalArrangement = Arrangement.spacedBy(CARD_SPACING_DP.dp),
+        contentPadding = PaddingValues(bottom = 16.dp),
+    ) {
+        sections.forEach { section ->
+            item(
+                key = "section-${section.title}",
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
+                LiftSectionHeader(title = sectionTitle(section.title))
+            }
+            items(
+                items = section.lifts,
+                key = { lift -> "lift-${section.title}-${lift.name}" },
+            ) { lift ->
+                LiftTrendCard(lift = lift)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiftSectionHeader(title: String) {
+    StratumText(
+        text = title,
+        style = StratumThemeAccessor.typography.sectionLabel,
+        muted = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = SECTION_HEADER_TOP_PADDING_DP.dp, bottom = SECTION_HEADER_BOTTOM_PADDING_DP.dp),
+    )
+}
+
+@Composable
+private fun sectionTitle(key: String): String = when (key) {
+    SECTION_UPPER -> stringResource(R.string.dashboard_section_upper)
+    SECTION_LOWER -> stringResource(R.string.dashboard_section_lower)
+    else -> key
 }
 
 @Composable
 private fun LiftTrendCard(lift: LiftSeriesUi) {
     TrendCard(
         name = lift.name,
-        badge = lift.badge,
+        // Match muscles: no per-card slope arrow. Mild e1RM noise was rendering as a loud red
+        // "down" glyph without a callout border (badge gate is weaker than highlight). Direction
+        // only surfaces via high-confidence border + legend dots.
+        badge = null,
         headline = lift.e1rmText ?: stringResource(R.string.dashboard_trend_unknown),
-        footer = listOfNotNull(
-            lift.tenureText,
-            stringResource(R.string.dashboard_sessions_format, lift.sessions),
-        ).joinToString(separator = STRING_LIST_SEPARATOR),
+        // Window is stated once in the lifts legend caption — footer is session count only.
+        footer = stringResource(R.string.dashboard_lift_footer_format, lift.sessions),
+        highlight = lift.highlight,
     ) {
         StratumTrendChart(
             primarySeries = lift.performancePoints,
@@ -278,9 +341,17 @@ private fun TrendCard(
     badge: TrendBadge?,
     headline: String,
     footer: String,
+    highlight: CalloutDirectionUi? = null,
     chart: @Composable () -> Unit,
 ) {
     val badgeColor = badge?.color()
+    // Progressing uses accent (primary) — setComplete is a dark mint that reads as muted on
+    // raised cards; accent stays as bright as error so both callout borders scan equally well.
+    val borderColor = when (highlight) {
+        CalloutDirectionUi.Progressing -> StratumThemeAccessor.colors.accent
+        CalloutDirectionUi.Regressing -> StratumThemeAccessor.colors.error
+        null -> StratumThemeAccessor.colors.borderSubtle
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -290,7 +361,7 @@ private fun TrendCard(
             )
             .border(
                 width = StratumThemeAccessor.shapes.borderWidth,
-                color = StratumThemeAccessor.colors.borderSubtle,
+                color = borderColor,
                 shape = StratumThemeAccessor.shapes.panel,
             )
             .padding(CARD_PADDING_DP.dp),
@@ -379,7 +450,8 @@ private const val CARD_PADDING_DP = 14
 private const val CARD_DOT_SIZE_DP = 24
 private const val CARD_DOT_ICON_SIZE_DP = 14
 private const val VOLUME_GHOST_ALPHA = 0.5f
-private const val STRING_LIST_SEPARATOR = " · "
+private const val SECTION_HEADER_TOP_PADDING_DP = 4
+private const val SECTION_HEADER_BOTTOM_PADDING_DP = 0
 
 /**
  * Larger Muscles | Lifts tab switch living under the dashboard title. Selected label is white
@@ -472,14 +544,18 @@ private const val TAB_TOGGLE_UNDERLINE_RATIO = 0.5f
 private val LEGEND_SPACING = 16.dp
 private val LEGEND_SWATCH_WIDTH = 16.dp
 private val LEGEND_SWATCH_HEIGHT = 2.dp
+private val LEGEND_BAR_SWATCH_WIDTH = 6.dp
+private val LEGEND_BAR_SWATCH_HEIGHT = 12.dp
 private val LEGEND_SWATCH_GAP = 6.dp
+private val LEGEND_CAPTION_GAP = 4.dp
+
+private val LEGEND_DOT_SIZE = 8.dp
 
 /**
- * Global legend for the dashboard trend cards. Each card renders the same two-line chart, so a
- * single legend above the grid is clearer than one per card. Tab-aware: the primary line means
- * different things per tab (Muscles = composite progress index; Lifts = peak e1RM / strength), and
- * each tab's charts use different line colors, so the swatch color must match what the cards render.
- * Volume (weekly hard-set count) is the secondary line on both tabs.
+ * Global legend for the dashboard trend cards. Tab-aware: Muscles use index bars vs zero + volume
+ * line; Lifts use dual sparklines (strength + volume). Optional [caption] for baseline semantics.
+ * When [showStatusLegend] is true, a second row explains card border accents (high-confidence
+ * progressing / regressing only — not every mild slope).
  */
 @Composable
 internal fun DashboardLegend(
@@ -488,25 +564,74 @@ internal fun DashboardLegend(
     secondaryLabel: String,
     secondaryColor: Color,
     modifier: Modifier = Modifier,
+    primaryStyle: LegendSwatchStyle = LegendSwatchStyle.Line,
+    caption: String? = null,
+    showStatusLegend: Boolean = false,
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(LEGEND_SPACING),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LegendSwatch(color = primaryColor, label = primaryLabel)
-        LegendSwatch(color = secondaryColor, label = secondaryLabel)
+    Column(modifier = modifier) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(LEGEND_SPACING),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LegendSwatch(color = primaryColor, label = primaryLabel, style = primaryStyle)
+            LegendSwatch(color = secondaryColor, label = secondaryLabel, style = LegendSwatchStyle.Line)
+        }
+        if (showStatusLegend) {
+            Row(
+                modifier = Modifier.padding(top = LEGEND_CAPTION_GAP),
+                horizontalArrangement = Arrangement.spacedBy(LEGEND_SPACING),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LegendSwatch(
+                    color = StratumThemeAccessor.colors.accent,
+                    label = stringResource(R.string.dashboard_legend_progressing),
+                    style = LegendSwatchStyle.Dot,
+                )
+                LegendSwatch(
+                    color = StratumThemeAccessor.colors.error,
+                    label = stringResource(R.string.dashboard_legend_regressing),
+                    style = LegendSwatchStyle.Dot,
+                )
+            }
+        }
+        if (caption != null) {
+            StratumText(
+                text = caption,
+                muted = true,
+                style = StratumThemeAccessor.typography.sectionLabel,
+                modifier = Modifier.padding(top = LEGEND_CAPTION_GAP),
+            )
+        }
     }
 }
 
+internal enum class LegendSwatchStyle { Line, Bar, Dot }
+
 @Composable
-private fun LegendSwatch(color: Color, label: String) {
+private fun LegendSwatch(
+    color: Color,
+    label: String,
+    style: LegendSwatchStyle = LegendSwatchStyle.Line,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            modifier = Modifier
-                .size(width = LEGEND_SWATCH_WIDTH, height = LEGEND_SWATCH_HEIGHT)
-                .clip(CircleShape)
-                .background(color),
+            modifier = when (style) {
+                LegendSwatchStyle.Line ->
+                    Modifier
+                        .size(width = LEGEND_SWATCH_WIDTH, height = LEGEND_SWATCH_HEIGHT)
+                        .clip(CircleShape)
+                        .background(color)
+                LegendSwatchStyle.Bar ->
+                    Modifier
+                        .size(width = LEGEND_BAR_SWATCH_WIDTH, height = LEGEND_BAR_SWATCH_HEIGHT)
+                        .clip(StratumThemeAccessor.shapes.chip)
+                        .background(color)
+                LegendSwatchStyle.Dot ->
+                    Modifier
+                        .size(LEGEND_DOT_SIZE)
+                        .clip(CircleShape)
+                        .background(color)
+            },
         )
         Spacer(modifier = Modifier.width(LEGEND_SWATCH_GAP))
         StratumText(text = label, muted = true, style = StratumThemeAccessor.typography.sectionLabel)

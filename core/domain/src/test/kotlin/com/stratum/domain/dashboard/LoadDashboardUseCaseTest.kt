@@ -3,14 +3,17 @@ package com.stratum.domain.dashboard
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
+import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
+import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import com.stratum.domain.response.TrainingSignalQualityFlag
 import java.time.Instant
@@ -37,13 +40,16 @@ class LoadDashboardUseCaseTest {
         liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
         val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
         val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        val outcomeRepo = FakeMuscleWeeklyOutcomeIndexRepository()
         // Old data (20 weeks ago) — outside the window.
         val oldWeek = NOW.minus(140, ChronoUnit.DAYS)
         stimulusRepo.seed(listOf(stimulus(MuscleGroup.Chest, oldWeek, 10.0)))
         performanceRepo.seed(listOf(performance(benchId, oldWeek, 100.0)))
+        outcomeRepo.seed(listOf(outcomeIndex(MuscleGroup.Chest, oldWeek, 0.01)))
         val useCase = buildUseCase(
             stimulusRepo = stimulusRepo,
             performanceRepo = performanceRepo,
+            outcomeIndexRepo = outcomeRepo,
             liftRepo = liftRepo,
         )
 
@@ -146,37 +152,94 @@ class LoadDashboardUseCaseTest {
     }
 
     @Test
-    fun `composite progress index requires at least 2 contributing lifts`() = runTest {
+    fun `progress series is null when outcome index has fewer than 3 points`() = runTest {
         val benchId = LiftId("bench")
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
         val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
-        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        val outcomeRepo = FakeMuscleWeeklyOutcomeIndexRepository()
+        val w0 = NOW.minus(28, ChronoUnit.DAYS)
+        val w1 = NOW.minus(21, ChronoUnit.DAYS)
+        stimulusRepo.seed(
+            listOf(
+                stimulus(MuscleGroup.Chest, w0, 10.0),
+                stimulus(MuscleGroup.Chest, w1, 10.0),
+            ),
+        )
+        outcomeRepo.seed(
+            listOf(
+                outcomeIndex(MuscleGroup.Chest, w0, 0.0, contributing = 2),
+                outcomeIndex(MuscleGroup.Chest, w1, 0.01, contributing = 2),
+            ),
+        )
+        val useCase = buildUseCase(
+            stimulusRepo = stimulusRepo,
+            outcomeIndexRepo = outcomeRepo,
+            liftRepo = liftRepo,
+        )
+
+        val chest = useCase(now = NOW)!!.muscles.first()
+        assertNull(chest.progressSeries, "fewer than 3 outcome points → no progress series")
+    }
+
+    @Test
+    fun `progress series is sourced from muscle weekly outcome index`() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        val outcomeRepo = FakeMuscleWeeklyOutcomeIndexRepository()
         val w0 = NOW.minus(28, ChronoUnit.DAYS)
         val w1 = NOW.minus(21, ChronoUnit.DAYS)
         val w2 = NOW.minus(14, ChronoUnit.DAYS)
         stimulusRepo.seed(
             listOf(
                 stimulus(MuscleGroup.Chest, w0, 10.0),
-                stimulus(MuscleGroup.Chest, w1, 10.0),
-                stimulus(MuscleGroup.Chest, w2, 10.0),
+                stimulus(MuscleGroup.Chest, w1, 11.0),
+                stimulus(MuscleGroup.Chest, w2, 12.0),
             ),
         )
-        performanceRepo.seed(
+        outcomeRepo.seed(
             listOf(
-                performance(benchId, w0, 100.0),
-                performance(benchId, w1, 105.0),
-                performance(benchId, w2, 110.0),
+                outcomeIndex(MuscleGroup.Chest, w0, 0.0, contributing = 3),
+                outcomeIndex(MuscleGroup.Chest, w1, 0.005, contributing = 3),
+                outcomeIndex(MuscleGroup.Chest, w2, 0.01, contributing = 2),
             ),
         )
         val useCase = buildUseCase(
             stimulusRepo = stimulusRepo,
-            performanceRepo = performanceRepo,
+            outcomeIndexRepo = outcomeRepo,
             liftRepo = liftRepo,
         )
 
         val chest = useCase(now = NOW)!!.muscles.first()
-        assertNull(chest.progressSeries, "single contributing lift → insufficient for composite index")
+        assertNotNull(chest.progressSeries)
+        assertEquals(3, chest.progressSeries!!.size)
+        assertEquals(0.0, chest.progressSeries!![0].value, 1e-9)
+        assertEquals(0.01, chest.progressSeries!![2].value, 1e-9)
+        assertEquals(3, chest.contributingLiftCount, "max contributingLiftCount across weeks")
+        assertNotNull(chest.progressSlope)
+        assertTrue(chest.progressSlope!! > 0.0, "rising log-index → positive slope")
+    }
+
+    @Test
+    fun `progress series ignores outcome rows outside the window`() = runTest {
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        val outcomeRepo = FakeMuscleWeeklyOutcomeIndexRepository()
+        val oldWeek = NOW.minus(140, ChronoUnit.DAYS)
+        val recentWeek = NOW.minus(7, ChronoUnit.DAYS)
+        stimulusRepo.seed(listOf(stimulus(MuscleGroup.Chest, recentWeek, 10.0)))
+        outcomeRepo.seed(
+            listOf(
+                outcomeIndex(MuscleGroup.Chest, oldWeek, -0.5),
+                outcomeIndex(MuscleGroup.Chest, recentWeek, 0.01),
+            ),
+        )
+        val useCase = buildUseCase(stimulusRepo = stimulusRepo, outcomeIndexRepo = outcomeRepo)
+
+        val chest = useCase(now = NOW)!!.muscles.first()
+        // Only one in-window point → null series (needs MIN_PROGRESS_POINTS).
+        assertNull(chest.progressSeries)
     }
 
     @Test
@@ -207,40 +270,74 @@ class LoadDashboardUseCaseTest {
     }
 
     @Test
-    fun `regressing lifts surface first in sorting`() = runTest {
-        val goodId = LiftId("good")
-        val badId = LiftId("bad")
+    fun `muscles sort by mean weekly hard sets descending`() = runTest {
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        val week = NOW.minus(7, ChronoUnit.DAYS)
+        stimulusRepo.seed(
+            listOf(
+                stimulus(MuscleGroup.Chest, week, 8.0),
+                stimulus(MuscleGroup.Quad, week, 14.0),
+                stimulus(MuscleGroup.Bicep, week, 6.0),
+            ),
+        )
+        val useCase = buildUseCase(stimulusRepo = stimulusRepo)
+
+        val summary = useCase(now = NOW)!!
+        assertEquals(
+            listOf(MuscleGroup.Quad, MuscleGroup.Chest, MuscleGroup.Bicep),
+            summary.muscles.map { it.muscle },
+            "highest sets/wk first",
+        )
+    }
+
+    @Test
+    fun `lifts sort Upper then Lower and Axial before NonAxial before Isolation`() = runTest {
+        val benchId = LiftId("bench")
+        val curlId = LiftId("curl")
+        val squatId = LiftId("squat")
+        val legPressId = LiftId("leg-press")
+        val legCurlId = LiftId("leg-curl")
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(
             listOf(
-                lift(goodId, "Good Lift", MuscleGroup.Quad),
-                lift(badId, "Bad Lift", MuscleGroup.Back),
+                lift(legCurlId, "Machine Seated Leg Curl", MuscleGroup.Hamstring, KinematicProfile.Isolation),
+                lift(curlId, "DB Curl", MuscleGroup.Bicep, KinematicProfile.Isolation),
+                lift(squatId, "Back Squat", MuscleGroup.Quad, KinematicProfile.AxialCompound),
+                lift(legPressId, "Leg Press", MuscleGroup.Quad, KinematicProfile.NonAxialCompound),
+                lift(benchId, "Bench Press", MuscleGroup.Chest, KinematicProfile.AxialCompound),
             ),
         )
         val performanceRepo = FakeLiftWeeklyPerformanceRepository()
-        val w0 = NOW.minus(28, ChronoUnit.DAYS)
-        val w1 = NOW.minus(21, ChronoUnit.DAYS)
-        val w2 = NOW.minus(14, ChronoUnit.DAYS)
-        // Good: improving (100 → 110). Bad: regressing (100 → 90).
+        val week = NOW.minus(7, ChronoUnit.DAYS)
         performanceRepo.seed(
             listOf(
-                performance(goodId, w0, 100.0), performance(goodId, w1, 105.0), performance(goodId, w2, 110.0),
-                performance(badId, w0, 100.0), performance(badId, w1, 95.0), performance(badId, w2, 90.0),
+                performance(legCurlId, week, 50.0),
+                performance(curlId, week, 30.0),
+                performance(squatId, week, 140.0),
+                performance(legPressId, week, 200.0),
+                performance(benchId, week, 100.0),
             ),
         )
         val useCase = buildUseCase(
             performanceRepo = performanceRepo,
             liftRepo = liftRepo,
-            programLiftIds = setOf(goodId, badId),
+            programLiftIds = setOf(benchId, curlId, squatId, legPressId, legCurlId),
         )
 
         val summary = useCase(now = NOW)!!
-        assertEquals(badId, summary.lifts.first().liftId, "regressing lift should sort first")
+        assertEquals(
+            listOf(benchId, curlId, squatId, legPressId, legCurlId),
+            summary.lifts.map { it.liftId },
+            "Upper (axial, isolation) then Lower (axial, non-axial, isolation)",
+        )
+        assertTrue(summary.lifts.take(2).all { !it.isLower })
+        assertTrue(summary.lifts.drop(2).all { it.isLower })
     }
 
     private fun buildUseCase(
         stimulusRepo: FakeMuscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
         performanceRepo: FakeLiftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
+        outcomeIndexRepo: FakeMuscleWeeklyOutcomeIndexRepository = FakeMuscleWeeklyOutcomeIndexRepository(),
         liftRepo: FakeLiftRepository = FakeLiftRepository(),
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
         programLiftIds: Set<LiftId> = emptySet(),
@@ -249,7 +346,6 @@ class LoadDashboardUseCaseTest {
         val program = if (programLiftIds.isEmpty()) {
             baseProgram
         } else {
-            // Put all program lift IDs into the first workout so they resolve as active-program lifts.
             val templateLift = WorkoutLoggingFixtures.workoutLiftWithDoubleProgression()
             val firstWorkout = baseProgram.workouts.first()
             baseProgram.copy(
@@ -269,13 +365,19 @@ class LoadDashboardUseCaseTest {
         return LoadDashboardUseCase(
             muscleWeeklyStimulusRepository = stimulusRepo,
             liftWeeklyPerformanceRepository = performanceRepo,
+            muscleWeeklyOutcomeIndexRepository = outcomeIndexRepo,
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
             programRepository = FakeProgramRepository(program),
         )
     }
 
-    private fun lift(id: LiftId, name: String, muscle: MuscleGroup): Lift = Lift(
+    private fun lift(
+        id: LiftId,
+        name: String,
+        muscle: MuscleGroup,
+        kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+    ): Lift = Lift(
         id = id,
         name = name,
         movementPatterns = setOf(MovementPattern.HorizontalPress),
@@ -284,6 +386,7 @@ class LoadDashboardUseCaseTest {
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,
+        kinematicProfile = kinematicProfile,
     )
 
     private fun stimulus(muscle: MuscleGroup, weekStart: Instant, hardSets: Double): MuscleWeeklyStimulus =
@@ -311,6 +414,25 @@ class LoadDashboardUseCaseTest {
             meanRir = 2.0,
             reliability = 0.9,
             qualityFlags = emptySet<TrainingSignalQualityFlag>(),
+        )
+
+    private fun outcomeIndex(
+        muscle: MuscleGroup,
+        weekStart: Instant,
+        indexValue: Double,
+        contributing: Int = 2,
+    ): MuscleWeeklyOutcomeIndex =
+        MuscleWeeklyOutcomeIndex(
+            muscle = muscle,
+            weekStart = weekStart,
+            indexValue = indexValue,
+            indexStdError = 0.01,
+            contributingLiftCount = contributing,
+            effectiveLiftCount = contributing,
+            primaryCoverage = 1.0,
+            compositionHash = "h",
+            compositionDrift = 0.0,
+            qualityFlags = emptySet(),
         )
 
     private companion object {

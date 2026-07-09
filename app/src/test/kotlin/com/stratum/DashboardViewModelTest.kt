@@ -4,16 +4,19 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
+import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.dashboard.LoadDashboardUseCase
+import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
+import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -33,16 +36,10 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `maps muscle series to UI with badges and points`() = runTest {
+    fun `maps muscle series to UI with log-scale progress badge`() = runTest {
         val benchId = LiftId("bench")
-        val inclineId = LiftId("incline")
         val liftRepo = FakeLiftRepository()
-        liftRepo.seedLifts(
-            listOf(
-                lift(benchId, "Bench Press", MuscleGroup.Chest),
-                lift(inclineId, "Incline Bench", MuscleGroup.Chest),
-            ),
-        )
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
         val now = Instant.now()
         val w0 = now.minus(28, ChronoUnit.DAYS)
         val w1 = now.minus(21, ChronoUnit.DAYS)
@@ -57,17 +54,19 @@ class DashboardViewModelTest {
                 stimulus(MuscleGroup.Chest, w3, 15.0),
             ),
         )
-        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
-        // Both lifts improving → composite progress should be Up.
-        performanceRepo.seed(
+        // Log-scale deltas: ~0.005/wk — would be Flat under the old 0.5 kg threshold.
+        val outcomeRepo = FakeMuscleWeeklyOutcomeIndexRepository()
+        outcomeRepo.seed(
             listOf(
-                perf(benchId, w0, 100.0), perf(benchId, w1, 103.0), perf(benchId, w2, 106.0), perf(benchId, w3, 109.0),
-                perf(inclineId, w0, 80.0), perf(inclineId, w1, 82.0), perf(inclineId, w2, 84.0), perf(inclineId, w3, 86.0),
+                outcome(MuscleGroup.Chest, w0, 0.0, contributing = 2),
+                outcome(MuscleGroup.Chest, w1, 0.005, contributing = 2),
+                outcome(MuscleGroup.Chest, w2, 0.010, contributing = 2),
+                outcome(MuscleGroup.Chest, w3, 0.015, contributing = 2),
             ),
         )
         val viewModel = buildViewModel(
             stimulusRepo = stimulusRepo,
-            performanceRepo = performanceRepo,
+            outcomeIndexRepo = outcomeRepo,
             liftRepo = liftRepo,
             programLiftIds = setOf(benchId),
         )
@@ -75,14 +74,48 @@ class DashboardViewModelTest {
         val loaded = viewModel.uiState.value as DashboardUiState.Loaded
         val muscle = loaded.muscles.single { it.name == "Chest" }
         assertEquals("13 sets/wk", muscle.headlineVolume)
-        assertEquals(TrendBadge.Up, muscle.badge, "improving lifts → Up badge")
+        assertEquals(TrendBadge.Up, muscle.badge, "log-scale rise above 0.002/wk → Up")
         assertEquals(2, muscle.contributingLifts)
         assertTrue(muscle.progressPoints.isNotEmpty(), "progress series mapped to UI points")
         assertEquals(4, muscle.volumePoints.size)
     }
 
     @Test
-    fun `maps lift series to UI with e1RM and tenure`() = runTest {
+    fun `muscle badge is Flat for sub-threshold log deltas`() = runTest {
+        val liftRepo = FakeLiftRepository()
+        val now = Instant.now()
+        val w0 = now.minus(21, ChronoUnit.DAYS)
+        val w1 = now.minus(14, ChronoUnit.DAYS)
+        val w2 = now.minus(7, ChronoUnit.DAYS)
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        stimulusRepo.seed(
+            listOf(
+                stimulus(MuscleGroup.Chest, w0, 10.0),
+                stimulus(MuscleGroup.Chest, w1, 10.0),
+                stimulus(MuscleGroup.Chest, w2, 10.0),
+            ),
+        )
+        // Slope ≈ 0.0005/wk — below MUSCLE_PROGRESS_SLOPE_THRESHOLD (0.002).
+        val outcomeRepo = FakeMuscleWeeklyOutcomeIndexRepository()
+        outcomeRepo.seed(
+            listOf(
+                outcome(MuscleGroup.Chest, w0, 0.0),
+                outcome(MuscleGroup.Chest, w1, 0.0005),
+                outcome(MuscleGroup.Chest, w2, 0.0010),
+            ),
+        )
+        val viewModel = buildViewModel(
+            stimulusRepo = stimulusRepo,
+            outcomeIndexRepo = outcomeRepo,
+            liftRepo = liftRepo,
+        )
+
+        val muscle = (viewModel.uiState.value as DashboardUiState.Loaded).muscles.single()
+        assertEquals(TrendBadge.Flat, muscle.badge, "tiny log-index noise stays Flat")
+    }
+
+    @Test
+    fun `maps lift series to Upper section with e1RM and sessions`() = runTest {
         val benchId = LiftId("bench")
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
@@ -112,10 +145,69 @@ class DashboardViewModelTest {
         )
 
         val loaded = viewModel.uiState.value as DashboardUiState.Loaded
-        val liftUi = loaded.lifts.single { it.name == "Bench Press" }
+        assertEquals(listOf(SECTION_UPPER), loaded.liftSections.map { it.title })
+        val liftUi = loaded.liftSections.single().lifts.single { it.name == "Bench Press" }
         assertTrue(liftUi.e1rmText?.contains("kg") == true, "e1RM text includes unit")
-        assertEquals(TrendBadge.Up, liftUi.badge, "improving e1RM → Up badge")
+        assertEquals(TrendBadge.Up, liftUi.badge, "improving e1RM → Up badge (kg threshold)")
         assertEquals(3, liftUi.performancePoints.size)
+        assertEquals(3, liftUi.sessions)
+        assertEquals(13, loaded.windowWeeks)
+    }
+
+    @Test
+    fun `maps upper and lower lifts into separate sections`() = runTest {
+        val benchId = LiftId("bench")
+        val squatId = LiftId("squat")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(
+            listOf(
+                lift(benchId, "Bench Press", MuscleGroup.Chest),
+                lift(squatId, "Back Squat", MuscleGroup.Quad),
+            ),
+        )
+        val now = Instant.now()
+        val week = now.minus(7, ChronoUnit.DAYS)
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        performanceRepo.seed(
+            listOf(
+                perf(benchId, week, 100.0),
+                perf(squatId, week, 140.0),
+            ),
+        )
+        val viewModel = buildViewModel(
+            performanceRepo = performanceRepo,
+            liftRepo = liftRepo,
+            programLiftIds = setOf(benchId, squatId),
+        )
+
+        val loaded = viewModel.uiState.value as DashboardUiState.Loaded
+        assertEquals(listOf(SECTION_UPPER, SECTION_LOWER), loaded.liftSections.map { it.title })
+        assertEquals(listOf("Bench Press"), loaded.liftSections[0].lifts.map { it.name })
+        assertEquals(listOf("Back Squat"), loaded.liftSections[1].lifts.map { it.name })
+    }
+
+    @Test
+    fun `alignMuscleSeries shares week indices across progress and volume`() {
+        val w0 = Instant.parse("2025-01-01T00:00:00Z")
+        val w1 = Instant.parse("2025-01-08T00:00:00Z")
+        val w2 = Instant.parse("2025-01-15T00:00:00Z")
+        // Progress missing middle week; volume has all three.
+        val progress = listOf(
+            TrendPoint(w0, 0.01),
+            TrendPoint(w2, 0.02),
+        )
+        val volume = listOf(
+            TrendPoint(w0, 8.0),
+            TrendPoint(w1, 10.0),
+            TrendPoint(w2, 12.0),
+        )
+
+        val (progressUi, volumeUi) = alignMuscleSeries(progress, volume)
+
+        assertEquals(listOf(0, 2), progressUi.map { it.weekIndex })
+        assertEquals(listOf(0.01f, 0.02f), progressUi.map { it.value })
+        assertEquals(listOf(0, 1, 2), volumeUi.map { it.weekIndex })
+        assertEquals(listOf(8f, 10f, 12f), volumeUi.map { it.value })
     }
 
     @Test
@@ -140,6 +232,7 @@ class DashboardViewModelTest {
     private fun buildViewModel(
         stimulusRepo: FakeMuscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
         performanceRepo: FakeLiftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
+        outcomeIndexRepo: FakeMuscleWeeklyOutcomeIndexRepository = FakeMuscleWeeklyOutcomeIndexRepository(),
         liftRepo: FakeLiftRepository = FakeLiftRepository(),
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
         programLiftIds: Set<LiftId> = emptySet(),
@@ -167,6 +260,7 @@ class DashboardViewModelTest {
         val useCase = LoadDashboardUseCase(
             muscleWeeklyStimulusRepository = stimulusRepo,
             liftWeeklyPerformanceRepository = performanceRepo,
+            muscleWeeklyOutcomeIndexRepository = outcomeIndexRepo,
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
             programRepository = FakeProgramRepository(program),
@@ -210,5 +304,24 @@ class DashboardViewModelTest {
             meanRir = 2.0,
             reliability = 0.9,
             qualityFlags = emptySet<TrainingSignalQualityFlag>(),
+        )
+
+    private fun outcome(
+        muscle: MuscleGroup,
+        weekStart: Instant,
+        indexValue: Double,
+        contributing: Int = 2,
+    ): MuscleWeeklyOutcomeIndex =
+        MuscleWeeklyOutcomeIndex(
+            muscle = muscle,
+            weekStart = weekStart,
+            indexValue = indexValue,
+            indexStdError = 0.01,
+            contributingLiftCount = contributing,
+            effectiveLiftCount = contributing,
+            primaryCoverage = 1.0,
+            compositionHash = "h",
+            compositionDrift = 0.0,
+            qualityFlags = emptySet(),
         )
 }
