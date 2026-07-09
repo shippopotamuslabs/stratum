@@ -1,18 +1,19 @@
 package com.stratum.domain.dashboard
 
-import com.stratum.domain.importing.CustomLiftMusclePolicy
-import com.stratum.domain.importing.ImportStubLiftGuesser
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.LOWER_BODY_MUSCLE_GROUPS
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.ProgramRepository
-import com.stratum.domain.response.MuscleVolumeCredit
-import com.stratum.domain.response.modeling.LiftWeeklyPerformance
-import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
+import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
 import com.stratum.domain.response.MuscleWeeklyStimulusRepository
+import com.stratum.domain.response.modeling.LiftWeeklyPerformance
+import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
+import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import com.stratum.domain.training.TrainingLogRepository
 import java.time.Duration
 import java.time.Instant
@@ -22,9 +23,12 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Loads the windowed dashboard read model from the deterministic weekly tables. Reads a ~3-month
- * window ([WINDOW_WEEKS]); the tables are kept fresh by
- * [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on workout completion, so this is a pure
- * read with no recompute.
+ * window ([WINDOW_WEEKS]).
+ *
+ * Freshness:
+ * - Volume / lift e1RM series: [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on finalize
+ * - Muscle progress (outcome index): full extract via the response-modeling WorkManager worker
+ *   ([com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed-workout cadence)
  *
  * Returns `null` when no weekly data exists in the window (no completed workouts + no import) so the
  * UI renders an empty state rather than an empty-as-success board.
@@ -36,6 +40,7 @@ import kotlinx.coroutines.flow.first
 class LoadDashboardUseCase @Inject constructor(
     private val muscleWeeklyStimulusRepository: MuscleWeeklyStimulusRepository,
     private val liftWeeklyPerformanceRepository: LiftWeeklyPerformanceRepository,
+    private val muscleWeeklyOutcomeIndexRepository: MuscleWeeklyOutcomeIndexRepository,
     private val liftRepository: LiftRepository,
     private val trainingLogRepository: TrainingLogRepository,
     private val programRepository: ProgramRepository,
@@ -48,25 +53,27 @@ class LoadDashboardUseCase @Inject constructor(
         val performance = liftWeeklyPerformanceRepository.getSince(windowStart)
         if (stimulus.isEmpty() && performance.isEmpty()) return null
 
+        val outcomeIndices = muscleWeeklyOutcomeIndexRepository.getSince(windowStart)
         val liftsById = liftRepository.observeLifts().first().associateBy { it.id }
         val firstSetPerLift = trainingLogRepository.getFirstSetDatePerLift()
         val programLiftIds = activeProgramLiftIds()
 
-        val muscles = buildMuscleSeries(stimulus, performance, liftsById)
+        val muscles = buildMuscleSeries(stimulus, outcomeIndices)
         val lifts = buildLiftSeries(performance, liftsById, firstSetPerLift, now, programLiftIds)
+        val callouts = selectDashboardCallouts(muscles = muscles, lifts = lifts)
 
         return DashboardSummary(
             windowWeeks = WINDOW_WEEKS,
             asOf = now,
             muscles = muscles,
             lifts = lifts,
+            callouts = callouts,
         )
     }
 
     private fun buildMuscleSeries(
         stimulus: List<MuscleWeeklyStimulus>,
-        performance: List<LiftWeeklyPerformance>,
-        liftsById: Map<LiftId, Lift>,
+        outcomeIndices: List<MuscleWeeklyOutcomeIndex>,
     ): List<MuscleSeries> =
         stimulus.groupBy { it.muscle }.map { (muscle, rows) ->
             val volumeSeries = rows
@@ -74,10 +81,16 @@ class LoadDashboardUseCase @Inject constructor(
                 .map { TrendPoint(it.weekStart, it.hardSets) }
             val meanWeekly = rows.map { it.hardSets }.average().orZero()
 
-            val contributing = contributingPerformances(muscle, performance, liftsById)
-            val volumeShares = muscleVolumeShares(muscle, contributing, liftsById)
-            val progressSeries = MuscleProgressIndex.compute(muscle, contributing, volumeShares)
+            val muscleIndices = outcomeIndices
+                .filter { it.muscle == muscle }
+                .sortedBy { it.weekStart }
+            val progressSeries = muscleIndices
+                .map { TrendPoint(it.weekStart, it.indexValue) }
+                .takeIf { it.size >= MIN_PROGRESS_POINTS }
             val progressSlope = progressSeries?.let { olsSlope(it) }
+            val contributingLiftCount = muscleIndices
+                .maxOfOrNull { it.contributingLiftCount }
+                ?: 0
 
             MuscleSeries(
                 muscle = muscle,
@@ -86,7 +99,7 @@ class LoadDashboardUseCase @Inject constructor(
                 progressSeries = progressSeries,
                 progressSlope = progressSlope,
                 meanWeeklyHardSets = meanWeekly,
-                contributingLiftCount = volumeShares.size,
+                contributingLiftCount = contributingLiftCount,
             )
         }.sortedWith(muscleComparator())
 
@@ -109,6 +122,8 @@ class LoadDashboardUseCase @Inject constructor(
                 val firstSet = firstSetPerLift[liftId] ?: sorted.firstOrNull()?.weekStart
                 val tenureWeeks = firstSet?.let { weeksBetween(it, now) } ?: 0
                 val sessionCount = sorted.sumOf { it.sessions }
+                val isLower = lift?.primaryMuscles?.any { it in LOWER_BODY_MUSCLE_GROUPS } == true
+                val kinematicProfile = lift?.kinematicProfile ?: KinematicProfile.Isolation
                 LiftSeries(
                     liftId = liftId,
                     name = lift?.name ?: liftId.value,
@@ -117,57 +132,10 @@ class LoadDashboardUseCase @Inject constructor(
                     latestE1rm = latestE1rm,
                     tenureWeeks = tenureWeeks,
                     sessionCount = sessionCount,
+                    isLower = isLower,
+                    kinematicProfile = kinematicProfile,
                 )
             }.sortedWith(liftComparator())
-
-    /**
-     * The [LiftWeeklyPerformance] rows for lifts that credit [muscle] (primary 1.0 / secondary 0.5),
-     * resolved through the lift catalog so the same crediting policy that built the stimulus table
-     * applies here.
-     */
-    private fun contributingPerformances(
-        muscle: MuscleGroup,
-        performance: List<LiftWeeklyPerformance>,
-        liftsById: Map<LiftId, Lift>,
-    ): List<LiftWeeklyPerformance> =
-        performance.filter { row ->
-            val lift = liftsById[row.liftId] ?: return@filter false
-            muscle in creditedMuscles(lift)
-        }
-
-    /**
-     * Each contributing lift's fractional share of the muscle's total in-window hard-set volume,
-     * weighted by its credit (1.0 primary / 0.5 secondary).
-     */
-    private fun muscleVolumeShares(
-        muscle: MuscleGroup,
-        contributing: List<LiftWeeklyPerformance>,
-        liftsById: Map<LiftId, Lift>,
-    ): Map<LiftId, Double> {
-        val totals = contributing.groupBy { it.liftId }.mapValues { (liftId, rows) ->
-            val lift = liftsById[liftId] ?: return@mapValues 0.0
-            val credit = if (muscle in lift.primaryMuscles) {
-                MuscleVolumeCredit.PRIMARY_SET_CREDIT
-            } else {
-                MuscleVolumeCredit.SECONDARY_SET_CREDIT
-            }
-            rows.sumOf { it.hardSets } * credit
-        }
-        val sum = totals.values.sum()
-        if (sum <= 0.0) return emptyMap()
-        return totals.mapValues { it.value / sum }
-    }
-
-    private fun creditedMuscles(lift: Lift): Set<MuscleGroup> {
-        val movementPattern = ImportStubLiftGuesser.effectiveMovementPattern(lift)
-        val primary = ImportStubLiftGuesser.effectivePrimaryMuscles(lift, movementPattern)
-        val secondary = CustomLiftMusclePolicy.effectiveSecondaryMuscles(
-            movementPattern = movementPattern,
-            primaryMuscles = primary,
-            secondaryMuscles = lift.secondaryMuscles,
-        )
-        return primary + (secondary - primary)
-    }
 
     private suspend fun activeProgramLiftIds(): Set<LiftId> =
         programRepository.getProgram()?.workouts
@@ -180,16 +148,14 @@ class LoadDashboardUseCase @Inject constructor(
         (Duration.between(start, end).toDays() / 7).toInt().coerceAtLeast(0)
 
     private fun muscleComparator(): Comparator<MuscleSeries> =
-        compareBy<MuscleSeries> { it.progressSlope?.let { s -> if (s < 0) 0 else 1 } ?: 1 }
-            .thenByDescending { it.meanWeeklyHardSets }
+        compareByDescending<MuscleSeries> { it.meanWeeklyHardSets }
+            .thenBy { it.displayName }
 
-    private fun liftComparator(): Comparator<LiftSeries> = Comparator { a, b ->
-        val slopeA = olsSlope(a.performanceSeries)
-        val slopeB = olsSlope(b.performanceSeries)
-        val prioA = if (slopeA != null && slopeA < 0) 0 else 1
-        val prioB = if (slopeB != null && slopeB < 0) 0 else 1
-        prioA.compareTo(prioB).let { if (it != 0) it else b.sessionCount.compareTo(a.sessionCount) }
-    }
+    /** Upper first, then Lower; within section Axial → NonAxial → Isolation; name as stable tie-break. */
+    private fun liftComparator(): Comparator<LiftSeries> =
+        compareBy<LiftSeries> { it.isLower }
+            .thenBy { it.kinematicProfile.ordinal }
+            .thenBy { it.name }
 
     private fun Double?.orZero(): Double = this ?: 0.0
 
@@ -198,5 +164,7 @@ class LoadDashboardUseCase @Inject constructor(
     private companion object {
         val WINDOW: Period = Period.ofWeeks(WINDOW_WEEKS)
         const val WINDOW_WEEKS = 13
+        /** Minimum weekly outcome-index points before a progress series is shown. */
+        const val MIN_PROGRESS_POINTS = 3
     }
 }

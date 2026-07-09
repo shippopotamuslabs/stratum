@@ -64,12 +64,15 @@ private fun LegendPreviewContent(isMuscles: Boolean, dark: Boolean = false) {
             DashboardLegend(
                 primaryLabel = if (isMuscles) "Progress" else "Strength",
                 primaryColor = if (isMuscles) colors.setComplete else colors.textData,
+                primaryStyle = if (isMuscles) LegendSwatchStyle.Bar else LegendSwatchStyle.Line,
                 secondaryLabel = "Volume",
-                secondaryColor = if (isMuscles) {
-                    colors.textMuted
+                secondaryColor = colors.textMuted.copy(alpha = PREVIEW_VOLUME_GHOST_ALPHA),
+                caption = if (isMuscles) {
+                    "Bars are progress vs early baseline (0)"
                 } else {
-                    colors.textMuted.copy(alpha = PREVIEW_VOLUME_GHOST_ALPHA)
+                    "Session counts · last 13 weeks"
                 },
+                showStatusLegend = true,
             )
         }
     }
@@ -102,29 +105,33 @@ private fun DashboardScreenPreviewContent() {
     DashboardScreen(
         state = DashboardUiState.Loaded(
             windowWeeks = 13,
+            // Ordered by sets/wk descending (matches LoadDashboardUseCase).
+            // Progress points are log-index vs baseline (about zero), not e1RM-scale values.
             muscles = listOf(
-                MuscleSeriesUi(
-                    name = "Back",
-                    headlineVolume = "10 sets/wk",
-                    badge = TrendBadge.Down,
-                    progressPoints = descendingSeries(),
-                    volumePoints = descendingSeries(),
-                    contributingLifts = 3,
-                ),
                 MuscleSeriesUi(
                     name = "Chest",
                     headlineVolume = "14 sets/wk",
                     badge = TrendBadge.Up,
-                    progressPoints = ascendingSeries(),
-                    volumePoints = ascendingSeries(),
+                    progressPoints = risingIndexSeries(),
+                    volumePoints = risingVolumeSeries(),
                     contributingLifts = 2,
+                    highlight = CalloutDirectionUi.Progressing,
+                ),
+                MuscleSeriesUi(
+                    name = "Back",
+                    headlineVolume = "10 sets/wk",
+                    badge = TrendBadge.Down,
+                    progressPoints = fallingIndexSeries(),
+                    volumePoints = fallingVolumeSeries(),
+                    contributingLifts = 3,
+                    highlight = CalloutDirectionUi.Regressing,
                 ),
                 MuscleSeriesUi(
                     name = "Quad",
                     headlineVolume = "8 sets/wk",
                     badge = TrendBadge.Flat,
-                    progressPoints = flatSeries(),
-                    volumePoints = flatSeries(),
+                    progressPoints = flatIndexSeries(),
+                    volumePoints = flatVolumeSeries(),
                     contributingLifts = 2,
                 ),
                 MuscleSeriesUi(
@@ -132,37 +139,46 @@ private fun DashboardScreenPreviewContent() {
                     headlineVolume = "6 sets/wk",
                     badge = TrendBadge.Unknown,
                     progressPoints = emptyList(),
-                    volumePoints = ascendingSeries(),
+                    volumePoints = risingVolumeSeries(),
                     contributingLifts = 1,
                 ),
             ),
-            lifts = listOf(
-                LiftSeriesUi(
-                    name = "Barbell Row",
-                    e1rmText = "185 lb",
-                    badge = TrendBadge.Down,
-                    performancePoints = descendingSeries(),
-                    volumePoints = flatSeries(),
-                    tenureText = "12 wks",
-                    sessions = 18,
+            liftSections = listOf(
+                LiftSectionUi(
+                    title = SECTION_UPPER,
+                    lifts = listOf(
+                        LiftSeriesUi(
+                            name = "Bench Press",
+                            e1rmText = "225 lb",
+                            badge = TrendBadge.Up,
+                            performancePoints = ascendingSeries(),
+                            volumePoints = ascendingSeries(),
+                            sessions = 22,
+                            highlight = CalloutDirectionUi.Progressing,
+                        ),
+                        LiftSeriesUi(
+                            name = "Barbell Row",
+                            e1rmText = "185 lb",
+                            badge = TrendBadge.Down,
+                            performancePoints = descendingSeries(),
+                            volumePoints = flatSeries(),
+                            sessions = 18,
+                            highlight = CalloutDirectionUi.Regressing,
+                        ),
+                    ),
                 ),
-                LiftSeriesUi(
-                    name = "Bench Press",
-                    e1rmText = "225 lb",
-                    badge = TrendBadge.Up,
-                    performancePoints = ascendingSeries(),
-                    volumePoints = ascendingSeries(),
-                    tenureText = "16 wks",
-                    sessions = 22,
-                ),
-                LiftSeriesUi(
-                    name = "Hack Squat",
-                    e1rmText = "315 lb",
-                    badge = TrendBadge.Flat,
-                    performancePoints = flatSeries(),
-                    volumePoints = flatSeries(),
-                    tenureText = "8 wks",
-                    sessions = 11,
+                LiftSectionUi(
+                    title = SECTION_LOWER,
+                    lifts = listOf(
+                        LiftSeriesUi(
+                            name = "Hack Squat",
+                            e1rmText = "315 lb",
+                            badge = TrendBadge.Flat,
+                            performancePoints = flatSeries(),
+                            volumePoints = flatSeries(),
+                            sessions = 11,
+                        ),
+                    ),
                 ),
             ),
         ),
@@ -170,6 +186,7 @@ private fun DashboardScreenPreviewContent() {
     )
 }
 
+/** Lift e1RM-scale series for strength sparklines. */
 private fun ascendingSeries(): List<TrendPointUi> =
     listOf(
         TrendPointUi(0, 100f), TrendPointUi(1, 103f), TrendPointUi(2, 105f),
@@ -186,4 +203,41 @@ private fun flatSeries(): List<TrendPointUi> =
     listOf(
         TrendPointUi(0, 105f), TrendPointUi(1, 104f), TrendPointUi(2, 106f),
         TrendPointUi(3, 105f), TrendPointUi(4, 105f),
+    )
+
+/** Muscle outcome-index series (log deviation about 0). */
+private fun risingIndexSeries(): List<TrendPointUi> =
+    listOf(
+        TrendPointUi(0, -0.01f), TrendPointUi(1, -0.004f), TrendPointUi(2, 0.002f),
+        TrendPointUi(3, 0.008f), TrendPointUi(4, 0.014f),
+    )
+
+private fun fallingIndexSeries(): List<TrendPointUi> =
+    listOf(
+        TrendPointUi(0, 0.012f), TrendPointUi(1, 0.006f), TrendPointUi(2, 0.001f),
+        TrendPointUi(3, -0.005f), TrendPointUi(4, -0.01f),
+    )
+
+private fun flatIndexSeries(): List<TrendPointUi> =
+    listOf(
+        TrendPointUi(0, 0.002f), TrendPointUi(1, -0.001f), TrendPointUi(2, 0.003f),
+        TrendPointUi(3, 0.0f), TrendPointUi(4, 0.001f),
+    )
+
+private fun risingVolumeSeries(): List<TrendPointUi> =
+    listOf(
+        TrendPointUi(0, 8f), TrendPointUi(1, 10f), TrendPointUi(2, 11f),
+        TrendPointUi(3, 13f), TrendPointUi(4, 14f),
+    )
+
+private fun fallingVolumeSeries(): List<TrendPointUi> =
+    listOf(
+        TrendPointUi(0, 14f), TrendPointUi(1, 12f), TrendPointUi(2, 10f),
+        TrendPointUi(3, 9f), TrendPointUi(4, 8f),
+    )
+
+private fun flatVolumeSeries(): List<TrendPointUi> =
+    listOf(
+        TrendPointUi(0, 10f), TrendPointUi(1, 9f), TrendPointUi(2, 11f),
+        TrendPointUi(3, 10f), TrendPointUi(4, 10f),
     )

@@ -18,7 +18,13 @@
     <string name="dashboard_legend_progress">Progress</string>
     <string name="dashboard_legend_strength">Strength</string>
     <string name="dashboard_legend_volume">Volume</string>
-    <string name="dashboard_sessions_format">%1$d sessions</string>
+    <string name="dashboard_legend_baseline_caption">Bars are progress vs early baseline (0)</string>
+    <string name="dashboard_legend_lifts_window_caption">Session counts · last %1$d weeks</string>
+    <string name="dashboard_legend_progressing">Progressing</string>
+    <string name="dashboard_legend_regressing">Regressing</string>
+    <string name="dashboard_lift_footer_format">%1$d sessions</string>
+    <string name="dashboard_section_upper">Upper</string>
+    <string name="dashboard_section_lower">Lower</string>
     <string name="dashboard_contributing_lifts_format">%1$d lifts</string>
     <string name="settings_title">Settings</string>
     <string name="settings_placeholder">Settings land in a later slice.</string>
