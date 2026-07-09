@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +44,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.component.RirTargetBottomSheet
@@ -80,8 +82,16 @@ fun EditWorkoutRoute(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
     val loadedState = state as? EditWorkoutUiState.Loaded
     var showDiscardDialog by remember { mutableStateOf(false) }
+
+    UserMessageEffect(
+        userMessage = userMessage,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::userMessageShown,
+    )
 
     BackHandler(enabled = loadedState?.isDirty == true) {
         showDiscardDialog = true
@@ -138,6 +148,7 @@ fun EditWorkoutRoute(
                     onReorderLiftsClick(workoutId)
                 },
             ),
+        snackbarHostState = snackbarHostState,
         modifier = modifier,
     )
 }
@@ -151,6 +162,7 @@ fun EditWorkoutScreen(
     showDiscardDialog: Boolean = false,
     onDismissDiscardDialog: () -> Unit = {},
     onConfirmDiscard: () -> Unit = {},
+    snackbarHostState: SnackbarHostState? = null,
 ) {
     var restSheetSet by remember { mutableStateOf<EditSetState?>(null) }
     var restSheetLiftId by remember { mutableStateOf<String?>(null) }
@@ -162,6 +174,7 @@ fun EditWorkoutScreen(
 
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHostState = snackbarHostState,
         topBar = {
             EditWorkoutTopBar(
                 state = state,

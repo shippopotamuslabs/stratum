@@ -1,6 +1,8 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.first
  */
 class UpdateCustomLiftDetailsUseCase @Inject constructor(
     private val repository: LiftRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         id: LiftId,
@@ -20,22 +23,23 @@ class UpdateCustomLiftDetailsUseCase @Inject constructor(
                 IllegalArgumentException("At least one movement pattern is required"),
             )
         }
-        val lift =
-            repository.observeLifts().first().firstOrNull { it.id == id }
-                ?: return Result.failure(IllegalArgumentException("Lift not found"))
-        if (!lift.isCustom) {
-            return Result.failure(
-                IllegalArgumentException("Catalog lifts cannot be edited"),
+        return runCatchingLogged(loggingPort, TAG, "Failed to update custom lift details") {
+            val lift =
+                repository.observeLifts().first().firstOrNull { it.id == id }
+                    ?: error("Lift not found")
+            require(lift.isCustom) { "Catalog lifts cannot be edited" }
+            val equipment =
+                details.equipment
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+            repository.updateCustomLiftDetails(
+                id,
+                details.copy(equipment = equipment),
             )
         }
-        val equipment =
-            details.equipment
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-        repository.updateCustomLiftDetails(
-            id,
-            details.copy(equipment = equipment),
-        )
-        return Result.success(Unit)
+    }
+
+    private companion object {
+        const val TAG = "UpdateCustomLiftDetails"
     }
 }

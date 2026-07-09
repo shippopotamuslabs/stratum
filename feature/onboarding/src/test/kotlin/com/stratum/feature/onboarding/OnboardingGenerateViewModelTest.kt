@@ -1,5 +1,7 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
@@ -219,6 +221,7 @@ class OnboardingGenerateViewModelTest {
                     com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
                 ),
                 saveOnboardingProgress = com.stratum.domain.onboarding.SaveOnboardingProgressUseCase(onboardingRepo),
+                loggingPort = com.stratum.core.testing.logging.FakeLoggingPort(),
             ),
             getOnboardingStepCapabilities = com.stratum.domain.onboarding.GetOnboardingStepCapabilitiesUseCase(
                 validateCurrentStep,

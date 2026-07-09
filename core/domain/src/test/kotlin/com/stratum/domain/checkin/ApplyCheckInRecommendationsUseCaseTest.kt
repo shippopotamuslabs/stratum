@@ -1,5 +1,6 @@
 package com.stratum.domain.checkin
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
@@ -45,7 +46,8 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = events,
-                completeCheckIn = CompleteCheckInUseCase(prefs),
+                completeCheckIn = CompleteCheckInUseCase(prefs, FakeLoggingPort()),
+                loggingPort = FakeLoggingPort(),
             )
 
         val result =
@@ -80,7 +82,8 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(prefs),
+                completeCheckIn = CompleteCheckInUseCase(prefs, FakeLoggingPort()),
+                loggingPort = FakeLoggingPort(),
             )
 
         assertTrue(useCase(emptyList()).isSuccess)
@@ -96,7 +99,8 @@ class ApplyCheckInRecommendationsUseCaseTest {
             ApplyCheckInRecommendationsUseCase(
                 programRepository = programRepo,
                 programChangeEventRepository = FakeProgramChangeEventRepository(),
-                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository()),
+                completeCheckIn = CompleteCheckInUseCase(FakeCheckInPreferencesRepository(), FakeLoggingPort()),
+                loggingPort = FakeLoggingPort(),
             )
         useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3))).getOrThrow()
         useCase(listOf(CheckInApplyCommand.SetWorkingSets(workoutLiftId, 3))).getOrThrow()

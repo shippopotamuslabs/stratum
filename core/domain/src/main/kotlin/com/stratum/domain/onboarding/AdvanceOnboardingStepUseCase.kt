@@ -2,6 +2,8 @@ package com.stratum.domain.onboarding
 
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 
 /** Direction of wizard step navigation. */
@@ -15,6 +17,9 @@ sealed interface AdvanceOnboardingStepResult {
     data class Success(val newStep: OnboardingStep) : AdvanceOnboardingStepResult
     data object ValidationFailed : AdvanceOnboardingStepResult
     data object NoOp : AdvanceOnboardingStepResult
+
+    /** Profile / specialization / progress I/O failed after validation passed. */
+    data object PersistenceFailed : AdvanceOnboardingStepResult
 }
 
 /**
@@ -31,6 +36,7 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
     private val updateUserTrainingProfile: UpdateUserTrainingProfileUseCase,
     private val updateSpecialization: UpdateSpecializationUseCase,
     private val saveOnboardingProgress: SaveOnboardingProgressUseCase,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
         currentStep: OnboardingStep,
@@ -78,10 +84,17 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
             specialization
         }
 
-        updateUserTrainingProfile(profileToSave)
-        updateSpecialization(specializationToSave)
-        saveOnboardingProgress(targetStep)
-        return AdvanceOnboardingStepResult.Success(targetStep)
+        val persistResult =
+            runCatchingLogged(loggingPort, TAG, "Failed to advance onboarding step") {
+                updateUserTrainingProfile(profileToSave)
+                updateSpecialization(specializationToSave)
+                saveOnboardingProgress(targetStep)
+            }
+        return if (persistResult.isSuccess) {
+            AdvanceOnboardingStepResult.Success(targetStep)
+        } else {
+            AdvanceOnboardingStepResult.PersistenceFailed
+        }
     }
 
     /**
@@ -103,4 +116,8 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
             OnboardingStep.Review ->
                 if (profile.weekdays.isEmpty()) OnboardingPath.Import else OnboardingPath.Generate
         }
+
+    private companion object {
+        const val TAG = "AdvanceOnboardingStep"
+    }
 }

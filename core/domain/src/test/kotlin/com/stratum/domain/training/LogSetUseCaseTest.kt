@@ -1,5 +1,6 @@
 package com.stratum.domain.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -34,13 +35,16 @@ class LogSetUseCaseTest {
     fun wl032_logSetRejectsCompleted() = runTest {
         val repo = FakeTrainingLogRepository()
         repo.seedSession(WorkoutLoggingFixtures.completedLiveSession(id = "ts-done"))
-        val useCase = buildUseCase(repo)
+        val logging = FakeLoggingPort()
+        val useCase = buildUseCase(repo, logging)
 
         val result = useCase(command(sessionId = "ts-done"))
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is TrainingSessionNotInProgressException)
         assertEquals(0, repo.insertSetCallCount)
+        assertEquals(1, logging.errors.size)
+        assertTrue(logging.errors.single().throwable is TrainingSessionNotInProgressException)
     }
 
     @Test
@@ -67,6 +71,7 @@ class LogSetUseCaseTest {
             liftRepo,
             FakeProgramRepository(programWithLift()),
             StubLoggedLiftContextFactory(),
+            FakeLoggingPort(),
         )
 
         val set = useCase(command()).getOrThrow()
@@ -75,11 +80,15 @@ class LogSetUseCaseTest {
         assertEquals("Barbell Bench Press", set.liftContext.liftName)
     }
 
-    private fun buildUseCase(repo: FakeTrainingLogRepository) = LogSetUseCase(
+    private fun buildUseCase(
+        repo: FakeTrainingLogRepository,
+        logging: FakeLoggingPort = FakeLoggingPort(),
+    ) = LogSetUseCase(
         repo,
         FakeLiftRepository(initialLifts = listOf(WorkoutLoggingFixtures.benchLift())),
         FakeProgramRepository(programWithLift()),
         StubLoggedLiftContextFactory(),
+        logging,
     )
 
     private fun programWithLift() = WorkoutLoggingFixtures.twoWorkoutProgram().copy(

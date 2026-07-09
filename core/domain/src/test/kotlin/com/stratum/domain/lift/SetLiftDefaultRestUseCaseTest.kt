@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -16,7 +17,7 @@ class SetLiftDefaultRestUseCaseTest {
     fun setsOverrideOnCatalogLift() = runTest {
         val lift = sampleLift(isCustom = false)
         val repo = FakeLiftRepository(listOf(lift))
-        val useCase = SetLiftDefaultRestUseCase(repo)
+        val useCase = SetLiftDefaultRestUseCase(repo, FakeLoggingPort())
 
         val result = useCase(lift.id, 150)
 
@@ -29,7 +30,7 @@ class SetLiftDefaultRestUseCaseTest {
     fun rejectsOutOfRange() = runTest {
         val lift = sampleLift(isCustom = true)
         val repo = FakeLiftRepository(listOf(lift))
-        val useCase = SetLiftDefaultRestUseCase(repo)
+        val useCase = SetLiftDefaultRestUseCase(repo, FakeLoggingPort())
 
         val result = useCase(lift.id, 999)
 

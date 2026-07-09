@@ -1,5 +1,6 @@
 package com.stratum.domain.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -32,7 +33,7 @@ class GetWorkoutSummaryUseCaseTest {
             programRepository = programRepo,
         )
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo))
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
 
         val summary = useCase(sessionId).getOrThrow()
 
@@ -49,7 +50,7 @@ class GetWorkoutSummaryUseCaseTest {
             programRepository = programRepo,
         )
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo))
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
 
         val summary = useCase(TrainingSessionId("ts-1")).getOrThrow()
 
@@ -67,7 +68,7 @@ class GetWorkoutSummaryUseCaseTest {
             programRepository = programRepo,
         )
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo))
+        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
 
         // Add two logged sets for bench: 135×5 and 185×3
         logRepo.insertSet(

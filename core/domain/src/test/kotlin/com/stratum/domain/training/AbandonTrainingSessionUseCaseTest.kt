@@ -1,5 +1,6 @@
 package com.stratum.domain.training
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -21,7 +22,7 @@ class AbandonTrainingSessionUseCaseTest {
                 sessionId = TrainingSessionId("ts-live-1"),
             ),
         )
-        val useCase = AbandonTrainingSessionUseCase(repo)
+        val useCase = AbandonTrainingSessionUseCase(repo, FakeLoggingPort())
 
         useCase(TrainingSessionId("ts-live-1")).getOrThrow()
 

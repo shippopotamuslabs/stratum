@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,8 +26,10 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -88,6 +91,8 @@ fun WorkoutRoute(
     val totalRestSeconds = running?.totalSeconds ?: 0
     val isRestTimerActive = running != null && remainingRestSeconds > 0
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(workoutId) {
         viewModel.startSession(WorkoutId(workoutId))
@@ -97,15 +102,27 @@ fun WorkoutRoute(
         viewModel.events.collect { event ->
             when (event) {
                 is WorkoutUiEvent.NavigateToFinalize -> onNavigateToFinalize(event.sessionId)
-                is WorkoutUiEvent.ShowMessage -> Unit
             }
         }
     }
 
+    UserMessageEffect(
+        userMessage = userMessage,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::userMessageShown,
+    )
+
     when (val state = uiState) {
-        is WorkoutUiState.Loading -> LoadingContent()
-        is WorkoutUiState.NoActiveSession -> NoActiveSessionContent(onNavigateBack)
-        is WorkoutUiState.Error -> ErrorContent(state.message, onNavigateBack)
+        is WorkoutUiState.Loading -> LoadingContent(snackbarHostState = snackbarHostState)
+        is WorkoutUiState.NoActiveSession -> NoActiveSessionContent(
+            onNavigateBack = onNavigateBack,
+            snackbarHostState = snackbarHostState,
+        )
+        is WorkoutUiState.Error -> ErrorContent(
+            message = state.message,
+            onNavigateBack = onNavigateBack,
+            snackbarHostState = snackbarHostState,
+        )
         is WorkoutUiState.Loaded -> {
             val restChrome = RestTimerChrome(
                 isActive = isRestTimerActive,
@@ -125,6 +142,7 @@ fun WorkoutRoute(
             WorkoutScreen(
                 state = state,
                 restTimer = restChrome,
+                snackbarHostState = snackbarHostState,
                 actions = WorkoutScreenActions(
                     onNavigateBack = onNavigateBack,
                     onCompleteWorkout = viewModel::completeWorkout,
@@ -157,41 +175,54 @@ fun WorkoutRoute(
 }
 
 @Composable
-private fun LoadingContent() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        CircularProgressIndicator()
+private fun LoadingContent(snackbarHostState: SnackbarHostState) {
+    StratumScaffold(snackbarHostState = snackbarHostState) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            CircularProgressIndicator()
+        }
     }
 }
 
 @Composable
-private fun NoActiveSessionContent(onNavigateBack: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        StratumText(text = "No active session.")
-        Spacer(modifier = Modifier.height(16.dp))
-        StratumButton(text = "Back", onClick = onNavigateBack)
+private fun NoActiveSessionContent(
+    onNavigateBack: () -> Unit,
+    snackbarHostState: SnackbarHostState,
+) {
+    StratumScaffold(snackbarHostState = snackbarHostState) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            StratumText(text = "No active session.")
+            Spacer(modifier = Modifier.height(16.dp))
+            StratumButton(text = "Back", onClick = onNavigateBack)
+        }
     }
 }
 
 @Composable
-private fun ErrorContent(message: String, onNavigateBack: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        StratumText(
-            text = "Error: $message",
-            style = StratumThemeAccessor.typography.bodyLarge.copy(color = StratumThemeAccessor.colors.error),
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        StratumButton(text = "Back", onClick = onNavigateBack)
+private fun ErrorContent(
+    message: String,
+    onNavigateBack: () -> Unit,
+    snackbarHostState: SnackbarHostState,
+) {
+    StratumScaffold(snackbarHostState = snackbarHostState) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            StratumText(
+                text = "Error: $message",
+                style = StratumThemeAccessor.typography.bodyLarge.copy(color = StratumThemeAccessor.colors.error),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            StratumButton(text = "Back", onClick = onNavigateBack)
+        }
     }
 }

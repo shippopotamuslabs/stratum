@@ -1,5 +1,7 @@
 package com.stratum.liftconfig
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -32,7 +34,7 @@ class CreateLiftViewModelTest {
         fakeLiftRepository.seedLifts(emptyList())
         subject =
             CreateLiftViewModel(
-                addCustomLift = AddCustomLiftUseCase(fakeLiftRepository),
+                addCustomLift = AddCustomLiftUseCase(fakeLiftRepository, FakeLoggingPort()),
             )
     }
 

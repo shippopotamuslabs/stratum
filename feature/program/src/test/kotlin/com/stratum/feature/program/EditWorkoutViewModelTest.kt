@@ -1,5 +1,6 @@
 package com.stratum.feature.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
@@ -419,7 +420,7 @@ class EditWorkoutViewModelTest {
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, com.stratum.core.testing.training.NoOpProgramChangeEventRepository()),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, com.stratum.core.testing.training.NoOpProgramChangeEventRepository(), FakeLoggingPort()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
             programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
@@ -626,7 +627,7 @@ class EditWorkoutViewModelTest {
         val viewModel = EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, events),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, events, FakeLoggingPort()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
             programChangeEventRepository = events,

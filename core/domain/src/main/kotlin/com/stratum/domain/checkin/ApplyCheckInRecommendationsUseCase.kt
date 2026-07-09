@@ -25,12 +25,17 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val completeCheckIn: CompleteCheckInUseCase,
+    private val loggingPort: com.stratum.domain.logging.LoggingPort,
 ) {
     suspend operator fun invoke(
         commands: List<CheckInApplyCommand>,
         now: Instant = Instant.now(),
     ): Result<Unit> =
-        runCatching {
+        com.stratum.domain.logging.runCatchingLogged(
+            loggingPort,
+            TAG,
+            "Failed to apply check-in recommendations",
+        ) {
             if (commands.isNotEmpty()) {
                 val program =
                     programRepository.getProgram()
@@ -39,8 +44,12 @@ class ApplyCheckInRecommendationsUseCase @Inject constructor(
                 programRepository.saveProgram(updated)
                 events.forEach { programChangeEventRepository.append(it) }
             }
-            completeCheckIn(now)
+            completeCheckIn(now).getOrThrow()
         }
+
+    private companion object {
+        const val TAG = "ApplyCheckIn"
+    }
 
     private fun applyAll(
         program: Program,

@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -19,6 +21,7 @@ import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.StratumTopBarTextButton
+import com.stratum.core.ui.component.UserMessageEffect
 
 @Composable
 fun CreateLiftRoute(
@@ -26,6 +29,12 @@ fun CreateLiftRoute(
     viewModel: CreateLiftViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    UserMessageEffect(
+        userMessage = state.errorMessage,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::errorMessageShown,
+    )
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
@@ -38,6 +47,7 @@ fun CreateLiftRoute(
         onBackClick = onBackClick,
         onConfirm = viewModel::onConfirm,
         onNameChange = viewModel::onNameChange,
+        snackbarHostState = snackbarHostState,
         actions =
             LiftDetailsEditorActions(
                 onMuscleRoleSelected = viewModel::onMuscleRoleSelected,
@@ -67,9 +77,11 @@ fun CreateLiftScreen(
     onNameChange: (String) -> Unit,
     actions: LiftDetailsEditorActions,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState? = null,
 ) {
     StratumScaffold(
         modifier = modifier,
+        snackbarHostState = snackbarHostState,
         topBar = {
             StratumTopBar(
                 title = stringResource(UiR.string.lift_swap_create_new_lift),

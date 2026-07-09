@@ -1,5 +1,7 @@
 package com.stratum.feature.settings
 
+import com.stratum.core.testing.logging.FakeLoggingPort
+
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
@@ -45,10 +47,10 @@ class SettingsViewModelTest {
         SettingsViewModel(
             observeThemePreferences = ObserveThemePreferencesUseCase(fakeThemePreferences),
             observeCheckInPreferences = ObserveCheckInPreferencesUseCase(fakeCheckInPreferences),
-            setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences),
-            setColorMode = SetColorModeUseCase(fakeThemePreferences),
-            setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences),
-            markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences),
+            setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences, FakeLoggingPort()),
+            setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
+            setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
+            markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
         )
 
     @Test
