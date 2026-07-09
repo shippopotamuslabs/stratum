@@ -21,7 +21,8 @@ import kotlinx.coroutines.flow.first
  * `muscle_weekly_stimulus` (per-muscle/week hard-set volume) and `lift_weekly_performance`
  * (per-lift/week peak e1RM) — over **all** history (imported + live), and replaces only those two
  * tables in one transaction. Dose-response / outcome-index modeling is intentionally **not** run
- * here: that work is heavier and stays import-only until promoted to a WorkManager worker.
+ * here: that heavier pipeline runs on the response-modeling WorkManager worker
+ * (`ResponseModelingWorker`, [com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS] gate).
  *
  * Triggered fire-and-forget by [FinalizeTrainingSessionUseCase] on workout completion so the
  * dashboard tables never go stale relative to live workouts. Reads raw [LoggedSet]s (the source of

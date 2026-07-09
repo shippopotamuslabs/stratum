@@ -2,6 +2,7 @@ package com.stratum.domain.response
 
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
+import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import java.time.Instant
 
@@ -67,6 +68,30 @@ interface LiftWeeklyPerformanceRepository {
     suspend fun getAll(): List<LiftWeeklyPerformance>
 
     suspend fun getSince(windowStart: Instant): List<LiftWeeklyPerformance>
+}
+
+/**
+ * Read access to the per-muscle/week outcome index (log-e1RM deviation, credit-weighted). Written by
+ * the full extract pipeline ([ExtractResponseProfileUseCase] / response-modeling worker); the
+ * dashboard reads a bounded window ([getSince]) for the muscle progress line.
+ */
+interface MuscleWeeklyOutcomeIndexRepository {
+    suspend fun replaceAll(indices: List<MuscleWeeklyOutcomeIndex>)
+
+    suspend fun getAll(): List<MuscleWeeklyOutcomeIndex>
+
+    suspend fun getSince(windowStart: Instant): List<MuscleWeeklyOutcomeIndex>
+}
+
+/**
+ * Schedules a background re-run of the dose-response extract pipeline. Defined as a domain port so
+ * [com.stratum.domain.training.FinalizeTrainingSessionUseCase] can request work without depending on
+ * WorkManager (Android-only; implemented in `:core:data`).
+ *
+ * Implementations must enqueue non-blockingly (schedule only — never await worker completion).
+ */
+interface ResponseModelingSchedulerPort {
+    fun enqueueRefresh()
 }
 
 interface ExperimentRegistry {

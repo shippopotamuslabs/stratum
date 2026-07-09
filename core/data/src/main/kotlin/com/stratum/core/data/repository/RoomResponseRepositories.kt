@@ -23,6 +23,7 @@ import com.stratum.domain.response.LiftEffectivenessObservation
 import com.stratum.domain.response.LiftEffectivenessObservationRepository
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
 import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
+import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
 import com.stratum.domain.response.MuscleWeeklyStimulusRepository
 import com.stratum.domain.response.ResponseEpochRepository
 import com.stratum.domain.response.ResponseProfileMetadata
@@ -32,6 +33,7 @@ import com.stratum.domain.response.VolumeResponseObservation
 import com.stratum.domain.response.VolumeResponseObservationRepository
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
+import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import java.time.Instant
 import javax.inject.Inject
@@ -246,5 +248,23 @@ class RoomLiftWeeklyPerformanceRepository @Inject constructor(
         dao.getAll().map { it.toDomain() }
 
     override suspend fun getSince(windowStart: Instant): List<LiftWeeklyPerformance> =
+        dao.getSince(windowStart.toEpochMilli()).map { it.toDomain() }
+}
+
+class RoomMuscleWeeklyOutcomeIndexRepository @Inject constructor(
+    private val database: StratumDatabase,
+    private val dao: MuscleWeeklyOutcomeIndexDao,
+) : MuscleWeeklyOutcomeIndexRepository {
+    override suspend fun replaceAll(indices: List<MuscleWeeklyOutcomeIndex>) {
+        database.withTransaction {
+            dao.deleteAll()
+            if (indices.isNotEmpty()) dao.upsertAll(indices.map { it.toEntity() })
+        }
+    }
+
+    override suspend fun getAll(): List<MuscleWeeklyOutcomeIndex> =
+        dao.getAll().map { it.toDomain() }
+
+    override suspend fun getSince(windowStart: Instant): List<MuscleWeeklyOutcomeIndex> =
         dao.getSince(windowStart.toEpochMilli()).map { it.toDomain() }
 }

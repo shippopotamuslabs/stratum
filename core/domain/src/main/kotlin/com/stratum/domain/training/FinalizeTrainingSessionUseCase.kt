@@ -5,6 +5,7 @@ import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.InsightsAnalysisScope
 import com.stratum.domain.program.ProgramRepository
+import com.stratum.domain.response.ResponseModelingSchedulerPort
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.util.logging.Level
@@ -21,6 +22,8 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
     private val computePersonalRecords: ComputePersonalRecordsUseCase,
     private val extractTrainingInsights: ExtractTrainingInsightsUseCase,
     private val refreshWeeklySeries: RefreshWeeklySeriesUseCase,
+    private val responseModelingScheduler: ResponseModelingSchedulerPort =
+        NoOpResponseModelingScheduler,
     // Process-lifetime scope (SupervisorJob) so the post-completion derived-data refresh outlives
     // the ViewModel that triggered completion. Defaulted to a Main.immediate scope so JVM tests
     // can construct the use case without Hilt.
@@ -78,6 +81,10 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
         // dashboard tables refresh behind the user. Failures are swallowed inside refreshInsights().
         refreshScope.launch(refreshDispatcher) { refreshInsights() }
 
+        // Schedule heavy dose-response re-extract (WorkManager). Non-blocking: only enqueues unique
+        // work; the worker enforces RE_EXTRACT_MIN_COMPLETED_WORKOUTS and does not delay this return.
+        responseModelingScheduler.enqueueRefresh()
+
         completed
     }
 
@@ -88,6 +95,8 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
      *     [extractTrainingInsights] with [InsightsAnalysisScope.All].
      *  2. Weekly series (muscle_weekly_stimulus, lift_weekly_performance) via
      *     [refreshWeeklySeries] — the cheap deterministic tables the dashboard charts read.
+     * Dose-response / outcome-index modeling is **not** run here — that is scheduled separately
+     * via [responseModelingScheduler] (WorkManager worker, 28-day gate).
      * A failure in either stage must never fail the other or session completion — the session is
      * already persisted, so we swallow and log here.
      */
@@ -109,4 +118,9 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
             )
         }
     }
+}
+
+/** Default no-op for JVM unit tests that construct finalize without Hilt. */
+private object NoOpResponseModelingScheduler : ResponseModelingSchedulerPort {
+    override fun enqueueRefresh() = Unit
 }

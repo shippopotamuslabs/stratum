@@ -44,6 +44,13 @@ interface MuscleWeeklyOutcomeIndexDao {
 
     @Query("SELECT * FROM muscle_weekly_outcome_indices")
     suspend fun getAll(): List<MuscleWeeklyOutcomeIndexEntity>
+
+    @Query(
+        "SELECT * FROM muscle_weekly_outcome_indices " +
+            "WHERE weekStartEpochMillis >= :weekStartEpochMillis " +
+            "ORDER BY weekStartEpochMillis",
+    )
+    suspend fun getSince(weekStartEpochMillis: Long): List<MuscleWeeklyOutcomeIndexEntity>
 }
 
 @Dao
