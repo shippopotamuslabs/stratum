@@ -1,9 +1,12 @@
 package com.stratum
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -17,6 +20,7 @@ import com.stratum.core.data.auth.SignInHostContext
 import com.stratum.core.ui.auth.StratumAuthUiState
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.feature.workout.notification.WorkoutNavExtras
 import com.stratum.navigation.StratumNavHost
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -29,11 +33,14 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var loggingPort: LoggingPort
 
+    private var pendingWorkoutId by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         signInHostContext.attach(this)
         initFirebaseAppCheck()
         enableEdgeToEdge()
+        pendingWorkoutId = intent.workoutIdExtra()
         setContent {
             StratumTheme {
                 val viewModel: MainViewModel = hiltViewModel()
@@ -49,10 +56,19 @@ class MainActivity : FragmentActivity() {
                         authState = authState,
                         onSignInWithGoogle = viewModel::onSignInWithGoogle,
                     )
-                    is StratumAuthUiState.Authenticated -> StratumNavHost()
+                    is StratumAuthUiState.Authenticated -> StratumNavHost(
+                        pendingWorkoutId = pendingWorkoutId,
+                        onPendingWorkoutConsumed = { pendingWorkoutId = null },
+                    )
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingWorkoutId = intent.workoutIdExtra()
     }
 
     override fun onDestroy() {
@@ -92,6 +108,9 @@ class MainActivity : FragmentActivity() {
                 )
             }
     }
+
+    private fun Intent.workoutIdExtra(): String? =
+        getStringExtra(WorkoutNavExtras.EXTRA_WORKOUT_ID)?.takeIf { it.isNotBlank() }
 
     private companion object {
         const val TAG = "StratumAppCheck"
