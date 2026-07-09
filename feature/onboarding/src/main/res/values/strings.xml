@@ -57,7 +57,7 @@
     <string name="onboarding_content_description_back">Go back</string>
 
     <!-- Welcome -->
-    <string name="welcome_message">A quietly competent training partner. Let\'s build your starting program.</string>
+    <string name="welcome_message">Welcome to Stratum. Let\'s build your starting program.</string>
 
     <!-- Profile -->
     <string name="profile_training_age_heading">How many years of solid training have you done?</string>
