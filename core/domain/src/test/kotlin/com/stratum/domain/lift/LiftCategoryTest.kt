@@ -36,6 +36,49 @@ class LiftCategoryTest {
         }
 
         @Test
+        @DisplayName(
+            "compound lower: single SquatPattern + NonAxialCompound (hack squat / leg press style)",
+        )
+        fun compoundLowerViaKinematicProfile() {
+            // Seed catalogs often store only SquatPattern on multi-joint machines; compound is
+            // carried by kinematicProfile, not co-patterns.
+            assertEquals(
+                LiftCategory.CompoundLower,
+                sampleLift(
+                    patterns = setOf(MovementPattern.SquatPattern),
+                    primary = setOf(MuscleGroup.Quad),
+                    kinematic = KinematicProfile.NonAxialCompound,
+                ).classifyLiftCategory(),
+            )
+        }
+
+        @Test
+        @DisplayName("compound lower: single SquatPattern + AxialCompound (barbell back squat)")
+        fun compoundLowerViaAxialKinematic() {
+            assertEquals(
+                LiftCategory.CompoundLower,
+                sampleLift(
+                    patterns = setOf(MovementPattern.SquatPattern),
+                    primary = setOf(MuscleGroup.Quad),
+                    kinematic = KinematicProfile.AxialCompound,
+                ).classifyLiftCategory(),
+            )
+        }
+
+        @Test
+        @DisplayName("lower isolation: single SquatPattern with Isolation kinematic stays isolation")
+        fun singlePatternIsolationKinematicStaysIsolation() {
+            assertEquals(
+                LiftCategory.IsolationLower,
+                sampleLift(
+                    patterns = setOf(MovementPattern.SquatPattern),
+                    primary = setOf(MuscleGroup.Quad),
+                    kinematic = KinematicProfile.Isolation,
+                ).classifyLiftCategory(),
+            )
+        }
+
+        @Test
         @DisplayName("upper isolation: bicep curl (ElbowFlexion + Bicep)")
         fun isolationUpper() {
             assertEquals(
@@ -101,6 +144,7 @@ class LiftCategoryTest {
         patterns: Set<MovementPattern>,
         primary: Set<MuscleGroup>,
         secondary: Set<MuscleGroup> = emptySet(),
+        kinematic: KinematicProfile = KinematicProfile.Isolation,
     ): Lift =
         Lift(
             id = LiftId("sample-${primary.joinToString { it.name }}"),
@@ -111,5 +155,6 @@ class LiftCategoryTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
+            kinematicProfile = kinematic,
         )
 }

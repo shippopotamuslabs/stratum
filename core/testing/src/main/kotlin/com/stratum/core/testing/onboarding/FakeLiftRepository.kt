@@ -102,6 +102,10 @@ class FakeLiftRepository(
                 equipment = definition.equipment,
                 enabled = true,
                 isCustom = true,
+                muscleLengthBias = definition.muscleLengthBias,
+                kinematicProfile = definition.kinematicProfile,
+                loadType = definition.loadType,
+                defaultRestSeconds = definition.defaultRestSeconds,
             )
         lifts.value = lifts.value + lift
         return id

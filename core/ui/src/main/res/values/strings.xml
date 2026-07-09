@@ -136,4 +136,7 @@
     <string name="lift_info_estimated_one_rep_max">Estimated One Rep Max</string>
     <string name="lift_info_weight_reps">%1$s × %2$d</string>
     <string name="lift_info_set_row">Set %1$d</string>
+    <string name="create_lift_name_label">Lift name</string>
+    <string name="create_lift_name_placeholder">e.g. Landmine Press</string>
+    <string name="create_lift_confirm">Confirm</string>
 </resources>

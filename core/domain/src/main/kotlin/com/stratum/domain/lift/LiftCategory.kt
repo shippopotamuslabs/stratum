@@ -56,9 +56,13 @@ enum class LiftCategory {
  * Classify a [Lift] into the swap filter's [LiftCategory]. Rules, in priority order:
  *
  * 1. **Core** — [MovementPattern.SpinalFlexion] is present, or the lift's primary muscles are
- *    entirely within `{Ab, LowerBack}` and it is not compound. (A compound like a heavy squat
- *    that lists `LowerBack` as a secondary still classifies by its primary movers.)
- * 2. **Compound vs Isolation** — [Lift.isCompound] (`movementPatterns.size > 1`).
+ *    entirely within `{Ab, LowerBack}` and it is not a compound (see [isCompoundForCategory]).
+ *    A heavy squat that lists `LowerBack` as a secondary still classifies by its primary movers.
+ * 2. **Compound vs Isolation** — [isCompoundForCategory]: multi-pattern **or** non-isolation
+ *    [KinematicProfile]. Catalog compounds often store a single primary pattern (e.g. only
+ *    [MovementPattern.SquatPattern] on a hack squat / back squat) with
+ *    [KinematicProfile.NonAxialCompound] / [KinematicProfile.AxialCompound]; pattern count alone
+ *    under-classifies those as isolation.
  * 3. **Upper vs Lower** — any primary muscle in [LOWER_BODY_MUSCLE_GROUPS] → Lower; else Upper.
  *
  * Pure function — safe to call from any thread, no framework deps.
@@ -69,13 +73,26 @@ fun Lift.classifyLiftCategory(): LiftCategory {
     val isCoreOnly =
         primaryMuscles.isNotEmpty() &&
             primaryMuscles.all { it == MuscleGroup.Ab || it == MuscleGroup.LowerBack }
-    if ((isCorePattern || isCoreOnly) && !isCompound) return LiftCategory.Core
+    val compound = isCompoundForCategory()
+    if ((isCorePattern || isCoreOnly) && !compound) return LiftCategory.Core
 
     val isLower = primaryMuscles.any { it in LOWER_BODY_MUSCLE_GROUPS }
     return when {
-        isCompound && isLower -> LiftCategory.CompoundLower
-        isCompound -> LiftCategory.CompoundUpper
+        compound && isLower -> LiftCategory.CompoundLower
+        compound -> LiftCategory.CompoundUpper
         isLower -> LiftCategory.IsolationLower
         else -> LiftCategory.IsolationUpper
     }
 }
+
+/**
+ * Whether this lift should appear under Compound Upper/Lower in the Gym / swap filters.
+ *
+ * Prefer the catalog's first-class [Lift.kinematicProfile] when it is compound; fall back to
+ * multi-pattern [Lift.isCompound] for older rows that only encode compound via co-patterns
+ * (press + elbow extension, hinge + hip extension, etc.).
+ */
+fun Lift.isCompoundForCategory(): Boolean =
+    isCompound ||
+        kinematicProfile == KinematicProfile.AxialCompound ||
+        kinematicProfile == KinematicProfile.NonAxialCompound
