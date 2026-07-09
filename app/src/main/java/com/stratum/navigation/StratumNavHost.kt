@@ -31,8 +31,10 @@ import com.stratum.feature.workout.navigation.WorkoutKey
 import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
 import com.stratum.feature.workout.navigation.workoutCompleteEntry
+import com.stratum.liftconfig.CreateLiftKey
 import com.stratum.liftconfig.LiftIncrementsKey
 import com.stratum.liftconfig.LiftInformationKey
+import com.stratum.liftconfig.createLiftEntry
 import com.stratum.liftconfig.liftIncrementsEntry
 import com.stratum.liftconfig.liftInformationEntry
 
@@ -121,7 +123,7 @@ fun StratumNavHost(
                         backStack.add(SettingsKey)
                     },
                     onCreateNewLift = {
-                        // Navigate to custom lift screen in future slice
+                        backStack.add(CreateLiftKey)
                     },
                     onNavigateToLiftIncrements = { liftId ->
                         backStack.add(LiftIncrementsKey(liftId))
@@ -139,6 +141,7 @@ fun StratumNavHost(
             }
             liftIncrementsEntry(onBackClick = onNavigateBack)
             liftInformationEntry(onBackClick = onNavigateBack)
+            createLiftEntry(onBackClick = onNavigateBack)
             settingsEntry(
                 onBackClick = onNavigateBack,
             )
@@ -168,7 +171,7 @@ fun StratumNavHost(
             liftSwapEntry(
                 onBackClick = onNavigateBack,
                 onCreateNewLift = {
-                    // Navigate to custom lift screen in future slice
+                    backStack.add(CreateLiftKey)
                 },
             )
             editWorkoutEntry(

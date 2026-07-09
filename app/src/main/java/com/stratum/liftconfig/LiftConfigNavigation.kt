@@ -10,6 +10,9 @@ data class LiftIncrementsKey(val liftId: String) : NavKey
 @Serializable
 data class LiftInformationKey(val liftId: String) : NavKey
 
+@Serializable
+data object CreateLiftKey : NavKey
+
 fun EntryProviderScope<NavKey>.liftIncrementsEntry(onBackClick: () -> Unit) {
     entry<LiftIncrementsKey> { key ->
         LiftIncrementsRoute(
@@ -25,5 +28,11 @@ fun EntryProviderScope<NavKey>.liftInformationEntry(onBackClick: () -> Unit) {
             liftId = key.liftId,
             onBackClick = onBackClick,
         )
+    }
+}
+
+fun EntryProviderScope<NavKey>.createLiftEntry(onBackClick: () -> Unit) {
+    entry<CreateLiftKey> {
+        CreateLiftRoute(onBackClick = onBackClick)
     }
 }

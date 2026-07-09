@@ -8,7 +8,10 @@ import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -143,6 +146,10 @@ class RoomLiftRepositoryTest {
                     movementPatterns = setOf(MovementPattern.HorizontalPress),
                     primaryMuscles = setOf(MuscleGroup.Chest),
                     increment = Weight(5.0, Weight.WeightUnit.Lb),
+                    muscleLengthBias = MuscleLengthBias.Lengthened,
+                    kinematicProfile = KinematicProfile.NonAxialCompound,
+                    loadType = LoadType.Weighted,
+                    defaultRestSeconds = 150,
                 ),
             )
 
@@ -152,6 +159,10 @@ class RoomLiftRepositoryTest {
             assertEquals("Landmine Press", custom.name)
             assertTrue(custom.enabled)
             assertTrue(custom.isCustom)
+            assertEquals(MuscleLengthBias.Lengthened, custom.muscleLengthBias)
+            assertEquals(KinematicProfile.NonAxialCompound, custom.kinematicProfile)
+            assertEquals(LoadType.Weighted, custom.loadType)
+            assertEquals(150, custom.defaultRestSeconds)
         }
 
         @Test
