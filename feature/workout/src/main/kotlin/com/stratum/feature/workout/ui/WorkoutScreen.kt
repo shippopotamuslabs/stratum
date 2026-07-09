@@ -478,7 +478,7 @@ private fun LiftSection(
         ) {
             StratumText(
                 text = lift.liftName,
-                style = StratumThemeAccessor.typography.titleLarge,
+                style = StratumThemeAccessor.typography.titleMedium,
                 modifier = Modifier.weight(1f).padding(end = 20.dp),
             )
             StratumIconButton(
