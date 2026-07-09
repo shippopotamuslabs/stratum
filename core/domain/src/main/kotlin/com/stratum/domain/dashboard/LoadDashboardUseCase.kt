@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Loads the windowed dashboard read model from the deterministic weekly tables. Reads a ~3-month
- * window ([WINDOW_WEEKS]).
+ * window ([DASHBOARD_PERFORMANCE_WINDOW_WEEKS]).
  *
  * Freshness:
  * - Volume / lift e1RM series: [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on finalize
@@ -63,7 +63,7 @@ class LoadDashboardUseCase @Inject constructor(
         val callouts = selectDashboardCallouts(muscles = muscles, lifts = lifts)
 
         return DashboardSummary(
-            windowWeeks = WINDOW_WEEKS,
+            windowWeeks = DASHBOARD_PERFORMANCE_WINDOW_WEEKS,
             asOf = now,
             muscles = muscles,
             lifts = lifts,
@@ -162,8 +162,7 @@ class LoadDashboardUseCase @Inject constructor(
     private fun MuscleGroup.displayName(): String = name.lowercase().replaceFirstChar { it.uppercase() }
 
     private companion object {
-        val WINDOW: Period = Period.ofWeeks(WINDOW_WEEKS)
-        const val WINDOW_WEEKS = 13
+        val WINDOW: Period = Period.ofWeeks(DASHBOARD_PERFORMANCE_WINDOW_WEEKS)
         /** Minimum weekly outcome-index points before a progress series is shown. */
         const val MIN_PROGRESS_POINTS = 3
     }

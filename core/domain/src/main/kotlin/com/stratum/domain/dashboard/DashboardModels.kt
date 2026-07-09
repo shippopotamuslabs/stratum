@@ -83,6 +83,12 @@ enum class SeriesDirection {
 }
 
 /**
+ * Default performance / dashboard lookback window (calendar weeks). Shared by
+ * [LoadDashboardUseCase] and check-in evaluation so both read the same series span.
+ */
+const val DASHBOARD_PERFORMANCE_WINDOW_WEEKS = 13
+
+/**
  * Dead-band for muscle progress slope on the log-deviation index scale (≈ ln(e1RM) per week).
  * Matches [com.stratum.domain.response.modeling] progress threshold used for [VolumePosture].
  * Weekly deltas on this scale are typically ~0.001–0.01, not the kg/week scale used for lifts.

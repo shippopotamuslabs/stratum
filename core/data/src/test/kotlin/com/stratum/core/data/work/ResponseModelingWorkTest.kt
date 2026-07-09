@@ -1,11 +1,13 @@
 package com.stratum.core.data.work
 
+import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FailOnVolumeResponseProfilePersistencePort
 import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
@@ -24,6 +26,8 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -63,13 +67,54 @@ class ResponseModelingWorkTest {
         seedCompletedWorkouts(trainingLog, count = RE_EXTRACT_MIN_COMPLETED_WORKOUTS, after = lastExtracted)
 
         val persistence = FakeResponseProfilePersistencePort(metadataRepository = metadataRepo)
-        val work = buildWork(persistence = persistence, trainingLog = trainingLog)
+        val checkInPrefs = FakeCheckInPreferencesRepository()
+        val work = buildWork(
+            persistence = persistence,
+            trainingLog = trainingLog,
+            checkInPrefs = checkInPrefs,
+        )
 
         val outcome = work.run()
 
         assertEquals(ResponseModelingWork.Outcome.Success, outcome)
         assertTrue(metadataRepo.get()!!.lastExtractedAt.isAfter(lastExtracted))
         assertTrue(persistence.epochRepository.getAll().isNotEmpty())
+        assertNotNull(checkInPrefs.current.pendingSinceExtractedAt)
+    }
+
+    @Test
+    @DisplayName("first extract does not mark check-in pending")
+    fun firstExtractDoesNotMarkPending() = runTest {
+        val checkInPrefs = FakeCheckInPreferencesRepository()
+        val work = buildWork(
+            persistence = FakeResponseProfilePersistencePort(),
+            trainingLog = FakeTrainingLogRepository(),
+            checkInPrefs = checkInPrefs,
+        )
+
+        assertEquals(ResponseModelingWork.Outcome.Success, work.run())
+        assertNull(checkInPrefs.current.pendingSinceExtractedAt)
+    }
+
+    @Test
+    @DisplayName("re-extract does not mark pending when check-ins disabled")
+    fun reExtractRespectsDisabledCheckIns() = runTest {
+        val lastExtracted = Instant.parse("2025-05-01T00:00:00Z")
+        val metadataRepo = FakeResponseProfileMetadataRepository()
+        metadataRepo.save(metadata(lastExtracted = lastExtracted))
+        val trainingLog = FakeTrainingLogRepository()
+        seedCompletedWorkouts(trainingLog, count = RE_EXTRACT_MIN_COMPLETED_WORKOUTS, after = lastExtracted)
+        val checkInPrefs = FakeCheckInPreferencesRepository()
+        checkInPrefs.seed(com.stratum.domain.checkin.CheckInPreferences(enabled = false))
+
+        val work = buildWork(
+            persistence = FakeResponseProfilePersistencePort(metadataRepository = metadataRepo),
+            trainingLog = trainingLog,
+            checkInPrefs = checkInPrefs,
+        )
+
+        assertEquals(ResponseModelingWork.Outcome.Success, work.run())
+        assertNull(checkInPrefs.current.pendingSinceExtractedAt)
     }
 
     @Test
@@ -170,6 +215,7 @@ class ResponseModelingWorkTest {
             ),
             metadataRepository = metadataRepo,
             trainingLogRepository = trainingLog,
+            markCheckInPending = MarkCheckInPendingUseCase(FakeCheckInPreferencesRepository()),
         )
 
         val outcome = work.run()
@@ -250,6 +296,7 @@ class ResponseModelingWorkTest {
         persistence: ResponseProfilePersistencePort,
         trainingLog: FakeTrainingLogRepository,
         importMetadata: ImportAnalysisMetadata? = null,
+        checkInPrefs: FakeCheckInPreferencesRepository = FakeCheckInPreferencesRepository(),
     ): ResponseModelingWork {
         val extract = ExtractResponseProfileUseCase(
             trainingLogRepository = trainingLog,
@@ -266,7 +313,12 @@ class ResponseModelingWorkTest {
             is FailOnVolumeResponseProfilePersistencePort -> persistence.metadataRepository
             else -> FakeResponseProfileMetadataRepository()
         }
-        return ResponseModelingWork(extract, metadataRepo, trainingLog)
+        return ResponseModelingWork(
+            extractResponseProfile = extract,
+            metadataRepository = metadataRepo,
+            trainingLogRepository = trainingLog,
+            markCheckInPending = MarkCheckInPendingUseCase(checkInPrefs),
+        )
     }
 
     private class EmptyLiftInsights : LiftTrainingInsightsRepository {

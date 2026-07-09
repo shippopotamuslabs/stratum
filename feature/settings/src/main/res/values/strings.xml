@@ -11,4 +11,10 @@
     <string name="settings_theme_family_description">Stratum Tonal chrome or Neo Brutalist iron and concrete.</string>
     <string name="settings_theme_family_stratum">Stratum</string>
     <string name="settings_theme_family_neo_brutalist">Neo Brutalist</string>
+    <string name="settings_checkin_title">Progress check-ins</string>
+    <string name="settings_checkin_description">After enough new training data, Stratum prompts a short recovery and performance review on Programs.</string>
+    <string name="settings_checkin_enabled">Enable check-ins</string>
+    <string name="settings_debug_title">Developer tools</string>
+    <string name="settings_debug_description">Debug builds only. Skip the 20-workout re-extract gate while testing.</string>
+    <string name="settings_debug_force_checkin">Force coach check-in</string>
 </resources>
