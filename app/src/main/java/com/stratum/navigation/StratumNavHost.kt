@@ -16,6 +16,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.onboarding.navigation.onboardingEntry
+import com.stratum.feature.program.navigation.CreateProgramKey
+import com.stratum.feature.program.navigation.createProgramEntry
 import com.stratum.feature.program.navigation.EditWorkoutKey
 import com.stratum.feature.program.navigation.editWorkoutEntry
 import com.stratum.feature.program.navigation.LiftSwapKey
@@ -56,8 +58,18 @@ fun StratumNavHost() {
         entryProvider = entryProvider {
             onboardingEntry(
                 onComplete = {
-                    backStack.removeAll { it is OnboardingKey }
-                    backStack.add(MainTabKey(isPreviewMode = true))
+                    backStack.removeAll { it is OnboardingKey || it is CreateProgramKey }
+                    if (backStack.none { it is MainTabKey }) {
+                        backStack.add(MainTabKey(isPreviewMode = true))
+                    }
+                },
+                onBuildFromScratch = {
+                    backStack.add(
+                        CreateProgramKey(
+                            startInScratch = true,
+                            finishOnboarding = true,
+                        ),
+                    )
                 },
             )
             entry<MainTabKey> { key ->
@@ -87,10 +99,39 @@ fun StratumNavHost() {
                     onCreateNewLift = {
                         // Navigate to custom lift screen in future slice
                     },
+                    onCreateProgramClick = {
+                        backStack.add(CreateProgramKey())
+                    },
+                    onProgramLibraryClick = {
+                        // Program library list UI — storage ready; list screen is a follow-up.
+                    },
                 )
             }
             settingsEntry(
                 onBackClick = onNavigateBack,
+            )
+            createProgramEntry(
+                onBackClick = onNavigateBack,
+                onFinished = {
+                    // Onboarding scratch: CompleteOnboarding already ran in the VM; land on
+                    // preview main tabs (same as generate). Guard against double-push if
+                    // OnboardingRoute.onComplete also fires when isComplete flips.
+                    val key = backStack.lastOrNull() as? CreateProgramKey
+                    if (key?.finishOnboarding == true) {
+                        backStack.removeAll { it is OnboardingKey || it is CreateProgramKey }
+                        if (backStack.none { it is MainTabKey }) {
+                            backStack.add(MainTabKey(isPreviewMode = true))
+                        }
+                    } else {
+                        onNavigateBack()
+                    }
+                },
+                onSwapLiftClick = { workoutId, workoutLiftId, liftId, liftName ->
+                    backStack.add(LiftSwapKey(workoutId, workoutLiftId, liftId, liftName))
+                },
+                onReorderLiftsClick = { workoutId ->
+                    backStack.add(ReorderLiftsKey(workoutId))
+                },
             )
             liftSwapEntry(
                 onBackClick = onNavigateBack,

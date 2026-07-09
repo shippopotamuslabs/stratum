@@ -31,6 +31,12 @@ data class Program(
     val workouts: List<Workout>,
     val currentCycleNumber: Int = 1,
     val cyclePosition: Int = 0,
+    /**
+     * Whether this is the user's active training program. At most one user program is active;
+     * library copies and the import-history FK parent stay inactive. Multi-program `isActive`
+     * authorized for create-program / library (AGENTS.md §4.5 — v1 reinstall, no migration).
+     */
+    val isActive: Boolean = true,
 )
 
 data class Workout(

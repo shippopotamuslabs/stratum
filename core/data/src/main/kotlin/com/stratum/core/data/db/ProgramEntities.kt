@@ -19,9 +19,10 @@ import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 /**
  * Program hierarchy persistence (OS-7). Four normalized tables for the
  * `Program → Workout → WorkoutLift → LiftSet` template hierarchy, with value-class PKs and FK
- * cascade deletes so re-saving a program (regeneration) clears children atomically. Schema
- * authorized for OS-7 (vertical-slices §OS-7; AGENTS.md §4.5 Schema Lock) and added to the **v1**
- * entity set — no version bump, no migration (reinstall to apply; pre-release policy).
+ * cascade deletes so re-saving a program clears children for that program id only.
+ *
+ * Multi-program library (`is_active`) authorized for create-program (AGENTS.md §4.5 Schema Lock) —
+ * **v1** entity set, no version bump, no migration (reinstall to apply; pre-release policy).
  *
  * Enums ([ProgressionScheme], [SetType]) and typed ids are stored via `EnumConverters` (the single
  * registered converter class). `weekday` is nullable on [WorkoutEntity] ("weekday-bound where
@@ -36,6 +37,8 @@ data class ProgramEntity(
     @ColumnInfo(name = "training_weekdays") val trainingWeekdays: Set<Weekday> = emptySet(),
     @ColumnInfo(name = "current_cycle_number") val currentCycleNumber: Int = 1,
     @ColumnInfo(name = "cycle_position") val cyclePosition: Int = 0,
+    /** At most one user program is active; import-history and library rows stay false. */
+    @ColumnInfo(name = "is_active") val isActive: Boolean = false,
 )
 
 @Entity(

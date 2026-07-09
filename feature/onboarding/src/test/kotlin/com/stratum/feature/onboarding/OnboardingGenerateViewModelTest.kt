@@ -245,13 +245,14 @@ class OnboardingGenerateViewModelTest {
             generateProgram = GenerateProgramUseCase(
                 loadContext = contextLoader,
                 pipeline = testProgramGenerationPipeline(),
-                repository = programRepo,
                 liftRepository = liftRepo,
-                completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
-                profileRepository = profileRepo,
-                programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
                 generationDispatcher = generationDispatcher,
             ),
+            activateProgram = com.stratum.domain.program.ActivateProgramUseCase(
+                programRepository = programRepo,
+                programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+            ),
+            completeOnboarding = CompleteOnboardingUseCase(onboardingRepo, profileRepo),
             importProgramTemplate = com.stratum.domain.program.importing.ImportProgramTemplateUseCase(
                 importPort = com.stratum.core.testing.importing.FakeProgramTemplateImportPort(),
                 resolver = com.stratum.domain.program.importing.ResolveProgramTemplateLiftsUseCase(

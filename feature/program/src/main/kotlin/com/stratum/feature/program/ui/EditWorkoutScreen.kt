@@ -13,10 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,13 +24,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
-import androidx.annotation.DrawableRes
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
@@ -41,7 +36,6 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumDurationStepper
 import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumPillToggle
 import com.stratum.core.ui.component.StratumScaffold
@@ -359,8 +353,97 @@ private fun EditWorkoutTopBar(
     )
 }
 
+/**
+ * Workout lift editor body without scaffold/top bar — for embedding in Create Program.
+ */
 @Composable
-private fun EditWorkoutContent(
+internal fun EditWorkoutEmbeddedContent(
+    state: EditWorkoutUiState.Loaded,
+    callbacks: EditWorkoutScreenCallbacks,
+    modifier: Modifier = Modifier,
+    showVolume: Boolean = false,
+) {
+    var restSheetSet by remember { mutableStateOf<EditSetState?>(null) }
+    var restSheetLiftId by remember { mutableStateOf<String?>(null) }
+    var restSheetSeconds by remember { mutableIntStateOf(DEFAULT_REST_SECONDS) }
+    var rirSheetSet by remember { mutableStateOf<EditSetState?>(null) }
+    var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
+    var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
+
+    EditWorkoutContent(
+        state = state,
+        callbacks = callbacks,
+        onRestClick = { liftId, set ->
+            restSheetSet = set
+            restSheetLiftId = liftId
+            restSheetSeconds = set.restSeconds
+        },
+        onRirClick = { set -> rirSheetSet = set },
+        onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
+        onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
+        modifier = modifier,
+        showVolume = showVolume,
+    )
+
+    restSheetSet?.let { targetSet ->
+        val liftId = restSheetLiftId
+        if (liftId != null) {
+            RestTimeBottomSheet(
+                totalSeconds = restSheetSeconds,
+                onTotalSecondsChange = { seconds -> restSheetSeconds = seconds },
+                onApplyToSet = {
+                    callbacks.onSetRestSeconds(targetSet.setId, restSheetSeconds)
+                    restSheetSet = null
+                    restSheetLiftId = null
+                },
+                onApplyToAllSets = {
+                    callbacks.onSetRestSecondsForAllSetsOnLift(liftId, restSheetSeconds)
+                    restSheetSet = null
+                    restSheetLiftId = null
+                },
+                onDismiss = {
+                    restSheetSet = null
+                    restSheetLiftId = null
+                },
+            )
+        }
+    }
+
+    rirSheetSet?.let { targetSet ->
+        RirTargetBottomSheet(
+            selectedRirGoal = targetSet.rirGoal,
+            onRirSelected = { rir -> callbacks.onSetRirGoal(targetSet.setId, rir) },
+            onDismiss = { rirSheetSet = null },
+        )
+    }
+
+    liftActionsLiftId?.let { liftId ->
+        val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId } ?: return@let
+        LiftActionsBottomSheet(
+            onConfigureSuperset = { liftActionsLiftId = null },
+            onSwapLift = {
+                liftActionsLiftId = null
+                callbacks.onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.name)
+            },
+            onRemoveLift = {
+                liftActionsLiftId = null
+                callbacks.onRemoveLift(liftId)
+            },
+            onReorderLifts = {
+                liftActionsLiftId = null
+                callbacks.onReorderLiftsClick()
+            },
+            onDismiss = { liftActionsLiftId = null },
+        )
+    }
+
+    if (showProgressionSchemeExplainer) {
+        ProgressionSchemeExplainerSheet(onDismiss = { showProgressionSchemeExplainer = false })
+    }
+}
+
+@Composable
+internal fun EditWorkoutContent(
     state: EditWorkoutUiState.Loaded,
     callbacks: EditWorkoutScreenCallbacks,
     onRestClick: (workoutLiftId: String, EditSetState) -> Unit,
@@ -368,26 +451,29 @@ private fun EditWorkoutContent(
     onShowLiftActions: (workoutLiftId: String) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
     modifier: Modifier = Modifier,
+    showVolume: Boolean = true,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        val workoutVolumeCards = state.upperVolumeByMuscle + state.lowerVolumeByMuscle
-        val programVolumeCards = state.programUpperVolumeByMuscle + state.programLowerVolumeByMuscle
-        if (workoutVolumeCards.isNotEmpty() || programVolumeCards.isNotEmpty()) {
-            item {
-                StratumScopedMuscleVolumeRow(
-                    workoutCards = workoutVolumeCards,
-                    programCards = programVolumeCards,
-                    title = stringResource(R.string.edit_workout_volume_title),
-                    scopeLabels =
-                        listOf(
-                            stringResource(R.string.edit_workout_volume_scope_workout),
-                            stringResource(R.string.edit_workout_volume_scope_program),
-                        ),
-                )
+        if (showVolume) {
+            val workoutVolumeCards = state.upperVolumeByMuscle + state.lowerVolumeByMuscle
+            val programVolumeCards = state.programUpperVolumeByMuscle + state.programLowerVolumeByMuscle
+            if (workoutVolumeCards.isNotEmpty() || programVolumeCards.isNotEmpty()) {
+                item {
+                    StratumScopedMuscleVolumeRow(
+                        workoutCards = workoutVolumeCards,
+                        programCards = programVolumeCards,
+                        title = stringResource(R.string.edit_workout_volume_title),
+                        scopeLabels =
+                            listOf(
+                                stringResource(R.string.edit_workout_volume_scope_workout),
+                                stringResource(R.string.edit_workout_volume_scope_program),
+                            ),
+                    )
+                }
             }
         }
         item {
@@ -422,7 +508,7 @@ private fun EditWorkoutContent(
         }
         item {
             StratumOutlinedButton(
-                text = stringResource(R.string.edit_workout_add_exercise),
+                text = stringResource(R.string.edit_workout_add_lift),
                 onClick = callbacks.onAddLift,
                 modifier = Modifier.fillMaxWidth(),
             )

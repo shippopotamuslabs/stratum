@@ -45,4 +45,26 @@
     <string name="reorder_lifts_title">Reorder Lifts</string>
     <string name="reorder_lifts_cancel">Cancel</string>
     <string name="reorder_lifts_confirm">Confirm</string>
+
+    <!-- Training setup prefs (onboarding + create program) -->
+    <string name="training_setup_schedule_weekdays_heading">Training days</string>
+    <string name="training_setup_schedule_session_length_heading">Desired Session Length</string>
+    <string name="training_setup_schedule_session_preset_45">45 min</string>
+    <string name="training_setup_schedule_session_preset_60">60 min</string>
+    <string name="training_setup_schedule_session_preset_75">75 min</string>
+    <string name="training_setup_schedule_session_custom">Custom</string>
+    <string name="training_setup_schedule_session_hours_label">Hours</string>
+    <string name="training_setup_schedule_session_minutes_label">Min</string>
+    <string name="training_setup_schedule_session_step_up">Increase</string>
+    <string name="training_setup_schedule_session_step_down">Decrease</string>
+    <string name="training_setup_schedule_error_weekdays">Pick at least one day.</string>
+    <string name="training_setup_schedule_error_session_required">Choose a session length.</string>
+    <string name="training_setup_schedule_error_session_custom_blank">Enter minutes.</string>
+    <string name="training_setup_schedule_error_session_not_number">Session length must be a number.</string>
+    <string name="training_setup_schedule_error_session_too_short">Must be at least %1$d minutes.</string>
+    <string name="training_setup_schedule_error_session_too_long">Must be %1$d minutes or below.</string>
+    <string name="training_setup_specialization_intro">Tap up to %1$d muscle groups on the body to prioritize. Skip to keep a balanced program.</string>
+    <string name="training_setup_specialization_saturated_warning">Your logs show %1$s is already at high weekly volume. You can still specialize it, but extra sets may not add much growth.</string>
+    <string name="training_setup_minimum_volume_intro">Optionally pick up to %1$d muscle groups to hold at maintenance volume — the bare minimum to keep size. This frees volume for your focus muscles.</string>
+    <string name="training_setup_minimum_volume_suggestions_heading">Suggested from your import (low historical volume)</string>
 </resources>

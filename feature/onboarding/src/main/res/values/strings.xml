@@ -34,6 +34,8 @@
     <string name="choose_path_title">How would you like to set up your program?</string>
     <string name="choose_path_generate_title">Generate Custom Program</string>
     <string name="choose_path_generate_description">Let Stratum guide you through a schedule, focus muscles, and build a custom program.</string>
+    <string name="choose_path_scratch_title">Build From Scratch</string>
+    <string name="choose_path_scratch_description">Design every workout and exercise yourself, then activate when you\'re ready.</string>
     <string name="choose_path_import_title">Import Existing Workout</string>
     <string name="choose_path_import_description">Import your own workout program from Alpha Progression or MacroFactor Workouts.</string>
 

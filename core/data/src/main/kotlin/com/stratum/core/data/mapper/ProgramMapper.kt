@@ -25,6 +25,7 @@ internal fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
     workouts = workouts,
     currentCycleNumber = currentCycleNumber,
     cyclePosition = cyclePosition,
+    isActive = isActive,
 )
 
 internal fun WorkoutEntity.toDomain(workoutLifts: List<WorkoutLift>): Workout = Workout(
@@ -67,6 +68,7 @@ internal fun Program.toEntity(): ProgramEntity = ProgramEntity(
     trainingWeekdays = trainingWeekdays,
     currentCycleNumber = currentCycleNumber,
     cyclePosition = cyclePosition,
+    isActive = isActive,
 )
 
 internal fun Workout.toEntity(): WorkoutEntity = WorkoutEntity(

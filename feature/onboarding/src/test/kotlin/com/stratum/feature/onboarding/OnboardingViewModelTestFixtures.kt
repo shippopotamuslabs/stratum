@@ -196,12 +196,13 @@ internal object OnboardingViewModelTestFixtures {
                     scenarioContext(days = 3, specialization = emptyMap())
                 },
                 pipeline = testProgramGenerationPipeline(),
-                repository = fakeProgramRepository,
                 liftRepository = fakeLiftRepository,
-                completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
-                profileRepository = fakeProfileRepository,
+            ),
+            activateProgram = com.stratum.domain.program.ActivateProgramUseCase(
+                programRepository = fakeProgramRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
+            completeOnboarding = CompleteOnboardingUseCase(fakeRepository, fakeProfileRepository),
             importProgramTemplate = com.stratum.domain.program.importing.ImportProgramTemplateUseCase(
                 importPort = com.stratum.core.testing.importing.FakeProgramTemplateImportPort(),
                 resolver = com.stratum.domain.program.importing.ResolveProgramTemplateLiftsUseCase(
