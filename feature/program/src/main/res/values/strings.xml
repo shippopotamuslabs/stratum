@@ -27,11 +27,12 @@
     <string name="create_program_generating">Generating your program…</string>
     <string name="create_program_generate_error">Could not generate a program. Try again.</string>
     <string name="create_program_add_day">Add Day</string>
+    <string name="create_program_drag_day">Drag to reorder day</string>
     <string name="create_program_rest_day">Rest Day</string>
     <string name="create_program_rest_day_hint">You can convert the rest day into a workout day by adding exercises below</string>
-    <string name="create_program_remove_day">Remove</string>
-    <string name="create_program_rename_workout">Rename workout</string>
-    <string name="create_program_rename_program">Rename program</string>
+    <string name="create_program_remove_day">Remove Workout</string>
+    <string name="create_program_rename_workout">Rename Workout</string>
+    <string name="create_program_edit_name">Edit program name</string>
     <string name="create_program_save_to_library">Save to Library</string>
     <string name="create_program_activate">Activate Program</string>
     <string name="create_program_discard_title">Discard program?</string>
@@ -40,8 +41,8 @@
     <string name="create_program_discard_cancel">Keep editing</string>
     <string name="create_program_default_name">New Program</string>
     <string name="create_program_default_workout_name">Workout %1$d</string>
-    <string name="create_program_zero_exercises">0 Exercises</string>
-    <string name="create_program_add_exercises">Add Exercises</string>
+    <string name="create_program_zero_lifts">0 Lifts</string>
+    <string name="create_program_add_lifts">Add Lifts</string>
     <string name="create_program_rename_program_title">Program name</string>
     <string name="create_program_rename_workout_title">Workout name</string>
     <string name="create_program_rename_confirm">Save</string>
@@ -64,7 +65,7 @@
     <string name="edit_workout_loading">Loading workout…</string>
     <string name="edit_workout_not_found">Workout not found</string>
     <string name="edit_workout_confirm">Confirm</string>
-    <string name="edit_workout_add_exercise">Add exercise</string>
+    <string name="edit_workout_add_lift">Add lift</string>
     <string name="edit_workout_add_set">Add set</string>
     <string name="edit_workout_remove_set">Remove set</string>
     <string name="edit_workout_lift_menu">Lift options</string>

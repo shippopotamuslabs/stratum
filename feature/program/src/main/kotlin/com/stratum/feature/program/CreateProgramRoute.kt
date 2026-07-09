@@ -79,6 +79,7 @@ fun CreateProgramRoute(
                 onGenerate = viewModel::generate,
                 onSelectDay = viewModel::selectDay,
                 onAddDay = viewModel::addDay,
+                onReorderDays = viewModel::reorderDays,
                 onRemoveDay = viewModel::removeSelectedDay,
                 onShowRenameProgram = { viewModel.showRenameProgram(true) },
                 onShowRenameWorkout = { viewModel.showRenameWorkout(true) },

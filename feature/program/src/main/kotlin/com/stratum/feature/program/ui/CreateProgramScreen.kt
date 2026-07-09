@@ -3,12 +3,15 @@ package com.stratum.feature.program.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,25 +21,46 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumScopedMuscleVolumeRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
@@ -53,11 +77,47 @@ fun CreateProgramScreen(
     callbacks: CreateProgramScreenCallbacks,
     modifier: Modifier = Modifier,
 ) {
+    val isEditor = state.step == CreateProgramStep.Editor
+    val topBarTitle =
+        when {
+            isEditor && state.programName.isNotBlank() -> state.programName
+            isEditor -> stringResource(R.string.create_program_default_name)
+            else -> stringResource(R.string.create_program_title)
+        }
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             StratumTopBar(
-                title = stringResource(R.string.create_program_title),
+                titleContent = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = topBarTitle,
+                            style = StratumThemeAccessor.typography.titleLarge,
+                            color = StratumThemeAccessor.colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (isEditor) {
+                            Icon(
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription =
+                                    stringResource(R.string.create_program_edit_name),
+                                tint = StratumThemeAccessor.colors.textMuted,
+                                modifier =
+                                    Modifier
+                                        .size(22.dp)
+                                        .clickable(
+                                            onClick = callbacks.onShowRenameProgram,
+                                            role = Role.Button,
+                                        ),
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     StratumTopBarBackButton(
                         onClick = callbacks.onBack,
@@ -296,12 +356,13 @@ private fun CreateProgramEditorContent(
             selectedDayId = state.selectedDayId,
             onSelectDay = callbacks.onSelectDay,
             onAddDay = callbacks.onAddDay,
+            onReorderDays = callbacks.onReorderDays,
         )
-        ActionChipsRow(
+        DayActionButtonsRow(
             onRemove = callbacks.onRemoveDay,
             onRenameWorkout = callbacks.onShowRenameWorkout,
-            onRenameProgram = callbacks.onShowRenameProgram,
         )
+        CreateProgramVolumeRow(state = state)
         val selected = state.selectedDay
         when {
             selected == null ->
@@ -324,139 +385,247 @@ private fun CreateProgramEditorContent(
 }
 
 @Composable
+private fun CreateProgramVolumeRow(state: CreateProgramUiState) {
+    val selectedEdit = state.selectedDay?.editState
+    val metricsEdit =
+        selectedEdit
+            ?: state.days.firstNotNullOfOrNull { day -> day.editState }
+            ?: return
+    val workoutCards =
+        if (selectedEdit != null) {
+            selectedEdit.upperVolumeByMuscle + selectedEdit.lowerVolumeByMuscle
+        } else {
+            emptyList()
+        }
+    val programCards = metricsEdit.programUpperVolumeByMuscle + metricsEdit.programLowerVolumeByMuscle
+    if (workoutCards.isEmpty() && programCards.isEmpty()) return
+    StratumScopedMuscleVolumeRow(
+        workoutCards = workoutCards,
+        programCards = programCards,
+        title = stringResource(R.string.edit_workout_volume_title),
+        scopeLabels =
+            listOf(
+                stringResource(R.string.edit_workout_volume_scope_workout),
+                stringResource(R.string.edit_workout_volume_scope_program),
+            ),
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+    )
+}
+
+private const val DAY_TAB_REORDER_THRESHOLD_DP = 72f
+private val DayTabBarHeight = 48.dp
+private val DayTabIndicatorHeight = 2.dp
+
+@Composable
 private fun DayTabsRow(
     days: List<CreateProgramDayUi>,
     selectedDayId: String?,
     onSelectDay: (String) -> Unit,
     onAddDay: () -> Unit,
+    onReorderDays: (fromIndex: Int, toIndex: Int) -> Unit,
 ) {
-    Row(
+    var draggedDayId by remember { mutableStateOf<String?>(null) }
+    var draggedIndex by remember { mutableIntStateOf(-1) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var tabWidthsPx by remember { mutableStateOf(emptyMap<String, Float>()) }
+    val density = LocalDensity.current.density
+    val colors = StratumThemeAccessor.colors
+    val borderWidth = StratumThemeAccessor.shapes.borderWidth
+
+    Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+                .height(DayTabBarHeight)
+                .drawBehind {
+                    val y = size.height - borderWidth.toPx() / 2f
+                    drawLine(
+                        color = colors.borderSubtle,
+                        start = Offset(0f, y),
+                        end = Offset(size.width, y),
+                        strokeWidth = borderWidth.toPx(),
+                    )
+                },
     ) {
-        days.forEach { day ->
-            val selected = day.id == selectedDayId
-            StratumText(
-                text = day.name,
-                style = StratumThemeAccessor.typography.bodyLarge,
-                modifier =
-                    Modifier
-                        .background(
-                            color =
-                                if (selected) {
-                                    StratumThemeAccessor.colors.accent.copy(alpha = 0.2f)
-                                } else {
-                                    StratumThemeAccessor.colors.surfaceRaised
-                                },
-                            shape = RoundedCornerShape(20.dp),
-                        )
-                        .border(
-                            width = if (selected) 2.dp else StratumThemeAccessor.shapes.borderWidth,
-                            color =
-                                if (selected) {
-                                    StratumThemeAccessor.colors.accent
-                                } else {
-                                    StratumThemeAccessor.colors.borderSubtle
-                                },
-                            shape = RoundedCornerShape(20.dp),
-                        )
-                        .clickable { onSelectDay(day.id) }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-        }
-        StratumText(
-            text = stringResource(R.string.create_program_add_day) + " +",
-            style = StratumThemeAccessor.typography.bodyLarge,
-            muted = true,
+        Row(
             modifier =
                 Modifier
-                    .clickable(onClick = onAddDay)
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-        )
+                    .fillMaxSize()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            days.forEachIndexed { index, day ->
+                val selected = day.id == selectedDayId
+                val isDragging = day.id == draggedDayId
+                DayTab(
+                    name = day.name,
+                    selected = selected,
+                    isDragging = isDragging,
+                    dragOffsetX = if (isDragging) dragOffset else 0f,
+                    onSelect = { onSelectDay(day.id) },
+                    onSizeChanged = { widthPx ->
+                        tabWidthsPx = tabWidthsPx + (day.id to widthPx)
+                    },
+                    onDragStart = {
+                        draggedDayId = day.id
+                        draggedIndex = index
+                        dragOffset = 0f
+                    },
+                    onDragEnd = {
+                        draggedDayId = null
+                        draggedIndex = -1
+                        dragOffset = 0f
+                    },
+                    onHorizontalDrag = drag@{ dragAmount ->
+                        if (draggedIndex < 0 || draggedDayId == null) return@drag
+                        dragOffset += dragAmount
+                        val currentWidth =
+                            tabWidthsPx[draggedDayId]
+                                ?: (DAY_TAB_REORDER_THRESHOLD_DP * density)
+                        val thresholdPx = (currentWidth * 0.55f).coerceAtLeast(40f * density)
+                        while (dragOffset > thresholdPx && draggedIndex < days.lastIndex) {
+                            onReorderDays(draggedIndex, draggedIndex + 1)
+                            draggedIndex += 1
+                            dragOffset -= thresholdPx
+                        }
+                        while (dragOffset < -thresholdPx && draggedIndex > 0) {
+                            onReorderDays(draggedIndex, draggedIndex - 1)
+                            draggedIndex -= 1
+                            dragOffset += thresholdPx
+                        }
+                    },
+                )
+            }
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxHeight()
+                        .clickable(onClick = onAddDay)
+                        .padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                StratumText(
+                    text = stringResource(R.string.create_program_add_day) + " +",
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    muted = true,
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun ActionChipsRow(
+private fun DayTab(
+    name: String,
+    selected: Boolean,
+    isDragging: Boolean,
+    dragOffsetX: Float,
+    onSelect: () -> Unit,
+    onSizeChanged: (Float) -> Unit,
+    onDragStart: () -> Unit,
+    onDragEnd: () -> Unit,
+    onHorizontalDrag: (Float) -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val dragDescription = stringResource(R.string.create_program_drag_day)
+    val latestOnDragStart by rememberUpdatedState(onDragStart)
+    val latestOnDragEnd by rememberUpdatedState(onDragEnd)
+    val latestOnHorizontalDrag by rememberUpdatedState(onHorizontalDrag)
+
+    Column(
+        modifier =
+            Modifier
+                .zIndex(if (isDragging) 1f else 0f)
+                .graphicsLayer {
+                    translationX = dragOffsetX
+                    alpha = if (isDragging) 0.92f else 1f
+                }
+                .fillMaxHeight()
+                .defaultMinSize(minWidth = 72.dp)
+                .onSizeChanged { size -> onSizeChanged(size.width.toFloat()) }
+                .semantics {
+                    role = Role.Tab
+                    this.selected = selected
+                }
+                .clickable(onClick = onSelect)
+                .drawBehind {
+                    if (selected) {
+                        val stroke = DayTabIndicatorHeight.toPx()
+                        val y = size.height - stroke / 2f
+                        drawLine(
+                            color = colors.accent,
+                            start = Offset(0f, y),
+                            end = Offset(size.width, y),
+                            strokeWidth = stroke,
+                        )
+                    }
+                }
+                .padding(horizontal = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            StratumText(
+                text = name,
+                style = StratumThemeAccessor.typography.bodyLarge,
+                muted = !selected,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // Drag handle owns the horizontal drag gesture so the tab row can still scroll.
+            Box(
+                modifier =
+                    Modifier
+                        .size(28.dp)
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { latestOnDragStart() },
+                                onDragEnd = { latestOnDragEnd() },
+                                onDragCancel = { latestOnDragEnd() },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    latestOnHorizontalDrag(dragAmount)
+                                },
+                            )
+                        },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_drag_handle),
+                    contentDescription = dragDescription,
+                    tint = if (selected) colors.textPrimary else colors.textMuted,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayActionButtonsRow(
     onRemove: () -> Unit,
     onRenameWorkout: () -> Unit,
-    onRenameProgram: () -> Unit,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ActionChip(
-            label = stringResource(R.string.create_program_remove_day),
-            icon = {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = null,
-                    tint = StratumThemeAccessor.colors.error,
-                    modifier = Modifier.size(18.dp),
-                )
-            },
+        StratumOutlinedButton(
+            text = stringResource(R.string.create_program_remove_day),
             onClick = onRemove,
-            destructive = true,
+            modifier = Modifier.weight(1f),
         )
-        ActionChip(
-            label = stringResource(R.string.create_program_rename_workout),
-            icon = null,
+        StratumOutlinedButton(
+            text = stringResource(R.string.create_program_rename_workout),
             onClick = onRenameWorkout,
-        )
-        ActionChip(
-            label = stringResource(R.string.create_program_rename_program),
-            icon = null,
-            onClick = onRenameProgram,
-        )
-    }
-}
-
-@Composable
-private fun ActionChip(
-    label: String,
-    icon: (@Composable () -> Unit)?,
-    onClick: () -> Unit,
-    destructive: Boolean = false,
-) {
-    Row(
-        modifier =
-            Modifier
-                .background(
-                    color = StratumThemeAccessor.colors.surfaceRaised,
-                    shape = RoundedCornerShape(20.dp),
-                )
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderSubtle,
-                    shape = RoundedCornerShape(20.dp),
-                )
-                .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        icon?.invoke()
-        StratumText(
-            text = label,
-            style =
-                StratumThemeAccessor.typography.bodyLarge.copy(
-                    color =
-                        if (destructive) {
-                            StratumThemeAccessor.colors.error
-                        } else {
-                            StratumThemeAccessor.colors.textPrimary
-                        },
-                ),
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -496,11 +665,11 @@ private fun RestDayBody(onAddExercise: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StratumText(
-                text = stringResource(R.string.create_program_zero_exercises),
+                text = stringResource(R.string.create_program_zero_lifts),
                 style = StratumThemeAccessor.typography.titleLarge,
             )
             StratumText(
-                text = stringResource(R.string.create_program_add_exercises),
+                text = stringResource(R.string.create_program_add_lifts),
                 style =
                     StratumThemeAccessor.typography.bodyLarge.copy(
                         color = StratumThemeAccessor.colors.accent,
@@ -721,6 +890,68 @@ private fun RenameSheet(
             text = stringResource(R.string.create_program_rename_confirm),
             onClick = { onConfirm(value) },
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Preview(name = "Day tabs light", showBackground = true)
+@Composable
+internal fun DayTabsRowPreviewLight() {
+    StratumTheme(darkTheme = false) {
+        DayTabsRowPreviewContent()
+    }
+}
+
+@Preview(name = "Day tabs dark", showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+internal fun DayTabsRowPreviewDark() {
+    StratumTheme(darkTheme = true) {
+        DayTabsRowPreviewContent()
+    }
+}
+
+@Composable
+private fun DayTabsRowPreviewContent() {
+    var days by remember {
+        mutableStateOf(
+            listOf(
+                CreateProgramDayUi(id = "a", name = "Workout A", position = 0, isRest = false, editState = null),
+                CreateProgramDayUi(id = "r1", name = "Rest", position = 1, isRest = true, editState = null),
+                CreateProgramDayUi(id = "b", name = "Workout B", position = 2, isRest = false, editState = null),
+                CreateProgramDayUi(id = "r2", name = "Rest", position = 3, isRest = true, editState = null),
+            ),
+        )
+    }
+    var selectedId by remember { mutableStateOf("a") }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(StratumThemeAccessor.colors.surfaceBase)
+                .padding(vertical = 8.dp),
+    ) {
+        DayTabsRow(
+            days = days,
+            selectedDayId = selectedId,
+            onSelectDay = { selectedId = it },
+            onAddDay = {
+                val next = days.size + 1
+                days = days +
+                    CreateProgramDayUi(
+                        id = "new-$next",
+                        name = "Workout $next",
+                        position = days.size,
+                        isRest = false,
+                        editState = null,
+                    )
+            },
+            onReorderDays = reorder@{ from, to ->
+                if (from !in days.indices || to !in days.indices) return@reorder
+                val mutable = days.toMutableList()
+                val moved = mutable.removeAt(from)
+                mutable.add(to, moved)
+                days = mutable.mapIndexed { index, day -> day.copy(position = index) }
+            },
         )
     }
 }
