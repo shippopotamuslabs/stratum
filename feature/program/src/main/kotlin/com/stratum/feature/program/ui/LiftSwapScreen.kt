@@ -141,10 +141,26 @@ fun LiftSwapScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             StratumTopBar(
-                title = if (state.isAddMode) {
-                    stringResource(R.string.lift_add_title)
-                } else {
-                    stringResource(R.string.lift_swap_title, state.targetLiftName)
+                titleContent = {
+                    if (state.isAddMode && state.hasSelection) {
+                        // Replaces "Add Lift" so the tray does not push list content down.
+                        SelectedLiftsTray(
+                            selectedOptions = state.selectedOptions,
+                            expanded = showSelectedPanel,
+                            onExpandToggle = { showSelectedPanel = !showSelectedPanel },
+                        )
+                    } else {
+                        StratumText(
+                            text =
+                                if (state.isAddMode) {
+                                    stringResource(R.string.lift_add_title)
+                                } else {
+                                    stringResource(R.string.lift_swap_title, state.targetLiftName)
+                                },
+                            style = StratumThemeAccessor.typography.titleLarge,
+                            maxLines = 1,
+                        )
+                    }
                 },
                 navigationIcon = {
                     StratumTopBarBackButton(
@@ -167,15 +183,6 @@ fun LiftSwapScreen(
                             painter = painterResource(R.drawable.ic_add),
                             contentDescription = stringResource(R.string.lift_swap_create_new_lift),
                             tint = StratumThemeAccessor.colors.textPrimary,
-                        )
-                    }
-                },
-                bottom = {
-                    if (state.isAddMode && state.hasSelection) {
-                        SelectedLiftsTray(
-                            selectedOptions = state.selectedOptions,
-                            expanded = showSelectedPanel,
-                            onExpandToggle = { showSelectedPanel = !showSelectedPanel },
                         )
                     }
                 },
