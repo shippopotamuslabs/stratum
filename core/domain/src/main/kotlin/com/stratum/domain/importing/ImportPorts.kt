@@ -192,6 +192,13 @@ interface LiftNameResolverPort {
     fun resolve(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): LiftId?
 
     fun evaluate(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): LiftNameMatchEvaluation
+
+    /**
+     * Returns the last embedding batch failure message, or `null` when embeddings were fetched
+     * successfully (or the resolver doesn't use embeddings). Callers surface this in the import
+     * summary so silent degradation to pure BM25 is diagnosable.
+     */
+    fun embeddingBatchFailure(): String? = null
 }
 
 data class LiftNameMatchEvaluation(

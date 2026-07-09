@@ -13,7 +13,7 @@ class HybridLiftNameResolverTest {
     private val bm25 = Bm25LiftNameResolver()
 
     @Test
-    fun `subset name does not match longer catalog lift without embeddings`() = runTest {
+    fun `subset name matches longer catalog lift via equipment-aware alignment without embeddings`() = runTest {
         val catalog =
             mapOf(
                 LiftId("bench") to "Barbell Bench Press",
@@ -27,7 +27,8 @@ class HybridLiftNameResolverTest {
         resolver.prepareBatch(listOf("bench press"))
 
         val evaluation = resolver.evaluate("bench press", catalog)
-        assertFalse(evaluation.matched)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("bench"), evaluation.matchedLiftId)
     }
 
     @Test

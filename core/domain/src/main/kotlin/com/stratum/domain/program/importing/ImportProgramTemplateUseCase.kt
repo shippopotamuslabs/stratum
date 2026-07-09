@@ -10,11 +10,15 @@ import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.identity.ProgramChangeEventId
+import com.stratum.domain.di.DefaultDispatcher
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 typealias ProgramTemplateImportProgressCallback = suspend (ProgramTemplateImportPhase) -> Unit
@@ -44,54 +48,59 @@ class ImportProgramTemplateUseCase @Inject constructor(
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val profileRepository: UserTrainingProfileRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    // Polling, JSON download/parse, and lift resolution are CPU/network-bound and must not run on
+    // Dispatchers.Main — historically contributed to import ANRs. Defaulted for JVM tests.
+    @DefaultDispatcher private val importDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
         bytes: ByteArray,
         fileName: String,
         onProgress: ProgramTemplateImportProgressCallback = {},
     ): Result<Unit> = runCatching {
-        onProgress(ProgramTemplateImportPhase.Uploading)
-        val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
-        importPort.uploadAndStart(jobId, bytes, fileName).getOrThrow()
+        withContext(importDispatcher) {
+            onProgress(ProgramTemplateImportPhase.Uploading)
+            val jobId = ProgramTemplateImportJobId(UUID.randomUUID().toString())
+            importPort.uploadAndStart(jobId, bytes, fileName).getOrThrow()
 
-        // Poll until the job reaches a terminal status. Bounded by [POLL_TIMEOUT_MS] so a stuck
-        // job never hangs onboarding indefinitely.
-        val snapshot = pollUntilTerminal(jobId, onProgress).getOrThrow()
+            // Poll until the job reaches a terminal status. Bounded by [POLL_TIMEOUT_MS] so a stuck
+            // job never hangs onboarding indefinitely.
+            val snapshot = pollUntilTerminal(jobId, onProgress).getOrThrow()
 
-        when (snapshot.status) {
-            RemoteProgramTemplateJobStatus.Rejected ->
-                throw ProgramTemplateRejectedException(
-                    snapshot.errorMessage ?: "This file does not look like a workout program.",
-                )
-            RemoteProgramTemplateJobStatus.Failed ->
-                error(snapshot.errorMessage ?: "Import failed.")
-            RemoteProgramTemplateJobStatus.Ready -> Unit
-            else ->
-                error("Import ended in non-terminal status: ${snapshot.status}")
+            when (snapshot.status) {
+                RemoteProgramTemplateJobStatus.Rejected ->
+                    throw ProgramTemplateRejectedException(
+                        snapshot.errorMessage ?: "This file does not look like a workout program.",
+                    )
+                RemoteProgramTemplateJobStatus.Failed ->
+                    error(snapshot.errorMessage ?: "Import failed.")
+                RemoteProgramTemplateJobStatus.Ready -> Unit
+                else ->
+                    error("Import ended in non-terminal status: ${snapshot.status}")
+            }
+
+            val templateStoragePath = snapshot.programTemplateStoragePath
+                ?: error("Ready job has no template path.")
+
+            onProgress(ProgramTemplateImportPhase.MatchingCatalog)
+            val templateJson = importPort.downloadProgramTemplate(templateStoragePath).getOrThrow()
+            val template = parse(templateJson)
+            require(template.workouts.isNotEmpty()) { "Imported template has no workouts" }
+
+            val program = resolver.invoke(template)
+            repository.saveProgram(program)
+            programChangeEventRepository.append(
+                ProgramChangeEvent(
+                    id = ProgramChangeEventId(UUID.randomUUID().toString()),
+                    programId = program.id,
+                    eventType = ProgramChangeEventType.PROGRAM_REGENERATED,
+                    occurredAt = Instant.now(),
+                    payload = ProgramChangeEventPayload.ProgramRegenerated,
+                ),
+            )
+            val profile = profileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
+            completeOnboarding(profile)
+            onProgress(ProgramTemplateImportPhase.Complete)
         }
-
-        val templateStoragePath = snapshot.programTemplateStoragePath
-            ?: error("Ready job has no template path.")
-
-        onProgress(ProgramTemplateImportPhase.MatchingCatalog)
-        val templateJson = importPort.downloadProgramTemplate(templateStoragePath).getOrThrow()
-        val template = parse(templateJson)
-        require(template.workouts.isNotEmpty()) { "Imported template has no workouts" }
-
-        val program = resolver.invoke(template)
-        repository.saveProgram(program)
-        programChangeEventRepository.append(
-            ProgramChangeEvent(
-                id = ProgramChangeEventId(UUID.randomUUID().toString()),
-                programId = program.id,
-                eventType = ProgramChangeEventType.PROGRAM_REGENERATED,
-                occurredAt = Instant.now(),
-                payload = ProgramChangeEventPayload.ProgramRegenerated,
-            ),
-        )
-        val profile = profileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
-        completeOnboarding(profile)
-        onProgress(ProgramTemplateImportPhase.Complete)
     }
 
     private suspend fun pollUntilTerminal(

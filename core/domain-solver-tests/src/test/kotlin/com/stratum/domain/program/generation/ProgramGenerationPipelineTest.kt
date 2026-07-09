@@ -17,15 +17,13 @@ import com.stratum.domain.program.generation.reference.FrequencyTier
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.frequencyTierForWeeklySets
 import com.stratum.domain.program.generation.reference.sessionDurationBudgetMinutes
-import com.stratum.domain.onboarding.Weekday
-import com.stratum.domain.program.assignProgramSchedule
-import com.stratum.domain.program.assignProgramScheduleFromWeekdayIndices
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.validation.validateProgramMetrics
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
+import com.stratum.domain.program.withReconciledTrainingWeekdays
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -47,26 +45,10 @@ class ProgramGenerationPipelineTest {
   @DisplayName("cycle structure and no duplicate lifts")
   fun cycleStructureAndNoDuplicateLifts(config: ScenarioConfig) = runBlocking {
     val (normalized, context) = generateScenario(config)
-    val draft = normalized.toDraft()
-    val weekdayIndices =
-        draft.workouts.sortedBy { it.position }.mapNotNull { workout ->
-            workout.weekday?.let { weekdayName ->
-                Weekday.entries.indexOf(Weekday.valueOf(weekdayName))
-            }
-        }
-    val program =
-        if (weekdayIndices.size == normalized.toDomainProgram().workouts.size) {
-            assignProgramScheduleFromWeekdayIndices(normalized.toDomainProgram(), weekdayIndices)
-        } else {
-            val trainingWeekdays =
-                context.weekdays.mapNotNull { weekday ->
-                    runCatching { Weekday.valueOf(weekday) }.getOrNull()
-                }
-            assignProgramSchedule(
-                normalized.toDomainProgram(),
-                trainingWeekdays,
-            )
-        }
+    // Production binds via toDomainProgram() (derives trainingWeekdays from workout.weekday) then
+    // withReconciledTrainingWeekdays() after sanitization. Mirror that single path here — no
+    // inline if/else fallback, no profile-weekday rebinding.
+    val program = normalized.toDomainProgram().withReconciledTrainingWeekdays()
     assertEquals(config.days, program.cycleLength)
     assertEquals(config.days, program.workouts.size)
     for (workout in program.workouts) {
@@ -79,6 +61,11 @@ class ProgramGenerationPipelineTest {
         "${workout.name} should have enough exercises to fill a session",
       )
     }
+    // Invariant: the denormalized cache equals the bound workout weekdays.
+    assertEquals(
+      program.workouts.mapNotNull { it.weekday }.toSet(),
+      program.trainingWeekdays,
+    )
   }
 
   @ParameterizedTest(name = "{0}")

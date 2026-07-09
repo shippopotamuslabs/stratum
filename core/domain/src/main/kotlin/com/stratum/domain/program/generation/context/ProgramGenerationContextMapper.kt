@@ -70,6 +70,8 @@ object ProgramGenerationContextMapper {
             muscleLengthBias = lift.muscleLengthBias.toGenerationContext(),
             equipment = lift.equipment,
             kinematicProfile = lift.kinematicProfile,
+            incrementTiers = lift.incrementTiers,
+            estimatedOneRm = trainingInsights?.estimatedOneRm,
         )
     }
 

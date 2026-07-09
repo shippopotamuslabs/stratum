@@ -13,6 +13,8 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
+import com.stratum.domain.program.ScheduleDayItem
+import com.stratum.domain.program.buildWeeklySchedule
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -42,6 +44,60 @@ class GenerateProgramUseCaseTest {
             assertTrue(programRepository.saveProgramCalls.isNotEmpty())
             assertTrue(onboardingRepository.current.isComplete)
             assertEquals(SEEDED_PROFILE, profileRepository.current)
+        }
+
+        @Test
+        fun `invoke binds training weekdays so weekly schedule has workout days`() = runTest {
+            val useCase = buildUseCase(this)
+
+            useCase.invoke().getOrThrow()
+
+            val program = programRepository.current!!
+            val workoutDays =
+                buildWeeklySchedule(program).filterIsInstance<ScheduleDayItem.WorkoutDay>()
+            assertTrue(workoutDays.isNotEmpty(), "expected workout days in weekly schedule")
+            assertEquals(program.workouts.size, workoutDays.size)
+            assertTrue(program.trainingWeekdays.isNotEmpty())
+            // trainingWeekdays is a denormalized cache of Workout.weekday — the single source of
+            // truth. The two must always agree after generation.
+            assertEquals(
+                program.workouts.mapNotNull { it.weekday }.toSet(),
+                program.trainingWeekdays,
+            )
+        }
+
+        @Test
+        @DisplayName("retainOnlyKnownLifts dropping workouts keeps trainingWeekdays consistent with survivors")
+        fun `invoke keeps training weekdays consistent when sanitization drops workouts`() = runTest {
+            // Seed only upper-body lifts: lower-dominant workouts lose all their lifts to
+            // retainOnlyKnownLifts and are dropped, so the surviving trainingWeekdays must
+            // re-derive from the workouts that remain — no orphan weekdays, no crash.
+            val upperOnlyLiftIds =
+                setOf(
+                    "bench",
+                    "db-press",
+                    "inc-press",
+                    "row",
+                    "seated-row",
+                    "pullup",
+                    "lat-raise",
+                    "rear-delt-fly",
+                    "ohp",
+                    "curl",
+                    "tricep-ext",
+                ).map { LiftId(it) }.toSet()
+            val useCase = buildUseCase(this, enabledLiftIds = upperOnlyLiftIds)
+
+            val result = useCase.invoke()
+
+            assertTrue(result.isSuccess, "generation should succeed even with a partial lift catalog")
+            val program = programRepository.current!!
+            // Invariant: trainingWeekdays equals the set of bound workout weekdays among survivors.
+            val boundFromWorkouts = program.workouts.mapNotNull { it.weekday }.toSet()
+            assertEquals(boundFromWorkouts, program.trainingWeekdays)
+            // buildWeeklySchedule must not crash and must show exactly the surviving workout days.
+            val schedule = buildWeeklySchedule(program)
+            assertEquals(boundFromWorkouts.size, schedule.filterIsInstance<ScheduleDayItem.WorkoutDay>().size)
         }
     }
 
@@ -119,18 +175,18 @@ class GenerateProgramUseCaseTest {
             scenarioContext(days = 3, specialization = emptyMap())
         },
         repositoryFailOnSave: Boolean = false,
+        enabledLiftIds: Set<LiftId> = SCENARIO_LIFT_CATALOG.map { LiftId(it.id) }.toSet(),
     ): GenerateProgramUseCase {
         programRepository = FakeProgramRepository(failOnSave = repositoryFailOnSave)
         onboardingRepository = FakeOnboardingRepository()
         profileRepository = FakeUserTrainingProfileRepository(initial = SEEDED_PROFILE)
-        val liftIds = SCENARIO_LIFT_CATALOG.map { LiftId(it.id) }.toSet()
         return GenerateProgramUseCase(
             loadContext = contextLoader,
             pipeline = testProgramGenerationPipeline(),
             repository = programRepository,
             liftRepository = FakeLiftRepository(
                 initialLifts =
-                    liftIds.map { id ->
+                    enabledLiftIds.map { id ->
                         com.stratum.domain.lift.Lift(
                             id = id,
                             name = id.value,

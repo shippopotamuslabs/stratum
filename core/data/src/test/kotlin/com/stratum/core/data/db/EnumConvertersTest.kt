@@ -3,6 +3,7 @@ package com.stratum.core.data.db
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.response.identity.EpochId
 import com.stratum.domain.response.identity.ExperimentId
@@ -48,6 +49,12 @@ class EnumConvertersTest {
     fun unknownNameYieldsNull() {
         assertNull(converters.toMuscleGroup("NotAMuscle"))
         assertNull(converters.toWeekday("Funday"))
+    }
+
+    @Test
+    @DisplayName("Given legacy Generate onboarding step when decoded then it maps to Review")
+    fun legacyGenerateStepMapsToReview() {
+        assertEquals(OnboardingStep.Review, converters.toOnboardingStep("Generate"))
     }
 
     @Test

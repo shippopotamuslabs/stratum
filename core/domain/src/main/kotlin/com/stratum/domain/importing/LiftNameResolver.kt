@@ -84,17 +84,42 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         computeTokenAlignment(queryTokens(exerciseNameRaw), catalogTokens(catalogName))
 
     /**
-     * True when normalized strings match or both token bags align strongly in both directions.
-     * Prevents subset matches (e.g. "bench press" -> "barbell bench press") from auto-accepting.
+     * True when normalized strings match, both token bags align strongly in both directions, or the
+     * query is an equipment-aware subset of the catalog name (every query token is covered and the
+     * only extra catalog tokens are equipment/variant modifiers like "back", "incline", "cable").
+     * Prevents unsafe subset matches (e.g. "leg press" -> "jm press") while accepting equipment-
+     * qualified ones (e.g. "squat (barbell)" -> "barbell back squat").
      */
     fun isStrongTokenAlignment(exerciseNameRaw: String, catalogName: String): Boolean {
         if (isExactNormalizedMatch(exerciseNameRaw, catalogName)) {
             return true
         }
         val alignment = tokenAlignment(exerciseNameRaw, catalogName)
-        return alignment.jaccard >= STRONG_JACCARD_MIN &&
+        if (alignment.jaccard >= STRONG_JACCARD_MIN &&
             alignment.queryRecall >= STRONG_RECALL_MIN &&
             alignment.docRecall >= STRONG_RECALL_MIN
+        ) {
+            return true
+        }
+        return isEquipmentAwareSubsetAlignment(exerciseNameRaw, catalogName, alignment)
+    }
+
+    /**
+     * One-directional relaxation: accepts a match when the query is a subset of the catalog name
+     * (queryRecall == 1.0) and every extra catalog token is an equipment/variant modifier. This
+     * lets "squat (barbell)" → "barbell squat" match "barbell back squat" (extra "back" is a
+     * variant) while rejecting "leg press" → "jm press" ("leg" is in the query but not the catalog,
+     * so queryRecall < 1.0).
+     */
+    private fun isEquipmentAwareSubsetAlignment(
+        exerciseNameRaw: String,
+        catalogName: String,
+        alignment: TokenAlignment,
+    ): Boolean {
+        if (alignment.queryRecall < FULL_RECALL) return false
+        val queryTokenSet = queryTokens(exerciseNameRaw).toSet()
+        val extraCatalogTokens = catalogTokens(catalogName).toSet() - queryTokenSet
+        return extraCatalogTokens.all { it in MODIFIER_TOKENS }
     }
 
     private fun computeTokenAlignment(queryTokens: List<String>, docTokens: List<String>): TokenAlignment {
@@ -243,6 +268,7 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         const val SCORE_EPSILON = 0.000_1
         const val STRONG_JACCARD_MIN = 0.85
         const val STRONG_RECALL_MIN = 0.9
+        private const val FULL_RECALL = 1.0
         private const val DEFAULT_TOP_K = 5
         private const val LEVENSHTEIN_DISTANCE_THRESHOLD = 3
         private const val LEVENSHTEIN_BONUS = 0.5
@@ -264,5 +290,52 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
                 "rope",
                 "smith",
             )
+
+        /**
+         * Equipment tokens plus variant descriptors that commonly appear in catalog names as
+         * qualifiers the user may omit (e.g. "back" in "barbell back squat", "incline" in
+         * "incline dumbbell press"). Used by [isEquipmentAwareSubsetAlignment] to accept subset
+         * matches where the query covers all core movement tokens.
+         */
+        private val MODIFIER_TOKENS =
+            EQUIPMENT_TOKENS +
+                setOf(
+                    "back",
+                    "front",
+                    "incline",
+                    "decline",
+                    "close",
+                    "wide",
+                    "neutral",
+                    "standing",
+                    "seated",
+                    "lying",
+                    "overhead",
+                    "reverse",
+                    "stiff",
+                    "romanian",
+                    "sumo",
+                    "split",
+                    "single",
+                    "one",
+                    "arm",
+                    "leg",
+                    "v",
+                    "bar",
+                    "ez",
+                    "hack",
+                    "zercher",
+                    "narrow",
+                    "alternate",
+                    "concentration",
+                    "spider",
+                    "prone",
+                    "isolation",
+                    "preacher",
+                    "hammer",
+                    "underhand",
+                    "overhand",
+                    "neutral",
+                )
     }
 }

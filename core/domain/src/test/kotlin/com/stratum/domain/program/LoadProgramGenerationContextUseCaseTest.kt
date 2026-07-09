@@ -152,6 +152,61 @@ class LoadProgramGenerationContextUseCaseTest {
         assertTrue(context.muscleVolumeSnapshotsByMuscle.values.any { it.source == VolumeSnapshotSource.Literature })
     }
 
+    @Test
+    @DisplayName("RP-S10-008 load context forwards increment tiers and estimated 1RM onto LiftContext")
+    fun rpS10_008_loadContextForwardsIncrementAndOneRm() = runTest {
+        val liftId = LiftId("lift-bench")
+        val lift = com.stratum.domain.lift.Lift(
+            id = liftId,
+            name = "Barbell Bench Press",
+            movementPatterns = setOf(com.stratum.domain.lift.MovementPattern.HorizontalPress),
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            secondaryMuscles = setOf(MuscleGroup.Tricep),
+            incrementTiers = listOf(
+                com.stratum.domain.lift.IncrementTier(
+                    lowerBound = com.stratum.domain.lift.Weight(0.0, com.stratum.domain.lift.Weight.WeightUnit.Lb),
+                    upperBound = null,
+                    increment = com.stratum.domain.lift.Weight(5.0, com.stratum.domain.lift.Weight.WeightUnit.Lb),
+                ),
+            ),
+            presetTags = emptySet(),
+            enabled = true,
+        )
+        val insights = listOf(
+            com.stratum.domain.importing.LiftTrainingInsights(
+                liftId = liftId,
+                estimatedOneRm = com.stratum.domain.lift.Weight(250.0, com.stratum.domain.lift.Weight.WeightUnit.Lb),
+                fatigueDecaySlope = -2.0,
+                fatigueDecayIntercept = 0.0,
+                sessionCount = 5,
+                progressTrend = null,
+                lastPerformedAt = null,
+            ),
+        )
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(lift))
+        val insightsRepo = FakeLiftInsightsRepository(insights)
+        val useCase = LoadProgramGenerationContextUseCase(
+            userTrainingProfileRepository = FakeUserTrainingProfileRepository(),
+            observeSpecialization = ObserveSpecializationUseCase(FakeSpecializationPreferenceRepository()),
+            liftRepository = liftRepo,
+            liftTrainingInsightsRepository = insightsRepo,
+            importAnalysisMetadataRepository = FakeMetadataRepository(),
+            volumeResponseObservationRepository = FakeVolumeResponseObservationRepository(),
+            liftEffectivenessObservationRepository = FakeLiftEffectivenessObservationRepository(),
+            responseProfileMetadataRepository = FakeResponseProfileMetadataRepository(),
+            muscleVolumeResponseSnapshotRepository = FakeMuscleVolumeResponseSnapshotRepository(),
+            muscleVolumeBaselineRepository = FakeVolumeRepository(),
+        )
+
+        val context = useCase()
+        val bench = context.liftsById.getValue(liftId.value)
+
+        assertEquals(1, bench.incrementTiers.size, "Increment tiers should round-trip onto LiftContext")
+        assertEquals(5.0, bench.incrementTiers.single().increment.amount)
+        assertEquals(250.0, bench.estimatedOneRm?.amount, "Estimated 1RM should round-trip onto LiftContext")
+        assertEquals(-2.0, bench.fatigueDecaySlope, "Fatigue slope should still round-trip")
+    }
+
     private fun buildUseCase(
         volumeResponseObservationRepository: FakeVolumeResponseObservationRepository =
             FakeVolumeResponseObservationRepository(),
@@ -194,12 +249,15 @@ class LoadProgramGenerationContextUseCaseTest {
             diagnosticAnchorLiftId = LiftId("lift-squat"),
         )
 
-    private class FakeLiftInsightsRepository : LiftTrainingInsightsRepository {
+    private class FakeLiftInsightsRepository(
+        private val insights: List<com.stratum.domain.importing.LiftTrainingInsights> = emptyList(),
+    ) : LiftTrainingInsightsRepository {
         override suspend fun replaceAll(insights: List<com.stratum.domain.importing.LiftTrainingInsights>) = Unit
 
-        override suspend fun getAll(): List<com.stratum.domain.importing.LiftTrainingInsights> = emptyList()
+        override suspend fun getAll(): List<com.stratum.domain.importing.LiftTrainingInsights> = insights
 
-        override suspend fun getByLiftId(liftId: LiftId): com.stratum.domain.importing.LiftTrainingInsights? = null
+        override suspend fun getByLiftId(liftId: LiftId): com.stratum.domain.importing.LiftTrainingInsights? =
+            insights.firstOrNull { it.liftId == liftId }
     }
 
     private class FakeVolumeRepository(
