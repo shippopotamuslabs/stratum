@@ -45,6 +45,8 @@ import com.stratum.domain.workout.SnapshotRequest
 import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
+import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
+import com.stratum.feature.workout.notification.RestTimerState
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiMapper
 import com.stratum.feature.workout.ui.WorkoutUiState
@@ -91,6 +93,7 @@ class WorkoutViewModel @Inject constructor(
     private val logErrorUseCase: LogErrorUseCase,
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     private val workoutEditSession: WorkoutEditSession,
+    private val liveWorkoutSurfaces: LiveWorkoutSurfaces,
 ) : ViewModel() {
 
     init {
@@ -117,6 +120,14 @@ class WorkoutViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<WorkoutUiState>(WorkoutUiState.Loading)
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
+
+    val restTimerState: StateFlow<RestTimerState> = liveWorkoutSurfaces.restTimer.state
+
+    /** Process-scoped rest timer; adjust/skip/remaining are exposed for the route + notifications. */
+    val restTimer get() = liveWorkoutSurfaces.restTimer
+
+    /** Single completion gate (bell + silent heads-up) shared with the rest FGS. */
+    val restCompletion get() = liveWorkoutSurfaces.restCompletion
 
     private val _events = Channel<WorkoutUiEvent>(Channel.BUFFERED)
     val events: Flow<WorkoutUiEvent> = _events.receiveAsFlow()
@@ -162,6 +173,7 @@ class WorkoutViewModel @Inject constructor(
                         snapshotBySlot = emptyMap()
                         overlay = WorkoutOverlay()
                         baselineWorkout = null
+                        liveWorkoutSurfaces.clearSession()
                         _uiState.value = WorkoutUiState.NoActiveSession
                         return@collect
                     }
@@ -498,6 +510,7 @@ class WorkoutViewModel @Inject constructor(
             }
             finalizeTrainingSession(sessionId)
             manageWorkoutOverlay.clear()
+            liveWorkoutSurfaces.clearSession()
             _events.send(WorkoutUiEvent.NavigateToFinalize(sessionId.value))
         }
     }
@@ -516,6 +529,7 @@ class WorkoutViewModel @Inject constructor(
                 fatigueByLiftId = emptyMap()
                 overlay = WorkoutOverlay()
                 manageWorkoutOverlay.clear()
+                liveWorkoutSurfaces.clearSession()
                 _uiState.value = WorkoutUiState.NoActiveSession
             }
         } else {
@@ -530,9 +544,12 @@ class WorkoutViewModel @Inject constructor(
             viewModelScope.launch {
                 manageWorkoutOverlay.clear()
             }
+            liveWorkoutSurfaces.clearSession()
             _uiState.value = WorkoutUiState.NoActiveSession
         }
     }
+
+
 
     /**
      * Recomputes overlay-only recommendations for upcoming unlogged sets from the most
@@ -619,11 +636,17 @@ class WorkoutViewModel @Inject constructor(
             lift.sets.any { it.loggedValue == null }
         }
         val hasDirtyEdits = overlay.isDirty
-        _uiState.value = WorkoutUiMapper.map(
+        val mapped = WorkoutUiMapper.map(
             rendered,
             startedAtMilli,
             hasIncompleteLifts = hasIncompleteLifts,
             hasDirtyEdits = hasDirtyEdits,
+        )
+        _uiState.value = mapped
+        liveWorkoutSurfaces.activeWorkout.setActive(
+            workoutId = mapped.workoutId,
+            workoutName = mapped.workoutName,
+            startedAtEpochMs = mapped.sessionStartedAtEpochMilli,
         )
     }
 

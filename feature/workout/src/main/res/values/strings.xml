@@ -27,4 +27,18 @@
     <string name="workout_complete_table_est_1rm">EST. 1RM</string>
     <string name="workout_complete_pr_cd">Personal record</string>
     <string name="workout_complete_empty">No lifts logged</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_rest_progress">Rest timer</string>
+    <string name="notif_channel_rest_progress_desc">Shows remaining rest time during a workout</string>
+    <string name="notif_channel_rest_complete">Rest complete</string>
+    <string name="notif_channel_rest_complete_desc">Plays a bell when rest is finished</string>
+    <string name="notif_channel_active_workout">Active workout</string>
+    <string name="notif_channel_active_workout_desc">Shows when a workout is in progress in the background</string>
+    <string name="notif_rest_in_progress">Resting</string>
+    <string name="notif_rest_complete_title">Rest complete</string>
+    <string name="notif_rest_action_minus_10">−10s</string>
+    <string name="notif_rest_action_plus_10">+10s</string>
+    <string name="notif_rest_action_skip">Skip</string>
+    <string name="notif_active_workout_text">Workout in progress</string>
 </resources>
