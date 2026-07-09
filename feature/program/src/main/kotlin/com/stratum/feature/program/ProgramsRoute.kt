@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stratum.feature.program.ui.CheckInScreen
 import com.stratum.feature.program.ui.ProgramsScreen
 import com.stratum.feature.program.ui.ProgramsScreenCallbacks
 import com.stratum.feature.program.ui.ProgramsUiEvent
@@ -13,6 +14,7 @@ import com.stratum.feature.program.ui.ProgramsUiEvent
 @Composable
 fun ProgramsRoute(
     viewModel: ProgramsViewModel = hiltViewModel(),
+    checkInViewModel: CheckInViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
     callbacks: ProgramsScreenCallbacks = ProgramsScreenCallbacks(),
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },
@@ -21,6 +23,8 @@ fun ProgramsRoute(
 ) {
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
     val activeWorkoutBar by viewModel.activeWorkoutBarState.collectAsStateWithLifecycle()
+    val showCheckInBanner by checkInViewModel.showBanner.collectAsStateWithLifecycle()
+    val checkInUiState by checkInViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(viewModel, onNavigateToWorkout) {
         viewModel.events.collect { event ->
@@ -31,28 +35,48 @@ fun ProgramsRoute(
         }
     }
 
-    ProgramsScreen(
-        state = state,
-        activeWorkoutBar = activeWorkoutBar,
-        callbacks =
-            callbacks.copy(
-                onStartNextWorkoutClick = viewModel::startNextWorkout,
-                onStartEmptyWorkoutClick = viewModel::startEmptyWorkout,
-                onStartWorkoutClick = viewModel::startProgramWorkout,
-                onSkipWorkoutCheckedChange = { workoutId, checked ->
-                    if (checked) viewModel.skipWorkout(workoutId) else viewModel.unskipWorkout(workoutId)
-                },
-                onSkipRestDayCheckedChange = { weekday, checked ->
-                    if (checked) viewModel.skipRestDay(weekday) else viewModel.unskipRestDay(weekday)
-                },
-                onConfirmDiscardAndStart = viewModel::confirmDiscardAndStart,
-            ),
-        onSwapLiftClick = { workoutId, target ->
-            onSwapLiftClick(workoutId, target.workoutLiftId, target.liftId, target.name)
-        },
-        onCancelWorkoutClick = viewModel::abandonActiveSession,
-        onExpandWorkoutClick = onNavigateToWorkout,
-        modifier = modifier,
-        isPreviewMode = isPreviewMode,
-    )
+    if (checkInUiState.isOpen) {
+        CheckInScreen(
+            state = checkInUiState,
+            onBack = checkInViewModel::goBack,
+            onOverallRecoverySelected = checkInViewModel::setOverallRecovery,
+            onHasLocalizedIssuesSelected = checkInViewModel::setHasLocalizedIssues,
+            onToggleFlaggedMuscle = checkInViewModel::toggleFlaggedMuscle,
+            onMuscleSignalSelected = checkInViewModel::setMuscleSignal,
+            onNext = checkInViewModel::goNext,
+            onToggleAccepted = checkInViewModel::setAccepted,
+            onOpenSwapPicker = checkInViewModel::openSwapPicker,
+            onSelectSwapCandidate = checkInViewModel::selectSwapCandidate,
+            onDismissSwapPicker = checkInViewModel::dismissSwapPicker,
+            modifier = modifier,
+        )
+    } else {
+        ProgramsScreen(
+            state = state,
+            activeWorkoutBar = activeWorkoutBar,
+            callbacks =
+                callbacks.copy(
+                    onStartNextWorkoutClick = viewModel::startNextWorkout,
+                    onStartEmptyWorkoutClick = viewModel::startEmptyWorkout,
+                    onStartWorkoutClick = viewModel::startProgramWorkout,
+                    onSkipWorkoutCheckedChange = { workoutId, checked ->
+                        if (checked) viewModel.skipWorkout(workoutId) else viewModel.unskipWorkout(workoutId)
+                    },
+                    onSkipRestDayCheckedChange = { weekday, checked ->
+                        if (checked) viewModel.skipRestDay(weekday) else viewModel.unskipRestDay(weekday)
+                    },
+                    onConfirmDiscardAndStart = viewModel::confirmDiscardAndStart,
+                ),
+            onSwapLiftClick = { workoutId, target ->
+                onSwapLiftClick(workoutId, target.workoutLiftId, target.liftId, target.name)
+            },
+            onCancelWorkoutClick = viewModel::abandonActiveSession,
+            onExpandWorkoutClick = onNavigateToWorkout,
+            modifier = modifier,
+            isPreviewMode = isPreviewMode,
+            showCheckInBanner = showCheckInBanner && !isPreviewMode,
+            onCheckInBannerClick = checkInViewModel::openCheckIn,
+            onCheckInSkipClick = checkInViewModel::skip,
+        )
+    }
 }

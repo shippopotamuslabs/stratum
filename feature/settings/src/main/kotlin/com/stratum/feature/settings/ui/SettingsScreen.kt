@@ -2,17 +2,21 @@ package com.stratum.feature.settings.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSegmentedControl
+import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
@@ -28,6 +32,8 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onAppearanceSelected: (AppearanceUi) -> Unit,
     onThemeFamilySelected: (ThemeFamilyUi) -> Unit,
+    onCheckInsEnabledChange: (Boolean) -> Unit = {},
+    onForceCheckInPending: () -> Unit = {},
 ) {
     StratumScaffold(
         topBar = {
@@ -88,6 +94,47 @@ fun SettingsScreen(
                         onThemeFamilySelected(familyOptions[index].first)
                     },
                 )
+            }
+
+            SettingsSection(
+                title = stringResource(R.string.settings_checkin_title),
+                description = stringResource(R.string.settings_checkin_description),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    StratumText(
+                        text = stringResource(R.string.settings_checkin_enabled),
+                        style = StratumThemeAccessor.typography.bodyLarge,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    )
+                    StratumSwitch(
+                        checked = uiState.checkInsEnabled,
+                        onCheckedChange = onCheckInsEnabledChange,
+                    )
+                }
+            }
+
+            if (uiState.showDebugTools) {
+                SettingsSection(
+                    title = stringResource(R.string.settings_debug_title),
+                    description = stringResource(R.string.settings_debug_description),
+                ) {
+                    StratumButton(
+                        text = stringResource(R.string.settings_debug_force_checkin),
+                        onClick = onForceCheckInPending,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    uiState.debugStatusMessage?.let { message ->
+                        StratumText(
+                            text = message,
+                            muted = true,
+                            style = StratumThemeAccessor.typography.sectionLabel,
+                        )
+                    }
+                }
             }
         }
     }

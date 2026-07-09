@@ -29,6 +29,8 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG for debug-only developer tools (force check-in, etc.).
+        buildConfig = true
     }
 
     testOptions {
