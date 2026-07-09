@@ -5,6 +5,7 @@ import androidx.credentials.CredentialManager
 import com.google.firebase.auth.FirebaseAuth
 import com.stratum.core.data.auth.FirebaseGoogleAuthManager
 import com.stratum.domain.auth.AuthManager
+import com.stratum.domain.di.ApplicationScope
 import dagger.Binds
 import dagger.Module
 import dagger.Provides

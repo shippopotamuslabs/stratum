@@ -79,6 +79,54 @@ class ExtractResponseProfileUseCaseTest {
     }
 
     @Test
+    @DisplayName("All-scope extract reads live + import sessions (not import-only)")
+    fun allScopeReadsFullHistory() = runTest {
+        val fixture = ResponseFixtures.fixS7MultiEpoch()
+        val persistence = FakeResponseProfilePersistencePort()
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(fixture.lifts)
+        val trainingLogRepo = FakeTrainingLogRepository()
+        // Seed as full history (includes what would be live + import).
+        trainingLogRepo.replaceAll(fixture.sessions, fixture.sets)
+        val useCase = ExtractResponseProfileUseCase(
+            trainingLogRepository = trainingLogRepo,
+            liftRepository = liftRepo,
+            liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
+            muscleVolumeBaselineRepository = FakeVolumeBaselineRepository(),
+            importAnalysisMetadataRepository = FakeImportMetadataRepository(fixture),
+            responseProfilePersistence = persistence,
+            extractor = DefaultResponseObservationExtractor(),
+            experimentRegistry = EmptyExperimentRegistry(),
+        )
+
+        val result = useCase(
+            provenLiftIds = fixture.provenLiftIds,
+            scope = com.stratum.domain.importing.InsightsAnalysisScope.All,
+        )
+
+        assertTrue(result.isSuccess)
+        assertEquals(2, persistence.epochRepository.getAll().size)
+        assertTrue(persistence.metadataRepository.get() != null)
+        // replaceExtractedProfile path (not weekly-only).
+        assertTrue(persistence.metadataRepository.get()!!.epochsAnalyzed >= 1)
+    }
+
+    @Test
+    @DisplayName("ImportOnly default still uses import sessions only")
+    fun importOnlyDefaultIgnoresLive() = runTest {
+        val fixture = ResponseFixtures.fixS7MultiEpoch()
+        val persistence = FakeResponseProfilePersistencePort()
+        // Only seed via replaceImportHistory so getImportSessions is non-empty;
+        // default scope remains ImportOnly (import call site compatibility).
+        val useCase = buildUseCase(fixture, persistence)
+
+        val result = useCase(fixture.provenLiftIds)
+
+        assertTrue(result.isSuccess)
+        assertEquals(2, persistence.epochRepository.getAll().size)
+    }
+
+    @Test
     @DisplayName("WL-042 ExtractResponseProfileUseCase computes volume baselines without live Lift list")
     fun wl042_volumeBaselinesWithoutCatalog() = runTest {
         val sets = listOf(

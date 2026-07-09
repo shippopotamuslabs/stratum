@@ -101,7 +101,8 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         ) {
             return true
         }
-        return isEquipmentAwareSubsetAlignment(exerciseNameRaw, catalogName, alignment)
+        return isEquipmentAwareSubsetAlignment(exerciseNameRaw, catalogName, alignment) ||
+            isEquipmentAwareQuerySupersetAlignment(exerciseNameRaw, catalogName, alignment)
     }
 
     /**
@@ -120,6 +121,24 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         val queryTokenSet = queryTokens(exerciseNameRaw).toSet()
         val extraCatalogTokens = catalogTokens(catalogName).toSet() - queryTokenSet
         return extraCatalogTokens.all { it in MODIFIER_TOKENS }
+    }
+
+    /**
+     * Reverse of [isEquipmentAwareSubsetAlignment]: catalog tokens are fully covered by the query
+     * (docRecall == 1.0) and every extra query token is a **position/equipment** qualifier only.
+     * Accepts "Standing Smith Machine Calf Raise" → "Smith Machine Calf Raise" without treating
+     * grip/variant tokens (underhand, incline, …) as free extras — those can change the lift.
+     */
+    private fun isEquipmentAwareQuerySupersetAlignment(
+        exerciseNameRaw: String,
+        catalogName: String,
+        alignment: TokenAlignment,
+    ): Boolean {
+        if (alignment.docRecall < FULL_RECALL) return false
+        val catalogTokenSet = catalogTokens(catalogName).toSet()
+        val extraQueryTokens = queryTokens(exerciseNameRaw).toSet() - catalogTokenSet
+        return extraQueryTokens.isNotEmpty() &&
+            extraQueryTokens.all { it in QUERY_SUPERSET_MODIFIER_TOKENS }
     }
 
     private fun computeTokenAlignment(queryTokens: List<String>, docTokens: List<String>): TokenAlignment {
@@ -320,6 +339,13 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
                     "one",
                     "arm",
                     "leg",
+                    "low",
+                    "high",
+                    "pin",
+                    "loaded",
+                    "plate",
+                    "iso",
+                    "lateral",
                     "v",
                     "bar",
                     "ez",
@@ -336,6 +362,30 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
                     "underhand",
                     "overhand",
                     "neutral",
+                )
+
+        /**
+         * Tokens allowed as *extra on the import name* when every catalog token is already present.
+         * Stricter than [MODIFIER_TOKENS]: grip/plane variants (underhand, incline, …) are excluded
+         * so "Lat Pulldown - Underhand (Cable)" does not collapse to bare "Lat Pulldown".
+         */
+        private val QUERY_SUPERSET_MODIFIER_TOKENS =
+            EQUIPMENT_TOKENS +
+                setOf(
+                    "standing",
+                    "seated",
+                    "lying",
+                    "prone",
+                    "single",
+                    "one",
+                    "arm",
+                    "leg",
+                    "low",
+                    "high",
+                    "pin",
+                    "loaded",
+                    "plate",
+                    "iso",
                 )
     }
 }

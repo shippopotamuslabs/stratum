@@ -81,11 +81,17 @@ fun StratumNavHost() {
                     onNavigateToWorkout = { workoutId ->
                         backStack.add(WorkoutKey(workoutId))
                     },
+                    onNavigateToSettings = {
+                        backStack.add(SettingsKey)
+                    },
                     onCreateNewLift = {
                         // Navigate to custom lift screen in future slice
                     },
                 )
             }
+            settingsEntry(
+                onBackClick = onNavigateBack,
+            )
             liftSwapEntry(
                 onBackClick = onNavigateBack,
                 onCreateNewLift = {

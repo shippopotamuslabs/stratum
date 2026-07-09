@@ -1,6 +1,7 @@
 package com.stratum.core.testing.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.training.CyclePointerUpdate
@@ -70,6 +71,12 @@ class FakeTrainingLogRepository(
 
     override suspend fun getAllSets(): List<LoggedSet> =
         setsBySession.values.flatMap { it.values }
+
+    override suspend fun getFirstSetDatePerLift(): Map<LiftId, Instant> =
+        getAllSets()
+            .filter { it.liftId != null }
+            .groupBy { it.liftId!! }
+            .mapValues { (_, liftSets) -> liftSets.minOf { it.completedAt } }
 
     override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
         getAllSets().filter { it.completedAt in windowStart..windowEnd }

@@ -1,7 +1,25 @@
 package com.stratum
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
+/**
+ * Application entry point. Implements [Configuration.Provider] so WorkManager uses
+ * [HiltWorkerFactory] for `@HiltWorker` injection (dose-response modeling, etc.).
+ * The default [androidx.work.WorkManagerInitializer] is removed in the manifest so this
+ * on-demand configuration takes over.
+ */
 @HiltAndroidApp
-class StratumApplication : Application()
+class StratumApplication : Application(), Configuration.Provider {
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+}
