@@ -512,6 +512,9 @@ fun LibraryBadge() {
  * Compact tray of selected lift thumbnails for the lift-picker top bar. Shows up to
  * [VISIBLE_SELECTED_THUMBNAILS] images plus a `+N` overflow badge, with a trailing chevron
  * that expands/collapses the full selected-lifts panel.
+ *
+ * Designed for the top-app-bar title slot ([compact] density) so appearing does not push
+ * scaffold content down.
  */
 @Composable
 fun SelectedLiftsTray(
@@ -535,17 +538,16 @@ fun SelectedLiftsTray(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
                 .clickable(onClick = onExpandToggle)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             visible.forEach { option ->
@@ -572,29 +574,28 @@ fun SelectedLiftsTray(
                 }
             }
         }
-        StratumIconButton(
-            onClick = onExpandToggle,
-            containerColor = Color.Transparent,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_chevron_down),
-                contentDescription =
-                    stringResource(
-                        if (expanded) {
-                            R.string.lift_swap_collapse_selected_content_description
-                        } else {
-                            R.string.lift_swap_expand_selected_content_description
-                        },
-                    ),
-                tint = colors.textPrimary,
-                modifier = Modifier.rotate(rotation),
-            )
-        }
+        Icon(
+            painter = painterResource(R.drawable.ic_chevron_down),
+            contentDescription =
+                stringResource(
+                    if (expanded) {
+                        R.string.lift_swap_collapse_selected_content_description
+                    } else {
+                        R.string.lift_swap_expand_selected_content_description
+                    },
+                ),
+            tint = colors.textPrimary,
+            modifier =
+                Modifier
+                    .size(20.dp)
+                    .rotate(rotation),
+        )
     }
 }
 
 private val MIN_TOUCH_HEIGHT = 48.dp
 private val THUMBNAIL_SIZE = 48.dp
-private val TRAY_THUMBNAIL_SIZE = 40.dp
+/** Sized to fit the standard top-app-bar title row without expanding scaffold insets. */
+private val TRAY_THUMBNAIL_SIZE = 32.dp
 private const val VISIBLE_SELECTED_THUMBNAILS = 6
 private val FILTER_CHIP_ORDER = listOf("muscles", "bias", "lift-type", "library")
