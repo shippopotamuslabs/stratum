@@ -71,6 +71,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.feature.program.R
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Read-only Programs overview. Renders volume summary, weekly schedule with rest days, and workout
@@ -273,7 +274,7 @@ private fun ActiveWorkoutBar(
             } else {
                 String.format(java.util.Locale.US, "%02d:%02d", mins, secs)
             }
-            kotlinx.coroutines.delay(1000L)
+            kotlinx.coroutines.delay(1000L.milliseconds)
         }
     }
 

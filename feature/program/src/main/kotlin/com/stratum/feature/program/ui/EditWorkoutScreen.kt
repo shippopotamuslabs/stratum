@@ -13,10 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,13 +24,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
-import androidx.annotation.DrawableRes
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
@@ -41,7 +36,6 @@ import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumDurationStepper
 import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumPillToggle
 import com.stratum.core.ui.component.StratumScaffold
@@ -367,6 +361,7 @@ internal fun EditWorkoutEmbeddedContent(
     state: EditWorkoutUiState.Loaded,
     callbacks: EditWorkoutScreenCallbacks,
     modifier: Modifier = Modifier,
+    showVolume: Boolean = false,
 ) {
     var restSheetSet by remember { mutableStateOf<EditSetState?>(null) }
     var restSheetLiftId by remember { mutableStateOf<String?>(null) }
@@ -387,6 +382,7 @@ internal fun EditWorkoutEmbeddedContent(
         onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
         onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
         modifier = modifier,
+        showVolume = showVolume,
     )
 
     restSheetSet?.let { targetSet ->
@@ -455,26 +451,29 @@ internal fun EditWorkoutContent(
     onShowLiftActions: (workoutLiftId: String) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
     modifier: Modifier = Modifier,
+    showVolume: Boolean = true,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        val workoutVolumeCards = state.upperVolumeByMuscle + state.lowerVolumeByMuscle
-        val programVolumeCards = state.programUpperVolumeByMuscle + state.programLowerVolumeByMuscle
-        if (workoutVolumeCards.isNotEmpty() || programVolumeCards.isNotEmpty()) {
-            item {
-                StratumScopedMuscleVolumeRow(
-                    workoutCards = workoutVolumeCards,
-                    programCards = programVolumeCards,
-                    title = stringResource(R.string.edit_workout_volume_title),
-                    scopeLabels =
-                        listOf(
-                            stringResource(R.string.edit_workout_volume_scope_workout),
-                            stringResource(R.string.edit_workout_volume_scope_program),
-                        ),
-                )
+        if (showVolume) {
+            val workoutVolumeCards = state.upperVolumeByMuscle + state.lowerVolumeByMuscle
+            val programVolumeCards = state.programUpperVolumeByMuscle + state.programLowerVolumeByMuscle
+            if (workoutVolumeCards.isNotEmpty() || programVolumeCards.isNotEmpty()) {
+                item {
+                    StratumScopedMuscleVolumeRow(
+                        workoutCards = workoutVolumeCards,
+                        programCards = programVolumeCards,
+                        title = stringResource(R.string.edit_workout_volume_title),
+                        scopeLabels =
+                            listOf(
+                                stringResource(R.string.edit_workout_volume_scope_workout),
+                                stringResource(R.string.edit_workout_volume_scope_program),
+                            ),
+                    )
+                }
             }
         }
         item {
@@ -509,7 +508,7 @@ internal fun EditWorkoutContent(
         }
         item {
             StratumOutlinedButton(
-                text = stringResource(R.string.edit_workout_add_exercise),
+                text = stringResource(R.string.edit_workout_add_lift),
                 onClick = callbacks.onAddLift,
                 modifier = Modifier.fillMaxWidth(),
             )

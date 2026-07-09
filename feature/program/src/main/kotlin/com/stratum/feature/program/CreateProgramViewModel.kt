@@ -6,6 +6,7 @@ import com.stratum.core.ui.trainingsetup.MinimumVolumeDraftUi
 import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
 import com.stratum.core.ui.trainingsetup.SpecializationDraftUi
 import com.stratum.core.ui.trainingsetup.TrainingSetupValidationConstants
+import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -17,6 +18,8 @@ import com.stratum.domain.onboarding.UpdateSpecializationUseCase
 import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.ActivateProgramUseCase
+import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.GenerateProgramUseCase
 import com.stratum.domain.program.InferLastTrainedBucketUseCase
 import com.stratum.domain.program.LiftSet
@@ -62,6 +65,8 @@ class CreateProgramViewModel @Inject constructor(
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val inferLastTrained: InferLastTrainedBucketUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
+    private val computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
+    private val estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
     private val workoutEditSession: WorkoutEditSession,
 ) : ViewModel() {
 
@@ -71,6 +76,7 @@ class CreateProgramViewModel @Inject constructor(
     val uiState: StateFlow<CreateProgramUiState> = _uiState.asStateFlow()
 
     private var generateJob: Job? = null
+    private var liftCatalog: List<Lift> = emptyList()
     private var liftNamesById: Map<String, String> = emptyMap()
     private var compoundByLiftId: Map<String, Boolean> = emptyMap()
     private var finishOnboarding: Boolean = false
@@ -79,8 +85,10 @@ class CreateProgramViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             observeLiftCatalog().collect { lifts ->
+                liftCatalog = lifts
                 liftNamesById = lifts.associate { lift -> lift.id.value to lift.name }
                 compoundByLiftId = lifts.associate { lift -> lift.id.value to lift.isCompound }
+                _uiState.update { state -> state.withEditorDerivedMetrics() }
             }
         }
         viewModelScope.launch {
@@ -318,7 +326,7 @@ class CreateProgramViewModel @Inject constructor(
                 days = remaining,
                 selectedDayId = remaining.firstOrNull()?.id,
                 isDirty = true,
-            )
+            ).withEditorDerivedMetrics()
         }
     }
 
@@ -399,7 +407,7 @@ class CreateProgramViewModel @Inject constructor(
                         }
                     },
                 isDirty = true,
-            )
+            ).withEditorDerivedMetrics()
         }
     }
 
@@ -504,7 +512,7 @@ class CreateProgramViewModel @Inject constructor(
                 days = days,
                 selectedDayId = days.firstOrNull()?.id,
                 isDirty = true,
-            )
+            ).withEditorDerivedMetrics()
         }
     }
 
@@ -533,7 +541,7 @@ class CreateProgramViewModel @Inject constructor(
                         }
                     },
                 isDirty = true,
-            )
+            ).withEditorDerivedMetrics()
         }
     }
 
@@ -593,7 +601,7 @@ class CreateProgramViewModel @Inject constructor(
                         }
                     },
                 isDirty = true,
-            )
+            ).withEditorDerivedMetrics()
         }
     }
 
@@ -614,8 +622,33 @@ class CreateProgramViewModel @Inject constructor(
                         }
                     },
                 isDirty = true,
-            )
+            ).withEditorDerivedMetrics()
         }
+    }
+
+    /**
+     * Recomputes per-day workout volume, program-scoped volume, and duration estimates so the
+     * editor chrome (volume row + summary header) stays live while drafting.
+     */
+    private fun CreateProgramUiState.withEditorDerivedMetrics(): CreateProgramUiState {
+        if (step != CreateProgramStep.Editor) return this
+        if (days.none { day -> day.editState != null }) return this
+        val draftProgram = toDomainProgram()
+        return copy(
+            days =
+                days.map { day ->
+                    val edit = day.editState ?: return@map day
+                    day.copy(
+                        editState =
+                            edit.withDerivedMetrics(
+                                liftCatalog = liftCatalog,
+                                program = draftProgram,
+                                computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
+                                estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
+                            ),
+                    )
+                },
+        )
     }
 
     private fun CreateProgramUiState.toDomainProgram(): Program {

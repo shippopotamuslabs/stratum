@@ -17,6 +17,7 @@ data class CreateProgramScreenCallbacks(
     val onGenerate: () -> Unit = {},
     val onSelectDay: (String) -> Unit = {},
     val onAddDay: () -> Unit = {},
+    val onReorderDays: (fromIndex: Int, toIndex: Int) -> Unit = { _, _ -> },
     val onRemoveDay: () -> Unit = {},
     val onShowRenameProgram: () -> Unit = {},
     val onShowRenameWorkout: () -> Unit = {},
