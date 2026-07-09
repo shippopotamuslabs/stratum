@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -30,7 +31,10 @@ import com.stratum.feature.program.navigation.ReorderLiftsKey
 import com.stratum.feature.program.navigation.reorderLiftsEntry
 
 @Composable
-fun StratumNavHost() {
+fun StratumNavHost(
+    pendingWorkoutId: String? = null,
+    onPendingWorkoutConsumed: () -> Unit = {},
+) {
     val statusViewModel: OnboardingStatusViewModel = hiltViewModel()
     val isComplete by statusViewModel.isComplete.collectAsState()
     if (isComplete == null) {
@@ -51,6 +55,20 @@ fun StratumNavHost() {
                 }
             }
         }
+
+    LaunchedEffect(pendingWorkoutId, isComplete) {
+        val workoutId = pendingWorkoutId ?: return@LaunchedEffect
+        if (isComplete != true) return@LaunchedEffect
+        val top = backStack.lastOrNull()
+        if (top is WorkoutKey && top.workoutId == workoutId) {
+            onPendingWorkoutConsumed()
+            return@LaunchedEffect
+        }
+        // Avoid stacking duplicate workout routes for the same session.
+        backStack.removeAll { it is WorkoutKey && it.workoutId == workoutId }
+        backStack.add(WorkoutKey(workoutId))
+        onPendingWorkoutConsumed()
+    }
 
     NavDisplay(
         backStack = backStack,

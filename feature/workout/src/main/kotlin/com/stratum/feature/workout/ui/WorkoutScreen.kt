@@ -78,12 +78,7 @@ import com.stratum.core.ui.theme.StratumSupersetGroupColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
 import com.stratum.feature.workout.R
-
-/** Rest seconds started after a set is logged. Shared by the weighted + bodyweight row branches. */
-private const val DEFAULT_REST_SECONDS = 90
-
-/** Upper bound for the rest timer. Matches the largest preset (5:00) so +10s cannot push past it. */
-private const val MAX_REST_SECONDS = 300
+import com.stratum.feature.workout.notification.RestTimerDefaults
 
 /**
  * Column weight fractions for one set row. The weight column is present for weighted +
@@ -117,26 +112,43 @@ private val bodyweightRowWeights = SetRowWeights(
     checkbox = 0.12f,
 )
 
+/**
+ * Rest-timer chrome + actions passed as one bag so [WorkoutScreen] stays under Detekt's
+ * function parameter threshold.
+ */
+data class RestTimerChrome(
+    val isActive: Boolean,
+    val remainingSeconds: Int,
+    val totalSeconds: Int,
+    val onStart: (Int) -> Unit,
+    val onAdd10s: () -> Unit,
+    val onSubtract10s: () -> Unit,
+    val onSkip: () -> Unit,
+)
+
+/** Session actions for [WorkoutScreen] — kept as one bag for Detekt [LongParameterList]. */
+data class WorkoutScreenActions(
+    val onNavigateBack: () -> Unit,
+    val onCompleteWorkout: (saveTemplate: Boolean) -> Unit,
+    val onAbandon: () -> Unit,
+    val onLogSet: (String, Weight, Int, Int?) -> Unit,
+    val onUnlogSet: (String) -> Unit,
+    val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
+    val onLinkSupersetWithPrevious: (String) -> Unit,
+    val onLinkSupersetWithNext: (String) -> Unit,
+    val onRemoveFromSuperset: (String) -> Unit,
+    val onSetUseRestTimerBetweenLifts: (String, Boolean) -> Unit,
+    val onRemoveLift: (String) -> Unit,
+    val onReorderLiftsClick: () -> Unit,
+)
+
 @Composable
 fun WorkoutScreen(
     state: WorkoutUiState.Loaded,
-    onNavigateBack: () -> Unit,
-    onCompleteWorkout: (saveTemplate: Boolean) -> Unit,
-    onAbandon: () -> Unit,
-    onLogSet: (String, Weight, Int, Int?) -> Unit,
-    onUnlogSet: (String) -> Unit,
-    onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
-    onLinkSupersetWithPrevious: (String) -> Unit,
-    onLinkSupersetWithNext: (String) -> Unit,
-    onRemoveFromSuperset: (String) -> Unit,
-    onSetUseRestTimerBetweenLifts: (String, Boolean) -> Unit,
-    onRemoveLift: (String) -> Unit,
-    onReorderLiftsClick: () -> Unit,
+    restTimer: RestTimerChrome,
+    actions: WorkoutScreenActions,
     modifier: Modifier = Modifier,
 ) {
-    var remainingRestSeconds by rememberSaveable { mutableIntStateOf(0) }
-    var totalRestSeconds by rememberSaveable { mutableIntStateOf(0) }
-    var isTimerActive by rememberSaveable { mutableStateOf(false) }
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
@@ -162,24 +174,6 @@ fun WorkoutScreen(
         }
     }
 
-    LaunchedEffect(isTimerActive, remainingRestSeconds) {
-        if (isTimerActive && remainingRestSeconds > 0) {
-            kotlinx.coroutines.delay(1000L)
-            remainingRestSeconds -= 1
-            if (remainingRestSeconds <= 0) {
-                isTimerActive = false
-            }
-        }
-    }
-
-    val startRestTimer = { restSeconds: Int ->
-        if (restSeconds > 0) {
-            remainingRestSeconds = restSeconds
-            totalRestSeconds = restSeconds
-            isTimerActive = true
-        }
-    }
-
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -187,7 +181,7 @@ fun WorkoutScreen(
                 title = elapsedTimeStr,
                 navigationIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        StratumIconButton(onClick = onNavigateBack) {
+                        StratumIconButton(onClick = actions.onNavigateBack) {
                             Icon(
                                 painter = painterResource(CoreUiR.drawable.ic_chevron_down),
                                 contentDescription = "Minimize Workout",
@@ -195,9 +189,9 @@ fun WorkoutScreen(
                             )
                         }
                         RestTimerTopBarIndicator(
-                            isTimerActive = isTimerActive,
-                            remainingSeconds = remainingRestSeconds,
-                            totalSeconds = totalRestSeconds,
+                            isTimerActive = restTimer.isActive,
+                            remainingSeconds = restTimer.remainingSeconds,
+                            totalSeconds = restTimer.totalSeconds,
                             onClick = { showRestSheet = true }
                         )
                     }
@@ -207,7 +201,7 @@ fun WorkoutScreen(
                         text = stringResource(R.string.workout_screen_complete),
                         onClick = {
                             if (!state.hasIncompleteLifts && !state.hasDirtyEdits) {
-                                onCompleteWorkout(false)
+                                actions.onCompleteWorkout(false)
                             } else if (state.hasIncompleteLifts) {
                                 completeSheetPhase = CompleteSheetPhase.Incomplete
                                 showCompleteSheet = true
@@ -237,9 +231,9 @@ fun WorkoutScreen(
                 items(state.lifts, key = { it.workoutLiftId }) { lift ->
                     LiftSection(
                         lift = lift,
-                        onLogSet = onLogSet,
-                        onUnlogSet = onUnlogSet,
-                        onStartRestTimer = startRestTimer,
+                        onLogSet = actions.onLogSet,
+                        onUnlogSet = actions.onUnlogSet,
+                        onStartRestTimer = restTimer.onStart,
                         onShowLiftActions = { liftActionsLiftId = lift.workoutLiftId }
                     )
                 }
@@ -264,33 +258,17 @@ fun WorkoutScreen(
 
     if (showRestSheet) {
         RestTimerBottomSheet(
-            isTimerActive = isTimerActive,
-            remainingSeconds = remainingRestSeconds,
-            totalSeconds = totalRestSeconds,
+            isTimerActive = restTimer.isActive,
+            remainingSeconds = restTimer.remainingSeconds,
+            totalSeconds = restTimer.totalSeconds,
             onDismiss = { showRestSheet = false },
-            onAdd10s = {
-                remainingRestSeconds = (remainingRestSeconds + 10).coerceAtMost(MAX_REST_SECONDS)
-                if (remainingRestSeconds > totalRestSeconds) {
-                    totalRestSeconds = remainingRestSeconds
-                }
-                isTimerActive = true
-            },
-            onSubtract10s = {
-                remainingRestSeconds = (remainingRestSeconds - 10).coerceAtLeast(0)
-                if (remainingRestSeconds == 0) {
-                    isTimerActive = false
-                }
-            },
+            onAdd10s = restTimer.onAdd10s,
+            onSubtract10s = restTimer.onSubtract10s,
             onSkip = {
-                isTimerActive = false
-                remainingRestSeconds = 0
+                restTimer.onSkip()
                 showRestSheet = false
             },
-            onStartPreset = { seconds ->
-                remainingRestSeconds = seconds
-                totalRestSeconds = seconds
-                isTimerActive = true
-            }
+            onStartPreset = restTimer.onStart,
         )
     }
 
@@ -299,8 +277,8 @@ fun WorkoutScreen(
             onDismiss = { showDiscardDialog = false },
             onConfirm = {
                 showDiscardDialog = false
-                onAbandon()
-                onNavigateBack()
+                actions.onAbandon()
+                actions.onNavigateBack()
             }
         )
     }
@@ -315,15 +293,15 @@ fun WorkoutScreen(
                 },
                 onSwapLift = {
                     liftActionsLiftId = null
-                    onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
+                    actions.onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
                 },
                 onRemoveLift = {
                     liftActionsLiftId = null
-                    onRemoveLift(liftId)
+                    actions.onRemoveLift(liftId)
                 },
                 onReorderLifts = {
                     liftActionsLiftId = null
-                    onReorderLiftsClick()
+                    actions.onReorderLiftsClick()
                 },
                 onDismiss = { liftActionsLiftId = null }
             )
@@ -343,13 +321,13 @@ fun WorkoutScreen(
                         !isLastInSupersetChain(currentLift, state.lifts),
                 useRestTimerBetweenLifts = currentLift.useRestTimerBetweenLifts,
                 onUseRestTimerBetweenLiftsChange = { enabled ->
-                    onSetUseRestTimerBetweenLifts(liftId, enabled)
+                    actions.onSetUseRestTimerBetweenLifts(liftId, enabled)
                 },
                 onOptionSelected = { direction ->
                     when (direction) {
-                        SupersetLinkDirection.Previous -> onLinkSupersetWithPrevious(liftId)
-                        SupersetLinkDirection.Next -> onLinkSupersetWithNext(liftId)
-                        SupersetLinkDirection.Remove -> onRemoveFromSuperset(liftId)
+                        SupersetLinkDirection.Previous -> actions.onLinkSupersetWithPrevious(liftId)
+                        SupersetLinkDirection.Next -> actions.onLinkSupersetWithNext(liftId)
+                        SupersetLinkDirection.Remove -> actions.onRemoveFromSuperset(liftId)
                     }
                     if (!shouldKeepSupersetSheetOpenAfterLink(state.lifts, liftId, direction)) {
                         supersetSheetLiftId = null
@@ -371,16 +349,16 @@ fun WorkoutScreen(
                     completeSheetPhase = CompleteSheetPhase.SaveChanges
                 } else {
                     showCompleteSheet = false
-                    onCompleteWorkout(false)
+                    actions.onCompleteWorkout(false)
                 }
             },
             onUpdateTemplate = {
                 showCompleteSheet = false
-                onCompleteWorkout(true)
+                actions.onCompleteWorkout(true)
             },
             onDiscardChanges = {
                 showCompleteSheet = false
-                onCompleteWorkout(false)
+                actions.onCompleteWorkout(false)
             },
             onDismiss = { showCompleteSheet = false },
         )
@@ -673,7 +651,7 @@ private fun WorkoutSetRow(
                         }
 
                         onLogSet(set.slotKey, Weight(finalWeight, Weight.WeightUnit.Lb), finalReps, finalRir)
-                        onStartRestTimer(DEFAULT_REST_SECONDS)
+                        onStartRestTimer(RestTimerDefaults.DEFAULT_REST_SECONDS)
                     } else {
                         onUnlogSet(set.slotKey)
                     }
@@ -868,7 +846,7 @@ private fun RestTimerBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val presets = (30..MAX_REST_SECONDS step 30).toList()
+                val presets = (30..RestTimerDefaults.MAX_REST_SECONDS step 30).toList()
                 presets.forEach { seconds ->
                     val min = seconds / 60
                     val sec = seconds % 60
