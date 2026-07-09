@@ -95,6 +95,7 @@ class CreateProgramViewModel @Inject constructor(
             workoutEditSession.events.collect { event ->
                 when (event) {
                     is EditSessionEvent.LiftSelected -> handleLiftSelected(event.workoutId, event.workoutLiftId, event.liftId)
+                    is EditSessionEvent.LiftsSelected -> handleLiftsSelected(event.workoutId, event.liftIds, event.asSuperset)
                     is EditSessionEvent.LiftsReordered -> handleLiftsReordered(event.workoutId, event.orderedWorkoutLiftIds)
                 }
             }
@@ -597,6 +598,48 @@ class CreateProgramViewModel @Inject constructor(
                                             },
                                         isDirty = true,
                                     ),
+                            )
+                        }
+                    },
+                isDirty = true,
+            ).withEditorDerivedMetrics()
+        }
+    }
+
+    private fun handleLiftsSelected(workoutId: String, liftIds: List<String>, asSuperset: Boolean) {
+        if (liftIds.isEmpty()) return
+        val groupId =
+            if (asSuperset && liftIds.size >= 2) {
+                newSupersetGroupId()
+            } else {
+                null
+            }
+        _uiState.update { state ->
+            state.copy(
+                days =
+                    state.days.map { day ->
+                        val edit = day.editState
+                        if (edit == null || edit.workoutId != workoutId) {
+                            day
+                        } else {
+                            val startPosition = edit.lifts.size
+                            val newLifts =
+                                liftIds.mapIndexed { index, liftId ->
+                                    EditLiftState(
+                                        workoutLiftId = newWorkoutLiftId(),
+                                        liftId = liftId,
+                                        name = liftNamesById[liftId] ?: PLACEHOLDER_LIFT_NAME,
+                                        position = startPosition + index,
+                                        sets = listOf(defaultEditSetState(1)),
+                                        isCompound = compoundByLiftId[liftId] ?: false,
+                                        progressionScheme = ProgressionScheme.Double,
+                                        supersetGroupId = groupId,
+                                        useRestTimerBetweenLifts = false,
+                                    )
+                                }
+                            day.copy(
+                                isRest = false,
+                                editState = edit.copy(lifts = edit.lifts + newLifts, isDirty = true),
                             )
                         }
                     },

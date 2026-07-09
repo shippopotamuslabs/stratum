@@ -102,6 +102,9 @@ class WorkoutViewModel @Inject constructor(
                             swapLift(WorkoutLiftId(event.workoutLiftId!!), LiftId(event.liftId))
                         }
                     }
+                    is EditSessionEvent.LiftsSelected -> {
+                        // Live workout has no multi-add path; ignore batch selections.
+                    }
                     is EditSessionEvent.LiftsReordered -> {
                         if (event.workoutId == activeWorkoutId?.value) {
                             reorderLifts(event.orderedWorkoutLiftIds)

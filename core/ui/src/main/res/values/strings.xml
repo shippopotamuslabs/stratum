@@ -21,6 +21,14 @@
     <string name="lift_swap_search_clear_content_description">Clear search</string>
     <string name="lift_swap_empty">No lifts match your filters.</string>
     <string name="lift_swap_match_indicator_content_description">Similarity match</string>
+    <string name="lift_swap_done">Done</string>
+    <string name="lift_swap_selected_lifts_title">Selected Lifts</string>
+    <string name="lift_swap_add_as_superset">Add as superset</string>
+    <string name="lift_swap_add_as_giant_set">Add as giant set</string>
+    <string name="lift_swap_expand_selected_content_description">Show selected lifts</string>
+    <string name="lift_swap_collapse_selected_content_description">Hide selected lifts</string>
+    <string name="lift_swap_remove_selected_content_description">Remove %1$s from selection</string>
+    <string name="lift_swap_overflow_count">+%1$d</string>
 
     <!-- RirTargetBottomSheet — shared RIR selection UI -->
     <string name="edit_workout_rir_sheet_title">RIR targets</string>
