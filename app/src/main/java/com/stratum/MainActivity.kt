@@ -42,8 +42,9 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         pendingWorkoutId = intent.workoutIdExtra()
         setContent {
-            StratumTheme {
-                val viewModel: MainViewModel = hiltViewModel()
+            val viewModel: MainViewModel = hiltViewModel()
+            val themePreferences by viewModel.themePreferences.collectAsStateWithLifecycle()
+            StratumTheme(preferences = themePreferences) {
                 val authState by viewModel.authState.collectAsStateWithLifecycle()
                 when (authState) {
                     StratumAuthUiState.Loading -> SignInScreen(
