@@ -2,8 +2,6 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.core.ui.component.StratumMuscleFilterCardState
-import com.stratum.core.ui.component.toVolumeDisplayName
 import com.stratum.domain.lift.CustomLiftDetails
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.Lift
@@ -39,24 +37,6 @@ enum class LiftInfoTab {
     History,
 }
 
-enum class MuscleRoleFilter {
-    Primary,
-    Secondary,
-}
-
-/**
- * Which Details-tab field sheet is open. Catalog metadata editors require a custom lift;
- * [DefaultRest] is allowed for every lift (personal programming preference).
- */
-enum class LiftDetailEditField {
-    LengthBias,
-    MovementPatterns,
-    Kinematic,
-    LoadType,
-    Equipment,
-    DefaultRest,
-}
-
 data class LiftHistorySetUi(
     val setIndex: Int,
     val weightRepsText: String,
@@ -79,13 +59,7 @@ data class LiftPrUi(
     val e1rmText: String,
 )
 
-data class LiftDetailOptionUi(
-    val key: String,
-    val label: String,
-    val selected: Boolean,
-)
-
-/** Callbacks for Details-tab muscle edits and custom-lift field editors. */
+/** Callbacks for tab, history, and Details-tab editors. */
 data class LiftInformationActions(
     val onTabSelected: (LiftInfoTab) -> Unit,
     val onMuscleRoleSelected: (MuscleRoleFilter) -> Unit,
@@ -113,26 +87,9 @@ data class LiftInformationUiState(
     val selectedTab: LiftInfoTab = LiftInfoTab.Instructions,
     val imageUrls: List<String> = emptyList(),
     val description: String? = null,
-    val muscleRole: MuscleRoleFilter = MuscleRoleFilter.Primary,
-    val primaryMuscles: List<StratumMuscleFilterCardState> = emptyList(),
-    val secondaryMuscles: List<StratumMuscleFilterCardState> = emptyList(),
-    val lengthBiasLabel: String = "",
-    val movementPatternLabels: List<String> = emptyList(),
-    val kinematicLabel: String = "",
-    val loadTypeLabel: String = "",
-    val equipment: String? = null,
-    val categoryLabel: String = "",
-    val defaultRestLabel: String = "",
     val personalRecord: LiftPrUi? = null,
     val historySessions: List<LiftHistorySessionUi> = emptyList(),
-    val showAddMuscleSheet: Boolean = false,
-    val editingField: LiftDetailEditField? = null,
-    val lengthBiasOptions: List<LiftDetailOptionUi> = emptyList(),
-    val kinematicOptions: List<LiftDetailOptionUi> = emptyList(),
-    val loadTypeOptions: List<LiftDetailOptionUi> = emptyList(),
-    val movementPatternOptions: List<LiftDetailOptionUi> = emptyList(),
-    val equipmentDraft: String = "",
-    val restDraftSeconds: Int = 120,
+    val details: LiftDetailsEditorState = LiftDetailsEditorState(),
 )
 
 @HiltViewModel
@@ -154,6 +111,16 @@ class LiftInformationViewModel @Inject constructor(
     private val draftMovementPatterns = MutableStateFlow<Set<MovementPattern>>(emptySet())
     private val equipmentDraft = MutableStateFlow("")
     private val restDraftSeconds = MutableStateFlow(DEFAULT_ISOLATION_REST_DISPLAY)
+    /**
+     * Local primary/secondary while the add-muscle sheet is open. Flushed once on Done/dismiss
+     * so multi-select never races the catalog combine (see thermos High #1).
+     */
+    private val muscleDraft = MutableStateFlow<MuscleDraft?>(null)
+
+    private data class MuscleDraft(
+        val primary: Set<MuscleGroup>,
+        val secondary: Set<MuscleGroup>,
+    )
 
     private data class SheetControls(
         val showAdd: Boolean,
@@ -161,6 +128,7 @@ class LiftInformationViewModel @Inject constructor(
         val draftPatterns: Set<MovementPattern>,
         val equipmentDraft: String,
         val restDraftSeconds: Int,
+        val muscleDraft: MuscleDraft?,
     )
 
     private data class UiControls(
@@ -187,14 +155,17 @@ class LiftInformationViewModel @Inject constructor(
                     equipmentDraft,
                     restDraftSeconds,
                 ) { showAdd, editing, drafts, equipDraft, restDraft ->
-                    SheetControls(showAdd, editing, drafts, equipDraft, restDraft)
+                    // Placeholder muscleDraft filled by outer combine with muscleDraft flow.
+                    SheetControls(showAdd, editing, drafts, equipDraft, restDraft, null)
                 },
             ) { tab, role, expanded, hist, sheets ->
                 UiControls(tab, role, expanded, hist, sheets)
             },
-        ) { id, catalog, controls ->
+            muscleDraft,
+        ) { id, catalog, controls, draft ->
             val lift = catalog.firstOrNull { it.id.value == id }
-            mapState(id, lift, controls)
+            val sheetsWithDraft = controls.sheets.copy(muscleDraft = draft)
+            mapState(id, lift, controls.copy(sheets = sheetsWithDraft))
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
@@ -208,6 +179,7 @@ class LiftInformationViewModel @Inject constructor(
         muscleRole.value = MuscleRoleFilter.Primary
         expandedSessions.value = emptySet()
         showAddMuscleSheet.value = false
+        muscleDraft.value = null
         editingField.value = null
         draftMovementPatterns.value = emptySet()
         equipmentDraft.value = ""
@@ -236,51 +208,94 @@ class LiftInformationViewModel @Inject constructor(
 
     fun onShowAddMuscleSheet(show: Boolean) {
         if (show && !uiState.value.isCustom) return
-        showAddMuscleSheet.value = show
+        if (show) {
+            val lift = latestLift.value ?: return
+            muscleDraft.value =
+                MuscleDraft(
+                    primary = lift.primaryMuscles,
+                    secondary = lift.secondaryMuscles,
+                )
+            showAddMuscleSheet.value = true
+            return
+        }
+        // Done / dismiss: flush local multi-select once, then clear draft.
+        val pending = muscleDraft.value
+        showAddMuscleSheet.value = false
+        muscleDraft.value = null
+        if (pending == null) return
+        val id = liftId.value ?: return
+        viewModelScope.launch {
+            updateLiftMuscles(LiftId(id), pending.primary, pending.secondary)
+        }
     }
 
     fun onAddMuscle(muscle: MuscleGroup) {
         if (!uiState.value.isCustom) return
+        val draft = muscleDraft.value
+        if (draft != null) {
+            // Sheet open — multi-select stays local until Done.
+            val role = muscleRole.value
+            muscleDraft.value =
+                if (role == MuscleRoleFilter.Primary) {
+                    draft.copy(
+                        primary = draft.primary + muscle,
+                        secondary = draft.secondary - muscle,
+                    )
+                } else if (muscle in draft.primary) {
+                    draft
+                } else {
+                    draft.copy(secondary = draft.secondary + muscle)
+                }
+            return
+        }
+        // Outside sheet (should be rare for add) — persist immediately.
         val id = liftId.value ?: return
+        val lift = latestLift.value ?: return
         viewModelScope.launch {
-            val currentPrimary =
-                uiState.value.primaryMuscles.map { it.muscle }.toSet()
-            val currentSecondary =
-                uiState.value.secondaryMuscles.map { it.muscle }.toSet()
             val role = muscleRole.value
             val primary =
-                if (role == MuscleRoleFilter.Primary) currentPrimary + muscle else currentPrimary
+                if (role == MuscleRoleFilter.Primary) lift.primaryMuscles + muscle
+                else lift.primaryMuscles
             val secondary =
                 if (role == MuscleRoleFilter.Secondary) {
-                    (currentSecondary + muscle) - primary
+                    (lift.secondaryMuscles + muscle) - primary
                 } else {
-                    currentSecondary - muscle
+                    lift.secondaryMuscles - muscle
                 }
             updateLiftMuscles(LiftId(id), primary, secondary)
-            showAddMuscleSheet.value = false
         }
     }
 
     fun onRemoveMuscle(muscle: MuscleGroup) {
         if (!uiState.value.isCustom) return
+        val draft = muscleDraft.value
+        if (draft != null) {
+            val role = muscleRole.value
+            muscleDraft.value =
+                if (role == MuscleRoleFilter.Primary) {
+                    val next = draft.primary - muscle
+                    // Keep at least one primary so flush can satisfy UpdateLiftMusclesUseCase.
+                    draft.copy(primary = next.ifEmpty { draft.primary })
+                } else {
+                    draft.copy(secondary = draft.secondary - muscle)
+                }
+            return
+        }
         val id = liftId.value ?: return
+        val lift = latestLift.value ?: return
         viewModelScope.launch {
-            val currentPrimary =
-                uiState.value.primaryMuscles.map { it.muscle }.toSet()
-            val currentSecondary =
-                uiState.value.secondaryMuscles.map { it.muscle }.toSet()
             val role = muscleRole.value
             val primary =
                 if (role == MuscleRoleFilter.Primary) {
-                    (currentPrimary - muscle).ifEmpty { currentPrimary }
+                    (lift.primaryMuscles - muscle).ifEmpty { lift.primaryMuscles }
                 } else {
-                    currentPrimary
+                    lift.primaryMuscles
                 }
             val secondary =
                 if (role == MuscleRoleFilter.Secondary) {
-                    currentSecondary - muscle
+                    lift.secondaryMuscles - muscle
                 } else {
-                    currentSecondary
+                    lift.secondaryMuscles
                 }
             updateLiftMuscles(LiftId(id), primary, secondary)
         }
@@ -384,16 +399,20 @@ class LiftInformationViewModel @Inject constructor(
         lift: Lift?,
         controls: UiControls,
     ): LiftInformationUiState {
+        // Catalog snapshot for field editors only — not used as a multi-select write buffer.
         latestLift.value = lift
         if (lift == null) {
             return LiftInformationUiState(
                 liftId = id.orEmpty(),
                 selectedTab = controls.tab,
-                muscleRole = controls.role,
-                showAddMuscleSheet = controls.sheets.showAdd,
-                editingField = controls.sheets.editing,
-                equipmentDraft = controls.sheets.equipmentDraft,
-                restDraftSeconds = controls.sheets.restDraftSeconds,
+                details =
+                    LiftDetailsEditorState(
+                        muscleRole = controls.role,
+                        showAddMuscleSheet = controls.sheets.showAdd,
+                        editingField = controls.sheets.editing,
+                        equipmentDraft = controls.sheets.equipmentDraft,
+                        restDraftSeconds = controls.sheets.restDraftSeconds,
+                    ),
             )
         }
         val pr = controls.history?.personalRecord?.toPrUi()
@@ -416,6 +435,9 @@ class LiftInformationViewModel @Inject constructor(
                 )
             }
         val draftPatterns = controls.sheets.draftPatterns
+        val muscleSource = controls.sheets.muscleDraft
+        val primaryMuscles = muscleSource?.primary ?: lift.primaryMuscles
+        val secondaryMuscles = muscleSource?.secondary ?: lift.secondaryMuscles
         return LiftInformationUiState(
             liftId = lift.id.value,
             liftName = lift.name,
@@ -423,66 +445,36 @@ class LiftInformationViewModel @Inject constructor(
             selectedTab = controls.tab,
             imageUrls = lift.imageUris,
             description = lift.description,
-            muscleRole = controls.role,
-            primaryMuscles =
-                lift.primaryMuscles
-                    .sortedBy { it.name }
-                    .map { StratumMuscleFilterCardState(it, it.toVolumeDisplayName()) },
-            secondaryMuscles =
-                lift.secondaryMuscles
-                    .sortedBy { it.name }
-                    .map { StratumMuscleFilterCardState(it, it.toVolumeDisplayName()) },
-            lengthBiasLabel = lift.muscleLengthBias.toLabel(),
-            movementPatternLabels =
-                lift.movementPatterns.map { it.displayName }.sorted(),
-            kinematicLabel = lift.kinematicProfile.toLabel(),
-            loadTypeLabel = lift.loadType.toLabel(),
-            equipment = lift.equipment?.toTitleCaseWords(),
-            categoryLabel = lift.classifyLiftCategory().displayName,
-            defaultRestLabel = formatRestDisplay(lift.resolvedDefaultRestSeconds()),
             personalRecord = pr,
             historySessions = sessions,
-            showAddMuscleSheet = controls.sheets.showAdd && lift.isCustom,
-            editingField =
-                when (val editing = controls.sheets.editing) {
-                    null -> null
-                    LiftDetailEditField.DefaultRest -> editing
-                    else -> editing.takeIf { lift.isCustom }
-                },
-            lengthBiasOptions =
-                MuscleLengthBias.entries.map { bias ->
-                    LiftDetailOptionUi(
-                        key = bias.name,
-                        label = bias.toLabel(),
-                        selected = bias == lift.muscleLengthBias,
-                    )
-                },
-            kinematicOptions =
-                KinematicProfile.entries.map { profile ->
-                    LiftDetailOptionUi(
-                        key = profile.name,
-                        label = profile.toLabel(),
-                        selected = profile == lift.kinematicProfile,
-                    )
-                },
-            loadTypeOptions =
-                LoadType.entries.map { type ->
-                    LiftDetailOptionUi(
-                        key = type.name,
-                        label = type.toLabel(),
-                        selected = type == lift.loadType,
-                    )
-                },
-            movementPatternOptions =
-                MovementPattern.entries.map { pattern ->
-                    LiftDetailOptionUi(
-                        key = pattern.name,
-                        label = pattern.displayName,
-                        selected = pattern in draftPatterns,
-                    )
-                },
-            equipmentDraft = controls.sheets.equipmentDraft,
-            restDraftSeconds = controls.sheets.restDraftSeconds,
+            details =
+                LiftDetailsEditorState(
+                    canEdit = lift.isCustom,
+                    muscleRole = controls.role,
+                    primaryMuscles = primaryMuscles.toMuscleCards(),
+                    secondaryMuscles = secondaryMuscles.toMuscleCards(),
+                    lengthBiasLabel = lift.muscleLengthBias.toDetailLabel(),
+                    movementPatternLabels =
+                        lift.movementPatterns.map { it.displayName }.sorted(),
+                    kinematicLabel = lift.kinematicProfile.toDetailLabel(),
+                    loadTypeLabel = lift.loadType.toDetailLabel(),
+                    equipment = lift.equipment?.toTitleCaseWords(),
+                    categoryLabel = lift.classifyLiftCategory().displayName,
+                    defaultRestLabel = formatRestDisplay(lift.resolvedDefaultRestSeconds()),
+                    showAddMuscleSheet = controls.sheets.showAdd && lift.isCustom,
+                    editingField =
+                        when (val editing = controls.sheets.editing) {
+                            null -> null
+                            LiftDetailEditField.DefaultRest -> editing
+                            else -> editing.takeIf { lift.isCustom }
+                        },
+                    lengthBiasOptions = lengthBiasOptions(lift.muscleLengthBias),
+                    kinematicOptions = kinematicOptions(lift.kinematicProfile),
+                    loadTypeOptions = loadTypeOptions(lift.loadType),
+                    movementPatternOptions = movementPatternOptions(draftPatterns),
+                    equipmentDraft = controls.sheets.equipmentDraft,
+                    restDraftSeconds = controls.sheets.restDraftSeconds,
+                ),
         )
     }
 
@@ -525,47 +517,8 @@ class LiftInformationViewModel @Inject constructor(
     private fun formatDate(instant: Instant): String =
         DATE_FORMAT.format(instant.atZone(ZoneId.systemDefault()))
 
-    private fun MuscleLengthBias.toLabel(): String =
-        when (this) {
-            MuscleLengthBias.Lengthened -> "Lengthened"
-            MuscleLengthBias.MidRange -> "Mid-range"
-            MuscleLengthBias.Shortened -> "Shortened"
-        }
-
-    private fun KinematicProfile.toLabel(): String =
-        when (this) {
-            KinematicProfile.AxialCompound -> "Axial Compound"
-            KinematicProfile.NonAxialCompound -> "Non-Axial Compound"
-            KinematicProfile.Isolation -> "Isolation"
-        }
-
-    private fun LoadType.toLabel(): String =
-        when (this) {
-            LoadType.Weighted -> "Weighted"
-            LoadType.Bodyweight -> "Bodyweight"
-            LoadType.Assisted -> "Assisted"
-        }
-
-    /** Title-cases freeform equipment copy so seed values like "cable" match other detail labels. */
-    private fun String.toTitleCaseWords(): String =
-        trim()
-            .split(Regex("\\s+"))
-            .filter { it.isNotEmpty() }
-            .joinToString(" ") { word ->
-                word.lowercase().replaceFirstChar { ch -> ch.titlecase() }
-            }
-
     private companion object {
         val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
         const val DEFAULT_ISOLATION_REST_DISPLAY = 120
     }
 }
-
-internal fun formatRestDisplay(restSeconds: Int): String {
-    val total = restSeconds.coerceAtLeast(0)
-    val minutes = total / SECONDS_PER_MINUTE
-    val seconds = total % SECONDS_PER_MINUTE
-    return "%d:%02d".format(minutes, seconds)
-}
-
-private const val SECONDS_PER_MINUTE = 60

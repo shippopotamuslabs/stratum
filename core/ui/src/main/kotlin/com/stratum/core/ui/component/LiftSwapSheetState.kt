@@ -118,6 +118,52 @@ data class LiftSwapMuscleTiers(
 )
 
 /**
+ * Canonical upper/lower muscle lists for Gym, Lift Swap, and lift Details / Create muscle pickers.
+ * Single source of truth — do not re-list [MuscleGroup]s in feature or app modules.
+ *
+ * Core movers ([MuscleGroup.Ab], [MuscleGroup.LowerBack]) live on the upper tier so they appear
+ * in the same filter carousel as other torso targets.
+ */
+fun defaultMuscleFilterTiers(): LiftSwapMuscleTiers =
+    LiftSwapMuscleTiers(
+        upper =
+            DEFAULT_UPPER_MUSCLE_GROUPS.map { muscle ->
+                StratumMuscleFilterCardState(muscle, muscle.toVolumeDisplayName())
+            },
+        lower =
+            DEFAULT_LOWER_MUSCLE_GROUPS.map { muscle ->
+                StratumMuscleFilterCardState(muscle, muscle.toVolumeDisplayName())
+            },
+    )
+
+/** Ordered upper-body (+ core) groups for [defaultMuscleFilterTiers]. */
+val DEFAULT_UPPER_MUSCLE_GROUPS: List<MuscleGroup> =
+    listOf(
+        MuscleGroup.Chest,
+        MuscleGroup.Back,
+        MuscleGroup.AnteriorDeltoid,
+        MuscleGroup.LateralDeltoid,
+        MuscleGroup.PosteriorDeltoid,
+        MuscleGroup.Tricep,
+        MuscleGroup.Bicep,
+        MuscleGroup.Trap,
+        MuscleGroup.Forearm,
+        MuscleGroup.Ab,
+        MuscleGroup.LowerBack,
+    )
+
+/** Ordered lower-body groups for [defaultMuscleFilterTiers]. */
+val DEFAULT_LOWER_MUSCLE_GROUPS: List<MuscleGroup> =
+    listOf(
+        MuscleGroup.Quad,
+        MuscleGroup.Hamstring,
+        MuscleGroup.Glute,
+        MuscleGroup.Calf,
+        MuscleGroup.Abductor,
+        MuscleGroup.Adductor,
+    )
+
+/**
  * Hoisted filter intents — the only way the sheet mutates filter state. The ViewModel reduces
  * these against its `MutableStateFlow` overlay; the sheet never persists anything itself.
  */

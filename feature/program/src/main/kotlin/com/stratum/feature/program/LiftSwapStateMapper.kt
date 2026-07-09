@@ -4,17 +4,16 @@ import com.stratum.core.ui.R
 import com.stratum.core.ui.component.LiftLibraryFilter
 import com.stratum.core.ui.component.LiftSwapDropdownOption
 import com.stratum.core.ui.component.LiftSwapFilterIntent
-import com.stratum.core.ui.component.LiftSwapMuscleTiers
 import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
-import com.stratum.core.ui.component.StratumMuscleFilterCardState
+import com.stratum.core.ui.component.defaultMuscleFilterTiers
+import com.stratum.core.ui.component.toVolumeDisplayName
 import com.stratum.domain.lift.LiftCategory
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ScoredLift
 import com.stratum.domain.lift.classifyLiftCategory
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.feature.program.ui.WorkoutLiftLineState
-import com.stratum.core.ui.component.toVolumeDisplayName
 
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
 
@@ -58,7 +57,7 @@ internal fun buildLiftSwapSheetState(
         biasOptions = biasDropdownOptions(),
         categoryOptions = categoryDropdownOptions(),
         libraryOptions = libraryDropdownOptions(),
-        muscleGroups = muscleTiers(),
+        muscleGroups = defaultMuscleFilterTiers(),
         selectedMuscles = filters.selectedMuscles,
         selectedBias = filters.selectedBias,
         selectedCategory = filters.selectedCategory,
@@ -112,33 +111,4 @@ private fun libraryDropdownOptions(): List<LiftSwapDropdownOption<LiftLibraryFil
         LiftSwapDropdownOption(value = null, label = "All", leadingIconRes = R.drawable.ic_library_books),
         LiftSwapDropdownOption(LiftLibraryFilter.Custom, "Custom"),
         LiftSwapDropdownOption(LiftLibraryFilter.StratumDefault, "Stratum Default"),
-    )
-
-private fun muscleTiers(): LiftSwapMuscleTiers =
-    LiftSwapMuscleTiers(
-        upper = upperMuscles.map { muscle -> StratumMuscleFilterCardState(muscle, muscle.toVolumeDisplayName()) },
-        lower = lowerMuscles.map { muscle -> StratumMuscleFilterCardState(muscle, muscle.toVolumeDisplayName()) },
-    )
-
-private val upperMuscles: List<MuscleGroup> =
-    listOf(
-        MuscleGroup.Chest,
-        MuscleGroup.Back,
-        MuscleGroup.AnteriorDeltoid,
-        MuscleGroup.LateralDeltoid,
-        MuscleGroup.PosteriorDeltoid,
-        MuscleGroup.Tricep,
-        MuscleGroup.Bicep,
-        MuscleGroup.Trap,
-        MuscleGroup.Forearm,
-    )
-
-private val lowerMuscles: List<MuscleGroup> =
-    listOf(
-        MuscleGroup.Quad,
-        MuscleGroup.Hamstring,
-        MuscleGroup.Glute,
-        MuscleGroup.Calf,
-        MuscleGroup.Abductor,
-        MuscleGroup.Adductor,
     )

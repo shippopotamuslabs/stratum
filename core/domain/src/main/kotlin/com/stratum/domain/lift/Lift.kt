@@ -48,11 +48,23 @@ data class Lift(
     val loadType: LoadType = LoadType.Weighted,
     val defaultRestSeconds: Int? = null,
 ) {
+    /**
+     * Multi-joint / compound loading for rest defaults, category, and programming UI.
+     *
+     * True when the lift has **more than one** movement pattern (classic co-pattern compounds
+     * such as press + elbow extension) **or** when [kinematicProfile] is
+     * [KinematicProfile.AxialCompound] / [KinematicProfile.NonAxialCompound]. Many catalog
+     * rows store only a primary pattern (e.g. `SquatPattern` alone on a hack squat) and encode
+     * multi-joint status on kinematic profile — pattern count alone is not enough.
+     */
     val isCompound: Boolean
-        get() = movementPatterns.size > 1
+        get() =
+            movementPatterns.size > 1 ||
+                kinematicProfile == KinematicProfile.AxialCompound ||
+                kinematicProfile == KinematicProfile.NonAxialCompound
 }
 
-/** Default inter-set rest for compound lifts (multiple movement patterns) when no override is set. */
+/** Default inter-set rest for compound lifts when no override is set. */
 const val DEFAULT_COMPOUND_REST_SECONDS = 180
 
 /** Default inter-set rest for isolation lifts when no override is set. */
@@ -61,6 +73,7 @@ const val DEFAULT_ISOLATION_REST_SECONDS = 120
 /**
  * Rest seconds to use when this lift is added or swapped into a workout. Prefer the stored
  * [Lift.defaultRestSeconds] override; otherwise compound → 3 min, isolation → 2 min.
+ * Compound/isolation uses [Lift.isCompound] (patterns **or** kinematic profile).
  */
 fun Lift.resolvedDefaultRestSeconds(): Int =
     defaultRestSeconds
