@@ -4,7 +4,9 @@ package com.stratum.domain.importing
  * Normalizes imported exercise names for catalog matching and custom-lift deduplication.
  *
  * App-specific noise that hurts BM25 token overlap is normalized:
- * - MacroFactor superset markers (`∈ SS1`, `∈ SS2`, ...) stripped.
+ * - MacroFactor superset markers (`∈ SS1`, `∈ SS2`, ...) stripped. Also strips mojibake /
+ *   double-encoded forms of `∈` and any trailing `SSn` so exports that corrupt the marker still
+ *   match (e.g. `Katana Triceps Extension Ã¢ÂˆÂˆ SS1` → `katana triceps extension`).
  * - Strong/Hevy trailing equipment parentheses (`Bench Press (Dumbbell)`) rewritten to leading
  *   equipment (`Dumbbell Bench Press`) for matching only — display names keep the original word
  *   order and parentheses.
@@ -17,8 +19,19 @@ package com.stratum.domain.importing
  * removed, since that is pure app metadata, not part of the exercise identity.
  */
 object ImportExerciseNameNormalizer {
+    /**
+     * MacroFactor appends `∈ SSn` (or a corrupted encoding of that marker) after the exercise
+     * name. Mojibake of `∈` often lands as Latin-1 letters (e.g. `Ã¢ÂˆÂˆ`), so we strip:
+     * - optional non-ASCII / punctuation junk
+     * - optional canonical `∈`
+     * - trailing `SSn`
+     * so BM25 does not treat `ss1` as a content token.
+     */
     private val SUPERSET_SUFFIX =
-        Regex("""\s*∈\s*SS\d+\s*$""", RegexOption.IGNORE_CASE)
+        Regex(
+            """(?:\s|[^\x00-\x7F]|[^\p{L}\p{N}])*(?:∈\s*)?SS\d+\s*$""",
+            RegexOption.IGNORE_CASE,
+        )
 
     private val TRAILING_EQUIPMENT_PAREN =
         Regex("""\s*\(([^)]+)\)\s*$""")
@@ -34,19 +47,24 @@ object ImportExerciseNameNormalizer {
      * front, punctuation normalized to spaces, whitespace collapsed, lowercased.
      */
     fun normalizeForMatching(raw: String): String {
-        val noSuperset = raw.replace(SUPERSET_SUFFIX, "")
+        val noSuperset = stripSupersetSuffix(raw)
         val parenMoved = moveTrailingEquipmentParenToFront(noSuperset)
         val dashMoved = moveDashVariantToFront(parenMoved)
         val lowercased = dashMoved.lowercase()
         val punctuationToSpaces = lowercased.replace(NON_ALNUM, " ")
-        return punctuationToSpaces.trim().replace(Regex("""\s+"""), " ")
+        val collapsed = punctuationToSpaces.trim().replace(Regex("""\s+"""), " ")
+        // Second pass: if mojibake was turned into spaces, a bare `ss1` may remain.
+        return stripSupersetSuffix(collapsed)
     }
 
     /**
      * Canonical display name for custom lifts — superset suffix removed, original casing and word
      * order preserved (no `(Equipment)` rewrite, no dash-variant rewrite).
      */
-    fun displayName(raw: String): String = raw.replace(SUPERSET_SUFFIX, "").trim()
+    fun displayName(raw: String): String = stripSupersetSuffix(raw).trim()
+
+    private fun stripSupersetSuffix(value: String): String =
+        value.replace(SUPERSET_SUFFIX, "").trimEnd()
 
     private fun moveTrailingEquipmentParenToFront(value: String): String {
         val match = TRAILING_EQUIPMENT_PAREN.find(value) ?: return value
