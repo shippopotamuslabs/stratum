@@ -43,7 +43,17 @@ data class LiftSwapSheetState(
     val selectedLibrary: LiftLibraryFilter?,
     val searchQuery: String,
     val isAddMode: Boolean = false,
+    /** Ordered lift selection for deferred confirm (empty until the user taps options). */
+    val selectedOptions: List<LiftSwapOptionState> = emptyList(),
+    /** When true and [selectedOptions] has ≥2 items in add mode, commit as a shared superset group. */
+    val addAsSuperset: Boolean = false,
 ) {
+    val selectedLiftIds: Set<String>
+        get() = selectedOptions.map { option -> option.id }.toSet()
+
+    val hasSelection: Boolean
+        get() = selectedOptions.isNotEmpty()
+
     /** True when any filter axis is active (drives the reset button's visibility). */
     val hasActiveFilter: Boolean
         get() =

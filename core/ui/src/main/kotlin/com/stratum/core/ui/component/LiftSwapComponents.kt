@@ -1,5 +1,6 @@
 package com.stratum.core.ui.component
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -38,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.stratum.core.ui.R
@@ -391,16 +394,19 @@ fun LiftSwapOptionRow(
     option: LiftSwapOptionState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
+    val borderColor = if (selected) colors.accent else colors.borderSubtle
+    val borderWidth = if (selected) shapes.borderWidth * 2 else shapes.borderWidth
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .background(color = colors.surfaceRaised, shape = shapes.panel)
-                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
+                .border(width = borderWidth, color = borderColor, shape = shapes.panel)
                 .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -444,6 +450,7 @@ fun LiftThumbnail(
     name: String,
     imageUrl: String?,
     modifier: Modifier = Modifier,
+    size: Dp = THUMBNAIL_SIZE,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -454,7 +461,7 @@ fun LiftThumbnail(
     Box(
         modifier =
             modifier
-                .size(THUMBNAIL_SIZE)
+                .size(size)
                 .background(color = colors.surfaceSunken, shape = shapes.chip)
                 .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.chip),
         contentAlignment = Alignment.Center,
@@ -468,7 +475,7 @@ fun LiftThumbnail(
             AsyncImage(
                 model = imageUrl,
                 contentDescription = name,
-                modifier = Modifier.size(THUMBNAIL_SIZE).clip(shapes.chip),
+                modifier = Modifier.size(size).clip(shapes.chip),
                 contentScale = ContentScale.Crop,
             )
         }
@@ -501,6 +508,94 @@ fun LibraryBadge() {
     MetadataBadge(text = stringResource(R.string.lift_swap_library_custom))
 }
 
+/**
+ * Compact tray of selected lift thumbnails for the lift-picker top bar. Shows up to
+ * [VISIBLE_SELECTED_THUMBNAILS] images plus a `+N` overflow badge, with a trailing chevron
+ * that expands/collapses the full selected-lifts panel.
+ *
+ * Designed for the top-app-bar title slot ([compact] density) so appearing does not push
+ * scaffold content down.
+ */
+@Composable
+fun SelectedLiftsTray(
+    selectedOptions: List<LiftSwapOptionState>,
+    expanded: Boolean,
+    onExpandToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (selectedOptions.isEmpty()) return
+
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val visible = selectedOptions.take(VISIBLE_SELECTED_THUMBNAILS)
+    val overflow = selectedOptions.size - visible.size
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "selectedLiftsChevron",
+    )
+
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
+                .clickable(onClick = onExpandToggle)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            visible.forEach { option ->
+                LiftThumbnail(
+                    name = option.name,
+                    imageUrl = option.imageUrl,
+                    size = TRAY_THUMBNAIL_SIZE,
+                )
+            }
+            if (overflow > 0) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(TRAY_THUMBNAIL_SIZE)
+                            .background(color = colors.surfaceSunken, shape = shapes.chip)
+                            .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.chip),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    StratumText(
+                        text = stringResource(R.string.lift_swap_overflow_count, overflow),
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        muted = true,
+                    )
+                }
+            }
+        }
+        Icon(
+            painter = painterResource(R.drawable.ic_chevron_down),
+            contentDescription =
+                stringResource(
+                    if (expanded) {
+                        R.string.lift_swap_collapse_selected_content_description
+                    } else {
+                        R.string.lift_swap_expand_selected_content_description
+                    },
+                ),
+            tint = colors.textPrimary,
+            modifier =
+                Modifier
+                    .size(20.dp)
+                    .rotate(rotation),
+        )
+    }
+}
+
 private val MIN_TOUCH_HEIGHT = 48.dp
 private val THUMBNAIL_SIZE = 48.dp
+/** Sized to fit the standard top-app-bar title row without expanding scaffold insets. */
+private val TRAY_THUMBNAIL_SIZE = 32.dp
+private const val VISIBLE_SELECTED_THUMBNAILS = 6
 private val FILTER_CHIP_ORDER = listOf("muscles", "bias", "lift-type", "library")
