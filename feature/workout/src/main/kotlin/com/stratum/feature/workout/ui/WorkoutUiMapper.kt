@@ -1,10 +1,10 @@
 package com.stratum.feature.workout.ui
 
+import com.stratum.core.ui.component.formatWeightAmount
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlotId
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
  * Maps the domain [RenderedWorkout] → presentation [WorkoutUiState.Loaded]. No domain
@@ -114,20 +114,5 @@ internal object WorkoutUiMapper {
     private fun slotKey(slotId: SetSlotId): String = when (slotId) {
         is SetSlotId.Template -> slotId.liftSetId.value
         is SetSlotId.Overlay -> slotId.instanceId.value
-    }
-
-    /**
-     * Formats a weight amount for display: blank when 0, otherwise rounded to at most one
-     * decimal place with trailing `.0` stripped (so `77.4216` → `"77.4"`, `75.0` →
-     * `"75"`). Keeps the prior `previousWeightLabel` formatting contract for consistency.
-     *
-     * When [assistMode] is true the amount is sign-stripped first (assisted weights are
-     * stored negative; the user sees a positive assistance figure).
-     */
-    private fun formatWeightAmount(amount: Double, assistMode: Boolean = false): String {
-        val display = if (assistMode) abs(amount) else amount
-        if (display == 0.0) return ""
-        val rounded = (display * 10.0).roundToInt() / 10.0
-        return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
     }
 }
