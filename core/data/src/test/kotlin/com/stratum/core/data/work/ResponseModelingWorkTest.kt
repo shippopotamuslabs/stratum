@@ -215,7 +215,10 @@ class ResponseModelingWorkTest {
             ),
             metadataRepository = metadataRepo,
             trainingLogRepository = trainingLog,
-            markCheckInPending = MarkCheckInPendingUseCase(FakeCheckInPreferencesRepository()),
+            markCheckInPending = MarkCheckInPendingUseCase(
+                FakeCheckInPreferencesRepository(),
+                com.stratum.core.testing.logging.FakeLoggingPort(),
+            ),
         )
 
         val outcome = work.run()
@@ -317,7 +320,10 @@ class ResponseModelingWorkTest {
             extractResponseProfile = extract,
             metadataRepository = metadataRepo,
             trainingLogRepository = trainingLog,
-            markCheckInPending = MarkCheckInPendingUseCase(checkInPrefs),
+            markCheckInPending = MarkCheckInPendingUseCase(
+                checkInPrefs,
+                com.stratum.core.testing.logging.FakeLoggingPort(),
+            ),
         )
     }
 

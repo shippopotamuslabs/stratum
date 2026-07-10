@@ -75,10 +75,11 @@ fun EditWorkoutRoute(
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     onReorderLiftsClick: (workoutId: String) -> Unit,
     modifier: Modifier = Modifier,
+    programId: String? = null,
     viewModel: EditWorkoutViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(workoutId) {
-        viewModel.initialize(workoutId)
+    LaunchedEffect(workoutId, programId) {
+        viewModel.initialize(workoutId, programId)
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()

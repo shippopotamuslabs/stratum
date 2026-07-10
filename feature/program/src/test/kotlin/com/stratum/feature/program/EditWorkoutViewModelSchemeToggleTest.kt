@@ -200,6 +200,7 @@ class EditWorkoutViewModelSchemeToggleTest {
             )
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
+            observeProgramById = com.stratum.domain.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository, FakeLoggingPort()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),

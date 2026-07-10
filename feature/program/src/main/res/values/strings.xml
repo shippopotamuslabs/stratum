@@ -13,6 +13,26 @@
     <string name="programs_calendar_content_description">Workout calendar</string>
     <string name="programs_menu_content_description">Program options</string>
 
+    <!-- Program Library -->
+    <string name="program_library_title">Program Library</string>
+    <string name="program_library_back">Back</string>
+    <string name="program_library_empty">No programs yet. Create one from Program options.</string>
+    <string name="program_library_active_badge">Active</string>
+    <string name="program_library_expand_a11y">Expand %1$s</string>
+    <string name="program_library_collapse_a11y">Collapse %1$s</string>
+    <string name="program_library_delete_content_description">Delete %1$s</string>
+    <string name="program_library_delete_title">Delete program?</string>
+    <string name="program_library_delete_body">Delete \"%1$s\"? The program template is removed permanently. Past sessions and logged sets are kept for history.</string>
+    <string name="program_library_delete_active_session_body">You have a workout in progress on this program. Finish or abandon that session before deleting the program. Past completed sessions will still be kept when you delete later.</string>
+    <string name="program_library_delete_confirm">Delete</string>
+    <string name="program_library_delete_blocked_confirm">OK</string>
+    <string name="program_library_delete_cancel">Cancel</string>
+    <string name="program_library_rest_day">Rest Day</string>
+    <plurals name="program_library_workout_count">
+        <item quantity="one">%d workout</item>
+        <item quantity="other">%d workouts</item>
+    </plurals>
+
     <!-- Coach check-in -->
     <string name="checkin_banner_title">Checkin Ready -- tap to review progress</string>
     <string name="checkin_banner_subtitle">Coach review available</string>
@@ -63,6 +83,7 @@
     <string name="create_program_rename_workout">Rename Workout</string>
     <string name="create_program_edit_name">Edit program name</string>
     <string name="create_program_save_to_library">Save to Library</string>
+    <string name="create_program_save_changes">Save Changes</string>
     <string name="create_program_activate">Activate Program</string>
     <string name="create_program_discard_title">Discard program?</string>
     <string name="create_program_discard_message">Your draft will be lost. Saved library programs are not affected.</string>

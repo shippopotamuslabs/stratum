@@ -53,6 +53,7 @@ class RoomProgramRepositoryTest {
             workoutDao = database.workoutDao(),
             workoutLiftDao = database.workoutLiftDao(),
             liftSetDao = database.liftSetDao(),
+            trainingSessionDao = database.trainingSessionDao(),
         )
     }
 
@@ -195,6 +196,100 @@ class RoomProgramRepositoryTest {
 
             assertEquals(PROGRAM_P1.copy(isActive = true), repository.getProgram())
             assertEquals(PROGRAM_P2.copy(isActive = false), repository.getProgramById(PROGRAM_P2.id))
+        }
+
+        @Test
+        fun `deleteProgram keeps sessions and nulls soft refs`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            database.trainingSessionDao().upsert(
+                com.stratum.core.data.db.TrainingSessionEntity(
+                    id = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+                    programId = PROGRAM_P1.id,
+                    workoutId = WorkoutId("w-1"),
+                    status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                    kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                    origin = com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = Weekday.Monday,
+                    startedAtEpochMillis = Instant.parse("2026-06-26T12:00:00Z").toEpochMilli(),
+                    endedAtEpochMillis = Instant.parse("2026-06-26T13:00:00Z").toEpochMilli(),
+                    sourceApp = null,
+                    programNameSnapshot = "Push/Pull/Legs",
+                    workoutNameSnapshot = "Push Day",
+                ),
+            )
+            database.trainingLoggedSetDao().upsert(
+                com.stratum.core.data.db.LoggedSetEntity(
+                    id = com.stratum.domain.importing.identity.LoggedSetId("set-1"),
+                    sessionId = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+                    exerciseNameRaw = "Bench",
+                    liftId = LiftId("bench-press"),
+                    setIndex = 0,
+                    weightAmount = 135.0,
+                    weightUnit = "Lb",
+                    reps = 8,
+                    rir = 2,
+                    completedAtEpochMillis = Instant.parse("2026-06-26T12:30:00Z").toEpochMilli(),
+                    liftName = "Barbell Bench Press",
+                ),
+            )
+
+            repository.deleteProgram(PROGRAM_P1.id)
+
+            assertNull(repository.getProgramById(PROGRAM_P1.id))
+            assertNull(repository.getProgram())
+            val session =
+                database.trainingSessionDao().getById(
+                    com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+                )
+            assertNull(session?.programId)
+            assertNull(session?.workoutId)
+            assertEquals("Push/Pull/Legs", session?.programNameSnapshot)
+            assertEquals("Push Day", session?.workoutNameSnapshot)
+            val sets =
+                database.trainingLoggedSetDao().getForSession(
+                    com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+                )
+            assertEquals(1, sets.size)
+        }
+
+        @Test
+        fun `saveProgram rewrite preserves session workout soft refs`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            database.trainingSessionDao().upsert(
+                com.stratum.core.data.db.TrainingSessionEntity(
+                    id = com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+                    programId = PROGRAM_P1.id,
+                    workoutId = WorkoutId("w-1"),
+                    status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                    kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                    origin = com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = Weekday.Monday,
+                    startedAtEpochMillis = Instant.parse("2026-06-26T12:00:00Z").toEpochMilli(),
+                    endedAtEpochMillis = Instant.parse("2026-06-26T13:00:00Z").toEpochMilli(),
+                    sourceApp = null,
+                    programNameSnapshot = "Push/Pull/Legs",
+                    workoutNameSnapshot = "Push Day",
+                ),
+            )
+
+            // Full hierarchy rewrite (same workout id) must not clear soft refs.
+            repository.saveProgram(
+                PROGRAM_P1.copy(
+                    isActive = true,
+                    name = "Push/Pull/Legs Renamed",
+                ),
+            )
+
+            val session =
+                database.trainingSessionDao().getById(
+                    com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
+                )
+            assertEquals(PROGRAM_P1.id, session?.programId)
+            assertEquals(WorkoutId("w-1"), session?.workoutId)
         }
     }
 

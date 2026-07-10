@@ -32,6 +32,8 @@ data class CreateProgramDayUi(
     val position: Int,
     val isRest: Boolean,
     val editState: EditWorkoutUiState.Loaded?,
+    /** Bound calendar weekday when loaded from a scheduled program; null for unbound drafts. */
+    val weekday: com.stratum.domain.onboarding.Weekday? = null,
 )
 
 data class CreateProgramUiState(
@@ -54,6 +56,12 @@ data class CreateProgramUiState(
     val showDiscardConfirm: Boolean = false,
     val showRenameProgram: Boolean = false,
     val showRenameWorkout: Boolean = false,
+    /** True when opened from library with an existing program id. */
+    val isEditingExisting: Boolean = false,
+    /** Active flag of the loaded program (edit mode only). */
+    val originalIsActive: Boolean = false,
+    /** Load failure when [isEditingExisting] entry cannot resolve the program. */
+    val loadErrorMessage: String? = null,
 ) {
     val selectedDay: CreateProgramDayUi?
         get() = days.firstOrNull { day -> day.id == selectedDayId }
@@ -66,4 +74,16 @@ data class CreateProgramUiState(
                     day.editState.lifts.isNotEmpty() &&
                     day.editState.lifts.none { lift -> lift.name == PLACEHOLDER_LIFT_NAME }
             }
+
+    /** Secondary library save is only for new drafts or inactive library edits. */
+    val showSaveToLibraryAction: Boolean
+        get() = !isEditingExisting || !originalIsActive
+
+    /** Activate is for new drafts and inactive library programs. */
+    val showActivateAction: Boolean
+        get() = !isEditingExisting || !originalIsActive
+
+    /** Primary save that preserves active state when editing the active program. */
+    val showSaveChangesAction: Boolean
+        get() = isEditingExisting && originalIsActive
 }

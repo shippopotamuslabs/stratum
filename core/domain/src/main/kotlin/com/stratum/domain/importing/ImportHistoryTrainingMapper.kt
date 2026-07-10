@@ -38,6 +38,8 @@ object ImportHistoryTrainingMapper {
             startedAt = startedAt,
             endedAt = endedAt,
             sourceApp = sourceApp,
+            programNameSnapshot = "Import History",
+            workoutNameSnapshot = null,
         )
 
     fun parseSet(

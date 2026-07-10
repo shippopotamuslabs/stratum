@@ -10,6 +10,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class EditWorkoutKey(
     val workoutId: String,
+    /** When non-null, loads/saves this program (library or active). Null = active program. */
+    val programId: String? = null,
 ) : NavKey
 
 /**
@@ -24,6 +26,7 @@ fun EntryProviderScope<NavKey>.editWorkoutEntry(
     entry<EditWorkoutKey> { key ->
         EditWorkoutRoute(
             workoutId = key.workoutId,
+            programId = key.programId,
             onBackClick = onBackClick,
             onSwapLiftClick = onSwapLiftClick,
             onReorderLiftsClick = onReorderLiftsClick,
