@@ -63,5 +63,7 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
-    implementation(libs.ortools.java)
+    // Shaded OR-Tools + protobuf-java (protobuf relocated to com.stratum.shaded.protobuf)
+    // so Firestore can keep protobuf-javalite without duplicate-class / VerifyError clashes.
+    implementation(project(":core:ortools-shaded"))
 }
