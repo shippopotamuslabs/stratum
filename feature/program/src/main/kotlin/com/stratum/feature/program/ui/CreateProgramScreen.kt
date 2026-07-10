@@ -141,7 +141,11 @@ fun CreateProgramScreen(
                         isSaving = state.isSaving,
                         canSave = state.canSave,
                         saveError = state.saveErrorMessage,
+                        showSaveChanges = state.showSaveChangesAction,
+                        showSaveToLibrary = state.showSaveToLibraryAction,
+                        showActivate = state.showActivateAction,
                         onSaveToLibrary = callbacks.onSaveToLibrary,
+                        onSaveChanges = callbacks.onSaveChanges,
                         onActivate = callbacks.onActivate,
                     )
                 else -> Unit
@@ -154,7 +158,13 @@ fun CreateProgramScreen(
                     .fillMaxSize()
                     .padding(padding),
         ) {
-            when (state.step) {
+            if (state.loadErrorMessage != null) {
+                StratumText(
+                    text = state.loadErrorMessage,
+                    muted = true,
+                    modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                )
+            } else when (state.step) {
                 CreateProgramStep.ChoosePath ->
                     ChooseCreatePathContent(
                         onSelectGenerate = callbacks.onSelectGenerate,
@@ -831,7 +841,11 @@ private fun EditorBottomBar(
     isSaving: Boolean,
     canSave: Boolean,
     saveError: String?,
+    showSaveChanges: Boolean,
+    showSaveToLibrary: Boolean,
+    showActivate: Boolean,
     onSaveToLibrary: () -> Unit,
+    onSaveChanges: () -> Unit,
     onActivate: () -> Unit,
 ) {
     Column(
@@ -846,28 +860,45 @@ private fun EditorBottomBar(
         if (saveError != null) {
             StratumText(text = saveError, muted = true)
         }
-        StratumOutlinedButton(
-            text =
-                if (isSaving) {
-                    stringResource(R.string.create_program_saving)
-                } else {
-                    stringResource(R.string.create_program_save_to_library)
-                },
-            onClick = onSaveToLibrary,
-            enabled = canSave && !isSaving,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        StratumButton(
-            text =
-                if (isSaving) {
-                    stringResource(R.string.create_program_saving)
-                } else {
-                    stringResource(R.string.create_program_activate)
-                },
-            onClick = onActivate,
-            enabled = canSave && !isSaving,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (showSaveChanges) {
+            StratumButton(
+                text =
+                    if (isSaving) {
+                        stringResource(R.string.create_program_saving)
+                    } else {
+                        stringResource(R.string.create_program_save_changes)
+                    },
+                onClick = onSaveChanges,
+                enabled = canSave && !isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (showSaveToLibrary) {
+            StratumOutlinedButton(
+                text =
+                    if (isSaving) {
+                        stringResource(R.string.create_program_saving)
+                    } else {
+                        stringResource(R.string.create_program_save_to_library)
+                    },
+                onClick = onSaveToLibrary,
+                enabled = canSave && !isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (showActivate) {
+            StratumButton(
+                text =
+                    if (isSaving) {
+                        stringResource(R.string.create_program_saving)
+                    } else {
+                        stringResource(R.string.create_program_activate)
+                    },
+                onClick = onActivate,
+                enabled = canSave && !isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

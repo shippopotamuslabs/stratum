@@ -18,6 +18,8 @@ internal fun TrainingSessionEntity.toDomain(): TrainingSession = TrainingSession
     startedAt = java.time.Instant.ofEpochMilli(startedAtEpochMillis),
     endedAt = endedAtEpochMillis?.let(java.time.Instant::ofEpochMilli),
     sourceApp = sourceApp,
+    programNameSnapshot = programNameSnapshot,
+    workoutNameSnapshot = workoutNameSnapshot,
 )
 
 internal fun TrainingSession.toEntity(): TrainingSessionEntity = TrainingSessionEntity(
@@ -32,6 +34,8 @@ internal fun TrainingSession.toEntity(): TrainingSessionEntity = TrainingSession
     startedAtEpochMillis = startedAt.toEpochMilli(),
     endedAtEpochMillis = endedAt?.toEpochMilli(),
     sourceApp = sourceApp,
+    programNameSnapshot = programNameSnapshot,
+    workoutNameSnapshot = workoutNameSnapshot,
 )
 
 internal fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(

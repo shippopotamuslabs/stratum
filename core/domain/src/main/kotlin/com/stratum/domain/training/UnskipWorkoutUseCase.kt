@@ -24,7 +24,8 @@ class UnskipWorkoutUseCase @Inject constructor(
                 ?: error("No active program found to unskip workout")
         val sessions = trainingLogRepository.getAllSessions()
         val toDelete = sessions.filter { session ->
-            session.workoutId == workoutId &&
+            session.programId == program.id &&
+                session.workoutId == workoutId &&
                 session.cycleNumberSnapshot == program.currentCycleNumber &&
                 session.status == TrainingSessionStatus.COMPLETED &&
                 session.kind == TrainingSessionKind.PROGRAM_WORKOUT
@@ -54,7 +55,8 @@ class UnskipWorkoutUseCase @Inject constructor(
                 ?: error("No active program found to unskip rest day")
         val sessions = trainingLogRepository.getAllSessions()
         val toDelete = sessions.filter { session ->
-            session.cycleNumberSnapshot == program.currentCycleNumber &&
+            session.programId == program.id &&
+                session.cycleNumberSnapshot == program.currentCycleNumber &&
                 session.status == TrainingSessionStatus.COMPLETED &&
                 session.kind == TrainingSessionKind.REST_DAY &&
                 session.weekdaySnapshot == weekday

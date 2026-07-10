@@ -20,14 +20,16 @@ fun CreateProgramRoute(
     modifier: Modifier = Modifier,
     startInScratch: Boolean = false,
     finishOnboarding: Boolean = false,
+    programId: String? = null,
     viewModel: CreateProgramViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(startInScratch, finishOnboarding) {
+    LaunchedEffect(startInScratch, finishOnboarding, programId) {
         viewModel.configureEntry(
             startInScratch = startInScratch,
             finishOnboarding = finishOnboarding,
+            programId = programId,
         )
     }
 
@@ -92,6 +94,7 @@ fun CreateProgramRoute(
                 onReorderLifts = { viewModel.startReorderLifts(onReorderLiftsClick) },
                 onSwapLift = onSwapLiftClick,
                 onSaveToLibrary = { viewModel.saveToLibrary(onFinished) },
+                onSaveChanges = { viewModel.saveChanges(onFinished) },
                 onActivate = { viewModel.activate(onFinished) },
                 onConfirmDiscard = onBackClick,
                 onDismissDiscard = viewModel::dismissDiscard,

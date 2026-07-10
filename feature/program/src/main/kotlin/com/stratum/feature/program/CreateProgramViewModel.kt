@@ -22,6 +22,7 @@ import com.stratum.domain.program.ActivateProgramUseCase
 import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.GenerateProgramUseCase
+import com.stratum.domain.program.GetProgramByIdUseCase
 import com.stratum.domain.program.InferLastTrainedBucketUseCase
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
@@ -29,6 +30,7 @@ import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SaveProgramToLibraryUseCase
 import com.stratum.domain.program.SetType
+import com.stratum.domain.program.UpdateExistingProgramUseCase
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.LiftSetId
@@ -51,6 +53,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -61,6 +64,8 @@ class CreateProgramViewModel @Inject constructor(
     private val generateProgram: GenerateProgramUseCase,
     private val activateProgram: ActivateProgramUseCase,
     private val saveProgramToLibrary: SaveProgramToLibraryUseCase,
+    private val updateExistingProgram: UpdateExistingProgramUseCase,
+    private val getProgramById: GetProgramByIdUseCase,
     private val updateUserTrainingProfile: UpdateUserTrainingProfileUseCase,
     private val updateSpecialization: UpdateSpecializationUseCase,
     private val getUserTrainingProfile: GetUserTrainingProfileUseCase,
@@ -105,19 +110,41 @@ class CreateProgramViewModel @Inject constructor(
     }
 
     /**
-     * Applies nav-entry options once (scratch jump / onboarding completion). Safe to call from
-     * [LaunchedEffect] when the route is composed.
+     * Applies nav-entry options once (scratch jump / onboarding completion / edit existing).
+     * Safe to call from [LaunchedEffect] when the route is composed.
      */
-    fun configureEntry(startInScratch: Boolean, finishOnboarding: Boolean) {
+    fun configureEntry(
+        startInScratch: Boolean,
+        finishOnboarding: Boolean,
+        programId: String? = null,
+    ) {
         if (entryConfigured) return
         entryConfigured = true
         this.finishOnboarding = finishOnboarding
-        if (startInScratch) {
-            selectScratchPath()
+        when {
+            programId != null -> {
+                viewModelScope.launch {
+                    // Wait for a non-empty catalog so lift names/compound flags resolve on first paint.
+                    observeLiftCatalog().first { lifts -> lifts.isNotEmpty() }
+                    val program = getProgramById(ProgramId(programId))
+                    if (program != null) {
+                        loadProgramIntoEditor(program, markDirty = false, isExisting = true)
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                loadErrorMessage = "Program not found.",
+                                step = CreateProgramStep.ChoosePath,
+                            )
+                        }
+                    }
+                }
+            }
+            startInScratch -> selectScratchPath()
         }
     }
 
     fun selectGeneratePath() {
+        loadedProgramMeta = null
         _uiState.update {
             it.copy(
                 path = CreateProgramPath.Generate,
@@ -127,6 +154,7 @@ class CreateProgramViewModel @Inject constructor(
     }
 
     fun selectScratchPath() {
+        loadedProgramMeta = null
         val restId = UUID.randomUUID().toString()
         _uiState.update {
             it.copy(
@@ -425,14 +453,24 @@ class CreateProgramViewModel @Inject constructor(
     }
 
     fun saveToLibrary(onDone: () -> Unit) {
-        persist(activate = false, onDone = onDone)
+        persist(mode = PersistMode.SaveToLibrary, onDone = onDone)
+    }
+
+    fun saveChanges(onDone: () -> Unit) {
+        persist(mode = PersistMode.SavePreservingActive, onDone = onDone)
     }
 
     fun activate(onDone: () -> Unit) {
-        persist(activate = true, onDone = onDone)
+        persist(mode = PersistMode.Activate, onDone = onDone)
     }
 
-    private fun persist(activate: Boolean, onDone: () -> Unit) {
+    private enum class PersistMode {
+        SaveToLibrary,
+        SavePreservingActive,
+        Activate,
+    }
+
+    private fun persist(mode: PersistMode, onDone: () -> Unit) {
         val state = _uiState.value
         if (!state.canSave || state.isSaving) {
             _uiState.update {
@@ -442,22 +480,46 @@ class CreateProgramViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, saveErrorMessage = null) }
-            val program = state.toDomainProgram()
+            val draft = state.toDomainProgram(loadedProgramMeta)
             val result =
-                if (activate) {
-                    activateProgram(program)
-                } else {
-                    saveProgramToLibrary(program)
+                when (mode) {
+                    PersistMode.Activate -> activateProgram(draft.copy(isActive = true))
+                    PersistMode.SavePreservingActive -> updateExistingProgram(draft)
+                    PersistMode.SaveToLibrary ->
+                        if (state.isEditingExisting) {
+                            // Library edit: stay inactive without demoting anything else.
+                            updateExistingProgram(draft.copy(isActive = false))
+                        } else {
+                            saveProgramToLibrary(draft)
+                        }
                 }
             result
                 .onSuccess {
-                    if (finishOnboarding && activate) {
+                    if (finishOnboarding && mode == PersistMode.Activate) {
                         // First-run path: only Activate completes onboarding (user must have a
                         // training program). Save to Library alone leaves them on this screen.
                         completeOnboarding(getUserTrainingProfile())
                     }
-                    _uiState.update { it.copy(isSaving = false, isDirty = false) }
-                    if (!finishOnboarding || activate) {
+                    if (mode == PersistMode.Activate) {
+                        loadedProgramMeta = draft.copy(isActive = true).toLoadedProgramMeta()
+                    } else if (mode == PersistMode.SavePreservingActive) {
+                        loadedProgramMeta = draft.toLoadedProgramMeta()
+                    } else if (state.isEditingExisting) {
+                        loadedProgramMeta = draft.copy(isActive = false).toLoadedProgramMeta()
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            isDirty = false,
+                            originalIsActive =
+                                when (mode) {
+                                    PersistMode.Activate -> true
+                                    PersistMode.SaveToLibrary -> false
+                                    PersistMode.SavePreservingActive -> it.originalIsActive
+                                },
+                        )
+                    }
+                    if (!finishOnboarding || mode == PersistMode.Activate) {
                         onDone()
                     }
                 }
@@ -498,31 +560,31 @@ class CreateProgramViewModel @Inject constructor(
         updateSpecialization(SpecializationPreference(levels = levels))
     }
 
-    private fun loadProgramIntoEditor(program: Program) {
-        val days =
-            program.workouts
-                .sortedBy { workout -> workout.position }
-                .map { workout ->
-                    CreateProgramDayUi(
-                        id = workout.id.value,
-                        name = workout.name,
-                        position = workout.position,
-                        isRest = false,
-                        editState = workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId),
-                    )
-                }
+    private fun loadProgramIntoEditor(
+        program: Program,
+        markDirty: Boolean = true,
+        isExisting: Boolean = false,
+    ) {
+        val days = program.toCreateProgramDays(liftNamesById, compoundByLiftId)
+        loadedProgramMeta = program.toLoadedProgramMeta()
         _uiState.update {
             it.copy(
                 step = CreateProgramStep.Editor,
+                path = CreateProgramPath.Scratch,
                 generateState = CreateProgramGenerateState.Idle,
                 programId = program.id.value,
                 programName = program.name,
                 days = days,
-                selectedDayId = days.firstOrNull()?.id,
-                isDirty = true,
+                selectedDayId = days.firstOrNull { day -> !day.isRest }?.id ?: days.firstOrNull()?.id,
+                isDirty = markDirty,
+                isEditingExisting = isExisting,
+                originalIsActive = program.isActive,
+                loadErrorMessage = null,
             ).withEditorDerivedMetrics()
         }
     }
+
+    private var loadedProgramMeta: LoadedProgramMeta? = null
 
     private fun convertSelectedRestToWorkoutIfNeeded() {
         val state = _uiState.value
@@ -707,7 +769,7 @@ class CreateProgramViewModel @Inject constructor(
     private fun CreateProgramUiState.withEditorDerivedMetrics(): CreateProgramUiState {
         if (step != CreateProgramStep.Editor) return this
         if (days.none { day -> day.editState != null }) return this
-        val draftProgram = toDomainProgram()
+        val draftProgram = toDomainProgram(loadedProgramMeta)
         return copy(
             days =
                 days.map { day ->
@@ -722,58 +784,6 @@ class CreateProgramViewModel @Inject constructor(
                             ),
                     )
                 },
-        )
-    }
-
-    private fun CreateProgramUiState.toDomainProgram(): Program {
-        val programId = ProgramId(this.programId.ifBlank { UUID.randomUUID().toString() })
-        val workouts =
-            days
-                .filter { day -> !day.isRest && day.editState != null }
-                .mapIndexed { index, day ->
-                    val edit = day.editState!!
-                    Workout(
-                        id = WorkoutId(edit.workoutId),
-                        programId = programId,
-                        name = day.name,
-                        weekday = null,
-                        position = index,
-                        workoutLifts =
-                            edit.lifts.mapIndexed { liftIndex, lift ->
-                                WorkoutLift(
-                                    id = WorkoutLiftId(lift.workoutLiftId),
-                                    workoutId = WorkoutId(edit.workoutId),
-                                    liftId = LiftId(lift.liftId),
-                                    progressionScheme = lift.progressionScheme,
-                                    position = liftIndex,
-                                    sets =
-                                        lift.sets.mapIndexed { setIndex, set ->
-                                            LiftSet(
-                                                id = LiftSetId(set.setId),
-                                                workoutLiftId = WorkoutLiftId(lift.workoutLiftId),
-                                                position = setIndex,
-                                                setType = SetType.Standard,
-                                                repMin = set.repMin,
-                                                repMax = set.repMax,
-                                                rirGoal = set.rirGoal,
-                                                isTopSet = set.isTopSet,
-                                                restSeconds = set.restSeconds,
-                                            )
-                                        },
-                                    supersetGroupId = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) },
-                                    useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
-                                )
-                            },
-                    )
-                }
-        return Program(
-            id = programId,
-            name = programName.ifBlank { "New Program" },
-            createdAt = Instant.now(),
-            cycleLength = workouts.size.coerceAtLeast(1),
-            trainingWeekdays = emptySet(),
-            workouts = workouts,
-            isActive = false,
         )
     }
 

@@ -9,10 +9,14 @@ import kotlinx.coroutines.flow.Flow
  * - [observeProgram] / [getProgram] expose the **active** training program only.
  * - [saveProgram] upserts a full hierarchy for that program id without deleting other programs.
  * - [saveToLibrary] persists inactive; [activateProgram] promotes a program and demotes the prior
- *   active. Programs are never destroyed on save/activate.
+ *   active. Save/activate never destroy sibling programs.
+ * - [deleteProgram] is the only path that permanently removes a user program hierarchy.
  */
 interface ProgramRepository {
     fun observeProgram(): Flow<Program?>
+
+    /** Observes a single program (active or library) by id; emits null when missing. */
+    fun observeProgramById(programId: ProgramId): Flow<Program?>
 
     suspend fun getProgram(): Program?
 
@@ -29,6 +33,13 @@ interface ProgramRepository {
      * becomes library inventory.
      */
     suspend fun activateProgram(programId: ProgramId)
+
+    /**
+     * Permanently removes the program **template** hierarchy (workouts/lifts/sets). Training
+     * sessions and logged sets are retained: session soft refs are cleared explicitly
+     * (not Room FKs). Must refuse `import-history`.
+     */
+    suspend fun deleteProgram(programId: ProgramId)
 
     /** Inactive user programs (excludes active and import-history). */
     fun observeLibraryPrograms(): Flow<List<Program>>

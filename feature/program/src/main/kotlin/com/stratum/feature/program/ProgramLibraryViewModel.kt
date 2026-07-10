@@ -1,0 +1,174 @@
+package com.stratum.feature.program
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.program.ActivateStoredProgramUseCase
+import com.stratum.domain.program.DeleteProgramUseCase
+import com.stratum.domain.program.ObserveLibraryProgramsUseCase
+import com.stratum.domain.program.ObserveProgramUseCase
+import com.stratum.domain.program.Program
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.training.ObserveActiveSessionUseCase
+import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionStatus
+import com.stratum.feature.program.ui.ProgramLibraryUiState
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+@HiltViewModel
+class ProgramLibraryViewModel @Inject constructor(
+    observeProgram: ObserveProgramUseCase,
+    observeLibraryPrograms: ObserveLibraryProgramsUseCase,
+    observeLiftCatalog: ObserveLiftCatalogUseCase,
+    observeActiveSession: ObserveActiveSessionUseCase,
+    private val activateStoredProgram: ActivateStoredProgramUseCase,
+    private val deleteProgram: DeleteProgramUseCase,
+) : ViewModel() {
+
+    private val expandedProgramIds = MutableStateFlow<Set<String>>(emptySet())
+    private val pendingDeleteProgramId = MutableStateFlow<String?>(null)
+    private val isDeleting = MutableStateFlow(false)
+    private val userMessage = MutableStateFlow<String?>(null)
+    private val restDayLabel = MutableStateFlow("Rest Day")
+
+    private val programsFlow =
+        combine(
+            observeProgram(),
+            observeLibraryPrograms(),
+        ) { active, library ->
+            buildList {
+                if (active != null) add(active)
+                addAll(library.sortedByDescending { program -> program.createdAt })
+            }
+        }
+
+    private val transientFlow =
+        combine(
+            expandedProgramIds,
+            pendingDeleteProgramId,
+            userMessage,
+            isDeleting,
+            restDayLabel,
+        ) { expanded, pendingId, message, deleting, restDay ->
+            TransientUi(
+                expanded = expanded,
+                pendingDeleteId = pendingId,
+                userMessage = message,
+                isDeleting = deleting,
+                restDayName = restDay,
+            )
+        }
+
+    val uiState: StateFlow<ProgramLibraryUiState> =
+        combine(
+            programsFlow,
+            observeLiftCatalog(),
+            observeActiveSession(),
+            transientFlow,
+        ) { programs, lifts, activeSession, transient ->
+            mapUiState(programs, lifts, activeSession, transient)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ProgramLibraryUiState(),
+        )
+
+    /** Call from the route with a localized rest-day string. */
+    fun setRestDayLabel(label: String) {
+        restDayLabel.value = label
+    }
+
+    fun toggleExpanded(programId: String) {
+        expandedProgramIds.update { current ->
+            if (programId in current) current - programId else current + programId
+        }
+    }
+
+    fun requestDelete(programId: String) {
+        if (isDeleting.value) return
+        pendingDeleteProgramId.value = programId
+    }
+
+    fun dismissDelete() {
+        if (isDeleting.value) return
+        pendingDeleteProgramId.value = null
+    }
+
+    fun confirmDelete() {
+        val id = pendingDeleteProgramId.value ?: return
+        if (isDeleting.value) return
+        isDeleting.value = true
+        viewModelScope.launch {
+            deleteProgram(ProgramId(id))
+                .onSuccess {
+                    pendingDeleteProgramId.value = null
+                    expandedProgramIds.update { it - id }
+                }
+                .onFailure { error ->
+                    userMessage.value = error.message ?: "Couldn't delete program. Try again."
+                    pendingDeleteProgramId.value = null
+                }
+            isDeleting.value = false
+        }
+    }
+
+    fun activateProgram(programId: String) {
+        viewModelScope.launch {
+            activateStoredProgram(ProgramId(programId))
+                .onFailure { error ->
+                    userMessage.value = error.message ?: "Couldn't activate program. Try again."
+                }
+        }
+    }
+
+    fun onUserMessageShown() {
+        userMessage.value = null
+    }
+
+    private fun mapUiState(
+        programs: List<Program>,
+        lifts: List<Lift>,
+        activeSession: TrainingSession?,
+        transient: TransientUi,
+    ): ProgramLibraryUiState {
+        val liftsById = lifts.associateBy { lift -> lift.id }
+        val cards =
+            programs.toProgramLibraryCards(
+                liftsById = liftsById,
+                restDayName = transient.restDayName,
+            )
+        val pendingProgram =
+            programs.firstOrNull { program -> program.id.value == transient.pendingDeleteId }
+        val hasActiveSession =
+            activeSession != null &&
+                activeSession.status == TrainingSessionStatus.IN_PROGRESS &&
+                transient.pendingDeleteId != null &&
+                activeSession.programId?.value == transient.pendingDeleteId
+        return ProgramLibraryUiState(
+            programs = cards,
+            expandedProgramIds = transient.expanded,
+            pendingDeleteProgramId = transient.pendingDeleteId,
+            pendingDeleteProgramName = pendingProgram?.name,
+            pendingDeleteHasActiveSession = hasActiveSession,
+            isDeleting = transient.isDeleting,
+            userMessage = transient.userMessage,
+        )
+    }
+
+    private data class TransientUi(
+        val expanded: Set<String>,
+        val pendingDeleteId: String?,
+        val userMessage: String?,
+        val isDeleting: Boolean,
+        val restDayName: String,
+    )
+}

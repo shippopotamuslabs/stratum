@@ -91,6 +91,35 @@ class UnskipWorkoutUseCaseTest {
     }
 
     @Test
+    @DisplayName("Unskip rest day ignores soft-unlinked sessions from deleted programs")
+    fun unskipRestDayIgnoresOrphanedSessions() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val orphanedRest = TrainingSession(
+            id = TrainingSessionId("ts-rest-orphan"),
+            programId = null,
+            workoutId = null,
+            status = TrainingSessionStatus.COMPLETED,
+            kind = TrainingSessionKind.REST_DAY,
+            origin = TrainingSessionOrigin.LIVE,
+            cycleNumberSnapshot = 1,
+            weekdaySnapshot = Weekday.Tuesday,
+            startedAt = Instant.parse("2025-01-01T10:00:00Z"),
+            endedAt = Instant.parse("2025-01-01T10:00:00Z"),
+            sourceApp = null,
+            programNameSnapshot = "Deleted Program",
+        )
+        val logRepo = FakeTrainingLogRepository(
+            initialSessions = listOf(orphanedRest),
+            programRepository = programRepo,
+        )
+        val useCase = UnskipWorkoutUseCase(logRepo, programRepo)
+
+        useCase(Weekday.Tuesday).getOrThrow()
+
+        assertTrue(logRepo.getSession(orphanedRest.id) != null)
+    }
+
+    @Test
     @DisplayName("Unskip rest day deletes the matching REST_DAY session")
     fun unskipRestDayDeletesSession() = runTest {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
