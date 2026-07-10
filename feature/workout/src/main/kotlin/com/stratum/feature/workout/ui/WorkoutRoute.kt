@@ -167,6 +167,11 @@ fun WorkoutRoute(
                         viewModel.startReorderLifts()
                         onReorderLiftsClick(workoutId)
                     },
+                    onAddSet = viewModel::addSetForLift,
+                    onDeleteSet = viewModel::deleteSetByKey,
+                    onAddLift = {
+                        onSwapLiftClick(state.workoutId, null, null, null)
+                    },
                 ),
                 modifier = modifier,
             )

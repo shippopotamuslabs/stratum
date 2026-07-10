@@ -6,7 +6,9 @@ import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.workout.LoggedSetValue
+import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
@@ -83,6 +85,15 @@ class WorkoutOverlayMapperTest {
             ),
             swappedLifts = mapOf(workoutLiftId to LiftId("front-squat")),
             deletedLiftIds = setOf(WorkoutLiftId("wl-gone")),
+            addedLifts = listOf(
+                OverlayAddedLift(
+                    workoutLiftId = WorkoutLiftId("wl-added"),
+                    liftId = LiftId("db-row"),
+                    progressionScheme = ProgressionScheme.Double,
+                    supersetGroupId = WorkoutSupersetGroupId("group-b"),
+                    useRestTimerBetweenLifts = true,
+                ),
+            ),
             supersetGroupIdOverrides = mapOf(
                 workoutLiftId to WorkoutSupersetGroupId("group-a"), // override to a group
                 WorkoutLiftId("wl-unlinked") to null, // override = "removed from superset"

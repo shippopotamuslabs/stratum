@@ -21,6 +21,7 @@ internal object WorkoutUiMapper {
         sessionStartedAtEpochMilli: Long,
         hasIncompleteLifts: Boolean = false,
         hasDirtyEdits: Boolean = false,
+        imageUrlByLiftId: Map<String, String?> = emptyMap(),
     ): WorkoutUiState.Loaded {
         val lifts = rendered.lifts.map { lift ->
             val showWeightColumn = lift.loadType != LoadType.Bodyweight
@@ -37,6 +38,8 @@ internal object WorkoutUiMapper {
                 showWeightColumn = showWeightColumn,
                 weightHeaderLabel = weightHeaderLabel,
                 useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
+                imageUrl = imageUrlByLiftId[lift.liftId.value],
+                navigatorInitials = liftNavigatorInitials(lift.liftName),
                 sets = lift.sets.map { set ->
                     val prevWeight = set.previousWeight
                     val prevReps = set.previousReps
@@ -114,5 +117,24 @@ internal object WorkoutUiMapper {
     private fun slotKey(slotId: SetSlotId): String = when (slotId) {
         is SetSlotId.Template -> slotId.liftSetId.value
         is SetSlotId.Overlay -> slotId.instanceId.value
+    }
+
+    /**
+     * Navigator initials: first letter of first two words, or first two letters of one word.
+     * Non-letter characters are ignored within each word token.
+     */
+    internal fun liftNavigatorInitials(name: String): String {
+        val words = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (words.isEmpty()) return ""
+        return if (words.size == 1) {
+            words[0].filter { it.isLetterOrDigit() }.take(2).uppercase()
+        } else {
+            buildString {
+                words.take(2).forEach { word ->
+                    val ch = word.firstOrNull { it.isLetterOrDigit() }
+                    if (ch != null) append(ch.uppercaseChar())
+                }
+            }
+        }
     }
 }

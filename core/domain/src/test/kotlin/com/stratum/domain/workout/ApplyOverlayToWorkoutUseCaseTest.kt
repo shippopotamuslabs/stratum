@@ -142,6 +142,45 @@ class ApplyOverlayToWorkoutUseCaseTest {
         assertEquals(WorkoutLiftId("wl-1"), result.workoutLifts[1].id)
     }
 
+    @Test
+    @DisplayName("Added lifts are appended with their overlay slots")
+    fun addedLiftsAppended() {
+        val baseline = sampleWorkout()
+        val newWlId = WorkoutLiftId("wl-added")
+        val slot = SetSlot(
+            slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-lift-set-1")),
+            workoutLiftId = newWlId,
+            liftId = LiftId("lift-row"),
+            position = 0,
+            setType = SetType.Standard,
+            isTopSet = true,
+            repMin = 8,
+            repMax = 12,
+            rirGoal = 2,
+            restSeconds = 90,
+        )
+        val overlay = WorkoutOverlay(
+            addedLifts = listOf(
+                OverlayAddedLift(
+                    workoutLiftId = newWlId,
+                    liftId = LiftId("lift-row"),
+                    progressionScheme = ProgressionScheme.Double,
+                ),
+            ),
+            addedSlots = listOf(slot),
+        )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(3, result.workoutLifts.size)
+        val added = result.workoutLifts.last()
+        assertEquals(newWlId, added.id)
+        assertEquals(LiftId("lift-row"), added.liftId)
+        assertEquals(1, added.sets.size)
+        assertEquals(8, added.sets[0].repMin)
+        assertEquals(12, added.sets[0].repMax)
+    }
+
     private fun sampleWorkout(): Workout = Workout(
         id = WorkoutId("w-1"),
         programId = ProgramId("p-1"),
