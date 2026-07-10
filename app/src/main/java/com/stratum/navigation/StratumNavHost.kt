@@ -10,9 +10,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.onboarding.navigation.OnboardingKey
@@ -83,6 +85,14 @@ fun StratumNavHost(
     NavDisplay(
         backStack = backStack,
         onBack = onNavigateBack,
+        // Scope ViewModels (and saveable state) to each NavEntry. Without the ViewModelStore
+        // decorator, hiltViewModel() resolves to the Activity and CreateProgram retains
+        // showDiscardConfirm / entryConfigured across visits — discard sheet on library edit open.
+        entryDecorators =
+            listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator(),
+            ),
         entryProvider = entryProvider {
             onboardingEntry(
                 onComplete = {
