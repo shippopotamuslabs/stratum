@@ -160,7 +160,14 @@ class FakeResponseModelingSchedulerPort : ResponseModelingSchedulerPort {
     var enqueueCount: Int = 0
         private set
 
+    var historyInvalidationCount: Int = 0
+        private set
+
     override fun enqueueRefresh() {
         enqueueCount++
+    }
+
+    override fun enqueueHistoryInvalidation() {
+        historyInvalidationCount++
     }
 }

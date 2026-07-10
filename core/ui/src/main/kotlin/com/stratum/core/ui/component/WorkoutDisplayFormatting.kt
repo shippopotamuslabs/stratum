@@ -1,6 +1,7 @@
 package com.stratum.core.ui.component
 
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** Shared presentation formatters for workout recap / history surfaces. */
 const val RIR_NONE_LABEL = "—"
@@ -24,8 +25,17 @@ fun formatSetPerformance(weightAmount: Double, reps: Int): String =
         "${formatWeightAmount(weightAmount)} × $reps"
     }
 
-fun formatWeightAmount(weight: Double): String {
-    val rounded = (weight * TEN_FACTOR).toInt() / TEN_FACTOR.toDouble()
+/**
+ * Formats a weight amount for display: blank when 0 (cell placeholder contract), otherwise rounded
+ * to at most one decimal with trailing `.0` stripped.
+ *
+ * When [assistMode] is true the amount is sign-stripped first (assisted loads are stored negative;
+ * the user sees a positive assistance figure).
+ */
+fun formatWeightAmount(weight: Double, assistMode: Boolean = false): String {
+    val display = if (assistMode) kotlin.math.abs(weight) else weight
+    if (display == 0.0) return ""
+    val rounded = (display * TEN_FACTOR).roundToInt() / TEN_FACTOR.toDouble()
     return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
 }
 

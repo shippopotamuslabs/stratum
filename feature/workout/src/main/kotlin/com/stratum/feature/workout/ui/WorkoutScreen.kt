@@ -4,8 +4,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
@@ -43,75 +38,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.stratum.core.ui.R as CoreUiR
-import com.stratum.core.ui.component.RirTargetBottomSheet
-import com.stratum.core.ui.component.RirTargetBadge
+import com.stratum.core.ui.component.LiftActionsBottomSheet
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
-import com.stratum.core.ui.component.StratumCheckbox
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
-import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.StratumTopBar
-import com.stratum.core.ui.component.LiftActionsBottomSheet
+import com.stratum.core.ui.component.StratumTopBarTextButton
 import com.stratum.core.ui.component.SupersetLinkBottomSheet
 import com.stratum.core.ui.component.SupersetLinkDirection
-import com.stratum.core.ui.component.supersetLinkSheetOptions
-import com.stratum.core.ui.component.shouldKeepSupersetSheetOpenAfterLink
-import com.stratum.core.ui.component.isSupersetPairMember
 import com.stratum.core.ui.component.isLastInSupersetChain
-import com.stratum.core.ui.component.SupersetGroupChip
-import com.stratum.core.ui.theme.StratumSupersetGroupColors
+import com.stratum.core.ui.component.isSupersetPairMember
+import com.stratum.core.ui.component.shouldKeepSupersetSheetOpenAfterLink
+import com.stratum.core.ui.component.supersetLinkSheetOptions
+import com.stratum.core.ui.component.workoutlog.StratumWorkoutLogLiftPanel
+import com.stratum.core.ui.component.workoutlog.WorkoutLogLiftUi
+import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
+import com.stratum.core.ui.component.workoutlog.WorkoutLogSetUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.notification.RestTimerDefaults
-
-/**
- * Column weight fractions for one set row. The weight column is present for weighted +
- * assisted lifts and absent for bodyweight, so the two layouts redistribute the same five
- * shared cells (label / prev / [weight] / reps / RIR / checkbox) across the row width.
- */
-private data class SetRowWeights(
-    val label: Float,
-    val prev: Float,
-    val weight: Float,
-    val reps: Float,
-    val rir: Float,
-    val checkbox: Float,
-)
-
-private val weightedRowWeights = SetRowWeights(
-    label = 0.10f,
-    prev = 0.26f,
-    weight = 0.22f,
-    reps = 0.18f,
-    rir = 0.12f,
-    checkbox = 0.12f,
-)
-
-private val bodyweightRowWeights = SetRowWeights(
-    label = 0.12f,
-    prev = 0.30f,
-    weight = 0.0f,
-    reps = 0.28f,
-    rir = 0.18f,
-    checkbox = 0.12f,
-)
 
 /**
  * Rest-timer chrome + actions passed as one bag so [WorkoutScreen] stays under Detekt's
@@ -232,12 +187,12 @@ fun WorkoutScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 items(state.lifts, key = { it.workoutLiftId }) { lift ->
-                    LiftSection(
+                    LiveLiftSection(
                         lift = lift,
                         onLogSet = actions.onLogSet,
                         onUnlogSet = actions.onUnlogSet,
                         onStartRestTimer = restTimer.onStart,
-                        onShowLiftActions = { liftActionsLiftId = lift.workoutLiftId }
+                        onShowLiftActions = { liftActionsLiftId = lift.workoutLiftId },
                     )
                 }
 
@@ -425,8 +380,12 @@ private fun RestTimerTopBarIndicator(
     }
 }
 
+/**
+ * Live session adapter over [StratumWorkoutLogLiftPanel]: local draft fields until checkbox
+ * commits a log, then rest timer starts.
+ */
 @Composable
-private fun LiftSection(
+private fun LiveLiftSection(
     lift: RenderedLiftUi,
     onLogSet: (String, Weight, Int, Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
@@ -434,34 +393,82 @@ private fun LiftSection(
     onShowLiftActions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(StratumThemeAccessor.shapes.panel)
-            .background(
-                color = StratumThemeAccessor.colors.surfaceRaised,
-                shape = StratumThemeAccessor.shapes.panel
-            )
-            .border(
-                width = StratumThemeAccessor.shapes.borderWidth,
-                color = StratumThemeAccessor.colors.borderSubtle,
-                shape = StratumThemeAccessor.shapes.panel
-            )
-            .padding(top = 16.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            StratumText(
-                text = lift.liftName,
-                style = StratumThemeAccessor.typography.titleMedium,
-                modifier = Modifier.weight(1f).padding(end = 20.dp),
-            )
+    // Snapshot-state maps so edits recompose without mutating plain maps during composition.
+    val weightDrafts = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }
+    val repsDrafts = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }
+    val rirDrafts = remember { androidx.compose.runtime.mutableStateMapOf<String, Int>() }
+
+    // Seed incomplete drafts once; overwrite from logged values whenever a set completes.
+    LaunchedEffect(lift.sets) {
+        for (set in lift.sets) {
+            if (set.isComplete) {
+                weightDrafts[set.slotKey] = set.loggedWeightLabel.orEmpty()
+                repsDrafts[set.slotKey] = set.loggedRepsLabel.orEmpty()
+                rirDrafts[set.slotKey] = set.loggedRir ?: set.rirGoal
+            } else {
+                if (set.slotKey !in weightDrafts) {
+                    weightDrafts[set.slotKey] = set.loggedWeightLabel.orEmpty()
+                }
+                if (set.slotKey !in repsDrafts) {
+                    repsDrafts[set.slotKey] = set.loggedRepsLabel.orEmpty()
+                }
+                if (set.slotKey !in rirDrafts) {
+                    rirDrafts[set.slotKey] = set.loggedRir ?: set.rirGoal
+                }
+            }
+        }
+    }
+
+    val logLift =
+        WorkoutLogLiftUi(
+            key = lift.workoutLiftId,
+            liftName = lift.liftName,
+            showWeightColumn = lift.showWeightColumn,
+            weightHeaderLabel = lift.weightHeaderLabel,
+            supersetGroupId = lift.supersetGroupId,
+            sets =
+                lift.sets.map { set ->
+                    WorkoutLogSetUi(
+                        setKey = set.slotKey,
+                        positionLabel = set.positionLabel,
+                        setTypeLabel = set.setTypeLabel,
+                        previousLabel = set.previousWeightLabel ?: "—",
+                        weightText =
+                            if (set.isComplete) {
+                                set.loggedWeightLabel.orEmpty()
+                            } else {
+                                weightDrafts[set.slotKey].orEmpty()
+                            },
+                        weightPlaceholder = set.recommendedWeightLabel,
+                        repsText =
+                            if (set.isComplete) {
+                                set.loggedRepsLabel.orEmpty()
+                            } else {
+                                repsDrafts[set.slotKey].orEmpty()
+                            },
+                        repsPlaceholder = set.recommendedRepsLabel,
+                        rir =
+                            if (set.isComplete) {
+                                set.loggedRir ?: set.rirGoal
+                            } else {
+                                rirDrafts[set.slotKey] ?: set.rirGoal
+                            },
+                        isComplete = set.isComplete,
+                        fieldsEnabled = !set.isComplete,
+                        showWeightInput = set.showWeightInput,
+                        showCheckbox = true,
+                        assistMode = set.assistMode,
+                        recommendedWeightAmount = set.recommendedWeightAmount,
+                        recommendedReps = set.recommendedReps,
+                        repMin = set.repMin,
+                    )
+                },
+        )
+
+    StratumWorkoutLogLiftPanel(
+        lift = logLift,
+        modifier = modifier,
+        headerTrailing = {
             StratumIconButton(
                 onClick = onShowLiftActions,
                 containerColor = Color.Transparent,
@@ -469,279 +476,45 @@ private fun LiftSection(
                 Icon(
                     painter = painterResource(CoreUiR.drawable.ic_more_vert),
                     contentDescription = "Lift Options",
-                    tint = StratumThemeAccessor.colors.textMuted
+                    tint = StratumThemeAccessor.colors.textMuted,
                 )
             }
-        }
-
-        lift.supersetGroupId?.let { groupId ->
-            SupersetGroupChip(
-                groupId = groupId,
-                modifier = Modifier
-                    .padding(vertical = 2.dp)
-                    .padding(horizontal = 16.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val weights = if (lift.showWeightColumn) weightedRowWeights else bodyweightRowWeights
-            TableHeaderCell("Set", Modifier.weight(weights.label), alignment = Alignment.CenterStart)
-            TableHeaderCell("Prev", Modifier.weight(weights.prev))
-            if (lift.showWeightColumn) {
-                TableHeaderCell(lift.weightHeaderLabel, Modifier.weight(weights.weight))
-            }
-            TableHeaderCell("Reps", Modifier.weight(weights.reps))
-            TableHeaderCell("RIR", Modifier.weight(weights.rir))
-            TableHeaderCell("", Modifier.weight(weights.checkbox))
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(StratumThemeAccessor.shapes.borderWidth)
-                .background(StratumThemeAccessor.colors.borderSubtle)
-        )
-
-        lift.sets.forEach { set ->
-            WorkoutSetRow(
-                set = set,
-                onLogSet = onLogSet,
-                onUnlogSet = onUnlogSet,
-                onStartRestTimer = onStartRestTimer
-            )
-        }
-    }
-}
-
-@Composable
-private fun TableHeaderCell(
-    text: String,
-    modifier: Modifier = Modifier,
-    alignment: Alignment = Alignment.Center,
-) {
-    Box(
-        modifier = modifier,
-        contentAlignment = alignment,
-    ) {
-        StratumText(
-            text = text,
-            style = StratumThemeAccessor.typography.sectionLabel,
-            muted = true,
-        )
-    }
-}
-
-@Composable
-private fun WorkoutSetRow(
-    set: RenderedSetUi,
-    onLogSet: (String, Weight, Int, Int?) -> Unit,
-    onUnlogSet: (String) -> Unit,
-    onStartRestTimer: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val weightState = rememberSaveable(set.slotKey, set.loggedWeightLabel) {
-        mutableStateOf(set.loggedWeightLabel ?: "")
-    }
-    val repsState = rememberSaveable(set.slotKey, set.loggedRepsLabel) {
-        mutableStateOf(set.loggedRepsLabel ?: "")
-    }
-    val rirState = rememberSaveable(set.slotKey, set.loggedRir) {
-        mutableIntStateOf(set.loggedRir ?: set.rirGoal)
-    }
-    var showRirSheet by remember { mutableStateOf(false) }
-
-    val rowBg = if (set.isComplete) {
-        StratumThemeAccessor.colors.setComplete
-    } else {
-        Color.Transparent
-    }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(rowBg)
-            .padding(vertical = 4.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val isWarmup = set.setTypeLabel == "Warmup"
-        val isDrop = set.setTypeLabel == "DropSet"
-        val setLabel = when {
-            isWarmup -> "W"
-            isDrop -> "D"
-            else -> set.positionLabel
-        }
-        val weights = if (set.showWeightInput) weightedRowWeights else bodyweightRowWeights
-
-        // Set label
-        Box(modifier = Modifier.weight(weights.label), contentAlignment = Alignment.CenterStart) {
-            StratumText(
-                text = setLabel,
-                style = StratumThemeAccessor.typography.bodyLarge,
-            )
-        }
-
-        // Previous best
-        Box(modifier = Modifier.weight(weights.prev), contentAlignment = Alignment.Center) {
-            StratumText(
-                text = set.previousWeightLabel ?: "—",
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-            )
-        }
-
-        // Weight input (omitted for bodyweight — weights.weight is 0f and the cell is skipped)
-        if (set.showWeightInput) {
-            InlineNumericCell(
-                value = weightState.value,
-                placeholder = set.recommendedWeightLabel,
-                onValueChange = { weightState.value = it },
-                enabled = !set.isComplete,
-                modifier = Modifier
-                    .weight(weights.weight)
-                    .padding(horizontal = 2.dp)
-            )
-        }
-
-        // Reps
-        InlineNumericCell(
-            value = repsState.value,
-            placeholder = set.recommendedRepsLabel,
-            onValueChange = { repsState.value = it },
-            enabled = !set.isComplete,
-            modifier = Modifier
-                .weight(weights.reps)
-                .padding(horizontal = 2.dp)
-        )
-
-        // RIR
-        Box(modifier = Modifier.weight(weights.rir), contentAlignment = Alignment.Center) {
-            RirTargetBadge(
-                rirGoal = rirState.intValue,
-                onClick = {
-                    if (!set.isComplete) {
-                        showRirSheet = true
-                    }
-                }
-            )
-        }
-
-        // Checkbox + log. For bodyweight the weight is always 0; for assisted the
-        // checkbox gates on |recommended| so a -50 lb suggestion still enables logging.
-        Box(modifier = Modifier.weight(weights.checkbox), contentAlignment = Alignment.Center) {
-            val weightMagnitude = if (set.assistMode) kotlin.math.abs(set.recommendedWeightAmount) else set.recommendedWeightAmount
-            val isCheckboxEnabled = !set.showWeightInput ||
-                weightMagnitude > 0.0 || weightState.value.isNotEmpty() || set.isComplete
-            StratumCheckbox(
-                checked = set.isComplete,
-                enabled = isCheckboxEnabled,
+        },
+        setRowActions = { setUi ->
+            val source = lift.sets.first { it.slotKey == setUi.setKey }
+            WorkoutLogSetRowActions(
+                onWeightChange = { weightDrafts[setUi.setKey] = it },
+                onRepsChange = { repsDrafts[setUi.setKey] = it },
+                onRirChange = { rirDrafts[setUi.setKey] = it },
                 onCheckedChange = { checked ->
                     if (checked) {
-                        val (finalWeight, finalReps) = resolveCheckboxLogValues(
-                            enteredWeight = weightState.value,
-                            enteredReps = repsState.value,
-                            showWeightInput = set.showWeightInput,
-                            recommendedWeightAmount = set.recommendedWeightAmount,
-                            recommendedReps = set.recommendedReps,
-                            repMin = set.repMin,
-                        )
+                        val weightText = weightDrafts[setUi.setKey].orEmpty()
+                        val repsText = repsDrafts[setUi.setKey].orEmpty()
+                        val rir = rirDrafts[setUi.setKey] ?: source.rirGoal
+                        val (finalWeight, finalReps) =
+                            resolveCheckboxLogValues(
+                                enteredWeight = weightText,
+                                enteredReps = repsText,
+                                showWeightInput = source.showWeightInput,
+                                recommendedWeightAmount = source.recommendedWeightAmount,
+                                recommendedReps = source.recommendedReps,
+                                repMin = source.repMin,
+                            )
                         onLogSet(
-                            set.slotKey,
+                            source.slotKey,
                             Weight(finalWeight, Weight.WeightUnit.Lb),
                             finalReps,
-                            rirState.intValue,
+                            rir,
                         )
                         onStartRestTimer(RestTimerDefaults.DEFAULT_REST_SECONDS)
                     } else {
-                        onUnlogSet(set.slotKey)
+                        onUnlogSet(source.slotKey)
                     }
-                }
+                },
             )
-        }
-    }
-
-    if (showRirSheet) {
-        RirTargetBottomSheet(
-            selectedRirGoal = rirState.intValue,
-            onRirSelected = { rir -> rirState.intValue = rir },
-            onDismiss = { showRirSheet = false }
-        )
-    }
-}
-
-@Composable
-private fun InlineNumericCell(
-    value: String,
-    placeholder: String,
-    onValueChange: (String) -> Unit,
-    enabled: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-    val focusManager = LocalFocusManager.current
-    var fieldValue by remember(value) {
-        mutableStateOf(TextFieldValue(text = value, selection = TextRange(value.length)))
-    }
-
-    LaunchedEffect(value) {
-        if (!isFocused) {
-            fieldValue = TextFieldValue(text = value, selection = TextRange(value.length))
-        }
-    }
-
-    BasicTextField(
-        value = fieldValue,
-        onValueChange = { updated ->
-            val cleaned = updated.text.filter { char -> char.isDigit() || char == '.' }
-            fieldValue = updated.copy(text = cleaned, selection = TextRange(cleaned.length))
-            onValueChange(cleaned)
-        },
-        enabled = enabled,
-        modifier = modifier
-            .height(36.dp)
-            .clip(StratumThemeAccessor.shapes.chip)
-            .background(if (enabled) StratumThemeAccessor.colors.surfaceInset else StratumThemeAccessor.colors.surfaceSunken)
-            .border(
-                width = StratumThemeAccessor.shapes.borderWidth,
-                color = if (isFocused) StratumThemeAccessor.colors.accent else StratumThemeAccessor.colors.borderSubtle,
-                shape = StratumThemeAccessor.shapes.chip,
-            )
-            .padding(horizontal = 8.dp),
-        textStyle = StratumThemeAccessor.typography.bodyLarge.copy(
-            color = if (enabled) StratumThemeAccessor.colors.textPrimary else StratumThemeAccessor.colors.textMuted,
-            textAlign = TextAlign.Center,
-        ),
-        singleLine = true,
-        cursorBrush = SolidColor(StratumThemeAccessor.colors.accent),
-        interactionSource = interactionSource,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Number,
-            imeAction = ImeAction.Done,
-        ),
-        keyboardActions = KeyboardActions(
-            onDone = {
-                focusManager.clearFocus()
-            }
-        ),
-        decorationBox = { innerTextField ->
-            Box(contentAlignment = Alignment.Center) {
-                if (fieldValue.text.isEmpty() && !isFocused) {
-                    StratumText(text = placeholder, muted = true)
-                }
-                innerTextField()
-            }
         },
     )
 }
-
-
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

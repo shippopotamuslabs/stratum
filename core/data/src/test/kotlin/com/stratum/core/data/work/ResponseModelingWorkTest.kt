@@ -192,6 +192,46 @@ class ResponseModelingWorkTest {
     }
 
     @Test
+    @DisplayName("force history invalidation runs even when under the workout threshold")
+    fun forceHistoryInvalidationBypassesGate() = runTest {
+        val lastExtracted = Instant.parse("2025-05-01T00:00:00Z")
+        val metadataRepo = FakeResponseProfileMetadataRepository()
+        metadataRepo.save(metadata(lastExtracted = lastExtracted))
+        val trainingLog = FakeTrainingLogRepository()
+        // Only 2 new workouts — normal path would skip.
+        seedCompletedWorkouts(trainingLog, count = 2, after = lastExtracted)
+        val checkInPrefs = FakeCheckInPreferencesRepository()
+        val work = buildWork(
+            persistence = FakeResponseProfilePersistencePort(metadataRepository = metadataRepo),
+            trainingLog = trainingLog,
+            checkInPrefs = checkInPrefs,
+        )
+
+        val outcome = work.run(forceHistoryInvalidation = true)
+
+        assertEquals(ResponseModelingWork.Outcome.Success, outcome)
+        assertTrue(metadataRepo.get()!!.lastExtractedAt.isAfter(lastExtracted))
+        // History invalidation must not open coach check-in.
+        assertNull(checkInPrefs.current.pendingSinceExtractedAt)
+    }
+
+    @Test
+    @DisplayName("normal path still skips under threshold when force is false")
+    fun normalPathStillGated() = runTest {
+        val lastExtracted = Instant.parse("2025-05-01T00:00:00Z")
+        val metadataRepo = FakeResponseProfileMetadataRepository()
+        metadataRepo.save(metadata(lastExtracted = lastExtracted))
+        val trainingLog = FakeTrainingLogRepository()
+        seedCompletedWorkouts(trainingLog, count = 2, after = lastExtracted)
+        val work = buildWork(
+            persistence = FakeResponseProfilePersistencePort(metadataRepository = metadataRepo),
+            trainingLog = trainingLog,
+        )
+
+        assertEquals(ResponseModelingWork.Outcome.Skipped, work.run(forceHistoryInvalidation = false))
+    }
+
+    @Test
     @DisplayName("maps extract failure to Failed so the worker can Result.retry()")
     fun mapsFailure() = runTest {
         val lastExtracted = Instant.parse("2025-05-01T00:00:00Z")

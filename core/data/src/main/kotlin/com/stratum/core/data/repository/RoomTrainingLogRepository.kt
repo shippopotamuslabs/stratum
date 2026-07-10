@@ -143,6 +143,22 @@ class RoomTrainingLogRepository @Inject constructor(
         }
     }
 
+    override suspend fun applySetMutations(
+        deleteIds: Collection<LoggedSetId>,
+        inserts: List<LoggedSet>,
+        updates: List<LoggedSet>,
+    ) {
+        database.withTransaction {
+            deleteIds.forEach { setDao.deleteById(it) }
+            if (inserts.isNotEmpty()) {
+                setDao.upsertAll(inserts.map { it.toEntity() })
+            }
+            if (updates.isNotEmpty()) {
+                setDao.upsertAll(updates.map { it.toEntity() })
+            }
+        }
+    }
+
     override suspend fun persistSessionWithCycleEffects(
         session: TrainingSession,
         cyclePointerUpdate: CyclePointerUpdate?,
