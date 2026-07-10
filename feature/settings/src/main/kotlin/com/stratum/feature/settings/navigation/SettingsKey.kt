@@ -37,5 +37,7 @@ private fun SettingsRoute(
         onBackClick = onBackClick,
         onAppearanceSelected = viewModel::onAppearanceSelected,
         onThemeFamilySelected = viewModel::onThemeFamilySelected,
+        onCheckInsEnabledChange = viewModel::onCheckInsEnabledChange,
+        onForceCheckInPending = viewModel::forceCheckInPending,
     )
 }

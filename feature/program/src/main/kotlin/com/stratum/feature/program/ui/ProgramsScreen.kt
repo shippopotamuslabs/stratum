@@ -87,6 +87,9 @@ internal fun ProgramsScreen(
     onCancelWorkoutClick: () -> Unit = {},
     onExpandWorkoutClick: (String) -> Unit = {},
     isPreviewMode: Boolean = false,
+    showCheckInBanner: Boolean = false,
+    onCheckInBannerClick: () -> Unit = {},
+    onCheckInSkipClick: () -> Unit = {},
 ) {
     var showOptionsSheet by remember { mutableStateOf(false) }
     var pendingUnskipWorkoutId by remember { mutableStateOf<String?>(null) }
@@ -158,6 +161,12 @@ internal fun ProgramsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 if (!isPreviewMode) {
+                    if (showCheckInBanner) {
+                        CheckInBanner(
+                            onTap = onCheckInBannerClick,
+                            onSkip = onCheckInSkipClick,
+                        )
+                    }
                     val hasActiveWorkout = activeWorkoutBar != null
                     StratumButton(
                         text = stringResource(R.string.programs_start_next_workout),

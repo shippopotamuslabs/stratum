@@ -53,9 +53,11 @@ import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.workout.ProgressionHistoryPort
 import com.stratum.domain.workout.WorkoutOverlayStore
+import com.stratum.core.data.repository.DataStoreCheckInPreferencesRepository
 import com.stratum.core.data.repository.DataStoreThemePreferencesRepository
 import com.stratum.core.data.repository.DataStoreWorkoutOverlayStore
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
+import com.stratum.domain.checkin.CheckInPreferencesRepository
 import com.stratum.domain.theme.ThemePreferencesRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleWeeklyOutcomeIndexRepository
@@ -294,6 +296,7 @@ object ResponseDatabaseModule {
 
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("TooManyFunctions")
 abstract class RepositoryModule {
     @Binds
     @Singleton
@@ -460,4 +463,10 @@ abstract class RepositoryModule {
     abstract fun bindThemePreferencesRepository(
         impl: DataStoreThemePreferencesRepository,
     ): ThemePreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCheckInPreferencesRepository(
+        impl: DataStoreCheckInPreferencesRepository,
+    ): CheckInPreferencesRepository
 }
