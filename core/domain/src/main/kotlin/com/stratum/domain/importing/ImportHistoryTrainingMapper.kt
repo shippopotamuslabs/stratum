@@ -39,6 +39,8 @@ object ImportHistoryTrainingMapper {
             endedAt = endedAt,
             sourceApp = sourceApp,
             programNameSnapshot = "Import History",
+            // No per-day workout title in the import schema; calendar shows DEFAULT ("Workout")
+            // via TrainingSessionDisplayName — never a lift name.
             workoutNameSnapshot = null,
         )
 

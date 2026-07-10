@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumScaffold
+import com.stratum.core.ui.component.StratumStatCard
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
@@ -81,7 +82,7 @@ private fun SummaryStatCards(state: WorkoutCompleteUiState.Loaded) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        StatCard(
+        StratumStatCard(
             label = stringResource(R.string.workout_complete_duration),
             value = state.durationFormatted,
             leading = {
@@ -94,7 +95,7 @@ private fun SummaryStatCards(state: WorkoutCompleteUiState.Loaded) {
             modifier = Modifier.weight(1f),
         )
         val prCount = state.bestSets.count { it.isPersonalRecord }
-        StatCard(
+        StratumStatCard(
             label = stringResource(R.string.workout_complete_personal_records),
             value = prCount.toString(),
             leading = {
@@ -105,46 +106,6 @@ private fun SummaryStatCards(state: WorkoutCompleteUiState.Loaded) {
                 )
             },
             modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun StatCard(
-    label: String,
-    value: String,
-    leading: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val panelShape = StratumThemeAccessor.shapes.panel
-    Column(
-        modifier = modifier
-            .background(
-                color = StratumThemeAccessor.colors.surfaceRaised,
-                shape = panelShape,
-            )
-            .border(
-                width = StratumThemeAccessor.shapes.borderWidth,
-                color = StratumThemeAccessor.colors.borderSubtle,
-                shape = panelShape,
-            )
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            leading()
-            StratumText(
-                text = label,
-                style = StratumThemeAccessor.typography.sectionLabel,
-                muted = true,
-            )
-        }
-        StratumText(
-            text = value,
-            style = StratumThemeAccessor.typography.titleLarge,
         )
     }
 }

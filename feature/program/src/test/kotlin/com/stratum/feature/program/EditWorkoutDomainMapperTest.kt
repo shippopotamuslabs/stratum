@@ -85,8 +85,8 @@ class EditWorkoutDomainMapperTest {
     }
 
     @Test
-    @DisplayName("toWorkout normalizes backoff rep ranges to 0/0 and preserves top-set ranges")
-    fun normalizesBackoffRepRanges() {
+    @DisplayName("toWorkout Double: normalizes backoff rep ranges to 0/0 and preserves top-set ranges")
+    fun normalizesDoubleBackoffRepRanges() {
         val baseline = baselineWorkout()
         val edited =
             listOf(
@@ -96,6 +96,7 @@ class EditWorkoutDomainMapperTest {
                     setId = "ls-1",
                     restSeconds = 120,
                 ).copy(
+                    progressionScheme = ProgressionScheme.Double,
                     sets =
                         listOf(
                             // Top set keeps its rep range.
@@ -115,6 +116,41 @@ class EditWorkoutDomainMapperTest {
         assertEquals(0, sets[1].repMin)
         assertEquals(0, sets[1].repMax)
         assertFalse(sets[1].isTopSet)
+        assertEquals(ProgressionScheme.Double, workout.workoutLifts.single().progressionScheme)
+    }
+
+    @Test
+    @DisplayName("toWorkout Linear: every working set keeps the shared rep range")
+    fun linearPersistsSharedRepRangeOnAllSets() {
+        val baseline = baselineWorkout()
+        val edited =
+            listOf(
+                editLift(
+                    workoutLiftId = "wl-1",
+                    position = 0,
+                    setId = "ls-1",
+                    restSeconds = 120,
+                ).copy(
+                    progressionScheme = ProgressionScheme.Linear,
+                    sets =
+                        listOf(
+                            EditSetState("ls-1", 1, 8, 12, 120, 2, isTopSet = true),
+                            // Non-top Linear set still stores the shared band (not 0/0).
+                            EditSetState("new-set", 2, 8, 12, 60, 2, isTopSet = false),
+                        ),
+                ),
+            )
+
+        val workout = edited.toWorkout(baseline, WorkoutId("w-1"))
+        val sets = workout.workoutLifts.single().sets
+
+        assertEquals(8, sets[0].repMin)
+        assertEquals(12, sets[0].repMax)
+        assertTrue(sets[0].isTopSet)
+        assertEquals(8, sets[1].repMin)
+        assertEquals(12, sets[1].repMax)
+        assertFalse(sets[1].isTopSet)
+        assertEquals(ProgressionScheme.Linear, workout.workoutLifts.single().progressionScheme)
     }
 
     @Test
@@ -217,6 +253,7 @@ class EditWorkoutDomainMapperTest {
                         repMax = 12,
                         restSeconds = restSeconds,
                         rirGoal = 2,
+                        isTopSet = true,
                     ),
                 ),
             supersetGroupId = groupId,

@@ -29,6 +29,10 @@ import com.stratum.feature.program.navigation.ProgramLibraryKey
 import com.stratum.feature.program.navigation.programLibraryEntry
 import com.stratum.feature.program.navigation.ReorderLiftsKey
 import com.stratum.feature.program.navigation.reorderLiftsEntry
+import com.stratum.feature.history.navigation.WorkoutHistoryKey
+import com.stratum.feature.history.navigation.WorkoutSessionDetailKey
+import com.stratum.feature.history.navigation.workoutHistoryEntry
+import com.stratum.feature.history.navigation.workoutSessionDetailEntry
 import com.stratum.feature.settings.navigation.SettingsKey
 import com.stratum.feature.settings.navigation.settingsEntry
 import com.stratum.feature.workout.navigation.WorkoutKey
@@ -134,6 +138,9 @@ fun StratumNavHost(
                     onNavigateToSettings = {
                         backStack.add(SettingsKey)
                     },
+                    onNavigateToHistory = {
+                        backStack.add(WorkoutHistoryKey)
+                    },
                     onCreateNewLift = {
                         backStack.add(CreateLiftKey)
                     },
@@ -155,6 +162,15 @@ fun StratumNavHost(
             liftInformationEntry(onBackClick = onNavigateBack)
             createLiftEntry(onBackClick = onNavigateBack)
             settingsEntry(
+                onBackClick = onNavigateBack,
+            )
+            workoutHistoryEntry(
+                onBackClick = onNavigateBack,
+                onSessionClick = { sessionId ->
+                    backStack.add(WorkoutSessionDetailKey(sessionId))
+                },
+            )
+            workoutSessionDetailEntry(
                 onBackClick = onNavigateBack,
             )
             programLibraryEntry(

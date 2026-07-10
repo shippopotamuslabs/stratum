@@ -1,11 +1,10 @@
-package com.stratum.feature.program
+package com.stratum.core.ui.component
 
-import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.MuscleVolumeSummary
-import com.stratum.core.ui.component.toVolumeDisplayName
 
-internal val upperVolumeMuscleOrder: List<MuscleGroup> =
+/** Fixed upper-body muscle order for volume carousels (Programs, Edit Workout, History). */
+val upperVolumeMuscleOrder: List<MuscleGroup> =
     listOf(
         MuscleGroup.Chest,
         MuscleGroup.Back,
@@ -19,7 +18,8 @@ internal val upperVolumeMuscleOrder: List<MuscleGroup> =
         MuscleGroup.Ab,
     )
 
-internal val lowerVolumeMuscleOrder: List<MuscleGroup> =
+/** Fixed lower-body muscle order for volume carousels. */
+val lowerVolumeMuscleOrder: List<MuscleGroup> =
     listOf(
         MuscleGroup.Quad,
         MuscleGroup.Hamstring,
@@ -30,10 +30,10 @@ internal val lowerVolumeMuscleOrder: List<MuscleGroup> =
         MuscleGroup.Adductor,
     )
 
-internal fun List<MuscleVolumeSummary>.toUpperVolumeCards(): List<StratumMuscleVolumeCardState> =
+fun List<MuscleVolumeSummary>.toUpperVolumeCards(): List<StratumMuscleVolumeCardState> =
     toOrderedVolumeCards(order = upperVolumeMuscleOrder)
 
-internal fun List<MuscleVolumeSummary>.toLowerVolumeCards(): List<StratumMuscleVolumeCardState> =
+fun List<MuscleVolumeSummary>.toLowerVolumeCards(): List<StratumMuscleVolumeCardState> =
     toOrderedVolumeCards(order = lowerVolumeMuscleOrder)
 
 private fun List<MuscleVolumeSummary>.toOrderedVolumeCards(

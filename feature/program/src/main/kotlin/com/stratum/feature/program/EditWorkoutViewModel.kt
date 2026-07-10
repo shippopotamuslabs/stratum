@@ -360,11 +360,16 @@ class EditWorkoutViewModel @Inject constructor(
                                         ?.resolvedDefaultRestSeconds()
                                     ?: DEFAULT_REST_SECONDS
                             val newSet =
-                                defaultEditSetState(
+                                newEditSetShell(
                                     setNumber = lift.sets.size + 1,
                                     restSeconds = restSeconds,
                                 )
-                            lift.copy(sets = renumberSets(lift.sets + newSet))
+                            lift.copy(
+                                sets = normalizeSetsForScheme(
+                                    lift.sets + newSet,
+                                    lift.progressionScheme,
+                                ),
+                            )
                         }
                     },
             )
@@ -392,11 +397,26 @@ class EditWorkoutViewModel @Inject constructor(
             loaded.copy(
                 lifts =
                     loaded.lifts.map { lift ->
+                        val removed = lift.sets.firstOrNull { set -> set.setId == setId }
                         val updatedSets = lift.sets.filterNot { set -> set.setId == setId }
-                        if (updatedSets.size == lift.sets.size) {
+                        if (removed == null || updatedSets.size == lift.sets.size) {
                             lift
                         } else {
-                            lift.copy(sets = renumberSets(updatedSets))
+                            // If the removed row carried the only positive band (Double top),
+                            // pass it as fallback so promote-to-top does not invent 8–12.
+                            val fallbackMin =
+                                if (removed.repMin > 0 || removed.repMax > 0) removed.repMin else 0
+                            val fallbackMax =
+                                if (removed.repMin > 0 || removed.repMax > 0) removed.repMax else 0
+                            lift.copy(
+                                sets =
+                                    normalizeSetsForScheme(
+                                        sets = updatedSets,
+                                        scheme = lift.progressionScheme,
+                                        fallbackRepMin = fallbackMin,
+                                        fallbackRepMax = fallbackMax,
+                                    ),
+                            )
                         }
                     },
             )
@@ -425,28 +445,41 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     /**
-     * Updates the rep range for a top set. Backoff sets are RIR-only — the progression
-     * engines floor them at [com.stratum.domain.workout.BACKOFF_REP_FLOOR] and never clamp
-     * into a rep range — so editing a backoff set's reps would be silently discarded. This
-     * is a no-op for backoff sets (defense-in-depth behind the UI gating in
-     * `EditWorkoutSetTable`).
+     * Updates the rep range for a set that may edit ranges under the lift's scheme.
+     *
+     * - **Double:** only the top set; backoff sets are RIR-only (no-op).
+     * - **Linear:** any set; the shared band is written to every set on the lift.
+     *
+     * Clamping and scheme fan-out go through [ProgressionRepRangePolicy.applyBand] so
+     * `max ≥ min` and Linear/Double shape stay consistent with generation.
      */
     fun setReps(setId: String, min: Int? = null, max: Int? = null) {
         val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
-        val target = loaded.lifts.flatMap { it.sets }.firstOrNull { it.setId == setId }
-        if (target?.isTopSet != true) return
-        updateSet(setId) { set ->
-            var next = set
-            if (min != null) {
-                val clampedMin = min.coerceAtLeast(0)
-                val repMax = if (next.repMax in 1..<clampedMin) clampedMin else next.repMax
-                next = next.copy(repMin = clampedMin, repMax = repMax)
+        val ownerLiftId =
+            loaded.lifts.firstOrNull { lift -> lift.sets.any { it.setId == setId } }
+                ?.workoutLiftId
+                ?: return
+
+        updateLoaded { state ->
+            val lift = state.lifts.firstOrNull { it.workoutLiftId == ownerLiftId } ?: return@updateLoaded state
+            val target = lift.sets.firstOrNull { it.setId == setId } ?: return@updateLoaded state
+            if (!showsRepRange(lift.progressionScheme, target)) return@updateLoaded state
+
+            val nextMin = min ?: target.repMin
+            val nextMax = max ?: target.repMax
+            lift.copy(
+                sets =
+                    applyUserRepBand(
+                        sets = lift.sets,
+                        scheme = lift.progressionScheme,
+                        repMin = nextMin,
+                        repMax = nextMax,
+                    ),
+            ).let { updatedLift ->
+                state.copy(
+                    lifts = state.lifts.map { if (it.workoutLiftId == ownerLiftId) updatedLift else it },
+                )
             }
-            if (max != null) {
-                val clampedMax = max.coerceAtLeast(0)
-                next = next.copy(repMax = clampedMax)
-            }
-            next
         }
     }
 
@@ -486,9 +519,18 @@ class EditWorkoutViewModel @Inject constructor(
         if (!lift.isCompound || lift.progressionScheme == scheme) return
         updateLoaded { loaded ->
             loaded.copy(
-                lifts = loaded.lifts.map { l ->
-                    if (l.workoutLiftId == workoutLiftId) l.copy(progressionScheme = scheme) else l
-                },
+                lifts =
+                    loaded.lifts.map { l ->
+                        if (l.workoutLiftId != workoutLiftId) {
+                            l
+                        } else {
+                            l.copy(
+                                progressionScheme = scheme,
+                                // Redistribute ranges + isTopSet for the new scheme.
+                                sets = applyProgressionSchemeToSets(l.sets, scheme),
+                            )
+                        }
+                    },
             )
         }
     }
