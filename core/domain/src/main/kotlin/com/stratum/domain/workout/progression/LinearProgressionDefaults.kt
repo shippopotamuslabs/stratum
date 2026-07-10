@@ -2,7 +2,7 @@ package com.stratum.domain.workout.progression
 
 import com.stratum.domain.lift.Weight
 
-/** Production default tuning knobs for [LinearProgressionEngine] (D8 Q1a). */
+/** Production default tuning knobs for [LinearProgressionEngine]. */
 object LinearProgressionDefaults {
     private fun lb(amount: Double) = Weight(amount, Weight.WeightUnit.Lb)
 
@@ -13,9 +13,6 @@ object LinearProgressionDefaults {
             minimumIncrement = lb(2.5),
             perLiftIncrementOverride = emptyMap(),
             stallThresholdSessions = 2,
-            resetFraction = 0.10,
-            perLiftResetFractionOverride = emptyMap(),
-            resetsBeforeTransition = 2,
             stallStrictness = StallStrictness.RirBased,
         )
 }

@@ -509,6 +509,64 @@ class Slice2DoubleRecommendationTest {
         assertTrue(rec4.isProjected)
     }
 
+    // --- Gate matrix + cold start ---
+
+    @Test
+    @DisplayName("S2-double-gate-top-met-rir-missed-holds")
+    fun `S2-double-gate-top-met-rir-missed-holds`() {
+        // Hit repMax but undershot RIR — classic "ground out the last rep" log. Must NOT increment.
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 6, rir = 0, weight = 135.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+    }
+
+    @Test
+    @DisplayName("S2-double-gate-rir-met-top-missed-holds-and-scales-reps")
+    fun `S2-double-gate-rir-met-top-missed-holds-and-scales-reps`() {
+        // Comfortable RIR but short of repMax → rep lever, not load lever.
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 5, rir = 3, weight = 135.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        // failure capacity 5+3=8, target 8-2=6 → clamped to repMax
+        assertEquals(6, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-gate-exact-top-and-rir-increments-and-resets-reps")
+    fun `S2-double-gate-exact-top-and-rir-increments-and-resets-reps`() {
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 6, rir = 2, weight = 135.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(140.0), recommendation.recommendedWeight)
+        assertEquals(4, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-cold-start-uses-fallback-one-rm")
+    fun `S2-double-cold-start-uses-fallback-one-rm`() {
+        val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
+        val recommendation = DoubleProgressionEngine().recommend(
+            request(slot, emptyList(), fallbackOneRm = lb(100.0), baseline = null),
+        )
+        assertEquals(lb(100.0), recommendation.recommendedWeight)
+        assertEquals(4, recommendation.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S2-double-sandbagged-rir-inflates-rep-target-when-weight-held")
+    fun `S2-double-sandbagged-rir-inflates-rep-target-when-weight-held`() {
+        // User logs high RIR (overestimates remaining capacity). Weight held → next session
+        // targets inflated failure capacity. Documents self-report trust, not a guard.
+        val slot = topSet(repMin = 8, repMax = 12, rirGoal = 2)
+        val history = listOf(historyEntry(reps = 8, rir = 5, weight = 100.0))
+        val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
+        assertEquals(lb(100.0), recommendation.recommendedWeight)
+        // 8+5-2 = 11
+        assertEquals(11, recommendation.baselineExpectedReps)
+    }
+
     // --- Reps going up across sets (capacity-ordered recent block) ---
 
     @Test
