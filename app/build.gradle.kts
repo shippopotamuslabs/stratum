@@ -72,6 +72,7 @@ dependencies {
     implementation(project(":feature:program"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:workout"))
+    implementation(project(":feature:history"))
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.crashlytics)

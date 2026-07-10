@@ -1,5 +1,7 @@
 package com.stratum.feature.program
 
+import com.stratum.core.ui.component.toLowerVolumeCards
+import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.MuscleVolumeSummary
 import org.junit.jupiter.api.Assertions.assertEquals

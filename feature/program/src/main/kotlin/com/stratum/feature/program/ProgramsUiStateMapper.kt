@@ -1,6 +1,8 @@
 package com.stratum.feature.program
 
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
+import com.stratum.core.ui.component.toLowerVolumeCards
+import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
