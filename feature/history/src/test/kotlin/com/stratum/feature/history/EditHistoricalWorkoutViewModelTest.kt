@@ -1,0 +1,189 @@
+package com.stratum.feature.history
+
+import app.cash.turbine.test
+import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
+import com.stratum.core.testing.response.FakeResponseProfileMetadataRepository
+import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
+import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
+import com.stratum.domain.importing.ImportAnalysisMetadata
+import com.stratum.domain.importing.ImportAnalysisMetadataRepository
+import com.stratum.domain.importing.LiftTrainingInsights
+import com.stratum.domain.importing.LiftTrainingInsightsRepository
+import com.stratum.domain.importing.MuscleVolumeBaseline
+import com.stratum.domain.importing.MuscleVolumeBaselineRepository
+import com.stratum.domain.importing.SupersetAffinity
+import com.stratum.domain.importing.SupersetAffinityRepository
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.training.GetCompletedSessionForEditUseCase
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.RefreshWeeklySeriesUseCase
+import com.stratum.domain.training.UpdateCompletedSessionSetsUseCase
+import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.feature.history.ui.EditHistoricalWorkoutEvent
+import com.stratum.feature.history.ui.EditHistoricalWorkoutUiState
+import java.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@ExtendWith(MainDispatcherRule::class)
+class EditHistoricalWorkoutViewModelTest {
+
+    @Test
+    @DisplayName("Load maps completed session sets into editable presentation state")
+    fun loadMapsSets() = runTest {
+        val env = buildEnv()
+        env.vm.load("ts-1")
+        advanceUntilIdle()
+
+        val state = env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded
+        assertEquals("Upper A", state.workoutName)
+        assertFalse(state.isDirty)
+        assertEquals(1, state.lifts.size)
+        assertEquals("135", state.lifts.single().sets.single().weightText)
+        assertEquals("8", state.lifts.single().sets.single().repsText)
+    }
+
+    @Test
+    @DisplayName("Editing weight marks dirty; confirm persists and navigates back")
+    fun editAndConfirm() = runTest {
+        val env = buildEnv()
+        env.vm.load("ts-1")
+        advanceUntilIdle()
+
+        val setKey =
+            (env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded)
+                .lifts.single().sets.single().setKey
+        val liftKey =
+            (env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded).lifts.single().key
+
+        env.vm.onWeightChange(liftKey, setKey, "155")
+        assertTrue((env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded).isDirty)
+
+        env.vm.events.test {
+            env.vm.confirm()
+            advanceUntilIdle()
+            assertEquals(EditHistoricalWorkoutEvent.NavigateBack, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = env.logRepo.getSetsForSession(TrainingSessionId("ts-1")).single()
+        assertEquals(155.0, stored.weight.amount)
+    }
+
+    @Test
+    @DisplayName("Add set increases draft rows and marks dirty")
+    fun addSetMarksDirty() = runTest {
+        val env = buildEnv()
+        env.vm.load("ts-1")
+        advanceUntilIdle()
+        val liftKey =
+            (env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded).lifts.single().key
+
+        env.vm.onAddSet(liftKey)
+        val loaded = env.vm.uiState.value as EditHistoricalWorkoutUiState.Loaded
+        assertEquals(2, loaded.lifts.single().sets.size)
+        assertTrue(loaded.isDirty)
+    }
+
+    private suspend fun buildEnv(): Env {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val session =
+            WorkoutLoggingFixtures.completedLiveSession(id = "ts-1").copy(
+                workoutNameSnapshot = "Upper A",
+            )
+        val logRepo =
+            FakeTrainingLogRepository(
+                initialSessions = listOf(session),
+                programRepository = programRepo,
+            )
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("set-1"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Bench",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 0,
+                weight = Weight(135.0, Weight.WeightUnit.Lb),
+                reps = 8,
+                rir = 2,
+                completedAt = Instant.parse("2025-01-01T10:10:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+            ),
+        )
+        val liftRepo = FakeLiftRepository(listOf(WorkoutLoggingFixtures.benchLift()))
+        val metadataRepo = FakeResponseProfileMetadataRepository()
+        val persistence = FakeResponseProfilePersistencePort(metadataRepository = metadataRepo)
+        val update =
+            UpdateCompletedSessionSetsUseCase(
+                trainingLogRepository = logRepo,
+                extractTrainingInsights =
+                    ExtractTrainingInsightsUseCase(
+                        trainingLogRepository = logRepo,
+                        liftTrainingInsightsRepository =
+                            object : LiftTrainingInsightsRepository {
+                                override suspend fun replaceAll(insights: List<LiftTrainingInsights>) = Unit
+                                override suspend fun getAll(): List<LiftTrainingInsights> = emptyList()
+                                override suspend fun getByLiftId(liftId: LiftId): LiftTrainingInsights? = null
+                            },
+                        supersetAffinityRepository =
+                            object : SupersetAffinityRepository {
+                                override suspend fun replaceAll(affinities: List<SupersetAffinity>) = Unit
+                                override suspend fun getAll(): List<SupersetAffinity> = emptyList()
+                            },
+                        muscleVolumeBaselineRepository =
+                            object : MuscleVolumeBaselineRepository {
+                                override suspend fun replaceAll(baselines: List<MuscleVolumeBaseline>) = Unit
+                                override suspend fun getAll(): List<MuscleVolumeBaseline> = emptyList()
+                            },
+                        importAnalysisMetadataRepository =
+                            object : ImportAnalysisMetadataRepository {
+                                override suspend fun save(metadata: ImportAnalysisMetadata) = Unit
+                                override suspend fun get(): ImportAnalysisMetadata? = null
+                                override suspend fun clear() = Unit
+                            },
+                        liftRepository = liftRepo,
+                    ),
+                refreshWeeklySeries = RefreshWeeklySeriesUseCase(logRepo, liftRepo, persistence),
+                metadataRepository = metadataRepo,
+                responseModelingScheduler = FakeResponseModelingSchedulerPort(),
+                loggingPort = FakeLoggingPort(),
+                refreshScope = CoroutineScope(Dispatchers.Unconfined),
+                refreshDispatcher = Dispatchers.Unconfined,
+            )
+        val vm =
+            EditHistoricalWorkoutViewModel(
+                getCompletedSessionForEdit =
+                    GetCompletedSessionForEditUseCase(
+                        trainingLogRepository = logRepo,
+                        programRepository = programRepo,
+                        liftRepository = liftRepo,
+                        loggingPort = FakeLoggingPort(),
+                    ),
+                updateCompletedSessionSets = update,
+            )
+        return Env(vm, logRepo)
+    }
+
+    private data class Env(
+        val vm: EditHistoricalWorkoutViewModel,
+        val logRepo: FakeTrainingLogRepository,
+    )
+}

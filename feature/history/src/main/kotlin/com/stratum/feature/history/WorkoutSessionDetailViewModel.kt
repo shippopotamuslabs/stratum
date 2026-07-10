@@ -74,10 +74,6 @@ class WorkoutSessionDetailViewModel @Inject constructor(
         }
     }
 
-    fun onEditWorkoutClick(message: String) {
-        _userMessage.value = message
-    }
-
     fun userMessageShown() {
         _userMessage.value = null
     }

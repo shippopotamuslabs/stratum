@@ -41,6 +41,16 @@ interface TrainingLogRepository {
     suspend fun deleteSet(id: LoggedSetId)
 
     /**
+     * Atomically applies deletes, inserts, and updates to logged sets (single Room transaction).
+     * Used by historical session amendment so a mid-write crash cannot leave a partial set list.
+     */
+    suspend fun applySetMutations(
+        deleteIds: Collection<LoggedSetId>,
+        inserts: List<LoggedSet>,
+        updates: List<LoggedSet>,
+    )
+
+    /**
      * Atomically persists a completed session and optional cycle-pointer / change-event side effects.
      * Used when finalizing or skipping a program workout so ledger and pointer stay consistent.
      */

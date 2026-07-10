@@ -81,26 +81,4 @@ class WorkoutSessionDetailViewModelTest {
         }
     }
 
-    @Test
-    @DisplayName("Edit workout posts coming-soon user message")
-    fun editPostsMessage() = runTest {
-        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
-        val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
-        val vm =
-            WorkoutSessionDetailViewModel(
-                getWorkoutSessionDetail =
-                    GetWorkoutSessionDetailUseCase(
-                        trainingLogRepository = logRepo,
-                        programRepository = programRepo,
-                        computeLoggedSessionMuscleVolume = ComputeLoggedSessionMuscleVolumeUseCase(),
-                        loggingPort = FakeLoggingPort(),
-                    ),
-            )
-        vm.userMessage.test {
-            assertEquals(null, awaitItem())
-            vm.onEditWorkoutClick("coming soon")
-            assertEquals("coming soon", awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
 }

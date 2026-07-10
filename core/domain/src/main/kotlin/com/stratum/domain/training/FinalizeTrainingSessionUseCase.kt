@@ -131,4 +131,6 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
 /** Default no-op for JVM unit tests that construct finalize without Hilt. */
 private object NoOpResponseModelingScheduler : ResponseModelingSchedulerPort {
     override fun enqueueRefresh() = Unit
+
+    override fun enqueueHistoryInvalidation() = Unit
 }

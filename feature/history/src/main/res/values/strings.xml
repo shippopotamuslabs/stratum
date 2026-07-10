@@ -20,9 +20,18 @@
     <string name="history_session_prs">PRs</string>
     <string name="history_session_workout_section">Workout</string>
     <string name="history_session_edit">Edit Workout</string>
-    <string name="history_session_edit_coming_soon">Editing completed workouts is coming soon</string>
     <string name="history_session_rir">RIR %1$s</string>
     <string name="history_session_pr_cd">Personal record</string>
     <string name="history_session_load_error">Could not load this workout</string>
     <string name="history_mode_selected">Selected</string>
+    <string name="history_edit_title">Edit Workout</string>
+    <string name="history_edit_confirm">Confirm</string>
+    <string name="history_edit_saving">Saving…</string>
+    <string name="history_edit_load_error">Could not load this workout for editing</string>
+    <string name="history_edit_add_set">Add set</string>
+    <string name="history_edit_delete_set">Delete set</string>
+    <string name="history_edit_discard_title">Discard changes?</string>
+    <string name="history_edit_discard_message">You have unsaved edits to this workout. Discard them or keep editing.</string>
+    <string name="history_edit_discard_confirm">Discard</string>
+    <string name="history_edit_discard_keep">Keep editing</string>
 </resources>
