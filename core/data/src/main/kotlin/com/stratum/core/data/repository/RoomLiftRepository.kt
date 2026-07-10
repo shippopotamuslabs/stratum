@@ -109,6 +109,10 @@ class RoomLiftRepository @Inject constructor(
                 equipment = definition.equipment,
                 enabled = true,
                 isCustom = true,
+                muscleLengthBias = definition.muscleLengthBias,
+                kinematicProfile = definition.kinematicProfile,
+                loadType = definition.loadType,
+                defaultRestSeconds = definition.defaultRestSeconds,
             )
         database.withTransaction {
             liftDao.upsert(lift.toEntity())
