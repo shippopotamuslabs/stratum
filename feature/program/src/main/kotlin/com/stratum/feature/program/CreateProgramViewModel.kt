@@ -9,6 +9,7 @@ import com.stratum.core.ui.trainingsetup.TrainingSetupValidationConstants
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.SpecializationPreference
@@ -37,6 +38,7 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
@@ -556,8 +558,10 @@ class CreateProgramViewModel @Inject constructor(
         )
 
     private fun handleLiftSelected(workoutId: String, workoutLiftId: String?, liftId: String) {
-        val liftName = liftNamesById[liftId] ?: PLACEHOLDER_LIFT_NAME
-        val isCompound = compoundByLiftId[liftId] ?: false
+        val catalog = liftCatalog.firstOrNull { it.id.value == liftId }
+        val liftName = catalog?.name ?: liftNamesById[liftId] ?: PLACEHOLDER_LIFT_NAME
+        val isCompound = catalog?.isCompound ?: compoundByLiftId[liftId] ?: false
+        val restSeconds = catalog?.resolvedDefaultRestSeconds() ?: DEFAULT_REST_SECONDS
         _uiState.update { state ->
             state.copy(
                 days =
@@ -572,7 +576,10 @@ class CreateProgramViewModel @Inject constructor(
                                     liftId = liftId,
                                     name = liftName,
                                     position = edit.lifts.size,
-                                    sets = listOf(defaultEditSetState(1)),
+                                    sets =
+                                        listOf(
+                                            defaultEditSetState(1, restSeconds = restSeconds),
+                                        ),
                                     isCompound = isCompound,
                                     progressionScheme = ProgressionScheme.Double,
                                 )
@@ -591,6 +598,10 @@ class CreateProgramViewModel @Inject constructor(
                                                         liftId = liftId,
                                                         name = liftName,
                                                         isCompound = isCompound,
+                                                        sets =
+                                                            lift.sets.map { set ->
+                                                                set.copy(restSeconds = restSeconds)
+                                                            },
                                                     )
                                                 } else {
                                                     lift
@@ -625,13 +636,28 @@ class CreateProgramViewModel @Inject constructor(
                             val startPosition = edit.lifts.size
                             val newLifts =
                                 liftIds.mapIndexed { index, liftId ->
+                                    val catalog = liftCatalog.firstOrNull { it.id.value == liftId }
+                                    val restSeconds =
+                                        catalog?.resolvedDefaultRestSeconds() ?: DEFAULT_REST_SECONDS
                                     EditLiftState(
                                         workoutLiftId = newWorkoutLiftId(),
                                         liftId = liftId,
-                                        name = liftNamesById[liftId] ?: PLACEHOLDER_LIFT_NAME,
+                                        name =
+                                            catalog?.name
+                                                ?: liftNamesById[liftId]
+                                                ?: PLACEHOLDER_LIFT_NAME,
                                         position = startPosition + index,
-                                        sets = listOf(defaultEditSetState(1)),
-                                        isCompound = compoundByLiftId[liftId] ?: false,
+                                        sets =
+                                            listOf(
+                                                defaultEditSetState(
+                                                    1,
+                                                    restSeconds = restSeconds,
+                                                ),
+                                            ),
+                                        isCompound =
+                                            catalog?.isCompound
+                                                ?: compoundByLiftId[liftId]
+                                                ?: false,
                                         progressionScheme = ProgressionScheme.Double,
                                         supersetGroupId = groupId,
                                         useRestTimerBetweenLifts = false,

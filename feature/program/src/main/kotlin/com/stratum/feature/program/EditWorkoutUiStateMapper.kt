@@ -69,13 +69,16 @@ internal fun newWorkoutLiftId(): String = WorkoutLiftId(UUID.randomUUID().toStri
 
 internal fun newLiftId(): String = com.stratum.domain.lift.identity.LiftId(UUID.randomUUID().toString()).value
 
-internal fun defaultEditSetState(setNumber: Int): EditSetState =
+internal fun defaultEditSetState(
+    setNumber: Int,
+    restSeconds: Int = DEFAULT_REST_SECONDS,
+): EditSetState =
     EditSetState(
         setId = newSetId(),
         setNumber = setNumber,
         repMin = if (setNumber == 1) DEFAULT_REP_MIN else 0,
         repMax = if (setNumber == 1) DEFAULT_REP_MAX else 0,
-        restSeconds = DEFAULT_REST_SECONDS,
+        restSeconds = restSeconds,
         rirGoal = DEFAULT_RIR_GOAL,
         isTopSet = setNumber == 1,
     )

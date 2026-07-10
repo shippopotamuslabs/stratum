@@ -120,6 +120,13 @@
     <string name="lift_info_save_patterns">Save patterns</string>
     <string name="lift_info_selected_marker">Selected</string>
     <string name="lift_info_category">Category</string>
+    <string name="lift_info_default_rest">Default rest</string>
+    <string name="lift_info_rest_sheet_title">Default rest</string>
+    <string name="lift_info_rest_save">Save</string>
+    <string name="lift_info_rest_minutes_label">Minutes</string>
+    <string name="lift_info_rest_seconds_label">Seconds</string>
+    <string name="lift_info_rest_increment">Increase rest</string>
+    <string name="lift_info_rest_decrement">Decrease rest</string>
     <string name="lift_info_personal_record">Personal record</string>
     <string name="lift_info_no_pr">No personal record yet</string>
     <string name="lift_info_no_history">No logged sets for this lift yet</string>

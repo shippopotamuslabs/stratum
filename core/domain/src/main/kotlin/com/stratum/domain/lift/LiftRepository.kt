@@ -91,4 +91,11 @@ interface LiftRepository {
      * not custom. Category is never persisted — it is derived via [classifyLiftCategory].
      */
     suspend fun updateCustomLiftDetails(id: LiftId, details: CustomLiftDetails)
+
+    /**
+     * Persists a per-lift default rest override (seconds). Applies to catalog and custom lifts.
+     * Null clears the override so [resolvedDefaultRestSeconds] falls back to compound/isolation
+     * defaults. Does not rewrite existing workout set rest values.
+     */
+    suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?)
 }

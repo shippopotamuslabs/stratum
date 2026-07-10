@@ -11,10 +11,12 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.lift.UpdateCustomLiftDetailsUseCase
 import com.stratum.domain.lift.UpdateLiftMusclesUseCase
 import com.stratum.domain.lift.classifyLiftCategory
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.training.GetLiftHistoryUseCase
 import com.stratum.domain.training.LiftHistory
@@ -42,13 +44,17 @@ enum class MuscleRoleFilter {
     Secondary,
 }
 
-/** Which Details-tab field sheet is open (custom lifts only). */
+/**
+ * Which Details-tab field sheet is open. Catalog metadata editors require a custom lift;
+ * [DefaultRest] is allowed for every lift (personal programming preference).
+ */
 enum class LiftDetailEditField {
     LengthBias,
     MovementPatterns,
     Kinematic,
     LoadType,
     Equipment,
+    DefaultRest,
 }
 
 data class LiftHistorySetUi(
@@ -96,6 +102,8 @@ data class LiftInformationActions(
     val onConfirmMovementPatterns: () -> Unit,
     val onEquipmentDraftChange: (String) -> Unit,
     val onSaveEquipment: () -> Unit,
+    val onRestDraftChange: (Int) -> Unit,
+    val onSaveDefaultRest: () -> Unit,
 )
 
 data class LiftInformationUiState(
@@ -114,6 +122,7 @@ data class LiftInformationUiState(
     val loadTypeLabel: String = "",
     val equipment: String? = null,
     val categoryLabel: String = "",
+    val defaultRestLabel: String = "",
     val personalRecord: LiftPrUi? = null,
     val historySessions: List<LiftHistorySessionUi> = emptyList(),
     val showAddMuscleSheet: Boolean = false,
@@ -123,6 +132,7 @@ data class LiftInformationUiState(
     val loadTypeOptions: List<LiftDetailOptionUi> = emptyList(),
     val movementPatternOptions: List<LiftDetailOptionUi> = emptyList(),
     val equipmentDraft: String = "",
+    val restDraftSeconds: Int = 120,
 )
 
 @HiltViewModel
@@ -130,6 +140,7 @@ class LiftInformationViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val updateLiftMuscles: UpdateLiftMusclesUseCase,
     private val updateCustomLiftDetails: UpdateCustomLiftDetailsUseCase,
+    private val setLiftDefaultRest: SetLiftDefaultRestUseCase,
     private val getLiftHistory: GetLiftHistoryUseCase,
 ) : ViewModel() {
 
@@ -142,12 +153,14 @@ class LiftInformationViewModel @Inject constructor(
     private val editingField = MutableStateFlow<LiftDetailEditField?>(null)
     private val draftMovementPatterns = MutableStateFlow<Set<MovementPattern>>(emptySet())
     private val equipmentDraft = MutableStateFlow("")
+    private val restDraftSeconds = MutableStateFlow(DEFAULT_ISOLATION_REST_DISPLAY)
 
     private data class SheetControls(
         val showAdd: Boolean,
         val editing: LiftDetailEditField?,
         val draftPatterns: Set<MovementPattern>,
         val equipmentDraft: String,
+        val restDraftSeconds: Int,
     )
 
     private data class UiControls(
@@ -172,8 +185,9 @@ class LiftInformationViewModel @Inject constructor(
                     editingField,
                     draftMovementPatterns,
                     equipmentDraft,
-                ) { showAdd, editing, drafts, equipDraft ->
-                    SheetControls(showAdd, editing, drafts, equipDraft)
+                    restDraftSeconds,
+                ) { showAdd, editing, drafts, equipDraft, restDraft ->
+                    SheetControls(showAdd, editing, drafts, equipDraft, restDraft)
                 },
             ) { tab, role, expanded, hist, sheets ->
                 UiControls(tab, role, expanded, hist, sheets)
@@ -197,6 +211,7 @@ class LiftInformationViewModel @Inject constructor(
         editingField.value = null
         draftMovementPatterns.value = emptySet()
         equipmentDraft.value = ""
+        restDraftSeconds.value = DEFAULT_ISOLATION_REST_DISPLAY
         viewModelScope.launch {
             history.value = getLiftHistory(LiftId(id))
         }
@@ -272,13 +287,16 @@ class LiftInformationViewModel @Inject constructor(
     }
 
     fun onOpenDetailEditor(field: LiftDetailEditField) {
-        if (!uiState.value.isCustom) return
         val lift = latestLift.value ?: return
+        val isRest = field == LiftDetailEditField.DefaultRest
+        if (!isRest && !uiState.value.isCustom) return
         when (field) {
             LiftDetailEditField.MovementPatterns ->
                 draftMovementPatterns.value = lift.movementPatterns
             LiftDetailEditField.Equipment ->
                 equipmentDraft.value = lift.equipment.orEmpty()
+            LiftDetailEditField.DefaultRest ->
+                restDraftSeconds.value = lift.resolvedDefaultRestSeconds()
             else -> Unit
         }
         editingField.value = field
@@ -290,6 +308,22 @@ class LiftInformationViewModel @Inject constructor(
 
     fun onEquipmentDraftChange(value: String) {
         equipmentDraft.value = value
+    }
+
+    fun onRestDraftChange(seconds: Int) {
+        restDraftSeconds.value =
+            seconds.coerceIn(
+                SetLiftDefaultRestUseCase.MIN_REST_SECONDS,
+                SetLiftDefaultRestUseCase.MAX_REST_SECONDS,
+            )
+    }
+
+    fun onSaveDefaultRest() {
+        val id = liftId.value ?: return
+        viewModelScope.launch {
+            setLiftDefaultRest(LiftId(id), restDraftSeconds.value)
+            editingField.value = null
+        }
     }
 
     fun onSelectLengthBias(key: String) {
@@ -359,6 +393,7 @@ class LiftInformationViewModel @Inject constructor(
                 showAddMuscleSheet = controls.sheets.showAdd,
                 editingField = controls.sheets.editing,
                 equipmentDraft = controls.sheets.equipmentDraft,
+                restDraftSeconds = controls.sheets.restDraftSeconds,
             )
         }
         val pr = controls.history?.personalRecord?.toPrUi()
@@ -404,10 +439,16 @@ class LiftInformationViewModel @Inject constructor(
             loadTypeLabel = lift.loadType.toLabel(),
             equipment = lift.equipment?.toTitleCaseWords(),
             categoryLabel = lift.classifyLiftCategory().displayName,
+            defaultRestLabel = formatRestDisplay(lift.resolvedDefaultRestSeconds()),
             personalRecord = pr,
             historySessions = sessions,
             showAddMuscleSheet = controls.sheets.showAdd && lift.isCustom,
-            editingField = if (lift.isCustom) controls.sheets.editing else null,
+            editingField =
+                when (val editing = controls.sheets.editing) {
+                    null -> null
+                    LiftDetailEditField.DefaultRest -> editing
+                    else -> editing.takeIf { lift.isCustom }
+                },
             lengthBiasOptions =
                 MuscleLengthBias.entries.map { bias ->
                     LiftDetailOptionUi(
@@ -441,6 +482,7 @@ class LiftInformationViewModel @Inject constructor(
                     )
                 },
             equipmentDraft = controls.sheets.equipmentDraft,
+            restDraftSeconds = controls.sheets.restDraftSeconds,
         )
     }
 
@@ -515,5 +557,15 @@ class LiftInformationViewModel @Inject constructor(
 
     private companion object {
         val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
+        const val DEFAULT_ISOLATION_REST_DISPLAY = 120
     }
 }
+
+internal fun formatRestDisplay(restSeconds: Int): String {
+    val total = restSeconds.coerceAtLeast(0)
+    val minutes = total / SECONDS_PER_MINUTE
+    val seconds = total % SECONDS_PER_MINUTE
+    return "%d:%02d".format(minutes, seconds)
+}
+
+private const val SECONDS_PER_MINUTE = 60

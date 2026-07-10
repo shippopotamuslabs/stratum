@@ -108,6 +108,13 @@ interface LiftDao {
         equipment: String?,
     )
 
+    /**
+     * Per-lift default rest override for catalog and custom lifts. Null clears the override.
+     * Does not rewrite existing workout set rest values.
+     */
+    @Query("UPDATE lifts SET defaultRestSeconds = :restSeconds WHERE id = :id")
+    suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?)
+
     /** Enable every lift in [ids] in a single statement (preset apply). */
     @Query("UPDATE lifts SET enabled = 1 WHERE id IN (:ids)")
     suspend fun enableAll(ids: List<LiftId>)

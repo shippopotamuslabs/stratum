@@ -162,6 +162,10 @@ class RoomLiftRepository @Inject constructor(
         )
     }
 
+    override suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?) {
+        liftDao.setDefaultRestSeconds(id, restSeconds)
+    }
+
     private fun singleOpenTier(increment: Weight): IncrementTier =
         IncrementTier(Weight(0.0, increment.unit), null, increment)
 

@@ -1,6 +1,8 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -12,19 +14,27 @@ import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 
 /**
  * Use case to add a new lift to a workout template in the active program.
  * Saves the updated program to persistence and records a WorkoutEdited event.
+ * New sets use the lift's [com.stratum.domain.lift.resolvedDefaultRestSeconds].
  */
 class AddWorkoutLiftUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val liftRepository: LiftRepository,
 ) {
     suspend operator fun invoke(workoutId: WorkoutId, liftId: LiftId): Result<Unit> {
         val program = programRepository.getProgram() ?: return Result.failure(
             IllegalStateException("No active program found to add lift")
         )
+        val restSeconds =
+            liftRepository.observeLifts().first()
+                .firstOrNull { it.id == liftId }
+                ?.resolvedDefaultRestSeconds()
+                ?: DEFAULT_LIFT_SET_REST_SECONDS
 
         var found = false
         val updatedWorkouts = program.workouts.map { workout ->
@@ -40,7 +50,7 @@ class AddWorkoutLiftUseCase @Inject constructor(
                     repMax = 12,
                     rirGoal = 2,
                     isTopSet = true,
-                    restSeconds = 120,
+                    restSeconds = restSeconds,
                 )
                 val newWorkoutLift = WorkoutLift(
                     id = newWorkoutLiftId,
