@@ -349,6 +349,201 @@ class RecomputeRecommendationsUseCaseTest {
         assertEquals(2, recommendations.size)
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-2"))))
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-3"))))
+        // Fatigue steps per slot: set2 index=2 → 6 reps; set3 index=3 → 4 reps (not identical).
+        assertEquals(6, recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!.reps)
+        assertEquals(4, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
+    }
+
+    @Test
+    @DisplayName("Multi-set cascade: remaining slots get stepped fatigue, not a flat next-set copy")
+    fun `multi set cascade steps fatigue for each upcoming slot`() {
+        // Screenshot repro: top set 165×14@2 logged; three backoff slots @ RIR 1, same load.
+        // Population slope −2.0 capacity reps / set index, baseline capacity = 14+2 = 16:
+        //   set2 index=2 → raw 14 @0 → 13 @1 RIR
+        //   set3 index=3 → raw 12 @0 → 11 @1 RIR
+        //   set4 index=4 → raw 10 @0 →  9 @1 RIR
+        // (Not a flat 13/13/13 — each slot is one more decay step from the performed anchor.)
+        val performed = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(165.0),
+            reps = 14,
+            rir = 2,
+        )
+        fun backoff(setId: String, position: Int) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(setId)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = false,
+            repMin = 8,
+            repMax = 20,
+            rirGoal = 1,
+            restSeconds = 90,
+            recommendedWeight = lb(165.0),
+            recommendedReps = 8,
+            loggedValue = null,
+        )
+        val sets = listOf(
+            RenderedSet(
+                slotId = SetSlotId.Template(liftSetId),
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                position = 0,
+                setType = SetType.Standard,
+                isTopSet = true,
+                repMin = 8,
+                repMax = 20,
+                rirGoal = 2,
+                restSeconds = 120,
+                recommendedWeight = lb(165.0),
+                recommendedReps = 8,
+                loggedValue = performed,
+            ),
+            backoff("ls-2", 1),
+            backoff("ls-3", 2),
+            backoff("ls-4", 3),
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Machine Leg Extension",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = sets,
+                ),
+            ),
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        assertEquals(3, recommendations.size)
+        val r2 = recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!
+        val r3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!
+        val r4 = recommendations[SetSlotId.Template(LiftSetId("ls-4"))]!!
+        assertEquals(165.0, r2.weight.amount, 0.01)
+        assertEquals(165.0, r3.weight.amount, 0.01)
+        assertEquals(165.0, r4.weight.amount, 0.01)
+        assertEquals(13, r2.reps)
+        assertEquals(11, r3.reps)
+        assertEquals(9, r4.reps)
+        assertTrue(r2.reps > r3.reps && r3.reps > r4.reps, "reps must be strictly decreasing across remaining sets")
+    }
+
+    @Test
+    @DisplayName("Cascade re-anchors on the most recent performed set, not the first")
+    fun `cascade reanchors on most recent performed set`() {
+        // Set 1 and set 2 logged; set 3/4 upcoming. Anchor must be set 2 (most recent).
+        // Set 2 is deliberately off the population schedule (10@1, not 13@1) so anchoring
+        // on set 1 vs set 2 diverges — a firstOrNull regression would still project from
+        // set 1 (capacity 16) → 11/9, while last/max position anchor on set 2 (capacity 11)
+        // → raw set3 index2 = 9 → 8@1; set4 index3 = 7 → 6@1.
+        val set1 = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(165.0),
+            reps = 14,
+            rir = 2,
+        )
+        val set2 = LoggedSetValue(
+            slotId = SetSlotId.Template(LiftSetId("ls-2")),
+            weight = lb(165.0),
+            reps = 10,
+            rir = 1,
+        )
+        fun set(
+            setId: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            rirGoal: Int,
+            isTop: Boolean,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(setId)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = isTop,
+            repMin = 1,
+            repMax = 30,
+            rirGoal = rirGoal,
+            restSeconds = 90,
+            recommendedWeight = lb(165.0),
+            recommendedReps = 8,
+            loggedValue = logged,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Machine Leg Extension",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        set("ls-1", 0, set1, rirGoal = 2, isTop = true),
+                        set("ls-2", 1, set2, rirGoal = 1, isTop = false),
+                        set("ls-3", 2, null, rirGoal = 1, isTop = false),
+                        set("ls-4", 3, null, rirGoal = 1, isTop = false),
+                    ),
+                ),
+            ),
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        assertEquals(2, recommendations.size)
+        assertEquals(8, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
+        assertEquals(6, recommendations[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps)
+    }
+
+    @Test
+    @DisplayName("Gapped positions after delete use ordinal distance, not raw position delta")
+    fun `gapped positions use ordinal distance not raw position delta`() {
+        // Positions 0 (logged), 2, 3 — middle slot deleted without renumbering.
+        // Ordinal steps from pos0: set@2 is 1 step (index 2 → 13), set@3 is 2 steps (index 3 → 11).
+        // Raw position delta would wrongly use index 3/4 → 11/9.
+        val performed = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(165.0),
+            reps = 14,
+            rir = 2,
+        )
+        fun set(setId: String, position: Int, logged: LoggedSetValue?) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(setId)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = position == 0,
+            repMin = 1,
+            repMax = 30,
+            rirGoal = if (position == 0) 2 else 1,
+            restSeconds = 90,
+            recommendedWeight = lb(165.0),
+            recommendedReps = 8,
+            loggedValue = logged,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Machine Leg Extension",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        set("ls-1", 0, performed),
+                        set("ls-3", 2, null),
+                        set("ls-4", 3, null),
+                    ),
+                ),
+            ),
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        assertEquals(2, recommendations.size)
+        assertEquals(13, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
+        assertEquals(11, recommendations[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps)
     }
 
     @Test
