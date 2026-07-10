@@ -64,224 +64,262 @@ class SyncHandlersProvider @Inject constructor(
 ) {
     fun all(): List<SyncCollectionHandler> =
         listOf(
-            entityHandler(
-                collection = SyncCollection.UserProfile,
-                pending = { userProfileDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    userProfileDao.getOrNull(UserProfileId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { userProfileDao.deleteById(UserProfileId(it)) },
-                markSynced = { id, at -> userProfileDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::userProfile,
-                decodeUpsert = { id, data ->
-                    decoders.userProfile(id, data)?.let { userProfileDao.upsert(it); true } ?: false
-                },
-            ),
-            entityHandler(
-                collection = SyncCollection.OnboardingProgress,
-                pending = { onboardingDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    onboardingDao.getOrNull(OnboardingProgressId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { onboardingDao.deleteById(OnboardingProgressId(it)) },
-                markSynced = { id, at -> onboardingDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::onboarding,
-                decodeUpsert = { id, data ->
-                    decoders.onboarding(id, data)?.let { onboardingDao.upsert(it); true } ?: false
-                },
-            ),
-            entityHandler(
-                collection = SyncCollection.GymPreference,
-                pending = { gymDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    gymDao.getOrNull(GymPreferenceId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { gymDao.deleteById(GymPreferenceId(it)) },
-                markSynced = { id, at -> gymDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::gymPreference,
-                decodeUpsert = { id, data ->
-                    decoders.gymPreference(id, data)?.let { gymDao.upsert(it); true } ?: false
-                },
-            ),
-            entityHandler(
-                collection = SyncCollection.SpecializationPreference,
-                pending = { specializationDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    specializationDao.getById(SpecializationPreferenceId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { specializationDao.deleteById(SpecializationPreferenceId(it)) },
-                markSynced = { id, at -> specializationDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::specialization,
-                decodeUpsert = { id, data ->
-                    decoders.specialization(id, data)?.let {
-                        specializationDao.upsertAll(listOf(it)); true
-                    } ?: false
-                },
-            ),
-            // Lifts: custom encode (catalog overlay vs full custom document).
-            GenericSyncHandler(
-                collection = SyncCollection.Lifts,
-                loadPending = { limit ->
-                    liftDao.getPending(limit).map { entity ->
-                        PendingSyncRow(
-                            entity.id.value,
-                            entity.updatedAtEpochMillis,
-                            liftRemoteApplier.encode(entity),
-                        )
-                    }
-                },
-                loadLocalMeta = { id ->
-                    liftDao.getById(LiftId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                deleteById = { id -> liftDao.deleteById(LiftId(id)) },
-                markSynced = { id, at -> liftDao.markSyncedIfUnchanged(id, at) },
-                upsertRemote = liftRemoteApplier::upsertFromRemote,
-                // Cheap: load one dirty entity without running overlay encode.
-                checkHasPending = { liftDao.getPending(1).isNotEmpty() },
-            ),
-            entityHandler(
-                collection = SyncCollection.IncrementTiers,
-                pending = { incrementTierDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    incrementTierDao.getById(IncrementTierId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { incrementTierDao.deleteById(IncrementTierId(it)) },
-                markSynced = { id, at -> incrementTierDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::incrementTier,
-                decodeUpsert = { id, data ->
-                    decoders.incrementTier(id, data)?.let {
-                        incrementTierDao.upsertAll(listOf(it)); true
-                    } ?: false
-                },
-            ),
-            entityHandler(
-                collection = SyncCollection.Programs,
-                pending = { programDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    programDao.getById(ProgramId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { programDao.deleteById(ProgramId(it)) },
-                markSynced = { id, at -> programDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::program,
-                decodeUpsert = programRemoteApplier::upsertFromRemote,
-            ),
-            entityHandler(
-                collection = SyncCollection.Workouts,
-                pending = { workoutDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    workoutDao.getById(WorkoutId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { workoutDao.deleteById(WorkoutId(it)) },
-                markSynced = { id, at -> workoutDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::workout,
-                decodeUpsert = { id, data ->
-                    decoders.workout(id, data)?.let { workoutDao.upsertAll(listOf(it)); true } ?: false
-                },
-            ),
-            entityHandler(
-                collection = SyncCollection.WorkoutLifts,
-                pending = { workoutLiftDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    workoutLiftDao.getById(WorkoutLiftId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { workoutLiftDao.deleteById(WorkoutLiftId(it)) },
-                markSynced = { id, at -> workoutLiftDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::workoutLift,
-                decodeUpsert = { id, data ->
-                    decoders.workoutLift(id, data)?.let {
-                        workoutLiftDao.upsertAll(listOf(it)); true
-                    } ?: false
-                },
-            ),
-            entityHandler(
-                collection = SyncCollection.LiftSets,
-                pending = { liftSetDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    liftSetDao.getById(LiftSetId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { liftSetDao.deleteById(LiftSetId(it)) },
-                markSynced = { id, at -> liftSetDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::liftSet,
-                decodeUpsert = { id, data ->
-                    decoders.liftSet(id, data)?.let { liftSetDao.upsertAll(listOf(it)); true } ?: false
-                },
-            ),
-            entityHandler(
-                collection = SyncCollection.TrainingSessions,
-                pending = { sessionDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    sessionDao.getById(TrainingSessionId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { sessionDao.deleteById(TrainingSessionId(it)) },
-                markSynced = { id, at -> sessionDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::trainingSession,
-                decodeUpsert = { id, data ->
-                    decoders.trainingSession(id, data)?.let { sessionDao.upsert(it); true } ?: false
-                },
-            ),
-            entityHandler(
-                collection = SyncCollection.LoggedSets,
-                pending = { loggedSetDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    loggedSetDao.getById(LoggedSetId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { loggedSetDao.deleteById(LoggedSetId(it)) },
-                markSynced = { id, at -> loggedSetDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::loggedSet,
-                decodeUpsert = loggedSetRemoteApplier::upsertFromRemote,
-            ),
-            entityHandler(
-                collection = SyncCollection.ProgramChangeEvents,
-                pending = { programChangeEventDao.getPending(it) },
-                id = { it.id.value },
-                updatedAt = { it.updatedAtEpochMillis },
-                loadMeta = { id ->
-                    programChangeEventDao.getById(ProgramChangeEventId(id))
-                        ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
-                },
-                delete = { programChangeEventDao.deleteById(ProgramChangeEventId(it)) },
-                markSynced = { id, at -> programChangeEventDao.markSyncedIfUnchanged(id, at) },
-                encode = encoders::programChangeEvent,
-                decodeUpsert = { id, data ->
-                    decoders.programChangeEvent(id, data)?.let {
-                        programChangeEventDao.upsert(it); true
-                    } ?: false
-                },
-            ),
+            userProfileHandler(),
+            onboardingHandler(),
+            gymPreferenceHandler(),
+            specializationHandler(),
+            liftsHandler(),
+            incrementTiersHandler(),
+            programsHandler(),
+            workoutsHandler(),
+            workoutLiftsHandler(),
+            liftSetsHandler(),
+            trainingSessionsHandler(),
+            loggedSetsHandler(),
+            programChangeEventsHandler(),
+        )
+
+    private fun userProfileHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.UserProfile,
+            pending = { userProfileDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                userProfileDao.getOrNull(UserProfileId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { userProfileDao.deleteById(UserProfileId(it)) },
+            markSynced = { id, at -> userProfileDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::userProfile,
+            decodeUpsert = { id, data ->
+                decoders.userProfile(id, data)?.let { userProfileDao.upsert(it); true } ?: false
+            },
+        )
+
+    private fun onboardingHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.OnboardingProgress,
+            pending = { onboardingDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                onboardingDao.getOrNull(OnboardingProgressId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { onboardingDao.deleteById(OnboardingProgressId(it)) },
+            markSynced = { id, at -> onboardingDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::onboarding,
+            decodeUpsert = { id, data ->
+                decoders.onboarding(id, data)?.let { onboardingDao.upsert(it); true } ?: false
+            },
+        )
+
+    private fun gymPreferenceHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.GymPreference,
+            pending = { gymDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                gymDao.getOrNull(GymPreferenceId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { gymDao.deleteById(GymPreferenceId(it)) },
+            markSynced = { id, at -> gymDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::gymPreference,
+            decodeUpsert = { id, data ->
+                decoders.gymPreference(id, data)?.let { gymDao.upsert(it); true } ?: false
+            },
+        )
+
+    private fun specializationHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.SpecializationPreference,
+            pending = { specializationDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                specializationDao.getById(SpecializationPreferenceId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { specializationDao.deleteById(SpecializationPreferenceId(it)) },
+            markSynced = { id, at -> specializationDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::specialization,
+            decodeUpsert = { id, data ->
+                decoders.specialization(id, data)?.let {
+                    specializationDao.upsertAll(listOf(it)); true
+                } ?: false
+            },
+        )
+
+    /** Custom encode path for catalog overlays vs full custom documents. */
+    private fun liftsHandler(): SyncCollectionHandler =
+        GenericSyncHandler(
+            collection = SyncCollection.Lifts,
+            loadPending = { limit ->
+                liftDao.getPending(limit).map { entity ->
+                    PendingSyncRow(
+                        entity.id.value,
+                        entity.updatedAtEpochMillis,
+                        liftRemoteApplier.encode(entity),
+                    )
+                }
+            },
+            loadLocalMeta = { id ->
+                liftDao.getById(LiftId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            deleteById = { id -> liftDao.deleteById(LiftId(id)) },
+            markSynced = { id, at -> liftDao.markSyncedIfUnchanged(id, at) },
+            upsertRemote = liftRemoteApplier::upsertFromRemote,
+            checkHasPending = { liftDao.getPending(1).isNotEmpty() },
+        )
+
+    private fun incrementTiersHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.IncrementTiers,
+            pending = { incrementTierDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                incrementTierDao.getById(IncrementTierId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { incrementTierDao.deleteById(IncrementTierId(it)) },
+            markSynced = { id, at -> incrementTierDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::incrementTier,
+            decodeUpsert = { id, data ->
+                decoders.incrementTier(id, data)?.let {
+                    incrementTierDao.upsertAll(listOf(it)); true
+                } ?: false
+            },
+        )
+
+    private fun programsHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.Programs,
+            pending = { programDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                programDao.getById(ProgramId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { programDao.deleteById(ProgramId(it)) },
+            markSynced = { id, at -> programDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::program,
+            decodeUpsert = programRemoteApplier::upsertFromRemote,
+        )
+
+    private fun workoutsHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.Workouts,
+            pending = { workoutDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                workoutDao.getById(WorkoutId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { workoutDao.deleteById(WorkoutId(it)) },
+            markSynced = { id, at -> workoutDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::workout,
+            decodeUpsert = { id, data ->
+                decoders.workout(id, data)?.let { workoutDao.upsertAll(listOf(it)); true } ?: false
+            },
+        )
+
+    private fun workoutLiftsHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.WorkoutLifts,
+            pending = { workoutLiftDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                workoutLiftDao.getById(WorkoutLiftId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { workoutLiftDao.deleteById(WorkoutLiftId(it)) },
+            markSynced = { id, at -> workoutLiftDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::workoutLift,
+            decodeUpsert = { id, data ->
+                decoders.workoutLift(id, data)?.let {
+                    workoutLiftDao.upsertAll(listOf(it)); true
+                } ?: false
+            },
+        )
+
+    private fun liftSetsHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.LiftSets,
+            pending = { liftSetDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                liftSetDao.getById(LiftSetId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { liftSetDao.deleteById(LiftSetId(it)) },
+            markSynced = { id, at -> liftSetDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::liftSet,
+            decodeUpsert = { id, data ->
+                decoders.liftSet(id, data)?.let { liftSetDao.upsertAll(listOf(it)); true } ?: false
+            },
+        )
+
+    private fun trainingSessionsHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.TrainingSessions,
+            pending = { sessionDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                sessionDao.getById(TrainingSessionId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { sessionDao.deleteById(TrainingSessionId(it)) },
+            markSynced = { id, at -> sessionDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::trainingSession,
+            decodeUpsert = { id, data ->
+                decoders.trainingSession(id, data)?.let { sessionDao.upsert(it); true } ?: false
+            },
+        )
+
+    private fun loggedSetsHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.LoggedSets,
+            pending = { loggedSetDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                loggedSetDao.getById(LoggedSetId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { loggedSetDao.deleteById(LoggedSetId(it)) },
+            markSynced = { id, at -> loggedSetDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::loggedSet,
+            decodeUpsert = loggedSetRemoteApplier::upsertFromRemote,
+        )
+
+    private fun programChangeEventsHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.ProgramChangeEvents,
+            pending = { programChangeEventDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                programChangeEventDao.getById(ProgramChangeEventId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { programChangeEventDao.deleteById(ProgramChangeEventId(it)) },
+            markSynced = { id, at -> programChangeEventDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::programChangeEvent,
+            decodeUpsert = { id, data ->
+                decoders.programChangeEvent(id, data)?.let {
+                    programChangeEventDao.upsert(it); true
+                } ?: false
+            },
         )
 
     private fun <E> entityHandler(
@@ -306,7 +344,6 @@ class SyncHandlersProvider @Inject constructor(
             deleteById = delete,
             markSynced = markSynced,
             upsertRemote = decodeUpsert,
-            // Cheap: entity load without encode.
             checkHasPending = { pending(1).isNotEmpty() },
         )
 }
