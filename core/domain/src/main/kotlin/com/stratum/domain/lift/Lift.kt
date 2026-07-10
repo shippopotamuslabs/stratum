@@ -22,6 +22,9 @@ import com.stratum.domain.onboarding.MuscleGroup
  *   onboarding toggle + voice edits mutate this, not a separate availability graph).
  * - [isCustom]: user-created vs. bundled. Distinguishes the two so generation (OS-6) and voice
  *   catalog edits (OS-8) can treat user lifts with appropriate defaults.
+ * - [defaultRestSeconds]: optional per-lift rest override for sets created when this lift is
+ *   added or swapped into a workout. Null means use [resolvedDefaultRestSeconds] (compound vs
+ *   isolation). Existing workout templates are never rewritten when this changes.
  *
  * Pure domain value — no framework deps (ARCHITECTURE.md §0). Value class `LiftId` keeps id
  * assignment type-safe; muscle sets are decoded from the stored bitmask in the data mapper.
@@ -43,7 +46,22 @@ data class Lift(
     val mainstream: Boolean = false,
     val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
     val loadType: LoadType = LoadType.Weighted,
+    val defaultRestSeconds: Int? = null,
 ) {
     val isCompound: Boolean
         get() = movementPatterns.size > 1
 }
+
+/** Default inter-set rest for compound lifts (multiple movement patterns) when no override is set. */
+const val DEFAULT_COMPOUND_REST_SECONDS = 180
+
+/** Default inter-set rest for isolation lifts when no override is set. */
+const val DEFAULT_ISOLATION_REST_SECONDS = 120
+
+/**
+ * Rest seconds to use when this lift is added or swapped into a workout. Prefer the stored
+ * [Lift.defaultRestSeconds] override; otherwise compound → 3 min, isolation → 2 min.
+ */
+fun Lift.resolvedDefaultRestSeconds(): Int =
+    defaultRestSeconds
+        ?: if (isCompound) DEFAULT_COMPOUND_REST_SECONDS else DEFAULT_ISOLATION_REST_SECONDS

@@ -52,6 +52,7 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
     mainstream = lift.mainstream,
     kinematicProfile = lift.kinematicProfile,
     loadType = lift.loadType,
+    defaultRestSeconds = lift.defaultRestSeconds,
 )
 
 fun Lift.toEntity(): LiftEntity = LiftEntity(
@@ -70,6 +71,7 @@ fun Lift.toEntity(): LiftEntity = LiftEntity(
     mainstream = mainstream,
     kinematicProfile = kinematicProfile,
     loadType = loadType,
+    defaultRestSeconds = defaultRestSeconds,
 )
 
 fun Lift.toTierEntities(): List<IncrementTierEntity> = incrementTiers.map { tier ->

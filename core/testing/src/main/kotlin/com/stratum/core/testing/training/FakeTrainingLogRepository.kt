@@ -143,6 +143,11 @@ class FakeTrainingLogRepository(
         return getAllSets().firstOrNull { it.liftId == liftId && it.isPersonalRecord }
     }
 
+    override suspend fun getSetsForLift(liftId: LiftId): List<LoggedSet> =
+        getAllSets()
+            .filter { it.liftId == liftId }
+            .sortedByDescending { it.completedAt }
+
     override suspend fun updateSets(sets: List<LoggedSet>) {
         sets.forEach { updateSet(it) }
     }

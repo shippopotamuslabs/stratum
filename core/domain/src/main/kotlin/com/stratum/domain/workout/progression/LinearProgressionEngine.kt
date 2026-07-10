@@ -3,6 +3,8 @@ package com.stratum.domain.workout.progression
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.incrementFor
+import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.EstimatedOneRm
@@ -64,8 +66,15 @@ class LinearProgressionEngine @Inject constructor(
             if (!slot.isTopSet) {
                 baseWeight
             } else {
-                val increment = if (metBottomAtRir(baselineEntry, slot)) incrementFor(slot) else zero(baseWeight)
-                Weight(baseWeight.amount + increment.amount, baseWeight.unit)
+                val increment =
+                    if (metBottomAtRir(baselineEntry, slot)) {
+                        incrementFor(request, slot, baseWeight)
+                    } else {
+                        zero(baseWeight)
+                    }
+                val raw = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
+                request.incrementTiers
+                    .roundToIncrement(raw, request.loadType)
                     .capAssistedAtZero(request.loadType)
             }
         }
@@ -79,7 +88,12 @@ class LinearProgressionEngine @Inject constructor(
 
             baselineEntry != null && baselineEntry.loggedSet.weight == targetWeight -> {
                 if (slot.isTopSet) {
-                    val increment = if (metBottomAtRir(baselineEntry, slot)) incrementFor(slot) else zero(baseWeight)
+                    val increment =
+                        if (metBottomAtRir(baselineEntry, slot)) {
+                            incrementFor(request, slot, baseWeight)
+                        } else {
+                            zero(baseWeight)
+                        }
                     if (increment.amount > 0.0) {
                         slot.repMin
                     } else {
@@ -280,8 +294,15 @@ class LinearProgressionEngine @Inject constructor(
             ProgressionBaseline.ProjectFromPrior, null -> null
         }
 
-    private fun incrementFor(slot: SetSlot): Weight =
-        config.perLiftIncrementOverride[slot.liftId] ?: config.lowerBodyIncrement
+    private fun incrementFor(
+        request: SlotProgressionRequest,
+        slot: SetSlot,
+        baseWeight: Weight,
+    ): Weight {
+        val fromTiers = request.incrementTiers.incrementFor(baseWeight)
+        if (fromTiers != null) return fromTiers
+        return config.perLiftIncrementOverride[slot.liftId] ?: config.lowerBodyIncrement
+    }
 
     private fun defaultWeight(): Weight = Weight(0.0, Weight.WeightUnit.Lb)
 

@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
@@ -35,6 +36,11 @@ data class SnapshotRequest(
      * Empty by default so existing callers/tests keep working unchanged.
      */
     val loadTypesById: Map<LiftId, LoadType> = emptyMap(),
+    /**
+     * Per-lift increment bands from the catalog. Empty map / missing keys → engines use
+     * scheme defaults (Double 5 lb, Linear config).
+     */
+    val incrementTiersById: Map<LiftId, List<IncrementTier>> = emptyMap(),
 )
 
 /**
@@ -99,6 +105,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
 
             val engine = engineFor(scheme)
             val liftLoadType = request.loadTypesById[workoutLift.liftId] ?: LoadType.Weighted
+            val liftTiers = request.incrementTiersById[workoutLift.liftId].orEmpty()
 
             val insights = liftTrainingInsightsRepository.getByLiftId(workoutLift.liftId)
             val fatigueSlope = insights?.fatigueDecaySlope
@@ -119,6 +126,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                     fallbackOneRm = null,
                     loadType = liftLoadType,
                     progressionBaseline = topBaseline,
+                    incrementTiers = liftTiers,
                 ),
             )
             val currentTopSetWeight = topRec.recommendedWeight
@@ -141,6 +149,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                         perLiftSlope = fatigueSlope,
                         perLiftIntercept = fatigueIntercept,
                         progressionBaseline = baselineForSlot(recentBlock, index),
+                        incrementTiers = liftTiers,
                     ),
                 )
             }
