@@ -47,7 +47,9 @@ import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumRirTargetColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.feature.program.R
+import com.stratum.feature.program.showsRepRange
 
 private val SetTableRowHeight = 48.dp
 private val SetTableCellMinWidth = 36.dp
@@ -55,6 +57,7 @@ private val SetTableCellMinWidth = 36.dp
 @Composable
 internal fun EditWorkoutSetTable(
     sets: List<EditSetState>,
+    progressionScheme: ProgressionScheme,
     onAddSet: () -> Unit,
     onRemoveSet: (setId: String) -> Unit,
     onRepMinChange: (setId: String, repMin: Int) -> Unit,
@@ -76,6 +79,7 @@ internal fun EditWorkoutSetTable(
         sets.forEach { set ->
             EditWorkoutSetTableRow(
                 set = set,
+                showRepRange = showsRepRange(progressionScheme, set),
                 canRemove = sets.size > 1,
                 onRemoveSet = { onRemoveSet(set.setId) },
                 onRepMinChange = { value -> onRepMinChange(set.setId, value) },
@@ -154,6 +158,7 @@ private fun SetTableHeaderCell(
 @Composable
 private fun EditWorkoutSetTableRow(
     set: EditSetState,
+    showRepRange: Boolean,
     canRemove: Boolean,
     onRemoveSet: () -> Unit,
     onRepMinChange: (Int) -> Unit,
@@ -180,7 +185,8 @@ private fun EditWorkoutSetTableRow(
             ) {
                 SetNumberBadge(number = set.setNumber)
             }
-            if (set.isTopSet) {
+            // Linear: every set shows the shared band. Double: top set only (RIR-only backoffs).
+            if (showRepRange) {
                 RepRangeCell(
                     repMin = set.repMin,
                     repMax = set.repMax,

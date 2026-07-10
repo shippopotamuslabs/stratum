@@ -9,6 +9,7 @@ import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
 import com.stratum.domain.program.generation.reference.TOP_SET_RIR
 import com.stratum.domain.program.generation.reference.clampBackOffRir
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class ProgramNormalizerTest {
@@ -139,5 +140,110 @@ class ProgramNormalizerTest {
 
         assertEquals(TOP_SET_RIR, sets.first { it.isTopSet }.rirGoal)
         assertEquals(2, sets.first { !it.isTopSet }.rirGoal)
+    }
+
+    @Test
+    fun parseAndNormalizeProgram_doubleBackoffsStripStaleRepRange() {
+        val program =
+            ProgramDraft(
+                name = "Test",
+                cycleLength = 1,
+                workouts =
+                    listOf(
+                        ProgramWorkoutDraft(
+                            name = "Arms",
+                            weekday = "Monday",
+                            workoutLifts =
+                                mutableListOf(
+                                    ProgramLiftDraft(
+                                        liftId = "barbell-curl",
+                                        position = 0,
+                                        workoutLiftSets =
+                                            mutableListOf(
+                                                LiftSetDraft(
+                                                    position = 0,
+                                                    setType = SetType.Standard,
+                                                    repMin = 8,
+                                                    repMax = 12,
+                                                    rirGoal = TOP_SET_RIR,
+                                                    isTopSet = true,
+                                                ),
+                                                LiftSetDraft(
+                                                    position = 1,
+                                                    setType = SetType.Standard,
+                                                    // Stale range from older generation drafts.
+                                                    repMin = 8,
+                                                    repMax = 12,
+                                                    rirGoal = 0,
+                                                    isTopSet = false,
+                                                ),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val request =
+            ProgramNormalizationRequest(
+                trainingAge = "Intermediate",
+                lastTrained = null,
+                enabledLiftIds = setOf("barbell-curl"),
+                movementPatternByLiftId = mapOf("barbell-curl" to MovementPattern.ElbowFlexion),
+            )
+
+        val normalized = parseAndNormalizeProgram(program, request)
+        val sets = normalized.workouts.single().workoutLifts.single().workoutLiftSets
+        val top = sets.single { it.isTopSet }
+        val backoff = sets.single { !it.isTopSet }
+
+        assertEquals(8, top.repMin)
+        assertEquals(12, top.repMax)
+        assertEquals(0, backoff.repMin)
+        assertEquals(0, backoff.repMax)
+    }
+
+    @Test
+    fun parseAndNormalizeProgram_doubleWithNoRepRangeFailsClosed() {
+        val program =
+            ProgramDraft(
+                name = "Test",
+                cycleLength = 1,
+                workouts =
+                    listOf(
+                        ProgramWorkoutDraft(
+                            name = "Arms",
+                            weekday = "Monday",
+                            workoutLifts =
+                                mutableListOf(
+                                    ProgramLiftDraft(
+                                        liftId = "barbell-curl",
+                                        position = 0,
+                                        workoutLiftSets =
+                                            mutableListOf(
+                                                LiftSetDraft(
+                                                    position = 0,
+                                                    setType = SetType.Standard,
+                                                    repMin = 0,
+                                                    repMax = 0,
+                                                    rirGoal = TOP_SET_RIR,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val request =
+            ProgramNormalizationRequest(
+                trainingAge = "Intermediate",
+                lastTrained = null,
+                enabledLiftIds = setOf("barbell-curl"),
+                movementPatternByLiftId = mapOf("barbell-curl" to MovementPattern.ElbowFlexion),
+            )
+
+        assertThrows(IllegalStateException::class.java) {
+            parseAndNormalizeProgram(program, request)
+        }
     }
 }

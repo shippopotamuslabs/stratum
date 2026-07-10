@@ -182,4 +182,90 @@ class WorkoutAssemblerTest {
         val labels = ordered.map { it.lift.id }
         assertEquals(listOf("curl", "tri", "pulldown", "bench", "row"), labels)
     }
+
+    @Test
+    @DisplayName("Double progression: only top set stores a rep range; backoffs are 0/0")
+    fun doubleProgressionBackoffsOmitRepRange() {
+        // Intermediate isolation → Double. setCount = 3 from sel().
+        val context = armSpecContext()
+        val workouts = assembleWorkouts(
+            listOf(emptyUpperPlan("Upper A", position = 0, siblingIndex = 0)),
+            listOf(listOf(sel("bicep", "Bicep", SlotRole.Isolation, "curl"))),
+            context,
+        )
+        val sets = workouts.single().workoutLifts.orEmpty().single().workoutLiftSets.orEmpty()
+            .sortedBy { it.position }
+
+        assertEquals(3, sets.size)
+        assertTrue(sets[0].isTopSet)
+        assertTrue(sets[0].repMin > 0)
+        assertTrue(sets[0].repMax >= sets[0].repMin)
+
+        sets.drop(1).forEach { backoff ->
+            assertTrue(!backoff.isTopSet)
+            assertEquals(0, backoff.repMin, "Double backoff must not store a rep range")
+            assertEquals(0, backoff.repMax, "Double backoff must not store a rep range")
+        }
+    }
+
+    @Test
+    @DisplayName("Linear progression: every working set stores the same rep range")
+    fun linearProgressionSharesRepRangeOnAllSets() {
+        // Beginner + axial compound → Linear.
+        val context = ProgramGenerationContext(
+            trainingAge = "Beginner",
+            lastTrained = null,
+            sessionLengthMinutes = null,
+            trainingDaysPerWeek = 0,
+            weekdays = emptyList(),
+            specialization = emptyMap(),
+            liftsById = emptyMap(),
+            muscleVolumeSnapshotsByMuscle = emptyMap(),
+            volumeCorrelationsByMuscle = emptyMap(),
+            enabledLiftIds = emptySet(),
+            movementPatternByLiftId = emptyMap(),
+            liftEffectivenessByLiftId = emptyMap(),
+        )
+        val slot = FilledSlot(
+            slotId = "h-press",
+            role = SlotRole.Anchor,
+            pattern = MovementPattern.HorizontalPress,
+            primaryMuscle = MuscleGroup.Chest,
+            repProfile = RpRepProfile.LowerMachineOrUpperPress,
+            setCount = 3,
+        )
+        val selection = SelectedSlotLift(
+            slot = slot,
+            lift = LiftContext(
+                id = "bench",
+                name = "bench",
+                movementPattern = MovementPattern.HorizontalPress,
+                movementPatterns = setOf(MovementPattern.HorizontalPress),
+                primaryMuscles = setOf(MuscleGroup.Chest),
+                secondaryMuscles = emptySet(),
+                proven = false,
+                kinematicProfile = com.stratum.domain.lift.KinematicProfile.AxialCompound,
+            ),
+            candidates = emptyList(),
+        )
+        val workouts = assembleWorkouts(
+            listOf(emptyUpperPlan("Full", position = 0, siblingIndex = 0)),
+            listOf(listOf(selection)),
+            context,
+        )
+        val sets = workouts.single().workoutLifts.orEmpty().single().workoutLiftSets.orEmpty()
+            .sortedBy { it.position }
+
+        assertEquals(3, sets.size)
+        // Linear: shared band on every set; index 0 is the load-progression anchor.
+        assertTrue(sets[0].isTopSet, "Linear first set is the progression anchor")
+        assertTrue(sets.drop(1).none { it.isTopSet })
+        val firstRange = sets[0].repMin to sets[0].repMax
+        assertTrue(firstRange.first > 0)
+        assertTrue(firstRange.second >= firstRange.first)
+        sets.forEach { set ->
+            assertEquals(firstRange.first, set.repMin)
+            assertEquals(firstRange.second, set.repMax)
+        }
+    }
 }

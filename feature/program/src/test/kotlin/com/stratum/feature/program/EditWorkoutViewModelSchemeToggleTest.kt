@@ -81,6 +81,14 @@ class EditWorkoutViewModelSchemeToggleTest {
             val toggledLift = updated.lifts.first { it.workoutLiftId == COMPOUND_WL_ID }
             assertEquals(ProgressionScheme.Double, toggledLift.progressionScheme)
             assertTrue(updated.isDirty, "isDirty must be true after a scheme toggle")
+            // Linear → Double redistributes: first set keeps range as top; rest are RIR-only.
+            assertTrue(toggledLift.sets.first().isTopSet)
+            assertTrue(toggledLift.sets.first().repMin > 0)
+            toggledLift.sets.drop(1).forEach { backoff ->
+                assertFalse(backoff.isTopSet)
+                assertEquals(0, backoff.repMin)
+                assertEquals(0, backoff.repMax)
+            }
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -181,6 +189,34 @@ class EditWorkoutViewModelSchemeToggleTest {
         }
     }
 
+    @Test
+    @DisplayName("S8-toggle-double-to-linear-restores-shared-rep-range-on-all-sets")
+    fun `S8-toggle-double-to-linear-restores-shared-rep-range-on-all-sets`() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            awaitLoaded()
+            // Linear → Double first (zeros non-top ranges).
+            viewModel.setProgressionScheme(COMPOUND_WL_ID, ProgressionScheme.Double)
+            val asDouble = awaitItem() as EditWorkoutUiState.Loaded
+            val doubleLift = asDouble.lifts.first { it.workoutLiftId == COMPOUND_WL_ID }
+            assertEquals(0, doubleLift.sets[1].repMin)
+
+            // Double → Linear: shared band restored onto every set from the top set.
+            viewModel.setProgressionScheme(COMPOUND_WL_ID, ProgressionScheme.Linear)
+            val asLinear = awaitItem() as EditWorkoutUiState.Loaded
+            val linearLift = asLinear.lifts.first { it.workoutLiftId == COMPOUND_WL_ID }
+            assertEquals(ProgressionScheme.Linear, linearLift.progressionScheme)
+            assertTrue(linearLift.sets.first().isTopSet)
+            assertEquals(4, linearLift.sets[0].repMin)
+            assertEquals(6, linearLift.sets[0].repMax)
+            assertEquals(4, linearLift.sets[1].repMin)
+            assertEquals(6, linearLift.sets[1].repMax)
+            assertFalse(linearLift.sets[1].isTopSet)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private suspend fun ReceiveTurbine<EditWorkoutUiState>.awaitLoaded(): EditWorkoutUiState.Loaded {
         var item = awaitItem()
         while (item !is EditWorkoutUiState.Loaded) {
@@ -261,6 +297,18 @@ class EditWorkoutViewModelSchemeToggleTest {
                                                 repMax = 6,
                                                 rirGoal = 2,
                                                 isTopSet = true,
+                                                restSeconds = 180,
+                                            ),
+                                            // Linear second working set — same shared band.
+                                            LiftSet(
+                                                id = com.stratum.domain.program.identity.LiftSetId("ls-1b"),
+                                                workoutLiftId = WorkoutLiftId(COMPOUND_WL_ID),
+                                                position = 1,
+                                                setType = SetType.Standard,
+                                                repMin = 4,
+                                                repMax = 6,
+                                                rirGoal = 1,
+                                                isTopSet = false,
                                                 restSeconds = 180,
                                             ),
                                         ),

@@ -33,21 +33,26 @@ internal fun Workout.toEditWorkoutUiState(
 internal fun WorkoutLift.toEditLiftState(
     liftNamesById: Map<String, String>,
     compoundByLiftId: Map<String, Boolean> = emptyMap(),
-): EditLiftState =
-    EditLiftState(
+): EditLiftState {
+    val mappedSets =
+        sets
+            .sortedBy { set -> set.position }
+            .mapIndexed { index, set -> set.toEditSetState(index + 1) }
+    // Heal legacy / import shapes so the editor always opens on canonical scheme form
+    // (Linear shared band, Double RIR-only backoffs, single top).
+    val normalizedSets = applyProgressionSchemeToSets(mappedSets, progressionScheme)
+    return EditLiftState(
         workoutLiftId = id.value,
         liftId = liftId.value,
         name = resolveLiftDisplayName(liftId.value, liftNamesById),
         position = position,
-        sets =
-            sets
-                .sortedBy { set -> set.position }
-                .mapIndexed { index, set -> set.toEditSetState(index + 1) },
+        sets = normalizedSets,
         supersetGroupId = supersetGroupId?.value,
         useRestTimerBetweenLifts = useRestTimerBetweenLifts,
         isCompound = compoundByLiftId[liftId.value] ?: false,
         progressionScheme = progressionScheme,
     )
+}
 
 internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =
     EditSetState(
