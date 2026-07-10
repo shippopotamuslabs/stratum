@@ -7,6 +7,9 @@
 
     <!-- Completion flow -->
     <string name="workout_screen_complete">Complete</string>
+    <string name="workout_screen_add_set">Add set</string>
+    <string name="workout_screen_delete_set">Delete set</string>
+    <string name="workout_screen_add_lift">Add lift</string>
     <string name="workout_sheet_incomplete_title">Incomplete Lifts</string>
     <string name="workout_sheet_incomplete_message">You haven\'t completed all of your lifts.</string>
     <string name="workout_sheet_continue_workout">Continue Workout</string>

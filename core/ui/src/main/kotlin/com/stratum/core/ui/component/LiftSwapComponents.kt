@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -451,6 +452,8 @@ fun LiftThumbnail(
     imageUrl: String?,
     modifier: Modifier = Modifier,
     size: Dp = THUMBNAIL_SIZE,
+    /** When false, image/initials fill a borderless clipped square (e.g. workout navigator tabs). */
+    bordered: Boolean = true,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -463,7 +466,18 @@ fun LiftThumbnail(
             modifier
                 .size(size)
                 .background(color = colors.surfaceSunken, shape = shapes.chip)
-                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.chip),
+                .then(
+                    if (bordered) {
+                        Modifier.border(
+                            width = shapes.borderWidth,
+                            color = colors.borderSubtle,
+                            shape = shapes.chip,
+                        )
+                    } else {
+                        Modifier
+                    },
+                )
+                .clip(shapes.chip),
         contentAlignment = Alignment.Center,
     ) {
         StratumText(
@@ -475,7 +489,7 @@ fun LiftThumbnail(
             AsyncImage(
                 model = imageUrl,
                 contentDescription = name,
-                modifier = Modifier.size(size).clip(shapes.chip),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
         }

@@ -1294,6 +1294,141 @@ class WorkoutViewModelTest {
         assertTrue(offending.isEmpty(), "ViewModel test must not import MockK verify symbols: $offending")
     }
 
+    @Test
+    @DisplayName("addSetForLift appends a set and marks overlay dirty")
+    fun addSetForLiftAppendsSet() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertEquals(2, loaded.lifts.first().sets.size)
+
+            viewModel.addSetForLift(workoutLiftId.value)
+            val after = awaitItem() as WorkoutUiState.Loaded
+            assertEquals(3, after.lifts.first().sets.size)
+            assertTrue(after.hasDirtyEdits)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("deleteSetByKey removes a non-last set")
+    fun deleteSetByKeyRemovesSet() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.addSetForLift(workoutLiftId.value)
+            val withThree = awaitItem() as WorkoutUiState.Loaded
+            assertEquals(3, withThree.lifts.first().sets.size)
+
+            val middleKey = withThree.lifts.first().sets[1].slotKey
+            viewModel.deleteSetByKey(middleKey)
+            val after = awaitItem() as WorkoutUiState.Loaded
+            assertEquals(2, after.lifts.first().sets.size)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("deleteSetByKey no-ops when the lift has only one set")
+    fun deleteSetByKeyBlocksLastSet() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        // Drop to one set first
+        viewModel.deleteSetByKey(backoffSetId.value)
+        advanceUntilIdle()
+        val oneSet = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(1, oneSet.lifts.first().sets.size)
+        val onlyKey = oneSet.lifts.first().sets.single().slotKey
+
+        viewModel.deleteSetByKey(onlyKey)
+        advanceUntilIdle()
+        val stillOne = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(1, stillOne.lifts.first().sets.size)
+    }
+
+    @Test
+    @DisplayName("addLift appends a new lift with one cold-start set")
+    fun addLiftAppendsLift() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertEquals(1, loaded.lifts.size)
+
+            viewModel.addLifts(listOf(LiftId("L-2")))
+            val after = awaitItem() as WorkoutUiState.Loaded
+            assertEquals(2, after.lifts.size)
+            assertEquals("Bench Press", after.lifts.last().liftName)
+            assertEquals(1, after.lifts.last().sets.size)
+            assertTrue(after.hasDirtyEdits)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("addLifts as superset shares a group id")
+    fun addLiftsAsSupersetSharesGroup() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.addLifts(listOf(LiftId("L-2"), LiftId("L-1")), asSuperset = true)
+            val after = awaitItem() as WorkoutUiState.Loaded
+            val added = after.lifts.takeLast(2)
+            assertEquals(2, added.size)
+            assertNotNull(added[0].supersetGroupId)
+            assertEquals(added[0].supersetGroupId, added[1].supersetGroupId)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("LiftSelected with null workoutLiftId adds a lift via edit session")
+    fun liftSelectedNullIdAddsLift() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        workoutEditSession.selectLift(
+            workoutId = workoutId.value,
+            workoutLiftId = null,
+            liftId = "L-2",
+        )
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(2, loaded.lifts.size)
+        assertEquals("Bench Press", loaded.lifts.last().liftName)
+    }
+
+    @Test
+    @DisplayName("removeLift drops a session-added lift without template delete marker")
+    fun removeSessionAddedLift() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+        val withAdded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(2, withAdded.lifts.size)
+        val addedId = withAdded.lifts.last().workoutLiftId
+
+        viewModel.removeLift(WorkoutLiftId(addedId))
+        advanceUntilIdle()
+        val after = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(1, after.lifts.size)
+        assertEquals("Squat", after.lifts.single().liftName)
+    }
+
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {
         var item = awaitItem()
         while (item is WorkoutUiState.Loading) {
