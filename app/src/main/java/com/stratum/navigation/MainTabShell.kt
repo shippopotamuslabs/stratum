@@ -48,6 +48,7 @@ fun MainTabShell(
     onNavigateToEditWorkout: (workoutId: String) -> Unit = {},
     onNavigateToWorkout: (workoutId: String) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
     onCreateNewLift: () -> Unit = {},
     onNavigateToLiftIncrements: (liftId: String) -> Unit = {},
     onNavigateToLiftInformation: (liftId: String) -> Unit = {},
@@ -99,6 +100,7 @@ fun MainTabShell(
                     isPreviewMode = isPreviewMode,
                     callbacks =
                         ProgramsScreenCallbacks(
+                            onCalendarClick = onNavigateToHistory,
                             onKeepProgramClick = onKeepProgramClick,
                             onDiscardProgramClick = onDiscardProgramClick,
                             onEditWorkoutClick = onNavigateToEditWorkout,

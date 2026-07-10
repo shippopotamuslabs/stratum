@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_mode_month">Month</string>
+    <string name="history_mode_year">Year</string>
+    <string name="history_mode_multi_year">Multi-year</string>
+    <string name="history_mode_sheet_title">Calendar view</string>
+    <string name="history_navigate_back">Back</string>
+    <string name="history_week_streak">%1$d week streak</string>
+    <string name="history_rest_days">%1$d rest days</string>
+    <string name="history_empty">No completed workouts yet</string>
+    <string name="history_weekday_sun">Sun</string>
+    <string name="history_weekday_mon">Mon</string>
+    <string name="history_weekday_tue">Tue</string>
+    <string name="history_weekday_wed">Wed</string>
+    <string name="history_weekday_thu">Thu</string>
+    <string name="history_weekday_fri">Fri</string>
+    <string name="history_weekday_sat">Sat</string>
+    <string name="history_session_duration">Duration</string>
+    <string name="history_session_sets">Sets</string>
+    <string name="history_session_prs">PRs</string>
+    <string name="history_session_workout_section">Workout</string>
+    <string name="history_session_edit">Edit Workout</string>
+    <string name="history_session_edit_coming_soon">Editing completed workouts is coming soon</string>
+    <string name="history_session_rir">RIR %1$s</string>
+    <string name="history_session_pr_cd">Personal record</string>
+    <string name="history_session_load_error">Could not load this workout</string>
+    <string name="history_mode_selected">Selected</string>
+</resources>

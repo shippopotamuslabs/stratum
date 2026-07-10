@@ -30,9 +30,16 @@ class GetWorkoutSummaryUseCase @Inject constructor(
         val lifts = observeLiftCatalog().first()
         val liftNamesById = lifts.associate { it.id to it.name }
 
-        val workoutName = session.workoutId?.let { workoutId ->
-            programRepository.getProgram()?.workouts?.firstOrNull { it.id == workoutId }?.name
-        } ?: "Workout"
+        val program = programRepository.getProgram()
+        val liftFallback =
+            loggedSets.firstOrNull()?.liftContext?.liftName?.takeIf { it.isNotBlank() }
+                ?: loggedSets.firstOrNull()?.exerciseNameRaw
+        val workoutName =
+            TrainingSessionDisplayName.resolve(
+                session = session,
+                program = program,
+                liftOrExerciseFallback = liftFallback,
+            )
 
         val durationMillis = run {
             val end = session.endedAt ?: java.time.Instant.now()
