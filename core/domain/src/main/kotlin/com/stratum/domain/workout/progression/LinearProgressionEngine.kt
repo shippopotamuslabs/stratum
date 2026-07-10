@@ -16,11 +16,15 @@ import com.stratum.domain.workout.fatigue.projectReps
 import javax.inject.Inject
 
 /**
- * Greyskull-style hybrid linear-progression engine (D8). Per-session increment GATED
- * by RIR achievement on the top set: increments when BOTTOM of rep range met at RIR
- * (load-first); Double (Slice 2) increments when TOP met at RIR (reps-first).
- * Tracks per-lift stall count + reset count across history. 2 consecutive stalls →
- * 10% reset; 2 resets → auto-transition to Double (D8 locked).
+ * Linear-progression engine for true beginners. Per-session increment is GATED by RIR
+ * achievement on the top set: increments when BOTTOM of rep range met at RIR (load-first);
+ * Double increments when TOP met at RIR (reps-first).
+ *
+ * **Exit criterion (not Greyskull reset-churn):** [LinearProgressionConfig.stallThresholdSessions]
+ * consecutive stalls → auto-transition to Double. Classic LP literature (GSLP/SS) prescribed
+ * repeated 10% deloads and rebuilds; modern coaching treats repeated failure of session-to-session
+ * load adds as a signal that the progression *model* should change. Stratum flips the lift to
+ * Double rather than looping deload → rebuild → stall.
  *
  * Pure — derives all state from the supplied history. Math baseline comes from
  * [SlotProgressionRequest.progressionBaseline] (capacity-ordered recent block built by
@@ -34,9 +38,16 @@ class LinearProgressionEngine @Inject constructor(
     override val scheme: ProgressionScheme = ProgressionScheme.Linear
 
     /**
-     * Forward-looking next-session load for [request.slot]. Increments when the most
-     * recent session met the BOTTOM of the rep range at the RIR target; holds otherwise.
-     * Backoff slots inherit the latest weight (no increment).
+     * Forward-looking next-session load for [request.slot].
+     *
+     * - **Increment** when the most recent session met the BOTTOM of the rep range at the
+     *   RIR target (load-first).
+     * - **Hold** otherwise (reps lever may still advance via [rirAdjustedReps]).
+     * - Backoff slots inherit [SlotProgressionRequest.currentTopSetWeight] when provided
+     *   (no independent increment).
+     *
+     * Scheme transition (Linear → Double) is owned by [diagnose] + the snapshot
+     * orchestrator — not by load reduction inside this method.
      */
     override fun recommend(request: SlotProgressionRequest): SlotRecommendation {
         val slot = request.slot
@@ -66,13 +77,13 @@ class LinearProgressionEngine @Inject constructor(
             if (!slot.isTopSet) {
                 baseWeight
             } else {
-                val increment =
+                val raw =
                     if (metBottomAtRir(baselineEntry, slot)) {
-                        incrementFor(request, slot, baseWeight)
+                        val increment = incrementFor(request, slot, baseWeight)
+                        Weight(baseWeight.amount + increment.amount, baseWeight.unit)
                     } else {
-                        zero(baseWeight)
+                        baseWeight
                     }
-                val raw = Weight(baseWeight.amount + increment.amount, baseWeight.unit)
                 request.incrementTiers
                     .roundToIncrement(raw, request.loadType)
                     .capAssistedAtZero(request.loadType)
@@ -88,13 +99,7 @@ class LinearProgressionEngine @Inject constructor(
 
             baselineEntry != null && baselineEntry.loggedSet.weight == targetWeight -> {
                 if (slot.isTopSet) {
-                    val increment =
-                        if (metBottomAtRir(baselineEntry, slot)) {
-                            incrementFor(request, slot, baseWeight)
-                        } else {
-                            zero(baseWeight)
-                        }
-                    if (increment.amount > 0.0) {
+                    if (metBottomAtRir(baselineEntry, slot)) {
                         slot.repMin
                     } else {
                         val prevSet = baselineEntry.loggedSet
@@ -150,13 +155,11 @@ class LinearProgressionEngine @Inject constructor(
     }
 
     /**
-     * Backward-looking per-lift stall/reset/transition state derived from [history]
-     * (D8). Walks sessions oldest→newest (stable sort on [SlotHistoryEntry.session.startedAt]),
-     * counting consecutive stalls; each time the stall threshold is reached a reset
-     * cycle fires ([currentResetCount]++ and the streak clears); the next session
-     * consumes the pending reset. After [LinearProgressionConfig.resetsBeforeTransition]
-     * cycles the engine surfaces a [SchemeTransitionEvent] (Linear → Double,
-     * ResetCyclesExhausted) on [LinearProgressionState.emittedEvent].
+     * Backward-looking per-lift stall/transition state derived from [history].
+     * Walks sessions oldest→newest (stable sort on [SlotHistoryEntry.session.startedAt]
+     * then session id), counting consecutive stalls. When the streak reaches
+     * [LinearProgressionConfig.stallThresholdSessions], surfaces a
+     * [SchemeTransitionEvent] (Linear → Double, [SchemeTransitionReason.ConsecutiveStalls]).
      *
      * Stall classification honours [LinearProgressionConfig.stallStrictness]:
      * - [StallStrictness.RirBased] — a stall is "RIR met but bottom missed"; a set that
@@ -166,30 +169,32 @@ class LinearProgressionEngine @Inject constructor(
      *   (reps ≤ rep floor), so an exactly-at-floor ground-out set still counts.
      *
      * The rep floor and RIR goal are not recoverable from a logged set alone; the
-     * Greyskull LP defaults (floor 5, RIR 2) are used. Production snapshot wiring that
-     * needs per-lift floors routes through [recommend], which binds the slot template.
+     * Greyskull LP defaults (floor 5, RIR 2) are used for diagnose. Production
+     * [recommend] binds the slot template for load decisions.
      */
     fun diagnose(
         liftId: LiftId,
         history: List<SlotHistoryEntry>,
     ): LinearProgressionState {
-        val ordered = history.sortedBy { it.session.startedAt }
+        // Oldest → newest. Secondary key keeps deterministic order when imports share a
+        // timestamp (common in bulk-imported history).
+        val ordered = history.sortedWith(
+            compareBy(
+                { it.session.startedAt },
+                { it.session.id.value },
+            ),
+        )
         var stallCount = 0
-        var resetCount = 0
-        var resetPending = false
+        var shouldTransition = false
 
         for (entry in ordered) {
-            // A session following a fired reset consumes the pending reset (the lifter
-            // trained at the reduced weight).
-            if (resetPending) resetPending = false
-
             when (classify(entry, config.stallStrictness)) {
                 Class.Stall -> {
                     stallCount++
                     if (stallCount >= config.stallThresholdSessions) {
-                        resetCount++
-                        stallCount = 0
-                        resetPending = true
+                        shouldTransition = true
+                        // Keep counting so currentStallCount reflects the live streak;
+                        // transition is sticky once reached for this history walk.
                     }
                 }
                 Class.Success -> stallCount = 0
@@ -197,18 +202,17 @@ class LinearProgressionEngine @Inject constructor(
             }
         }
 
-        val shouldTransition = resetCount >= config.resetsBeforeTransition
         val emitted = if (shouldTransition) {
             // diagnose recovers no workoutLiftId from history (SlotHistoryEntry carries
             // none); production snapshot wiring that needs the bound id routes the
             // emitted event through the caller. The auto-transition sentinel is accepted
-            // because callers consume `from`/`to`/`reason` (asserted in S4).
+            // because callers consume `from`/`to`/`reason`.
             SchemeTransitionEvent(
                 workoutLiftId = WorkoutLiftId(AUTO_TRANSITION_SENTINEL),
                 liftId = liftId,
                 from = ProgressionScheme.Linear,
                 to = ProgressionScheme.Double,
-                reason = SchemeTransitionReason.ResetCyclesExhausted,
+                reason = SchemeTransitionReason.ConsecutiveStalls,
             )
         } else {
             null
@@ -216,8 +220,6 @@ class LinearProgressionEngine @Inject constructor(
         return LinearProgressionState(
             liftId = liftId,
             currentStallCount = stallCount,
-            currentResetCount = resetCount,
-            shouldReset = resetPending,
             shouldTransitionToDouble = shouldTransition,
             emittedEvent = emitted,
         )
@@ -305,8 +307,6 @@ class LinearProgressionEngine @Inject constructor(
     }
 
     private fun defaultWeight(): Weight = Weight(0.0, Weight.WeightUnit.Lb)
-
-    private fun zero(weight: Weight): Weight = Weight(0.0, weight.unit)
 
     private companion object {
         const val DEFAULT_REP_FLOOR = 5

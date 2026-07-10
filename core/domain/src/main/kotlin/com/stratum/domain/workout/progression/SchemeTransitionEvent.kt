@@ -5,10 +5,9 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutLiftId
 
 /**
- * Auto-transition event (D8). Emitted when a Linear lift exhausts
- * [LinearProgressionConfig.resetsBeforeTransition]. D8 locks the transition to
- * Automatic — the snapshot applies it (mutates the lift's `progressionScheme`
- * in-memory and appends a `ProgramChangeEvent`); no UI prompt.
+ * Auto-transition event. Emitted when a Linear lift hits
+ * [LinearProgressionConfig.stallThresholdSessions] consecutive stalls. The snapshot
+ * applies it automatically (in-memory scheme flip + [ProgramChangeEvent]); no UI prompt.
  */
 data class SchemeTransitionEvent(
     val workoutLiftId: WorkoutLiftId,
@@ -18,20 +17,19 @@ data class SchemeTransitionEvent(
     val reason: SchemeTransitionReason,
 )
 
-enum class SchemeTransitionReason { ResetCyclesExhausted }
+enum class SchemeTransitionReason {
+    /** [LinearProgressionConfig.stallThresholdSessions] consecutive stalls — LP exhausted. */
+    ConsecutiveStalls,
+}
 
 /**
- * Per-lift stall/reset/transition state derived from history (D8).
+ * Per-lift stall/transition state derived from history.
  *
- * [emittedEvent] is non-null iff [shouldTransitionToDouble] is true: it carries the
- * `SchemeTransitionEvent` (from Linear → Double, reason ResetCyclesExhausted) the
- * engine surfaced from history. Asserted in `S4-linear-2-resets-transition-to-double`.
+ * [emittedEvent] is non-null iff [shouldTransitionToDouble] is true.
  */
 data class LinearProgressionState(
     val liftId: LiftId,
     val currentStallCount: Int,
-    val currentResetCount: Int,
-    val shouldReset: Boolean,
     val shouldTransitionToDouble: Boolean,
     val emittedEvent: SchemeTransitionEvent? = null,
 )

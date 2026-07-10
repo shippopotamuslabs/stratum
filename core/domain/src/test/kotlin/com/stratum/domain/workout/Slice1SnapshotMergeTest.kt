@@ -166,6 +166,7 @@ class Slice1SnapshotMergeTest {
                 linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
                 programChangeEventRepository = NoOpProgramChangeEventRepository(),
                 liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
+                programRepository = com.stratum.core.testing.program.FakeProgramRepository(),
             )
         val request = SnapshotRequest(programId, workoutId, oneLiftWorkout().workoutLifts)
 

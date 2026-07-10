@@ -205,6 +205,139 @@ class CheckInDecisionEngineTest {
         assertEquals(2, CheckInDecisionEngine.setsToRemove(8))
     }
 
+    @Test
+    @DisplayName("Rule 3 wins over Rule 1: climbing + joint pain still cuts volume")
+    fun climbingWithJointPainCuts() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Climbing,
+                    recovery = RecoverySignal.JointPain,
+                    tenureWeeks = 2,
+                    setCount = 4,
+                ),
+            )
+        assertEquals(CheckInActionKind.CutVolume, decision.kind)
+        assertEquals(1, decision.removeSets)
+        assertTrue(decision.rationale is CheckInRationale.JointPainCut)
+    }
+
+    @Test
+    @DisplayName("Rule 3 wins over Rule 1: climbing + severe under-recovery cuts volume")
+    fun climbingWithSevereCuts() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Climbing,
+                    recovery = RecoverySignal.SevereUnderRecovery,
+                    tenureWeeks = 8,
+                    setCount = 4,
+                ),
+            )
+        assertEquals(CheckInActionKind.CutVolume, decision.kind)
+        assertTrue(decision.rationale is CheckInRationale.SevereUnderRecoveryCut)
+    }
+
+    @Test
+    @DisplayName("Rule 2: mild soreness + flat + fresh still increases volume (not cut)")
+    fun mildSorenessFlatFreshIncreases() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Flat,
+                    recovery = RecoverySignal.MildSoreness,
+                    tenureWeeks = 2,
+                    setCount = 3,
+                ),
+            )
+        assertEquals(CheckInActionKind.IncreaseVolume, decision.kind)
+        assertEquals(1, decision.addSets)
+    }
+
+    @Test
+    @DisplayName("Rule 2: mild soreness + dropping + stale still swaps")
+    fun mildSorenessDroppingStaleSwaps() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Dropping,
+                    recovery = RecoverySignal.MildSoreness,
+                    tenureWeeks = 6,
+                    setCount = 3,
+                ),
+            )
+        assertEquals(CheckInActionKind.SwapLift, decision.kind)
+    }
+
+    @Test
+    @DisplayName("Rule 2: tenure exactly STALE_LIFT_TENURE_WEEKS (4) → swap")
+    fun tenureExactlyFourWeeksSwaps() {
+        assertEquals(4, STALE_LIFT_TENURE_WEEKS)
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Flat,
+                    recovery = RecoverySignal.Good,
+                    tenureWeeks = STALE_LIFT_TENURE_WEEKS,
+                    setCount = 3,
+                ),
+            )
+        assertEquals(CheckInActionKind.SwapLift, decision.kind)
+        assertTrue(decision.rationale is CheckInRationale.SoftStaleSwap)
+    }
+
+    @Test
+    @DisplayName("Rule 2: tenure just under stale boundary → +volume")
+    fun tenureThreeWeeksIncreases() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Flat,
+                    recovery = RecoverySignal.Good,
+                    tenureWeeks = STALE_LIFT_TENURE_WEEKS - 1,
+                    setCount = 3,
+                ),
+            )
+        assertEquals(CheckInActionKind.IncreaseVolume, decision.kind)
+    }
+
+    @Test
+    @DisplayName("recommendationComparator: Cut before Swap before Increase before Maintain; Dropping first")
+    fun recommendationComparatorOrdering() {
+        fun rec(
+            name: String,
+            action: CheckInAction,
+            trend: PerformanceTrend = PerformanceTrend.Flat,
+        ) = CheckInRecommendation(
+            workoutLiftId = WorkoutLiftId("wl-$name"),
+            liftId = LiftId(name),
+            liftName = name,
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            performanceTrend = trend,
+            recoverySignal = RecoverySignal.Good,
+            rotationTenureWeeks = 4,
+            currentSetCount = 3,
+            action = action,
+            rationale = CheckInRationale.NoClearChange,
+        )
+
+        val unordered =
+            listOf(
+                rec("zebra", CheckInAction.Maintain),
+                rec("alpha", CheckInAction.IncreaseVolume(1)),
+                rec("beta", CheckInAction.SwapLift(LiftId("x"), "X")),
+                rec("gamma", CheckInAction.CutVolume(1)),
+                rec("delta", CheckInAction.IncreaseVolume(1), trend = PerformanceTrend.Dropping),
+            )
+        val ordered = unordered.sortedWith(CheckInDecisionEngine.recommendationComparator())
+        assertEquals(CheckInAction.CutVolume(1), ordered[0].action)
+        assertTrue(ordered[1].action is CheckInAction.SwapLift)
+        // Among IncreaseVolume, Dropping ranks above Flat
+        assertEquals("delta", ordered[2].liftName)
+        assertEquals("alpha", ordered[3].liftName)
+        assertTrue(ordered[4].action is CheckInAction.Maintain)
+    }
+
     private fun baseInput(
         trend: PerformanceTrend,
         recovery: RecoverySignal,
