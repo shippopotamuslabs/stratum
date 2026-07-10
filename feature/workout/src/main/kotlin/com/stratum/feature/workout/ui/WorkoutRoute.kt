@@ -31,6 +31,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.workout.WorkoutViewModel
@@ -147,7 +148,14 @@ fun WorkoutRoute(
                     onNavigateBack = onNavigateBack,
                     onCompleteWorkout = viewModel::completeWorkout,
                     onAbandon = viewModel::abandonSession,
-                    onLogSet = viewModel::logSet,
+                    onLogSet = { slotKey, weightAmountLb, reps, rir ->
+                        viewModel.logSet(
+                            slotKey = slotKey,
+                            weight = Weight(weightAmountLb, Weight.WeightUnit.Lb),
+                            reps = reps,
+                            rir = rir,
+                        )
+                    },
                     onUnlogSet = viewModel::unlogSet,
                     onSwapLiftClick = onSwapLiftClick,
                     onLinkSupersetWithPrevious = { liftId ->
@@ -166,6 +174,11 @@ fun WorkoutRoute(
                     onReorderLiftsClick = {
                         viewModel.startReorderLifts()
                         onReorderLiftsClick(workoutId)
+                    },
+                    onAddSet = viewModel::addSetForLift,
+                    onDeleteSet = viewModel::deleteSetByKey,
+                    onAddLift = {
+                        onSwapLiftClick(state.workoutId, null, null, null)
                     },
                 ),
                 modifier = modifier,

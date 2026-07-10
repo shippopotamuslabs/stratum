@@ -2,6 +2,7 @@ package com.stratum.domain.workout
 
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 
@@ -11,6 +12,18 @@ data class LoggedSetValue(
     val weight: Weight,
     val reps: Int,
     val rir: Int?,
+)
+
+/**
+ * A lift added mid-session that is not part of the baseline template.
+ * Initial set rows live in [WorkoutOverlay.addedSlots] keyed by [workoutLiftId].
+ */
+data class OverlayAddedLift(
+    val workoutLiftId: WorkoutLiftId,
+    val liftId: LiftId,
+    val progressionScheme: ProgressionScheme = ProgressionScheme.Double,
+    val supersetGroupId: WorkoutSupersetGroupId? = null,
+    val useRestTimerBetweenLifts: Boolean = false,
 )
 
 /**
@@ -40,6 +53,8 @@ data class WorkoutOverlay(
     val dynamicBaselines: Map<SetSlotId, SlotRecommendation> = emptyMap(),
     val swappedLifts: Map<WorkoutLiftId, LiftId> = emptyMap(),
     val deletedLiftIds: Set<WorkoutLiftId> = emptySet(),
+    /** Mid-session lifts not present on the baseline template. */
+    val addedLifts: List<OverlayAddedLift> = emptyList(),
     val supersetGroupIdOverrides: Map<WorkoutLiftId, WorkoutSupersetGroupId?> = emptyMap(),
     val useRestTimerBetweenLiftsOverrides: Map<WorkoutLiftId, Boolean> = emptyMap(),
     val orderedLiftIds: List<String>? = null,
@@ -56,6 +71,7 @@ data class WorkoutOverlay(
                 deletedSlotIds.isNotEmpty() ||
                 swappedLifts.isNotEmpty() ||
                 deletedLiftIds.isNotEmpty() ||
+                addedLifts.isNotEmpty() ||
                 supersetGroupIdOverrides.isNotEmpty() ||
                 useRestTimerBetweenLiftsOverrides.isNotEmpty() ||
                 orderedLiftIds != null
