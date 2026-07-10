@@ -1,5 +1,6 @@
 package com.stratum.core.data.work
 
+import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.importing.InsightsAnalysisScope
 import com.stratum.domain.response.ExtractResponseProfileUseCase
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
@@ -9,6 +10,8 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionStatus
 import java.time.Instant
+import java.util.logging.Level
+import java.util.logging.Logger
 import javax.inject.Inject
 
 /**
@@ -20,6 +23,10 @@ import javax.inject.Inject
  * logged since [com.stratum.domain.response.ResponseProfileMetadata.lastExtractedAt]. Calendar time
  * alone does not trigger work (idle months stay quiet; sparse training waits for real signal).
  *
+ * On a successful **re-extract** (prior [lastExtractedAt] was non-null and the workout gate
+ * passed), marks a pending coach check-in via [MarkCheckInPendingUseCase]. First-ever extract
+ * does not open a check-in.
+ *
  * Design note (ARCHITECTURE.md §6): the worker lives in `:core:data` because WorkManager is
  * Android-only; this runner keeps the gate + [ExtractResponseProfileUseCase] call injectable and
  * testable on the JVM via fakes.
@@ -28,7 +35,10 @@ class ResponseModelingWork @Inject constructor(
     private val extractResponseProfile: ExtractResponseProfileUseCase,
     private val metadataRepository: ResponseProfileMetadataRepository,
     private val trainingLogRepository: TrainingLogRepository,
+    private val markCheckInPending: MarkCheckInPendingUseCase,
 ) {
+    private val logger = Logger.getLogger(ResponseModelingWork::class.java.name)
+
     sealed interface Outcome {
         /** Fewer than [RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed workouts since last extract. */
         data object Skipped : Outcome
@@ -42,6 +52,7 @@ class ResponseModelingWork @Inject constructor(
 
     suspend fun run(): Outcome {
         val lastExtracted = metadataRepository.get()?.lastExtractedAt
+        val isReExtract = lastExtracted != null
         if (lastExtracted != null) {
             val sessions = trainingLogRepository.getAllSessions()
             val newWorkouts = countCompletedWorkoutsSince(sessions, lastExtracted)
@@ -55,12 +66,45 @@ class ResponseModelingWork @Inject constructor(
             provenLiftIds = emptySet(),
             scope = InsightsAnalysisScope.All,
         ).fold(
-            onSuccess = { Outcome.Success },
+            onSuccess = {
+                if (isReExtract) {
+                    // Best-effort with retries: extract watermark already advanced; a hard failure
+                    // here must not throw (that would look like extract failure / skip retries
+                    // forever). Pending can still be forced via debug Settings if needed.
+                    markPendingResilient(Instant.now())
+                }
+                Outcome.Success
+            },
             onFailure = { Outcome.Failed(it) },
         )
     }
 
+    private suspend fun markPendingResilient(extractedAt: Instant) {
+        var lastError: Throwable? = null
+        repeat(MARK_PENDING_ATTEMPTS) { attempt ->
+            try {
+                markCheckInPending(extractedAt)
+                return
+            } catch (t: Throwable) {
+                lastError = t
+                logger.log(
+                    Level.WARNING,
+                    "Mark check-in pending attempt ${attempt + 1}/$MARK_PENDING_ATTEMPTS failed",
+                    t,
+                )
+            }
+        }
+        logger.log(
+            Level.SEVERE,
+            "Mark check-in pending failed after $MARK_PENDING_ATTEMPTS attempts; " +
+                "extract succeeded without opening coach check-in",
+            lastError,
+        )
+    }
+
     companion object {
+        private const val MARK_PENDING_ATTEMPTS = 3
+
         /**
          * Completed program/ad-hoc sessions strictly after [since] (by [TrainingSession.endedAt],
          * falling back to [TrainingSession.startedAt]). Rest days do not count.

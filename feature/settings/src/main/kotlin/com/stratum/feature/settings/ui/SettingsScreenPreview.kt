@@ -20,6 +20,7 @@ private fun SettingsScreenTonalPreview() {
             onBackClick = {},
             onAppearanceSelected = {},
             onThemeFamilySelected = {},
+            onCheckInsEnabledChange = {},
         )
     }
 }
@@ -36,6 +37,7 @@ private fun SettingsScreenNeoPreview() {
             onBackClick = {},
             onAppearanceSelected = {},
             onThemeFamilySelected = {},
+            onCheckInsEnabledChange = {},
         )
     }
 }
