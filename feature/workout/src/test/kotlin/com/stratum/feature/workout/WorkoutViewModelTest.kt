@@ -1040,8 +1040,8 @@ class WorkoutViewModelTest {
             assertEquals("4-6", sets[0].recommendedRepsLabel)
 
             // The second set is a backoff (repMin=0, repMax=0, RIR-only). With no history,
-            // the label is "0" (no rep range on backoff slots — only a floor and RIR target).
-            assertEquals("0", sets[1].recommendedRepsLabel)
+            // the placeholder is blank — same as weight amount 0 — rather than "0".
+            assertEquals("", sets[1].recommendedRepsLabel)
 
             // With no history, recommended weight amount is 0.0, so recommendedWeightLabel should be "" (blank)
             assertEquals("", sets[0].recommendedWeightLabel)

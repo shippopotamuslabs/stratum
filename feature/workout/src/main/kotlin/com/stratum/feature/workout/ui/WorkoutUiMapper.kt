@@ -59,14 +59,16 @@ internal object WorkoutUiMapper {
                     // recommendation projected the next-set reps from the most recent
                     // performed set (D4), or (b) the snapshot baseline carries a prior
                     // performed set's reps, or (c) it was projected via straight-sets/fatigue decay.
-                    // Otherwise fall back to the rep-range label.
+                    // Otherwise fall back to the rep-range label for top sets, or blank for
+                    // RIR-only backoff slots with no history (repMin=repMax=0 → domain
+                    // cold-starts at 0, same as weight amount 0 → blank placeholder).
                     val showConcreteReps = set.recommendedReps > 0 &&
                         (set.hasLiveRepsRecommendation || set.previousReps != null || set.isProjected)
 
                     val recommendedRepsLabel = if (showConcreteReps) {
                         set.recommendedReps.toString()
                     } else {
-                        if (set.repMin == 0 && set.repMax == 0) "0" else "${set.repMin}-${set.repMax}"
+                        if (set.repMin == 0 && set.repMax == 0) "" else "${set.repMin}-${set.repMax}"
                     }
 
                     RenderedSetUi(
