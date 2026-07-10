@@ -36,18 +36,12 @@ fun CreateProgramRoute(
     BackHandler {
         when (state.step) {
             CreateProgramStep.ChoosePath -> onBackClick()
-            CreateProgramStep.Editor ->
-                if (startInScratch) {
-                    // From onboarding: discard returns to Choose Path without a separate sheet
-                    // when the draft is empty; otherwise confirm.
-                    if (state.isDirty && state.canSave) {
-                        viewModel.requestDiscard()
-                    } else {
-                        onBackClick()
-                    }
-                } else {
-                    viewModel.requestDiscard()
-                }
+            CreateProgramStep.Editor -> handleEditorBack(
+                state = state,
+                startInScratch = startInScratch,
+                onBackClick = onBackClick,
+                requestDiscard = viewModel::requestDiscard,
+            )
             CreateProgramStep.Generating -> Unit
             else -> viewModel.back()
         }
@@ -60,12 +54,12 @@ fun CreateProgramRoute(
                 onBack = {
                     when (state.step) {
                         CreateProgramStep.ChoosePath -> onBackClick()
-                        CreateProgramStep.Editor ->
-                            if (startInScratch && !(state.isDirty && state.canSave)) {
-                                onBackClick()
-                            } else {
-                                viewModel.requestDiscard()
-                            }
+                        CreateProgramStep.Editor -> handleEditorBack(
+                            state = state,
+                            startInScratch = startInScratch,
+                            onBackClick = onBackClick,
+                            requestDiscard = viewModel::requestDiscard,
+                        )
                         else -> viewModel.back()
                     }
                 },
@@ -96,9 +90,30 @@ fun CreateProgramRoute(
                 onSaveToLibrary = { viewModel.saveToLibrary(onFinished) },
                 onSaveChanges = { viewModel.saveChanges(onFinished) },
                 onActivate = { viewModel.activate(onFinished) },
-                onConfirmDiscard = onBackClick,
+                onConfirmDiscard = {
+                    viewModel.dismissDiscard()
+                    onBackClick()
+                },
                 onDismissDiscard = viewModel::dismissDiscard,
             ),
         modifier = modifier.fillMaxSize(),
     )
+}
+
+/**
+ * Editor back: empty onboarding scratch pops immediately; clean library edit pops;
+ * dirty drafts/edits show discard confirmation.
+ */
+private fun handleEditorBack(
+    state: CreateProgramUiState,
+    startInScratch: Boolean,
+    onBackClick: () -> Unit,
+    requestDiscard: () -> Boolean,
+) {
+    when {
+        // Onboarding scratch with nothing saveable — leave without a sheet.
+        startInScratch && !(state.isDirty && state.canSave) -> onBackClick()
+        // requestDiscard returns true when there is nothing to discard (e.g. clean library edit).
+        requestDiscard() -> onBackClick()
+    }
 }

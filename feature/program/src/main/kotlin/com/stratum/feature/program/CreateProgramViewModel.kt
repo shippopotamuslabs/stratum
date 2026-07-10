@@ -88,6 +88,8 @@ class CreateProgramViewModel @Inject constructor(
     private var compoundByLiftId: Map<String, Boolean> = emptyMap()
     private var finishOnboarding: Boolean = false
     private var entryConfigured: Boolean = false
+    private var configuredProgramId: String? = null
+    private var configuredStartInScratch: Boolean = false
 
     init {
         viewModelScope.launch {
@@ -112,14 +114,29 @@ class CreateProgramViewModel @Inject constructor(
     /**
      * Applies nav-entry options once (scratch jump / onboarding completion / edit existing).
      * Safe to call from [LaunchedEffect] when the route is composed.
+     *
+     * Re-runs when the target [programId] / scratch mode differs (defensive if the ViewModel
+     * is ever activity-scoped). Always clears a stale discard sheet on entry.
      */
     fun configureEntry(
         startInScratch: Boolean,
         finishOnboarding: Boolean,
         programId: String? = null,
     ) {
-        if (entryConfigured) return
+        val sameEntry =
+            entryConfigured &&
+                configuredProgramId == programId &&
+                configuredStartInScratch == startInScratch
+        if (sameEntry) {
+            // Stale showDiscardConfirm can survive a previous back-confirm if the VM was reused.
+            if (_uiState.value.showDiscardConfirm) {
+                _uiState.update { it.copy(showDiscardConfirm = false) }
+            }
+            return
+        }
         entryConfigured = true
+        configuredProgramId = programId
+        configuredStartInScratch = startInScratch
         this.finishOnboarding = finishOnboarding
         when {
             programId != null -> {
@@ -134,12 +151,16 @@ class CreateProgramViewModel @Inject constructor(
                             it.copy(
                                 loadErrorMessage = "Program not found.",
                                 step = CreateProgramStep.ChoosePath,
+                                showDiscardConfirm = false,
                             )
                         }
                     }
                 }
             }
             startInScratch -> selectScratchPath()
+            else ->
+                // Fresh create path: clear any leftover dialog from a reused VM.
+                _uiState.update { it.copy(showDiscardConfirm = false) }
         }
     }
 
@@ -249,14 +270,29 @@ class CreateProgramViewModel @Inject constructor(
             CreateProgramStep.Schedule ->
                 _uiState.update { it.copy(step = CreateProgramStep.MinimumVolume) }
             CreateProgramStep.Generating -> Unit
-            CreateProgramStep.Editor -> requestDiscard()
+            // Editor back is owned by CreateProgramRoute (needs nav pop on clean leave).
+            CreateProgramStep.Editor -> Unit
         }
     }
 
-    fun requestDiscard() {
-        if (_uiState.value.isDirty || _uiState.value.step == CreateProgramStep.Editor) {
-            _uiState.update { it.copy(showDiscardConfirm = true) }
+    /**
+     * Shows discard confirmation when leaving the editor with something to lose.
+     * Clean library edits ([isEditingExisting] + not dirty) do not prompt — the route should pop.
+     *
+     * @return true if the caller should navigate away immediately; false if a confirm UI was shown.
+     */
+    fun requestDiscard(): Boolean {
+        val state = _uiState.value
+        if (state.step != CreateProgramStep.Editor) {
+            return true
         }
+        // Loaded library program, no local edits — leave without a sheet.
+        if (state.isEditingExisting && !state.isDirty) {
+            return true
+        }
+        // New draft or dirty edit — confirm before leaving.
+        _uiState.update { it.copy(showDiscardConfirm = true) }
+        return false
     }
 
     fun dismissDiscard() {
@@ -580,6 +616,8 @@ class CreateProgramViewModel @Inject constructor(
                 isEditingExisting = isExisting,
                 originalIsActive = program.isActive,
                 loadErrorMessage = null,
+                // Never carry a discard sheet into a freshly loaded editor.
+                showDiscardConfirm = false,
             ).withEditorDerivedMetrics()
         }
     }

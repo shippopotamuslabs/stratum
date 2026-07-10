@@ -3,7 +3,8 @@ package com.stratum.feature.program.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -37,9 +39,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -70,6 +76,8 @@ import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.R
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun CreateProgramScreen(
@@ -425,6 +433,11 @@ private fun CreateProgramVolumeRow(state: CreateProgramUiState) {
 private const val DAY_TAB_REORDER_THRESHOLD_DP = 72f
 private val DayTabBarHeight = 48.dp
 private val DayTabIndicatorHeight = 2.dp
+/** Viewport edge band that triggers auto-scroll while reordering. */
+private val DayTabAutoScrollEdge = 56.dp
+/** Max scroll per frame (~60fps) when the finger is fully in the edge band. */
+private val DayTabAutoScrollMaxSpeed = 14.dp
+private const val DAY_TAB_AUTO_SCROLL_FRAME_MS = 16L
 
 @Composable
 private fun DayTabsRow(
@@ -434,19 +447,84 @@ private fun DayTabsRow(
     onAddDay: () -> Unit,
     onReorderDays: (fromIndex: Int, toIndex: Int) -> Unit,
 ) {
+    val scrollState = rememberScrollState()
     var draggedDayId by remember { mutableStateOf<String?>(null) }
     var draggedIndex by remember { mutableIntStateOf(-1) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     var tabWidthsPx by remember { mutableStateOf(emptyMap<String, Float>()) }
-    val density = LocalDensity.current.density
+    var viewportWidthPx by remember { mutableFloatStateOf(0f) }
+    var pointerXInViewport by remember { mutableFloatStateOf(Float.NaN) }
+    var viewportCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val density = LocalDensity.current
+    val densityScale = density.density
+    val edgeZonePx = with(density) { DayTabAutoScrollEdge.toPx() }
+    val maxScrollSpeedPx = with(density) { DayTabAutoScrollMaxSpeed.toPx() }
     val colors = StratumThemeAccessor.colors
     val borderWidth = StratumThemeAccessor.shapes.borderWidth
+    val latestDays by rememberUpdatedState(days)
+    val latestOnReorderDays by rememberUpdatedState(onReorderDays)
+
+    fun applyDragDelta(delta: Float) {
+        if (draggedIndex < 0 || draggedDayId == null) return
+        dragOffset += delta
+        val currentWidth =
+            tabWidthsPx[draggedDayId]
+                ?: (DAY_TAB_REORDER_THRESHOLD_DP * densityScale)
+        val thresholdPx = (currentWidth * 0.55f).coerceAtLeast(40f * densityScale)
+        val dayCount = latestDays.size
+        while (dragOffset > thresholdPx && draggedIndex < dayCount - 1) {
+            latestOnReorderDays(draggedIndex, draggedIndex + 1)
+            draggedIndex += 1
+            dragOffset -= thresholdPx
+        }
+        while (dragOffset < -thresholdPx && draggedIndex > 0) {
+            latestOnReorderDays(draggedIndex, draggedIndex - 1)
+            draggedIndex -= 1
+            dragOffset += thresholdPx
+        }
+    }
+
+    // Edge auto-scroll while a day tab is being reordered.
+    val isDragging = draggedDayId != null
+    LaunchedEffect(isDragging) {
+        if (!isDragging) return@LaunchedEffect
+        while (isActive) {
+            val x = pointerXInViewport
+            val width = viewportWidthPx
+            if (!x.isNaN() && width > 0f && edgeZonePx > 0f) {
+                val scrollDelta =
+                    when {
+                        x < edgeZonePx -> {
+                            val t = ((edgeZonePx - x) / edgeZonePx).coerceIn(0f, 1f)
+                            -maxScrollSpeedPx * t
+                        }
+                        x > width - edgeZonePx -> {
+                            val t = ((x - (width - edgeZonePx)) / edgeZonePx).coerceIn(0f, 1f)
+                            maxScrollSpeedPx * t
+                        }
+                        else -> 0f
+                    }
+                if (scrollDelta != 0f) {
+                    val before = scrollState.value
+                    scrollState.scrollBy(scrollDelta)
+                    val actual = (scrollState.value - before).toFloat()
+                    if (actual != 0f) {
+                        // Keep the dragged chip under the finger as content scrolls.
+                        applyDragDelta(actual)
+                    }
+                }
+            }
+            delay(DAY_TAB_AUTO_SCROLL_FRAME_MS)
+        }
+    }
 
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .height(DayTabBarHeight)
+                .onSizeChanged { size -> viewportWidthPx = size.width.toFloat() }
+                .onGloballyPositioned { coords -> viewportCoordinates = coords }
                 .drawBehind {
                     val y = size.height - borderWidth.toPx() / 2f
                     drawLine(
@@ -461,18 +539,19 @@ private fun DayTabsRow(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .horizontalScroll(rememberScrollState())
+                    .horizontalScroll(scrollState)
                     .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             days.forEachIndexed { index, day ->
                 val selected = day.id == selectedDayId
-                val isDragging = day.id == draggedDayId
+                val tabDragging = day.id == draggedDayId
                 DayTab(
                     name = day.name,
                     selected = selected,
-                    isDragging = isDragging,
-                    dragOffsetX = if (isDragging) dragOffset else 0f,
+                    isDragging = tabDragging,
+                    dragOffsetX = if (tabDragging) dragOffset else 0f,
+                    viewportCoordinates = { viewportCoordinates },
                     onSelect = { onSelectDay(day.id) },
                     onSizeChanged = { widthPx ->
                         tabWidthsPx = tabWidthsPx + (day.id to widthPx)
@@ -486,24 +565,11 @@ private fun DayTabsRow(
                         draggedDayId = null
                         draggedIndex = -1
                         dragOffset = 0f
+                        pointerXInViewport = Float.NaN
                     },
-                    onHorizontalDrag = drag@{ dragAmount ->
-                        if (draggedIndex < 0 || draggedDayId == null) return@drag
-                        dragOffset += dragAmount
-                        val currentWidth =
-                            tabWidthsPx[draggedDayId]
-                                ?: (DAY_TAB_REORDER_THRESHOLD_DP * density)
-                        val thresholdPx = (currentWidth * 0.55f).coerceAtLeast(40f * density)
-                        while (dragOffset > thresholdPx && draggedIndex < days.lastIndex) {
-                            onReorderDays(draggedIndex, draggedIndex + 1)
-                            draggedIndex += 1
-                            dragOffset -= thresholdPx
-                        }
-                        while (dragOffset < -thresholdPx && draggedIndex > 0) {
-                            onReorderDays(draggedIndex, draggedIndex - 1)
-                            draggedIndex -= 1
-                            dragOffset += thresholdPx
-                        }
+                    onHorizontalDrag = { dragAmount, pointerX ->
+                        pointerXInViewport = pointerX
+                        applyDragDelta(dragAmount)
                     },
                 )
             }
@@ -531,17 +597,21 @@ private fun DayTab(
     selected: Boolean,
     isDragging: Boolean,
     dragOffsetX: Float,
+    viewportCoordinates: () -> LayoutCoordinates?,
     onSelect: () -> Unit,
     onSizeChanged: (Float) -> Unit,
     onDragStart: () -> Unit,
     onDragEnd: () -> Unit,
-    onHorizontalDrag: (Float) -> Unit,
+    onHorizontalDrag: (dragAmount: Float, pointerXInViewport: Float) -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
+    val haptic = LocalHapticFeedback.current
     val dragDescription = stringResource(R.string.create_program_drag_day)
     val latestOnDragStart by rememberUpdatedState(onDragStart)
     val latestOnDragEnd by rememberUpdatedState(onDragEnd)
     val latestOnHorizontalDrag by rememberUpdatedState(onHorizontalDrag)
+    val latestViewportCoordinates by rememberUpdatedState(viewportCoordinates)
+    var handleCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     Column(
         modifier =
@@ -586,19 +656,38 @@ private fun DayTab(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // Drag handle owns the horizontal drag gesture so the tab row can still scroll.
+            // Long-press (~system 500ms) arms reorder; before that, swipes scroll the day strip.
+            // Near the strip edges while dragging, DayTabsRow auto-scrolls so long moves work.
             Box(
                 modifier =
                     Modifier
                         .size(28.dp)
+                        .onGloballyPositioned { coords -> handleCoordinates = coords }
                         .pointerInput(Unit) {
-                            detectHorizontalDragGestures(
-                                onDragStart = { latestOnDragStart() },
+                            fun pointerXInViewport(localPosition: Offset): Float {
+                                val handle = handleCoordinates?.takeIf { it.isAttached }
+                                    ?: return Float.NaN
+                                val viewport = latestViewportCoordinates()?.takeIf { it.isAttached }
+                                    ?: return Float.NaN
+                                val root = handle.localToRoot(localPosition)
+                                val origin = viewport.localToRoot(Offset.Zero)
+                                return root.x - origin.x
+                            }
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { startOffset ->
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    latestOnDragStart()
+                                    // Seed edge-scroll position before the first move event.
+                                    latestOnHorizontalDrag(0f, pointerXInViewport(startOffset))
+                                },
                                 onDragEnd = { latestOnDragEnd() },
                                 onDragCancel = { latestOnDragEnd() },
-                                onHorizontalDrag = { change, dragAmount ->
+                                onDrag = { change, dragAmount ->
                                     change.consume()
-                                    latestOnHorizontalDrag(dragAmount)
+                                    latestOnHorizontalDrag(
+                                        dragAmount.x,
+                                        pointerXInViewport(change.position),
+                                    )
                                 },
                             )
                         },
