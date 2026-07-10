@@ -44,6 +44,7 @@ private fun ReviewScreenPreviewGrid(family: StratumThemeId) {
                 generateMaxTimelineIndex = 0,
                 generateErrorMessage = null,
                 importProgramState = ImportProgramState.Idle,
+                importMaxTimelineIndex = 0,
             )
             ReviewScreen(
                 draft = ReviewDraftUi(),
@@ -55,6 +56,7 @@ private fun ReviewScreenPreviewGrid(family: StratumThemeId) {
                 generateMaxTimelineIndex = 0,
                 generateErrorMessage = null,
                 importProgramState = ImportProgramState.Idle,
+                importMaxTimelineIndex = 0,
             )
         }
     }

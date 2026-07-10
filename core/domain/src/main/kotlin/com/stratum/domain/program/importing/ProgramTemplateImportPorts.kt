@@ -9,6 +9,10 @@ package com.stratum.domain.program.importing
 enum class ProgramTemplateImportPhase {
     Uploading,
     Sniffing,
+    /** Server is normalizing the spreadsheet and scoring feasibility (custom path). */
+    Analyzing,
+    /** Server LLM is converting a custom spreadsheet into NormalizedProgramTemplate JSON. */
+    Converting,
     Parsing,
     MatchingCatalog,
     Complete,

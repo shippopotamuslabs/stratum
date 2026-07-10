@@ -3,23 +3,22 @@ import { FieldValue } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { createAdminToolStorage } from "../import/toolStorage";
 import { deterministicProgramConvert } from "./deterministic/deterministicProgramConvert";
+import { customLlmProgramConvert } from "./customLlmProgramConvert";
 import { ProgramTemplateTooLargeError } from "./programTemplateLimits";
 
-/** Rejection written when no deterministic parser recognizes the file. */
-const UNSUPPORTED_FORMAT_MESSAGE =
-  "Stratum can import Alpha Progression plan exports and MacroFactor program exports.";
-
 /**
- * Trigger for program-template import jobs. Picks up a `pending` job and runs the deterministic
- * parser (Alpha Progression plan CSV / MacroFactor program XLSX). Any other file — or any parse
- * failure — is rejected as unsupported. There is no LLM fallback: the two supported formats are
- * parsed exactly, and everything else is a user-visible "unsupported file" rejection.
+ * Trigger for program-template import jobs.
  *
- * Mirrors `processImportJob.ts` but targets `programImportJobs` and the program-template pipeline.
+ * 1. Claim the job as `running` so concurrent guards and heartbeats see live work.
+ * 2. Deterministic parsers (Alpha Progression plan CSV / MacroFactor program XLSX).
+ * 3. On miss: normalize spreadsheet → feasibility gate → region slice → single-shot LLM JSON.
+ * Calculator workbooks, garbage, and non-programs are rejected before any OpenRouter call.
  */
 export const processProgramTemplateJob = onDocumentWritten(
   {
     document: "users/{uid}/programImportJobs/{jobId}",
+    secrets: ["OPENROUTER_API_KEY", "OPENROUTER_MODEL"],
+    timeoutSeconds: 300,
     memory: "1GiB",
   },
   async (event) => {
@@ -39,23 +38,38 @@ export const processProgramTemplateJob = onDocumentWritten(
     const uid = event.params.uid;
     const jobId = event.params.jobId;
     const jobRef = admin.firestore().doc(`users/${uid}/programImportJobs/${jobId}`);
+    const storage = createAdminToolStorage();
 
-    // Deterministic parse only. Known formats convert in milliseconds. An oversized file is an
-    // abuse guard and surfaces as a distinct "too large" rejection. Anything else — unrecognized
-    // format, parse failure, or validation failure — is rejected as unsupported; from the user's
-    // perspective the file simply isn't one of the two formats Stratum can read.
+    // Claim promptly so a hard timeout leaves a timestamped `running` doc that start* can stale-out.
+    const claimed = await admin.firestore().runTransaction(async (tx) => {
+      const snap = await tx.get(jobRef);
+      if (!snap.exists || snap.data()?.status !== "pending") {
+        return false;
+      }
+      tx.update(jobRef, {
+        status: "running",
+        progressPhase: "sniffing",
+        progressMessage: "Preparing import…",
+        progressUpdatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return true;
+    });
+    if (!claimed) {
+      return;
+    }
+
+    // 1. Deterministic known formats (milliseconds, no LLM).
     try {
       const deterministic = await deterministicProgramConvert({
         uid,
         jobId,
         jobRef,
-        storage: createAdminToolStorage(),
+        storage,
       });
       if (deterministic) {
         return;
       }
-      await rejectUnsupported(jobRef);
-      return;
     } catch (err) {
       if (err instanceof ProgramTemplateTooLargeError) {
         await jobRef.update({
@@ -69,18 +83,57 @@ export const processProgramTemplateJob = onDocumentWritten(
       }
       const message = err instanceof Error ? err.message : String(err);
       console.warn(`deterministicProgramConvert threw for ${uid}/${jobId}: ${message}`);
-      await rejectUnsupported(jobRef);
+      // Fall through to custom path for unexpected parse errors on unknown shapes.
+    }
+
+    // 2. Custom spreadsheet path (feasibility may reject without LLM).
+    try {
+      const outcome = await customLlmProgramConvert({
+        uid,
+        jobId,
+        jobRef,
+        storage,
+      });
+      if (outcome.status === "ready") {
+        return;
+      }
+      if (outcome.status === "rejected") {
+        await jobRef.update({
+          status: "rejected",
+          progressPhase: "failed",
+          progressMessage: outcome.progressMessage,
+          errorMessage: outcome.errorMessage,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        return;
+      }
+      await jobRef.update({
+        status: "failed",
+        progressPhase: "failed",
+        progressMessage: "Import failed",
+        errorMessage: outcome.errorMessage,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      if (err instanceof ProgramTemplateTooLargeError) {
+        await jobRef.update({
+          status: "rejected",
+          progressPhase: "failed",
+          progressMessage: "File too large",
+          errorMessage: err.message,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        return;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`customLlmProgramConvert threw for ${uid}/${jobId}: ${message}`);
+      await jobRef.update({
+        status: "failed",
+        progressPhase: "failed",
+        progressMessage: "Import failed",
+        errorMessage: message,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
     }
   },
 );
-
-/** Write the terminal `rejected` status for a file no deterministic parser could handle. */
-async function rejectUnsupported(jobRef: admin.firestore.DocumentReference): Promise<void> {
-  await jobRef.update({
-    status: "rejected",
-    progressPhase: "failed",
-    progressMessage: "Unsupported file format",
-    errorMessage: UNSUPPORTED_FORMAT_MESSAGE,
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-}
