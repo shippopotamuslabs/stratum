@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.stratum.core.data.db.LiftSetDao
 import com.stratum.core.data.db.ProgramDao
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.db.TrainingSessionDao
 import com.stratum.core.data.db.WorkoutDao
 import com.stratum.core.data.db.WorkoutLiftDao
 import com.stratum.core.data.mapper.rejoinProgram
@@ -21,7 +22,9 @@ import kotlinx.coroutines.flow.mapLatest
  * sibling programs on save/activate. Child rows for a program are replaced by deleting that
  * program's workouts (FK cascade clears lifts/sets) then re-inserting.
  *
- * `observeProgram` / `getProgram` return the active user program only (import-history excluded).
+ * Session soft refs are **not** Room FKs, so template rewrite does not null `workout_id` on
+ * existing sessions. [deleteProgram] clears soft refs explicitly then removes the template;
+ * sessions and logged_sets remain.
  */
 class RoomProgramRepository @Inject constructor(
     private val database: StratumDatabase,
@@ -29,9 +32,15 @@ class RoomProgramRepository @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val workoutLiftDao: WorkoutLiftDao,
     private val liftSetDao: LiftSetDao,
+    private val trainingSessionDao: TrainingSessionDao,
 ) : ProgramRepository {
     override fun observeProgram(): Flow<Program?> =
         programDao.observeActive().mapLatest { entity ->
+            if (entity == null) null else readProgram(entity.id)
+        }
+
+    override fun observeProgramById(programId: ProgramId): Flow<Program?> =
+        programDao.observeById(programId).mapLatest { entity ->
             if (entity == null) null else readProgram(entity.id)
         }
 
@@ -64,11 +73,22 @@ class RoomProgramRepository @Inject constructor(
         database.withTransaction {
             val existing = programDao.getById(programId)
                 ?: error("Cannot activate unknown program: ${programId.value}")
-            check(existing.id.value != "import-history") {
+            check(!existing.id.isImportHistory) {
                 "Import-history program cannot be activated"
             }
             programDao.clearActiveFlags()
             programDao.setActive(programId, isActive = true)
+        }
+    }
+
+    override suspend fun deleteProgram(programId: ProgramId) {
+        check(!programId.isImportHistory) {
+            "Import-history program cannot be deleted"
+        }
+        database.withTransaction {
+            // Soft-unlink before template delete (no Room FK on sessions — explicit clear).
+            trainingSessionDao.clearSoftRefsForProgram(programId)
+            programDao.deleteById(programId)
         }
     }
 

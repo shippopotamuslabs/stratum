@@ -7,11 +7,13 @@ import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
 import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
+import com.stratum.domain.program.ObserveProgramByIdUseCase
 import com.stratum.domain.program.ObserveProgramUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.domain.program.mergeWorkout
 import com.stratum.domain.program.Workout
+import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.ProgramChangeEventPayload
@@ -34,6 +36,8 @@ import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
 import com.stratum.feature.program.ui.SaveBlockedReason
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +50,7 @@ import kotlinx.coroutines.launch
 @Suppress("ForbiddenRepositoryInViewModel")
 class EditWorkoutViewModel @Inject constructor(
     private val observeProgram: ObserveProgramUseCase,
+    private val observeProgramById: ObserveProgramByIdUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val saveWorkoutUseCase: SaveWorkoutUseCase,
     private val computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
@@ -93,52 +98,55 @@ class EditWorkoutViewModel @Inject constructor(
     private var catalogLifts: List<Lift> = emptyList()
     private var programSnapshot: Program? = null
     private var baselineWorkout: Workout? = null
+    /** When set, loads/saves that program (library or active); null = active only. */
+    private var scopedProgramId: ProgramId? = null
+    private var loadJob: Job? = null
 
-    fun initialize(workoutId: String) {
-        if (targetWorkoutId.value == workoutId && hasSnapshot.value) {
+    fun initialize(workoutId: String, programId: String? = null) {
+        if (targetWorkoutId.value == workoutId && hasSnapshot.value && scopedProgramId?.value == programId) {
             return
         }
         targetWorkoutId.value = workoutId
+        scopedProgramId = programId?.let { ProgramId(it) }
         hasSnapshot.value = false
         _uiState.value = EditWorkoutUiState.Loading
-        viewModelScope.launch {
-            combine(
-                observeProgram(),
-                observeLiftCatalog(),
-            ) { program, lifts ->
-                program to lifts
-            }.collect { (program, lifts) ->
-                catalogLifts = lifts
-                programSnapshot = program
-                val liftNamesById = lifts.associate { lift -> lift.id.value to lift.name }
-                val workout =
-                    program?.workouts?.firstOrNull { workout -> workout.id.value == workoutId }
-                baselineWorkout = workout
-
-                when {
-                    program == null || workout == null -> {
-                        if (!hasSnapshot.value) {
-                            _uiState.value =
-                                if (program == null) {
-                                    EditWorkoutUiState.NotFound
-                                } else {
-                                    EditWorkoutUiState.NotFound
-                                }
-                        }
+        loadJob?.cancel()
+        loadJob =
+            viewModelScope.launch {
+                combine(
+                    editableProgramFlow(scopedProgramId),
+                    observeLiftCatalog(),
+                ) { program, lifts ->
+                    program to lifts
+                }.collect { (program, lifts) ->
+                    catalogLifts = lifts
+                    if (hasSnapshot.value) {
+                        // Active edit session exists. Baseline updates from Room are ignored.
+                        return@collect
                     }
-                    !hasSnapshot.value -> {
-                        val compoundByLiftId = catalogLifts.associate { lift -> lift.id.value to lift.isCompound }
-                        val loaded = workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId).markSaveState()
-                        _uiState.value = applyDerivedMetrics(loaded)
-                        hasSnapshot.value = true
+                    programSnapshot = program
+                    val liftNamesById = lifts.associate { lift -> lift.id.value to lift.name }
+                    val workout =
+                        program?.workouts?.firstOrNull { candidate -> candidate.id.value == workoutId }
+                    baselineWorkout = workout
+                    if (program == null || workout == null) {
+                        _uiState.value = EditWorkoutUiState.NotFound
+                        return@collect
                     }
-                    else -> {
-                        // Active edit session exists. Baseline updates from Room are ignored to keep in-memory edits.
-                    }
+                    val compoundByLiftId = catalogLifts.associate { lift -> lift.id.value to lift.isCompound }
+                    val loaded = workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId).markSaveState()
+                    _uiState.value = applyDerivedMetrics(loaded)
+                    hasSnapshot.value = true
                 }
             }
-        }
     }
+
+    private fun editableProgramFlow(programId: ProgramId?): Flow<Program?> =
+        if (programId == null) {
+            observeProgram()
+        } else {
+            observeProgramById(programId)
+        }
 
     fun saveWorkout(onComplete: () -> Unit = {}) {
         val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
@@ -149,7 +157,11 @@ class EditWorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = loaded.copy(isSaving = true)
             val updatedWorkout = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))
-            saveWorkoutUseCase(WorkoutId(loaded.workoutId), updatedWorkout)
+            saveWorkoutUseCase(
+                workoutId = WorkoutId(loaded.workoutId),
+                updatedWorkout = updatedWorkout,
+                programId = scopedProgramId ?: programSnapshot?.id,
+            )
                 .onSuccess {
                     // Slice 8 (D11): append a SchemeChanged event for each lift whose
                     // progression scheme differs from the baseline (compounds only —

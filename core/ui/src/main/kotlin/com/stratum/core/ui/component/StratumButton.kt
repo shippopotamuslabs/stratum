@@ -22,18 +22,22 @@ fun StratumButton(
     enabled: Boolean = true,
     style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    /** When true, uses error semantic colors (destructive confirms). */
+    destructive: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val colors = StratumThemeAccessor.colors
     Button(
         onClick = onClick,
         modifier = modifier.heightIn(min = MinTouchHeight),
         enabled = enabled,
         shape = StratumThemeAccessor.shapes.button,
         colors = ButtonDefaults.buttonColors(
-            containerColor = StratumThemeAccessor.colors.accent,
-            contentColor = StratumThemeAccessor.colors.onAccent,
-            disabledContainerColor = StratumThemeAccessor.colors.accentMuted,
-            disabledContentColor = StratumThemeAccessor.colors.onAccent,
+            containerColor = if (destructive) colors.error else colors.accent,
+            contentColor = if (destructive) colors.onError else colors.onAccent,
+            disabledContainerColor =
+                if (destructive) colors.error.copy(alpha = 0.5f) else colors.accentMuted,
+            disabledContentColor = if (destructive) colors.onError else colors.onAccent,
         ),
         contentPadding = contentPadding,
     ) {

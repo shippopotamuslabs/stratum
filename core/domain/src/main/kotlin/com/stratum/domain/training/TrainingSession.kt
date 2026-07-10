@@ -22,9 +22,19 @@ enum class TrainingSessionOrigin {
     LIVE,
 }
 
+/**
+ * One training session (program workout, rest skip, ad-hoc, or import).
+ *
+ * History is permanent: [programId] / [workoutId] are soft references cleared when the
+ * program template is deleted (not Room FKs — template rewrite must not unlink live sessions).
+ * Display names are snapshotted at **session create** only so history UI does not need the live
+ * program hierarchy or a probe of [LoggedSet] rows.
+ */
 data class TrainingSession(
     val id: TrainingSessionId,
-    val programId: ProgramId,
+    /** Live program id when known; null after the program template is deleted. */
+    val programId: ProgramId?,
+    /** Live workout id when known; null for rest/ad-hoc or after soft-unlink on program delete. */
     val workoutId: WorkoutId?,
     val status: TrainingSessionStatus,
     val kind: TrainingSessionKind,
@@ -34,4 +44,8 @@ data class TrainingSession(
     val startedAt: Instant,
     val endedAt: Instant?,
     val sourceApp: String?,
+    /** Program display name at session create (survives program delete). */
+    val programNameSnapshot: String? = null,
+    /** Workout display name at session create (survives template delete); null for rest/ad-hoc. */
+    val workoutNameSnapshot: String? = null,
 )

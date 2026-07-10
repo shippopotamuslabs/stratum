@@ -30,6 +30,8 @@ class RecordRestDaySkipUseCase @Inject constructor(
                 startedAt = now,
                 endedAt = now,
                 sourceApp = null,
+                programNameSnapshot = program.name,
+                workoutNameSnapshot = null,
             )
 
         trainingLogRepository.persistSessionWithCycleEffects(

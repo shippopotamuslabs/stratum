@@ -59,13 +59,21 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
 
         val cycleEffects =
             if (completed.kind == TrainingSessionKind.PROGRAM_WORKOUT) {
-                val program =
-                    programRepository.getProgram()
-                        ?: error("No active program found to advance cycle after workout completion")
-                val sessions =
-                    trainingLogRepository.getAllSessions()
-                        .filter { it.id != session.id } + completed
-                computeCycleAdvancement(program, sessions)
+                val program = programRepository.getProgram()
+                // Orphan / soft-unlinked sessions (program deleted) complete as ledger-only —
+                // do not advance the current active program's cycle pointer.
+                if (
+                    program == null ||
+                    completed.programId == null ||
+                    completed.programId != program.id
+                ) {
+                    null
+                } else {
+                    val sessions =
+                        trainingLogRepository.getAllSessions()
+                            .filter { it.id != session.id } + completed
+                    computeCycleAdvancement(program, sessions)
+                }
             } else {
                 null
             }

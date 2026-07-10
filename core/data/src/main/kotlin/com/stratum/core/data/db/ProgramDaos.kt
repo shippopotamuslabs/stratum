@@ -35,6 +35,9 @@ interface ProgramDao {
     @Query("SELECT * FROM programs WHERE id = :programId LIMIT 1")
     suspend fun getById(programId: ProgramId): ProgramEntity?
 
+    @Query("SELECT * FROM programs WHERE id = :programId LIMIT 1")
+    fun observeById(programId: ProgramId): Flow<ProgramEntity?>
+
     @Query(
         """
         SELECT * FROM programs

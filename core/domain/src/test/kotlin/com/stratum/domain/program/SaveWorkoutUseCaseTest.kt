@@ -88,6 +88,41 @@ class SaveWorkoutUseCaseTest {
         assertEquals(TWO_WORKOUT_PROGRAM, repository.getProgram())
     }
 
+    @Test
+    @DisplayName("When programId targets inactive library program then workout merges without activating")
+    fun saveWorkoutInLibraryProgramPreservesInactive() = runTest {
+        val active = TWO_WORKOUT_PROGRAM
+        val library =
+            TWO_WORKOUT_PROGRAM.copy(
+                id = ProgramId("p-library"),
+                isActive = false,
+                name = "Library Split",
+                workouts =
+                    TWO_WORKOUT_PROGRAM.workouts.map { workout ->
+                        workout.copy(
+                            id = WorkoutId("lib-${workout.id.value}"),
+                            programId = ProgramId("p-library"),
+                        )
+                    },
+            )
+        val repository = FakeProgramRepository(active)
+        repository.saveToLibrary(library)
+        val useCase = SaveWorkoutUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
+        val targetWorkout = library.workouts.first()
+        val updated =
+            targetWorkout.copy(
+                name = "Library Push Updated",
+            )
+
+        val result = useCase(targetWorkout.id, updated, programId = library.id)
+
+        assertTrue(result.isSuccess)
+        val savedLibrary = repository.getProgramById(library.id)!!
+        assertEquals(false, savedLibrary.isActive)
+        assertEquals("Library Push Updated", savedLibrary.workouts.first().name)
+        assertEquals(active.id, repository.getProgram()?.id)
+    }
+
     private fun sampleWorkout(): Workout =
         Workout(
             id = WorkoutId("missing"),
