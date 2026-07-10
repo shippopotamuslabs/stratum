@@ -8,7 +8,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.SpecializationLevel
-import com.stratum.domain.program.ProgressionScheme as DomainProgressionScheme
+import com.stratum.domain.program.ProgressionRepRangePolicy
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.LiftSetDraft
@@ -172,17 +172,26 @@ private fun buildLiftDrafts(
             setCount = sel.slot.setCount,
         )
         val setCount = sel.slot.setCount
-        val sets = (0 until setCount).map { i ->
-            val isTopSet = scheme == DomainProgressionScheme.Double && i == 0
-            LiftSetDraft(
-                position = i,
-                setType = SetType.Standard,
-                repMin = repRir.repMin,
-                repMax = repRir.repMax,
-                rirGoal = if (isTopSet) repRir.topSetRir else repRir.backOffRir,
-                isTopSet = isTopSet,
+        // Scheme-aware top-set + rep-range shape is owned by domain policy so generation
+        // cannot drift from edit-workout / normalizer (ProgressionRepRangePolicy).
+        val repSpecs =
+            ProgressionRepRangePolicy.generate(
+                scheme = scheme,
+                setCount = setCount,
+                plannedRepMin = repRir.repMin,
+                plannedRepMax = repRir.repMax,
             )
-        }
+        val sets =
+            repSpecs.mapIndexed { i, spec ->
+                LiftSetDraft(
+                    position = i,
+                    setType = SetType.Standard,
+                    repMin = spec.repMin,
+                    repMax = spec.repMax,
+                    rirGoal = if (spec.isTopSet) repRir.topSetRir else repRir.backOffRir,
+                    isTopSet = spec.isTopSet,
+                )
+            }
         ProgramLiftDraft(
             liftId = sel.lift.id,
             position = liftIndex,

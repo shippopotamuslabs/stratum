@@ -640,6 +640,7 @@ private fun EditLiftPanel(
 
         EditWorkoutSetTable(
             sets = lift.sets,
+            progressionScheme = lift.progressionScheme,
             onAddSet = onAddSet,
             onRemoveSet = onRemoveSet,
             onRepMinChange = onSetRepMin,

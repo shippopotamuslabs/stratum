@@ -4,6 +4,7 @@ package com.stratum.domain.program.generation.schema
 
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.TrainingAge
+import com.stratum.domain.program.ProgressionRepRangePolicy
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.draft.ProgramDraft
@@ -17,8 +18,10 @@ import com.stratum.domain.program.generation.reference.schemeForTrainingAge
  * Validate + deterministically normalize the parsed model payload.
  *
  * Validate: every workoutLift.liftId in [request.enabledLiftIds]; ≥1 workout after validation;
- * Double lifts have exactly one top set with a rep range.
- * Normalize: progressionScheme from trainingAge; clamp RIR per §2.3; enforce straight sets.
+ * Double lifts must arrive with at least one positive rep range (pre-heal) so we never invent
+ * a prescription band from nothing.
+ * Normalize: progressionScheme from trainingAge; clamp RIR per §2.3; [ProgressionRepRangePolicy]
+ * for top-set + rep-range shape (Double RIR-only backoffs, Linear shared band).
  */
 fun parseAndNormalizeProgram(
     program: ProgramDraft,
@@ -76,14 +79,17 @@ private fun normalizeLifts(
         val liftPattern = request.movementPatternByLiftId[liftId]
         val isMajorCompound = liftPattern != null && liftPattern in MAJOR_COMPOUND_PATTERNS
         val scheme = schemeForTrainingAge(trainingAge, lastTrained, isMajorCompound)
-        val sets = normalizeSets(lift, isMajorCompound, scheme)
-        if (sets.isEmpty()) continue
+        // Fail closed before heal: Double needs a real band from the draft/model.
+        // Shape normalize will place it on the sole top set and zero backoffs.
         if (scheme == ProgressionScheme.Double) {
-            val topSets = sets.filter { it.isTopSet }
-            if (topSets.size != 1 || topSets.first().repMin <= 0 || topSets.first().repMax <= 0) {
-                error("Double progression lift $liftId must have exactly one top set with a rep range")
+            val drafts = lift.workoutLiftSets.orEmpty()
+            val hasBand = drafts.any { set -> set.repMin > 0 || set.repMax > 0 }
+            if (drafts.isNotEmpty() && !hasBand) {
+                error("Double progression lift $liftId must have a rep range on at least one set")
             }
         }
+        val sets = normalizeSets(lift, isMajorCompound, scheme)
+        if (sets.isEmpty()) continue
         out += NormalizedLift(
             liftId = liftId,
             position = lift.position ?: out.size,
@@ -97,27 +103,41 @@ private fun normalizeLifts(
 private fun normalizeSets(
     lift: ProgramLiftDraft,
     isMajorCompound: Boolean,
-    @Suppress("UnusedParameter") scheme: ProgressionScheme,
+    scheme: ProgressionScheme,
 ): List<NormalizedSet> {
-    val out = mutableListOf<NormalizedSet>()
-    for (set in lift.workoutLiftSets.orEmpty()) {
-        val isTopSet = set.isTopSet
-        val rirGoal = if (isTopSet) {
-            TOP_SET_RIR
-        } else {
-            clampBackOffRir(isMajorCompound, set.rirGoal)
-        }
-        val setType = set.setType
-        out += NormalizedSet(
-            position = set.position,
-            setType = setType,
-            repMin = set.repMin,
-            repMax = set.repMax,
+    val drafts = lift.workoutLiftSets.orEmpty().sortedBy { it.position }
+    if (drafts.isEmpty()) return emptyList()
+
+    // Canonical top-set + rep-range shape (Double RIR-only backoffs, Linear shared band).
+    val repSpecs =
+        ProgressionRepRangePolicy.normalize(
+            scheme = scheme,
+            orderedSets =
+                drafts.map { draft ->
+                    ProgressionRepRangePolicy.WorkingSetRepSpec(
+                        repMin = draft.repMin,
+                        repMax = draft.repMax,
+                        isTopSet = draft.isTopSet,
+                    )
+                },
+        )
+
+    return drafts.zip(repSpecs).map { (draft, spec) ->
+        val rirGoal =
+            if (spec.isTopSet) {
+                TOP_SET_RIR
+            } else {
+                clampBackOffRir(isMajorCompound, draft.rirGoal)
+            }
+        NormalizedSet(
+            position = draft.position,
+            setType = draft.setType,
+            repMin = spec.repMin,
+            repMax = spec.repMax,
             rirGoal = rirGoal,
-            isTopSet = isTopSet,
+            isTopSet = spec.isTopSet,
         )
     }
-    return out
 }
 
 private fun parseTrainingAge(trainingAge: String): TrainingAge? =
