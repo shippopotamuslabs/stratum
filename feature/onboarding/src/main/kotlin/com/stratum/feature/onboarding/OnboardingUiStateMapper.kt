@@ -47,6 +47,8 @@ internal fun buildOnboardingUiState(
             hasCompletedHistoricalImport = ephemeral.hasCompletedHistoricalImport,
             importProgress = ephemeral.importProgress,
             importError = ephemeral.importError,
+            importUnsupportedFile = ephemeral.importUnsupportedFile,
+            historicalImportMaxTimelineIndex = ephemeral.historicalImportMaxTimelineIndex,
             presetApplyError = ephemeral.presetApplyError,
             importInsightsSummary = ephemeral.importInsightsSummary,
             importResumeScalars = importResumeScalars,
@@ -60,6 +62,7 @@ internal fun buildOnboardingUiState(
         generateMaxTimelineIndex = ephemeral.generateMaxTimelineIndex,
         generateErrorMessage = ephemeral.generateErrorMessage,
         importProgramState = ephemeral.importProgramState,
+        importMaxTimelineIndex = ephemeral.importMaxTimelineIndex,
         navigationError = ephemeral.navigationError,
     )
 }

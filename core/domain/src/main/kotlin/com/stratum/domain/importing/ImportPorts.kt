@@ -77,6 +77,17 @@ enum class RemoteImportJobStatus {
     AgentRunning,
     Ready,
     Failed,
+    /** Server rejected the file as not a training log (no agent spend). */
+    Rejected,
+}
+
+/**
+ * Distinguishes infra/agent failures from unsupported files so UI can show distinct copy
+ * while multi-file resume still uses a single [HistoricalImportEvent.Failed] branch.
+ */
+enum class ImportFailureKind {
+    Generic,
+    UnsupportedFile,
 }
 
 data class UploadRefs(
@@ -120,8 +131,14 @@ sealed interface HistoricalImportEvent {
         val message: String,
         /** Present when one or more files converted successfully before a later file failed. */
         val resume: HistoricalImportResumeState? = null,
+        val kind: ImportFailureKind = ImportFailureKind.Generic,
     ) : HistoricalImportEvent
 }
+
+/** Thrown when the remote job ends in [RemoteImportJobStatus.Rejected]. */
+class UnsupportedImportFileException(
+    message: String,
+) : Exception(message)
 
 /**
  * Checkpoint for resuming a multi-file import without re-converting files that already succeeded.

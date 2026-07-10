@@ -29,7 +29,6 @@ data class OnboardingWizardState(
      * reliable Import signal.
      */
     val onboardingPath: OnboardingPath? get() = when (currentStep) {
-        OnboardingStep.Welcome,
         OnboardingStep.Profile,
         OnboardingStep.GymAndLifts,
         OnboardingStep.ChoosePath,

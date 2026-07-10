@@ -34,10 +34,10 @@ typealias ProgramTemplateImportProgressCallback = suspend (ProgramTemplateImport
  *    and mark onboarding complete.
  *
  * Mirrors [com.stratum.domain.program.GenerateProgramUseCase] but sources the program from an
- * uploaded file instead of the generation pipeline. Parsing on the server is deterministic — the
- * two supported formats (Alpha Progression plan CSV, MacroFactor program XLSX) convert in
- * milliseconds, and any other file is rejected as unsupported. A Rejected job (unsupported or
- * unrecognized file) throws [ProgramTemplateRejectedException] so the UI can show a distinct message.
+ * uploaded file instead of the generation pipeline. The server tries deterministic parsers first
+ * (Alpha Progression plan CSV, MacroFactor program XLSX), then a custom spreadsheet path
+ * (normalize → feasibility gate → LLM JSON). Unsupported or unconvertible files are Rejected.
+ * A Rejected job throws [ProgramTemplateRejectedException] so the UI can show a distinct message.
  *
  * @throws ProgramTemplateRejectedException when the server rejects the file as unsupported.
  */
@@ -126,7 +126,8 @@ class ImportProgramTemplateUseCase @Inject constructor(
 
     private companion object {
         const val POLL_INTERVAL_MS = 2_000L
-        const val POLL_TIMEOUT_MS = 60_000L
+        /** Custom LLM conversion may take a few minutes; deterministic paths finish far sooner. */
+        const val POLL_TIMEOUT_MS = 5 * 60 * 1_000L
     }
 }
 

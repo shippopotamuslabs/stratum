@@ -6,7 +6,13 @@ import {
   WRITE_CONVERSION_SCRIPT_DESCRIPTION,
 } from "./importDomainRules";
 
-export type ImportJobStatus = "pending_agent" | "agent_running" | "ready" | "failed";
+export type ImportJobStatus =
+  | "pending_agent"
+  | "agent_running"
+  | "ready"
+  | "failed"
+  /** File is not a training log — rejected before the agent (no OpenRouter spend). */
+  | "rejected";
 
 export type ImportProgressPhase =
   | "reading_data"

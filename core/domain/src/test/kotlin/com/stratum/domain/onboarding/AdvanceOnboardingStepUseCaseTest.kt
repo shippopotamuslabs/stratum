@@ -90,7 +90,7 @@ class AdvanceOnboardingStepUseCaseTest {
         val profile = UserTrainingProfile(trainingAge = TrainingAge.Beginner)
 
         val result = subject(
-            currentStep = OnboardingStep.Profile,
+            currentStep = OnboardingStep.GymAndLifts,
             direction = OnboardingStepDirection.Backward,
             profile = profile,
             specialization = SpecializationPreference.Empty,
@@ -99,19 +99,19 @@ class AdvanceOnboardingStepUseCaseTest {
         )
 
         assertTrue(result is AdvanceOnboardingStepResult.Success)
-        assertEquals(OnboardingStep.Welcome, (result as AdvanceOnboardingStepResult.Success).newStep)
+        assertEquals(OnboardingStep.Profile, (result as AdvanceOnboardingStepResult.Success).newStep)
         assertEquals(TrainingAge.Beginner, fakeProfile.current?.trainingAge)
     }
 
     @Test
-    @DisplayName("Given Welcome step when going back then returns NoOp")
+    @DisplayName("Given Profile step when going back then returns NoOp")
     fun backwardFromFirstIsNoOp() = runTest {
         fakeOnboarding.seed(
-            OnboardingProgress(OnboardingStep.Welcome, startedAt = 0L, completedAt = null),
+            OnboardingProgress(OnboardingStep.Profile, startedAt = 0L, completedAt = null),
         )
 
         val result = subject(
-            currentStep = OnboardingStep.Welcome,
+            currentStep = OnboardingStep.Profile,
             direction = OnboardingStepDirection.Backward,
             profile = UserTrainingProfile.Empty,
             specialization = SpecializationPreference.Empty,

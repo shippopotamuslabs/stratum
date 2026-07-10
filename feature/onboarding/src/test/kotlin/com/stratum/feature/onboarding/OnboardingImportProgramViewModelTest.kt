@@ -264,6 +264,7 @@ class OnboardingImportProgramViewModelTest {
             ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
+            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
         )
         return Triple(viewModel, onboardingRepo, programRepo)
     }

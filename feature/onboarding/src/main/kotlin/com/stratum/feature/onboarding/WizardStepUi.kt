@@ -22,20 +22,17 @@ data class WizardStepUi(
  */
 internal fun stepsForPath(path: OnboardingPath?): List<OnboardingStep> = when (path) {
     null -> listOf(
-        OnboardingStep.Welcome,
         OnboardingStep.Profile,
         OnboardingStep.GymAndLifts,
         OnboardingStep.ChoosePath,
     )
     OnboardingPath.Import -> listOf(
-        OnboardingStep.Welcome,
         OnboardingStep.Profile,
         OnboardingStep.GymAndLifts,
         OnboardingStep.ChoosePath,
         OnboardingStep.Review,
     )
     OnboardingPath.Generate -> listOf(
-        OnboardingStep.Welcome,
         OnboardingStep.Profile,
         OnboardingStep.GymAndLifts,
         OnboardingStep.ChoosePath,
@@ -63,7 +60,6 @@ internal fun allWizardSteps(path: OnboardingPath? = null): List<WizardStepUi> =
     stepsForPath(path).map { it.toWizardStepUi(path) }
 
 internal fun OnboardingStep.toStepDisplayName(): String = when (this) {
-    OnboardingStep.Welcome -> "Welcome"
     OnboardingStep.Profile -> "Profile"
     OnboardingStep.GymAndLifts -> "Gym & Lifts"
     OnboardingStep.ChoosePath -> "Program Option"

@@ -27,7 +27,7 @@ class OnboardingStatusViewModelTest {
     fun setup() {
         fakeRepository.seed(
             OnboardingProgress(
-                currentStep = OnboardingStep.Welcome,
+                currentStep = OnboardingStep.Profile,
                 startedAt = FakeOnboardingRepository.STARTED_AT,
                 completedAt = null,
             ),
@@ -63,7 +63,7 @@ class OnboardingStatusViewModelTest {
     fun completedOnboardingEmitsTrueWithoutFalseFlash() = runTest {
         fakeRepository.seed(
             OnboardingProgress(
-                currentStep = OnboardingStep.Welcome,
+                currentStep = OnboardingStep.Profile,
                 startedAt = FakeOnboardingRepository.STARTED_AT,
                 completedAt = FakeOnboardingRepository.COMPLETED_AT,
             ),
@@ -104,7 +104,7 @@ class OnboardingStatusViewModelTest {
     fun reopenOnboardingResetsIsComplete() = runTest {
         fakeRepository.seed(
             OnboardingProgress(
-                currentStep = OnboardingStep.Welcome,
+                currentStep = OnboardingStep.Profile,
                 startedAt = FakeOnboardingRepository.STARTED_AT,
                 completedAt = FakeOnboardingRepository.COMPLETED_AT,
             ),
