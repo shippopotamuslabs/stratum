@@ -1,5 +1,6 @@
 package com.stratum.domain.workout.progression
 
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.ProgressionScheme
@@ -28,6 +29,11 @@ data class SlotProgressionRequest(
      * actually done at this slot position last time) — it is NOT used for math.
      */
     val progressionBaseline: ProgressionBaseline? = null,
+    /**
+     * Per-lift increment bands from the catalog. Empty → engine uses its scheme default
+     * (Double: 5 lb; Linear: [LinearProgressionConfig] values).
+     */
+    val incrementTiers: List<IncrementTier> = emptyList(),
 )
 
 /**

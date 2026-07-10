@@ -194,6 +194,8 @@ class WorkoutViewModel @Inject constructor(
                                 workoutId = workoutId,
                                 lifts = workout.workoutLifts,
                                 loadTypesById = liftsById.mapValues { it.value.loadType },
+                                incrementTiersById =
+                                    liftsById.mapValues { (_, lift) -> lift.incrementTiers },
                             ),
                         )
                         val snapshot = snapshotResult.getOrDefault(
