@@ -196,7 +196,7 @@ class FirestorePendingUploadEngine @Inject constructor(
         if (pending.isEmpty()) return false
         val completed = mutableListOf<String>()
         for (row in pending) {
-            when (val outcome = flushOneTombstone(userId, deviceId, writtenAt, row)) {
+            when (flushOneTombstone(userId, deviceId, writtenAt, row)) {
                 TombstoneOutcome.DropOutbox, TombstoneOutcome.Written -> completed.add(row.rowId)
                 TombstoneOutcome.SkipKeepOutbox -> Unit
             }
