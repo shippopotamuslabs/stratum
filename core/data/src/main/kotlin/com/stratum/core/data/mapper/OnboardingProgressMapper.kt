@@ -1,7 +1,9 @@
 package com.stratum.core.data.mapper
 
 import com.stratum.core.data.db.OnboardingProgressEntity
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.onboarding.OnboardingProgress
+import com.stratum.domain.onboarding.identity.OnboardingProgressId
 
 /**
  * Maps [OnboardingProgressEntity] ⇄ domain [OnboardingProgress]. [currentStep] is a typed
@@ -15,10 +17,14 @@ fun OnboardingProgressEntity.toDomain(): OnboardingProgress =
         completedAt = completedAt,
     )
 
-fun OnboardingProgress.toEntity(): OnboardingProgressEntity =
+fun OnboardingProgress.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): OnboardingProgressEntity =
     OnboardingProgressEntity(
-        id = OnboardingProgressEntity.ID,
+        id = OnboardingProgressId.Default,
         currentStep = currentStep,
         startedAt = startedAt,
         completedAt = completedAt,
+        updatedAtEpochMillis = nowMillis,
+        pendingSync = SyncFlags.PENDING_UPSERT,
     )

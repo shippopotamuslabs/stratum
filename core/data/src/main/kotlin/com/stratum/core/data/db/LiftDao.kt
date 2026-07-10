@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
  * reads, `@Upsert` for upserts, typed [LiftId] params throughout.
  */
 @Dao
+@Suppress("TooManyFunctions")
 interface LiftDao {
     /** Atomic read of every lift with its increment tiers, as a hot stream. */
     @Transaction
@@ -67,9 +69,17 @@ interface LiftDao {
     @Upsert
     suspend fun upsertAll(lifts: List<LiftEntity>)
 
-    /** Flip one lift's availability flag. */
-    @Query("UPDATE lifts SET enabled = :enabled WHERE id = :id")
-    suspend fun setEnabled(id: LiftId, enabled: Boolean)
+    /** Flip one lift's availability flag and mark dirty for sync. */
+    @Query(
+        """
+        UPDATE lifts
+        SET enabled = :enabled,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id
+        """,
+    )
+    suspend fun setEnabled(id: LiftId, enabled: Boolean, updatedAtEpochMillis: Long)
 
     /**
      * Update primary/secondary muscle bitmasks for a **custom** lift only. Catalog rows are
@@ -79,11 +89,18 @@ interface LiftDao {
         """
         UPDATE lifts
         SET primaryMusclesBitmask = :primaryBitmask,
-            secondaryMusclesBitmask = :secondaryBitmask
+            secondaryMusclesBitmask = :secondaryBitmask,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
         WHERE id = :id AND isCustom = 1
         """,
     )
-    suspend fun updateMuscles(id: LiftId, primaryBitmask: Int, secondaryBitmask: Int)
+    suspend fun updateMuscles(
+        id: LiftId,
+        primaryBitmask: Int,
+        secondaryBitmask: Int,
+        updatedAtEpochMillis: Long,
+    )
 
     /**
      * Update non-derived metadata for a **custom** lift only. Category is not stored.
@@ -95,7 +112,9 @@ interface LiftDao {
             muscleLengthBias = :muscleLengthBias,
             kinematicProfile = :kinematicProfile,
             loadType = :loadType,
-            equipment = :equipment
+            equipment = :equipment,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
         WHERE id = :id AND isCustom = 1
         """,
     )
@@ -106,18 +125,35 @@ interface LiftDao {
         kinematicProfile: KinematicProfile,
         loadType: LoadType,
         equipment: String?,
+        updatedAtEpochMillis: Long,
     )
 
     /**
      * Per-lift default rest override for catalog and custom lifts. Null clears the override.
      * Does not rewrite existing workout set rest values.
      */
-    @Query("UPDATE lifts SET defaultRestSeconds = :restSeconds WHERE id = :id")
-    suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?)
+    @Query(
+        """
+        UPDATE lifts
+        SET defaultRestSeconds = :restSeconds,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id
+        """,
+    )
+    suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?, updatedAtEpochMillis: Long)
 
     /** Enable every lift in [ids] in a single statement (preset apply). */
-    @Query("UPDATE lifts SET enabled = 1 WHERE id IN (:ids)")
-    suspend fun enableAll(ids: List<LiftId>)
+    @Query(
+        """
+        UPDATE lifts
+        SET enabled = 1,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id IN (:ids)
+        """,
+    )
+    suspend fun enableAll(ids: List<LiftId>, updatedAtEpochMillis: Long)
 
     /** Count of currently-enabled lifts (validation uses this implicitly via the stream). */
     @Query("SELECT COUNT(*) FROM lifts WHERE enabled = 1")
@@ -130,4 +166,22 @@ interface LiftDao {
     /** Bundled seed rows only — customs must not suppress catalog seeding. */
     @Query("SELECT COUNT(*) FROM lifts WHERE isCustom = 0")
     suspend fun countSeedLifts(): Int
+
+    @Query("SELECT * FROM lifts WHERE pending_sync != ${SyncFlags.CLEAN} LIMIT :limit")
+    suspend fun getPending(limit: Int = 500): List<LiftEntity>
+
+    @Query(
+        """
+        UPDATE lifts
+        SET pending_sync = ${SyncFlags.CLEAN}
+        WHERE id = :id AND updated_at_epoch_millis = :updatedAt
+        """,
+    )
+    suspend fun markSyncedIfUnchanged(id: String, updatedAt: Long)
+
+    @Query("SELECT * FROM lifts WHERE id = :id LIMIT 1")
+    suspend fun getById(id: LiftId): LiftEntity?
+
+    @Query("DELETE FROM lifts WHERE id = :id")
+    suspend fun deleteById(id: LiftId)
 }

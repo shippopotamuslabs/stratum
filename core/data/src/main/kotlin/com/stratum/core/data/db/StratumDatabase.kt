@@ -35,6 +35,7 @@ import androidx.room.TypeConverters
         LiftSetEntity::class,
         TrainingSessionEntity::class,
         ProgramChangeEventEntity::class,
+        PendingCloudDeleteEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -99,6 +100,8 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun trainingLoggedSetDao(): TrainingLoggedSetDao
 
     abstract fun programChangeEventDao(): ProgramChangeEventDao
+
+    abstract fun pendingCloudDeleteDao(): PendingCloudDeleteDao
 
     companion object {
         const val DATABASE_NAME = "stratum.db"

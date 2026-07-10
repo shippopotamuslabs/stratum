@@ -89,6 +89,7 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 ortools-java = { group = "com.google.ortools", name = "ortools-java", version.ref = "ortools" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 firebase-functions = { group = "com.google.firebase", name = "firebase-functions" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
 firebase-appcheck = { group = "com.google.firebase", name = "firebase-appcheck" }

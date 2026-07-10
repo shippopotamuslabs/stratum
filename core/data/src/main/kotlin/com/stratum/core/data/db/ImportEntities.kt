@@ -1,9 +1,11 @@
 package com.stratum.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MuscleLengthBias
@@ -70,6 +72,10 @@ data class LoggedSetEntity(
     val rirGoal: Int? = null,
     val isPersonalRecord: Boolean? = null,
     val estimatedOneRm: Double? = null,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )
 
 @Entity(tableName = "lift_training_insights")

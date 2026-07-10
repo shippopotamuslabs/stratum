@@ -3,12 +3,14 @@ package com.stratum.core.data.mapper
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.LiftWithTiers
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 
@@ -55,7 +57,10 @@ fun LiftWithTiers.toDomain(): Lift = Lift(
     defaultRestSeconds = lift.defaultRestSeconds,
 )
 
-fun Lift.toEntity(): LiftEntity = LiftEntity(
+/** Local user write — marks lift dirty for cloud upload. Seed uses [toSeedEntity]. */
+fun Lift.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): LiftEntity = LiftEntity(
     id = id,
     name = name,
     movementPatternsBitmask = movementPatterns.toBitmask(),
@@ -72,14 +77,22 @@ fun Lift.toEntity(): LiftEntity = LiftEntity(
     kinematicProfile = kinematicProfile,
     loadType = loadType,
     defaultRestSeconds = defaultRestSeconds,
+    updatedAtEpochMillis = nowMillis,
+    pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-fun Lift.toTierEntities(): List<IncrementTierEntity> = incrementTiers.map { tier ->
+fun Lift.toTierEntities(
+    nowMillis: Long = System.currentTimeMillis(),
+    pendingSync: Int = SyncFlags.PENDING_UPSERT,
+): List<IncrementTierEntity> = incrementTiers.map { tier ->
     IncrementTierEntity(
+        id = IncrementTierId.forBand(id, tier.lowerBound.amount),
         liftId = id,
         lowerBound = tier.lowerBound.amount,
         upperBound = tier.upperBound?.amount,
         increment = tier.increment.amount,
+        updatedAtEpochMillis = nowMillis,
+        pendingSync = pendingSync,
     )
 }
 

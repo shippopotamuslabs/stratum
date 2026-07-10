@@ -1,7 +1,9 @@
 package com.stratum.core.data.mapper
 
 import com.stratum.core.data.db.GymPreferenceEntity
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.onboarding.identity.GymPreferenceId
 
 /**
  * Maps the single [GymPreferenceEntity] row to/from the nullable [GymPreset] choice. A missing
@@ -10,4 +12,14 @@ import com.stratum.domain.lift.GymPreset
  */
 fun GymPreferenceEntity?.toDomain(): GymPreset? = this?.selectedPreset
 
-fun GymPreset?.toEntity(): GymPreferenceEntity = GymPreferenceEntity(selectedPreset = this)
+fun GymPreset?.toEntity(
+    usedHistoricalImport: Boolean = false,
+    nowMillis: Long = System.currentTimeMillis(),
+): GymPreferenceEntity =
+    GymPreferenceEntity(
+        id = GymPreferenceId.Default,
+        selectedPreset = this,
+        usedHistoricalImport = usedHistoricalImport,
+        updatedAtEpochMillis = nowMillis,
+        pendingSync = SyncFlags.PENDING_UPSERT,
+    )

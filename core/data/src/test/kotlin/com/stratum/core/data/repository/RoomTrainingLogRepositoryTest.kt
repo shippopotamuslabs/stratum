@@ -37,6 +37,7 @@ class RoomTrainingLogRepositoryTest {
             setDao = database.trainingLoggedSetDao(),
             programDao = database.programDao(),
             programChangeEventDao = database.programChangeEventDao(),
+            syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()),
         )
         runBlocking {
             database.programDao().upsert(
