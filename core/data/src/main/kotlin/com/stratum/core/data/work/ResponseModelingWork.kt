@@ -19,13 +19,18 @@ import javax.inject.Inject
  * [ResponseModelingWorker] so unit tests can exercise the workout-count gate and extract call
  * without spinning up WorkManager.
  *
- * Gate: re-extract when at least [RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed workouts have been
- * logged since [com.stratum.domain.response.ResponseProfileMetadata.lastExtractedAt]. Calendar time
- * alone does not trigger work (idle months stay quiet; sparse training waits for real signal).
+ * Gate (normal path): re-extract when at least [RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed
+ * workouts have been logged since [com.stratum.domain.response.ResponseProfileMetadata.lastExtractedAt].
+ * Calendar time alone does not trigger work (idle months stay quiet; sparse training waits for
+ * real signal).
  *
- * On a successful **re-extract** (prior [lastExtractedAt] was non-null and the workout gate
+ * Force path ([forceHistoryInvalidation]): used when a historical session that was already part of
+ * the last extract is amended. Skips the workout-count gate so the model re-runs on corrected
+ * data. Does **not** open a coach check-in (data correction, not new training signal).
+ *
+ * On a successful **normal re-extract** (prior [lastExtractedAt] was non-null and the workout gate
  * passed), marks a pending coach check-in via [MarkCheckInPendingUseCase]. First-ever extract
- * does not open a check-in.
+ * and history-invalidation force runs do not open a check-in.
  *
  * Design note (ARCHITECTURE.md §6): the worker lives in `:core:data` because WorkManager is
  * Android-only; this runner keeps the gate + [ExtractResponseProfileUseCase] call injectable and
@@ -50,27 +55,28 @@ class ResponseModelingWork @Inject constructor(
         data class Failed(val error: Throwable) : Outcome
     }
 
-    suspend fun run(): Outcome {
+    suspend fun run(forceHistoryInvalidation: Boolean = false): Outcome {
         val lastExtracted = metadataRepository.get()?.lastExtractedAt
         val isReExtract = lastExtracted != null
-        if (lastExtracted != null) {
+        if (!forceHistoryInvalidation && lastExtracted != null) {
             val sessions = trainingLogRepository.getAllSessions()
             val newWorkouts = countCompletedWorkoutsSince(sessions, lastExtracted)
             if (newWorkouts < RE_EXTRACT_MIN_COMPLETED_WORKOUTS) {
                 return Outcome.Skipped
             }
         }
-        // Null metadata (never extracted) or enough new workouts → run full All-history extract.
+        // Null metadata, enough new workouts, or forced history invalidation → full All-history extract.
 
         return extractResponseProfile(
             provenLiftIds = emptySet(),
             scope = InsightsAnalysisScope.All,
         ).fold(
             onSuccess = {
-                if (isReExtract) {
+                if (isReExtract && !forceHistoryInvalidation) {
                     // Best-effort with retries: extract watermark already advanced; a hard failure
                     // here must not throw (that would look like extract failure / skip retries
                     // forever). Pending can still be forced via debug Settings if needed.
+                    // History-invalidation force runs intentionally skip check-in.
                     markPendingResilient(Instant.now())
                 }
                 Outcome.Success

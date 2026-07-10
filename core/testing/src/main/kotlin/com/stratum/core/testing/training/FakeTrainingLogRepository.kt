@@ -152,6 +152,16 @@ class FakeTrainingLogRepository(
         sets.forEach { updateSet(it) }
     }
 
+    override suspend fun applySetMutations(
+        deleteIds: Collection<LoggedSetId>,
+        inserts: List<LoggedSet>,
+        updates: List<LoggedSet>,
+    ) {
+        deleteIds.forEach { deleteSet(it) }
+        inserts.forEach { insertSet(it) }
+        updates.forEach { updateSet(it) }
+    }
+
     override suspend fun persistSessionWithCycleEffects(
         session: TrainingSession,
         cyclePointerUpdate: CyclePointerUpdate?,

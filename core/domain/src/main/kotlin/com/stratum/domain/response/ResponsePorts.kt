@@ -91,7 +91,17 @@ interface MuscleWeeklyOutcomeIndexRepository {
  * Implementations must enqueue non-blockingly (schedule only — never await worker completion).
  */
 interface ResponseModelingSchedulerPort {
+    /**
+     * Normal path after finalize: worker applies the
+     * [RE_EXTRACT_MIN_COMPLETED_WORKOUTS] gate before extracting.
+     */
     fun enqueueRefresh()
+
+    /**
+     * History-edit path: force re-extract because a session already included in the last modeling
+     * run was amended. Worker skips the completed-workout gate; does not open a coach check-in.
+     */
+    fun enqueueHistoryInvalidation()
 }
 
 interface ExperimentRegistry {

@@ -1,0 +1,163 @@
+package com.stratum.core.ui.component.workoutlog
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.component.SupersetGroupChip
+import com.stratum.core.ui.theme.StratumThemeAccessor
+
+private val AddSetIconSize = 16.dp
+
+/**
+ * Raised panel for one lift's set-log table. Optional trailing header actions (e.g. ⋮ menu),
+ * optional add-set control under the set-number column, and per-set row actions from the caller.
+ */
+@Composable
+fun StratumWorkoutLogLiftPanel(
+    lift: WorkoutLogLiftUi,
+    setRowActions: (WorkoutLogSetUi) -> WorkoutLogSetRowActions,
+    modifier: Modifier = Modifier,
+    headerTrailing: (@Composable () -> Unit)? = null,
+    onAddSet: (() -> Unit)? = null,
+    addSetContentDescription: String? = null,
+) {
+    val showTrailingColumn = lift.sets.any { it.showCheckbox }
+
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(StratumThemeAccessor.shapes.panel)
+                .background(
+                    color = StratumThemeAccessor.colors.surfaceRaised,
+                    shape = StratumThemeAccessor.shapes.panel,
+                )
+                .border(
+                    width = StratumThemeAccessor.shapes.borderWidth,
+                    color = StratumThemeAccessor.colors.borderSubtle,
+                    shape = StratumThemeAccessor.shapes.panel,
+                )
+                .padding(top = 16.dp, bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            StratumText(
+                text = lift.liftName,
+                style = StratumThemeAccessor.typography.titleMedium,
+                modifier = Modifier.weight(1f).padding(end = 20.dp),
+            )
+            headerTrailing?.invoke()
+        }
+
+        lift.supersetGroupId?.let { groupId ->
+            SupersetGroupChip(
+                groupId = groupId,
+                modifier =
+                    Modifier
+                        .padding(vertical = 2.dp)
+                        .padding(horizontal = 16.dp),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        StratumWorkoutLogTableHeader(
+            showWeightColumn = lift.showWeightColumn,
+            weightHeaderLabel = lift.weightHeaderLabel,
+            showTrailingColumn = showTrailingColumn,
+        )
+
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(StratumThemeAccessor.shapes.borderWidth)
+                    .background(StratumThemeAccessor.colors.borderSubtle),
+        )
+
+        lift.sets.forEach { set ->
+            StratumWorkoutLogSetRow(
+                set = set,
+                actions = setRowActions(set),
+            )
+        }
+
+        if (onAddSet != null) {
+            WorkoutLogAddSetRow(
+                showWeightColumn = lift.showWeightColumn,
+                showTrailingColumn = showTrailingColumn,
+                onAddSet = onAddSet,
+                contentDescription = addSetContentDescription ?: "Add set",
+            )
+        }
+    }
+}
+
+/**
+ * Circular + control aligned under the set-number column (same affordance as template
+ * Edit Workout's add-set row).
+ */
+@Composable
+private fun WorkoutLogAddSetRow(
+    showWeightColumn: Boolean,
+    showTrailingColumn: Boolean,
+    onAddSet: () -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+) {
+    val weights = workoutLogColumnWeights(showWeightColumn, showTrailingColumn)
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier.weight(weights.label),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            WorkoutLogSetColumnBadge(onClick = onAddSet) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_add),
+                    contentDescription = contentDescription,
+                    tint = StratumThemeAccessor.colors.textMuted,
+                    modifier = Modifier.size(AddSetIconSize),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.weight(weights.prev))
+        if (showWeightColumn) {
+            Spacer(modifier = Modifier.weight(weights.weight))
+        }
+        Spacer(modifier = Modifier.weight(weights.reps))
+        Spacer(modifier = Modifier.weight(weights.rir))
+        if (showTrailingColumn) {
+            Spacer(modifier = Modifier.weight(weights.trailing))
+        }
+    }
+}

@@ -2,20 +2,25 @@ package com.stratum.feature.history.navigation
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.feature.history.EditHistoricalWorkoutViewModel
 import com.stratum.feature.history.WorkoutHistoryViewModel
 import com.stratum.feature.history.WorkoutSessionDetailViewModel
+import com.stratum.feature.history.ui.EditHistoricalWorkoutEvent
+import com.stratum.feature.history.ui.EditHistoricalWorkoutScreen
 import com.stratum.feature.history.ui.WorkoutHistoryScreen
 import com.stratum.feature.history.ui.WorkoutSessionDetailScreen
-import com.stratum.feature.history.R
-import androidx.compose.ui.res.stringResource
 import kotlinx.serialization.Serializable
 
 /** Nav3 key for the workout history calendar screen. */
@@ -25,6 +30,12 @@ data object WorkoutHistoryKey : NavKey
 /** Nav3 key for a completed session detail screen. */
 @Serializable
 data class WorkoutSessionDetailKey(
+    val sessionId: String,
+) : NavKey
+
+/** Nav3 key for editing a completed session's logged sets. */
+@Serializable
+data class EditHistoricalWorkoutKey(
     val sessionId: String,
 ) : NavKey
 
@@ -42,9 +53,22 @@ fun EntryProviderScope<NavKey>.workoutHistoryEntry(
 
 fun EntryProviderScope<NavKey>.workoutSessionDetailEntry(
     onBackClick: () -> Unit,
+    onEditWorkoutClick: (sessionId: String) -> Unit,
 ) {
     entry<WorkoutSessionDetailKey> { key ->
         WorkoutSessionDetailRoute(
+            sessionId = key.sessionId,
+            onBackClick = onBackClick,
+            onEditWorkoutClick = { onEditWorkoutClick(key.sessionId) },
+        )
+    }
+}
+
+fun EntryProviderScope<NavKey>.editHistoricalWorkoutEntry(
+    onBackClick: () -> Unit,
+) {
+    entry<EditHistoricalWorkoutKey> { key ->
+        EditHistoricalWorkoutRoute(
             sessionId = key.sessionId,
             onBackClick = onBackClick,
         )
@@ -74,15 +98,23 @@ private fun WorkoutHistoryRoute(
 private fun WorkoutSessionDetailRoute(
     sessionId: String,
     onBackClick: () -> Unit,
+    onEditWorkoutClick: () -> Unit,
     viewModel: WorkoutSessionDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val editComingSoon = stringResource(R.string.history_session_edit_coming_soon)
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(sessionId) {
-        viewModel.load(sessionId)
+    DisposableEffect(lifecycleOwner, sessionId) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    viewModel.load(sessionId)
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     UserMessageEffect(
         userMessage = userMessage,
@@ -92,7 +124,45 @@ private fun WorkoutSessionDetailRoute(
     WorkoutSessionDetailScreen(
         state = uiState,
         onBackClick = onBackClick,
-        onEditWorkoutClick = { viewModel.onEditWorkoutClick(editComingSoon) },
+        onEditWorkoutClick = onEditWorkoutClick,
+        snackbarHostState = snackbarHostState,
+    )
+}
+
+@Composable
+private fun EditHistoricalWorkoutRoute(
+    sessionId: String,
+    onBackClick: () -> Unit,
+    viewModel: EditHistoricalWorkoutViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(sessionId) {
+        viewModel.load(sessionId)
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                EditHistoricalWorkoutEvent.NavigateBack -> onBackClick()
+            }
+        }
+    }
+    UserMessageEffect(
+        userMessage = userMessage,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::userMessageShown,
+    )
+    EditHistoricalWorkoutScreen(
+        state = uiState,
+        onBackClick = onBackClick,
+        onConfirmClick = viewModel::confirm,
+        onWeightChange = viewModel::onWeightChange,
+        onRepsChange = viewModel::onRepsChange,
+        onRirChange = viewModel::onRirChange,
+        onAddSet = viewModel::onAddSet,
+        onDeleteSet = viewModel::onDeleteSet,
         snackbarHostState = snackbarHostState,
     )
 }

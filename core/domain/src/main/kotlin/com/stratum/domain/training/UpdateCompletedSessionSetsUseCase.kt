@@ -1,0 +1,210 @@
+package com.stratum.domain.training
+
+import com.stratum.domain.di.ApplicationScope
+import com.stratum.domain.di.DefaultDispatcher
+import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
+import com.stratum.domain.importing.InsightsAnalysisScope
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.response.ResponseModelingSchedulerPort
+import com.stratum.domain.response.ResponseProfileMetadataRepository
+import com.stratum.domain.training.identity.TrainingSessionId
+import java.util.logging.Level
+import java.util.logging.Logger
+import javax.inject.Inject
+import kotlin.math.abs
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+/**
+ * Amends a **completed** training session's logged sets (edit / add / delete weight-reps-RIR
+ * rows). Recomputes personal records across full lift history so demotions promote the next-best
+ * historical set. Conditionally forces dose-response re-extract when the edited session was
+ * included in the last modeling run.
+ */
+class UpdateCompletedSessionSetsUseCase @Inject constructor(
+    private val trainingLogRepository: TrainingLogRepository,
+    private val extractTrainingInsights: ExtractTrainingInsightsUseCase,
+    private val refreshWeeklySeries: RefreshWeeklySeriesUseCase,
+    private val metadataRepository: ResponseProfileMetadataRepository,
+    private val responseModelingScheduler: ResponseModelingSchedulerPort =
+        NoOpResponseModelingSchedulerForHistoryEdit,
+    private val loggingPort: LoggingPort,
+    @ApplicationScope private val refreshScope: CoroutineScope =
+        CoroutineScope(Dispatchers.Main.immediate),
+    @DefaultDispatcher private val refreshDispatcher: CoroutineDispatcher = Dispatchers.Default,
+) {
+    private val logger = Logger.getLogger(UpdateCompletedSessionSetsUseCase::class.java.name)
+
+    /**
+     * Replaces the session's set list with [desiredSets] (full desired state).
+     * Sets whose ids already exist are updated; new ids are inserted; missing ids are deleted.
+     * Session set changes and PR flag updates land in one
+     * [TrainingLogRepository.applySetMutations] transaction.
+     */
+    suspend operator fun invoke(
+        sessionId: TrainingSessionId,
+        desiredSets: List<LoggedSet>,
+    ): Result<Unit> = runCatching {
+        val session =
+            trainingLogRepository.getSession(sessionId)
+                ?: throw IllegalArgumentException("Training session ${sessionId.value} not found")
+        require(session.status == TrainingSessionStatus.COMPLETED) {
+            "Training session ${sessionId.value} is not completed (status=${session.status})"
+        }
+        require(desiredSets.isNotEmpty()) {
+            "Completed session ${sessionId.value} must retain at least one set"
+        }
+        require(desiredSets.all { it.sessionId == sessionId }) {
+            "All desired sets must belong to session ${sessionId.value}"
+        }
+
+        val currentSets = trainingLogRepository.getSetsForSession(sessionId)
+        val currentById = currentSets.associateBy { it.id }
+        val desiredById = desiredSets.associateBy { it.id }
+
+        val toDelete = currentById.keys - desiredById.keys
+        val insertIds = desiredSets.filter { it.id !in currentById }.map { it.id }.toSet()
+
+        val affectedLiftIds =
+            (currentSets + desiredSets)
+                .mapNotNull { it.liftId }
+                .toSet()
+
+        val inserts = mutableListOf<LoggedSet>()
+        val updates = mutableListOf<LoggedSet>()
+
+        // Lifts with catalog ids: merge history, recompute PR flags, write diffs.
+        for (liftId in affectedLiftIds) {
+            val history = trainingLogRepository.getSetsForLift(liftId)
+            val historyById = history.associateBy { it.id }
+            val merged = mutableListOf<LoggedSet>()
+            for (historical in history) {
+                if (historical.id in toDelete) continue
+                merged += desiredById[historical.id] ?: historical
+            }
+            for (desired in desiredSets) {
+                if (desired.liftId == liftId && desired.id in insertIds) {
+                    merged += desired
+                }
+            }
+            val recomputed = assignPersonalRecords(merged)
+            for (set in recomputed) {
+                if (set.id in insertIds) {
+                    inserts += set
+                } else {
+                    val prior = historyById[set.id]
+                    if (prior == null || prior != set) {
+                        updates += set
+                    }
+                }
+            }
+        }
+
+        // Session sets without a liftId skip PR math but still need ledger writes.
+        for (desired in desiredSets) {
+            if (desired.liftId != null) continue
+            if (desired.id in insertIds) {
+                inserts += desired.copy(isPersonalRecord = false, estimatedOneRm = null)
+            } else if (currentById[desired.id] != desired) {
+                updates += desired.copy(isPersonalRecord = false, estimatedOneRm = null)
+            }
+        }
+
+        trainingLogRepository.applySetMutations(
+            deleteIds = toDelete,
+            inserts = inserts,
+            updates = updates.distinctBy { it.id },
+        )
+
+        refreshScope.launch(refreshDispatcher) { refreshInsights() }
+
+        if (sessionWasInLastModelingRun(session)) {
+            responseModelingScheduler.enqueueHistoryInvalidation()
+        }
+    }.onFailure { error ->
+        loggingPort.error(TAG, "Failed to update completed session sets: ${error.message}", error)
+    }
+
+    /**
+     * Session was included in the last dose-response extract when modeling metadata exists and the
+     * session's completion time is not after [ResponseProfileMetadata.lastExtractedAt].
+     * Workouts completed after the watermark have not yet entered a modeling run.
+     */
+    private suspend fun sessionWasInLastModelingRun(session: TrainingSession): Boolean {
+        val lastExtracted = metadataRepository.get()?.lastExtractedAt ?: return false
+        val sessionAt = session.endedAt ?: session.startedAt
+        return !sessionAt.isAfter(lastExtracted)
+    }
+
+    /**
+     * Recomputes e1RM for every set and marks exactly one PR (max e1RM) per lift batch.
+     * Matches [ComputePersonalRecordsUseCase] effective-reps formula: reps + rir.
+     * Uses absolute load so assisted (negative-stored) weights score correctly.
+     */
+    internal fun assignPersonalRecords(sets: List<LoggedSet>): List<LoggedSet> {
+        val withE1rm =
+            sets.map { set ->
+                if (set.liftId != null && set.reps > 0) {
+                    val effectiveReps = (set.reps + (set.rir ?: 0)).coerceAtLeast(1)
+                    val loadMagnitude = abs(set.weight.amount)
+                    val e1Rm =
+                        if (loadMagnitude > 0.0) {
+                            EstimatedOneRm.calculate(loadMagnitude, effectiveReps)
+                        } else {
+                            null
+                        }
+                    set.copy(estimatedOneRm = e1Rm, isPersonalRecord = false)
+                } else {
+                    set.copy(estimatedOneRm = null, isPersonalRecord = false)
+                }
+            }
+        val maxSet =
+            withE1rm
+                .filter { it.estimatedOneRm != null }
+                .maxWithOrNull(
+                    compareBy<LoggedSet> { it.estimatedOneRm!! }
+                        .thenBy { it.completedAt },
+                )
+        return if (maxSet == null) {
+            withE1rm
+        } else {
+            withE1rm.map { set ->
+                set.copy(isPersonalRecord = set.id == maxSet.id)
+            }
+        }
+    }
+
+    private suspend fun refreshInsights() {
+        val rollupResult = extractTrainingInsights(scope = InsightsAnalysisScope.All)
+        if (rollupResult.isFailure) {
+            logger.log(
+                Level.WARNING,
+                "Insights rollup refresh after historical session edit failed",
+                rollupResult.exceptionOrNull(),
+            )
+        }
+        val weeklyResult = refreshWeeklySeries()
+        if (weeklyResult.isFailure) {
+            logger.log(
+                Level.WARNING,
+                "Weekly series refresh after historical session edit failed",
+                weeklyResult.exceptionOrNull(),
+            )
+        }
+    }
+
+    private companion object {
+        const val TAG = "UpdateCompletedSessionSets"
+    }
+}
+
+/** Default no-op for JVM unit tests that construct the use case without Hilt. */
+private object NoOpResponseModelingSchedulerForHistoryEdit : ResponseModelingSchedulerPort {
+    override fun enqueueRefresh() = Unit
+
+    override fun enqueueHistoryInvalidation() = Unit
+}

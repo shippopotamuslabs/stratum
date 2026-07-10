@@ -23,12 +23,18 @@ class ResponseModelingWorker @AssistedInject constructor(
     private val work: ResponseModelingWork,
 ) : CoroutineWorker(appContext, workerParams) {
 
-    override suspend fun doWork(): Result =
-        when (work.run()) {
+    override suspend fun doWork(): Result {
+        val forceHistoryInvalidation =
+            inputData.getBoolean(
+                WorkManagerResponseModelingScheduler.KEY_FORCE_HISTORY_INVALIDATION,
+                false,
+            )
+        return when (work.run(forceHistoryInvalidation = forceHistoryInvalidation)) {
             is ResponseModelingWork.Outcome.Skipped,
             is ResponseModelingWork.Outcome.Success,
             -> Result.success()
 
             is ResponseModelingWork.Outcome.Failed -> Result.retry()
         }
+    }
 }
