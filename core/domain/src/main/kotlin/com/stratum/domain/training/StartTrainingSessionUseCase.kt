@@ -42,6 +42,8 @@ class StartTrainingSessionUseCase @Inject constructor(
                         startedAt = now,
                         endedAt = null,
                         sourceApp = null,
+                        programNameSnapshot = program.name,
+                        workoutNameSnapshot = workout.name,
                     )
                 }
                 StartTrainingSessionRequest.AdHocEmpty ->
@@ -57,6 +59,8 @@ class StartTrainingSessionUseCase @Inject constructor(
                         startedAt = now,
                         endedAt = null,
                         sourceApp = null,
+                        programNameSnapshot = program.name,
+                        workoutNameSnapshot = null,
                     )
             }
 

@@ -26,8 +26,15 @@ class FakeProgramRepository(
     override fun observeProgram(): Flow<Program?> =
         programs.map { map -> map.values.firstOrNull { program -> program.isActive } }
 
+    override fun observeProgramById(programId: ProgramId): Flow<Program?> =
+        programs.map { map -> map[programId.value] }
+
     override fun observeLibraryPrograms(): Flow<List<Program>> =
-        programs.map { map -> map.values.filter { program -> !program.isActive } }
+        programs.map { map ->
+            map.values.filter { program ->
+                !program.isActive && !program.id.isImportHistory
+            }
+        }
 
     override suspend fun getProgram(): Program? = current
 
@@ -52,10 +59,20 @@ class FakeProgramRepository(
     override suspend fun activateProgram(programId: ProgramId) {
         val existing = programs.value[programId.value]
             ?: error("Cannot activate unknown program: ${programId.value}")
+        check(!programId.isImportHistory) {
+            "Import-history program cannot be activated"
+        }
         val next = programs.value.toMutableMap()
         next.replaceAll { _, program -> program.copy(isActive = false) }
         next[programId.value] = existing.copy(isActive = true)
         programs.value = next
+    }
+
+    override suspend fun deleteProgram(programId: ProgramId) {
+        check(!programId.isImportHistory) {
+            "Import-history program cannot be deleted"
+        }
+        programs.value = programs.value - programId.value
     }
 
     override suspend fun updateCyclePointer(

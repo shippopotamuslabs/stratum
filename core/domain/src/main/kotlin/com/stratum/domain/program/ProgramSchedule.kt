@@ -166,3 +166,22 @@ fun buildWeeklySchedule(program: Program): List<ScheduleDayItem> {
         }
     }
 }
+
+/**
+ * Like [buildWeeklySchedule], but never throws. When weekday bindings are incomplete or missing,
+ * falls back to workouts ordered by [Workout.position] (using each workout's weekday when present,
+ * otherwise [Weekday.Monday] as a non-calendar placeholder).
+ *
+ * Prefer this for library/editor presentation that must stay resilient; use [buildWeeklySchedule]
+ * when an invariant violation should surface (e.g. Programs active overview after generation).
+ */
+fun buildWeeklyScheduleOrFallback(program: Program): List<ScheduleDayItem> =
+    runCatching { buildWeeklySchedule(program) }
+        .getOrElse {
+            program.workouts.sortedBy { workout -> workout.position }.map { workout ->
+                ScheduleDayItem.WorkoutDay(
+                    weekday = workout.weekday ?: Weekday.Monday,
+                    workout = workout,
+                )
+            }
+        }

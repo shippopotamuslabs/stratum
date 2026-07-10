@@ -31,6 +31,7 @@ data class CreateProgramScreenCallbacks(
     val onSwapLift: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit =
         { _, _, _, _ -> },
     val onSaveToLibrary: () -> Unit = {},
+    val onSaveChanges: () -> Unit = {},
     val onActivate: () -> Unit = {},
     val onConfirmDiscard: () -> Unit = {},
     val onDismissDiscard: () -> Unit = {},

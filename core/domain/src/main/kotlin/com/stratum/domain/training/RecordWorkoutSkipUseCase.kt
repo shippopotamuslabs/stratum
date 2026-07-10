@@ -33,6 +33,8 @@ class RecordWorkoutSkipUseCase @Inject constructor(
                 startedAt = now,
                 endedAt = now,
                 sourceApp = null,
+                programNameSnapshot = program.name,
+                workoutNameSnapshot = workout.name,
             )
 
         val effects =

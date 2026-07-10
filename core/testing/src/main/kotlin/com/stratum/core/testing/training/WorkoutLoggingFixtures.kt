@@ -165,6 +165,8 @@ object WorkoutLoggingFixtures {
         startedAt = Instant.parse("2025-01-01T10:00:00Z"),
         endedAt = Instant.parse("2025-01-01T11:00:00Z"),
         sourceApp = "liftlab",
+        programNameSnapshot = "Test Program",
+        workoutNameSnapshot = "Workout A",
     )
 
     fun completedLiveSession(
@@ -183,6 +185,8 @@ object WorkoutLoggingFixtures {
         startedAt = Instant.parse("2025-01-01T10:00:00Z"),
         endedAt = Instant.parse("2025-01-01T11:00:00Z"),
         sourceApp = null,
+        programNameSnapshot = "Test Program",
+        workoutNameSnapshot = if (workoutId != null) "Workout A" else null,
     )
 
     fun inProgressSession(
@@ -201,6 +205,8 @@ object WorkoutLoggingFixtures {
         startedAt = Instant.parse("2025-01-01T10:00:00Z"),
         endedAt = null,
         sourceApp = null,
+        programNameSnapshot = "Test Program",
+        workoutNameSnapshot = if (workoutId != null) "Workout A" else null,
     )
 
     fun loggedSet(

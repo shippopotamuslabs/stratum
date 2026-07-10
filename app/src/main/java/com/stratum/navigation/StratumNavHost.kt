@@ -23,6 +23,8 @@ import com.stratum.feature.program.navigation.EditWorkoutKey
 import com.stratum.feature.program.navigation.editWorkoutEntry
 import com.stratum.feature.program.navigation.LiftSwapKey
 import com.stratum.feature.program.navigation.liftSwapEntry
+import com.stratum.feature.program.navigation.ProgramLibraryKey
+import com.stratum.feature.program.navigation.programLibraryEntry
 import com.stratum.feature.program.navigation.ReorderLiftsKey
 import com.stratum.feature.program.navigation.reorderLiftsEntry
 import com.stratum.feature.settings.navigation.SettingsKey
@@ -135,7 +137,7 @@ fun StratumNavHost(
                         backStack.add(CreateProgramKey())
                     },
                     onProgramLibraryClick = {
-                        // Program library list UI — storage ready; list screen is a follow-up.
+                        backStack.add(ProgramLibraryKey)
                     },
                 )
             }
@@ -144,6 +146,15 @@ fun StratumNavHost(
             createLiftEntry(onBackClick = onNavigateBack)
             settingsEntry(
                 onBackClick = onNavigateBack,
+            )
+            programLibraryEntry(
+                onBackClick = onNavigateBack,
+                onProgramClick = { programId ->
+                    backStack.add(CreateProgramKey(programId = programId))
+                },
+                onWorkoutClick = { programId, workoutId ->
+                    backStack.add(EditWorkoutKey(workoutId = workoutId, programId = programId))
+                },
             )
             createProgramEntry(
                 onBackClick = onNavigateBack,

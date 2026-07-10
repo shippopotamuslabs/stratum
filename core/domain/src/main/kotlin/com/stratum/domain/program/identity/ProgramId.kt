@@ -8,6 +8,16 @@ value class ProgramId(override val value: String) : EntityId {
     init {
         require(value.isNotBlank()) { "ProgramId cannot be blank" }
     }
+
+    val isImportHistory: Boolean
+        get() = value == IMPORT_HISTORY_VALUE
+
+    companion object {
+        /** Stable id for the import-history FK parent (never a user training program). */
+        const val IMPORT_HISTORY_VALUE: String = "import-history"
+
+        val ImportHistory: ProgramId = ProgramId(IMPORT_HISTORY_VALUE)
+    }
 }
 
 /** Type-safe identifier for a [com.stratum.domain.program.Workout]. */

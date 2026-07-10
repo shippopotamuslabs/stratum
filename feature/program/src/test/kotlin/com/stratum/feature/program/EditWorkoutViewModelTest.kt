@@ -419,6 +419,7 @@ class EditWorkoutViewModelTest {
             )
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
+            observeProgramById = com.stratum.domain.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             saveWorkoutUseCase = SaveWorkoutUseCase(repository, com.stratum.core.testing.training.NoOpProgramChangeEventRepository(), FakeLoggingPort()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
@@ -626,6 +627,7 @@ class EditWorkoutViewModelTest {
             )
         val viewModel = EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
+            observeProgramById = com.stratum.domain.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             saveWorkoutUseCase = SaveWorkoutUseCase(repository, events, FakeLoggingPort()),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),

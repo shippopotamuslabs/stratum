@@ -32,6 +32,20 @@ interface TrainingSessionDao {
     @Query("DELETE FROM training_sessions WHERE id = :id")
     suspend fun deleteById(id: TrainingSessionId)
 
+    /**
+     * Soft-unlink sessions from a deleted program template. Does **not** delete rows or
+     * logged_sets; clears soft refs so history remains with name snapshots only.
+     */
+    @Query(
+        """
+        UPDATE training_sessions
+        SET program_id = NULL,
+            workout_id = NULL
+        WHERE program_id = :programId
+        """,
+    )
+    suspend fun clearSoftRefsForProgram(programId: ProgramId)
+
     @Query("DELETE FROM training_sessions WHERE origin = 'IMPORT'")
     suspend fun deleteAllImported()
 
@@ -40,18 +54,6 @@ interface TrainingSessionDao {
 
     @Query("SELECT * FROM training_sessions WHERE status = :status LIMIT 1")
     suspend fun getByStatus(status: TrainingSessionStatus): TrainingSessionEntity?
-
-    @Query(
-        """
-        UPDATE training_sessions
-        SET program_id = :newProgramId
-        WHERE program_id = :oldProgramId
-        """,
-    )
-    suspend fun reassignProgramId(
-        oldProgramId: ProgramId,
-        newProgramId: ProgramId,
-    )
 
     @Query(
         """
