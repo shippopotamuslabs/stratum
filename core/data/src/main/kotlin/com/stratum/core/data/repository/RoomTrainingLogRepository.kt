@@ -10,6 +10,8 @@ import com.stratum.core.data.mapper.importHistoryProgramEntity
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.mapper.toTrainingDomain
+import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.CyclePointerUpdate
@@ -33,31 +35,64 @@ class RoomTrainingLogRepository @Inject constructor(
     private val setDao: TrainingLoggedSetDao,
     private val programDao: ProgramDao,
     private val programChangeEventDao: ProgramChangeEventDao,
+    private val syncTouch: SyncTouch,
 ) : TrainingLogRepository {
     override suspend fun replaceAll(sessions: List<TrainingSession>, sets: List<LoggedSet>) {
-        database.withTransaction {
-            sessionDao.deleteAll()
-            setDao.deleteAll()
-            if (sessions.isNotEmpty()) {
-                sessionDao.upsertAll(sessions.map { it.toEntity() })
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                val oldSessionIds = sessionDao.getAll().map { it.id.value }
+                val oldSetIds = setDao.getAll().map { it.id.value }
+                syncTouch.replaceIds(
+                    SyncCollection.TrainingSessions,
+                    previousIds = oldSessionIds,
+                    nextIds = sessions.map { it.id.value },
+                    nowMillis = now,
+                )
+                syncTouch.replaceIds(
+                    SyncCollection.LoggedSets,
+                    previousIds = oldSetIds,
+                    nextIds = sets.map { it.id.value },
+                    nowMillis = now,
+                )
+                sessionDao.deleteAll()
+                setDao.deleteAll()
+                val nextSessions = sessions.map { it.toEntity(nowMillis = now) }
+                val nextSets = sets.map { it.toEntity(nowMillis = now) }
+                if (nextSessions.isNotEmpty()) sessionDao.upsertAll(nextSessions)
+                if (nextSets.isNotEmpty()) setDao.upsertAll(nextSets)
             }
-            if (sets.isNotEmpty()) {
-                setDao.upsertAll(sets.map { it.toEntity() })
-            }
+            syncTouch.markDirty()
         }
     }
 
     override suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>) {
-        database.withTransaction {
-            programDao.upsert(importHistoryProgramEntity())
-            setDao.deleteAllForImportedSessions()
-            sessionDao.deleteAllImported()
-            if (sessions.isNotEmpty()) {
-                sessionDao.upsertAll(sessions.map { it.toEntity() })
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                programDao.upsert(importHistoryProgramEntity())
+                val oldSessionIds = sessionDao.getAllImported().map { it.id.value }
+                val oldSetIds = setDao.getAllForImportedSessions().map { it.id.value }
+                syncTouch.replaceIds(
+                    SyncCollection.TrainingSessions,
+                    previousIds = oldSessionIds,
+                    nextIds = sessions.map { it.id.value },
+                    nowMillis = now,
+                )
+                syncTouch.replaceIds(
+                    SyncCollection.LoggedSets,
+                    previousIds = oldSetIds,
+                    nextIds = sets.map { it.id.value },
+                    nowMillis = now,
+                )
+                setDao.deleteAllForImportedSessions()
+                sessionDao.deleteAllImported()
+                val nextSessions = sessions.map { it.toEntity(nowMillis = now) }
+                val nextSets = sets.map { it.toEntity(nowMillis = now) }
+                if (nextSessions.isNotEmpty()) sessionDao.upsertAll(nextSessions)
+                if (nextSets.isNotEmpty()) setDao.upsertAll(nextSets)
             }
-            if (sets.isNotEmpty()) {
-                setDao.upsertAll(sets.map { it.toEntity() })
-            }
+            syncTouch.markDirty()
         }
     }
 
@@ -108,27 +143,55 @@ class RoomTrainingLogRepository @Inject constructor(
         }
 
     override suspend fun insertSession(session: TrainingSession) {
-        sessionDao.upsert(session.toEntity())
+        syncTouch.withWriteLock {
+            sessionDao.upsert(session.toEntity())
+            syncTouch.cancelDelete(SyncCollection.TrainingSessions, session.id.value)
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun updateSession(session: TrainingSession) {
-        sessionDao.upsert(session.toEntity())
+        syncTouch.withWriteLock {
+            sessionDao.upsert(session.toEntity())
+            syncTouch.cancelDelete(SyncCollection.TrainingSessions, session.id.value)
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun deleteSession(id: TrainingSessionId) {
-        sessionDao.deleteById(id)
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                syncTouch.enqueueDelete(SyncCollection.TrainingSessions, id.value)
+                val setIds = setDao.getForSession(id).map { it.id.value }
+                syncTouch.enqueueDelete(SyncCollection.LoggedSets, setIds)
+                sessionDao.deleteById(id)
+            }
+        }
     }
 
     override suspend fun insertSet(set: LoggedSet) {
-        setDao.upsert(set.toEntity())
+        syncTouch.withWriteLock {
+            setDao.upsert(set.toEntity())
+            syncTouch.cancelDelete(SyncCollection.LoggedSets, set.id.value)
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun updateSet(set: LoggedSet) {
-        setDao.upsert(set.toEntity())
+        syncTouch.withWriteLock {
+            setDao.upsert(set.toEntity())
+            syncTouch.cancelDelete(SyncCollection.LoggedSets, set.id.value)
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun deleteSet(id: LoggedSetId) {
-        setDao.deleteById(id)
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                syncTouch.enqueueDelete(SyncCollection.LoggedSets, id.value)
+                setDao.deleteById(id)
+            }
+        }
     }
 
     override suspend fun getPersonalRecordForLift(liftId: com.stratum.domain.lift.identity.LiftId): LoggedSet? =
@@ -138,8 +201,10 @@ class RoomTrainingLogRepository @Inject constructor(
         setDao.getSetsForLift(liftId).map { it.toTrainingDomain() }
 
     override suspend fun updateSets(sets: List<LoggedSet>) {
-        if (sets.isNotEmpty()) {
+        if (sets.isEmpty()) return
+        syncTouch.withWriteLock {
             setDao.upsertAll(sets.map { it.toEntity() })
+            syncTouch.markDirty()
         }
     }
 
@@ -148,13 +213,30 @@ class RoomTrainingLogRepository @Inject constructor(
         inserts: List<LoggedSet>,
         updates: List<LoggedSet>,
     ) {
-        database.withTransaction {
-            deleteIds.forEach { setDao.deleteById(it) }
-            if (inserts.isNotEmpty()) {
-                setDao.upsertAll(inserts.map { it.toEntity() })
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                if (deleteIds.isNotEmpty()) {
+                    syncTouch.enqueueDelete(
+                        SyncCollection.LoggedSets,
+                        deleteIds.map { it.value },
+                        now,
+                    )
+                    deleteIds.forEach { setDao.deleteById(it) }
+                }
+                if (inserts.isNotEmpty()) {
+                    val ids = inserts.map { it.id.value }
+                    syncTouch.cancelDelete(SyncCollection.LoggedSets, ids)
+                    setDao.upsertAll(inserts.map { it.toEntity(nowMillis = now) })
+                }
+                if (updates.isNotEmpty()) {
+                    val ids = updates.map { it.id.value }
+                    syncTouch.cancelDelete(SyncCollection.LoggedSets, ids)
+                    setDao.upsertAll(updates.map { it.toEntity(nowMillis = now) })
+                }
             }
-            if (updates.isNotEmpty()) {
-                setDao.upsertAll(updates.map { it.toEntity() })
+            if (deleteIds.isEmpty() && (inserts.isNotEmpty() || updates.isNotEmpty())) {
+                syncTouch.markDirty()
             }
         }
     }
@@ -164,18 +246,25 @@ class RoomTrainingLogRepository @Inject constructor(
         cyclePointerUpdate: CyclePointerUpdate?,
         cycleCompletedEvent: ProgramChangeEvent?,
     ) {
-        database.withTransaction {
-            sessionDao.upsert(session.toEntity())
-            cyclePointerUpdate?.let { update ->
-                programDao.updateCyclePointer(
-                    programId = update.programId,
-                    currentCycleNumber = update.currentCycleNumber,
-                    cyclePosition = update.cyclePosition,
-                )
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                sessionDao.upsert(session.toEntity(nowMillis = now))
+                syncTouch.cancelDelete(SyncCollection.TrainingSessions, session.id.value)
+                cyclePointerUpdate?.let { update ->
+                    programDao.updateCyclePointer(
+                        programId = update.programId,
+                        currentCycleNumber = update.currentCycleNumber,
+                        cyclePosition = update.cyclePosition,
+                        updatedAtEpochMillis = now,
+                    )
+                }
+                cycleCompletedEvent?.let { event ->
+                    programChangeEventDao.upsert(event.toEntity(nowMillis = now))
+                    syncTouch.cancelDelete(SyncCollection.ProgramChangeEvents, event.id.value)
+                }
             }
-            cycleCompletedEvent?.let { event ->
-                programChangeEventDao.upsert(event.toEntity())
-            }
+            syncTouch.markDirty()
         }
     }
 }

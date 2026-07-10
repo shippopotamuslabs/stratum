@@ -3,6 +3,7 @@ package com.stratum.core.data.db
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
@@ -40,11 +41,13 @@ interface TrainingSessionDao {
         """
         UPDATE training_sessions
         SET program_id = NULL,
-            workout_id = NULL
+            workout_id = NULL,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
         WHERE program_id = :programId
         """,
     )
-    suspend fun clearSoftRefsForProgram(programId: ProgramId)
+    suspend fun clearSoftRefsForProgram(programId: ProgramId, updatedAtEpochMillis: Long)
 
     @Query("DELETE FROM training_sessions WHERE origin = 'IMPORT'")
     suspend fun deleteAllImported()
@@ -76,6 +79,18 @@ interface TrainingSessionDao {
 
     @Query("SELECT * FROM training_sessions ORDER BY started_at_epoch_millis DESC")
     fun observeAll(): Flow<List<TrainingSessionEntity>>
+
+    @Query("SELECT * FROM training_sessions WHERE pending_sync != ${SyncFlags.CLEAN} LIMIT :limit")
+    suspend fun getPending(limit: Int = 500): List<TrainingSessionEntity>
+
+    @Query(
+        """
+        UPDATE training_sessions
+        SET pending_sync = ${SyncFlags.CLEAN}
+        WHERE id = :id AND updated_at_epoch_millis = :updatedAt
+        """,
+    )
+    suspend fun markSyncedIfUnchanged(id: String, updatedAt: Long)
 }
 
 @Dao
@@ -172,6 +187,50 @@ interface TrainingLoggedSetDao {
         """,
     )
     suspend fun getFirstSetEpochPerLift(): List<LiftFirstSetRow>
+
+    @Query("SELECT * FROM logged_sets WHERE id = :id LIMIT 1")
+    suspend fun getById(id: LoggedSetId): LoggedSetEntity?
+
+    @Query("SELECT * FROM logged_sets WHERE pending_sync != ${SyncFlags.CLEAN} LIMIT :limit")
+    suspend fun getPending(limit: Int = 500): List<LoggedSetEntity>
+
+    @Query(
+        """
+        UPDATE logged_sets
+        SET pending_sync = ${SyncFlags.CLEAN}
+        WHERE id = :id AND updated_at_epoch_millis = :updatedAt
+        """,
+    )
+    suspend fun markSyncedIfUnchanged(id: String, updatedAt: Long)
+
+    /**
+     * Clears other personal-record flags for [liftId] so remote PR apply cannot violate
+     * the unique (liftId, isPersonalRecord) index.
+     *
+     * Demotions use PENDING_UPSERT + a non-regressing clock (same pattern as
+     * [com.stratum.core.data.db.ProgramDao.demoteOtherActivesPending]) so dual-PR cloud
+     * heals on upload without rewinding a newer local LWW clock.
+     */
+    @Query(
+        """
+        UPDATE logged_sets
+        SET isPersonalRecord = 0,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = CASE
+                WHEN updated_at_epoch_millis < :minUpdatedAtEpochMillis
+                THEN :minUpdatedAtEpochMillis
+                ELSE updated_at_epoch_millis
+            END
+        WHERE liftId = :liftId
+          AND isPersonalRecord = 1
+          AND id != :exceptId
+        """,
+    )
+    suspend fun demotePersonalRecordsForLift(
+        liftId: LiftId,
+        exceptId: LoggedSetId,
+        minUpdatedAtEpochMillis: Long,
+    )
 }
 
 /**

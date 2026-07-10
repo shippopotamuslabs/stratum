@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
@@ -44,4 +45,8 @@ data class TrainingSessionEntity(
     @ColumnInfo(name = "source_app") val sourceApp: String?,
     @ColumnInfo(name = "program_name_snapshot") val programNameSnapshot: String? = null,
     @ColumnInfo(name = "workout_name_snapshot") val workoutNameSnapshot: String? = null,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )

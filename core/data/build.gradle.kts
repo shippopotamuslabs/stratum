@@ -19,6 +19,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        // Kill-switch for Firestore cloud sync (client + WorkManager). Flip false for emergency.
+        buildConfigField("boolean", "CLOUD_SYNC_ENABLED", "true")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -60,6 +66,12 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore) {
+        // OR-Tools brings protobuf-java; Firestore/protolite ship javalite duplicates.
+        // Keep a single protobuf runtime (protobuf-java) on the app classpath.
+        exclude(group = "com.google.protobuf", module = "protobuf-javalite")
+        exclude(group = "com.google.firebase", module = "protolite-well-known-types")
+    }
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)

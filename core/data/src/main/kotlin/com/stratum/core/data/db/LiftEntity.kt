@@ -3,6 +3,7 @@ package com.stratum.core.data.db
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
@@ -53,4 +54,8 @@ data class LiftEntity(
     val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
     val loadType: LoadType = LoadType.Weighted,
     val defaultRestSeconds: Int? = null,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )

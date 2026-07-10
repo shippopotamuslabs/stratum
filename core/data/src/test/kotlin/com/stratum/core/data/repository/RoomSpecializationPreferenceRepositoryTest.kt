@@ -31,6 +31,7 @@ class RoomSpecializationPreferenceRepositoryTest {
         subject = RoomSpecializationPreferenceRepository(
             database = database,
             dao = database.specializationPreferenceDao(),
+            syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()),
         )
     }
 

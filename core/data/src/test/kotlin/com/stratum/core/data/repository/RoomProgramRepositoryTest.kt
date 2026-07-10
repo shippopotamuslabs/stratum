@@ -54,6 +54,8 @@ class RoomProgramRepositoryTest {
             workoutLiftDao = database.workoutLiftDao(),
             liftSetDao = database.liftSetDao(),
             trainingSessionDao = database.trainingSessionDao(),
+            programChangeEventDao = database.programChangeEventDao(),
+            syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()),
         )
     }
 
@@ -252,6 +254,36 @@ class RoomProgramRepositoryTest {
                     com.stratum.domain.training.identity.TrainingSessionId("ts-1"),
                 )
             assertEquals(1, sets.size)
+        }
+
+        @Test
+        fun `deleteProgram enqueues program_change_events for cloud tombstone`() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1.copy(isActive = true))
+            database.programChangeEventDao().upsert(
+                com.stratum.core.data.db.ProgramChangeEventEntity(
+                    id = com.stratum.domain.training.identity.ProgramChangeEventId("pce-1"),
+                    programId = PROGRAM_P1.id,
+                    eventType = com.stratum.domain.training.ProgramChangeEventType.CYCLE_COMPLETED,
+                    occurredAtEpochMillis = Instant.parse("2026-06-26T12:00:00Z").toEpochMilli(),
+                    completedCycleNumber = 1,
+                ),
+            )
+
+            repository.deleteProgram(PROGRAM_P1.id)
+
+            val pending = database.pendingCloudDeleteDao().peekPending(50)
+            val eventDeletes =
+                pending.filter {
+                    it.collectionPath == com.stratum.core.data.sync.SyncCollection.ProgramChangeEvents.firestorePath
+                }
+            assertTrue(eventDeletes.any { it.entityId == "pce-1" })
+            assertTrue(
+                pending.any {
+                    it.collectionPath == com.stratum.core.data.sync.SyncCollection.Programs.firestorePath &&
+                        it.entityId == PROGRAM_P1.id.value
+                },
+            )
         }
 
         @Test

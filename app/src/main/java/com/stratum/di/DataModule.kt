@@ -117,22 +117,32 @@ object DatabaseModule {
     @Singleton
     fun provideStratumDatabase(
         @ApplicationContext context: Context,
+        seedGate: com.stratum.core.data.sync.LiftCatalogSeedGate,
     ): StratumDatabase {
+        // Pre-release (DATA_LAYER_RULES §7): keep Room at version 1 with no migrations.
+        // Same-version identity-hash changes still require uninstall/reinstall.
+        // Destructive fallback only applies if the version is bumped without a Migration.
         val database = Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
         // Never call DAOs from RoomDatabase.Callback.onCreate — Room holds the DB lock during
         // init and DAO work there deadlocks (white screen on startup). Seed asynchronously once
         // the database is fully open; idempotent upserts make re-runs safe.
+        // Always complete [LiftCatalogSeedGate] so cloud hydrate can wait for catalog readiness.
         seedScope.launch {
-            val liftDao = database.liftDao()
-            // Seed when no bundled catalog exists. Import may create custom lifts before seed
-            // finishes; countAll() would then block seeding forever and BM25 would have nothing
-            // to match against.
-            if (liftDao.countSeedLifts() == 0) {
-                LiftCatalogSeeder(
-                    liftDao = liftDao,
-                    incrementTierDao = database.incrementTierDao(),
-                ).seed(context)
+            try {
+                val liftDao = database.liftDao()
+                // Seed when no bundled catalog exists. Import may create custom lifts before seed
+                // finishes; countAll() would then block seeding forever and BM25 would have nothing
+                // to match against.
+                if (liftDao.countSeedLifts() == 0) {
+                    LiftCatalogSeeder(
+                        liftDao = liftDao,
+                        incrementTierDao = database.incrementTierDao(),
+                    ).seed(context)
+                }
+            } finally {
+                seedGate.complete()
             }
         }
         return database
@@ -152,6 +162,13 @@ object DatabaseModule {
 
     @Provides
     fun provideLiftDao(database: StratumDatabase): LiftDao = database.liftDao()
+
+    @Provides
+    @Singleton
+    fun provideLiftCatalogSeeder(
+        liftDao: LiftDao,
+        incrementTierDao: IncrementTierDao,
+    ): LiftCatalogSeeder = LiftCatalogSeeder(liftDao, incrementTierDao)
 
     @Provides
     fun provideIncrementTierDao(database: StratumDatabase): IncrementTierDao =
@@ -175,6 +192,10 @@ object DatabaseModule {
     @Provides
     fun provideProgramChangeEventDao(database: StratumDatabase): com.stratum.core.data.db.ProgramChangeEventDao =
         database.programChangeEventDao()
+
+    @Provides
+    fun providePendingCloudDeleteDao(database: StratumDatabase): com.stratum.core.data.db.PendingCloudDeleteDao =
+        database.pendingCloudDeleteDao()
 
     @Provides
     fun provideLiftTrainingInsightsDao(database: StratumDatabase): LiftTrainingInsightsDao =

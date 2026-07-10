@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
@@ -34,4 +35,8 @@ data class ProgramChangeEventEntity(
     @ColumnInfo(name = "new_lift_id") val newLiftId: LiftId? = null,
     @ColumnInfo(name = "workout_id") val workoutId: WorkoutId? = null,
     @ColumnInfo(name = "completed_cycle_number") val completedCycleNumber: Int? = null,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )

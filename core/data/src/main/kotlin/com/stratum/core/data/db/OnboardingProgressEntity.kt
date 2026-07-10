@@ -1,26 +1,25 @@
 package com.stratum.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.onboarding.OnboardingStep
+import com.stratum.domain.onboarding.identity.OnboardingProgressId
 
 /**
  * Single-row table tracking onboarding wizard progress.
  *
- * Schema authorized for OS-1 (see docs/onboarding-vertical-slices.md §OS-1 and
- * AGENTS.md §4.5 Schema Lock).
- *
- * [id] is fixed at [ID] — only one progress row exists per install. [currentStep] is a
- * typed [OnboardingStep] (decoded by [EnumConverters]).
+ * [id] is [OnboardingProgressId.Default] — one progress row per install / cloud document.
  */
 @Entity(tableName = "onboarding_progress")
 data class OnboardingProgressEntity(
-    @PrimaryKey val id: Int = ID,
+    @PrimaryKey val id: OnboardingProgressId = OnboardingProgressId.Default,
     val currentStep: OnboardingStep,
     val startedAt: Long,
     val completedAt: Long?,
-) {
-    companion object {
-        const val ID = 0
-    }
-}
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
+)
