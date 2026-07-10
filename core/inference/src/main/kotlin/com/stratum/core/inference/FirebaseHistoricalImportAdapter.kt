@@ -71,7 +71,9 @@ class FirebaseHistoricalImportAdapter @Inject constructor() : HistoricalImportPo
         "agent_running" -> RemoteImportJobStatus.AgentRunning
         "ready" -> RemoteImportJobStatus.Ready
         "failed" -> RemoteImportJobStatus.Failed
-        else -> RemoteImportJobStatus.PendingAgent
+        "rejected" -> RemoteImportJobStatus.Rejected
+        // Unknown terminal-ish statuses should not hang the poller as PendingAgent.
+        else -> RemoteImportJobStatus.Failed
     }
 
     private fun parseProgressPhase(value: String?): ImportProgressPhase? = when (value) {

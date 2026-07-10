@@ -114,7 +114,13 @@
     <string name="gym_lifts_import_phase_enriching">Building your lift catalog…</string>
     <string name="gym_lifts_import_phase_extracting">Analyzing training patterns…</string>
     <string name="gym_lifts_import_phase_failed">Import failed</string>
+    <string name="gym_lifts_import_phase_unsupported">This doesn\'t look like a training log</string>
+    <string name="gym_lifts_import_unsupported_hint">Try a MacroFactor, Hevy, Strong, or Alpha Progression export. Tap to try another file.</string>
     <string name="gym_lifts_import_retry_hint">Tap to try again.</string>
+    <string name="gym_lifts_import_timeline_upload">Upload</string>
+    <string name="gym_lifts_import_timeline_convert">Convert</string>
+    <string name="gym_lifts_import_timeline_catalog">Catalog</string>
+    <string name="gym_lifts_import_timeline_analyze">Analyze</string>
     <string name="gym_lifts_import_resume_hint">File %1$d of %2$d failed. Tap to retry from the failed file — earlier files are already converted.</string>
     <string name="gym_lifts_import_cancel">Cancel import</string>
     <string name="gym_lifts_import_subtitle_loading_converted">Loading converted data…</string>

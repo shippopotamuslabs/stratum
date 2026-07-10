@@ -15,8 +15,10 @@ import com.stratum.domain.importing.ImportedHistoryChunk
 import com.stratum.domain.importing.MergeImportedHistoryUseCase
 import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
+import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.RemoteImportJobStatus
 import com.stratum.domain.importing.StartHistoricalImportUseCase
+import com.stratum.domain.importing.UnsupportedImportFileException
 import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.domain.logging.LoggingPort
 import java.time.Instant
@@ -105,13 +107,25 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         } catch (error: Throwable) {
             rollbackHistoricalImport()
             val message = error.message ?: "Import failed."
+            val kind =
+                if (error is UnsupportedImportFileException) {
+                    ImportFailureKind.UnsupportedFile
+                } else {
+                    ImportFailureKind.Generic
+                }
             loggingPort.error(TAG, "Historical import failed: $message", error)
             val resumeState =
                 HistoricalImportResumeState(
                     files = allFiles,
                     completedChunks = chunks.toList(),
                 ).takeIf { it.isResumable() }
-            emit(HistoricalImportEvent.Failed(message = message, resume = resumeState))
+            emit(
+                HistoricalImportEvent.Failed(
+                    message = message,
+                    resume = resumeState,
+                    kind = kind,
+                ),
+            )
         }
     }.flowOn(importDispatcher)
 
@@ -151,6 +165,13 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     val message = snapshot.errorMessage ?: "Import failed."
                     updateLocalJob(job, ImportJobStatus.Failed, message)
                     error(message)
+                }
+                RemoteImportJobStatus.Rejected -> {
+                    val message =
+                        snapshot.errorMessage
+                            ?: "This file does not look like a training log."
+                    updateLocalJob(job, ImportJobStatus.Failed, message)
+                    throw UnsupportedImportFileException(message)
                 }
                 RemoteImportJobStatus.Ready -> Unit
                 RemoteImportJobStatus.PendingAgent,
@@ -213,6 +234,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             when (snapshot.status) {
                 RemoteImportJobStatus.Ready,
                 RemoteImportJobStatus.Failed,
+                RemoteImportJobStatus.Rejected,
                 -> return Result.success(snapshot)
                 RemoteImportJobStatus.PendingAgent,
                 RemoteImportJobStatus.AgentRunning,

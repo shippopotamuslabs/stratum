@@ -10,6 +10,10 @@ internal data class OnboardingEphemeralState(
     val applyingPreset: Boolean = false,
     val importProgress: ImportProgressUi? = null,
     val importError: String? = null,
+    /** True when the server rejected the file as not a training log (distinct Gym-card copy). */
+    val importUnsupportedFile: Boolean = false,
+    /** Furthest historical-import timeline step this run (monotonic). */
+    val historicalImportMaxTimelineIndex: Int = 0,
     val hasCompletedHistoricalImport: Boolean = false,
     val importInsightsSummary: ImportInsightsSummaryUi? = null,
     val generateState: GenerateState = GenerateState.Idle,

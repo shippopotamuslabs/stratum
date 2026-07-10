@@ -93,6 +93,8 @@ fun GymAndLiftOnboardingSetupScreen(
             highlighted = importActive || importComplete,
             showCompleteBadge = importComplete,
             importFailed = importFailed,
+            importUnsupportedFile = draft.importUnsupportedFile,
+            historicalImportMaxTimelineIndex = draft.historicalImportMaxTimelineIndex,
             importResumeFileIndex = draft.importResumeFileIndex,
             importResumeFileCount = draft.importResumeFileCount,
             progress = draft.importProgress,
@@ -155,6 +157,8 @@ private fun GymImportCard(
     highlighted: Boolean,
     showCompleteBadge: Boolean,
     importFailed: Boolean,
+    importUnsupportedFile: Boolean = false,
+    historicalImportMaxTimelineIndex: Int = 0,
     importResumeFileIndex: Int?,
     importResumeFileCount: Int?,
     progress: ImportProgressUi?,
@@ -166,6 +170,7 @@ private fun GymImportCard(
     val importActive = progress != null &&
         progress.phase != ImportProgressPhaseUi.Complete &&
         progress.phase != ImportProgressPhaseUi.Failed
+    val showTimeline = importActive && progress != null
     val borderColor =
         when {
             importFailed -> StratumThemeAccessor.colors.error
@@ -181,8 +186,10 @@ private fun GymImportCard(
     val title =
         when {
             showCompleteBadge -> stringResource(FeatureR.string.gym_lifts_import_complete)
+            importFailed && importUnsupportedFile ->
+                stringResource(FeatureR.string.gym_lifts_import_phase_unsupported)
             importFailed -> stringResource(FeatureR.string.gym_lifts_import_phase_failed)
-            importActive -> phaseLabel(checkNotNull(progress))
+            importActive -> stringResource(FeatureR.string.gym_lifts_import_in_progress)
             else -> stringResource(FeatureR.string.gym_lifts_import_title)
         }
     val learnMoreLabel = stringResource(FeatureR.string.gym_lifts_import_learn_more)
@@ -216,13 +223,11 @@ private fun GymImportCard(
                 text = title,
                 style = StratumThemeAccessor.typography.titleLarge,
             )
-            if (importActive) {
-                importProgressSubtitle(checkNotNull(progress))?.let { detail ->
-                    StratumText(
-                        text = detail,
-                        muted = true,
-                    )
-                }
+            if (showTimeline) {
+                HistoricalImportTimeline(
+                    progress = checkNotNull(progress),
+                    maxActiveIndex = historicalImportMaxTimelineIndex,
+                )
             } else if (!showCompleteBadge && !importFailed) {
                 StratumText(
                     text = stringResource(FeatureR.string.gym_lifts_import_description),
@@ -249,14 +254,18 @@ private fun GymImportCard(
                 }
             } else if (importFailed) {
                 val retryHint =
-                    if (importResumeFileIndex != null && importResumeFileCount != null && importResumeFileCount > 1) {
-                        stringResource(
-                            FeatureR.string.gym_lifts_import_resume_hint,
-                            importResumeFileIndex,
-                            importResumeFileCount,
-                        )
-                    } else {
-                        stringResource(FeatureR.string.gym_lifts_import_retry_hint)
+                    when {
+                        importResumeFileIndex != null &&
+                            importResumeFileCount != null &&
+                            importResumeFileCount > 1 ->
+                            stringResource(
+                                FeatureR.string.gym_lifts_import_resume_hint,
+                                importResumeFileIndex,
+                                importResumeFileCount,
+                            )
+                        importUnsupportedFile ->
+                            stringResource(FeatureR.string.gym_lifts_import_unsupported_hint)
+                        else -> stringResource(FeatureR.string.gym_lifts_import_retry_hint)
                     }
                 StratumText(
                     text = retryHint,
@@ -301,20 +310,6 @@ private fun ImportCompleteBadge(
         )
     }
 }
-
-@Composable
-private fun phaseLabel(progress: ImportProgressUi): String =
-    when (progress.phase) {
-        ImportProgressPhaseUi.Uploading -> stringResource(FeatureR.string.gym_lifts_import_phase_uploading)
-        ImportProgressPhaseUi.ReadingData -> stringResource(FeatureR.string.gym_lifts_import_phase_reading)
-        ImportProgressPhaseUi.CreatingConverter -> stringResource(FeatureR.string.gym_lifts_import_phase_creating)
-        ImportProgressPhaseUi.ValidatingSample -> stringResource(FeatureR.string.gym_lifts_import_phase_validating)
-        ImportProgressPhaseUi.ConvertingFull -> stringResource(FeatureR.string.gym_lifts_import_phase_converting)
-        ImportProgressPhaseUi.EnrichingCustomLifts -> stringResource(FeatureR.string.gym_lifts_import_phase_enriching)
-        ImportProgressPhaseUi.ExtractingInsights -> stringResource(FeatureR.string.gym_lifts_import_phase_extracting)
-        ImportProgressPhaseUi.Complete -> stringResource(FeatureR.string.gym_lifts_import_complete)
-        ImportProgressPhaseUi.Failed -> stringResource(FeatureR.string.gym_lifts_import_phase_failed)
-    }
 
 @Composable
 private fun GymPresetCard(
