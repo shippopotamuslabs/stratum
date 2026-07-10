@@ -77,7 +77,6 @@ import com.stratum.core.ui.component.workoutlog.WorkoutLogLiftUi
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.domain.lift.Weight
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.notification.RestTimerDefaults
 
@@ -100,7 +99,8 @@ data class WorkoutScreenActions(
     val onNavigateBack: () -> Unit,
     val onCompleteWorkout: (saveTemplate: Boolean) -> Unit,
     val onAbandon: () -> Unit,
-    val onLogSet: (String, Weight, Int, Int?) -> Unit,
+    /** [weightAmountLb] is the UI magnitude; the ViewModel applies load-type sign rules. */
+    val onLogSet: (slotKey: String, weightAmountLb: Double, reps: Int, rir: Int?) -> Unit,
     val onUnlogSet: (String) -> Unit,
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     val onLinkSupersetWithPrevious: (String) -> Unit,
@@ -483,7 +483,7 @@ private fun WorkoutLiftList(
     lifts: List<RenderedLiftUi>,
     listState: LazyListState,
     liftHeightsPx: MutableMap<String, Int>,
-    onLogSet: (String, Weight, Int, Int?) -> Unit,
+    onLogSet: (slotKey: String, weightAmountLb: Double, reps: Int, rir: Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onAddSet: (workoutLiftId: String) -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
@@ -895,7 +895,7 @@ private const val DEFAULT_ESTIMATED_LIFT_HEIGHT_PX = 420
 @Composable
 private fun LiveLiftSection(
     lift: RenderedLiftUi,
-    onLogSet: (String, Weight, Int, Int?) -> Unit,
+    onLogSet: (slotKey: String, weightAmountLb: Double, reps: Int, rir: Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onAddSet: () -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
@@ -1018,7 +1018,7 @@ private fun LiveLiftSection(
                             )
                         onLogSet(
                             source.slotKey,
-                            Weight(finalWeight, Weight.WeightUnit.Lb),
+                            finalWeight,
                             finalReps,
                             rir,
                         )

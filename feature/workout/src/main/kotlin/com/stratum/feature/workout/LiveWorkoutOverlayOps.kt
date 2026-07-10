@@ -9,6 +9,7 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.workout.AddedLiftDefaults
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
@@ -50,7 +51,7 @@ internal object LiveWorkoutOverlayOps {
 
         for (liftId in liftIds) {
             val catalog = liftsById[liftId]
-            val restSeconds = catalog?.resolvedDefaultRestSeconds() ?: DEFAULT_ADDED_LIFT_REST_SECONDS
+            val restSeconds = catalog?.resolvedDefaultRestSeconds() ?: AddedLiftDefaults.REST_SECONDS
             val workoutLiftId = WorkoutLiftId(UUID.randomUUID().toString())
             newLifts += OverlayAddedLift(
                 workoutLiftId = workoutLiftId,
@@ -69,16 +70,16 @@ internal object LiveWorkoutOverlayOps {
                 position = 0,
                 setType = SetType.Standard,
                 isTopSet = true,
-                repMin = DEFAULT_ADDED_LIFT_REP_MIN,
-                repMax = DEFAULT_ADDED_LIFT_REP_MAX,
-                rirGoal = DEFAULT_ADDED_LIFT_RIR,
+                repMin = AddedLiftDefaults.REP_MIN,
+                repMax = AddedLiftDefaults.REP_MAX,
+                rirGoal = AddedLiftDefaults.RIR,
                 restSeconds = restSeconds,
             )
             newSlots += slot
             newBaselines[slotId] = SlotRecommendation(
                 slotId = slotId,
                 recommendedWeight = zeroWeight,
-                baselineExpectedReps = DEFAULT_ADDED_LIFT_REP_MIN,
+                baselineExpectedReps = AddedLiftDefaults.REP_MIN,
             )
             newOrderIds += workoutLiftId.value
         }
@@ -102,20 +103,42 @@ internal object LiveWorkoutOverlayOps {
         cleanedGroupOverrides: Map<WorkoutLiftId, WorkoutSupersetGroupId?>,
         cleanedRestOverrides: Map<WorkoutLiftId, Boolean>,
         resolveSlot: (SetSlotId) -> SetSlot?,
+        /**
+         * Baseline template lift ids in template order, excluding already-deleted template lifts
+         * (and [workoutLiftId] when it is a baseline lift being removed). Used to drop
+         * [WorkoutOverlay.orderedLiftIds] when it no longer encodes a real reorder.
+         */
+        baselineLiftIdsInOrder: List<String>,
     ): WorkoutOverlay {
         val isSessionAdded = overlay.addedLifts.any { it.workoutLiftId == workoutLiftId }
         val slotsToDrop = overlay.addedSlots
             .filter { it.workoutLiftId == workoutLiftId }
             .map { it.slotId }
             .toSet()
-        val nextOrdered = overlay.orderedLiftIds?.filterNot { it == workoutLiftId.value }
+        // Also drop any deleted-slot markers for those overlay instances (fossils after remove).
+        val cleanedDeletedSlotIds = overlay.deletedSlotIds - slotsToDrop
+        val remainingAdded =
+            overlay.addedLifts.filterNot { it.workoutLiftId == workoutLiftId }
+        val nextOrderedRaw = overlay.orderedLiftIds?.filterNot { it == workoutLiftId.value }
+        val naturalOrder =
+            baselineLiftIdsInOrder + remainingAdded.map { it.workoutLiftId.value }
+        // Drop orderedLiftIds when empty or when it matches the natural (unordered) sequence —
+        // otherwise isDirty stays true after add→remove of a session lift.
+        val nextOrdered =
+            nextOrderedRaw
+                ?.takeUnless { it.isEmpty() }
+                ?.takeUnless { ordered ->
+                    ordered == naturalOrder || ordered == baselineLiftIdsInOrder
+                }
 
         return if (isSessionAdded) {
             overlay.copy(
-                addedLifts = overlay.addedLifts.filterNot { it.workoutLiftId == workoutLiftId },
+                addedLifts = remainingAdded,
                 addedSlots = overlay.addedSlots.filterNot { it.workoutLiftId == workoutLiftId },
+                deletedSlotIds = cleanedDeletedSlotIds,
                 dynamicBaselines = overlay.dynamicBaselines.filterKeys { it !in slotsToDrop },
                 loggedSets = overlay.loggedSets.filterKeys { it !in slotsToDrop },
+                recommendations = overlay.recommendations.filterKeys { it !in slotsToDrop },
                 supersetGroupIdOverrides = cleanedGroupOverrides,
                 useRestTimerBetweenLiftsOverrides = cleanedRestOverrides,
                 orderedLiftIds = nextOrdered,
@@ -124,8 +147,12 @@ internal object LiveWorkoutOverlayOps {
             overlay.copy(
                 deletedLiftIds = overlay.deletedLiftIds + workoutLiftId,
                 addedSlots = overlay.addedSlots.filterNot { it.workoutLiftId == workoutLiftId },
+                deletedSlotIds = cleanedDeletedSlotIds,
                 dynamicBaselines = overlay.dynamicBaselines.filterKeys { it !in slotsToDrop },
                 loggedSets = overlay.loggedSets.filterKeys { key ->
+                    resolveSlot(key)?.workoutLiftId != workoutLiftId
+                },
+                recommendations = overlay.recommendations.filterKeys { key ->
                     resolveSlot(key)?.workoutLiftId != workoutLiftId
                 },
                 supersetGroupIdOverrides = cleanedGroupOverrides,
@@ -256,9 +283,4 @@ internal object LiveWorkoutOverlayOps {
         val snapshot = ProgressionSnapshot(withAdded.workoutId, snapshotBySlot)
         return mergeRenderedWorkout(withAdded, snapshot, overlay)
     }
-
-    private const val DEFAULT_ADDED_LIFT_REP_MIN = 8
-    private const val DEFAULT_ADDED_LIFT_REP_MAX = 12
-    private const val DEFAULT_ADDED_LIFT_RIR = 2
-    private const val DEFAULT_ADDED_LIFT_REST_SECONDS = 120
 }
