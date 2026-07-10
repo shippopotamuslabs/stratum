@@ -34,6 +34,7 @@ androidxDataStore = "1.2.1"
 vico = "3.2.3"
 work = "2.11.2"
 hiltAndroidx = "1.4.0"
+shadow = "9.0.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -89,6 +90,7 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 ortools-java = { group = "com.google.ortools", name = "ortools-java", version.ref = "ortools" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 firebase-functions = { group = "com.google.firebase", name = "firebase-functions" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
 firebase-appcheck = { group = "com.google.firebase", name = "firebase-appcheck" }
@@ -114,4 +116,5 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 

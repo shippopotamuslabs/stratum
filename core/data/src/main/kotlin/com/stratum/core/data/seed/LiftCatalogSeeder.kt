@@ -7,11 +7,13 @@ import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.serialization.json.Json
@@ -105,13 +107,19 @@ class LiftCatalogSeeder(
             mainstream = dto.mainstream,
             kinematicProfile = profile,
             loadType = loadType,
+            // Seed catalog is local baseline until the user mutates a row.
+            updatedAtEpochMillis = 0L,
+            pendingSync = SyncFlags.CLEAN,
         )
-        val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).mapIndexed { _, t ->
+        val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).map { t ->
             IncrementTierEntity(
+                id = IncrementTierId.forBand(id, t.lowerBound),
                 liftId = id,
                 lowerBound = t.lowerBound,
                 upperBound = t.upperBound,
                 increment = t.increment,
+                updatedAtEpochMillis = 0L,
+                pendingSync = SyncFlags.CLEAN,
             )
         }
         return MappedLift(lift, tiers)

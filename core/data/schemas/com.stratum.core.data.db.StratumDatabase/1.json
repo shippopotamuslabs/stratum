@@ -2,16 +2,16 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "b774e0f2e0b462e8f5a7c932aaf2b722",
+    "identityHash": "9277f046ad8be2af883a4c7594f7ab28",
     "entities": [
       {
         "tableName": "onboarding_progress",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `currentStep` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `completedAt` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `currentStep` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `completedAt` INTEGER, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
             "columnName": "id",
-            "affinity": "INTEGER",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -30,6 +30,18 @@
             "fieldPath": "completedAt",
             "columnName": "completedAt",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -41,12 +53,12 @@
       },
       {
         "tableName": "user_training_profile",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `trainingAge` TEXT, `lastTrained` TEXT, `weekdays` TEXT NOT NULL, `sessionLengthMinutes` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `trainingAge` TEXT, `lastTrained` TEXT, `weekdays` TEXT NOT NULL, `sessionLengthMinutes` INTEGER, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
             "columnName": "id",
-            "affinity": "INTEGER",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -69,6 +81,18 @@
             "fieldPath": "sessionLengthMinutes",
             "columnName": "sessionLengthMinutes",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -80,8 +104,14 @@
       },
       {
         "tableName": "specialization_preference",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`muscle` TEXT NOT NULL, `level` TEXT NOT NULL, PRIMARY KEY(`muscle`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `muscle` TEXT NOT NULL, `level` TEXT NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
           {
             "fieldPath": "muscle",
             "columnName": "muscle",
@@ -93,18 +123,41 @@
             "columnName": "level",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "muscle"
+            "id"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_specialization_preference_muscle",
+            "unique": true,
+            "columnNames": [
+              "muscle"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_specialization_preference_muscle` ON `${TABLE_NAME}` (`muscle`)"
+          }
+        ]
       },
       {
         "tableName": "lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `loadType` TEXT NOT NULL, `defaultRestSeconds` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `loadType` TEXT NOT NULL, `defaultRestSeconds` INTEGER, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -197,6 +250,18 @@
             "fieldPath": "defaultRestSeconds",
             "columnName": "defaultRestSeconds",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -208,8 +273,14 @@
       },
       {
         "tableName": "increment_tiers",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`liftId` TEXT NOT NULL, `lowerBound` REAL NOT NULL, `upperBound` REAL, `increment` REAL NOT NULL, PRIMARY KEY(`liftId`, `lowerBound`), FOREIGN KEY(`liftId`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `liftId` TEXT NOT NULL, `lowerBound` REAL NOT NULL, `upperBound` REAL, `increment` REAL NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`liftId`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
           {
             "fieldPath": "liftId",
             "columnName": "liftId",
@@ -232,13 +303,24 @@
             "columnName": "increment",
             "affinity": "REAL",
             "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "liftId",
-            "lowerBound"
+            "id"
           ]
         },
         "indices": [
@@ -250,6 +332,16 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_increment_tiers_liftId` ON `${TABLE_NAME}` (`liftId`)"
+          },
+          {
+            "name": "index_increment_tiers_liftId_lowerBound",
+            "unique": true,
+            "columnNames": [
+              "liftId",
+              "lowerBound"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_increment_tiers_liftId_lowerBound` ON `${TABLE_NAME}` (`liftId`, `lowerBound`)"
           }
         ],
         "foreignKeys": [
@@ -268,12 +360,12 @@
       },
       {
         "tableName": "gym_preference",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `selectedPreset` TEXT, `usedHistoricalImport` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `selectedPreset` TEXT, `usedHistoricalImport` INTEGER NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
             "columnName": "id",
-            "affinity": "INTEGER",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -284,6 +376,18 @@
           {
             "fieldPath": "usedHistoricalImport",
             "columnName": "usedHistoricalImport",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -353,7 +457,7 @@
       },
       {
         "tableName": "logged_sets",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `exerciseNameRaw` TEXT NOT NULL, `liftId` TEXT, `setIndex` INTEGER NOT NULL, `weightAmount` REAL NOT NULL, `weightUnit` TEXT NOT NULL, `reps` INTEGER NOT NULL, `rir` INTEGER, `completedAtEpochMillis` INTEGER NOT NULL, `liftName` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `muscleLengthBias` TEXT NOT NULL, `workoutLiftId` TEXT, `progressionScheme` TEXT, `setType` TEXT, `repMin` INTEGER, `repMax` INTEGER, `rirGoal` INTEGER, `isPersonalRecord` INTEGER, `estimatedOneRm` REAL, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `training_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `exerciseNameRaw` TEXT NOT NULL, `liftId` TEXT, `setIndex` INTEGER NOT NULL, `weightAmount` REAL NOT NULL, `weightUnit` TEXT NOT NULL, `reps` INTEGER NOT NULL, `rir` INTEGER, `completedAtEpochMillis` INTEGER NOT NULL, `liftName` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `muscleLengthBias` TEXT NOT NULL, `workoutLiftId` TEXT, `progressionScheme` TEXT, `setType` TEXT, `repMin` INTEGER, `repMax` INTEGER, `rirGoal` INTEGER, `isPersonalRecord` INTEGER, `estimatedOneRm` REAL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`sessionId`) REFERENCES `training_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -488,6 +592,18 @@
             "fieldPath": "estimatedOneRm",
             "columnName": "estimatedOneRm",
             "affinity": "REAL"
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -1628,7 +1744,7 @@
       },
       {
         "tableName": "programs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `created_at` TEXT NOT NULL, `cycle_length` INTEGER NOT NULL, `training_weekdays` TEXT NOT NULL, `current_cycle_number` INTEGER NOT NULL, `cycle_position` INTEGER NOT NULL, `is_active` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `created_at` TEXT NOT NULL, `cycle_length` INTEGER NOT NULL, `training_weekdays` TEXT NOT NULL, `current_cycle_number` INTEGER NOT NULL, `cycle_position` INTEGER NOT NULL, `is_active` INTEGER NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -1677,6 +1793,18 @@
             "columnName": "is_active",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -1688,7 +1816,7 @@
       },
       {
         "tableName": "workouts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `program_id` TEXT NOT NULL, `name` TEXT NOT NULL, `weekday` TEXT, `position` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`program_id`) REFERENCES `programs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `program_id` TEXT NOT NULL, `name` TEXT NOT NULL, `weekday` TEXT, `position` INTEGER NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`program_id`) REFERENCES `programs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1716,6 +1844,18 @@
           {
             "fieldPath": "position",
             "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -1753,7 +1893,7 @@
       },
       {
         "tableName": "workout_lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_id` TEXT NOT NULL, `lift_id` TEXT NOT NULL, `progression_scheme` TEXT NOT NULL, `position` INTEGER NOT NULL, `superset_group_id` TEXT, `use_rest_timer_between_lifts` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_id`) REFERENCES `workouts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`lift_id`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_id` TEXT NOT NULL, `lift_id` TEXT NOT NULL, `progression_scheme` TEXT NOT NULL, `position` INTEGER NOT NULL, `superset_group_id` TEXT, `use_rest_timer_between_lifts` INTEGER NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_id`) REFERENCES `workouts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`lift_id`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1793,6 +1933,18 @@
           {
             "fieldPath": "useRestTimerBetweenLifts",
             "columnName": "use_rest_timer_between_lifts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -1850,7 +2002,7 @@
       },
       {
         "tableName": "sets",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_lift_id` TEXT NOT NULL, `position` INTEGER NOT NULL, `set_type` TEXT NOT NULL, `rep_min` INTEGER NOT NULL, `rep_max` INTEGER NOT NULL, `rir_goal` INTEGER NOT NULL, `is_top_set` INTEGER NOT NULL, `rest_seconds` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_lift_id`) REFERENCES `workout_lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `workout_lift_id` TEXT NOT NULL, `position` INTEGER NOT NULL, `set_type` TEXT NOT NULL, `rep_min` INTEGER NOT NULL, `rep_max` INTEGER NOT NULL, `rir_goal` INTEGER NOT NULL, `is_top_set` INTEGER NOT NULL, `rest_seconds` INTEGER NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workout_lift_id`) REFERENCES `workout_lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1905,6 +2057,18 @@
             "columnName": "rest_seconds",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -1940,7 +2104,7 @@
       },
       {
         "tableName": "training_sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `program_id` TEXT, `workout_id` TEXT, `status` TEXT NOT NULL, `kind` TEXT NOT NULL, `origin` TEXT NOT NULL, `cycle_number_snapshot` INTEGER NOT NULL, `weekday_snapshot` TEXT, `started_at_epoch_millis` INTEGER NOT NULL, `ended_at_epoch_millis` INTEGER, `source_app` TEXT, `program_name_snapshot` TEXT, `workout_name_snapshot` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `program_id` TEXT, `workout_id` TEXT, `status` TEXT NOT NULL, `kind` TEXT NOT NULL, `origin` TEXT NOT NULL, `cycle_number_snapshot` INTEGER NOT NULL, `weekday_snapshot` TEXT, `started_at_epoch_millis` INTEGER NOT NULL, `ended_at_epoch_millis` INTEGER, `source_app` TEXT, `program_name_snapshot` TEXT, `workout_name_snapshot` TEXT, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -2012,6 +2176,18 @@
             "fieldPath": "workoutNameSnapshot",
             "columnName": "workout_name_snapshot",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -2054,7 +2230,7 @@
       },
       {
         "tableName": "program_change_events",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `program_id` TEXT NOT NULL, `event_type` TEXT NOT NULL, `occurred_at_epoch_millis` INTEGER NOT NULL, `workout_lift_id` TEXT, `previous_lift_id` TEXT, `new_lift_id` TEXT, `workout_id` TEXT, `completed_cycle_number` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`program_id`) REFERENCES `programs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `program_id` TEXT NOT NULL, `event_type` TEXT NOT NULL, `occurred_at_epoch_millis` INTEGER NOT NULL, `workout_lift_id` TEXT, `previous_lift_id` TEXT, `new_lift_id` TEXT, `workout_id` TEXT, `completed_cycle_number` INTEGER, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`program_id`) REFERENCES `programs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -2104,6 +2280,18 @@
             "fieldPath": "completedCycleNumber",
             "columnName": "completed_cycle_number",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -2137,11 +2325,59 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "pending_cloud_deletes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`row_id` TEXT NOT NULL, `collection_path` TEXT NOT NULL, `entity_id` TEXT NOT NULL, `enqueued_at_epoch_millis` INTEGER NOT NULL, PRIMARY KEY(`row_id`))",
+        "fields": [
+          {
+            "fieldPath": "rowId",
+            "columnName": "row_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectionPath",
+            "columnName": "collection_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityId",
+            "columnName": "entity_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enqueuedAtEpochMillis",
+            "columnName": "enqueued_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "row_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_pending_cloud_deletes_collection_path_entity_id",
+            "unique": true,
+            "columnNames": [
+              "collection_path",
+              "entity_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_pending_cloud_deletes_collection_path_entity_id` ON `${TABLE_NAME}` (`collection_path`, `entity_id`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b774e0f2e0b462e8f5a7c932aaf2b722')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9277f046ad8be2af883a4c7594f7ab28')"
     ]
   }
 }

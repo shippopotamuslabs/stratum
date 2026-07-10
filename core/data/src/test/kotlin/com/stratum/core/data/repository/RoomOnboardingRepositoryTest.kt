@@ -28,7 +28,7 @@ class RoomOnboardingRepositoryTest {
             RuntimeEnvironment.getApplication(),
             StratumDatabase::class.java,
         ).allowMainThreadQueries().build()
-        subject = RoomOnboardingRepository(dao = database.onboardingProgressDao())
+        subject = RoomOnboardingRepository(dao = database.onboardingProgressDao(), syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()))
     }
 
     @AfterEach

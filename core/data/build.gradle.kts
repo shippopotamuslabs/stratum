@@ -19,6 +19,12 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        // Kill-switch for Firestore cloud sync (client + WorkManager). Flip false for emergency.
+        buildConfigField("boolean", "CLOUD_SYNC_ENABLED", "true")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -60,6 +66,9 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    // Firestore requires protobuf-javalite + protolite. Do not exclude them (VerifyError on
+    // WriteResponse). OR-Tools full protobuf is relocated in :core:ortools-shaded.
+    implementation(libs.firebase.firestore)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)

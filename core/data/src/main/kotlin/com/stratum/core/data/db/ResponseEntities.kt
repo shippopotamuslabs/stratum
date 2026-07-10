@@ -11,7 +11,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 
 @Entity(tableName = "response_epochs")
 data class ResponseEpochEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey val id: com.stratum.domain.response.identity.EpochId,
     val startEpochMillis: Long,
     val endEpochMillis: Long,
     val anchorLiftIdsCsv: String,
@@ -65,7 +65,7 @@ data class LiftEffectivenessObservationEntity(
 
 @Entity(tableName = "experiment_blocks")
 data class ExperimentBlockEntity(
-    @PrimaryKey val id: String,
+    @PrimaryKey val id: com.stratum.domain.response.identity.ExperimentId,
     val prescribedEpochId: String?,
     val prescribedExperimentId: String?,
     val prescribedMuscle: MuscleGroup?,

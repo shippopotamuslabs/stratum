@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.ProgressionScheme
@@ -39,6 +40,10 @@ data class ProgramEntity(
     @ColumnInfo(name = "cycle_position") val cyclePosition: Int = 0,
     /** At most one user program is active; import-history and library rows stay false. */
     @ColumnInfo(name = "is_active") val isActive: Boolean = false,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )
 
 @Entity(
@@ -59,6 +64,10 @@ data class WorkoutEntity(
     val name: String,
     val weekday: Weekday?,
     val position: Int,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )
 
 @Entity(
@@ -87,6 +96,10 @@ data class WorkoutLiftEntity(
     val position: Int,
     @ColumnInfo(name = "superset_group_id") val supersetGroupId: WorkoutSupersetGroupId? = null,
     @ColumnInfo(name = "use_rest_timer_between_lifts") val useRestTimerBetweenLifts: Boolean = false,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )
 
 @Entity(
@@ -111,4 +124,8 @@ data class LiftSetEntity(
     @ColumnInfo(name = "rir_goal") val rirGoal: Int,
     @ColumnInfo(name = "is_top_set") val isTopSet: Boolean,
     @ColumnInfo(name = "rest_seconds") val restSeconds: Int = DEFAULT_LIFT_SET_REST_SECONDS,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )

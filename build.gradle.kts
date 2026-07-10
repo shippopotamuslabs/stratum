@@ -9,10 +9,12 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.google.services) apply false
     alias(libs.plugins.firebase.crashlytics) apply false
+    alias(libs.plugins.shadow) apply false
 }
 
 subprojects {
-    val excludedModules = setOf(":detekt-rules")
+    // Pure JVM packaging / rules modules — skip Android-oriented detekt wiring.
+    val excludedModules = setOf(":detekt-rules", ":core:ortools-shaded")
     if (path in excludedModules) {
         return@subprojects
     }

@@ -1,9 +1,10 @@
 package com.stratum.core.data.mapper
 
 import com.stratum.core.data.db.SpecializationPreferenceEntity
-import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.SpecializationPreference
+import com.stratum.domain.onboarding.identity.SpecializationPreferenceId
 
 /**
  * Maps [SpecializationPreferenceEntity] rows to/from the domain [SpecializationPreference].
@@ -19,9 +20,17 @@ fun List<SpecializationPreferenceEntity>.toDomain(): SpecializationPreference {
     return SpecializationPreference(levels = levels)
 }
 
-fun SpecializationPreference.toEntities(): List<SpecializationPreferenceEntity> =
+fun SpecializationPreference.toEntities(
+    nowMillis: Long = System.currentTimeMillis(),
+): List<SpecializationPreferenceEntity> =
     levels.entries
         .filter { (_, level) -> level != SpecializationLevel.Maintenance }
         .map { (muscle, level) ->
-            SpecializationPreferenceEntity(muscle = muscle, level = level)
+            SpecializationPreferenceEntity(
+                id = SpecializationPreferenceId.forMuscle(muscle),
+                muscle = muscle,
+                level = level,
+                updatedAtEpochMillis = nowMillis,
+                pendingSync = SyncFlags.PENDING_UPSERT,
+            )
         }

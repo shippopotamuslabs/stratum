@@ -1,10 +1,13 @@
 package com.stratum.core.data.mapper
 
 import com.stratum.core.data.db.ProgramChangeEventEntity
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
 
-internal fun ProgramChangeEvent.toEntity(): ProgramChangeEventEntity {
+internal fun ProgramChangeEvent.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): ProgramChangeEventEntity {
     val liftSwapped = payload as? ProgramChangeEventPayload.LiftSwapped
     val workoutEdited = payload as? ProgramChangeEventPayload.WorkoutEdited
     val cycleCompleted = payload as? ProgramChangeEventPayload.CycleCompleted
@@ -18,5 +21,7 @@ internal fun ProgramChangeEvent.toEntity(): ProgramChangeEventEntity {
         newLiftId = liftSwapped?.newLiftId,
         workoutId = workoutEdited?.workoutId,
         completedCycleNumber = cycleCompleted?.completedCycleNumber,
+        updatedAtEpochMillis = nowMillis,
+        pendingSync = SyncFlags.PENDING_UPSERT,
     )
 }

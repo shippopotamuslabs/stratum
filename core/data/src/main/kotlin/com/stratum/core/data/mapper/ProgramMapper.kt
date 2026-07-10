@@ -4,6 +4,7 @@ import com.stratum.core.data.db.LiftSetEntity
 import com.stratum.core.data.db.ProgramEntity
 import com.stratum.core.data.db.WorkoutEntity
 import com.stratum.core.data.db.WorkoutLiftEntity
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
@@ -60,7 +61,9 @@ internal fun LiftSetEntity.toDomain(): LiftSet = LiftSet(
     restSeconds = restSeconds,
 )
 
-internal fun Program.toEntity(): ProgramEntity = ProgramEntity(
+internal fun Program.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): ProgramEntity = ProgramEntity(
     id = id,
     name = name,
     createdAt = createdAt.toString(),
@@ -69,17 +72,25 @@ internal fun Program.toEntity(): ProgramEntity = ProgramEntity(
     currentCycleNumber = currentCycleNumber,
     cyclePosition = cyclePosition,
     isActive = isActive,
+    updatedAtEpochMillis = nowMillis,
+    pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-internal fun Workout.toEntity(): WorkoutEntity = WorkoutEntity(
+internal fun Workout.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): WorkoutEntity = WorkoutEntity(
     id = id,
     programId = programId,
     name = name,
     weekday = weekday,
     position = position,
+    updatedAtEpochMillis = nowMillis,
+    pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-internal fun WorkoutLift.toEntity(): WorkoutLiftEntity = WorkoutLiftEntity(
+internal fun WorkoutLift.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): WorkoutLiftEntity = WorkoutLiftEntity(
     id = id,
     workoutId = workoutId,
     liftId = liftId,
@@ -87,9 +98,13 @@ internal fun WorkoutLift.toEntity(): WorkoutLiftEntity = WorkoutLiftEntity(
     position = position,
     supersetGroupId = supersetGroupId,
     useRestTimerBetweenLifts = useRestTimerBetweenLifts,
+    updatedAtEpochMillis = nowMillis,
+    pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
-internal fun LiftSet.toEntity(): LiftSetEntity = LiftSetEntity(
+internal fun LiftSet.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): LiftSetEntity = LiftSetEntity(
     id = id,
     workoutLiftId = workoutLiftId,
     position = position,
@@ -99,6 +114,8 @@ internal fun LiftSet.toEntity(): LiftSetEntity = LiftSetEntity(
     rirGoal = rirGoal,
     isTopSet = isTopSet,
     restSeconds = restSeconds,
+    updatedAtEpochMillis = nowMillis,
+    pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
 /**

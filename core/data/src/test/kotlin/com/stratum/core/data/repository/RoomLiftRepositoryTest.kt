@@ -46,6 +46,7 @@ class RoomLiftRepositoryTest {
             liftDao = database.liftDao(),
             incrementTierDao = database.incrementTierDao(),
             gymPreferenceDao = database.gymPreferenceDao(),
+            syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()),
         )
     }
 

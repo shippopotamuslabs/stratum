@@ -9,6 +9,7 @@ import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.importing.identity.ImportJobId
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -25,6 +26,10 @@ import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.onboarding.identity.GymPreferenceId
+import com.stratum.domain.onboarding.identity.OnboardingProgressId
+import com.stratum.domain.onboarding.identity.SpecializationPreferenceId
+import com.stratum.domain.onboarding.identity.UserProfileId
 import com.stratum.domain.response.EpochSplitReason
 import com.stratum.domain.response.EvidenceLevel
 import com.stratum.domain.response.ExperimentStatus
@@ -146,6 +151,41 @@ class EnumConverters {
     @TypeConverter
     fun toLiftId(value: String?): LiftId? =
         value?.let { runCatching { LiftId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromIncrementTierId(id: IncrementTierId?): String? = id?.value
+
+    @TypeConverter
+    fun toIncrementTierId(value: String?): IncrementTierId? =
+        value?.let { runCatching { IncrementTierId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromUserProfileId(id: UserProfileId?): String? = id?.value
+
+    @TypeConverter
+    fun toUserProfileId(value: String?): UserProfileId? =
+        value?.let { runCatching { UserProfileId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromOnboardingProgressId(id: OnboardingProgressId?): String? = id?.value
+
+    @TypeConverter
+    fun toOnboardingProgressId(value: String?): OnboardingProgressId? =
+        value?.let { runCatching { OnboardingProgressId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromGymPreferenceId(id: GymPreferenceId?): String? = id?.value
+
+    @TypeConverter
+    fun toGymPreferenceId(value: String?): GymPreferenceId? =
+        value?.let { runCatching { GymPreferenceId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromSpecializationPreferenceId(id: SpecializationPreferenceId?): String? = id?.value
+
+    @TypeConverter
+    fun toSpecializationPreferenceId(value: String?): SpecializationPreferenceId? =
+        value?.let { runCatching { SpecializationPreferenceId(it) }.getOrNull() }
 
     @TypeConverter
     fun fromImportJobStatus(status: ImportJobStatus?): String? = status?.name
