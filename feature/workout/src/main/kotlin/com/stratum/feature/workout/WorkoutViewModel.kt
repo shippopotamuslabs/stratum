@@ -53,15 +53,17 @@ import com.stratum.feature.workout.ui.WorkoutUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Owns the overlay layer (`MutableStateFlow<WorkoutOverlay>`) as in-memory session state
@@ -74,6 +76,7 @@ import kotlinx.coroutines.launch
  * the overlay's `recommendations` map (overlay-only — never writes back to the snapshot).
  */
 @HiltViewModel
+@Suppress("LargeClass") // Session owner: structure helpers live in LiveWorkoutOverlayOps; further split is a follow-up.
 class WorkoutViewModel @Inject constructor(
     private val observeCycleProgress: ObserveCycleProgressUseCase,
     private val generateSnapshot: GenerateProgressionSnapshotUseCase,
@@ -159,6 +162,14 @@ class WorkoutViewModel @Inject constructor(
     private var fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap()
     private var snapshotLoaded = false
     private var baselineWorkout: Workout? = null
+    /** Guards double-tap complete; reset when finalize fails so the user can retry. */
+    private var isCompleting: Boolean = false
+    /**
+     * True after a successful template save within the current complete attempt, so a
+     * finalize-only retry does not re-apply overlay (and mint new set ids) a second time.
+     */
+    private var templateSavedThisComplete: Boolean = false
+    private val overlayPersistMutex = Mutex()
 
     fun startSession(workoutId: WorkoutId) {
         if (activeWorkoutId == workoutId && snapshotLoaded) return
@@ -378,14 +389,18 @@ class WorkoutViewModel @Inject constructor(
         val remainingForLift = visibleSlotsForLift(slot.workoutLiftId)
         if (remainingForLift.size <= 1) return
 
-        if (slot.slotId in overlay.loggedSets) {
+        val slotId = slot.slotId
+        val workoutLiftId = slot.workoutLiftId
+        val setPosition = slot.position
+
+        if (slotId in overlay.loggedSets) {
             val session = cachedSessionId
             if (session != null) {
                 viewModelScope.launch {
                     val dbSets = getLoggedSetsForSession(session)
                     val dbSet = dbSets.firstOrNull {
-                        it.liftContext.workoutLiftId == slot.workoutLiftId &&
-                            it.setIndex == slot.position
+                        it.liftContext.workoutLiftId == workoutLiftId &&
+                            it.setIndex == setPosition
                     }
                     if (dbSet != null) {
                         val deleteResult = deleteLoggedSet(dbSet.id)
@@ -394,18 +409,22 @@ class WorkoutViewModel @Inject constructor(
                             return@launch
                         }
                     }
+                    // Re-check on the latest overlay after suspend — another mutation may have
+                    // already removed this set or left the lift with a single remaining set.
+                    if (slotId in overlay.deletedSlotIds) return@launch
+                    if (visibleSlotsForLift(workoutLiftId).size <= 1) return@launch
                     overlay = overlay
-                        .copy(loggedSets = overlay.loggedSets - slot.slotId)
-                        .apply(StructuralMutation.DeleteSet(slot.slotId))
+                        .copy(loggedSets = overlay.loggedSets - slotId)
+                        .apply(StructuralMutation.DeleteSet(slotId))
                     recomputeRecommendations()
                     render()
                     persistOverlay()
                 }
                 return
             }
-            overlay = overlay.copy(loggedSets = overlay.loggedSets - slot.slotId)
+            overlay = overlay.copy(loggedSets = overlay.loggedSets - slotId)
         }
-        deleteSet(slot.slotId)
+        deleteSet(slotId)
     }
 
     fun undo() {
@@ -501,14 +520,48 @@ class WorkoutViewModel @Inject constructor(
     fun removeLift(workoutLiftId: WorkoutLiftId) {
         val currentLifts = getLinkableLifts().filterNot { it.workoutLiftId == workoutLiftId.value }
         val cleaned = cleanupSupersetGroups(currentLifts)
+        // Start from existing overrides and drop the removed lift — do not write null
+        // overrides for every remaining lift (that would keep isDirty true forever).
         val newGroupIdOverrides = overlay.supersetGroupIdOverrides.toMutableMap()
         val newRestTimerOverrides = overlay.useRestTimerBetweenLiftsOverrides.toMutableMap()
-        cleaned.forEach { lift ->
-            newGroupIdOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
-            newRestTimerOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.useRestTimerBetweenLifts
-        }
         newGroupIdOverrides.remove(workoutLiftId)
         newRestTimerOverrides.remove(workoutLiftId)
+        cleaned.forEach { lift ->
+            val id = WorkoutLiftId(lift.workoutLiftId)
+            val group = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
+            val priorGroup =
+                if (overlay.supersetGroupIdOverrides.containsKey(id)) {
+                    overlay.supersetGroupIdOverrides[id]
+                } else {
+                    // No explicit override yet — compare against post-cleanup value only when
+                    // cleanup actually assigned a group (or cleared an existing one).
+                    null
+                }
+            if (group != priorGroup && (group != null || overlay.supersetGroupIdOverrides.containsKey(id))) {
+                newGroupIdOverrides[id] = group
+            }
+            if (overlay.useRestTimerBetweenLiftsOverrides.containsKey(id) ||
+                lift.useRestTimerBetweenLifts
+            ) {
+                val priorRest = overlay.useRestTimerBetweenLiftsOverrides[id]
+                if (priorRest != lift.useRestTimerBetweenLifts) {
+                    newRestTimerOverrides[id] = lift.useRestTimerBetweenLifts
+                }
+            }
+        }
+
+        val nextDeletedLiftIds =
+            if (overlay.addedLifts.any { it.workoutLiftId == workoutLiftId }) {
+                overlay.deletedLiftIds
+            } else {
+                overlay.deletedLiftIds + workoutLiftId
+            }
+        val baselineLiftIdsInOrder =
+            structure
+                ?.lifts
+                ?.filterNot { it.workoutLiftId in nextDeletedLiftIds }
+                ?.map { it.workoutLiftId.value }
+                .orEmpty()
 
         overlay = LiveWorkoutOverlayOps.removeLift(
             overlay = overlay,
@@ -516,6 +569,7 @@ class WorkoutViewModel @Inject constructor(
             cleanedGroupOverrides = newGroupIdOverrides,
             cleanedRestOverrides = newRestTimerOverrides,
             resolveSlot = ::resolveSlot,
+            baselineLiftIdsInOrder = baselineLiftIdsInOrder,
         )
         recomputeRecommendations()
         render()
@@ -586,26 +640,44 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun completeWorkout(saveTemplate: Boolean) {
+        if (isCompleting) return
         val sessionId = cachedSessionId ?: return
         val workoutId = activeWorkoutId ?: return
         val workout = baselineWorkout
+        isCompleting = true
         viewModelScope.launch {
-            if (saveTemplate && workout != null) {
-                val updated = applyOverlayToWorkout(workout, overlay)
-                val saveResult = saveWorkoutUseCase(workoutId, updated)
-                if (saveResult.isFailure) {
-                    _userMessage.value = MSG_COMPLETE_FAILED
+            try {
+                var templateSaved = false
+                if (saveTemplate && workout != null && !templateSavedThisComplete) {
+                    val updated = applyOverlayToWorkout(workout, overlay)
+                    val saveResult = saveWorkoutUseCase(workoutId, updated)
+                    if (saveResult.isFailure) {
+                        _userMessage.value = MSG_COMPLETE_FAILED
+                        return@launch
+                    }
+                    // Fold applied structure into baseline so a finalize-only retry is safe and
+                    // does not re-apply (or double-mint) template ids.
+                    baselineWorkout = updated
+                    templateSavedThisComplete = true
+                    templateSaved = true
+                }
+                val finalizeResult = finalizeTrainingSession(sessionId)
+                if (finalizeResult.isFailure) {
+                    _userMessage.value =
+                        if (templateSaved || templateSavedThisComplete) {
+                            MSG_COMPLETE_FINALIZE_AFTER_TEMPLATE
+                        } else {
+                            MSG_COMPLETE_FAILED
+                        }
                     return@launch
                 }
+                templateSavedThisComplete = false
+                manageWorkoutOverlay.clear()
+                liveWorkoutSurfaces.clearSession()
+                _events.send(WorkoutUiEvent.NavigateToFinalize(sessionId.value))
+            } finally {
+                isCompleting = false
             }
-            val finalizeResult = finalizeTrainingSession(sessionId)
-            if (finalizeResult.isFailure) {
-                _userMessage.value = MSG_COMPLETE_FAILED
-                return@launch
-            }
-            manageWorkoutOverlay.clear()
-            liveWorkoutSurfaces.clearSession()
-            _events.send(WorkoutUiEvent.NavigateToFinalize(sessionId.value))
         }
     }
 
@@ -665,15 +737,16 @@ class WorkoutViewModel @Inject constructor(
 
     /**
      * Persists the current overlay to the DataStore-backed store so the session survives an
-     * app process death. Captures [overlay] by value before launching so concurrent
-     * mutations don't race the snapshot. Fire-and-forget: [ManageWorkoutOverlayUseCase]
-     * logs failures; never surface to the user — must not break the in-workout flow.
+     * app process death. Serialized via [overlayPersistMutex] so concurrent mutations always
+     * write the **latest** overlay at lock time (avoids out-of-order saves on process death).
+     * Fire-and-forget: [ManageWorkoutOverlayUseCase] logs failures; never surface to the user.
      */
     private fun persistOverlay() {
         val sessionId = cachedSessionId ?: return
-        val snapshot = overlay
         viewModelScope.launch {
-            manageWorkoutOverlay.save(sessionId, snapshot)
+            overlayPersistMutex.withLock {
+                manageWorkoutOverlay.save(sessionId, overlay)
+            }
         }
     }
 
@@ -724,6 +797,8 @@ class WorkoutViewModel @Inject constructor(
         const val MSG_LOG_SET_FAILED = "Couldn't save that set. Try again."
         const val MSG_UNLOG_SET_FAILED = "Couldn't remove that set. Try again."
         const val MSG_COMPLETE_FAILED = "Couldn't finish the workout. Try again."
+        const val MSG_COMPLETE_FINALIZE_AFTER_TEMPLATE =
+            "Template saved, but finishing the session failed. Tap Complete again."
         const val MSG_ABANDON_FAILED = "Couldn't cancel the workout. Try again."
     }
 }

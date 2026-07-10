@@ -1420,6 +1420,7 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
         val withAdded = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(2, withAdded.lifts.size)
+        assertTrue(withAdded.hasDirtyEdits)
         val addedId = withAdded.lifts.last().workoutLiftId
 
         viewModel.removeLift(WorkoutLiftId(addedId))
@@ -1427,6 +1428,63 @@ class WorkoutViewModelTest {
         val after = viewModel.uiState.value as WorkoutUiState.Loaded
         assertEquals(1, after.lifts.size)
         assertEquals("Squat", after.lifts.single().liftName)
+        // Add → remove should not leave orderedLiftIds/addedLifts fossils as dirty.
+        assertTrue(!after.hasDirtyEdits)
+    }
+
+    @Test
+    @DisplayName("Given persisted overlay with addedLifts when startSession then lift is restored")
+    fun persistedAddedLiftsRestoredOnStartSession() = runTest {
+        val addedWl = WorkoutLiftId("wl-session-added")
+        val slotId =
+            com.stratum.domain.workout.SetSlotId.Overlay(
+                com.stratum.domain.workout.OverlaySetInstanceId("added-lift-restored-0"),
+            )
+        overlayStore.seed(
+            TrainingSessionId("ts-active"),
+            WorkoutOverlay(
+                addedLifts =
+                    listOf(
+                        com.stratum.domain.workout.OverlayAddedLift(
+                            workoutLiftId = addedWl,
+                            liftId = LiftId("L-2"),
+                        ),
+                    ),
+                addedSlots =
+                    listOf(
+                        com.stratum.domain.workout.SetSlot(
+                            slotId = slotId,
+                            workoutLiftId = addedWl,
+                            liftId = LiftId("L-2"),
+                            position = 0,
+                            setType = SetType.Standard,
+                            isTopSet = true,
+                            repMin = 8,
+                            repMax = 12,
+                            rirGoal = 2,
+                            restSeconds = 120,
+                        ),
+                    ),
+                dynamicBaselines =
+                    mapOf(
+                        slotId to
+                            com.stratum.domain.workout.SlotRecommendation(
+                                slotId = slotId,
+                                recommendedWeight = lb(0.0),
+                                baselineExpectedReps = 8,
+                            ),
+                    ),
+                orderedLiftIds = listOf(workoutLiftId.value, addedWl.value),
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(2, loaded.lifts.size)
+        assertEquals("Bench Press", loaded.lifts.last().liftName)
+        assertEquals(1, loaded.lifts.last().sets.size)
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {

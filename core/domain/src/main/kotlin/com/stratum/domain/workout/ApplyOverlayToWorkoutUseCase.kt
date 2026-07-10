@@ -1,6 +1,7 @@
 package com.stratum.domain.workout
 
 import com.stratum.domain.program.LiftSet
+import com.stratum.domain.program.SetType
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.LiftSetId
@@ -15,9 +16,15 @@ import javax.inject.Inject
  *
  * Applied overlay fields: swapped lifts, deleted lifts, added lifts, deleted sets, added sets,
  * superset group overrides, rest-timer-between-lifts overrides, and lift reordering.
+ *
+ * Overlay-added slots that are also present in [WorkoutOverlay.deletedSlotIds] are **not**
+ * written to the template (matches live merge semantics).
  */
 class ApplyOverlayToWorkoutUseCase @Inject constructor() {
     operator fun invoke(baseline: Workout, overlay: WorkoutOverlay): Workout {
+        val liveAddedSlots =
+            overlay.addedSlots.filterNot { it.slotId in overlay.deletedSlotIds }
+
         val updatedLifts = baseline.workoutLifts
             .filterNot { it.id in overlay.deletedLiftIds }
             .map { lift ->
@@ -34,18 +41,20 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                 val updatedRestTimer = overlay.useRestTimerBetweenLiftsOverrides[lift.id]
                     ?: lift.useRestTimerBetweenLifts
 
-                val deletedSetIds = overlay.deletedSlotIds
+                val deletedTemplateSetIds = overlay.deletedSlotIds
                     .filterIsInstance<SetSlotId.Template>()
                     .map { it.liftSetId }
                     .toSet()
 
-                val remainingSets = lift.sets.filterNot { it.id in deletedSetIds }
+                val remainingSets = lift.sets.filterNot { it.id in deletedTemplateSetIds }
 
-                val addedSets = overlay.addedSlots
+                val addedSets = liveAddedSlots
                     .filter { it.workoutLiftId == lift.id }
                     .map { slot -> slot.toLiftSet(lift.id) }
 
-                val allSets = (remainingSets + addedSets).sortedBy { it.position }
+                val allSets = (remainingSets + addedSets)
+                    .sortedBy { it.position }
+                    .mapIndexed { index, set -> set.copy(position = index) }
 
                 lift.copy(
                     liftId = updatedLiftId,
@@ -59,8 +68,8 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
         val newlyAddedLifts = overlay.addedLifts
             .filterNot { it.workoutLiftId in overlay.deletedLiftIds }
             .filterNot { it.workoutLiftId in existingIds }
-            .mapIndexed { index, added ->
-                val slots = overlay.addedSlots
+            .map { added ->
+                val slots = liveAddedSlots
                     .filter { it.workoutLiftId == added.workoutLiftId }
                     .sortedBy { it.position }
                 val sets = if (slots.isEmpty()) {
@@ -69,15 +78,18 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                             id = LiftSetId(UUID.randomUUID().toString()),
                             workoutLiftId = added.workoutLiftId,
                             position = 0,
-                            setType = com.stratum.domain.program.SetType.Standard,
-                            repMin = DEFAULT_ADDED_LIFT_REP_MIN,
-                            repMax = DEFAULT_ADDED_LIFT_REP_MAX,
-                            rirGoal = DEFAULT_ADDED_LIFT_RIR,
+                            setType = SetType.Standard,
+                            repMin = AddedLiftDefaults.REP_MIN,
+                            repMax = AddedLiftDefaults.REP_MAX,
+                            rirGoal = AddedLiftDefaults.RIR,
                             isTopSet = true,
+                            restSeconds = AddedLiftDefaults.REST_SECONDS,
                         ),
                     )
                 } else {
-                    slots.map { it.toLiftSet(added.workoutLiftId) }
+                    slots.mapIndexed { index, slot ->
+                        slot.toLiftSet(added.workoutLiftId).copy(position = index)
+                    }
                 }
                 val restOverride = overlay.useRestTimerBetweenLiftsOverrides[added.workoutLiftId]
                 val groupOverride = if (overlay.supersetGroupIdOverrides.containsKey(added.workoutLiftId)) {
@@ -90,7 +102,8 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     workoutId = baseline.id,
                     liftId = added.liftId,
                     progressionScheme = added.progressionScheme,
-                    position = updatedLifts.size + index,
+                    // Temporary; renumbered after final order is known.
+                    position = 0,
                     sets = sets,
                     supersetGroupId = groupOverride,
                     useRestTimerBetweenLifts = restOverride ?: added.useRestTimerBetweenLifts,
@@ -106,7 +119,13 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
             }
         } ?: combined
 
-        return baseline.copy(workoutLifts = reorderedLifts)
+        // Room loads workout_lifts ORDER BY position — keep field in sync with list order.
+        val positioned =
+            reorderedLifts.mapIndexed { index, lift ->
+                lift.copy(position = index)
+            }
+
+        return baseline.copy(workoutLifts = positioned)
     }
 
     private fun SetSlot.toLiftSet(workoutLiftId: WorkoutLiftId): LiftSet =
@@ -121,10 +140,4 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
             isTopSet = isTopSet,
             restSeconds = restSeconds,
         )
-
-    private companion object {
-        const val DEFAULT_ADDED_LIFT_REP_MIN = 8
-        const val DEFAULT_ADDED_LIFT_REP_MAX = 12
-        const val DEFAULT_ADDED_LIFT_RIR = 2
-    }
 }
