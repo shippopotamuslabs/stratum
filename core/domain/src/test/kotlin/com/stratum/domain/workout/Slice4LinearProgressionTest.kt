@@ -79,47 +79,49 @@ class Slice4LinearProgressionTest {
         minimumIncrement = lb(2.5),
         perLiftIncrementOverride = emptyMap(),
         stallThresholdSessions = 2,
-        resetFraction = 0.10,
-        perLiftResetFractionOverride = emptyMap(),
-        resetsBeforeTransition = 2,
         stallStrictness = strictness,
     )
 
-    private fun historyEntry(reps: Int, rir: Int?, weight: Double, sessionId: String) =
-        SlotHistoryEntry(
-            session = TrainingSession(
-                id = TrainingSessionId(sessionId),
-                programId = com.stratum.domain.program.identity.ProgramId("p-1"),
-                workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
-                status = TrainingSessionStatus.COMPLETED,
-                kind = TrainingSessionKind.PROGRAM_WORKOUT,
-                origin = TrainingSessionOrigin.IMPORT,
-                cycleNumberSnapshot = 1,
-                weekdaySnapshot = null,
-                startedAt = Instant.parse("2026-06-28T10:00:00Z"),
-                endedAt = Instant.parse("2026-06-28T11:00:00Z"),
-                sourceApp = null,
+    private fun historyEntry(
+        reps: Int,
+        rir: Int?,
+        weight: Double,
+        sessionId: String,
+        startedAt: String = "2026-06-28T10:00:00Z",
+    ) = SlotHistoryEntry(
+        session = TrainingSession(
+            id = TrainingSessionId(sessionId),
+            programId = com.stratum.domain.program.identity.ProgramId("p-1"),
+            workoutId = com.stratum.domain.program.identity.WorkoutId("w-1"),
+            status = TrainingSessionStatus.COMPLETED,
+            kind = TrainingSessionKind.PROGRAM_WORKOUT,
+            origin = TrainingSessionOrigin.IMPORT,
+            cycleNumberSnapshot = 1,
+            weekdaySnapshot = null,
+            startedAt = Instant.parse(startedAt),
+            endedAt = Instant.parse(startedAt).plusSeconds(3600),
+            sourceApp = null,
+        ),
+        loggedSet = LoggedSet(
+            id = LoggedSetId("set-$sessionId"),
+            sessionId = TrainingSessionId(sessionId),
+            exerciseNameRaw = "Squat",
+            liftId = liftId,
+            setIndex = 0,
+            weight = lb(weight),
+            reps = reps,
+            rir = rir,
+            completedAt = Instant.parse(startedAt).plusSeconds(1800),
+            liftContext = LoggedLiftContext(
+                liftName = "Squat",
+                movementPatternsBitmask = 1,
+                primaryMusclesBitmask = 1,
+                secondaryMusclesBitmask = 0,
+                kinematicProfile = KinematicProfile.Isolation,
+                muscleLengthBias = MuscleLengthBias.MidRange,
             ),
-            loggedSet = LoggedSet(
-                id = LoggedSetId("set-$sessionId"),
-                sessionId = TrainingSessionId(sessionId),
-                exerciseNameRaw = "Squat",
-                liftId = liftId,
-                setIndex = 0,
-                weight = lb(weight),
-                reps = reps,
-                rir = rir,
-                completedAt = Instant.parse("2026-06-28T10:30:00Z"),
-                liftContext = LoggedLiftContext(
-                    liftName = "Squat",
-                    movementPatternsBitmask = 1,
-                    primaryMusclesBitmask = 1,
-                    secondaryMusclesBitmask = 0,
-                    kinematicProfile = KinematicProfile.Isolation,
-                    muscleLengthBias = MuscleLengthBias.MidRange,
-                ),
-            ),
-        )
+        ),
+    )
 
     /**
      * Builds a [SlotProgressionRequest] mirroring what the snapshot use case now produces:
@@ -283,64 +285,188 @@ class Slice4LinearProgressionTest {
     }
 
     @Test
-    @DisplayName("S4-linear-2-stalls-10-percent-reset")
-    fun `S4-linear-2-stalls-10-percent-reset`() {
+    @DisplayName("S4-linear-2-consecutive-stalls-transition-to-double")
+    fun `S4-linear-2-consecutive-stalls-transition-to-double`() {
+        // Newest-first history (matches ProgressionHistoryPort order). Distinct timestamps
+        // so diagnose walks oldest→newest correctly.
         val history = listOf(
-            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n2"),
-            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n1"),
-        )
-        val state = LinearProgressionEngine(config()).diagnose(liftId, history)
-        assertTrue(state.shouldReset, "2 consecutive stalls must trigger a reset")
-        // 200.0 * (1 - 0.10) = 180.0
-        assertEquals(lb(180.0), lb(200.0 * (1 - 0.10)))
-    }
-
-    @Test
-    @DisplayName("S4-linear-reset-count-resets-after-reset")
-    fun `S4-linear-reset-count-resets-after-reset`() {
-        val history = listOf(
-            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n3"),
-            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n2"),
-            historyEntry(reps = 5, rir = 2, weight = 180.0, sessionId = "s-n1"),
-        )
-        val state = LinearProgressionEngine(config()).diagnose(liftId, history)
-        assertEquals(0, state.currentStallCount)
-        assertEquals(1, state.currentResetCount)
-    }
-
-    @Test
-    @DisplayName("S4-linear-2-resets-transition-to-double")
-    fun `S4-linear-2-resets-transition-to-double`() {
-        val history = listOf(
-            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n4"),
-            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n3"),
-            historyEntry(reps = 4, rir = 2, weight = 180.0, sessionId = "s-n2"),
-            historyEntry(reps = 4, rir = 2, weight = 180.0, sessionId = "s-n1"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n1", startedAt = "2026-06-28T10:00:00Z"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n2", startedAt = "2026-06-21T10:00:00Z"),
         )
         val engine = LinearProgressionEngine(config())
         val state = engine.diagnose(liftId, history)
-        assertTrue(state.shouldTransitionToDouble, "2 resets must trigger auto-transition to Double")
-        // The engine surfaces the emitted SchemeTransitionEvent on the state; assert its real fields
-        // against the engine output (no PromptSchemeTransition UI event — D8 locks auto-transition).
-        assertNotNull(state.emittedEvent, "auto-transition must emit a SchemeTransitionEvent")
+        assertTrue(state.shouldTransitionToDouble, "2 consecutive stalls → auto Double (no reset churn)")
+        assertNotNull(state.emittedEvent)
         val event = state.emittedEvent!!
         assertEquals(ProgressionScheme.Linear, event.from)
         assertEquals(ProgressionScheme.Double, event.to)
-        assertEquals(SchemeTransitionReason.ResetCyclesExhausted, event.reason)
+        assertEquals(SchemeTransitionReason.ConsecutiveStalls, event.reason)
+        assertEquals(2, state.currentStallCount)
+
+        // Recommend still holds load while Linear; transition is applied by the snapshot
+        // orchestrator (scheme flip), not by a 10% deload prescription.
+        val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val recommendation = engine.recommend(request(slot, history))
+        assertEquals(lb(200.0), recommendation.recommendedWeight, "no deload; hold until Double takes over")
+    }
+
+    @Test
+    @DisplayName("S4-linear-success-after-stalls-clears-transition")
+    fun `S4-linear-success-after-stalls-clears-transition`() {
+        // Two stalls then a success: streak broken before threshold "sticks" across later
+        // sessions. Wait — threshold is sticky once reached in the walk. Sequence:
+        // stall, stall (transition true), success (stallCount=0 but shouldTransition already true).
+        // After success only: no transition if stalls never hit 2 consecutively at end.
+        // stall then success → no transition.
+        val history = listOf(
+            historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-n1", startedAt = "2026-07-05T10:00:00Z"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n2", startedAt = "2026-06-28T10:00:00Z"),
+        )
+        val state = LinearProgressionEngine(config()).diagnose(liftId, history)
+        assertEquals(0, state.currentStallCount)
+        assertFalse(state.shouldTransitionToDouble)
+    }
+
+    @Test
+    @DisplayName("S4-linear-single-stall-does-not-transition")
+    fun `S4-linear-single-stall-does-not-transition`() {
+        val history = listOf(
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n1", startedAt = "2026-06-28T10:00:00Z"),
+        )
+        val state = LinearProgressionEngine(config()).diagnose(liftId, history)
+        assertEquals(1, state.currentStallCount)
+        assertFalse(state.shouldTransitionToDouble)
+        assertEquals(null, state.emittedEvent)
     }
 
     @Test
     @DisplayName("S4-linear-missed-sessions-do-not-credit-stall")
     fun `S4-linear-missed-sessions-do-not-credit-stall`() {
         val history = listOf(
-            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n4"),
+            historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-n1", startedAt = "2026-07-12T10:00:00Z"),
             // gap of 2 missed sessions (no entries)
-            historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-n1"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n4", startedAt = "2026-06-21T10:00:00Z"),
         )
         val state = LinearProgressionEngine(config()).diagnose(liftId, history)
         assertEquals(0, state.currentStallCount, "the gap must not count as stalls")
-        assertFalse(state.shouldReset)
+        assertFalse(state.shouldTransitionToDouble)
     }
+
+    @Test
+    @DisplayName("S4-linear-hold-neither-credits-nor-breaks-stall-streak")
+    fun `S4-linear-hold-neither-credits-nor-breaks-stall-streak`() {
+        // RirBased: bottom met + RIR missed → Hold. Sequence: stall, hold, stall →
+        // hold is ignored → two stalls → transition.
+        val history = listOf(
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n1", startedAt = "2026-07-12T10:00:00Z"),
+            historyEntry(reps = 6, rir = 0, weight = 200.0, sessionId = "s-n2", startedAt = "2026-07-05T10:00:00Z"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n3", startedAt = "2026-06-28T10:00:00Z"),
+        )
+        val state = LinearProgressionEngine(config()).diagnose(liftId, history)
+        assertTrue(state.shouldTransitionToDouble, "Hold must not break the stall streak between two stalls")
+        assertEquals(SchemeTransitionReason.ConsecutiveStalls, state.emittedEvent!!.reason)
+    }
+
+    @Test
+    @DisplayName("S4-linear-success-clears-single-stall-streak")
+    fun `S4-linear-success-clears-single-stall-streak`() {
+        val history = listOf(
+            historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-n1", startedAt = "2026-07-05T10:00:00Z"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n2", startedAt = "2026-06-28T10:00:00Z"),
+        )
+        val state = LinearProgressionEngine(config()).diagnose(liftId, history)
+        assertEquals(0, state.currentStallCount)
+        assertFalse(state.shouldTransitionToDouble)
+    }
+
+    @Test
+    @DisplayName("S4-linear-diagnose-orders-by-startedAt-not-list-order")
+    fun `S4-linear-diagnose-orders-by-startedAt-not-list-order`() {
+        // Deliberately scrambled list order. Two consecutive stalls by time → transition.
+        val history = listOf(
+            historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-old", startedAt = "2026-06-14T10:00:00Z"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-mid", startedAt = "2026-06-21T10:00:00Z"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-new", startedAt = "2026-06-28T10:00:00Z"),
+        )
+        val state = LinearProgressionEngine(config()).diagnose(liftId, history)
+        assertTrue(state.shouldTransitionToDouble, "must process oldest→newest regardless of input list order")
+    }
+
+    @Test
+    @DisplayName("S4-linear-transition-is-sticky-once-stall-threshold-hit-even-if-later-success")
+    fun `S4-linear-transition-sticky-after-threshold`() {
+        // stall, stall (threshold), then success. LP already failed — still transition.
+        // Prevents "one good day after plateau" from keeping the lifter on Linear forever.
+        val history = listOf(
+            historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-n1", startedAt = "2026-07-12T10:00:00Z"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n2", startedAt = "2026-07-05T10:00:00Z"),
+            historyEntry(reps = 4, rir = 2, weight = 200.0, sessionId = "s-n3", startedAt = "2026-06-28T10:00:00Z"),
+        )
+        val state = LinearProgressionEngine(config()).diagnose(liftId, history)
+        assertTrue(state.shouldTransitionToDouble)
+        assertEquals(0, state.currentStallCount, "success cleared the live streak counter")
+    }
+
+    @Test
+    @DisplayName("S4-linear-gate-bottom-missed-rir-met-is-stall-not-increment")
+    fun `S4-linear-gate-bottom-missed-rir-met-is-stall-not-increment`() {
+        val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val history = listOf(
+            historyEntry(reps = 4, rir = 3, weight = 200.0, sessionId = "s-n1"),
+        )
+        val engine = LinearProgressionEngine(config())
+        val rec = engine.recommend(request(slot, history))
+        assertEquals(lb(200.0), rec.recommendedWeight, "must not increment when bottom missed")
+        val state = engine.diagnose(liftId, history)
+        assertEquals(1, state.currentStallCount)
+    }
+
+    @Test
+    @DisplayName("S4-linear-gate-bottom-met-rir-missed-holds-weight")
+    fun `S4-linear-gate-bottom-met-rir-missed-holds-weight`() {
+        val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val history = listOf(
+            historyEntry(reps = 7, rir = 0, weight = 200.0, sessionId = "s-n1"),
+        )
+        val rec = LinearProgressionEngine(config()).recommend(request(slot, history))
+        assertEquals(lb(200.0), rec.recommendedWeight)
+    }
+
+    @Test
+    @DisplayName("S4-linear-cold-start-uses-fallback-one-rm")
+    fun `S4-linear-cold-start-uses-fallback-one-rm`() {
+        val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val rec = LinearProgressionEngine(config()).recommend(
+            request(slot, emptyList(), fallbackOneRm = lb(135.0), baseline = null),
+        )
+        assertEquals(lb(135.0), rec.recommendedWeight)
+        assertEquals(5, rec.baselineExpectedReps)
+    }
+
+    @Test
+    @DisplayName("S4-linear-project-from-prior-when-no-recent-baseline")
+    fun `S4-linear-project-from-prior-when-no-recent-baseline`() {
+        val engine = LinearProgressionEngine(config())
+        val topSlot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val boSlot = linearBackoffSlot(rirGoal = 2)
+        val topHistory = listOf(historyEntry(reps = 5, rir = 2, weight = 200.0, sessionId = "s-n1"))
+        val topRec = engine.recommend(request(topSlot, topHistory))
+        val boRec = engine.recommend(
+            request(
+                slot = boSlot,
+                history = emptyList(),
+                currentTopSetWeight = topRec.recommendedWeight,
+                priorSlotRecommendation = topRec,
+                priorSlot = topSlot,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+                baseline = ProgressionBaseline.ProjectFromPrior,
+            ),
+        )
+        assertEquals(topRec.recommendedWeight, boRec.recommendedWeight)
+        assertEquals(5, boRec.baselineExpectedReps)
+    }
+
 
     @Test
     @DisplayName("S4-linear-per-lift-increment-override")

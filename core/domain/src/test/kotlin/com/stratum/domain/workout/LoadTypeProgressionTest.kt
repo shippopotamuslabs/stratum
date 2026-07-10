@@ -130,9 +130,6 @@ class LoadTypeProgressionTest {
         minimumIncrement = lb(2.5),
         perLiftIncrementOverride = overrides,
         stallThresholdSessions = 2,
-        resetFraction = 0.10,
-        perLiftResetFractionOverride = emptyMap(),
-        resetsBeforeTransition = 2,
         stallStrictness = StallStrictness.RirBased,
     )
 
