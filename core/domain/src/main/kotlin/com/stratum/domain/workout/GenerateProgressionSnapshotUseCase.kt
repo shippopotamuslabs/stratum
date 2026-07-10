@@ -1,18 +1,20 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.identity.ProgramChangeEventId
-import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.domain.workout.progression.ProgressionBaseline
@@ -55,6 +57,11 @@ data class SnapshotRequest(
  * monotonically non-increasing, and lets slots beyond the most-recent session's set
  * count (e.g. 5→3→5) project from the top-set rec instead of falling back to stale
  * positional history.
+ *
+ * When Linear exhausts ([LinearProgressionEngine.diagnose] emits a transition), the
+ * snapshot flips that lift to Double for this compute, appends [SCHEME_CHANGED], and
+ * **persists** [WorkoutLift.progressionScheme] so subsequent sessions do not re-fire
+ * the transition.
  */
 class GenerateProgressionSnapshotUseCase @Inject constructor(
     private val progressionHistoryPort: ProgressionHistoryPort,
@@ -62,6 +69,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
     private val linearProgressionEngine: LinearProgressionEngine,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
+    private val programRepository: ProgramRepository,
 ) {
     suspend operator fun invoke(request: SnapshotRequest): Result<ProgressionSnapshot> {
         val bySlot = mutableMapOf<SetSlotId, SlotRecommendation>()
@@ -99,6 +107,11 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                         .emittedEvent
                 if (transition != null) {
                     appendSchemeTransition(request.programId, workoutLift, transition)
+                    persistSchemeTransition(
+                        programId = request.programId,
+                        workoutLiftId = workoutLift.id,
+                        newScheme = ProgressionScheme.Double,
+                    )
                     scheme = ProgressionScheme.Double
                 }
             }
@@ -214,5 +227,37 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                 ),
             ),
         )
+    }
+
+    /**
+     * Writes [newScheme] onto the matching [WorkoutLift] in the program template so the
+     * lift does not remain Linear forever (which would re-emit transition events on every
+     * snapshot). No-ops when the program cannot be loaded or the lift is already on
+     * [newScheme].
+     */
+    private suspend fun persistSchemeTransition(
+        programId: ProgramId,
+        workoutLiftId: WorkoutLiftId,
+        newScheme: ProgressionScheme,
+    ) {
+        val program = programRepository.getProgramById(programId)
+            ?: programRepository.getProgram()
+            ?: return
+        var changed = false
+        val updatedWorkouts = program.workouts.map { workout ->
+            workout.copy(
+                workoutLifts = workout.workoutLifts.map { lift ->
+                    if (lift.id == workoutLiftId && lift.progressionScheme != newScheme) {
+                        changed = true
+                        lift.copy(progressionScheme = newScheme)
+                    } else {
+                        lift
+                    }
+                },
+            )
+        }
+        if (changed) {
+            programRepository.saveProgram(program.copy(workouts = updatedWorkouts))
+        }
     }
 }
