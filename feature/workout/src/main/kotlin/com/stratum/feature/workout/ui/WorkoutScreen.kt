@@ -643,17 +643,20 @@ private fun WorkoutSetRow(
                 enabled = isCheckboxEnabled,
                 onCheckedChange = { checked ->
                     if (checked) {
-                        val repsEmpty = repsState.value.isEmpty()
-                        val finalReps = if (repsEmpty) set.repMin else (repsState.value.toIntOrNull() ?: 0)
-                        val finalRir = rirState.intValue
-                        val finalWeight = if (set.showWeightInput) {
-                            val weightEmpty = weightState.value.isEmpty()
-                            if (weightEmpty) set.recommendedWeightAmount else (weightState.value.toDoubleOrNull() ?: 0.0)
-                        } else {
-                            0.0
-                        }
-
-                        onLogSet(set.slotKey, Weight(finalWeight, Weight.WeightUnit.Lb), finalReps, finalRir)
+                        val (finalWeight, finalReps) = resolveCheckboxLogValues(
+                            enteredWeight = weightState.value,
+                            enteredReps = repsState.value,
+                            showWeightInput = set.showWeightInput,
+                            recommendedWeightAmount = set.recommendedWeightAmount,
+                            recommendedReps = set.recommendedReps,
+                            repMin = set.repMin,
+                        )
+                        onLogSet(
+                            set.slotKey,
+                            Weight(finalWeight, Weight.WeightUnit.Lb),
+                            finalReps,
+                            rirState.intValue,
+                        )
                         onStartRestTimer(RestTimerDefaults.DEFAULT_REST_SECONDS)
                     } else {
                         onUnlogSet(set.slotKey)
