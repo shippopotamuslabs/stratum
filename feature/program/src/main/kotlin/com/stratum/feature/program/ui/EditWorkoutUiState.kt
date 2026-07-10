@@ -55,12 +55,15 @@ data class EditSetState(
     val repMax: Int,
     val restSeconds: Int,
     val rirGoal: Int,
-    val isTopSet: Boolean = true,
+    /** Default false so omitted flags do not accidentally mark every set as top. */
+    val isTopSet: Boolean = false,
 )
 
 internal const val DEFAULT_REST_SECONDS = 120
 internal const val PLACEHOLDER_LIFT_NAME = "New Exercise"
-internal const val DEFAULT_REP_MIN = 8
-internal const val DEFAULT_REP_MAX = 12
+/** Mirrors [com.stratum.domain.program.ProgressionRepRangePolicy.DEFAULT_REP_MIN]. */
+internal const val DEFAULT_REP_MIN = com.stratum.domain.program.ProgressionRepRangePolicy.DEFAULT_REP_MIN
+/** Mirrors [com.stratum.domain.program.ProgressionRepRangePolicy.DEFAULT_REP_MAX]. */
+internal const val DEFAULT_REP_MAX = com.stratum.domain.program.ProgressionRepRangePolicy.DEFAULT_REP_MAX
 internal const val DEFAULT_RIR_GOAL = 2
 internal const val SIX_PLUS_RIR_GOAL = 6

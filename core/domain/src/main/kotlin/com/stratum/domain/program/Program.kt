@@ -63,9 +63,10 @@ data class WorkoutLift(
  * A single set in a [WorkoutLift]. Named `LiftSet` (not `Set`) to avoid the
  * `kotlin.collections.Set` collision in-package.
  *
- * On a `Double` progression lift, exactly one set has [isTopSet] = true and carries the rep range
- * ([repMin]/[repMax]); back-offs may omit the range (server-side convention). [rirGoal] is
- * deterministically clamped by the generation post-pass (D2).
+ * Rep-range / top-set shape is scheme-dependent — see [ProgressionRepRangePolicy] (canonical):
+ * Double: exactly one top set owns [repMin]/[repMax]; back-offs are `0/0` (RIR-only).
+ * Linear: every working set stores the shared band; first set is the progression anchor.
+ * [rirGoal] is clamped by the generation post-pass (D2).
  */
 data class LiftSet(
     val id: LiftSetId,
