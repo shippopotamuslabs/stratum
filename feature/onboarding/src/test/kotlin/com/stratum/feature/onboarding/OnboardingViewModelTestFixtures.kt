@@ -217,7 +217,7 @@ internal object OnboardingViewModelTestFixtures {
                 profileRepository = fakeProfileRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
-            loggingPort = FakeLoggingPort(),
+            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
         )
     }
 
