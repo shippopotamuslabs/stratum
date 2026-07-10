@@ -6,6 +6,7 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.workout.LoggedSetValue
+import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
@@ -38,6 +39,7 @@ fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
         SwappedLiftEntryDto(workoutLiftId.value, liftId.value)
     },
     deletedLiftIds = deletedLiftIds.map { it.value },
+    addedLifts = addedLifts.map { it.toDto() },
     supersetGroupIdOverrides = supersetGroupIdOverrides.entries.map { (workoutLiftId, groupId) ->
         SupersetGroupOverrideEntryDto(workoutLiftId.value, groupId?.value)
     },
@@ -60,6 +62,7 @@ fun WorkoutOverlayDto.toDomain(): WorkoutOverlay = WorkoutOverlay(
         .mapNotNull { (key, entry) -> entry.liftId.toLiftIdOrNull()?.let { key to it } }
         .toMap(),
     deletedLiftIds = deletedLiftIds.mapNotNull { it.toWorkoutLiftIdOrNull() }.toSet(),
+    addedLifts = addedLifts.mapNotNull { it.toDomain() },
     supersetGroupIdOverrides = buildMap {
         for (entry in supersetGroupIdOverrides) {
             val key = entry.workoutLiftId.toWorkoutLiftIdOrNull() ?: continue
@@ -168,6 +171,26 @@ private fun SlotRecommendationDto.toDomain(slotId: SetSlotId): SlotRecommendatio
         baselineExpectedReps = baselineExpectedReps,
         previousWeight = prev,
         previousReps = previousReps,
+    )
+}
+
+private fun OverlayAddedLift.toDto(): OverlayAddedLiftDto = OverlayAddedLiftDto(
+    workoutLiftId = workoutLiftId.value,
+    liftId = liftId.value,
+    progressionScheme = progressionScheme,
+    supersetGroupId = supersetGroupId?.value,
+    useRestTimerBetweenLifts = useRestTimerBetweenLifts,
+)
+
+private fun OverlayAddedLiftDto.toDomain(): OverlayAddedLift? {
+    val workoutLiftId = workoutLiftId.toWorkoutLiftIdOrNull() ?: return null
+    val liftId = liftId.toLiftIdOrNull() ?: return null
+    return OverlayAddedLift(
+        workoutLiftId = workoutLiftId,
+        liftId = liftId,
+        progressionScheme = progressionScheme,
+        supersetGroupId = supersetGroupId?.toSupersetGroupIdOrNull(),
+        useRestTimerBetweenLifts = useRestTimerBetweenLifts,
     )
 }
 

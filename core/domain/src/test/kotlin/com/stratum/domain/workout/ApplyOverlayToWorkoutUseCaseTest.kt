@@ -129,7 +129,7 @@ class ApplyOverlayToWorkoutUseCaseTest {
     }
 
     @Test
-    @DisplayName("Reorder changes the lift order")
+    @DisplayName("Reorder changes the lift order and renumbers position")
     fun reorderChangesLiftOrder() {
         val baseline = sampleWorkout()
         val overlay = WorkoutOverlay(
@@ -140,6 +140,142 @@ class ApplyOverlayToWorkoutUseCaseTest {
 
         assertEquals(WorkoutLiftId("wl-2"), result.workoutLifts[0].id)
         assertEquals(WorkoutLiftId("wl-1"), result.workoutLifts[1].id)
+        assertEquals(0, result.workoutLifts[0].position)
+        assertEquals(1, result.workoutLifts[1].position)
+    }
+
+    @Test
+    @DisplayName("Deleted overlay-added slots are not written to the template")
+    fun deletedOverlayAddedSlotsNotMaterialized() {
+        val baseline = sampleWorkout()
+        val keptSlot =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-keep")),
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                liftId = LiftId("lift-bench"),
+                position = 2,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 1,
+                restSeconds = 90,
+            )
+        val deletedSlot =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-deleted")),
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                liftId = LiftId("lift-bench"),
+                position = 3,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 1,
+                restSeconds = 90,
+            )
+        val overlay =
+            WorkoutOverlay(
+                addedSlots = listOf(keptSlot, deletedSlot),
+                deletedSlotIds = setOf(deletedSlot.slotId),
+            )
+
+        val result = useCase(baseline, overlay)
+
+        // 2 template sets + 1 kept overlay set (deleted overlay set excluded)
+        assertEquals(3, result.workoutLifts[0].sets.size)
+        assertEquals(listOf(0, 1, 2), result.workoutLifts[0].sets.map { it.position })
+    }
+
+    @Test
+    @DisplayName("Deleted overlay slots on session-added lifts are not written to the template")
+    fun deletedSlotsOnAddedLiftNotMaterialized() {
+        val baseline = sampleWorkout()
+        val newWlId = WorkoutLiftId("wl-added")
+        val kept =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-lift-keep")),
+                workoutLiftId = newWlId,
+                liftId = LiftId("lift-row"),
+                position = 0,
+                setType = SetType.Standard,
+                isTopSet = true,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 2,
+                restSeconds = 90,
+            )
+        val deleted =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-lift-del")),
+                workoutLiftId = newWlId,
+                liftId = LiftId("lift-row"),
+                position = 1,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 2,
+                restSeconds = 90,
+            )
+        val overlay =
+            WorkoutOverlay(
+                addedLifts =
+                    listOf(
+                        OverlayAddedLift(
+                            workoutLiftId = newWlId,
+                            liftId = LiftId("lift-row"),
+                            progressionScheme = ProgressionScheme.Double,
+                        ),
+                    ),
+                addedSlots = listOf(kept, deleted),
+                deletedSlotIds = setOf(deleted.slotId),
+            )
+
+        val result = useCase(baseline, overlay)
+        val added = result.workoutLifts.single { it.id == newWlId }
+        assertEquals(1, added.sets.size)
+        assertEquals(0, added.sets[0].position)
+        assertEquals(2, added.position) // after two baseline lifts
+    }
+
+    @Test
+    @DisplayName("Added lifts are appended with their overlay slots")
+    fun addedLiftsAppended() {
+        val baseline = sampleWorkout()
+        val newWlId = WorkoutLiftId("wl-added")
+        val slot = SetSlot(
+            slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-lift-set-1")),
+            workoutLiftId = newWlId,
+            liftId = LiftId("lift-row"),
+            position = 0,
+            setType = SetType.Standard,
+            isTopSet = true,
+            repMin = 8,
+            repMax = 12,
+            rirGoal = 2,
+            restSeconds = 90,
+        )
+        val overlay = WorkoutOverlay(
+            addedLifts = listOf(
+                OverlayAddedLift(
+                    workoutLiftId = newWlId,
+                    liftId = LiftId("lift-row"),
+                    progressionScheme = ProgressionScheme.Double,
+                ),
+            ),
+            addedSlots = listOf(slot),
+        )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(3, result.workoutLifts.size)
+        val added = result.workoutLifts.last()
+        assertEquals(newWlId, added.id)
+        assertEquals(LiftId("lift-row"), added.liftId)
+        assertEquals(1, added.sets.size)
+        assertEquals(8, added.sets[0].repMin)
+        assertEquals(12, added.sets[0].repMax)
     }
 
     private fun sampleWorkout(): Workout = Workout(

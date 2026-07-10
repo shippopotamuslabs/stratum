@@ -41,6 +41,13 @@ data class RenderedLiftUi(
      * domain `LoadType` never reaches composables (ARCHITECTURE.md §4.3).
      */
     val weightHeaderLabel: String = "Weight",
+    /** Primary catalog image URI for the lift navigator tab, or null for initials fallback. */
+    val imageUrl: String? = null,
+    /**
+     * Two-letter initials for navigator fallback: first letter of the first two words, or
+     * first two letters of a single word (e.g. "Barbell Bench Press" → `BB`, "Squat" → `SQ`).
+     */
+    val navigatorInitials: String = "",
 ) : SupersetLinkableLift {
     override val name: String get() = liftName
 }

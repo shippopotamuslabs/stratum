@@ -1,5 +1,6 @@
 package com.stratum.core.data.workoutoverlay
 
+import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.workout.myorep.MyoRepKind
 import kotlinx.serialization.SerialName
@@ -146,6 +147,16 @@ data class RestTimerOverrideEntryDto(
     val enabled: Boolean,
 )
 
+/** DTO mirror of [com.stratum.domain.workout.OverlayAddedLift]. */
+@Serializable
+data class OverlayAddedLiftDto(
+    val workoutLiftId: String,
+    val liftId: String,
+    val progressionScheme: ProgressionScheme = ProgressionScheme.Double,
+    val supersetGroupId: String? = null,
+    val useRestTimerBetweenLifts: Boolean = false,
+)
+
 /**
  * DTO mirror of [com.stratum.domain.workout.WorkoutOverlay] minus `recommendations`.
  * All collection-typed domain fields become entry lists / nullable lists.
@@ -159,6 +170,7 @@ data class WorkoutOverlayDto(
     val dynamicBaselines: List<DynamicBaselineEntryDto> = emptyList(),
     val swappedLifts: List<SwappedLiftEntryDto> = emptyList(),
     val deletedLiftIds: List<String> = emptyList(),
+    val addedLifts: List<OverlayAddedLiftDto> = emptyList(),
     val supersetGroupIdOverrides: List<SupersetGroupOverrideEntryDto> = emptyList(),
     val useRestTimerBetweenLiftsOverrides: List<RestTimerOverrideEntryDto> = emptyList(),
     val orderedLiftIds: List<String>? = null,
