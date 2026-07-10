@@ -5,6 +5,8 @@ import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.db.SpecializationPreferenceDao
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntities
+import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.onboarding.SpecializationPreference
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
 import javax.inject.Inject
@@ -14,19 +16,33 @@ import kotlinx.coroutines.flow.map
 /**
  * Room implementation of [SpecializationPreferenceRepository]. [save] replaces the stored
  * preference atomically inside a transaction (clear + insertAll) so no orphaned rows remain
- * when the user edits their selection.
+ * when the user edits their selection. Removed rows are enqueued for cloud delete.
  */
 class RoomSpecializationPreferenceRepository @Inject constructor(
     private val database: StratumDatabase,
     private val dao: SpecializationPreferenceDao,
+    private val syncTouch: SyncTouch,
 ) : SpecializationPreferenceRepository {
     override fun observe(): Flow<SpecializationPreference> =
         dao.observeAll().map { it.toDomain() }
 
     override suspend fun save(preference: SpecializationPreference) {
-        database.withTransaction {
-            dao.clear()
-            dao.upsertAll(preference.toEntities())
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                val next = preference.toEntities(nowMillis = now)
+                val nextIds = next.map { it.id.value }
+                val previousIds = dao.allIds()
+                syncTouch.replaceIds(
+                    SyncCollection.SpecializationPreference,
+                    previousIds = previousIds,
+                    nextIds = nextIds,
+                    nowMillis = now,
+                )
+                dao.clear()
+                dao.upsertAll(next)
+            }
+            syncTouch.markDirty()
         }
     }
 }

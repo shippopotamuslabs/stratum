@@ -2,10 +2,72 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Sync allowlist — must stay aligned with SyncCollection.ALLOWLIST.
+    function isSyncCollection(collection) {
+      return collection in [
+        'user_profile',
+        'onboarding_progress',
+        'gym_preference',
+        'specialization_preference',
+        'lifts',
+        'increment_tiers',
+        'programs',
+        'workouts',
+        'workout_lifts',
+        'lift_sets',
+        'training_sessions',
+        'logged_sets',
+        'program_change_events'
+      ];
+    }
+
+    // Required sync envelope on every client write (upsert or pure tombstone).
+    function hasSyncEnvelope() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'updated_at_epoch_millis',
+          'deleted',
+          '_sync_device_id',
+          '_sync_client_mutation_id',
+          '_sync_written_at'
+        ])
+        && data.updated_at_epoch_millis is number
+        && data.deleted is bool
+        && data._sync_device_id is string
+        && data._sync_client_mutation_id is string
+        && data._sync_written_at is number
+        // Soft size cap against storage abuse from a compromised client.
+        && data.keys().size() <= 40;
+    }
+
+    function isValidSyncWrite(collection) {
+      return isSyncCollection(collection)
+        && hasSyncEnvelope()
+        && request.resource.data._sync_device_id.size() > 0
+        && request.resource.data._sync_device_id.size() < 128
+        && request.resource.data._sync_client_mutation_id.size() > 0
+        && request.resource.data._sync_client_mutation_id.size() < 128;
+    }
+
     // OS-6 historical import job metadata (server writes via Admin SDK only).
     match /users/{userId}/importJobs/{jobId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if isOwner(userId);
       allow write: if false;
+    }
+
+    // User-owned syncable entity documents (client read/write when owner).
+    // Hard deletes are denied — clients must write pure tombstones (deleted: true)
+    // so other devices observe the delete via LWW rather than silent doc disappearance.
+    // App Check is enforced in the Firebase console (monitor → enforce); rules stay
+    // auth+envelope focused so emulator/dev without App Check tokens still work.
+    match /users/{userId}/{collection}/{docId} {
+      allow read: if isOwner(userId) && isSyncCollection(collection);
+      allow create, update: if isOwner(userId) && isValidSyncWrite(collection);
+      allow delete: if false;
     }
 
     match /{document=**} {

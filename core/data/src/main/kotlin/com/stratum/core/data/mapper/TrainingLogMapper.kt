@@ -2,6 +2,7 @@ package com.stratum.core.data.mapper
 
 import com.stratum.core.data.db.LoggedSetEntity
 import com.stratum.core.data.db.TrainingSessionEntity
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
@@ -22,7 +23,9 @@ internal fun TrainingSessionEntity.toDomain(): TrainingSession = TrainingSession
     workoutNameSnapshot = workoutNameSnapshot,
 )
 
-internal fun TrainingSession.toEntity(): TrainingSessionEntity = TrainingSessionEntity(
+internal fun TrainingSession.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): TrainingSessionEntity = TrainingSessionEntity(
     id = id,
     programId = programId,
     workoutId = workoutId,
@@ -36,6 +39,8 @@ internal fun TrainingSession.toEntity(): TrainingSessionEntity = TrainingSession
     sourceApp = sourceApp,
     programNameSnapshot = programNameSnapshot,
     workoutNameSnapshot = workoutNameSnapshot,
+    updatedAtEpochMillis = nowMillis,
+    pendingSync = SyncFlags.PENDING_UPSERT,
 )
 
 internal fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(
@@ -67,7 +72,9 @@ internal fun LoggedSetEntity.toTrainingDomain(): LoggedSet = LoggedSet(
     estimatedOneRm = estimatedOneRm,
 )
 
-internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
+internal fun LoggedSet.toEntity(
+    nowMillis: Long = System.currentTimeMillis(),
+): LoggedSetEntity = LoggedSetEntity(
     id = id,
     sessionId = sessionId,
     exerciseNameRaw = exerciseNameRaw,
@@ -92,4 +99,6 @@ internal fun LoggedSet.toEntity(): LoggedSetEntity = LoggedSetEntity(
     rirGoal = liftContext.rirGoal,
     isPersonalRecord = if (isPersonalRecord) true else null,
     estimatedOneRm = estimatedOneRm,
+    updatedAtEpochMillis = nowMillis,
+    pendingSync = SyncFlags.PENDING_UPSERT,
 )

@@ -10,6 +10,9 @@ import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.mapper.toTierEntities
+import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.data.sync.SyncFlags
+import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.CustomLiftDetails
 import com.stratum.domain.lift.GymPreset
@@ -18,7 +21,9 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.identity.GymPreferenceId
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +43,7 @@ class RoomLiftRepository @Inject constructor(
     private val liftDao: LiftDao,
     private val incrementTierDao: IncrementTierDao,
     private val gymPreferenceDao: GymPreferenceDao,
+    private val syncTouch: SyncTouch,
 ) : LiftRepository {
 
     override fun observeLifts(): Flow<List<Lift>> =
@@ -57,39 +63,63 @@ class RoomLiftRepository @Inject constructor(
         gymPreferenceDao.observe().map { it?.selectedPreset }
 
     override suspend fun applyPreset(preset: GymPreset) {
-        // The DAO matches with SQL LIKE, so the pattern needs % wildcards around the
-        // delimiter-bounded tag (`,CommercialGym,`) to substring-match inside any CSV.
         val ids = liftDao.idsForPresetTag(tagPattern = "%,${preset.name},%")
-        if (ids.isNotEmpty()) liftDao.enableAll(ids)
+        if (ids.isEmpty()) return
+        syncTouch.withWriteLock {
+            liftDao.enableAll(ids, updatedAtEpochMillis = System.currentTimeMillis())
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun setLiftEnabled(id: LiftId, enabled: Boolean) {
-        liftDao.setEnabled(id, enabled)
+        syncTouch.withWriteLock {
+            liftDao.setEnabled(id, enabled, updatedAtEpochMillis = System.currentTimeMillis())
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun enableLifts(ids: Set<LiftId>) {
         if (ids.isEmpty()) return
-        liftDao.enableAll(ids.toList())
+        syncTouch.withWriteLock {
+            liftDao.enableAll(ids.toList(), updatedAtEpochMillis = System.currentTimeMillis())
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun setSelectedPreset(preset: GymPreset?) {
-        val current = gymPreferenceDao.getOrNull()
-        gymPreferenceDao.upsert(
-            GymPreferenceEntity(
-                selectedPreset = preset,
-                usedHistoricalImport = current?.usedHistoricalImport ?: false,
-            ),
-        )
+        syncTouch.withWriteLock {
+            val current = gymPreferenceDao.getOrNull()
+            val now = System.currentTimeMillis()
+            gymPreferenceDao.upsert(
+                GymPreferenceEntity(
+                    id = GymPreferenceId.Default,
+                    selectedPreset = preset,
+                    usedHistoricalImport = current?.usedHistoricalImport ?: false,
+                    updatedAtEpochMillis = now,
+                    pendingSync = SyncFlags.PENDING_UPSERT,
+                ),
+            )
+            syncTouch.cancelDelete(SyncCollection.GymPreference, GymPreferenceId.Default.value)
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun setUsedHistoricalImport(used: Boolean) {
-        val current = gymPreferenceDao.getOrNull()
-        gymPreferenceDao.upsert(
-            GymPreferenceEntity(
-                selectedPreset = current?.selectedPreset,
-                usedHistoricalImport = used,
-            ),
-        )
+        syncTouch.withWriteLock {
+            val current = gymPreferenceDao.getOrNull()
+            val now = System.currentTimeMillis()
+            gymPreferenceDao.upsert(
+                GymPreferenceEntity(
+                    id = GymPreferenceId.Default,
+                    selectedPreset = current?.selectedPreset,
+                    usedHistoricalImport = used,
+                    updatedAtEpochMillis = now,
+                    pendingSync = SyncFlags.PENDING_UPSERT,
+                ),
+            )
+            syncTouch.cancelDelete(SyncCollection.GymPreference, GymPreferenceId.Default.value)
+            syncTouch.markDirty()
+        }
     }
 
     override fun observeUsedHistoricalImport(): Flow<Boolean> =
@@ -114,29 +144,45 @@ class RoomLiftRepository @Inject constructor(
                 loadType = definition.loadType,
                 defaultRestSeconds = definition.defaultRestSeconds,
             )
-        database.withTransaction {
-            liftDao.upsert(lift.toEntity())
-            incrementTierDao.deleteForLift(id)
-            incrementTierDao.upsertAll(lift.toTierEntities())
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                syncTouch.cancelDelete(SyncCollection.Lifts, id.value)
+                liftDao.upsert(lift.toEntity())
+                incrementTierDao.deleteForLift(id)
+                val tierEntities = lift.toTierEntities()
+                syncTouch.cancelDelete(SyncCollection.IncrementTiers, tierEntities.map { it.id.value })
+                incrementTierDao.upsertAll(tierEntities)
+            }
+            syncTouch.markDirty()
         }
         return id
     }
 
     override suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>) {
-        database.withTransaction {
-            incrementTierDao.deleteForLift(id)
-            if (tiers.isNotEmpty()) {
-                val entities =
-                    tiers.map { tier ->
-                        com.stratum.core.data.db.IncrementTierEntity(
-                            liftId = id,
-                            lowerBound = tier.lowerBound.amount,
-                            upperBound = tier.upperBound?.amount,
-                            increment = tier.increment.amount,
-                        )
-                    }
-                incrementTierDao.upsertAll(entities)
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                val nextIds = tiers.map { IncrementTierId.forBand(id, it.lowerBound.amount).value }
+                val previousIds = incrementTierDao.idsForLift(id)
+                syncTouch.replaceIds(SyncCollection.IncrementTiers, previousIds, nextIds, now)
+                incrementTierDao.deleteForLift(id)
+                if (tiers.isNotEmpty()) {
+                    val entities =
+                        tiers.map { tier ->
+                            com.stratum.core.data.db.IncrementTierEntity(
+                                id = IncrementTierId.forBand(id, tier.lowerBound.amount),
+                                liftId = id,
+                                lowerBound = tier.lowerBound.amount,
+                                upperBound = tier.upperBound?.amount,
+                                increment = tier.increment.amount,
+                                updatedAtEpochMillis = now,
+                                pendingSync = SyncFlags.PENDING_UPSERT,
+                            )
+                        }
+                    incrementTierDao.upsertAll(entities)
+                }
             }
+            syncTouch.markDirty()
         }
     }
 
@@ -145,29 +191,44 @@ class RoomLiftRepository @Inject constructor(
         primaryMuscles: Set<com.stratum.domain.onboarding.MuscleGroup>,
         secondaryMuscles: Set<com.stratum.domain.onboarding.MuscleGroup>,
     ) {
-        liftDao.updateMuscles(
-            id = id,
-            primaryBitmask = primaryMuscles.toBitmask(),
-            secondaryBitmask = secondaryMuscles.toBitmask(),
-        )
+        syncTouch.withWriteLock {
+            liftDao.updateMuscles(
+                id = id,
+                primaryBitmask = primaryMuscles.toBitmask(),
+                secondaryBitmask = secondaryMuscles.toBitmask(),
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            )
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun updateCustomLiftDetails(
         id: LiftId,
         details: CustomLiftDetails,
     ) {
-        liftDao.updateCustomDetails(
-            id = id,
-            movementPatternsBitmask = details.movementPatterns.toBitmask(),
-            muscleLengthBias = details.muscleLengthBias,
-            kinematicProfile = details.kinematicProfile,
-            loadType = details.loadType,
-            equipment = details.equipment,
-        )
+        syncTouch.withWriteLock {
+            liftDao.updateCustomDetails(
+                id = id,
+                movementPatternsBitmask = details.movementPatterns.toBitmask(),
+                muscleLengthBias = details.muscleLengthBias,
+                kinematicProfile = details.kinematicProfile,
+                loadType = details.loadType,
+                equipment = details.equipment,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            )
+            syncTouch.markDirty()
+        }
     }
 
     override suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?) {
-        liftDao.setDefaultRestSeconds(id, restSeconds)
+        syncTouch.withWriteLock {
+            liftDao.setDefaultRestSeconds(
+                id = id,
+                restSeconds = restSeconds,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            )
+            syncTouch.markDirty()
+        }
     }
 
     private fun singleOpenTier(increment: Weight): IncrementTier =
@@ -175,8 +236,6 @@ class RoomLiftRepository @Inject constructor(
 
     private fun defaultDomainTiers(): List<IncrementTier> {
         val lb = Weight.WeightUnit.Lb
-        // §2.2 example bands, as lb Weight tiers. Named to satisfy detekt MagicNumber and to
-        // document the intent at each boundary.
         return listOf(
             IncrementTier(Weight(0.0, lb), Weight(BAND_1_UPPER, lb), Weight(INC_LOW, lb)),
             IncrementTier(Weight(BAND_1_UPPER, lb), Weight(BAND_2_UPPER, lb), Weight(INC_MID, lb)),
@@ -186,7 +245,6 @@ class RoomLiftRepository @Inject constructor(
     }
 
     private companion object {
-        // §2.2 example increment bands (lb): 0–40, 40–100, 100–300, 300+.
         const val BAND_1_UPPER: Double = 40.0
         const val BAND_2_UPPER: Double = 100.0
         const val BAND_3_UPPER: Double = 300.0

@@ -1,28 +1,24 @@
 package com.stratum.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.GymPreset
+import com.stratum.domain.onboarding.identity.GymPreferenceId
 
 /**
  * Single-row table holding the user's gym-preset choice from the Gym & Lifts step (OS-4).
  *
- * The preset is a *global onboarding choice* (which bundled set to start from), not a
- * per-lift attribute — so it gets its own row rather than a flag on each lift (the
- * "no single-boolean table" rule targets per-entity transient state, which this is not).
- * OS-5 Review reads [selectedPreset] to render the preset's name. `null` means the user
- * skipped the preset and curated manually.
- *
- * Schema authorized for OS-4 (docs/onboarding-vertical-slices.md §OS-4). [selectedPreset]
- * is a typed enum via [EnumConverters]; [ID] pins the single row.
+ * [id] is [GymPreferenceId.Default] — one row per install / cloud document.
  */
 @Entity(tableName = "gym_preference")
 data class GymPreferenceEntity(
-    @PrimaryKey val id: Int = ID,
+    @PrimaryKey val id: GymPreferenceId = GymPreferenceId.Default,
     val selectedPreset: GymPreset?,
     val usedHistoricalImport: Boolean = false,
-) {
-    companion object {
-        const val ID = 0
-    }
-}
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
+)

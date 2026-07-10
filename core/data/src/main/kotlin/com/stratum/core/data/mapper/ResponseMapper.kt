@@ -21,7 +21,7 @@ import java.time.Instant
 
 internal fun ResponseEpochEntity.toDomain(): Epoch =
     Epoch(
-        id = EpochId(id),
+        id = id,
         start = Instant.ofEpochMilli(startEpochMillis),
         end = Instant.ofEpochMilli(endEpochMillis),
         anchorLiftIds = anchorLiftIdsCsv.splitCsvToLiftIds(),
@@ -30,7 +30,7 @@ internal fun ResponseEpochEntity.toDomain(): Epoch =
 
 internal fun Epoch.toEntity(): ResponseEpochEntity =
     ResponseEpochEntity(
-        id = id.value,
+        id = id,
         startEpochMillis = start.toEpochMilli(),
         endEpochMillis = end.toEpochMilli(),
         anchorLiftIdsCsv = anchorLiftIds.joinToString(",") { it.value },
@@ -135,7 +135,7 @@ internal fun LiftEffectivenessObservation.toEntity(): LiftEffectivenessObservati
 
 internal fun ExperimentBlockEntity.toDomain(): ExperimentBlock =
     ExperimentBlock(
-        id = ExperimentId(id),
+        id = id,
         prescribed =
             StimulusDescriptor(
                 epochId = prescribedEpochId?.let(::EpochId),
@@ -154,7 +154,7 @@ internal fun ExperimentBlockEntity.toDomain(): ExperimentBlock =
 
 internal fun ExperimentBlock.toEntity(): ExperimentBlockEntity =
     ExperimentBlockEntity(
-        id = id.value,
+        id = id,
         prescribedEpochId = prescribed.epochId?.value,
         prescribedExperimentId = prescribed.experimentId?.value,
         prescribedMuscle = prescribed.muscle,

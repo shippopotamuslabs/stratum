@@ -1,24 +1,30 @@
 package com.stratum.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
+import com.stratum.domain.onboarding.identity.SpecializationPreferenceId
 
 /**
  * One row per explicitly-set muscle in the onboarding specialization preference (OS-3).
  *
- * Schema authorized for OS-3 (docs/onboarding-vertical-slices.md §OS-3; AGENTS.md §4.5
- * Schema Lock). [muscle] is the primary key — one preference per muscle. OS-6 is expected to
- * widen this to a composite `(muscle, program_id)` key once programs exist; until then there
- * is a single specialization preference per install.
- *
- * Absence of a row means [SpecializationLevel.Maintenance] — the implicit default — so a
- * skipped step stores nothing. Columns are typed enums; [EnumConverters] handles the
- * on-disk String mapping.
+ * [id] is deterministic from [muscle] ([SpecializationPreferenceId.forMuscle]) so cloud docs
+ * share identity across devices. [muscle] remains a unique column for SQL lookup.
  */
-@Entity(tableName = "specialization_preference")
+@Entity(
+    tableName = "specialization_preference",
+    indices = [Index(value = ["muscle"], unique = true)],
+)
 data class SpecializationPreferenceEntity(
-    @PrimaryKey val muscle: MuscleGroup,
+    @PrimaryKey val id: SpecializationPreferenceId,
+    val muscle: MuscleGroup,
     val level: SpecializationLevel,
+    @ColumnInfo(name = "updated_at_epoch_millis")
+    val updatedAtEpochMillis: Long = 0L,
+    @ColumnInfo(name = "pending_sync")
+    val pendingSync: Int = SyncFlags.CLEAN,
 )

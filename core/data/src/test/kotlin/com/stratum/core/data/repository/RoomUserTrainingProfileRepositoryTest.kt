@@ -30,7 +30,7 @@ class RoomUserTrainingProfileRepositoryTest {
             RuntimeEnvironment.getApplication(),
             StratumDatabase::class.java,
         ).allowMainThreadQueries().build()
-        subject = RoomUserTrainingProfileRepository(dao = database.userProfileDao())
+        subject = RoomUserTrainingProfileRepository(dao = database.userProfileDao(), syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()))
     }
 
     @AfterEach
