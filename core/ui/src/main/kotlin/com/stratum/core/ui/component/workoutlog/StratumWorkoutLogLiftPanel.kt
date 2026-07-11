@@ -3,7 +3,6 @@ package com.stratum.core.ui.component.workoutlog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,10 +13,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumEdgeToEdgeCard
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.SupersetGroupChip
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -31,8 +30,8 @@ private val WorkoutLogHeaderHorizontalPadding = 16.dp
  * Raised panel for one lift's set-log table. Optional trailing header actions (e.g. ⋮ menu),
  * optional add-set control under the set-number column, and per-set row actions from the caller.
  *
- * Geometry is square and borderless so the panel can sit edge-to-edge on live workout / history
- * edit lists without a rounded border against the screen bezel.
+ * Uses [StratumEdgeToEdgeCard] so the panel sits flush with the screen edges on live workout
+ * and history edit lists.
  */
 @Composable
 fun StratumWorkoutLogLiftPanel(
@@ -45,17 +44,7 @@ fun StratumWorkoutLogLiftPanel(
 ) {
     val showTrailingColumn = lift.sets.any { it.showCheckbox }
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(
-                    color = StratumThemeAccessor.colors.surfaceRaised,
-                    shape = RectangleShape,
-                )
-                .padding(top = 16.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    StratumEdgeToEdgeCard(modifier = modifier) {
         Row(
             modifier =
                 Modifier
