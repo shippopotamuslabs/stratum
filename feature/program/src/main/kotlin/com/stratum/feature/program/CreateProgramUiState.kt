@@ -1,5 +1,6 @@
 package com.stratum.feature.program
 
+import com.stratum.core.ui.progress.ProgramGenerationProgressUi
 import com.stratum.core.ui.trainingsetup.MinimumVolumeDraftUi
 import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
 import com.stratum.core.ui.trainingsetup.SpecializationDraftUi
@@ -43,8 +44,8 @@ data class CreateProgramUiState(
     val minimumVolumeDraft: MinimumVolumeDraftUi = MinimumVolumeDraftUi.Empty,
     val scheduleDraft: ScheduleDraftUi = ScheduleDraftUi.Empty,
     val generateState: CreateProgramGenerateState = CreateProgramGenerateState.Idle,
-    val generatePhaseLabel: String? = null,
-    val generateDetail: String? = null,
+    val generateProgress: ProgramGenerationProgressUi? = null,
+    val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
     val programId: String = "",
     val programName: String = "",

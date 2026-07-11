@@ -28,8 +28,9 @@ import com.stratum.core.ui.theme.StratumColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
- * Compact single-select toggle for low-emphasis filters (e.g. Upper/Lower, Workout/Program).
+ * Single-select toggle for low-emphasis filters (e.g. Upper/Lower, Primary/Secondary).
  * Options render as plain text; the active option sits on a borderless ovular pill fill.
+ * Segment min height is 48.dp (UI_DESIGN.md touch-target guidance for tappable chrome).
  */
 @Composable
 fun StratumPillToggle(
@@ -134,7 +135,8 @@ private fun pillLabelColor(
         else -> colors.textMuted
     }
 
-private val PillHorizontalPadding = 12.dp
-private val PillVerticalPadding = 6.dp
+private val PillHorizontalPadding = 14.dp
+private val PillVerticalPadding = 10.dp
 private val PillToggleSpacing = 4.dp
-private val MinPillToggleHeight = 32.dp
+/** Matches UI_DESIGN.md §5 minimum touch target (48dp). */
+private val MinPillToggleHeight = 48.dp

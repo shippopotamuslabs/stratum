@@ -28,7 +28,8 @@ handles progression, volume accounting, and long-horizon pattern recognition so 
 can focus on training.
 
 - **Display name:** Stratum (long form: Stratum Workout Log)
-- **Application ID / namespace:** `com.stratum` (app module may be `com.stratum.app`)
+- **Application ID (Play / install id):** `com.aether.stratum` — set in `app/build.gradle.kts` `defaultConfig.applicationId`. Must match Firebase Android app + `google-services.json` package name.
+- **Kotlin / Gradle namespace:** keep `com.stratum` / `com.stratum.*` source packages and module `namespace` values (e.g. app `namespace = "com.stratum"`). Do **not** rename source trees to match the applicationId.
 - **Platform:** Android (Kotlin, Jetpack Compose)
 - **Hosting:** gitlawb (pseudonymous DID identity — do not add personal or Brown Town identifiers)
 
@@ -145,7 +146,8 @@ device (no LiteRT, no local GGUF, etc.). All LLM work goes through **cloud APIs*
 ### 4.7 Privacy And Identity
 
 - Do not commit real names, personal emails, or Brown Town / LiftLab identifiers.
-- Use `com.stratum` package namespace consistently.
+- Use `com.stratum` **source** package namespace consistently (not the Play applicationId).
+- Play / Firebase Android package is **`com.aether.stratum`** — keep `applicationId` and Console configs in sync when either changes.
 - Prefer local-first storage; cloud sync only when explicitly designed and requested.
 
 ---

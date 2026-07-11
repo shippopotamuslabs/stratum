@@ -1,5 +1,10 @@
 package com.stratum.navigation
 
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -35,7 +40,9 @@ import com.stratum.feature.history.navigation.WorkoutSessionDetailKey
 import com.stratum.feature.history.navigation.editHistoricalWorkoutEntry
 import com.stratum.feature.history.navigation.workoutHistoryEntry
 import com.stratum.feature.history.navigation.workoutSessionDetailEntry
+import com.stratum.feature.settings.navigation.LegalKey
 import com.stratum.feature.settings.navigation.SettingsKey
+import com.stratum.feature.settings.navigation.legalEntry
 import com.stratum.feature.settings.navigation.settingsEntry
 import com.stratum.feature.workout.navigation.WorkoutKey
 import com.stratum.feature.workout.navigation.WorkoutCompleteKey
@@ -69,7 +76,9 @@ fun StratumNavHost(
         remember(backStack) {
             {
                 if (backStack.size > 1) {
-                    backStack.removeLast()
+                    // Prefer removeAt over removeLast(): with compileSdk 35+, Kotlin can resolve
+                    // to java.util.List.removeLast() (API 35+ only) and crash on Android 14.
+                    backStack.removeAt(backStack.lastIndex)
                 }
             }
         }
@@ -91,6 +100,11 @@ fun StratumNavHost(
     NavDisplay(
         backStack = backStack,
         onBack = onNavigateBack,
+        // Match forward/pop fade for predictive back. Library default predictive pop uses
+        // scaleOut(0.7f), which shrinks the outgoing screen into a rectangle on gesture back.
+        transitionSpec = { stratumNavFadeTransform() },
+        popTransitionSpec = { stratumNavFadeTransform() },
+        predictivePopTransitionSpec = { stratumNavFadeTransform() },
         // Scope ViewModels (and saveable state) to each NavEntry. Without the ViewModelStore
         // decorator, hiltViewModel() resolves to the Activity and CreateProgram retains
         // showDiscardConfirm / entryConfigured across visits — discard sheet on library edit open.
@@ -171,7 +185,9 @@ fun StratumNavHost(
             createLiftEntry(onBackClick = onNavigateBack)
             settingsEntry(
                 onBackClick = onNavigateBack,
+                onNavigateToLegal = { backStack.add(LegalKey) },
             )
+            legalEntry(onBackClick = onNavigateBack)
             workoutHistoryEntry(
                 onBackClick = onNavigateBack,
                 onSessionClick = { sessionId ->
@@ -256,3 +272,10 @@ fun StratumNavHost(
         },
     )
 }
+
+/** Matches navigation3 default forward/pop duration; fade only (no predictive scale-out). */
+private fun stratumNavFadeTransform(): ContentTransform =
+    fadeIn(animationSpec = tween(STRATUM_NAV_TRANSITION_MS)) togetherWith
+        fadeOut(animationSpec = tween(STRATUM_NAV_TRANSITION_MS))
+
+private const val STRATUM_NAV_TRANSITION_MS = 700

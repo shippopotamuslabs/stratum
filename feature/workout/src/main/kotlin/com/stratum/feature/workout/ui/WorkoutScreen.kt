@@ -302,8 +302,7 @@ fun WorkoutScreen(
                 onDiscardClick = { showDiscardDialog = true },
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .fillMaxWidth(),
             )
         }
     }

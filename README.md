@@ -15,7 +15,7 @@ Android Studio scaffold merged into this repo (`:app` + `:core:ui`). Builds with
 
 | Module | Purpose |
 |--------|---------|
-| `:app` | Application shell (`com.stratum`, minSdk 34) |
+| `:app` | Application shell (applicationId `com.aether.stratum`, minSdk 34) |
 | `:core:domain` | JVM — models, ports, use cases |
 | `:core:data` | Room-ready data layer (schemas in `core/data/schemas/`) |
 | `:core:ui` | `StratumTheme`, theme specs, `Stratum*` components |
@@ -24,7 +24,8 @@ Android Studio scaffold merged into this repo (`:app` + `:core:ui`). Builds with
 
 ## Namespace
 
-- Application ID: `com.stratum` (app module may use `com.stratum.app`)
+- **Application ID** (Play / install id): `com.aether.stratum`
+- **Kotlin / Gradle source packages:** `com.stratum` / `com.stratum.*` (do not rename source trees to match the applicationId)
 
 ## Agent instructions
 

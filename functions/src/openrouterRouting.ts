@@ -1,8 +1,9 @@
 /**
  * OpenRouter provider routing preferences for Stratum Firebase callables.
  *
- * Default matches pocket-crew OpenRouterRoutingConfiguration: sort by throughput,
- * allow fallbacks, deny data-collection providers. See OpenRouter provider routing docs.
+ * Defaults: sort by throughput, allow fallbacks, deny data-collection providers,
+ * and enforce Zero Data Retention (`provider.zdr: true`) so requests only route to
+ * endpoints that do not retain prompts. See OpenRouter ZDR + provider routing docs.
  */
 export type OpenRouterProviderSort = "price" | "throughput" | "latency";
 
@@ -54,7 +55,9 @@ export function buildOpenRouterProviderRouting(
     allow_fallbacks: allowFallbacks,
     require_parameters: pinnedProvider ? false : (options.requireParameters ?? false),
     data_collection: pinnedProvider ? "deny" : (options.dataCollection ?? "deny"),
-    zdr: pinnedProvider ? false : (options.zeroDataRetention ?? false),
+    // Default on: only route to zero-retention endpoints (OpenRouter provider.zdr).
+    // Pinned providers still honor an explicit override via zeroDataRetention.
+    zdr: options.zeroDataRetention ?? true,
   };
 
   if (options.preferredMinThroughput != null) {
@@ -79,6 +82,7 @@ export function buildProgramGenerationProviderRouting(
     allowFallbacks: true,
     requireParameters: options.requireParameters ?? true,
     dataCollection: "deny",
+    zeroDataRetention: true,
     preferredMinThroughput:
       options.preferredMinThroughput ?? PROGRAM_GENERATION_PREFERRED_MIN_THROUGHPUT,
     stickySession: false,

@@ -1,4 +1,4 @@
-package com.stratum.feature.onboarding
+package com.stratum.core.ui.progress
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.DisplayName
@@ -51,15 +51,15 @@ class ProgramGenerationTimelineStepTest {
     fun `timeline step status follows active index`() {
         val activeIndex = ProgramGenerationProgressPhaseUi.SynthesizingProgram.activeTimelineIndex()
         assertEquals(
-            ProgramGenerationTimelineStepStatus.Completed,
+            ProgressTimelineStepStatus.Completed,
             timelineStepStatus(0, activeIndex),
         )
         assertEquals(
-            ProgramGenerationTimelineStepStatus.Active,
+            ProgressTimelineStepStatus.Active,
             timelineStepStatus(activeIndex, activeIndex),
         )
         assertEquals(
-            ProgramGenerationTimelineStepStatus.Pending,
+            ProgressTimelineStepStatus.Pending,
             timelineStepStatus(programGenerationTimelinePhases.lastIndex, activeIndex),
         )
     }
