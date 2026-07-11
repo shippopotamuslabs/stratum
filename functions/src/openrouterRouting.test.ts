@@ -7,14 +7,14 @@ import {
 } from "./openrouterRouting";
 
 describe("buildOpenRouterProviderRouting", () => {
-  it("defaults to throughput sort with fallbacks and deny data collection", () => {
+  it("defaults to throughput sort with fallbacks, deny data collection, and ZDR", () => {
     const routing = buildOpenRouterProviderRouting();
 
     assert.equal(routing.sort, "throughput");
     assert.equal(routing.allow_fallbacks, true);
     assert.equal(routing.require_parameters, false);
     assert.equal(routing.data_collection, "deny");
-    assert.equal(routing.zdr, false);
+    assert.equal(routing.zdr, true);
     assert.equal(routing.order, undefined);
   });
 
@@ -27,6 +27,13 @@ describe("buildOpenRouterProviderRouting", () => {
     assert.deepEqual(routing.order, ["deepinfra"]);
     assert.equal(routing.sort, undefined);
     assert.equal(routing.allow_fallbacks, false);
+    assert.equal(routing.zdr, true);
+    assert.equal(routing.data_collection, "deny");
+  });
+
+  it("allows disabling ZDR when explicitly requested", () => {
+    const routing = buildOpenRouterProviderRouting({ zeroDataRetention: false });
+    assert.equal(routing.zdr, false);
   });
 
   it("requires provider parameters when requested", () => {
@@ -44,13 +51,14 @@ describe("buildOpenRouterProviderRouting", () => {
     assert.equal(routing.allow_fallbacks, true);
   });
 
-  it("program generation sorts by price with throughput floor", () => {
+  it("program generation sorts by price with throughput floor and ZDR", () => {
     const routing = buildProgramGenerationProviderRouting();
 
     assert.equal(routing.sort, "price");
     assert.equal(routing.require_parameters, true);
     assert.equal(routing.allow_fallbacks, true);
     assert.equal(routing.data_collection, "deny");
+    assert.equal(routing.zdr, true);
     assert.deepEqual(routing.preferred_min_throughput, PROGRAM_GENERATION_PREFERRED_MIN_THROUGHPUT);
   });
 

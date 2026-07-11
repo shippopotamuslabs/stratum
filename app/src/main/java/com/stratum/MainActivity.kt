@@ -12,8 +12,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.stratum.app.AppCheckInstaller
 import com.stratum.app.MainViewModel
 import com.stratum.app.ShellUiState
 import com.stratum.app.ui.SignInScreen
@@ -74,43 +73,17 @@ class MainActivity : FragmentActivity() {
         super.onDestroy()
     }
 
+    /**
+     * Installs the variant-specific App Check provider (`src/debug` vs `src/release`).
+     * Debug uses [com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory] (debug
+     * dependency only). Release uses Play Integrity. Register debug secrets in Firebase Console
+     * → App Check → Manage debug tokens when using debug builds against enforced endpoints.
+     */
     private fun initFirebaseAppCheck() {
         FirebaseApp.initializeApp(this)
-        val appCheck = FirebaseAppCheck.getInstance()
-        if (BuildConfig.DEBUG) {
-            appCheck.installAppCheckProviderFactory(DebugAppCheckProviderFactory.getInstance())
-            logDebugAppCheckTokenHint(appCheck)
-        } else {
-            appCheck.installAppCheckProviderFactory(
-                PlayIntegrityAppCheckProviderFactory.getInstance(),
-            )
-        }
-    }
-
-    /**
-     * Surfaces App Check setup issues early. On debug builds, register the secret printed by
-     * `DebugAppCheckProvider` (or logged here on failure) in Firebase Console → App Check →
-     * Manage debug tokens. Callable inference endpoints enforce App Check server-side.
-     */
-    private fun logDebugAppCheckTokenHint(appCheck: FirebaseAppCheck) {
-        appCheck.getAppCheckToken(false)
-            .addOnSuccessListener {
-                loggingPort.info(TAG, "App Check debug token obtained successfully.")
-            }
-            .addOnFailureListener { error ->
-                loggingPort.error(
-                    TAG,
-                    "App Check debug token failed (register the debug secret from logcat in " +
-                        "Firebase Console → App Check → Manage debug tokens): ${error.message}",
-                    error,
-                )
-            }
+        AppCheckInstaller.install(FirebaseAppCheck.getInstance(), loggingPort)
     }
 
     private fun Intent.workoutIdExtra(): String? =
         getStringExtra(WorkoutNavExtras.EXTRA_WORKOUT_ID)?.takeIf { it.isNotBlank() }
-
-    private companion object {
-        const val TAG = "StratumAppCheck"
-    }
 }
