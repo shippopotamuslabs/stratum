@@ -522,16 +522,17 @@ class Slice2DoubleRecommendationTest {
     @DisplayName("S2-double-gate-top-met-rir-missed-holds")
     fun `S2-double-gate-top-met-rir-missed-holds`() {
         // Hit repMax but undershot RIR — classic "ground out the last rep" log. Must NOT increment.
-        // Capacity 6@0 → 4@2 RIR is below the global floor of 5, so weight may drop to hit
-        // the floor — but must never *increase* past the performed load.
+        // Capacity 6@0 → 4@2 RIR is below the global floor of 5, so weight drops via
+        // EstimatedOneRm.weightForReps to hit floor reps exactly.
         val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
         val history = listOf(historyEntry(reps = 6, rir = 0, weight = 135.0))
+        val capacity = 6 // 6 + 0 RIR
+        val e1rm = EstimatedOneRm.calculate(135.0, capacity)
+        val expectedWeight = EstimatedOneRm.weightForReps(e1rm, 5 + slot.rirGoal)
         val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
-        assertTrue(
-            recommendation.recommendedWeight.amount <= 135.0,
-            "must not increment when RIR is missed",
-        )
-        assertTrue(recommendation.baselineExpectedReps >= 5)
+        assertEquals(expectedWeight, recommendation.recommendedWeight.amount)
+        assertEquals(5, recommendation.baselineExpectedReps)
+        assertTrue(recommendation.recommendedWeight.amount < 135.0)
     }
 
     @Test

@@ -21,6 +21,7 @@ import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.WorkoutLiftProjection
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
+import com.stratum.domain.workout.applyRestOverride
 import java.util.UUID
 
 /**
@@ -229,10 +230,8 @@ internal object LiveWorkoutOverlayOps {
     }
 
     /** Applies [WorkoutOverlay.restSecondsOverrides] onto a resolved slot. */
-    internal fun applyRestOverrideToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot {
-        val override = overlay.restSecondsOverrides[slot.slotId] ?: return slot
-        return if (slot.restSeconds == override) slot else slot.copy(restSeconds = override)
-    }
+    internal fun applyRestOverrideToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot =
+        slot.applyRestOverride(overlay)
 
     private fun applyOverlaySlotFields(slot: SetSlot, overlay: WorkoutOverlay): SetSlot =
         applyRestOverrideToSlot(applySwapToSlot(slot, overlay), overlay)

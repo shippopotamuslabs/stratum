@@ -279,15 +279,16 @@ class Slice4LinearProgressionTest {
     @DisplayName("S4-linear-hold-when-rir-not-met")
     fun `S4-linear-hold-when-rir-not-met`() {
         // Bottom met but RIR missed → no Linear increment. Capacity 5@0 → 3@2 is below the
-        // global floor of 5, so weight may drop to hit the floor (never increments).
+        // global floor of 5, so weight drops via EstimatedOneRm.weightForReps (never increments).
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 0, weight = 200.0, sessionId = "s-n1"))
+        val capacity = 5 // 5 + 0 RIR
+        val e1rm = EstimatedOneRm.calculate(200.0, capacity)
+        val expectedWeight = EstimatedOneRm.weightForReps(e1rm, 5 + slot.rirGoal)
         val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
-        assertTrue(
-            recommendation.recommendedWeight.amount <= 200.0,
-            "must not increment when RIR is missed",
-        )
-        assertTrue(recommendation.baselineExpectedReps >= 5)
+        assertEquals(expectedWeight, recommendation.recommendedWeight.amount)
+        assertEquals(5, recommendation.baselineExpectedReps)
+        assertTrue(recommendation.recommendedWeight.amount < 200.0)
     }
 
     @Test
@@ -310,15 +311,16 @@ class Slice4LinearProgressionTest {
         assertEquals(2, state.currentStallCount)
 
         // Recommend does not *increment* while Linear; transition is applied by the snapshot
-        // orchestrator (scheme flip), not by a classic 10% greyskull deload. Capacity 4@2 →
-        // 4@2 is below the global floor of 5, so a small weight drop to hit the floor is OK.
+        // orchestrator (scheme flip), not by a classic 10% greyskull deload. Capacity 4+2=6 →
+        // 4@2 is below the global floor of 5, so weight drops via weightForReps for floor 5.
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val capacity = 6 // newest entry: 4 reps + 2 RIR
+        val e1rm = EstimatedOneRm.calculate(200.0, capacity)
+        val expectedWeight = EstimatedOneRm.weightForReps(e1rm, 5 + slot.rirGoal)
         val recommendation = engine.recommend(request(slot, history))
-        assertTrue(
-            recommendation.recommendedWeight.amount <= 200.0,
-            "must not increment while stalled on Linear",
-        )
-        assertTrue(recommendation.baselineExpectedReps >= 5)
+        assertEquals(expectedWeight, recommendation.recommendedWeight.amount)
+        assertEquals(5, recommendation.baselineExpectedReps)
+        assertTrue(recommendation.recommendedWeight.amount < 200.0)
     }
 
     @Test
