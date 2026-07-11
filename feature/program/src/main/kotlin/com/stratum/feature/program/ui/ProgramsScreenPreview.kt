@@ -55,7 +55,7 @@ private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
     ProgramsScreen(
         state =
             ProgramsUiState.Loaded(
-                program = ProgramViewState(name = "Minimal 4 Day"),
+                program = ProgramViewState(programId = "preview-program", name = "Minimal 4 Day"),
                 upperVolumeByMuscle =
                     listOf(
                         StratumMuscleVolumeCardState(

@@ -70,6 +70,7 @@ class ProgramsViewModelTest {
                 val state = awaitItem()
                 assertTrue(state is ProgramsUiState.Loaded)
                 val loaded = state as ProgramsUiState.Loaded
+                assertEquals("p-1", loaded.program.programId)
                 assertEquals("Push/Pull/Legs", loaded.program.name)
                 assertTrue(loaded.scheduleItems.any { item -> item is ScheduleItemState.Workout })
                 assertTrue(

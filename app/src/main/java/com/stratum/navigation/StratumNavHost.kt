@@ -119,45 +119,51 @@ fun StratumNavHost(
             entry<MainTabKey> { key ->
                 MainTabShell(
                     isPreviewMode = key.isPreviewMode,
-                    onDiscardProgramClick = {
-                        statusViewModel.reopenOnboarding()
-                        backStack.removeAll { it is MainTabKey }
-                        backStack.add(OnboardingKey)
-                    },
-                    onKeepProgramClick = {
-                        backStack.removeAll { it is MainTabKey }
-                        backStack.add(MainTabKey(isPreviewMode = false))
-                    },
-                    onNavigateToSwap = { workoutId, workoutLiftId, id, name ->
-                        backStack.add(LiftSwapKey(workoutId, workoutLiftId, id, name))
-                    },
-                    onNavigateToEditWorkout = { workoutId ->
-                        backStack.add(EditWorkoutKey(workoutId))
-                    },
-                    onNavigateToWorkout = { workoutId ->
-                        backStack.add(WorkoutKey(workoutId))
-                    },
-                    onNavigateToSettings = {
-                        backStack.add(SettingsKey)
-                    },
-                    onNavigateToHistory = {
-                        backStack.add(WorkoutHistoryKey)
-                    },
-                    onCreateNewLift = {
-                        backStack.add(CreateLiftKey)
-                    },
-                    onNavigateToLiftIncrements = { liftId ->
-                        backStack.add(LiftIncrementsKey(liftId))
-                    },
-                    onNavigateToLiftInformation = { liftId ->
-                        backStack.add(LiftInformationKey(liftId))
-                    },
-                    onCreateProgramClick = {
-                        backStack.add(CreateProgramKey())
-                    },
-                    onProgramLibraryClick = {
-                        backStack.add(ProgramLibraryKey)
-                    },
+                    callbacks =
+                        MainTabShellCallbacks(
+                            onDiscardProgramClick = {
+                                statusViewModel.reopenOnboarding()
+                                backStack.removeAll { it is MainTabKey }
+                                backStack.add(OnboardingKey)
+                            },
+                            onKeepProgramClick = {
+                                backStack.removeAll { it is MainTabKey }
+                                backStack.add(MainTabKey(isPreviewMode = false))
+                            },
+                            onNavigateToSwap = { workoutId, workoutLiftId, id, name ->
+                                backStack.add(LiftSwapKey(workoutId, workoutLiftId, id, name))
+                            },
+                            onNavigateToEditWorkout = { workoutId ->
+                                backStack.add(EditWorkoutKey(workoutId))
+                            },
+                            onNavigateToWorkout = { workoutId ->
+                                backStack.add(WorkoutKey(workoutId))
+                            },
+                            onNavigateToSettings = {
+                                backStack.add(SettingsKey)
+                            },
+                            onNavigateToHistory = {
+                                backStack.add(WorkoutHistoryKey)
+                            },
+                            onCreateNewLift = {
+                                backStack.add(CreateLiftKey)
+                            },
+                            onNavigateToLiftIncrements = { liftId ->
+                                backStack.add(LiftIncrementsKey(liftId))
+                            },
+                            onNavigateToLiftInformation = { liftId ->
+                                backStack.add(LiftInformationKey(liftId))
+                            },
+                            onCreateProgramClick = {
+                                backStack.add(CreateProgramKey())
+                            },
+                            onEditProgramClick = { programId ->
+                                backStack.add(CreateProgramKey(programId = programId))
+                            },
+                            onProgramLibraryClick = {
+                                backStack.add(ProgramLibraryKey)
+                            },
+                        ),
                 )
             }
             liftIncrementsEntry(onBackClick = onNavigateBack)

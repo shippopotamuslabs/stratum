@@ -38,7 +38,7 @@ internal fun Program?.toProgramsUiState(
         ProgramsUiState.Empty
     } else {
         ProgramsUiState.Loaded(
-            program = ProgramViewState(name = name),
+            program = ProgramViewState(programId = id.value, name = name),
             upperVolumeByMuscle = volumeSummaries.toUpperVolumeCards(),
             lowerVolumeByMuscle = volumeSummaries.toLowerVolumeCards(),
             scheduleItems = buildWeeklySchedule(this).map { item ->

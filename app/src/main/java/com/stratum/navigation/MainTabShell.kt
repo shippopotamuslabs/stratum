@@ -38,22 +38,31 @@ private enum class MainTab(val index: Int) {
     }
 }
 
+/**
+ * Bundles main-tab navigation callbacks to keep [MainTabShell] under the detekt parameter threshold.
+ */
+data class MainTabShellCallbacks(
+    val onDiscardProgramClick: () -> Unit = {},
+    val onKeepProgramClick: () -> Unit = {},
+    val onNavigateToSwap: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit =
+        { _, _, _, _ -> },
+    val onNavigateToEditWorkout: (workoutId: String) -> Unit = {},
+    val onNavigateToWorkout: (workoutId: String) -> Unit = {},
+    val onNavigateToSettings: () -> Unit = {},
+    val onNavigateToHistory: () -> Unit = {},
+    val onCreateNewLift: () -> Unit = {},
+    val onNavigateToLiftIncrements: (liftId: String) -> Unit = {},
+    val onNavigateToLiftInformation: (liftId: String) -> Unit = {},
+    val onCreateProgramClick: () -> Unit = {},
+    val onEditProgramClick: (programId: String) -> Unit = {},
+    val onProgramLibraryClick: () -> Unit = {},
+)
+
 @Composable
 fun MainTabShell(
     modifier: Modifier = Modifier,
     isPreviewMode: Boolean = false,
-    onDiscardProgramClick: () -> Unit = {},
-    onKeepProgramClick: () -> Unit = {},
-    onNavigateToSwap: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },
-    onNavigateToEditWorkout: (workoutId: String) -> Unit = {},
-    onNavigateToWorkout: (workoutId: String) -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
-    onNavigateToHistory: () -> Unit = {},
-    onCreateNewLift: () -> Unit = {},
-    onNavigateToLiftIncrements: (liftId: String) -> Unit = {},
-    onNavigateToLiftInformation: (liftId: String) -> Unit = {},
-    onCreateProgramClick: () -> Unit = {},
-    onProgramLibraryClick: () -> Unit = {},
+    callbacks: MainTabShellCallbacks = MainTabShellCallbacks(),
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
     val items =
@@ -95,26 +104,27 @@ fun MainTabShell(
                     .padding(PaddingValues(bottom = padding.calculateBottomPadding())),
         ) {
             when (MainTab.fromIndex(selectedTabIndex)) {
-                MainTab.Dashboard -> DashboardScreen(onNavigateToSettings = onNavigateToSettings)
+                MainTab.Dashboard -> DashboardScreen(onNavigateToSettings = callbacks.onNavigateToSettings)
                 MainTab.Program -> ProgramsRoute(
                     isPreviewMode = isPreviewMode,
                     callbacks =
                         ProgramsScreenCallbacks(
-                            onCalendarClick = onNavigateToHistory,
-                            onKeepProgramClick = onKeepProgramClick,
-                            onDiscardProgramClick = onDiscardProgramClick,
-                            onEditWorkoutClick = onNavigateToEditWorkout,
-                            onCreateProgramClick = onCreateProgramClick,
-                            onProgramLibraryClick = onProgramLibraryClick,
+                            onCalendarClick = callbacks.onNavigateToHistory,
+                            onKeepProgramClick = callbacks.onKeepProgramClick,
+                            onDiscardProgramClick = callbacks.onDiscardProgramClick,
+                            onEditWorkoutClick = callbacks.onNavigateToEditWorkout,
+                            onCreateProgramClick = callbacks.onCreateProgramClick,
+                            onEditProgramClick = callbacks.onEditProgramClick,
+                            onProgramLibraryClick = callbacks.onProgramLibraryClick,
                         ),
-                    onSwapLiftClick = onNavigateToSwap,
-                    onNavigateToWorkout = onNavigateToWorkout,
+                    onSwapLiftClick = callbacks.onNavigateToSwap,
+                    onNavigateToWorkout = callbacks.onNavigateToWorkout,
                 )
                 MainTab.Gym ->
                     GymScreen(
-                        onCreateNewLift = onCreateNewLift,
-                        onNavigateToIncrements = onNavigateToLiftIncrements,
-                        onNavigateToInformation = onNavigateToLiftInformation,
+                        onCreateNewLift = callbacks.onCreateNewLift,
+                        onNavigateToIncrements = callbacks.onNavigateToLiftIncrements,
+                        onNavigateToInformation = callbacks.onNavigateToLiftInformation,
                     )
             }
         }

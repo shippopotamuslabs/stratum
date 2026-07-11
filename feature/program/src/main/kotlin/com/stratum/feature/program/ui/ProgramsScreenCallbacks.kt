@@ -8,6 +8,7 @@ import com.stratum.domain.onboarding.Weekday
 data class ProgramsScreenCallbacks(
     val onCalendarClick: () -> Unit = {},
     val onCreateProgramClick: () -> Unit = {},
+    val onEditProgramClick: (programId: String) -> Unit = {},
     val onProgramLibraryClick: () -> Unit = {},
     val onStartNextWorkoutClick: () -> Unit = {},
     val onStartEmptyWorkoutClick: () -> Unit = {},
