@@ -5,6 +5,7 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -23,8 +24,9 @@ import kotlinx.coroutines.flow.flow
  * **Week streak:** consecutive ISO weeks (Mon–Sun) counting backward from the week containing
  * [today], each requiring ≥1 completed workout. The current week must have a workout or streak is 0.
  *
- * **Rest days:** count of local calendar days with no completed workout from the first history
- * day through [today] inclusive.
+ * **Rest days:** local calendar days since the most recent completed workout (exclusive of that
+ * workout day, inclusive of [today] when today is not a workout day). Zero when the last workout
+ * was today, or when history is empty.
  */
 class ObserveWorkoutHistoryCalendarUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -112,17 +114,14 @@ class ObserveWorkoutHistoryCalendarUseCase @Inject constructor(
             return streak
         }
 
-        /** Days without a workout from earliest workout day through [today] inclusive. */
+        /**
+         * Days since the most recent workout day (not cumulative rest over the year).
+         * Equal to the count of calendar days after [last workout] through [today].
+         */
         internal fun computeRestDays(workoutDates: Set<LocalDate>, today: LocalDate): Int {
-            val first = workoutDates.minOrNull() ?: return 0
-            if (first.isAfter(today)) return 0
-            var rest = 0
-            var cursor = first
-            while (!cursor.isAfter(today)) {
-                if (cursor !in workoutDates) rest++
-                cursor = cursor.plusDays(1)
-            }
-            return rest
+            val last = workoutDates.maxOrNull() ?: return 0
+            if (last.isAfter(today)) return 0
+            return ChronoUnit.DAYS.between(last, today).toInt()
         }
 
         fun localDateOf(instant: Instant, zoneId: ZoneId): LocalDate =
