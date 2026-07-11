@@ -8,6 +8,7 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
+import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.dashboard.LoadDashboardUseCase
@@ -21,6 +22,8 @@ import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
+import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
+import com.stratum.domain.sync.SyncStatus
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -237,6 +240,35 @@ class DashboardViewModelTest {
     }
 
     @Test
+    @DisplayName("reloads when cloud sync returns to Idle after busy (post-hydrate weekly rebuild)")
+    fun reloadsAfterSyncIdle() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        val cloudSync = FakeCloudSyncPort()
+        val viewModel = buildViewModel(
+            stimulusRepo = stimulusRepo,
+            liftRepo = liftRepo,
+            cloudSync = cloudSync,
+        )
+        advanceUntilIdle()
+        assertEquals(DashboardUiState.Empty, viewModel.uiState.value)
+
+        // Simulate post-pull rebuild filling weekly tables, then Idle.
+        val now = Instant.now()
+        stimulusRepo.seed(listOf(stimulus(MuscleGroup.Chest, now.minus(7, ChronoUnit.DAYS), 12.0)))
+        cloudSync.setStatus(SyncStatus.Hydrating)
+        cloudSync.setStatus(SyncStatus.Idle)
+        advanceUntilIdle()
+
+        assertTrue(
+            viewModel.uiState.value is DashboardUiState.Loaded,
+            "dashboard should reload after sync Idle once weekly series exist",
+        )
+    }
+
+    @Test
     @DisplayName("openLiftGraph loads full history into Ready detail state")
     fun openLiftGraphReady() = runTest {
         val benchId = LiftId("bench")
@@ -362,6 +394,7 @@ class DashboardViewModelTest {
         liftRepo: FakeLiftRepository = FakeLiftRepository(),
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
         programLiftIds: Set<LiftId> = emptySet(),
+        cloudSync: FakeCloudSyncPort = FakeCloudSyncPort(),
     ): DashboardViewModel {
         val baseProgram = WorkoutLoggingFixtures.twoWorkoutProgram()
         val program = if (programLiftIds.isEmpty()) {
@@ -402,6 +435,7 @@ class DashboardViewModelTest {
         return DashboardViewModel(
             loadDashboard = useCase,
             loadGraphDetail = detailUseCase,
+            observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
         )
     }
 

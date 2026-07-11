@@ -24,10 +24,13 @@ import kotlinx.coroutines.flow.first
  * here: that heavier pipeline runs on the response-modeling WorkManager worker
  * (`ResponseModelingWorker`, [com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS] gate).
  *
- * Triggered fire-and-forget by [FinalizeTrainingSessionUseCase] on workout completion so the
- * dashboard tables never go stale relative to live workouts. Reads raw [LoggedSet]s (the source of
- * truth) and applies the canonical hard-set predicate (`TrainingSignalCleaner`: RIR < 4 or
- * relative load ≥ 0.65), unifying the volume definition the dashboard sees.
+ * Triggered by:
+ * - [FinalizeTrainingSessionUseCase] on workout completion (fire-and-forget)
+ * - [RebuildLocalDerivedTrainingDataUseCase] after a successful cloud pull (new device / multi-device)
+ *
+ * Reads raw [LoggedSet]s (the source of truth) and applies the canonical hard-set predicate
+ * (`TrainingSignalCleaner`: RIR < 4 or relative load ≥ 0.65), unifying the volume definition the
+ * dashboard sees.
  */
 class RefreshWeeklySeriesUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,

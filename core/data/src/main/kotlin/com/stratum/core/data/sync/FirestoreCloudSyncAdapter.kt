@@ -7,6 +7,7 @@ import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.sync.CloudSessionState
 import com.stratum.domain.sync.CloudSyncPort
 import com.stratum.domain.sync.SyncStatus
+import com.stratum.domain.training.RebuildLocalDerivedTrainingDataUseCase
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +34,10 @@ import kotlinx.coroutines.withContext
  * active user (already hydrated, ownership-only gate off, or first successful push/pull).
  * Network failures after local-ready leave Ready set and recover via WorkManager.
  *
+ * After a clean push/pull, [RebuildLocalDerivedTrainingDataUseCase] recomputes non-synced
+ * weekly dashboard tables from hydrated training logs (Gym history works without this; charts
+ * do not). Rebuild failures are logged and do not fail the sync pass.
+ *
  * Adapter mutex serializes [start]/[stop]/[requestSync]/[endSessionAndWipe] against each
  * other only — Room write isolation is [UserOwnedWriteCoordinator] (repos + remote apply/adopt).
  *
@@ -50,6 +55,7 @@ class FirestoreCloudSyncAdapter @Inject constructor(
     private val catalogSeedGate: LiftCatalogSeedGate,
     private val cloudSyncScheduler: CloudSyncScheduler,
     private val featureGate: CloudSyncFeatureGate,
+    private val rebuildLocalDerivedTrainingData: RebuildLocalDerivedTrainingDataUseCase,
     private val loggingPort: LoggingPort,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : CloudSyncPort {
@@ -188,6 +194,9 @@ class FirestoreCloudSyncAdapter @Inject constructor(
     /**
      * Canonical push → pull → post-pull residual upload. Shared by [start] and [requestSync].
      * Residual / incomplete pull throws [CloudSyncResidualException] (no Idle claim).
+     *
+     * On success, rebuilds local-only weekly dashboard tables before Idle so the shell / dashboard
+     * can load charts that are not part of the Firestore allowlist.
      */
     private suspend fun runPushPull(userId: String) {
         runSyncPushPullPass(
@@ -198,6 +207,18 @@ class FirestoreCloudSyncAdapter @Inject constructor(
             hasDirtyResidual = { uploadEngine.hasResidualPending() },
             pull = { pullEngine.pull(userId).getOrThrow() },
             logError = { msg -> loggingPort.error(TAG, msg) },
+            afterSuccessfulPull = {
+                rebuildLocalDerivedTrainingData()
+                    .onFailure { error ->
+                        // Sync itself succeeded; charts may stay empty until the next clean pass
+                        // or a local workout finalize (which also refreshes weekly series).
+                        loggingPort.error(
+                            TAG,
+                            "post-pull derived rebuild failed: ${error.message}",
+                            error,
+                        )
+                    }
+            },
         )
     }
 

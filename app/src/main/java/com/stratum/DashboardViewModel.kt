@@ -19,6 +19,8 @@ import com.stratum.domain.dashboard.slopeToDirection
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
+import com.stratum.domain.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -31,6 +33,7 @@ import kotlinx.coroutines.launch
 class DashboardViewModel @Inject constructor(
     private val loadDashboard: LoadDashboardUseCase,
     private val loadGraphDetail: LoadGraphDetailUseCase,
+    observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
@@ -45,13 +48,34 @@ class DashboardViewModel @Inject constructor(
 
     init {
         load()
+        // Weekly series tables are rebuilt after a successful cloud pull (not synced themselves).
+        // Reload when sync returns to Idle so a first-hydrate or multi-device pull fills charts
+        // without requiring the user to leave and re-enter the tab.
+        viewModelScope.launch {
+            var sawBusy = false
+            observeCloudSyncStatus().collect { status ->
+                    when (status) {
+                        SyncStatus.Syncing, SyncStatus.Hydrating -> sawBusy = true
+                        SyncStatus.Idle -> {
+                            if (sawBusy) {
+                                sawBusy = false
+                                load()
+                            }
+                        }
+                        is SyncStatus.Error -> {
+                            // Stay put; residual retry may still succeed and emit Idle later.
+                            sawBusy = true
+                        }
+                    }
+                }
+        }
     }
 
     /**
-     * Reloads the dashboard. Called on init and again on lifecycle resume so a workout completed
-     * while the dashboard was in the background (and refreshed the weekly tables on finalize) shows
-     * up. Keeps the last [DashboardUiState.Loaded] visible while refreshing so tab switches do not
-     * flash the empty copy.
+     * Reloads the dashboard. Called on init, after cloud sync settles to Idle (post-pull weekly
+     * rebuild), and on lifecycle resume so a workout completed while the dashboard was in the
+     * background shows up. Keeps the last [DashboardUiState.Loaded] visible while refreshing so
+     * tab switches do not flash the empty copy.
      */
     fun load() {
         loadJob?.cancel()
