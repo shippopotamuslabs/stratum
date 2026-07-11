@@ -21,6 +21,7 @@ import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.WorkoutLiftProjection
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
+import com.stratum.domain.workout.applyRestOverride
 import java.util.UUID
 
 /**
@@ -131,6 +132,12 @@ internal object LiveWorkoutOverlayOps {
                     ordered == naturalOrder || ordered == baselineLiftIdsInOrder
                 }
 
+        // Drop rest overrides for slots belonging to the removed lift (template + overlay).
+        val restOverrideKeysToDrop =
+            overlay.restSecondsOverrides.keys.filter { key ->
+                key in slotsToDrop || resolveSlot(key)?.workoutLiftId == workoutLiftId
+            }.toSet()
+
         return if (isSessionAdded) {
             overlay.copy(
                 addedLifts = remainingAdded,
@@ -139,6 +146,7 @@ internal object LiveWorkoutOverlayOps {
                 dynamicBaselines = overlay.dynamicBaselines.filterKeys { it !in slotsToDrop },
                 loggedSets = overlay.loggedSets.filterKeys { it !in slotsToDrop },
                 recommendations = overlay.recommendations.filterKeys { it !in slotsToDrop },
+                restSecondsOverrides = overlay.restSecondsOverrides - restOverrideKeysToDrop,
                 supersetGroupIdOverrides = cleanedGroupOverrides,
                 useRestTimerBetweenLiftsOverrides = cleanedRestOverrides,
                 orderedLiftIds = nextOrdered,
@@ -155,6 +163,7 @@ internal object LiveWorkoutOverlayOps {
                 recommendations = overlay.recommendations.filterKeys { key ->
                     resolveSlot(key)?.workoutLiftId != workoutLiftId
                 },
+                restSecondsOverrides = overlay.restSecondsOverrides - restOverrideKeysToDrop,
                 supersetGroupIdOverrides = cleanedGroupOverrides,
                 useRestTimerBetweenLiftsOverrides = cleanedRestOverrides,
                 orderedLiftIds = nextOrdered,
@@ -176,7 +185,8 @@ internal object LiveWorkoutOverlayOps {
         val added = overlay.addedSlots
             .filter { it.workoutLiftId == workoutLiftId }
             .filterNot { it.slotId in overlay.deletedSlotIds }
-        return templateSlots + added
+        // Apply swaps + rest overrides so callers see live-session values.
+        return (templateSlots + added).map { applyOverlaySlotFields(it, overlay) }
     }
 
     fun slotKey(slotId: SetSlotId): String = when (slotId) {
@@ -190,8 +200,10 @@ internal object LiveWorkoutOverlayOps {
         slotId: SetSlotId,
     ): SetSlot? {
         val struct = structure ?: return null
-        return struct.lifts.flatMap { it.slots }.firstOrNull { it.slotId == slotId }
+        val slot = struct.lifts.flatMap { it.slots }.firstOrNull { it.slotId == slotId }
             ?: overlay.addedSlots.firstOrNull { it.slotId == slotId }
+            ?: return null
+        return applyOverlaySlotFields(slot, overlay)
     }
 
     fun resolveSlotByKey(
@@ -200,8 +212,48 @@ internal object LiveWorkoutOverlayOps {
         slotKey: String,
     ): SetSlot? {
         val struct = structure ?: return null
-        return struct.lifts.flatMap { it.slots }.firstOrNull { slotKey(it.slotId) == slotKey }
+        val slot = struct.lifts.flatMap { it.slots }.firstOrNull { slotKey(it.slotId) == slotKey }
             ?: overlay.addedSlots.firstOrNull { slotKey(it.slotId) == slotKey }
+            ?: return null
+        return applyOverlaySlotFields(slot, overlay)
+    }
+
+    /**
+     * In-session lift swaps live only on [WorkoutOverlay.swappedLifts]; template
+     * [SetSlot.liftId] values stay original until template save. Log/unlog/add-set
+     * paths resolve slots outside of [merge], so they must re-apply the swap here —
+     * otherwise [LoggedSet.liftId] is attributed to the pre-swap (template) lift.
+     */
+    internal fun applySwapToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot {
+        val swappedLiftId = overlay.swappedLifts[slot.workoutLiftId] ?: return slot
+        return if (slot.liftId == swappedLiftId) slot else slot.copy(liftId = swappedLiftId)
+    }
+
+    /** Applies [WorkoutOverlay.restSecondsOverrides] onto a resolved slot. */
+    internal fun applyRestOverrideToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot =
+        slot.applyRestOverride(overlay)
+
+    private fun applyOverlaySlotFields(slot: SetSlot, overlay: WorkoutOverlay): SetSlot =
+        applyRestOverrideToSlot(applySwapToSlot(slot, overlay), overlay)
+
+    /**
+     * Merges presentation slotKey → restSeconds updates into the overlay override map.
+     * Returns `null` when no resolvable slots changed.
+     */
+    fun mergeRestSecondsOverrides(
+        overlay: WorkoutOverlay,
+        updates: Map<String, Int>,
+        resolveSlotByKey: (String) -> SetSlot?,
+    ): Map<SetSlotId, Int>? {
+        if (updates.isEmpty()) return null
+        val next = overlay.restSecondsOverrides.toMutableMap()
+        var changed = false
+        for ((slotKey, restSeconds) in updates) {
+            val slot = resolveSlotByKey(slotKey) ?: continue
+            next[slot.slotId] = restSeconds.coerceAtLeast(0)
+            changed = true
+        }
+        return if (changed) next else null
     }
 
     fun merge(
@@ -236,12 +288,10 @@ internal object LiveWorkoutOverlayOps {
                 lift.supersetGroupId
             }
 
-            val baseSlots = lift.slots.map { slot ->
-                if (swappedLiftId != null) slot.copy(liftId = swappedLiftId) else slot
-            }
-            val appended = overlay.addedSlots.filter { it.workoutLiftId == lift.workoutLiftId }.map { slot ->
-                if (swappedLiftId != null) slot.copy(liftId = swappedLiftId) else slot
-            }
+            val baseSlots = lift.slots.map { applyOverlaySlotFields(it, overlay) }
+            val appended = overlay.addedSlots
+                .filter { it.workoutLiftId == lift.workoutLiftId }
+                .map { applyOverlaySlotFields(it, overlay) }
 
             lift.copy(
                 liftId = currentLiftId,

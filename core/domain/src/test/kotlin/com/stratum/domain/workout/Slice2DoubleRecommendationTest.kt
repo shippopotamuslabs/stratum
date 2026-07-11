@@ -176,9 +176,13 @@ class Slice2DoubleRecommendationTest {
         val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 1, weight = 135.0))
         val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
-        assertEquals(lb(135.0), recommendation.recommendedWeight)
-        // Weight held → reps lever advances: failure capacity 5 + 1 = 6, minus rirGoal 2 = 4.
-        assertEquals(4, recommendation.baselineExpectedReps)
+        // Failure capacity 5 + 1 = 6 → 4 @ rirGoal 2, below BACKOFF_REP_FLOOR (5).
+        // Prefer a weight drop so recommended reps can hit the global floor of 5.
+        assertTrue(
+            recommendation.recommendedWeight.amount < 135.0,
+            "must drop weight when capacity would prescribe sub-floor reps",
+        )
+        assertEquals(5, recommendation.baselineExpectedReps)
     }
 
     @Test
@@ -250,12 +254,15 @@ class Slice2DoubleRecommendationTest {
     @Test
     @DisplayName("S2-double-backoff-reps-floored-at-backoff-floor")
     fun `S2-double-backoff-reps-floored-at-backoff-floor`() {
-        // rirGoal=2. User did 135 × 5 @ RIR 1 (failure capacity 6), target 6 − 2 = 4,
-        // floored at BACKOFF_REP_FLOOR (5).
+        // rirGoal=2. User did 135 × 5 @ RIR 1 (failure capacity 6), target 6 − 2 = 4.
+        // Global floor is 5 — drop weight so 5@2 is achievable rather than holding 135@4.
         val slot = backoffSlot().copy(rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 1, weight = 135.0))
         val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
-        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertTrue(
+            recommendation.recommendedWeight.amount < 135.0,
+            "must drop weight when capacity is below BACKOFF_REP_FLOOR",
+        )
         assertEquals(5, recommendation.baselineExpectedReps)
     }
 
@@ -410,9 +417,9 @@ class Slice2DoubleRecommendationTest {
 
         // Recommend for top set first:
         val topRec = engine.recommend(request(topSlot, topHistory))
-        // Verify top set progressed to 125 lb and recommended reps is repMin = 4
+        // Verify top set progressed to 125 lb; rep reset uses global floor max(repMin, 5) = 5.
         assertEquals(lb(125.0), topRec.recommendedWeight)
-        assertEquals(4, topRec.baselineExpectedReps)
+        assertEquals(5, topRec.baselineExpectedReps)
 
         // Recommend for backoff set passing top set recommended weight and prior slot info
         val boRec = engine.recommend(
@@ -515,10 +522,17 @@ class Slice2DoubleRecommendationTest {
     @DisplayName("S2-double-gate-top-met-rir-missed-holds")
     fun `S2-double-gate-top-met-rir-missed-holds`() {
         // Hit repMax but undershot RIR — classic "ground out the last rep" log. Must NOT increment.
+        // Capacity 6@0 → 4@2 RIR is below the global floor of 5, so weight drops via
+        // EstimatedOneRm.weightForReps to hit floor reps exactly.
         val slot = topSet(repMin = 4, repMax = 6, rirGoal = 2)
         val history = listOf(historyEntry(reps = 6, rir = 0, weight = 135.0))
+        val capacity = 6 // 6 + 0 RIR
+        val e1rm = EstimatedOneRm.calculate(135.0, capacity)
+        val expectedWeight = EstimatedOneRm.weightForReps(e1rm, 5 + slot.rirGoal)
         val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
-        assertEquals(lb(135.0), recommendation.recommendedWeight)
+        assertEquals(expectedWeight, recommendation.recommendedWeight.amount)
+        assertEquals(5, recommendation.baselineExpectedReps)
+        assertTrue(recommendation.recommendedWeight.amount < 135.0)
     }
 
     @Test
@@ -540,7 +554,8 @@ class Slice2DoubleRecommendationTest {
         val history = listOf(historyEntry(reps = 6, rir = 2, weight = 135.0))
         val recommendation = DoubleProgressionEngine().recommend(request(slot, history))
         assertEquals(lb(140.0), recommendation.recommendedWeight)
-        assertEquals(4, recommendation.baselineExpectedReps)
+        // After increment, reps reset to the global floor max(repMin, BACKOFF_REP_FLOOR) = 5.
+        assertEquals(5, recommendation.baselineExpectedReps)
     }
 
     @Test
@@ -551,7 +566,7 @@ class Slice2DoubleRecommendationTest {
             request(slot, emptyList(), fallbackOneRm = lb(100.0), baseline = null),
         )
         assertEquals(lb(100.0), recommendation.recommendedWeight)
-        assertEquals(4, recommendation.baselineExpectedReps)
+        assertEquals(5, recommendation.baselineExpectedReps)
     }
 
     @Test

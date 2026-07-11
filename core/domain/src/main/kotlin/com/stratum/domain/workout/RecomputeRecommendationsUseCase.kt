@@ -150,8 +150,16 @@ class RecomputeRecommendationsUseCase @Inject constructor(
             perLiftSlope = perLiftSlope,
             perLiftIntercept = perLiftIntercept,
         )
-        val atTargetRir = (rawCapacityReps - rirGoal).coerceAtLeast(1)
-        return if (repMin > 0 && repMax > 0) atTargetRir.coerceIn(repMin, repMax) else atTargetRir
+        // Global recommended-rep floor: never surface fewer than BACKOFF_REP_FLOOR reps.
+        // Weight reduction to make the floor achievable is owned by RecommendationEngine;
+        // this clamp is the display safety net (incl. backoff slots with repMin=repMax=0).
+        val floor = BACKOFF_REP_FLOOR
+        val atTargetRir = (rawCapacityReps - rirGoal).coerceAtLeast(floor)
+        return if (repMin > 0 && repMax > 0) {
+            atTargetRir.coerceIn(maxOf(repMin, floor), maxOf(repMax, floor))
+        } else {
+            atTargetRir
+        }
     }
 
     private fun toSlot(rendered: RenderedSet): SetSlot =

@@ -134,12 +134,18 @@ interface TrainingLoggedSetDao {
     @Query("DELETE FROM logged_sets WHERE id = :id")
     suspend fun deleteById(id: LoggedSetId)
 
+    /**
+     * Progression history for a slot position: same lift + same set index across **all**
+     * sessions (live program workouts **and** imported history). Intentionally does **not**
+     * filter by program id — imported sessions use sentinel program `import-history`, and
+     * soft-unlinked sessions may have a null program id after template delete. Ordering is
+     * applied in [com.stratum.core.data.repository.ProgressionHistoryRepository].
+     */
     @Query(
         """
         SELECT ls.* FROM logged_sets ls
         INNER JOIN training_sessions ts ON ls.sessionId = ts.id
-        WHERE ts.program_id = :programId
-          AND ls.liftId = :liftId
+        WHERE ls.liftId = :liftId
           AND ls.setIndex = :setIndex
         ORDER BY
           CASE WHEN ts.workout_id = :workoutId THEN 0 ELSE 1 END,
@@ -147,7 +153,6 @@ interface TrainingLoggedSetDao {
         """,
     )
     suspend fun getHistoryForSlot(
-        programId: ProgramId,
         workoutId: WorkoutId,
         liftId: LiftId,
         setIndex: Int,

@@ -1,8 +1,11 @@
 package com.stratum.core.data.db
 
 import androidx.room.Room
+import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -131,6 +134,108 @@ class LoggedSetDaoContractTest {
         val allSets = setDao.getForSession(sessionId)
         assertTrue(allSets.any { it.id == LoggedSetId("pr-set-1") })
         assertTrue(allSets.none { it.id == LoggedSetId("pr-set-2") })
+    }
+
+    @Test
+    @DisplayName("getHistoryForSlot includes imported history regardless of program id")
+    fun getHistoryForSlotIncludesImportHistory() = runTest {
+        // Bug #3: live program sessions must read sets from import-history sessions.
+        val importSessionId = TrainingSessionId("import-session")
+        sessionDao.upsert(
+            TrainingSessionEntity(
+                id = importSessionId,
+                programId = ImportHistoryTrainingMapper.programId,
+                workoutId = null,
+                status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                kind = com.stratum.domain.training.TrainingSessionKind.AD_HOC,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.IMPORT,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 5_000L,
+                endedAtEpochMillis = 9_000L,
+                sourceApp = "hevy",
+            ),
+        )
+        val imported = loggedSet("import-set", importSessionId, completedAtEpochMillis = 6_000L).copy(
+            liftId = LiftId("bench-press"),
+            setIndex = 0,
+            weightAmount = 200.0,
+            reps = 6,
+        )
+        setDao.upsert(imported)
+
+        val liveWorkoutId = WorkoutId("live-w-1")
+        val results = setDao.getHistoryForSlot(
+            workoutId = liveWorkoutId,
+            liftId = LiftId("bench-press"),
+            setIndex = 0,
+        )
+
+        assertEquals(1, results.size)
+        assertEquals(LoggedSetId("import-set"), results.first().id)
+        assertEquals(200.0, results.first().weightAmount, 0.0)
+    }
+
+    @Test
+    @DisplayName("getHistoryForSlot prefers same-workout rows over imports of equal age")
+    fun getHistoryForSlotPrefersSameWorkout() = runTest {
+        val liveProgram = ProgramId("live-prog")
+        val liveWorkout = WorkoutId("live-w-1")
+        val liveSessionId = TrainingSessionId("live-session")
+        val importSessionId = TrainingSessionId("import-session")
+
+        sessionDao.upsert(
+            TrainingSessionEntity(
+                id = liveSessionId,
+                programId = liveProgram,
+                workoutId = liveWorkout,
+                status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 5_000L,
+                endedAtEpochMillis = 9_000L,
+                sourceApp = null,
+            ),
+        )
+        sessionDao.upsert(
+            TrainingSessionEntity(
+                id = importSessionId,
+                programId = ImportHistoryTrainingMapper.programId,
+                workoutId = null,
+                status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                kind = com.stratum.domain.training.TrainingSessionKind.AD_HOC,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.IMPORT,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 6_000L,
+                endedAtEpochMillis = 9_000L,
+                sourceApp = "hevy",
+            ),
+        )
+        setDao.upsert(
+            loggedSet("live-set", liveSessionId, completedAtEpochMillis = 5_500L).copy(
+                liftId = LiftId("bench-press"),
+                weightAmount = 135.0,
+            ),
+        )
+        setDao.upsert(
+            loggedSet("import-set", importSessionId, completedAtEpochMillis = 6_500L).copy(
+                liftId = LiftId("bench-press"),
+                weightAmount = 200.0,
+            ),
+        )
+
+        val results = setDao.getHistoryForSlot(
+            workoutId = liveWorkout,
+            liftId = LiftId("bench-press"),
+            setIndex = 0,
+        )
+        assertEquals(2, results.size)
+        // Same-workout (live) precedes import even though import started later.
+        assertEquals(LoggedSetId("live-set"), results.first().id)
+        assertEquals(LoggedSetId("import-set"), results[1].id)
     }
 
     private fun loggedSet(
