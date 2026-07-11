@@ -137,6 +137,49 @@ class LoggedSetDaoContractTest {
     }
 
     @Test
+    @DisplayName(
+        "Demote old PR then promote new PR succeeds (finalize order — avoids unique conflict)",
+    )
+    fun demoteThenPromotePersonalRecordSucceeds() = runTest {
+        val sessionId = TrainingSessionId("session-1")
+        sessionDao.upsert(
+            TrainingSessionEntity(
+                id = sessionId,
+                programId = ProgramId("prog-1"),
+                workoutId = null,
+                status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 1_000L,
+                endedAtEpochMillis = 9_000L,
+                sourceApp = null,
+            ),
+        )
+        val liftId = LiftId("lift-bench")
+        val oldPr =
+            loggedSet("old-pr", sessionId, completedAtEpochMillis = 2_000L).copy(
+                liftId = liftId,
+                isPersonalRecord = true,
+            )
+        setDao.upsert(oldPr)
+
+        // Wrong order (promote first) would throw UNIQUE — demote first must succeed.
+        setDao.upsert(oldPr.copy(isPersonalRecord = null))
+        val newPr =
+            loggedSet("new-pr", sessionId, completedAtEpochMillis = 3_000L).copy(
+                liftId = liftId,
+                isPersonalRecord = true,
+            )
+        setDao.upsert(newPr)
+
+        val all = setDao.getForSession(sessionId)
+        assertEquals(true, all.first { it.id == LoggedSetId("new-pr") }.isPersonalRecord)
+        assertEquals(null, all.first { it.id == LoggedSetId("old-pr") }.isPersonalRecord)
+    }
+
+    @Test
     @DisplayName("getHistoryForSlot includes imported history regardless of program id")
     fun getHistoryForSlotIncludesImportHistory() = runTest {
         // Bug #3: live program sessions must read sets from import-history sessions.
