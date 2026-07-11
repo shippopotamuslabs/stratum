@@ -83,7 +83,9 @@ import com.stratum.feature.workout.R
 import com.stratum.feature.workout.AfterSetLoggedDecision
 import com.stratum.feature.workout.decideAfterSetLogged
 import com.stratum.feature.workout.isLiftComplete
+import com.stratum.feature.workout.isWorkoutFullyComplete
 import com.stratum.feature.workout.notification.RestTimerDefaults
+import com.stratum.feature.workout.projectSetComplete
 import com.stratum.feature.workout.restSecondsAfterLoggingSet
 
 /**
@@ -143,6 +145,9 @@ fun WorkoutScreen(
     actions: WorkoutScreenActions,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
+    /** Slot key from [WorkoutUiEvent.SetLogged]; cleared via [onSetLoggedConsumed]. */
+    pendingSetLoggedSlotKey: String? = null,
+    onSetLoggedConsumed: () -> Unit = {},
 ) {
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -173,10 +178,13 @@ fun WorkoutScreen(
         liftHeightsPx.keys.retainAll(keys)
     }
 
-    // Allow the finish sheet to auto-show again if the user unlogs a set.
+    // Allow the finish sheet to auto-show again if the user unlogs a set; dismiss stale AllSetsLogged.
     LaunchedEffect(state.hasIncompleteLifts) {
         if (state.hasIncompleteLifts) {
             autoShownCompleteSheet = false
+            if (completeSheetPhase == CompleteSheetPhase.AllSetsLogged) {
+                showCompleteSheet = false
+            }
         }
     }
 
@@ -202,8 +210,33 @@ fun WorkoutScreen(
         }
     }
 
+    // Log only — rest timer, autoscroll, and complete sheet run after [pendingSetLoggedSlotKey]
+    // is set by the route once the ViewModel confirms persistence (avoids optimistic chrome).
     val handleLogSet: (String, Double, Int, Int?) -> Unit = { slotKey, weightAmountLb, reps, rir ->
         actions.onLogSet(slotKey, weightAmountLb, reps, rir)
+    }
+
+    // Post-success side effects: rest (unless session done), focus next lift, complete sheet.
+    // Clear the pending key only after work finishes so restarting this effect does not cancel mid-run.
+    LaunchedEffect(pendingSetLoggedSlotKey) {
+        val slotKey = pendingSetLoggedSlotKey ?: return@LaunchedEffect
+        val projected = projectSetComplete(state.lifts, slotKey)
+        val fullyComplete = isWorkoutFullyComplete(projected)
+        val lift = state.lifts.firstOrNull { it.sets.any { set -> set.slotKey == slotKey } }
+        val set = lift?.sets?.firstOrNull { it.slotKey == slotKey }
+        if (lift != null && set != null) {
+            val restSeconds =
+                restSecondsAfterLoggingSet(
+                    setRestSeconds = set.restSeconds,
+                    isSupersetMember = isSupersetPairMember(lift, state.lifts),
+                    useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
+                    isLastInSupersetChain = isLastInSupersetChain(lift, state.lifts),
+                    workoutFullyComplete = fullyComplete,
+                )
+            if (restSeconds != null) {
+                restTimer.onStart(restSeconds)
+            }
+        }
         val decision =
             decideAfterSetLogged(
                 lifts = state.lifts,
@@ -219,6 +252,7 @@ fun WorkoutScreen(
             },
             onFocusLift = scrollToLift,
         )
+        onSetLoggedConsumed()
     }
 
     // Pick the lift whose top edge is closest to the list viewport top (not "first fully pinned").
@@ -320,7 +354,6 @@ fun WorkoutScreen(
                 onUnlogSet = actions.onUnlogSet,
                 onAddSet = actions.onAddSet,
                 onDeleteSet = actions.onDeleteSet,
-                onStartRestTimer = restTimer.onStart,
                 onShowLiftActions = { liftActionsLiftId = it },
                 onDiscardClick = { showDiscardDialog = true },
                 modifier = Modifier
@@ -621,7 +654,6 @@ private fun WorkoutLiftList(
     onUnlogSet: (String) -> Unit,
     onAddSet: (workoutLiftId: String) -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
-    onStartRestTimer: (Int) -> Unit,
     onShowLiftActions: (workoutLiftId: String) -> Unit,
     onDiscardClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -660,12 +692,10 @@ private fun WorkoutLiftList(
         itemsIndexed(lifts, key = { _, lift -> lift.workoutLiftId }) { _, lift ->
             LiveLiftSection(
                 lift = lift,
-                allLifts = lifts,
                 onLogSet = onLogSet,
                 onUnlogSet = onUnlogSet,
                 onAddSet = { onAddSet(lift.workoutLiftId) },
                 onDeleteSet = onDeleteSet,
-                onStartRestTimer = onStartRestTimer,
                 onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
                 modifier =
                     Modifier.onSizeChanged { size ->
@@ -1046,17 +1076,16 @@ private const val DEFAULT_ESTIMATED_LIFT_HEIGHT_PX = 420
 
 /**
  * Live session adapter over [StratumWorkoutLogLiftPanel]: local draft fields until checkbox
- * commits a log, then rest timer starts.
+ * commits a log. Rest timer / autoscroll / complete sheet are driven after log success
+ * (see [pendingSetLoggedSlotKey] on [WorkoutScreen]).
  */
 @Composable
 private fun LiveLiftSection(
     lift: RenderedLiftUi,
-    allLifts: List<RenderedLiftUi>,
     onLogSet: (slotKey: String, weightAmountLb: Double, reps: Int, rir: Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onAddSet: () -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
-    onStartRestTimer: (Int) -> Unit,
     onShowLiftActions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1179,16 +1208,6 @@ private fun LiveLiftSection(
                             finalReps,
                             rir,
                         )
-                        val restSeconds =
-                            restSecondsAfterLoggingSet(
-                                setRestSeconds = source.restSeconds,
-                                isSupersetMember = isSupersetPairMember(lift, allLifts),
-                                useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
-                                isLastInSupersetChain = isLastInSupersetChain(lift, allLifts),
-                            )
-                        if (restSeconds != null) {
-                            onStartRestTimer(restSeconds)
-                        }
                     } else {
                         onUnlogSet(source.slotKey)
                     }

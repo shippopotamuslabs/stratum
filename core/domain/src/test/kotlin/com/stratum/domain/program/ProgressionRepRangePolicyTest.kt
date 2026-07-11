@@ -28,6 +28,26 @@ class ProgressionRepRangePolicyTest {
     }
 
     @Test
+    @DisplayName("normalizeRange floors positive bands at MIN_STORED_REP_MIN (5)")
+    fun normalizeRangeEnforcesStoredFloor() {
+        assertEquals(
+            ProgressionRepRangePolicy.MIN_STORED_REP_MIN to 8,
+            ProgressionRepRangePolicy.normalizeRange(ProgressionScheme.Linear, true, 3, 8),
+        )
+        assertEquals(
+            ProgressionRepRangePolicy.MIN_STORED_REP_MIN to ProgressionRepRangePolicy.MIN_STORED_REP_MIN,
+            ProgressionRepRangePolicy.normalizeRange(ProgressionScheme.Double, true, 4, 4),
+        )
+        // Max-only below floor becomes floor/floor.
+        assertEquals(
+            ProgressionRepRangePolicy.MIN_STORED_REP_MIN to ProgressionRepRangePolicy.MIN_STORED_REP_MIN,
+            ProgressionRepRangePolicy.normalizeRange(ProgressionScheme.Linear, true, 0, 4),
+        )
+        // Backoff / zero band stays 0/0.
+        assertEquals(0 to 0, ProgressionRepRangePolicy.normalizeRange(ProgressionScheme.Double, false, 4, 4))
+    }
+
+    @Test
     @DisplayName("normalize Double: first set keeps band as top; rest 0/0")
     fun normalizeDouble() {
         val input =
@@ -113,6 +133,22 @@ class ProgressionRepRangePolicyTest {
     }
 
     @Test
+    @DisplayName("applyBand floors sub-MIN_STORED_REP_MIN user input")
+    fun applyBandFloorsLowRepMin() {
+        val out =
+            ProgressionRepRangePolicy.applyBand(
+                scheme = ProgressionScheme.Double,
+                setCount = 2,
+                repMin = 4,
+                repMax = 6,
+            )
+        assertEquals(ProgressionRepRangePolicy.MIN_STORED_REP_MIN, out[0].repMin)
+        assertEquals(6, out[0].repMax)
+        assertEquals(0, out[1].repMin)
+        assertEquals(0, out[1].repMax)
+    }
+
+    @Test
     @DisplayName("generate Double zeros non-top; Linear keeps planned band on all")
     fun generateBothSchemes() {
         val doubleSets =
@@ -141,6 +177,17 @@ class ProgressionRepRangePolicyTest {
         assertTrue(linearSets.all { it.repMin == 5 && it.repMax == 8 })
         assertTrue(linearSets[0].isTopSet)
         assertTrue(linearSets.drop(1).none { it.isTopSet })
+
+        val floored =
+            ProgressionRepRangePolicy.generate(
+                scheme = ProgressionScheme.Double,
+                setCount = 2,
+                plannedRepMin = 4,
+                plannedRepMax = 6,
+            )
+        assertEquals(ProgressionRepRangePolicy.MIN_STORED_REP_MIN, floored[0].repMin)
+        assertEquals(6, floored[0].repMax)
+        assertEquals(0, floored[1].repMin)
     }
 
     @Test

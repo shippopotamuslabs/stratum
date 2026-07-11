@@ -13,8 +13,12 @@ fun restSecondsAfterLoggingSet(
     isSupersetMember: Boolean,
     useRestTimerBetweenLifts: Boolean,
     isLastInSupersetChain: Boolean,
+    workoutFullyComplete: Boolean = false,
     defaultRestSeconds: Int = RestTimerDefaults.DEFAULT_REST_SECONDS,
 ): Int? {
+    // Finishing the last set of the session: show Complete Workout, do not start rest chrome.
+    if (workoutFullyComplete) return null
+
     val shouldStart =
         when {
             !isSupersetMember -> true
@@ -22,6 +26,11 @@ fun restSecondsAfterLoggingSet(
             else -> isLastInSupersetChain
         }
     if (!shouldStart) return null
-    // Prefer the set's configured rest; fall back when missing/zero (legacy or unset).
-    return if (setRestSeconds > 0) setRestSeconds else defaultRestSeconds
+
+    // Explicit 0 means "no rest" (e.g. Configure Rest Times). Negative is treated as unset.
+    return when {
+        setRestSeconds > 0 -> setRestSeconds
+        setRestSeconds == 0 -> null
+        else -> defaultRestSeconds
+    }
 }

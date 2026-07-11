@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -94,6 +95,7 @@ fun WorkoutRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingSetLoggedSlotKey by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(workoutId) {
         viewModel.startSession(WorkoutId(workoutId))
@@ -103,6 +105,7 @@ fun WorkoutRoute(
         viewModel.events.collect { event ->
             when (event) {
                 is WorkoutUiEvent.NavigateToFinalize -> onNavigateToFinalize(event.sessionId)
+                is WorkoutUiEvent.SetLogged -> pendingSetLoggedSlotKey = event.slotKey
             }
         }
     }
@@ -144,6 +147,8 @@ fun WorkoutRoute(
                 state = state,
                 restTimer = restChrome,
                 snackbarHostState = snackbarHostState,
+                pendingSetLoggedSlotKey = pendingSetLoggedSlotKey,
+                onSetLoggedConsumed = { pendingSetLoggedSlotKey = null },
                 actions = WorkoutScreenActions(
                     onNavigateBack = onNavigateBack,
                     onCompleteWorkout = viewModel::completeWorkout,

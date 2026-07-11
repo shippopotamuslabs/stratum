@@ -62,8 +62,8 @@ class RestTimerAfterLogTest {
     }
 
     @Test
-    @DisplayName("zero set rest falls back to default")
-    fun zeroRestFallsBackToDefault() {
+    @DisplayName("explicit zero rest skips the timer (no default fallback)")
+    fun zeroRestSkipsTimer() {
         val seconds =
             restSecondsAfterLoggingSet(
                 setRestSeconds = 0,
@@ -71,6 +71,33 @@ class RestTimerAfterLogTest {
                 useRestTimerBetweenLifts = false,
                 isLastInSupersetChain = true,
             )
+        assertNull(seconds)
+    }
+
+    @Test
+    @DisplayName("negative rest falls back to default")
+    fun negativeRestFallsBackToDefault() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = -1,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+            )
         assertEquals(RestTimerDefaults.DEFAULT_REST_SECONDS, seconds)
+    }
+
+    @Test
+    @DisplayName("workout fully complete skips rest even with positive set rest")
+    fun fullyCompleteSkipsRest() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = 120,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+                workoutFullyComplete = true,
+            )
+        assertNull(seconds)
     }
 }
