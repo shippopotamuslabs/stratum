@@ -2,7 +2,6 @@ package com.stratum.domain.importing
 
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.lift.Weight
 import com.stratum.domain.onboarding.MuscleGroup
 
 /** An imported exercise name that did not match the bundled seed catalog. */
@@ -19,7 +18,14 @@ data class InferredCustomLiftMetadata(
     val secondaryMuscles: Set<MuscleGroup> = emptySet(),
     val equipment: String? = null,
 ) {
-    fun toCustomLiftDefinition(defaultIncrement: Weight): CustomLiftDefinition {
+    /**
+     * Maps inferred metadata to a [CustomLiftDefinition].
+     *
+     * [increment] is left null so the lift inherits equipment default tiers (or global
+     * fallback) via [com.stratum.domain.lift.Lift.usesEquipmentDefaultIncrements]. Free-text
+     * [equipment] is stored as [CustomLiftDefinition.equipmentName] for find-or-create.
+     */
+    fun toCustomLiftDefinition(): CustomLiftDefinition {
         val normalized = CustomLiftMusclePolicy.withPatternSecondaryDefaults(this)
         val patterns = setOf(normalized.movementPattern) + normalized.movementPattern.secondaryPatterns
         return CustomLiftDefinition(
@@ -27,8 +33,8 @@ data class InferredCustomLiftMetadata(
             movementPatterns = patterns,
             primaryMuscles = normalized.primaryMuscles,
             secondaryMuscles = normalized.secondaryMuscles,
-            equipment = normalized.equipment,
-            increment = defaultIncrement,
+            equipmentName = normalized.equipment,
+            increment = null,
         )
     }
 }

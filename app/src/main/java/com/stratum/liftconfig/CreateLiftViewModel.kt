@@ -5,13 +5,16 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.AddCustomLiftUseCase
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.DEFAULT_ISOLATION_REST_SECONDS
+import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.lift.classifyLiftCategory
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup
@@ -43,6 +46,8 @@ data class CreateLiftUiState(
 @HiltViewModel
 class CreateLiftViewModel @Inject constructor(
     private val addCustomLift: AddCustomLiftUseCase,
+    private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
+    private val equipmentPickResult: EquipmentPickResult,
 ) : ViewModel() {
 
     private data class Draft(
@@ -53,8 +58,7 @@ class CreateLiftViewModel @Inject constructor(
         val bias: MuscleLengthBias = MuscleLengthBias.MidRange,
         val kinematic: KinematicProfile = KinematicProfile.Isolation,
         val load: LoadType = LoadType.Weighted,
-        val equipment: String? = null,
-        /** Explicit rest override; null means use domain-resolved compound/isolation default. */
+        val equipmentId: EquipmentId? = null,
         val restOverride: Int? = null,
     )
 
@@ -63,7 +67,6 @@ class CreateLiftViewModel @Inject constructor(
         val showAdd: Boolean = false,
         val editing: LiftDetailEditField? = null,
         val draftPatterns: Set<MovementPattern> = emptySet(),
-        val equipmentDraft: String = "",
         val restDraft: Int = DEFAULT_ISOLATION_REST_SECONDS,
         val saving: Boolean = false,
     )
@@ -72,18 +75,44 @@ class CreateLiftViewModel @Inject constructor(
     private val sheets = MutableStateFlow(SheetState())
     private val errorOverride = MutableStateFlow<String?>(null)
 
+    private var awaitingEquipmentPick = false
+    private var lastSeenPickGen = 0L
+
     private val _events = Channel<CreateLiftEvent>(Channel.BUFFERED)
     val events: Flow<CreateLiftEvent> = _events.receiveAsFlow()
 
     val uiState: StateFlow<CreateLiftUiState> =
-        combine(draft, sheets, errorOverride) { d, s, error ->
-            mapState(d, s).copy(errorMessage = error)
+        combine(
+            draft,
+            sheets,
+            errorOverride,
+            observeEquipmentCatalog(),
+        ) { d, s, error, equipment ->
+            mapState(d, s, equipment).copy(errorMessage = error)
         }
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
                 CreateLiftUiState(details = LiftDetailsEditorState(canEdit = true)),
             )
+
+    init {
+        viewModelScope.launch {
+            equipmentPickResult.result.collect { pick ->
+                if (!awaitingEquipmentPick || pick == null) return@collect
+                if (pick.generation <= lastSeenPickGen) return@collect
+                lastSeenPickGen = pick.generation
+                awaitingEquipmentPick = false
+                draft.update { it.copy(equipmentId = pick.equipmentId) }
+            }
+        }
+    }
+
+    /** Call before navigating to Manage Equipment in selection mode. */
+    fun onBeginChooseEquipment() {
+        lastSeenPickGen = equipmentPickResult.currentGeneration()
+        awaitingEquipmentPick = true
+    }
 
     fun errorMessageShown() {
         errorOverride.value = null
@@ -133,10 +162,6 @@ class CreateLiftViewModel @Inject constructor(
         when (field) {
             LiftDetailEditField.MovementPatterns ->
                 sheets.update { it.copy(draftPatterns = current.patterns, editing = field) }
-            LiftDetailEditField.Equipment ->
-                sheets.update {
-                    it.copy(equipmentDraft = current.equipment.orEmpty(), editing = field)
-                }
             LiftDetailEditField.DefaultRest ->
                 sheets.update {
                     it.copy(
@@ -193,14 +218,8 @@ class CreateLiftViewModel @Inject constructor(
         sheets.update { it.copy(editing = null) }
     }
 
-    fun onEquipmentDraftChange(value: String) {
-        sheets.update { it.copy(equipmentDraft = value) }
-    }
-
-    fun onSaveEquipment() {
-        draft.update {
-            it.copy(equipment = sheets.value.equipmentDraft.trim().takeIf { t -> t.isNotEmpty() })
-        }
+    fun onClearEquipment() {
+        draft.update { it.copy(equipmentId = null) }
         sheets.update { it.copy(editing = null) }
     }
 
@@ -236,7 +255,7 @@ class CreateLiftViewModel @Inject constructor(
                         movementPatterns = current.patterns,
                         primaryMuscles = current.primary,
                         secondaryMuscles = current.secondary,
-                        equipment = current.equipment,
+                        equipmentId = current.equipmentId,
                         muscleLengthBias = current.bias,
                         kinematicProfile = current.kinematic,
                         loadType = current.load,
@@ -253,8 +272,12 @@ class CreateLiftViewModel @Inject constructor(
         }
     }
 
-    private fun mapState(d: Draft, s: SheetState): CreateLiftUiState {
-        val snapshot = draftLift(d)
+    private fun mapState(
+        d: Draft,
+        s: SheetState,
+        equipmentCatalog: List<Equipment>,
+    ): CreateLiftUiState {
+        val snapshot = draftLift(d, equipmentCatalog)
         val resolvedRest = snapshot.resolvedDefaultRestSeconds()
         val canConfirm =
             d.name.trim().isNotEmpty() &&
@@ -275,7 +298,7 @@ class CreateLiftViewModel @Inject constructor(
                     movementPatternLabels = d.patterns.map { it.displayName }.sorted(),
                     kinematicLabel = d.kinematic.toDetailLabel(),
                     loadTypeLabel = d.load.toDetailLabel(),
-                    equipment = d.equipment?.toTitleCaseWords(),
+                    equipment = snapshot.equipmentName,
                     categoryLabel = snapshot.classifyLiftCategory().displayName,
                     defaultRestLabel = formatRestDisplay(resolvedRest),
                     showAddMuscleSheet = s.showAdd,
@@ -284,14 +307,15 @@ class CreateLiftViewModel @Inject constructor(
                     kinematicOptions = kinematicOptions(d.kinematic),
                     loadTypeOptions = loadTypeOptions(d.load),
                     movementPatternOptions = movementPatternOptions(s.draftPatterns),
-                    equipmentDraft = s.equipmentDraft,
                     restDraftSeconds = s.restDraft,
                 ),
         )
     }
 
-    private fun draftLift(d: Draft): Lift =
-        Lift(
+    private fun draftLift(d: Draft, equipmentCatalog: List<Equipment> = emptyList()): Lift {
+        val equipmentName =
+            d.equipmentId?.let { id -> equipmentCatalog.firstOrNull { it.id == id }?.name }
+        return Lift(
             id = LiftId("draft"),
             name = d.name,
             movementPatterns = d.patterns,
@@ -299,7 +323,8 @@ class CreateLiftViewModel @Inject constructor(
             secondaryMuscles = d.secondary,
             incrementTiers = emptyList(),
             presetTags = emptySet(),
-            equipment = d.equipment,
+            equipmentId = d.equipmentId,
+            equipmentName = equipmentName,
             enabled = true,
             isCustom = true,
             muscleLengthBias = d.bias,
@@ -307,4 +332,5 @@ class CreateLiftViewModel @Inject constructor(
             loadType = d.load,
             defaultRestSeconds = d.restOverride,
         )
+    }
 }

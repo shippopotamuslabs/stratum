@@ -8,6 +8,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import java.util.UUID
@@ -32,6 +33,9 @@ class FakeLiftRepository(
     private val lifts = MutableStateFlow(initialLifts)
     private val selectedPreset = MutableStateFlow(initialPreset)
     private val usedHistoricalImport = MutableStateFlow(false)
+
+    /** Optional name lookup for equipment ids when [addCustomLift] only has a name. */
+    var equipmentNamesById: Map<EquipmentId, String> = emptyMap()
 
     override fun observeLifts(): Flow<List<Lift>> = lifts
 
@@ -81,6 +85,10 @@ class FakeLiftRepository(
 
     override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId {
         val id = LiftId(UUID.randomUUID().toString())
+        val equipmentId = definition.equipmentId
+        val equipmentName =
+            definition.equipmentName
+                ?: equipmentId?.let { equipmentNamesById[it] }
         val lift =
             Lift(
                 id = id,
@@ -91,7 +99,7 @@ class FakeLiftRepository(
                 incrementTiers =
                     definition.increment?.let {
                         listOf(
-                            com.stratum.domain.lift.IncrementTier(
+                            IncrementTier(
                                 Weight(0.0, it.unit),
                                 null,
                                 it,
@@ -99,7 +107,9 @@ class FakeLiftRepository(
                         )
                     } ?: emptyList(),
                 presetTags = emptySet(),
-                equipment = definition.equipment,
+                equipmentId = equipmentId,
+                equipmentName = equipmentName,
+                usesEquipmentDefaultIncrements = definition.increment == null,
                 enabled = true,
                 isCustom = true,
                 muscleLengthBias = definition.muscleLengthBias,
@@ -137,7 +147,30 @@ class FakeLiftRepository(
 
     override suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>) {
         lifts.value = lifts.value.map { lift ->
-            if (lift.id == id) lift.copy(incrementTiers = tiers) else lift
+            if (lift.id == id) {
+                lift.copy(
+                    incrementTiers = tiers,
+                    usesEquipmentDefaultIncrements = tiers.isEmpty(),
+                )
+            } else {
+                lift
+            }
+        }
+    }
+
+    override suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id) {
+                lift.copy(
+                    equipmentId = equipmentId,
+                    equipmentName = equipmentId?.let { equipmentNamesById[it] },
+                    // Changing equipment clears lift-scoped overrides so new defaults apply.
+                    incrementTiers = emptyList(),
+                    usesEquipmentDefaultIncrements = true,
+                )
+            } else {
+                lift
+            }
         }
     }
 
@@ -166,7 +199,8 @@ class FakeLiftRepository(
                     muscleLengthBias = details.muscleLengthBias,
                     kinematicProfile = details.kinematicProfile,
                     loadType = details.loadType,
-                    equipment = details.equipment,
+                    equipmentId = details.equipmentId,
+                    equipmentName = details.equipmentId?.let { equipmentNamesById[it] },
                 )
             } else {
                 lift

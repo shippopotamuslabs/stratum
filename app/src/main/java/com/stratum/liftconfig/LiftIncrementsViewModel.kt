@@ -2,14 +2,11 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.IncrementTiersValidationError
 import com.stratum.domain.lift.IncrementTiersValidationResult
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.SetLiftIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
-import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -34,6 +31,9 @@ data class LiftIncrementsUiState(
     val validationMessage: String? = null,
     val isSaving: Boolean = false,
     val saveSucceeded: Boolean = false,
+    /** Non-null when the lift is inheriting equipment/fallback defaults (no override rows). */
+    val inheritanceBanner: String? = null,
+    val showResetToEquipment: Boolean = false,
 )
 
 @HiltViewModel
@@ -82,7 +82,11 @@ class LiftIncrementsViewModel @Inject constructor(
     fun onTierLowerChanged(index: Int, value: String) {
         updateDraft { tiers ->
             tiers.mapIndexed { i, tier ->
-                if (i == index) tier.copy(lowerBound = value.filterNumeric()) else tier
+                if (i == index) {
+                    tier.copy(lowerBound = IncrementTierDraftOps.filterNumeric(value))
+                } else {
+                    tier
+                }
             }
         }
     }
@@ -90,7 +94,11 @@ class LiftIncrementsViewModel @Inject constructor(
     fun onTierUpperChanged(index: Int, value: String) {
         updateDraft { tiers ->
             tiers.mapIndexed { i, tier ->
-                if (i == index) tier.copy(upperBound = value.filterNumeric()) else tier
+                if (i == index) {
+                    tier.copy(upperBound = IncrementTierDraftOps.filterNumeric(value))
+                } else {
+                    tier
+                }
             }
         }
     }
@@ -98,7 +106,11 @@ class LiftIncrementsViewModel @Inject constructor(
     fun onTierIncrementChanged(index: Int, value: String) {
         updateDraft { tiers ->
             tiers.mapIndexed { i, tier ->
-                if (i == index) tier.copy(increment = value.filterNumeric()) else tier
+                if (i == index) {
+                    tier.copy(increment = IncrementTierDraftOps.filterNumeric(value))
+                } else {
+                    tier
+                }
             }
         }
     }
@@ -124,18 +136,18 @@ class LiftIncrementsViewModel @Inject constructor(
             val last = tiers.lastOrNull()
             val splitAt =
                 last?.upperBound?.toDoubleOrNull()
-                    ?: last?.lowerBound?.toDoubleOrNull()?.plus(DEFAULT_TIER_SPLIT_SPAN)
-                    ?: DEFAULT_TIER_SPLIT_AT
+                    ?: last?.lowerBound?.toDoubleOrNull()?.plus(IncrementTierDraftOps.DEFAULT_TIER_SPLIT_SPAN)
+                    ?: IncrementTierDraftOps.DEFAULT_TIER_SPLIT_AT
             val closedLast =
                 last?.copy(
                     openEnded = false,
-                    upperBound = formatAmount(splitAt),
+                    upperBound = IncrementTierDraftOps.formatAmount(splitAt),
                 )
             val next =
                 IncrementTierDraft(
-                    lowerBound = formatAmount(splitAt),
+                    lowerBound = IncrementTierDraftOps.formatAmount(splitAt),
                     upperBound = null,
-                    increment = last?.increment ?: DEFAULT_INCREMENT_TEXT,
+                    increment = last?.increment ?: IncrementTierDraftOps.DEFAULT_INCREMENT_TEXT,
                     openEnded = true,
                 )
             if (closedLast != null) {
@@ -158,14 +170,14 @@ class LiftIncrementsViewModel @Inject constructor(
 
     fun save() {
         val id = liftId.value ?: return
-        val domainTiers = uiState.value.tiers.toDomainOrNull()
+        val domainTiers = IncrementTierDraftOps.toDomainOrNull(uiState.value.tiers)
         if (domainTiers == null) {
             validationOverride.value = "Enter valid numbers for all bands"
             return
         }
         when (val result = validateIncrementTiers(domainTiers)) {
             is IncrementTiersValidationResult.Invalid -> {
-                validationOverride.value = result.errors.toUserMessage()
+                validationOverride.value = IncrementTierDraftOps.toUserMessage(result.errors)
                 return
             }
             IncrementTiersValidationResult.Valid -> Unit
@@ -192,8 +204,20 @@ class LiftIncrementsViewModel @Inject constructor(
         val lift = catalog.firstOrNull { it.id.value == id }
         val tiers =
             flags.draft
-                ?: lift?.incrementTiers?.map { it.toDraft() }
-                ?: listOf(defaultDraft())
+                ?: lift?.incrementTiers?.map { IncrementTierDraftOps.toDraft(it) }
+                ?: listOf(IncrementTierDraftOps.defaultDraft())
+        val inheriting = lift?.usesEquipmentDefaultIncrements == true && flags.draft == null
+        val inheritanceBanner =
+            when {
+                !inheriting && lift != null && !lift.usesEquipmentDefaultIncrements ->
+                    null // overridden — banner handled via showReset
+                inheriting && !lift.equipmentName.isNullOrBlank() ->
+                    // Resolved in the composable with string resources when possible; keep text here for VM purity.
+                    "Using defaults from ${lift.equipmentName}. Save to override for this lift only."
+                inheriting ->
+                    "No equipment defaults — these are global fallback bands. Save to override for this lift only."
+                else -> null
+            }
         return LiftIncrementsUiState(
             liftId = id.orEmpty(),
             liftName = lift?.name.orEmpty(),
@@ -201,7 +225,26 @@ class LiftIncrementsViewModel @Inject constructor(
             validationMessage = flags.validation ?: liveValidationMessage(tiers),
             isSaving = flags.saving,
             saveSucceeded = flags.saved,
+            inheritanceBanner = inheritanceBanner,
+            showResetToEquipment = lift != null && !lift.usesEquipmentDefaultIncrements,
         )
+    }
+
+    fun resetToEquipmentDefaults() {
+        val id = liftId.value ?: return
+        viewModelScope.launch {
+            isSaving.value = true
+            val result = setLiftIncrementTiers(LiftId(id), emptyList())
+            isSaving.value = false
+            if (result.isSuccess) {
+                draftTiers.value = null
+                saveSucceeded.value = true
+                validationOverride.value = null
+            } else {
+                validationOverride.value = result.exceptionOrNull()?.message
+                    ?: "Could not reset increments"
+            }
+        }
     }
 
     private fun updateDraft(transform: (List<IncrementTierDraft>) -> List<IncrementTierDraft>) {
@@ -212,84 +255,11 @@ class LiftIncrementsViewModel @Inject constructor(
     }
 
     private fun liveValidationMessage(tiers: List<IncrementTierDraft>): String? {
-        val domain = tiers.toDomainOrNull() ?: return null
+        val domain = IncrementTierDraftOps.toDomainOrNull(tiers) ?: return null
         return when (val result = validateIncrementTiers(domain)) {
-            is IncrementTiersValidationResult.Invalid -> result.errors.toUserMessage()
+            is IncrementTiersValidationResult.Invalid ->
+                IncrementTierDraftOps.toUserMessage(result.errors)
             IncrementTiersValidationResult.Valid -> null
         }
-    }
-
-    private fun IncrementTier.toDraft(): IncrementTierDraft =
-        IncrementTierDraft(
-            lowerBound = formatAmount(lowerBound.amount),
-            upperBound = upperBound?.amount?.let { formatAmount(it) },
-            increment = formatAmount(increment.amount),
-            openEnded = upperBound == null,
-        )
-
-    private fun defaultDraft(): IncrementTierDraft =
-        IncrementTierDraft(
-            lowerBound = "0",
-            upperBound = null,
-            increment = "5",
-            openEnded = true,
-        )
-
-    private fun formatAmount(amount: Double): String =
-        if (amount % 1.0 == 0.0) amount.toInt().toString() else amount.toString()
-
-    private fun String.filterNumeric(): String =
-        filter { it.isDigit() || it == '.' || it == '-' }
-
-    private fun List<IncrementTierDraft>.toDomainOrNull(): List<IncrementTier>? {
-        if (isEmpty()) return emptyList()
-        val unit = Weight.WeightUnit.Lb
-        val result = ArrayList<IncrementTier>(size)
-        for ((index, draft) in withIndex()) {
-            val tier = draft.toDomainTier(index == lastIndex, unit) ?: return null
-            result += tier
-        }
-        return result
-    }
-
-    private fun IncrementTierDraft.toDomainTier(
-        isLast: Boolean,
-        unit: Weight.WeightUnit,
-    ): IncrementTier? {
-        val lower = lowerBound.toDoubleOrNull() ?: return null
-        val inc = increment.toDoubleOrNull() ?: return null
-        if (inc <= 0.0) return null
-        val upperAmount =
-            when {
-                openEnded || (isLast && upperBound.isNullOrBlank()) -> null
-                else -> upperBound?.toDoubleOrNull() ?: return null
-            }
-        return IncrementTier(
-            lowerBound = Weight(lower, unit),
-            upperBound = upperAmount?.let { Weight(it, unit) },
-            increment = Weight(inc, unit),
-        )
-    }
-
-    private fun Set<IncrementTiersValidationError>.toUserMessage(): String =
-        joinToString(separator = ". ") { error ->
-            when (error) {
-                IncrementTiersValidationError.MixedUnits -> "All tiers must use the same unit"
-                IncrementTiersValidationError.NotContiguous ->
-                    "Bands must tile without gaps (each From equals previous To)"
-                IncrementTiersValidationError.ZeroWidthBand -> "Each band needs a positive width"
-                IncrementTiersValidationError.IntermediateTierMissingUpperBound ->
-                    "Only the last band can be open-ended"
-                IncrementTiersValidationError.FinalTierMustBeOpenEnded ->
-                    "The last band must be open-ended (and above)"
-                IncrementTiersValidationError.IncrementDecreased ->
-                    "Step size should not decrease as weight increases"
-            }
-        }
-
-    private companion object {
-        const val DEFAULT_TIER_SPLIT_SPAN = 50.0
-        const val DEFAULT_TIER_SPLIT_AT = 100.0
-        const val DEFAULT_INCREMENT_TEXT = "5"
     }
 }

@@ -1,5 +1,6 @@
 package com.stratum.core.data.sync.handlers
 
+import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.GymPreferenceDao
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
@@ -21,6 +22,7 @@ import com.stratum.core.data.sync.appliers.ProgramRemoteApplier
 import com.stratum.core.data.sync.codecs.SyncEntityDecoders
 import com.stratum.core.data.sync.codecs.SyncEntityEncoders
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.identity.GymPreferenceId
@@ -47,6 +49,7 @@ class SyncHandlersProvider @Inject constructor(
     private val onboardingDao: OnboardingProgressDao,
     private val gymDao: GymPreferenceDao,
     private val specializationDao: SpecializationPreferenceDao,
+    private val equipmentDao: EquipmentDao,
     private val liftDao: LiftDao,
     private val incrementTierDao: IncrementTierDao,
     private val programDao: ProgramDao,
@@ -68,6 +71,7 @@ class SyncHandlersProvider @Inject constructor(
             onboardingHandler(),
             gymPreferenceHandler(),
             specializationHandler(),
+            equipmentHandler(),
             liftsHandler(),
             incrementTiersHandler(),
             programsHandler(),
@@ -150,6 +154,24 @@ class SyncHandlersProvider @Inject constructor(
                 decoders.specialization(id, data)?.let {
                     specializationDao.upsertAll(listOf(it)); true
                 } ?: false
+            },
+        )
+
+    private fun equipmentHandler(): SyncCollectionHandler =
+        entityHandler(
+            collection = SyncCollection.Equipment,
+            pending = { equipmentDao.getPending(it) },
+            id = { it.id.value },
+            updatedAt = { it.updatedAtEpochMillis },
+            loadMeta = { id ->
+                equipmentDao.getById(EquipmentId(id))
+                    ?.let { LocalSyncMeta(it.pendingSync, it.updatedAtEpochMillis) }
+            },
+            delete = { equipmentDao.deleteById(EquipmentId(it)) },
+            markSynced = { id, at -> equipmentDao.markSyncedIfUnchanged(id, at) },
+            encode = encoders::equipment,
+            decodeUpsert = { id, data ->
+                decoders.equipment(id, data)?.let { equipmentDao.upsert(it); true } ?: false
             },
         )
 

@@ -8,10 +8,13 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -61,16 +64,18 @@ class LiftMapperTest {
             isCustom = false,
         )
 
-        val entities = lift.toTierEntities()
+        val overrideLift = lift.copy(usesEquipmentDefaultIncrements = false)
+        val entities = overrideLift.toLiftOverrideTiers()
         // Persist out-of-order to prove the decoder sorts by lowerBound.
         val shuffled = listOf(entities[2], entities[0], entities[1])
         val back = LiftWithTiers(
-            lift = lift.toEntity(),
+            lift = overrideLift.toEntity(),
             tiers = shuffled,
         ).toDomain()
 
         assertEquals(listOf(0.0, 40.0, 100.0), back.incrementTiers.map { it.lowerBound.amount })
         assertEquals(null, back.incrementTiers.last().upperBound?.amount)
+        assertFalse(back.usesEquipmentDefaultIncrements)
     }
 
     @Test
@@ -109,8 +114,9 @@ class LiftMapperTest {
     }
 
     @Test
-    @DisplayName("Given a lift with equipment when mapped to entity and back then equipment round-trips")
-    fun roundTripsEquipment() {
+    @DisplayName("Given a lift with equipmentId when mapped to entity and back then equipmentId round-trips")
+    fun roundTripsEquipmentId() {
+        val equipmentId = EquipmentId("pin-loaded-machine")
         val lift = Lift(
             id = LiftId("chest-press"),
             name = "Machine Chest Press",
@@ -119,19 +125,30 @@ class LiftMapperTest {
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),
             presetTags = setOf(GymPreset.CommercialGym),
-            equipment = "Hammer Strength",
+            equipmentId = equipmentId,
             enabled = true,
             isCustom = false,
         )
 
         val entity = lift.toEntity()
-        assertEquals("Hammer Strength", entity.equipment)
-        val back = LiftWithTiers(entity, emptyList()).toDomain()
-        assertEquals("Hammer Strength", back.equipment)
+        assertEquals(equipmentId, entity.equipmentId)
+        val equipment =
+            com.stratum.domain.lift.Equipment(
+                id = equipmentId,
+                name = "Pin-Loaded Machine",
+                incrementTiers = emptyList(),
+            )
+        val back =
+            LiftWithTiers(entity, emptyList()).toDomain(
+                equipmentById = mapOf(equipmentId to equipment),
+            )
+        assertEquals(equipmentId, back.equipmentId)
+        assertEquals("Pin-Loaded Machine", back.equipmentName)
+        assertTrue(back.usesEquipmentDefaultIncrements)
     }
 
     @Test
-    @DisplayName("Given a lift with null equipment when mapped to entity then equipment is null")
+    @DisplayName("Given a lift with null equipmentId when mapped to entity then equipmentId is null")
     fun nullEquipmentRoundTrips() {
         val lift = Lift(
             id = LiftId("squat"),
@@ -141,13 +158,13 @@ class LiftMapperTest {
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),
             presetTags = emptySet(),
-            equipment = null,
+            equipmentId = null,
             enabled = false,
         )
 
-        assertNull(lift.toEntity().equipment)
+        assertNull(lift.toEntity().equipmentId)
         val back = LiftWithTiers(lift.toEntity(), emptyList()).toDomain()
-        assertNull(back.equipment)
+        assertNull(back.equipmentId)
     }
 
     @Test

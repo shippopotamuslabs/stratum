@@ -10,9 +10,10 @@ package com.stratum.domain.importing
  *   lat pulldown has a `LatPulldownMachine`; that lets us enable other lat pulldown variants but
  *   not, say, a leg press).
  *
- * **Not persisted on the `Lift` entity or in Room.** This enum exists for the import enablement
- * algorithm and the bundled `lift-equipment-tags.json` asset only. Post-onboarding the app is
- * lift-first (ARCHITECTURE.md §2.1) and does not reason about equipment.
+ * **Not the Room [com.stratum.domain.lift.Equipment] catalog.** This enum exists for the import
+ * enablement algorithm and the bundled `lift-equipment-tags.json` asset only. Seed loading may
+ * map load-bearing tags into equipment ids for default increments; post-onboarding availability
+ * remains lift-first.
  *
  * Adding a term = new enum value + a `name`-string entry in the asset/Flash JSON schema. The
  * string form is stable (used in the APK asset and the Firebase callable JSON schema), so renames
@@ -21,6 +22,8 @@ package com.stratum.domain.importing
 enum class GymEquipment {
     // Free weights — coarse
     Barbell,
+    /** Preloaded rubber fixed bars on a rack (not plate-loaded sleeves). */
+    FixedBarbell,
     Dumbbell,
     EzBar,
     Kettlebell,

@@ -40,31 +40,42 @@ logger. Onboarding quality is the highest-leverage UX investment.
 
 These are agreed design choices — implement consistently across slices.
 
-### 2.1 Lift-first catalog (no equipment graph)
+### 2.1 Lift-first catalog (narrow equipment for increments)
 
-- **Lift** is the primary catalog entity (program, log, filter).
+- **Lift** remains the primary catalog entity (program, log, filter, availability).
 - **Gym preset** (“Commercial gym”, “Garage gym”) bulk-enables a bundled lift set.
-- Equipment names live in **display copy / tags**, not as a separate entity graph.
-- Manual edits mutate **which lifts are available**, not equipment → lift wiring.
+- **Equipment** is a narrow persisted catalog used for **shared default increment tiers** and
+  display names — not an availability graph and not an exhaustive brand zoo. Lifts optionally
+  reference equipment via FK; users can create custom equipment and override per lift.
+- Manual edits still mutate **which lifts are available** for programming. Equipment assignment
+  only changes default load steps (and display), not enablement wiring.
 
 **Transient equipment tags at import (OS-6).** A structured `GymEquipment` vocabulary and a bundled
 `lift-equipment-tags.json` APK asset (built once offline) are used **only** during historical import
-to drive Tier B lift enablement (equipment closure) and the sparse-import gym-type fallback. Equipment
-is never persisted on the `Lift` entity or in Room, and is never queried post-onboarding — the
-lift-first contract is preserved. See OS-6 for the two-tier enablement pipeline.
+to drive Tier B lift enablement (equipment closure) and the sparse-import gym-type fallback.
+That enum is **not** the Room `Equipment` table. At seed time, load-bearing tags map into seed
+`EquipmentId` rows for default increments. See OS-6 for the two-tier enablement pipeline.
 
 ### 2.2 Increment tiers and load steps
 
 All working sets are **straight sets** (same load across sets within a lift). No within-session
 weight drops or ramping — that logic is removed with `allowWeightChangeBetweenSets`.
 
-Per lift:
+Resolution order for a lift's effective tiers:
+
+1. Lift-scoped **override** rows (if any)
+2. Else equipment default tiers (if the lift has `equipmentId`)
+3. Else global fallback multi-band defaults
 
 | Field | Purpose | Who sets it |
 |-------|---------|-------------|
-| `incrementTiers: List<IncrementTier>` | Realistic weight steps when load changes | Seed defaults; optional per-lift override |
+| Equipment `incrementTiers` | Shared defaults for all lifts on that equipment | Seed asset; Manage Equipment UI |
+| Lift override `incrementTiers` | Per-lift exception | Lift Increments UI; empty clears override |
 
-Increment tiers example (lb, per lift or template):
+Equipment seed defaults are typically a **single open-ended band** (e.g. dumbbells +5 lb). Multi-band
+lists remain valid for specialized machines or user overrides.
+
+Increment tiers example (lb, multi-band fallback / override):
 
 ```text
 0 – 40   → 2.5
@@ -72,8 +83,6 @@ Increment tiers example (lb, per lift or template):
 100 – 300 → 10
 300+     → 25
 ```
-
-Use a domain `Weight` type (amount + unit); validate tiers (sorted, non-overlapping, positive increment).
 
 Use a domain `Weight` type (amount + unit); validate tiers (sorted, non-overlapping, positive increment).
 

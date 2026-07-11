@@ -28,14 +28,7 @@ class UpdateCustomLiftDetailsUseCase @Inject constructor(
                 repository.observeLifts().first().firstOrNull { it.id == id }
                     ?: error("Lift not found")
             require(lift.isCustom) { "Catalog lifts cannot be edited" }
-            val equipment =
-                details.equipment
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() }
-            repository.updateCustomLiftDetails(
-                id,
-                details.copy(equipment = equipment),
-            )
+            repository.updateCustomLiftDetails(id, details)
         }
     }
 

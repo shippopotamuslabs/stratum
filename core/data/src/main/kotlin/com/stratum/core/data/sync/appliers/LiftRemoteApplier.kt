@@ -31,6 +31,7 @@ class LiftRemoteApplier @Inject constructor(
                 "catalog_overlay" to true,
                 "enabled" to entity.enabled,
                 "default_rest_seconds" to entity.defaultRestSeconds,
+                "equipment_id" to entity.equipmentId?.value,
             )
         }
 
@@ -94,9 +95,18 @@ class LiftRemoteApplier @Inject constructor(
         val rest =
             (data["default_rest_seconds"] as? Number)?.toInt()
                 ?: existing.defaultRestSeconds
+        val equipmentId =
+            if (data.containsKey("equipment_id")) {
+                (data["equipment_id"] as? String)?.let {
+                    runCatching { com.stratum.domain.lift.identity.EquipmentId(it) }.getOrNull()
+                }
+            } else {
+                existing.equipmentId
+            }
         return existing.copy(
             enabled = enabled,
             defaultRestSeconds = rest,
+            equipmentId = equipmentId,
             updatedAtEpochMillis =
                 (data[FirestoreSyncMetadata.UPDATED_AT] as? Number)?.toLong()
                     ?: existing.updatedAtEpochMillis,

@@ -49,6 +49,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 fun LiftInformationRoute(
     liftId: String,
     onBackClick: () -> Unit,
+    onChooseEquipment: () -> Unit,
     viewModel: LiftInformationViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(liftId) {
@@ -81,8 +82,12 @@ fun LiftInformationRoute(
                 onSelectLoadType = viewModel::onSelectLoadType,
                 onToggleDraftMovementPattern = viewModel::onToggleDraftMovementPattern,
                 onConfirmMovementPatterns = viewModel::onConfirmMovementPatterns,
-                onEquipmentDraftChange = viewModel::onEquipmentDraftChange,
-                onSaveEquipment = viewModel::onSaveEquipment,
+                onClearEquipment = viewModel::onClearEquipment,
+                onChooseEquipment = {
+                    viewModel.onDismissDetailEditor()
+                    viewModel.onBeginChooseEquipment()
+                    onChooseEquipment()
+                },
                 onRestDraftChange = viewModel::onRestDraftChange,
                 onSaveDefaultRest = viewModel::onSaveDefaultRest,
             ),
@@ -150,8 +155,8 @@ fun LiftInformationScreen(
                                 onSelectLoadType = actions.onSelectLoadType,
                                 onToggleDraftMovementPattern = actions.onToggleDraftMovementPattern,
                                 onConfirmMovementPatterns = actions.onConfirmMovementPatterns,
-                                onEquipmentDraftChange = actions.onEquipmentDraftChange,
-                                onSaveEquipment = actions.onSaveEquipment,
+                                onClearEquipment = actions.onClearEquipment,
+                                onChooseEquipment = actions.onChooseEquipment,
                                 onRestDraftChange = actions.onRestDraftChange,
                                 onSaveDefaultRest = actions.onSaveDefaultRest,
                             ),

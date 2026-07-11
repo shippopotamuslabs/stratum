@@ -10,9 +10,11 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
+import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.UpdateCustomLiftDetailsUseCase
 import com.stratum.domain.lift.UpdateLiftMusclesUseCase
 import com.stratum.domain.lift.classifyLiftCategory
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup
@@ -75,8 +77,8 @@ data class LiftInformationActions(
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
-    val onEquipmentDraftChange: (String) -> Unit,
-    val onSaveEquipment: () -> Unit,
+    val onClearEquipment: () -> Unit,
+    val onChooseEquipment: () -> Unit,
     val onRestDraftChange: (Int) -> Unit,
     val onSaveDefaultRest: () -> Unit,
 )
@@ -99,10 +101,14 @@ class LiftInformationViewModel @Inject constructor(
     private val updateLiftMuscles: UpdateLiftMusclesUseCase,
     private val updateCustomLiftDetails: UpdateCustomLiftDetailsUseCase,
     private val setLiftDefaultRest: SetLiftDefaultRestUseCase,
+    private val setLiftEquipment: SetLiftEquipmentUseCase,
     private val getLiftHistory: GetLiftHistoryUseCase,
+    private val equipmentPickResult: EquipmentPickResult,
 ) : ViewModel() {
 
     private val liftId = MutableStateFlow<String?>(null)
+    private var awaitingEquipmentPick = false
+    private var lastSeenPickGen = 0L
     private val selectedTab = MutableStateFlow(LiftInfoTab.Instructions)
     private val muscleRole = MutableStateFlow(MuscleRoleFilter.Primary)
     private val expandedSessions = MutableStateFlow<Set<String>>(emptySet())
@@ -110,7 +116,6 @@ class LiftInformationViewModel @Inject constructor(
     private val showAddMuscleSheet = MutableStateFlow(false)
     private val editingField = MutableStateFlow<LiftDetailEditField?>(null)
     private val draftMovementPatterns = MutableStateFlow<Set<MovementPattern>>(emptySet())
-    private val equipmentDraft = MutableStateFlow("")
     private val restDraftSeconds = MutableStateFlow(DEFAULT_ISOLATION_REST_DISPLAY)
     /**
      * Local primary/secondary while the add-muscle sheet is open. Flushed once on Done/dismiss
@@ -127,7 +132,6 @@ class LiftInformationViewModel @Inject constructor(
         val showAdd: Boolean,
         val editing: LiftDetailEditField?,
         val draftPatterns: Set<MovementPattern>,
-        val equipmentDraft: String,
         val restDraftSeconds: Int,
         val muscleDraft: MuscleDraft?,
     )
@@ -153,25 +157,42 @@ class LiftInformationViewModel @Inject constructor(
                     showAddMuscleSheet,
                     editingField,
                     draftMovementPatterns,
-                    equipmentDraft,
                     restDraftSeconds,
-                ) { showAdd, editing, drafts, equipDraft, restDraft ->
-                    // Placeholder muscleDraft filled by outer combine with muscleDraft flow.
-                    SheetControls(showAdd, editing, drafts, equipDraft, restDraft, null)
+                    muscleDraft,
+                ) { showAdd, editing, drafts, restDraft, draft ->
+                    SheetControls(showAdd, editing, drafts, restDraft, draft)
                 },
             ) { tab, role, expanded, hist, sheets ->
                 UiControls(tab, role, expanded, hist, sheets)
             },
-            muscleDraft,
-        ) { id, catalog, controls, draft ->
+        ) { id, catalog, controls ->
             val lift = catalog.firstOrNull { it.id.value == id }
-            val sheetsWithDraft = controls.sheets.copy(muscleDraft = draft)
-            mapState(id, lift, controls.copy(sheets = sheetsWithDraft))
+            mapState(id, lift, controls)
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
             LiftInformationUiState(),
         )
+
+    init {
+        viewModelScope.launch {
+            equipmentPickResult.result.collect { pick ->
+                if (!awaitingEquipmentPick || pick == null) return@collect
+                if (pick.generation <= lastSeenPickGen) return@collect
+                lastSeenPickGen = pick.generation
+                awaitingEquipmentPick = false
+                val id = liftId.value ?: return@collect
+                setLiftEquipment(LiftId(id), pick.equipmentId)
+                    .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+            }
+        }
+    }
+
+    /** Call before navigating to Manage Equipment in selection mode. */
+    fun onBeginChooseEquipment() {
+        lastSeenPickGen = equipmentPickResult.currentGeneration()
+        awaitingEquipmentPick = true
+    }
 
     fun initialize(id: String) {
         if (liftId.value == id) return
@@ -183,7 +204,6 @@ class LiftInformationViewModel @Inject constructor(
         muscleDraft.value = null
         editingField.value = null
         draftMovementPatterns.value = emptySet()
-        equipmentDraft.value = ""
         restDraftSeconds.value = DEFAULT_ISOLATION_REST_DISPLAY
         viewModelScope.launch {
             history.value = getLiftHistory(LiftId(id))
@@ -308,13 +328,12 @@ class LiftInformationViewModel @Inject constructor(
 
     fun onOpenDetailEditor(field: LiftDetailEditField) {
         val lift = latestLift.value ?: return
-        val isRest = field == LiftDetailEditField.DefaultRest
-        if (!isRest && !uiState.value.isCustom) return
+        val isRestOrEquipment =
+            field == LiftDetailEditField.DefaultRest || field == LiftDetailEditField.Equipment
+        if (!isRestOrEquipment && !uiState.value.isCustom) return
         when (field) {
             LiftDetailEditField.MovementPatterns ->
                 draftMovementPatterns.value = lift.movementPatterns
-            LiftDetailEditField.Equipment ->
-                equipmentDraft.value = lift.equipment.orEmpty()
             LiftDetailEditField.DefaultRest ->
                 restDraftSeconds.value = lift.resolvedDefaultRestSeconds()
             else -> Unit
@@ -326,8 +345,13 @@ class LiftInformationViewModel @Inject constructor(
         editingField.value = null
     }
 
-    fun onEquipmentDraftChange(value: String) {
-        equipmentDraft.value = value
+    fun onClearEquipment() {
+        val id = liftId.value ?: return
+        viewModelScope.launch {
+            setLiftEquipment(LiftId(id), null)
+                .onSuccess { editingField.value = null }
+                .onFailure { _userMessage.value = MSG_SAVE_FAILED }
+        }
     }
 
     fun onRestDraftChange(seconds: Int) {
@@ -380,10 +404,6 @@ class LiftInformationViewModel @Inject constructor(
         persistDetails { it.copy(movementPatterns = patterns) }
     }
 
-    fun onSaveEquipment() {
-        persistDetails { it.copy(equipment = equipmentDraft.value) }
-    }
-
     private fun persistDetails(transform: (CustomLiftDetails) -> CustomLiftDetails) {
         if (!uiState.value.isCustom) return
         val id = liftId.value ?: return
@@ -424,7 +444,6 @@ class LiftInformationViewModel @Inject constructor(
                         muscleRole = controls.role,
                         showAddMuscleSheet = controls.sheets.showAdd,
                         editingField = controls.sheets.editing,
-                        equipmentDraft = controls.sheets.equipmentDraft,
                         restDraftSeconds = controls.sheets.restDraftSeconds,
                     ),
             )
@@ -472,21 +491,22 @@ class LiftInformationViewModel @Inject constructor(
                         lift.movementPatterns.map { it.displayName }.sorted(),
                     kinematicLabel = lift.kinematicProfile.toDetailLabel(),
                     loadTypeLabel = lift.loadType.toDetailLabel(),
-                    equipment = lift.equipment?.toTitleCaseWords(),
+                    equipment = lift.equipmentName,
                     categoryLabel = lift.classifyLiftCategory().displayName,
                     defaultRestLabel = formatRestDisplay(lift.resolvedDefaultRestSeconds()),
                     showAddMuscleSheet = controls.sheets.showAdd && lift.isCustom,
                     editingField =
                         when (val editing = controls.sheets.editing) {
                             null -> null
-                            LiftDetailEditField.DefaultRest -> editing
+                            LiftDetailEditField.DefaultRest,
+                            LiftDetailEditField.Equipment,
+                            -> editing
                             else -> editing.takeIf { lift.isCustom }
                         },
                     lengthBiasOptions = lengthBiasOptions(lift.muscleLengthBias),
                     kinematicOptions = kinematicOptions(lift.kinematicProfile),
                     loadTypeOptions = loadTypeOptions(lift.loadType),
                     movementPatternOptions = movementPatternOptions(draftPatterns),
-                    equipmentDraft = controls.sheets.equipmentDraft,
                     restDraftSeconds = controls.sheets.restDraftSeconds,
                 ),
         )
@@ -498,7 +518,7 @@ class LiftInformationViewModel @Inject constructor(
             muscleLengthBias = muscleLengthBias,
             kinematicProfile = kinematicProfile,
             loadType = loadType,
-            equipment = equipment,
+            equipmentId = equipmentId,
         )
 
     private fun LoggedSet.toPrUi(): LiftPrUi =
