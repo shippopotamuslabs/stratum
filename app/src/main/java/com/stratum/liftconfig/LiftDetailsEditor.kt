@@ -597,5 +597,6 @@ private fun DetailOptionRow(
 }
 
 private val DetailsMuscleCardWidth = 76.dp
-private val DetailsAddButtonSize = 32.dp
-private val DetailsAddIconSize = 18.dp
+/** Matches UI_DESIGN.md §5 minimum touch target (48dp). */
+private val DetailsAddButtonSize = 48.dp
+private val DetailsAddIconSize = 24.dp
