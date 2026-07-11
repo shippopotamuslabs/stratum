@@ -9,4 +9,5 @@ object LegalUrls {
     const val TERMS: String = "$BASE/terms/"
     const val PRIVACY: String = "$BASE/privacy/"
     const val OPEN_SOURCE: String = "$BASE/licenses/"
+    const val DELETE_ACCOUNT: String = "$BASE/delete-account/"
 }

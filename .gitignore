@@ -27,6 +27,7 @@ golden-test-examples/
 # Secrets
 *.jks
 *.keystore
+keystore.properties
 google-services.json
 
 # OS

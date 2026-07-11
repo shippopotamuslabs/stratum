@@ -40,18 +40,22 @@ describe("openrouterSession", () => {
     assert.throws(() => sanitizeOpenRouterSessionId("   "), /non-empty/);
   });
 
-  it("omits provider sort for sticky session completions", () => {
+  it("omits provider sort for sticky session completions and enables ZDR", () => {
     const extras = buildOpenRouterChatCompletionExtras("stratum-import:user:job");
     assert.equal(extras.session_id, "stratum-import:user:job");
     assert.equal(extras.provider.sort, undefined);
     assert.equal(extras.provider.require_parameters, false);
+    assert.equal(extras.provider.zdr, true);
+    assert.equal(extras.provider.data_collection, "deny");
   });
 
-  it("program generation uses price sort with throughput floor", () => {
+  it("program generation uses price sort with throughput floor and ZDR", () => {
     const extras = buildProgramGenerationChatCompletionExtras("stratum-program-generate:user-1");
     assert.equal(extras.session_id, "stratum-program-generate:user-1");
     assert.equal(extras.provider.sort, "price");
     assert.equal(extras.provider.require_parameters, true);
+    assert.equal(extras.provider.zdr, true);
+    assert.equal(extras.provider.data_collection, "deny");
     assert.deepEqual(extras.provider.preferred_min_throughput, { p90: 50 });
   });
 });

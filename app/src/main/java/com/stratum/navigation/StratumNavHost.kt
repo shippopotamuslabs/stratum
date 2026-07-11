@@ -71,7 +71,9 @@ fun StratumNavHost(
         remember(backStack) {
             {
                 if (backStack.size > 1) {
-                    backStack.removeLast()
+                    // Prefer removeAt over removeLast(): with compileSdk 35+, Kotlin can resolve
+                    // to java.util.List.removeLast() (API 35+ only) and crash on Android 14.
+                    backStack.removeAt(backStack.lastIndex)
                 }
             }
         }
