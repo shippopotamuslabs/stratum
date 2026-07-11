@@ -3,17 +3,22 @@ package com.stratum.liftconfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.EquipmentAffectedLifts
 import com.stratum.domain.lift.IncrementTiersValidationResult
+import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.identity.EquipmentId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -24,11 +29,17 @@ data class EquipmentIncrementsUiState(
     val validationMessage: String? = null,
     val isSaving: Boolean = false,
     val saveSucceeded: Boolean = false,
+    /** Lifts inheriting this equipment's defaults (includes disabled). */
+    val affectedLiftCount: Int = 0,
+    /** Names of affected lifts, sorted; UI shows first 3 + "+M more". */
+    val affectedLiftNames: List<String> = emptyList(),
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class EquipmentIncrementsViewModel @Inject constructor(
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
+    private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
 ) : ViewModel() {
@@ -46,15 +57,33 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val validation: String?,
     )
 
+    private val affectedLifts =
+        equipmentId.flatMapLatest { id ->
+            if (id.isNullOrBlank()) {
+                flowOf(emptyAffected())
+            } else {
+                observeEquipmentAffectedLifts(EquipmentId(id))
+            }
+        }
+
     val uiState: StateFlow<EquipmentIncrementsUiState> =
         combine(
             equipmentId,
             observeEquipmentCatalog(),
+            affectedLifts,
             combine(draftTiers, isSaving, saveSucceeded, validationOverride) { draft, saving, saved, validation ->
                 Flags(draft, saving, saved, validation)
             },
-        ) { id, catalog, flags ->
-            buildState(id, catalog, flags.draft, flags.saving, flags.saved, flags.validation)
+        ) { id, catalog, affected, flags ->
+            buildState(
+                id = id,
+                catalog = catalog,
+                affected = affected,
+                draft = flags.draft,
+                saving = flags.saving,
+                saved = flags.saved,
+                validation = flags.validation,
+            )
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
@@ -189,6 +218,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private fun buildState(
         id: String?,
         catalog: List<Equipment>,
+        affected: EquipmentAffectedLifts,
         draft: List<IncrementTierDraft>?,
         saving: Boolean,
         saved: Boolean,
@@ -206,6 +236,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
             validationMessage = validation ?: liveValidationMessage(tiers),
             isSaving = saving,
             saveSucceeded = saved,
+            affectedLiftCount = affected.count,
+            affectedLiftNames = affected.lifts.map { it.name },
         )
     }
 
@@ -224,4 +256,11 @@ class EquipmentIncrementsViewModel @Inject constructor(
             IncrementTiersValidationResult.Valid -> null
         }
     }
+
+    private fun emptyAffected(): EquipmentAffectedLifts =
+        EquipmentAffectedLifts(
+            equipmentId = EquipmentId(""),
+            count = 0,
+            lifts = emptyList(),
+        )
 }

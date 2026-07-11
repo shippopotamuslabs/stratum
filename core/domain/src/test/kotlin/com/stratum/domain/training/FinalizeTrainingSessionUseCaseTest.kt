@@ -15,6 +15,7 @@ import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
@@ -28,6 +29,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -113,6 +115,7 @@ class FinalizeTrainingSessionUseCaseTest {
             computePersonalRecords = computePersonalRecords,
             extractTrainingInsights = insightsComponents.useCase,
             refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
@@ -123,6 +126,80 @@ class FinalizeTrainingSessionUseCaseTest {
         val updatedSet = updatedSets.first()
         assertTrue(updatedSet.isPersonalRecord)
         assertEquals(100.0 * (1.0278 / (1.0278 - 0.0278 * 5)), updatedSet.estimatedOneRm!!, 0.01)
+    }
+
+    @Test
+    @DisplayName("Finalize demotes prior PR then promotes session PR without unique conflict")
+    fun finalizeDemotesOldPrBeforePromotingNew() = runTest {
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val events = FakeProgramChangeEventRepository()
+        val repo =
+            FakeTrainingLogRepository(
+                programRepository = programRepo,
+                programChangeEventRepository = events,
+            )
+        val liftId = com.stratum.domain.lift.identity.LiftId("lift-1")
+        val priorSession = WorkoutLoggingFixtures.completedLiveSession(id = "ts-prior")
+        repo.seedSession(priorSession)
+        repo.seedSet(
+            LoggedSet(
+                id = LoggedSetId("old-pr"),
+                sessionId = priorSession.id,
+                exerciseNameRaw = "Squat",
+                liftId = liftId,
+                setIndex = 0,
+                weight =
+                    com.stratum.domain.lift.Weight(
+                        100.0,
+                        com.stratum.domain.lift.Weight.WeightUnit.Lb,
+                    ),
+                reps = 5,
+                rir = null,
+                completedAt = Instant.parse("2025-01-01T09:00:00Z"),
+                liftContext = LoggedLiftContext("Squat"),
+                isPersonalRecord = true,
+                estimatedOneRm = 112.5,
+            ),
+        )
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        repo.seedSet(
+            LoggedSet(
+                id = LoggedSetId("new-pr"),
+                sessionId = TrainingSessionId("ts-live-1"),
+                exerciseNameRaw = "Squat",
+                liftId = liftId,
+                setIndex = 0,
+                weight =
+                    com.stratum.domain.lift.Weight(
+                        135.0,
+                        com.stratum.domain.lift.Weight.WeightUnit.Lb,
+                    ),
+                reps = 5,
+                rir = null,
+                completedAt = Instant.now(),
+                liftContext = LoggedLiftContext("Squat"),
+            ),
+        )
+        val insights = buildInsightsComponents(repo)
+        val persistence = FakeResponseProfilePersistencePort()
+        val useCase =
+            FinalizeTrainingSessionUseCase(
+                trainingLogRepository = repo,
+                programRepository = programRepo,
+                computePersonalRecords = ComputePersonalRecordsUseCase(repo),
+                extractTrainingInsights = insights.useCase,
+                refreshWeeklySeries =
+                    RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+                loggingPort = FakeLoggingPort(),
+                refreshScope = CoroutineScope(Dispatchers.Unconfined),
+            )
+
+        val result = useCase(TrainingSessionId("ts-live-1"))
+        assertTrue(result.isSuccess, result.exceptionOrNull()?.message)
+        assertTrue(
+            repo.getSetsForSession(TrainingSessionId("ts-live-1")).single().isPersonalRecord,
+        )
+        assertFalse(repo.getSetsForSession(priorSession.id).single().isPersonalRecord)
     }
 
     @Test
@@ -148,6 +225,7 @@ class FinalizeTrainingSessionUseCaseTest {
             computePersonalRecords = ComputePersonalRecordsUseCase(repo),
             extractTrainingInsights = insights.useCase,
             refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            loggingPort = FakeLoggingPort(),
             responseModelingScheduler = modelingScheduler,
             refreshScope = refreshScope,
             refreshDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
@@ -192,6 +270,7 @@ class FinalizeTrainingSessionUseCaseTest {
             computePersonalRecords = ComputePersonalRecordsUseCase(repo),
             extractTrainingInsights = failingUseCase,
             refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
 
@@ -227,6 +306,7 @@ class FinalizeTrainingSessionUseCaseTest {
             computePersonalRecords = computePersonalRecords,
             extractTrainingInsights = insights.useCase,
             refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
     }

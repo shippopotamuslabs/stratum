@@ -39,6 +39,36 @@ fun formatWeightAmount(weight: Double, assistMode: Boolean = false): String {
     return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
 }
 
+/**
+ * Formats a tier bound / increment amount for equipment and lift increment editors and
+ * proposal summaries. Unlike [formatWeightAmount], zero is rendered as `"0"` (band lower
+ * bounds are often zero).
+ */
+fun formatIncrementAmount(amount: Double): String {
+    val rounded = (amount * TEN_FACTOR).roundToInt() / TEN_FACTOR.toDouble()
+    return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
+}
+
+/**
+ * Compact multi-tier summary for proposal cards, e.g. `"0–70 → 2.5 · 70+ → 5"`.
+ *
+ * [tiers] is a list of (lower, upper?, increment) amounts — presentation layer maps domain
+ * [com.stratum.domain.lift.IncrementTier] into this shape.
+ */
+fun formatIncrementTierSummary(
+    tiers: List<Triple<Double, Double?, Double>>,
+): String =
+    tiers.joinToString(" · ") { (lower, upper, increment) ->
+        val lowerLabel = formatIncrementAmount(lower)
+        val incLabel = formatIncrementAmount(increment)
+        val upperBound = upper
+        if (upperBound != null) {
+            "$lowerLabel–${formatIncrementAmount(upperBound)} → $incLabel"
+        } else {
+            "$lowerLabel+ → $incLabel"
+        }
+    }
+
 private const val MILLIS_PER_SEC = 1000
 private const val SECS_PER_HOUR = 3600
 private const val SECS_PER_MIN = 60

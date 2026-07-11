@@ -6,6 +6,7 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.domain.lift.AddCustomEquipmentUseCase
 import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.ForkEquipmentUseCase
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
@@ -16,6 +17,8 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -60,14 +63,22 @@ class ManageEquipmentViewModelTest {
                 ),
             ),
         )
+        val logging = FakeLoggingPort()
+        val validate = ValidateIncrementTiersUseCase()
         subject =
             ManageEquipmentViewModel(
                 observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(fakeEquipmentRepository),
                 addCustomEquipment =
                     AddCustomEquipmentUseCase(
                         fakeEquipmentRepository,
-                        ValidateIncrementTiersUseCase(),
-                        FakeLoggingPort(),
+                        validate,
+                        logging,
+                    ),
+                forkEquipment =
+                    ForkEquipmentUseCase(
+                        fakeEquipmentRepository,
+                        validate,
+                        logging,
                     ),
                 equipmentPickResult = equipmentPickResult,
             )
@@ -119,7 +130,6 @@ class ManageEquipmentViewModelTest {
     fun selectEquipmentPublishesPick() = runTest {
         equipmentPickResult.result.test {
             val first = awaitItem()
-            // StateFlow may already hold a prior pick in theory; seed is null.
             if (first != null) {
                 // Consume stale; not expected for a fresh EquipmentPickResult.
             }
@@ -136,20 +146,92 @@ class ManageEquipmentViewModelTest {
         subject.onNameDraftChange("Smith Machine")
         subject.uiState.test {
             var state = awaitCatalogState()
-            // Draft may already be applied (Unconfined) or arrive as a later emission.
             if (state.nameDraft != "Smith Machine") {
                 state = awaitItem()
             }
             assertEquals("Smith Machine", state.nameDraft)
 
-            var createdId: String? = null
-            subject.onCreateEquipment { createdId = it }
-            advanceUntilIdle()
+            subject.events.test {
+                subject.onCreateEquipment()
+                advanceUntilIdle()
+                val event = awaitItem() as ManageEquipmentEvent.Created
+                assertTrue(event.equipmentId.isNotBlank())
+                cancelAndIgnoreRemainingEvents()
+            }
 
             state = expectMostRecentItem()
-            assertTrue(createdId != null)
             assertEquals("", state.nameDraft)
+            assertFalse(state.showCreateSheet)
             assertTrue(state.rows.any { it.name == "Smith Machine" })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given seed row when start fork then draft prefilled with copy name")
+    fun startForkPrefillsName() = runTest {
+        subject.uiState.test {
+            awaitCatalogState()
+            subject.onStartFork("cable")
+            val state = awaitItem()
+            assertEquals("cable", state.forkingFromId)
+            assertEquals("Cables", state.forkingFromName)
+            assertEquals("Cables (copy)", state.forkNameDraft)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given fork sheet when confirm then custom row created with parent tiers")
+    fun confirmForkCreatesCustomCopy() = runTest {
+        val parentTiers =
+            fakeEquipmentRepository.getEquipment(EquipmentId("cable"))!!.incrementTiers
+        subject.uiState.test {
+            awaitCatalogState()
+            subject.onStartFork("cable")
+            awaitItem() // fork open
+            subject.onForkNameDraftChange("Life Fitness cables")
+            awaitItem() // name change
+
+            var createdId: String? = null
+            subject.events.test {
+                subject.onConfirmFork()
+                advanceUntilIdle()
+                val event = awaitItem() as ManageEquipmentEvent.Forked
+                createdId = event.equipmentId
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            val state = expectMostRecentItem()
+            assertNotNull(createdId)
+            assertNull(state.forkingFromId)
+            assertEquals("", state.forkNameDraft)
+            assertTrue(state.rows.any { it.name == "Life Fitness cables" })
+            assertTrue(state.userMessage?.contains("Life Fitness cables") == true)
+
+            val forked = fakeEquipmentRepository.getEquipment(EquipmentId(createdId!!))!!
+            assertTrue(forked.isCustom)
+            assertEquals(parentTiers, forked.incrementTiers)
+            // Parent untouched.
+            assertEquals(
+                parentTiers,
+                fakeEquipmentRepository.getEquipment(EquipmentId("cable"))!!.incrementTiers,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given open fork when dismiss then draft cleared")
+    fun dismissForkClearsDraft() = runTest {
+        subject.uiState.test {
+            awaitCatalogState()
+            subject.onStartFork("dumbbell")
+            awaitItem()
+            subject.onDismissFork()
+            val state = awaitItem()
+            assertNull(state.forkingFromId)
+            assertEquals("", state.forkNameDraft)
             cancelAndIgnoreRemainingEvents()
         }
     }
