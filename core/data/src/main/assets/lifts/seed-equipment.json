@@ -1,0 +1,56 @@
+[
+  {
+    "id": "dumbbell",
+    "name": "Dumbbells",
+    "incrementTiers": [
+      { "lowerBound": 0.0, "upperBound": null, "increment": 5.0 }
+    ]
+  },
+  {
+    "id": "double-weight-plates",
+    "name": "Double Weight Plates",
+    "incrementTiers": [
+      { "lowerBound": 0.0, "upperBound": null, "increment": 5.0 }
+    ]
+  },
+  {
+    "id": "single-weight-plate",
+    "name": "Single Weight Plate",
+    "incrementTiers": [
+      { "lowerBound": 0.0, "upperBound": null, "increment": 2.5 }
+    ]
+  },
+  {
+    "id": "fixed-barbell",
+    "name": "Fixed Barbell",
+    "incrementTiers": [
+      { "lowerBound": 0.0, "upperBound": null, "increment": 10.0 }
+    ]
+  },
+  {
+    "id": "pin-loaded-machine",
+    "name": "Pin-Loaded Machine",
+    "incrementTiers": [
+      { "lowerBound": 0.0, "upperBound": null, "increment": 15.0 }
+    ]
+  },
+  {
+    "id": "cable",
+    "name": "Cables",
+    "incrementTiers": [
+      { "lowerBound": 0.0, "upperBound": null, "increment": 5.0 }
+    ]
+  },
+  {
+    "id": "kettlebell",
+    "name": "Kettlebells",
+    "incrementTiers": [
+      { "lowerBound": 0.0, "upperBound": null, "increment": 5.0 }
+    ]
+  },
+  {
+    "id": "bodyweight",
+    "name": "Bodyweight",
+    "incrementTiers": []
+  }
+]

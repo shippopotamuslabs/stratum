@@ -2,6 +2,7 @@ package com.stratum.di
 
 import android.content.Context
 import androidx.room.Room
+import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.GymPreferenceDao
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.LiftDao
@@ -10,13 +11,18 @@ import com.stratum.core.data.db.SpecializationPreferenceDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.domain.onboarding.UserTrainingProfileRepository
 import com.stratum.core.data.db.UserProfileDao
+import com.stratum.core.data.repository.RoomEquipmentRepository
 import com.stratum.core.data.repository.RoomLiftRepository
 import com.stratum.core.data.repository.RoomOnboardingRepository
 import com.stratum.core.data.repository.RoomSpecializationPreferenceRepository
 import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
+import com.stratum.core.data.seed.AssetLiftEmbeddingCatalog
+import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
+import com.stratum.core.data.seed.EquipmentCatalogSeeder
 import com.stratum.core.data.seed.LiftCatalogSeeder
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.solver.CpSatProgramSynthesizer
+import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
@@ -90,8 +96,6 @@ import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.response.VolumeResponseObservationRepository
-import com.stratum.core.data.seed.AssetLiftEmbeddingCatalog
-import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -135,10 +139,19 @@ object DatabaseModule {
                 // Seed when no bundled catalog exists. Import may create custom lifts before seed
                 // finishes; countAll() would then block seeding forever and BM25 would have nothing
                 // to match against.
+                val equipmentDao = database.equipmentDao()
+                if (equipmentDao.countSeedEquipment() == 0) {
+                    EquipmentCatalogSeeder(
+                        equipmentDao = equipmentDao,
+                        incrementTierDao = database.incrementTierDao(),
+                    ).seed(context)
+                }
                 if (liftDao.countSeedLifts() == 0) {
+                    val tags = AssetLiftEquipmentCatalog(context).all()
                     LiftCatalogSeeder(
                         liftDao = liftDao,
                         incrementTierDao = database.incrementTierDao(),
+                        equipmentTagsByLiftId = tags,
                     ).seed(context)
                 }
             } finally {
@@ -161,14 +174,30 @@ object DatabaseModule {
         database.specializationPreferenceDao()
 
     @Provides
+    fun provideEquipmentDao(database: StratumDatabase): EquipmentDao = database.equipmentDao()
+
+    @Provides
     fun provideLiftDao(database: StratumDatabase): LiftDao = database.liftDao()
+
+    @Provides
+    @Singleton
+    fun provideEquipmentCatalogSeeder(
+        equipmentDao: EquipmentDao,
+        incrementTierDao: IncrementTierDao,
+    ): EquipmentCatalogSeeder = EquipmentCatalogSeeder(equipmentDao, incrementTierDao)
 
     @Provides
     @Singleton
     fun provideLiftCatalogSeeder(
         liftDao: LiftDao,
         incrementTierDao: IncrementTierDao,
-    ): LiftCatalogSeeder = LiftCatalogSeeder(liftDao, incrementTierDao)
+        @ApplicationContext context: Context,
+    ): LiftCatalogSeeder =
+        LiftCatalogSeeder(
+            liftDao = liftDao,
+            incrementTierDao = incrementTierDao,
+            equipmentTagsByLiftId = AssetLiftEquipmentCatalog(context).all(),
+        )
 
     @Provides
     fun provideIncrementTierDao(database: StratumDatabase): IncrementTierDao =
@@ -338,6 +367,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLiftRepository(impl: RoomLiftRepository): LiftRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindEquipmentRepository(impl: RoomEquipmentRepository): EquipmentRepository
 
     @Binds
     @Singleton

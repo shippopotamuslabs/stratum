@@ -158,7 +158,7 @@ fun OnboardingRoute(
             if (state.gymLiftsDraft.importResumable) {
                 viewModel.onRetryImportFromFailedFile()
             } else {
-                importLauncher.launch(arrayOf("text/*", "application/json", "text/csv"))
+                importLauncher.launch(HISTORICAL_IMPORT_MIME_TYPES)
             }
         },
         onImportCancel = viewModel::onCancelImport,
@@ -317,6 +317,22 @@ private const val WIZARD_STEP_MINIMUM_VOLUME = "MinimumVolume"
 private const val WIZARD_STEP_GYM_AND_LIFTS = "GymAndLifts"
 private const val WIZARD_STEP_REVIEW = "Review"
 private const val WIZARD_STEP_CHOOSE_PATH = "ChoosePath"
+
+/**
+ * MIME types accepted by the Gym & Lifts historical-import picker (CSV/JSON/text + XLSX).
+ * The backend deterministic parsers accept MacroFactor history as either `.xlsx` (default
+ * in-app export) or `.csv`; without the spreadsheet MIME types, SAF greys out Excel files.
+ * Providers that mis-report `.xlsx` as `application/octet-stream` will still grey those out —
+ * download locally first.
+ */
+private val HISTORICAL_IMPORT_MIME_TYPES = arrayOf(
+    "text/*",
+    "application/json",
+    "text/csv",
+    "text/comma-separated-values",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
 
 /**
  * MIME types accepted by the program-template import picker (CSV + XLSX). The picker ORs these

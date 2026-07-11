@@ -40,8 +40,8 @@ class AddCustomLiftUseCase @Inject constructor(
                 ),
             )
         }
-        val equipment =
-            definition.equipment
+        val equipmentName =
+            definition.equipmentName
                 ?.trim()
                 ?.takeIf { it.isNotEmpty() }
         val secondary = definition.secondaryMuscles - definition.primaryMuscles
@@ -50,7 +50,7 @@ class AddCustomLiftUseCase @Inject constructor(
                 definition.copy(
                     name = name,
                     secondaryMuscles = secondary,
-                    equipment = equipment,
+                    equipmentName = equipmentName,
                 ),
             )
         }

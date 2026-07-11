@@ -32,7 +32,7 @@ object ImportStubLiftGuesser {
             movementPatterns = patterns,
             primaryMuscles = normalized.primaryMuscles,
             secondaryMuscles = normalized.secondaryMuscles,
-            equipment = null,
+            equipmentName = null,
             increment = increment,
         )
     }

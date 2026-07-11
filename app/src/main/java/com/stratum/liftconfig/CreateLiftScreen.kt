@@ -26,6 +26,7 @@ import com.stratum.core.ui.component.UserMessageEffect
 @Composable
 fun CreateLiftRoute(
     onBackClick: () -> Unit,
+    onChooseEquipment: () -> Unit,
     viewModel: CreateLiftViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -61,8 +62,12 @@ fun CreateLiftRoute(
                 onSelectLoadType = viewModel::onSelectLoadType,
                 onToggleDraftMovementPattern = viewModel::onToggleDraftMovementPattern,
                 onConfirmMovementPatterns = viewModel::onConfirmMovementPatterns,
-                onEquipmentDraftChange = viewModel::onEquipmentDraftChange,
-                onSaveEquipment = viewModel::onSaveEquipment,
+                onClearEquipment = viewModel::onClearEquipment,
+                onChooseEquipment = {
+                    viewModel.onDismissDetailEditor()
+                    viewModel.onBeginChooseEquipment()
+                    onChooseEquipment()
+                },
                 onRestDraftChange = viewModel::onRestDraftChange,
                 onSaveDefaultRest = viewModel::onSaveDefaultRest,
             ),

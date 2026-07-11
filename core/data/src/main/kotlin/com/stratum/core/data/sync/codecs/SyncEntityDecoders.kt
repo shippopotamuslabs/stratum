@@ -1,5 +1,6 @@
 package com.stratum.core.data.sync.codecs
 
+import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
@@ -22,6 +23,7 @@ import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -108,6 +110,17 @@ class SyncEntityDecoders @Inject constructor() {
             )
         }.getOrNull()
 
+    fun equipment(id: String, data: Map<String, Any?>): EquipmentEntity? =
+        runCatching {
+            EquipmentEntity(
+                id = EquipmentId(id),
+                name = data["name"] as? String ?: return null,
+                isCustom = data["is_custom"] as? Boolean ?: false,
+                updatedAtEpochMillis = remoteUpdatedAt(data),
+                pendingSync = SyncFlags.CLEAN,
+            )
+        }.getOrNull()
+
     fun lift(id: String, data: Map<String, Any?>): LiftEntity? =
         runCatching {
             val patterns =
@@ -126,6 +139,8 @@ class SyncEntityDecoders @Inject constructor() {
                 stringList(data["preset_tags"])
                     .mapNotNull { enumOrNull<GymPreset>(it) }
                     .toSet()
+            val equipmentId =
+                (data["equipment_id"] as? String)?.let { runCatching { EquipmentId(it) }.getOrNull() }
             LiftEntity(
                 id = LiftId(id),
                 name = data["name"] as? String ?: return null,
@@ -133,7 +148,7 @@ class SyncEntityDecoders @Inject constructor() {
                 primaryMusclesBitmask = primary.toBitmask(),
                 secondaryMusclesBitmask = secondary.toBitmask(),
                 presetTags = presets.toPresetCsv(),
-                equipment = data["equipment"] as? String,
+                equipmentId = equipmentId,
                 isCustom = data["is_custom"] as? Boolean ?: false,
                 enabled = data["enabled"] as? Boolean ?: false,
                 description = data["description"] as? String,
@@ -150,10 +165,15 @@ class SyncEntityDecoders @Inject constructor() {
 
     fun incrementTier(id: String, data: Map<String, Any?>): IncrementTierEntity? =
         runCatching {
-            val liftId = data["lift_id"] as? String ?: return null
+            val liftIdRaw = data["lift_id"] as? String
+            val equipmentIdRaw = data["equipment_id"] as? String
+            // XOR: exactly one of lift_id / equipment_id must be set.
+            if (liftIdRaw == null && equipmentIdRaw == null) return null
+            if (liftIdRaw != null && equipmentIdRaw != null) return null
             IncrementTierEntity(
                 id = IncrementTierId(id),
-                liftId = LiftId(liftId),
+                liftId = liftIdRaw?.let { LiftId(it) },
+                equipmentId = equipmentIdRaw?.let { EquipmentId(it) },
                 lowerBound = (data["lower_bound"] as? Number)?.toDouble() ?: return null,
                 upperBound = (data["upper_bound"] as? Number)?.toDouble(),
                 increment = (data["increment"] as? Number)?.toDouble() ?: return null,

@@ -4,13 +4,13 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.stratum.core.data.sync.SyncFlags
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 
 /**
- * DAO for a lift's increment-tier bands. Writes replace the whole set per lift (delete + insert
- * in a transaction at the repository layer) so editing tiers stays atomic. Cascade-on-delete
- * on the FK means removing a lift clears its bands automatically.
+ * DAO for lift-override and equipment-default increment tiers. Writes replace the whole set
+ * per parent (delete + insert in a transaction at the repository layer).
  */
 @Dao
 interface IncrementTierDao {
@@ -22,6 +22,21 @@ interface IncrementTierDao {
 
     @Query("DELETE FROM increment_tiers WHERE liftId = :liftId")
     suspend fun deleteForLift(liftId: LiftId)
+
+    @Query("SELECT id FROM increment_tiers WHERE equipmentId = :equipmentId")
+    suspend fun idsForEquipment(equipmentId: EquipmentId): List<String>
+
+    @Query("DELETE FROM increment_tiers WHERE equipmentId = :equipmentId")
+    suspend fun deleteForEquipment(equipmentId: EquipmentId)
+
+    @Query("SELECT * FROM increment_tiers WHERE equipmentId = :equipmentId ORDER BY lowerBound")
+    suspend fun getForEquipment(equipmentId: EquipmentId): List<IncrementTierEntity>
+
+    @Query("SELECT * FROM increment_tiers WHERE equipmentId IS NOT NULL ORDER BY equipmentId, lowerBound")
+    suspend fun getAllEquipmentTiers(): List<IncrementTierEntity>
+
+    @Query("SELECT * FROM increment_tiers WHERE equipmentId IS NOT NULL ORDER BY equipmentId, lowerBound")
+    fun observeAllEquipmentTiers(): kotlinx.coroutines.flow.Flow<List<IncrementTierEntity>>
 
     @Query(
         """

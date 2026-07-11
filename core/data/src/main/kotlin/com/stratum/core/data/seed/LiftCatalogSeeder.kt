@@ -1,18 +1,20 @@
 package com.stratum.core.data.seed
 
 import android.content.Context
-import com.stratum.core.data.db.LiftDao
-import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.IncrementTierEntity
+import com.stratum.core.data.db.LiftDao
+import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.sync.SyncFlags
+import com.stratum.domain.importing.GymEquipment
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -20,27 +22,22 @@ import kotlinx.serialization.json.Json
 
 /**
  * Loads the bundled catalog seed into the `lifts`/`increment_tiers` tables. Invoked from DI
- * after [StratumDatabase] is fully open (never from `RoomDatabase.Callback.onCreate` — DAO
- * calls there deadlock Room init).
+ * after [com.stratum.core.data.db.StratumDatabase] is fully open and after
+ * [EquipmentCatalogSeeder] has run.
  *
- * **Idempotent:** it `upsert`s by stable slug id, so re-running (e.g. across an OS version
- * bump that recreates the DB) is safe and converges to the asset's contents. It never clears
- * user-created (`isCustom`) rows, since those are not in the asset.
+ * **Idempotent:** upserts by stable slug id. Never clears user-created (`isCustom`) rows.
  *
- * Names are decoded defensively: an unknown muscle/pattern/preset name in the asset is
- * skipped with a logged warning rather than crashing, so a stale asset on an upgraded app
- * degrades gracefully.
+ * Seed lifts inherit equipment default increments via [LiftEntity.equipmentId] unless the
+ * seed DTO supplies explicit [LiftSeedDto.incrementTiers] (lift-scoped override rows).
  */
 class LiftCatalogSeeder(
     private val liftDao: LiftDao,
     private val incrementTierDao: IncrementTierDao,
+    private val equipmentTagsByLiftId: Map<LiftId, Set<GymEquipment>> = emptyMap(),
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
-        // Unknown enum names in the asset coerce to the enum's default rather than throwing —
-        // keeps a single stale entry from dropping the whole catalog. Degenerate results
-        // (e.g. an entry whose pattern coerced to an empty list) are filtered in mapDto.
         coerceInputValues = true
     }
 
@@ -59,7 +56,9 @@ class LiftCatalogSeeder(
         for (mapped in mappedLifts) {
             liftDao.upsert(mapped.lift)
             incrementTierDao.deleteForLift(mapped.lift.id)
-            if (mapped.tiers.isNotEmpty()) incrementTierDao.upsertAll(mapped.tiers)
+            if (mapped.overrideTiers.isNotEmpty()) {
+                incrementTierDao.upsertAll(mapped.overrideTiers)
+            }
         }
         return dtos.size
     }
@@ -70,8 +69,6 @@ class LiftCatalogSeeder(
                 json.decodeFromString<List<LiftSeedDto>>(stream.readBytes().decodeToString())
             }
         }.getOrElse {
-            // Asset missing/corrupt is a packaging bug, not a runtime crash path. Seed simply
-            // produces an empty catalog; the user can still add custom lifts.
             null
         }
 
@@ -91,6 +88,12 @@ class LiftCatalogSeeder(
         val profile = dto.kinematicProfile ?: KinematicProfile.Isolation
         val loadType = dto.loadType ?: LoadType.Weighted
         val id = LiftId(dto.id)
+        val equipmentId =
+            dto.equipmentId?.let { EquipmentId(it) }
+                ?: GymEquipmentToEquipmentId.equipmentIdFor(
+                    liftId = id,
+                    tags = equipmentTagsByLiftId[id].orEmpty(),
+                )
         val lift = LiftEntity(
             id = id,
             name = dto.name,
@@ -98,7 +101,7 @@ class LiftCatalogSeeder(
             primaryMusclesBitmask = primary.toBitmask(),
             secondaryMusclesBitmask = secondary.toBitmask(),
             presetTags = tags.toPresetCsv(),
-            equipment = dto.equipment,
+            equipmentId = equipmentId,
             isCustom = false,
             enabled = false,
             description = dto.description,
@@ -107,25 +110,30 @@ class LiftCatalogSeeder(
             mainstream = dto.mainstream,
             kinematicProfile = profile,
             loadType = loadType,
-            // Seed catalog is local baseline until the user mutates a row.
             updatedAtEpochMillis = 0L,
             pendingSync = SyncFlags.CLEAN,
         )
-        val tiers = (dto.incrementTiers ?: DEFAULT_TIERS).map { t ->
-            IncrementTierEntity(
-                id = IncrementTierId.forBand(id, t.lowerBound),
-                liftId = id,
-                lowerBound = t.lowerBound,
-                upperBound = t.upperBound,
-                increment = t.increment,
-                updatedAtEpochMillis = 0L,
-                pendingSync = SyncFlags.CLEAN,
-            )
-        }
-        return MappedLift(lift, tiers)
+        // Explicit seed override only — otherwise inherit equipment defaults.
+        val overrideTiers =
+            dto.incrementTiers?.map { t ->
+                IncrementTierEntity(
+                    id = IncrementTierId.forBand(id, t.lowerBound),
+                    liftId = id,
+                    equipmentId = null,
+                    lowerBound = t.lowerBound,
+                    upperBound = t.upperBound,
+                    increment = t.increment,
+                    updatedAtEpochMillis = 0L,
+                    pendingSync = SyncFlags.CLEAN,
+                )
+            }.orEmpty()
+        return MappedLift(lift, overrideTiers)
     }
 
-    private data class MappedLift(val lift: LiftEntity, val tiers: List<IncrementTierEntity>)
+    private data class MappedLift(
+        val lift: LiftEntity,
+        val overrideTiers: List<IncrementTierEntity>,
+    )
 
     private inline fun <reified T : Enum<T>> enumValueOfOrNull(name: String): T? =
         runCatching { enumValueOf<T>(name) }.getOrNull()
@@ -133,7 +141,10 @@ class LiftCatalogSeeder(
     companion object {
         const val ASSET_PATH = "lifts/seed-lifts.json"
 
-        /** Default lb tiers applied when a seed entry omits its own (OS-4 §2.2 example). */
+        /**
+         * Last-resort lb tiers when a lift has neither override nor equipment defaults
+         * (OS-4 §2.2 example). Not written to seed rows that inherit equipment.
+         */
         val DEFAULT_TIERS: List<IncrementTierSeedDto> = listOf(
             IncrementTierSeedDto(lowerBound = 0.0, upperBound = 40.0, increment = 2.5),
             IncrementTierSeedDto(lowerBound = 40.0, upperBound = 100.0, increment = 5.0),

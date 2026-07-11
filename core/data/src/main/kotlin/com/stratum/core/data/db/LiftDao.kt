@@ -8,6 +8,7 @@ import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.flow.Flow
 
@@ -112,7 +113,7 @@ interface LiftDao {
             muscleLengthBias = :muscleLengthBias,
             kinematicProfile = :kinematicProfile,
             loadType = :loadType,
-            equipment = :equipment,
+            equipmentId = :equipmentId,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
         WHERE id = :id AND isCustom = 1
@@ -124,7 +125,25 @@ interface LiftDao {
         muscleLengthBias: MuscleLengthBias,
         kinematicProfile: KinematicProfile,
         loadType: LoadType,
-        equipment: String?,
+        equipmentId: EquipmentId?,
+        updatedAtEpochMillis: Long,
+    )
+
+    /**
+     * Assign or clear equipment on catalog or custom lifts. Does not touch override tiers.
+     */
+    @Query(
+        """
+        UPDATE lifts
+        SET equipmentId = :equipmentId,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id
+        """,
+    )
+    suspend fun setEquipmentId(
+        id: LiftId,
+        equipmentId: EquipmentId?,
         updatedAtEpochMillis: Long,
     )
 

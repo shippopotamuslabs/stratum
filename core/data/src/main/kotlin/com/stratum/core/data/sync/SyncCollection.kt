@@ -14,6 +14,8 @@ enum class SyncCollection(
     OnboardingProgress("onboarding_progress"),
     GymPreference("gym_preference"),
     SpecializationPreference("specialization_preference"),
+    /** Parent of lift.equipmentId and equipment-owned increment tiers. */
+    Equipment("equipment"),
     Lifts("lifts"),
     IncrementTiers("increment_tiers"),
     Programs("programs"),
