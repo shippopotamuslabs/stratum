@@ -6,6 +6,7 @@ import com.stratum.domain.importing.CancelHistoricalImportUseCase
 import com.stratum.domain.importing.ExecuteHistoricalImportUseCase
 import com.stratum.domain.importing.HistoricalImportOrchestrationEvent
 import com.stratum.domain.importing.HistoricalImportResumeState
+import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
@@ -273,6 +274,8 @@ class OnboardingViewModel @Inject constructor(
                 it.copy(
                     importProgress = null,
                     importError = null,
+                    importUnsupportedFile = false,
+                    historicalImportMaxTimelineIndex = 0,
                     hasCompletedHistoricalImport = refresh.hasCompletedHistoricalImport,
                     importInsightsSummary = refresh.importInsightsSummary,
                 )
@@ -296,23 +299,41 @@ class OnboardingViewModel @Inject constructor(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
     ) {
-        ephemeral.update { it.copy(importError = null) }
+        ephemeral.update {
+            it.copy(
+                importError = null,
+                importUnsupportedFile = false,
+                historicalImportMaxTimelineIndex = 0,
+            )
+        }
         executeHistoricalImport(files = files, resume = resume).collect { event ->
             when (event) {
                 is HistoricalImportOrchestrationEvent.ValidationFailed ->
                     ephemeral.update {
                         it.copy(
                             importError = event.reason.toUserMessage(),
+                            importUnsupportedFile = false,
                             importProgress = ImportProgress(ImportProgressPhase.Failed).toUi(),
                         )
                     }
-                is HistoricalImportOrchestrationEvent.Progress ->
-                    ephemeral.update { it.copy(importProgress = event.progress.toUi()) }
+                is HistoricalImportOrchestrationEvent.Progress -> {
+                    val ui = event.progress.toUi()
+                    val index = ui.phase.historicalImportTimelineIndex()
+                    ephemeral.update {
+                        it.copy(
+                            importProgress = ui,
+                            historicalImportMaxTimelineIndex =
+                                maxOf(it.historicalImportMaxTimelineIndex, index),
+                        )
+                    }
+                }
                 is HistoricalImportOrchestrationEvent.Completed -> {
                     importResumeState.value = null
                     ephemeral.update {
                         it.copy(
                             importProgress = ImportProgress(ImportProgressPhase.Complete).toUi(),
+                            importUnsupportedFile = false,
+                            historicalImportMaxTimelineIndex = historicalImportTimelineSteps.size,
                             hasCompletedHistoricalImport = event.refresh.hasCompletedHistoricalImport,
                             importInsightsSummary = event.refresh.toEphemeralImportFields().importInsightsSummary,
                         )
@@ -321,10 +342,13 @@ class OnboardingViewModel @Inject constructor(
                 }
                 is HistoricalImportOrchestrationEvent.Failed -> {
                     importResumeState.value = event.resume
+                    val unsupported = event.kind == ImportFailureKind.UnsupportedFile
                     ephemeral.update {
                         it.copy(
                             importProgress = ImportProgress(ImportProgressPhase.Failed).toUi(),
-                            importError = event.message,
+                            // Unsupported files use fixed UI strings; never surface server diagnostics.
+                            importError = event.message.takeUnless { unsupported },
+                            importUnsupportedFile = unsupported,
                             hasCompletedHistoricalImport = event.refresh.hasCompletedHistoricalImport,
                             importInsightsSummary = event.refresh.toEphemeralImportFields().importInsightsSummary,
                         )
