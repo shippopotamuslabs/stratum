@@ -17,8 +17,8 @@ data class WorkoutHistoryCalendar(
      */
     val weekStreak: Int,
     /**
-     * Calendar days from the first completed-workout day through [today] (inclusive) that have
-     * no completed workout. Zero when there is no history.
+     * Local calendar days since the most recent completed workout (zero if that workout was
+     * today, or if there is no history). Not a lifetime / year-to-date rest total.
      */
     val restDaysCount: Int,
 )

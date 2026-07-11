@@ -88,7 +88,7 @@ class ObserveWorkoutHistoryCalendarUseCaseTest {
             )
         assertEquals(1, calendar.days.size)
         assertTrue(LocalDate.of(2025, 11, 3) !in calendar.days)
-        // Rest days: Nov 2 trained, 3-5 empty → 3 rest days
+        // Days since last workout (Nov 2) through today (Nov 5) → 3
         assertEquals(3, calendar.restDaysCount)
     }
 
@@ -141,11 +141,20 @@ class ObserveWorkoutHistoryCalendarUseCaseTest {
     }
 
     @Test
-    @DisplayName("Rest days count gaps from first workout through today")
-    fun restDaysCountGaps() {
+    @DisplayName("Rest days count days since most recent workout, not lifetime gaps")
+    fun restDaysCountSinceLastWorkout() {
         val today = LocalDate.of(2025, 11, 5)
+        // Workouts on Nov 1 and Nov 3; lifetime gaps would be 3 (2,4,5) — product wants 2 (4,5).
         val dates = setOf(LocalDate.of(2025, 11, 1), LocalDate.of(2025, 11, 3))
-        assertEquals(3, ObserveWorkoutHistoryCalendarUseCase.computeRestDays(dates, today))
+        assertEquals(2, ObserveWorkoutHistoryCalendarUseCase.computeRestDays(dates, today))
+    }
+
+    @Test
+    @DisplayName("Rest days is zero when last workout is today")
+    fun restDaysZeroWhenWorkedOutToday() {
+        val today = LocalDate.of(2025, 11, 5)
+        val dates = setOf(LocalDate.of(2025, 11, 1), today)
+        assertEquals(0, ObserveWorkoutHistoryCalendarUseCase.computeRestDays(dates, today))
     }
 
     @Test
