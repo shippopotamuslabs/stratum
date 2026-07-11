@@ -540,10 +540,11 @@ class PersistImportedHistoryUseCase @Inject constructor(
                 catalogStep = ImportCatalogProgressStep.SavingHistory,
             ),
         )
-        trainingLogRepository.replaceImportHistory(sessions, computation.updatedIncomingSets)
+        // Demote prior live PRs first — unique (liftId, isPersonalRecord) cannot hold two trues.
         if (computation.oldPrSetsToUpdate.isNotEmpty()) {
             trainingLogRepository.updateSets(computation.oldPrSetsToUpdate)
         }
+        trainingLogRepository.replaceImportHistory(sessions, computation.updatedIncomingSets)
         onProgress(
             ImportProgress(
                 phase = ImportProgressPhase.ExtractingInsights,
