@@ -116,6 +116,7 @@ fun GymScreen(
         },
     ) {
         FilterDropdownRow(
+            modifier = Modifier.padding(top = 8.dp),
             state = state,
             onFilterIntent = onFilterIntent,
             onMuscleFilterClick = { showMuscleSheet = true },
