@@ -49,11 +49,15 @@ import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
 import com.stratum.feature.workout.navigation.workoutCompleteEntry
 import com.stratum.liftconfig.CreateLiftKey
+import com.stratum.liftconfig.EquipmentIncrementsKey
 import com.stratum.liftconfig.LiftIncrementsKey
 import com.stratum.liftconfig.LiftInformationKey
+import com.stratum.liftconfig.ManageEquipmentKey
 import com.stratum.liftconfig.createLiftEntry
+import com.stratum.liftconfig.equipmentIncrementsEntry
 import com.stratum.liftconfig.liftIncrementsEntry
 import com.stratum.liftconfig.liftInformationEntry
+import com.stratum.liftconfig.manageEquipmentEntry
 
 @Composable
 fun StratumNavHost(
@@ -162,6 +166,9 @@ fun StratumNavHost(
                             onCreateNewLift = {
                                 backStack.add(CreateLiftKey)
                             },
+                            onManageEquipment = {
+                                backStack.add(ManageEquipmentKey(selectionMode = false))
+                            },
                             onNavigateToLiftIncrements = { liftId ->
                                 backStack.add(LiftIncrementsKey(liftId))
                             },
@@ -181,8 +188,25 @@ fun StratumNavHost(
                 )
             }
             liftIncrementsEntry(onBackClick = onNavigateBack)
-            liftInformationEntry(onBackClick = onNavigateBack)
-            createLiftEntry(onBackClick = onNavigateBack)
+            liftInformationEntry(
+                onBackClick = onNavigateBack,
+                onChooseEquipment = {
+                    backStack.add(ManageEquipmentKey(selectionMode = true))
+                },
+            )
+            createLiftEntry(
+                onBackClick = onNavigateBack,
+                onChooseEquipment = {
+                    backStack.add(ManageEquipmentKey(selectionMode = true))
+                },
+            )
+            manageEquipmentEntry(
+                onBackClick = onNavigateBack,
+                onOpenIncrements = { equipmentId ->
+                    backStack.add(EquipmentIncrementsKey(equipmentId))
+                },
+            )
+            equipmentIncrementsEntry(onBackClick = onNavigateBack)
             settingsEntry(
                 onBackClick = onNavigateBack,
                 onNavigateToLegal = { backStack.add(LegalKey) },

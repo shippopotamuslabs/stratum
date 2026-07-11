@@ -2,6 +2,7 @@ package com.stratum.domain.lift
 
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.test.runTest
@@ -14,11 +15,13 @@ import org.junit.jupiter.api.Test
 class UpdateCustomLiftDetailsUseCaseTest {
 
     private val liftId = LiftId("my-cable-fly")
+    private val cableId = EquipmentId("cable")
 
     @Test
     @DisplayName("Given custom lift when details updated then repository reflects them")
     fun updatesCustomDetails() = runTest {
         val repo = FakeLiftRepository(listOf(sampleLift(isCustom = true)))
+        repo.equipmentNamesById = mapOf(cableId to "Cables")
         val useCase = UpdateCustomLiftDetailsUseCase(repo, FakeLoggingPort())
 
         val result =
@@ -30,7 +33,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
                         muscleLengthBias = MuscleLengthBias.Lengthened,
                         kinematicProfile = KinematicProfile.Isolation,
                         loadType = LoadType.Weighted,
-                        equipment = "  cable  ",
+                        equipmentId = cableId,
                     ),
             )
 
@@ -38,7 +41,8 @@ class UpdateCustomLiftDetailsUseCaseTest {
         val lift = repo.currentLifts.single()
         assertEquals(setOf(MovementPattern.ShoulderAdduction), lift.movementPatterns)
         assertEquals(MuscleLengthBias.Lengthened, lift.muscleLengthBias)
-        assertEquals("cable", lift.equipment)
+        assertEquals(cableId, lift.equipmentId)
+        assertEquals("Cables", lift.equipmentName)
     }
 
     @Test
@@ -56,14 +60,14 @@ class UpdateCustomLiftDetailsUseCaseTest {
                         muscleLengthBias = MuscleLengthBias.Shortened,
                         kinematicProfile = KinematicProfile.AxialCompound,
                         loadType = LoadType.Bodyweight,
-                        equipment = "barbell",
+                        equipmentId = EquipmentId("double-weight-plates"),
                     ),
             )
 
         assertTrue(result.isFailure)
         val lift = repo.currentLifts.single()
         assertEquals(setOf(MovementPattern.HorizontalPress), lift.movementPatterns)
-        assertNull(lift.equipment)
+        assertNull(lift.equipmentId)
     }
 
     @Test
@@ -81,7 +85,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
                         muscleLengthBias = MuscleLengthBias.MidRange,
                         kinematicProfile = KinematicProfile.Isolation,
                         loadType = LoadType.Weighted,
-                        equipment = null,
+                        equipmentId = null,
                     ),
             )
 

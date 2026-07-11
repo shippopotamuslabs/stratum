@@ -1,5 +1,6 @@
 package com.stratum.domain.identity
 
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -39,6 +40,18 @@ class SyncReadyIdsTest {
         assertEquals("leg-press_2.5", IncrementTierId.forBand(lift, 2.5).value)
         // Binary noise near 2.5 still maps to the same fixed-point id.
         assertEquals("leg-press_2.5", IncrementTierId.forBand(lift, 2.5000000000000004).value)
+    }
+
+    @Test
+    fun `equipment increment tier id is deterministic and namespaced`() {
+        val equipment = EquipmentId("dumbbell")
+        val id = IncrementTierId.forEquipmentBand(equipment, 0.0)
+        assertEquals("e_dumbbell_0", id.value)
+        assertEquals(id, IncrementTierId.forEquipmentBand(equipment, 0.0))
+        assertEquals(
+            "e_cable_5",
+            IncrementTierId.forEquipmentBand(EquipmentId("cable"), 5.0).value,
+        )
     }
 
     @Test

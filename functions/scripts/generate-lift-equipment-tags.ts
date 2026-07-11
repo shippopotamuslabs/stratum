@@ -27,7 +27,7 @@ import {
 } from "../src/openrouterRouting";
 
 const GYM_EQUIPMENT = [
-  "Barbell", "Dumbbell", "EzBar", "Kettlebell", "Band", "Bodyweight",
+  "Barbell", "FixedBarbell", "Dumbbell", "EzBar", "Kettlebell", "Band", "Bodyweight",
   "FlatBench", "AdjustableBench", "PowerRack",
   "SmithMachine", "CableStation", "CableCrossover", "LatPulldownMachine",
   "SeatedCableRowStation", "TBarRowStation", "LegPress", "HackSquat",
@@ -59,9 +59,15 @@ const KEYWORD_RULES: Array<{ re: RegExp; equipment: string[] }> = [
   { re: /\bglute ham raise|\bghr\b|\bghd\b/i, equipment: ["Ghd"] },
   { re: /\b captain'?s chair|leg raise\b/i, equipment: ["LegRaiseCaptainChair"] },
   { re: /\bab crunch\b/i, equipment: ["AbCrunchMachine"] },
-  { re: /\bt-?bar row\b/i, equipment: ["TBarRowStation"] },
+  // T-bar before generic "bar" so plate-loaded T stations are not tagged Cable/Barbell only.
+  { re: /\bt-?bar\b/i, equipment: ["TBarRowStation"] },
+  { re: /\blandmine\b/i, equipment: ["Barbell"] },
+  // Upright rows on a free-weight bar are usually fixed preloaded bars (+10), not plate sleeves.
+  // Bent-over barbell rows stay Barbell → double plates via the generic barbell rule.
+  { re: /\bupright\b.*\b(?:barbell|bar)\b.*\brow|\b(?:barbell|bar)\b.*\bupright\b.*\brow/i, equipment: ["FixedBarbell"] },
   { re: /\bseated cable row\b/i, equipment: ["CableStation", "SeatedCableRowStation"] },
   { re: /\bdumbbell\b/i, equipment: ["Dumbbell"] },
+  { re: /\bfixed[- ]?(?:weight[- ]?)?bar(?:bell)?\b/i, equipment: ["FixedBarbell"] },
   { re: /\b(?:barbell|bar)\b/i, equipment: ["Barbell"] },
   { re: /\bez[- ]?bar|ez curl\b/i, equipment: ["EzBar"] },
   { re: /\bkettlebell\b/i, equipment: ["Kettlebell"] },

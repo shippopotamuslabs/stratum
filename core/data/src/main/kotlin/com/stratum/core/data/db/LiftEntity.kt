@@ -2,11 +2,14 @@ package com.stratum.core.data.db
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 
 /**
@@ -14,29 +17,30 @@ import com.stratum.domain.lift.identity.LiftId
  * `src/main/assets/lifts/seed-lifts.json`) and user-created lifts share this table,
  * distinguished by [isCustom].
  *
- * Schema authorized for OS-4 (docs/onboarding-vertical-slices.md §OS-4; AGENTS.md §4.5
- * Schema Lock). [id] is a typed [LiftId] value class — stored as its String `.value` via
- * `EnumConverters`, but kept typed at the Kotlin/DAO level so a `LiftId`
- * can't be assigned to another aggregate's id (the pocket-crew identity pattern).
+ * Availability lives on this row as [enabled]. Increment tiers may live as lift-scoped override
+ * rows in [IncrementTierEntity]; when none exist, effective tiers resolve from the linked
+ * [equipmentId]'s equipment-owned tiers (or a global fallback).
  *
- * Availability lives on this row as [enabled] (no separate flag table — AGENTS.md §4.5: no
- * new tables for transient state; availability is a durable fact about the user's catalog).
- * Increment tiers live in a child [IncrementTierEntity] (no JSON blob — point 1 of the OS-4
- * entity review). [movementPatternsBitmask]/[primaryMusclesBitmask]/[secondaryMusclesBitmask]
- * are integer bitmasks (`1 shl Enum.ordinal`) so the set can be filtered in SQL with a bitwise
- * AND (`movementPatternsBitmask & :bit != 0`); the muscle/pattern set decoding happens in the
- * mapper. [presetTags] is a delimiter-bounded CSV of `GymPreset.name` (also filtered via LIKE).
- * [equipment] is a nullable display string (e.g. "Hammer Strength") — display copy only, not
- * an equipment entity graph (§2.1 lift-first catalog). Increment tier amounts are stored in lb
- * (v1 schema); the mapper re-wraps them with [Weight.WeightUnit.Lb] until a post-release
- * schema adds per-lift unit persistence. [loadType] classifies the loading modality
- * (Weighted / Bodyweight / Assisted) so the progression engine and UI can branch; stored as
- * the enum `.name` via `EnumConverters`. Defaults to [LoadType.Weighted].
- * [defaultRestSeconds] is an optional per-lift rest override (seconds) for new sets when the
- * lift is added/swapped into a workout; null falls back to compound/isolation defaults in
- * domain. v1 reinstall, no migration (AGENTS.md §4.5).
+ * [equipmentId] is a nullable FK to [EquipmentEntity] for shared default increments and display
+ * name. Import-time [com.stratum.domain.importing.GymEquipment] tags remain asset-only and are
+ * not this column.
+ *
+ * v1 reinstall, no migration (AGENTS.md §4.5).
  */
-@Entity(tableName = "lifts")
+@Entity(
+    tableName = "lifts",
+    foreignKeys = [
+        ForeignKey(
+            entity = EquipmentEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["equipmentId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+    ],
+    indices = [
+        Index("equipmentId"),
+    ],
+)
 data class LiftEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: LiftId,
     val name: String,
@@ -44,7 +48,7 @@ data class LiftEntity(
     val primaryMusclesBitmask: Int,
     val secondaryMusclesBitmask: Int,
     val presetTags: String,
-    val equipment: String? = null,
+    @ColumnInfo(name = "equipmentId") val equipmentId: EquipmentId? = null,
     val isCustom: Boolean,
     val enabled: Boolean,
     val description: String? = null,

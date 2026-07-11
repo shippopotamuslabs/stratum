@@ -85,7 +85,6 @@ data class LiftDetailsEditorState(
     val kinematicOptions: List<LiftDetailOptionUi> = emptyList(),
     val loadTypeOptions: List<LiftDetailOptionUi> = emptyList(),
     val movementPatternOptions: List<LiftDetailOptionUi> = emptyList(),
-    val equipmentDraft: String = "",
     val restDraftSeconds: Int = 120,
 )
 
@@ -102,8 +101,10 @@ data class LiftDetailsEditorActions(
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
-    val onEquipmentDraftChange: (String) -> Unit,
-    val onSaveEquipment: () -> Unit,
+    /** Clear equipment FK (None). */
+    val onClearEquipment: () -> Unit,
+    /** Navigate to full Choose Equipment screen. */
+    val onChooseEquipment: () -> Unit,
     val onRestDraftChange: (Int) -> Unit,
     val onSaveDefaultRest: () -> Unit,
 )
@@ -183,12 +184,10 @@ fun LiftDetailsEditor(
                 onConfirm = actions.onConfirmMovementPatterns,
             )
         LiftDetailEditField.Equipment ->
-            EquipmentDetailSheet(
-                title = stringResource(UiR.string.lift_info_equipment),
-                value = state.equipmentDraft,
-                onValueChange = actions.onEquipmentDraftChange,
+            EquipmentActionSheet(
                 onDismiss = actions.onDismissDetailEditor,
-                onSave = actions.onSaveEquipment,
+                onNone = actions.onClearEquipment,
+                onChooseEquipment = actions.onChooseEquipment,
             )
         LiftDetailEditField.DefaultRest ->
             DefaultRestBottomSheet(
@@ -257,15 +256,15 @@ private fun LiftDetailsEditorContent(
                     editField = null,
                 ),
             )
-            if (canEdit || !state.equipment.isNullOrBlank()) {
-                add(
-                    DetailSpec(
-                        label = stringResource(UiR.string.lift_info_equipment),
-                        value = state.equipment?.ifBlank { null } ?: "—",
-                        editField = LiftDetailEditField.Equipment,
-                    ),
-                )
-            }
+            add(
+                DetailSpec(
+                    label = stringResource(UiR.string.lift_info_equipment),
+                    value = state.equipment?.ifBlank { null } ?: "—",
+                    editField = LiftDetailEditField.Equipment,
+                    // Catalog and custom lifts may reassign equipment for shared increments.
+                    alwaysEditable = true,
+                ),
+            )
             add(
                 DetailSpec(
                     label = stringResource(UiR.string.lift_info_default_rest),
@@ -500,26 +499,65 @@ private fun MultiSelectDetailSheet(
     }
 }
 
+/**
+ * Two-option sheet: clear equipment, or navigate to full Manage Equipment (selection mode).
+ */
 @Composable
-private fun EquipmentDetailSheet(
-    title: String,
-    value: String,
-    onValueChange: (String) -> Unit,
+private fun EquipmentActionSheet(
     onDismiss: () -> Unit,
-    onSave: () -> Unit,
+    onNone: () -> Unit,
+    onChooseEquipment: () -> Unit,
 ) {
-    StratumBottomSheet(onDismissRequest = onDismiss, title = title) {
-        StratumTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = title,
-            placeholder = stringResource(UiR.string.lift_info_equipment_placeholder),
-        )
-        StratumButton(
-            text = stringResource(UiR.string.lift_info_save_equipment),
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(UiR.string.lift_info_equipment),
+    ) {
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            onClick = onSave,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            EquipmentActionRow(
+                label = stringResource(UiR.string.lift_info_equipment_none),
+                showChevron = false,
+                onClick = onNone,
+            )
+            EquipmentActionRow(
+                label = stringResource(UiR.string.lift_info_equipment_choose),
+                showChevron = true,
+                onClick = onChooseEquipment,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EquipmentActionRow(
+    label: String,
+    showChevron: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumText(
+            text = label,
+            style = StratumThemeAccessor.typography.titleMedium,
+            modifier = Modifier.weight(1f),
         )
+        if (showChevron) {
+            Icon(
+                painter = painterResource(UiR.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = colors.textMuted,
+            )
+        }
     }
 }
 

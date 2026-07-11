@@ -1,5 +1,6 @@
 package com.stratum.core.data.sync.codecs
 
+import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
@@ -52,6 +53,12 @@ class SyncEntityEncoders @Inject constructor() {
             "level" to e.level.name,
         )
 
+    fun equipment(e: EquipmentEntity): Map<String, Any?> =
+        mapOf(
+            "name" to e.name,
+            "is_custom" to e.isCustom,
+        )
+
     fun lift(e: LiftEntity): Map<String, Any?> =
         mapOf(
             "name" to e.name,
@@ -59,7 +66,7 @@ class SyncEntityEncoders @Inject constructor() {
             "primary_muscles" to e.primaryMusclesBitmask.toMuscleSet().map { it.name },
             "secondary_muscles" to e.secondaryMusclesBitmask.toMuscleSet().map { it.name },
             "preset_tags" to e.presetTags.toPresetSet().map { it.name },
-            "equipment" to e.equipment,
+            "equipment_id" to e.equipmentId?.value,
             "is_custom" to e.isCustom,
             "enabled" to e.enabled,
             "description" to e.description,
@@ -73,7 +80,8 @@ class SyncEntityEncoders @Inject constructor() {
 
     fun incrementTier(e: IncrementTierEntity): Map<String, Any?> =
         mapOf(
-            "lift_id" to e.liftId.value,
+            "lift_id" to e.liftId?.value,
+            "equipment_id" to e.equipmentId?.value,
             "lower_bound" to e.lowerBound,
             "upper_bound" to e.upperBound,
             "increment" to e.increment,

@@ -6,9 +6,9 @@ import com.stratum.domain.logging.runCatchingLogged
 import javax.inject.Inject
 
 /**
- * Validates then persists a lift's increment-tier bands. Used by the Gym lift-config
- * Increments screen. Empty tiers are allowed (Valid) and clear stored bands so progression
- * and program gen fall back to defaults.
+ * Validates then persists a lift's **override** increment-tier bands. Used by the Gym
+ * lift-config Increments screen. Empty tiers are allowed (Valid) and clear the lift-scoped
+ * override so the lift re-inherits equipment defaults (or global fallback).
  */
 class SetLiftIncrementTiersUseCase @Inject constructor(
     private val repository: LiftRepository,

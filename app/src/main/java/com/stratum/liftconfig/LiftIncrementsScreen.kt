@@ -63,6 +63,7 @@ fun LiftIncrementsRoute(
         onAddTier = viewModel::addTier,
         onRemoveTier = viewModel::removeTier,
         onSave = viewModel::save,
+        onResetToEquipment = viewModel::resetToEquipmentDefaults,
     )
 }
 
@@ -77,6 +78,7 @@ fun LiftIncrementsScreen(
     onAddTier: () -> Unit,
     onRemoveTier: (Int) -> Unit,
     onSave: () -> Unit,
+    onResetToEquipment: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     StratumScaffold(
@@ -107,6 +109,17 @@ fun LiftIncrementsScreen(
             ) {
                 item {
                     IncrementsHelpCard()
+                }
+                if (state.inheritanceBanner != null) {
+                    item {
+                        InheritanceBanner(message = state.inheritanceBanner)
+                    }
+                } else if (state.showResetToEquipment) {
+                    item {
+                        InheritanceBanner(
+                            message = stringResource(UiR.string.lift_increments_override_banner),
+                        )
+                    }
                 }
                 if (state.validationMessage != null) {
                     item {
@@ -139,6 +152,14 @@ fun LiftIncrementsScreen(
                     onClick = onAddTier,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (state.showResetToEquipment) {
+                    StratumOutlinedButton(
+                        text = stringResource(UiR.string.lift_increments_reset_to_equipment),
+                        onClick = onResetToEquipment,
+                        enabled = !state.isSaving,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 StratumButton(
                     text = stringResource(UiR.string.lift_increments_save),
                     onClick = onSave,
@@ -148,6 +169,27 @@ fun LiftIncrementsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun InheritanceBanner(message: String) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    StratumText(
+        text = message,
+        style = StratumThemeAccessor.typography.sectionLabel,
+        muted = true,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(
+                    width = shapes.borderWidth,
+                    color = colors.accent,
+                    shape = shapes.panel,
+                )
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+    )
 }
 
 @Composable

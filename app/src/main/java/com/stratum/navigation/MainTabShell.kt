@@ -51,6 +51,7 @@ data class MainTabShellCallbacks(
     val onNavigateToSettings: () -> Unit = {},
     val onNavigateToHistory: () -> Unit = {},
     val onCreateNewLift: () -> Unit = {},
+    val onManageEquipment: () -> Unit = {},
     val onNavigateToLiftIncrements: (liftId: String) -> Unit = {},
     val onNavigateToLiftInformation: (liftId: String) -> Unit = {},
     val onCreateProgramClick: () -> Unit = {},
@@ -123,6 +124,7 @@ fun MainTabShell(
                 MainTab.Gym ->
                     GymScreen(
                         onCreateNewLift = callbacks.onCreateNewLift,
+                        onManageEquipment = callbacks.onManageEquipment,
                         onNavigateToIncrements = callbacks.onNavigateToLiftIncrements,
                         onNavigateToInformation = callbacks.onNavigateToLiftInformation,
                     )

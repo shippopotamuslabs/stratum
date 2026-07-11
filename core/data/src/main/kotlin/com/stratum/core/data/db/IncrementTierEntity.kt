@@ -6,15 +6,18 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.stratum.core.data.sync.SyncFlags
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
 
 /**
- * One weight-banded increment tier for a lift (OS-4 §2.2).
+ * One weight-banded increment tier for either a lift override or equipment defaults.
  *
- * [id] is a deterministic [IncrementTierId] (`{liftId}_{lowerBound}`) suitable as a Firestore
- * document id. Unique index on `(liftId, lowerBound)` preserves the previous composite-key
- * invariant.
+ * Exactly one of [liftId] / [equipmentId] must be non-null (enforced in the repository layer).
+ * Lift-owned rows are per-lift overrides; equipment-owned rows are shared defaults.
+ *
+ * [id] is deterministic: [IncrementTierId.forBand] for lifts,
+ * [IncrementTierId.forEquipmentBand] for equipment.
  */
 @Entity(
     tableName = "increment_tiers",
@@ -25,15 +28,24 @@ import com.stratum.domain.lift.identity.LiftId
             childColumns = ["liftId"],
             onDelete = ForeignKey.CASCADE,
         ),
+        ForeignKey(
+            entity = EquipmentEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["equipmentId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
     indices = [
         Index("liftId"),
+        Index("equipmentId"),
         Index(value = ["liftId", "lowerBound"], unique = true),
+        Index(value = ["equipmentId", "lowerBound"], unique = true),
     ],
 )
 data class IncrementTierEntity(
     @PrimaryKey val id: IncrementTierId,
-    @ColumnInfo(name = "liftId") val liftId: LiftId,
+    @ColumnInfo(name = "liftId") val liftId: LiftId? = null,
+    @ColumnInfo(name = "equipmentId") val equipmentId: EquipmentId? = null,
     val lowerBound: Double,
     val upperBound: Double?,
     val increment: Double,

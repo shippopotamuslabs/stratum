@@ -34,6 +34,7 @@ class SyncHandlerRegistryTest {
                 onboardingDao = db.onboardingProgressDao(),
                 gymDao = db.gymPreferenceDao(),
                 specializationDao = db.specializationPreferenceDao(),
+                equipmentDao = db.equipmentDao(),
                 liftDao = db.liftDao(),
                 incrementTierDao = db.incrementTierDao(),
                 programDao = db.programDao(),
@@ -55,6 +56,7 @@ class SyncHandlerRegistryTest {
         assertEquals(SyncCollection.HYDRATE_ORDER, ordered.map { it.collection })
         assertTrue(ordered.map { it.collection }.toSet() == SyncCollection.entries.toSet())
         fun index(c: SyncCollection) = ordered.indexOfFirst { it.collection == c }
+        assertTrue(index(SyncCollection.Equipment) < index(SyncCollection.Lifts))
         assertTrue(index(SyncCollection.Lifts) < index(SyncCollection.IncrementTiers))
         assertTrue(index(SyncCollection.Programs) < index(SyncCollection.Workouts))
         assertTrue(index(SyncCollection.TrainingSessions) < index(SyncCollection.LoggedSets))

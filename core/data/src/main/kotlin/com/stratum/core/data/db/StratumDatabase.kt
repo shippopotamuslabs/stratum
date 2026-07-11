@@ -9,6 +9,7 @@ import androidx.room.TypeConverters
         OnboardingProgressEntity::class,
         UserProfileEntity::class,
         SpecializationPreferenceEntity::class,
+        EquipmentEntity::class,
         LiftEntity::class,
         IncrementTierEntity::class,
         GymPreferenceEntity::class,
@@ -48,6 +49,8 @@ abstract class StratumDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao
 
     abstract fun specializationPreferenceDao(): SpecializationPreferenceDao
+
+    abstract fun equipmentDao(): EquipmentDao
 
     abstract fun liftDao(): LiftDao
 

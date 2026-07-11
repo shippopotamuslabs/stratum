@@ -63,7 +63,7 @@ class ResolveImportLiftsUseCaseTest {
         assertEquals("Katana Triceps Extension", custom.name)
         assertEquals(MovementPattern.ElbowExtension, custom.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Tricep), custom.primaryMuscles)
-        assertEquals("cable", custom.equipment)
+        assertEquals("cable", custom.equipmentName)
         assertEquals(1, inference.invocations.single().size)
     }
 

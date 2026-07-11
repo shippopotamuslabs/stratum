@@ -4,6 +4,25 @@
     <string name="lift_swap_title">Swapping %1$s</string>
     <string name="lift_add_title">Add Lift</string>
     <string name="lift_swap_create_new_lift">Create New Lift</string>
+    <string name="gym_more_actions">More gym actions</string>
+    <string name="gym_manage_equipment">Manage Equipment</string>
+    <string name="gym_actions_title">Gym</string>
+    <string name="manage_equipment_title">Equipment</string>
+    <string name="manage_equipment_help">Weight steps are shared by equipment type. Change Cables once and every cable lift uses those steps. Need different steps for one lift? Open that lift and set them under Details.</string>
+    <string name="manage_equipment_add">Add equipment</string>
+    <string name="manage_equipment_name_placeholder">Equipment name</string>
+    <string name="manage_equipment_create">Create</string>
+    <string name="manage_equipment_empty">No equipment yet</string>
+    <!-- Closed band: lower–upper: step  e.g. 0–50: 5 -->
+    <string name="manage_equipment_tier_chip_range">%1$s–%2$s: %3$s</string>
+    <!-- Open-ended band: lower+: step  e.g. 100+: 10 -->
+    <string name="manage_equipment_tier_chip_open">%1$s+: %2$s</string>
+    <string name="manage_equipment_open_increments">Edit increments</string>
+    <string name="equipment_increments_title">Equipment increments</string>
+    <string name="lift_increments_using_equipment">Using defaults from %1$s. Save to override for this lift only.</string>
+    <string name="lift_increments_using_fallback">No equipment defaults — these are global fallback bands. Save to override for this lift only.</string>
+    <string name="lift_increments_override_banner">Custom override for this lift</string>
+    <string name="lift_increments_reset_to_equipment">Reset to equipment defaults</string>
     <string name="lift_swap_reset_filters_content_description">Clear all filters</string>
     <string name="lift_swap_filter_bias">Bias</string>
     <string name="lift_swap_filter_lift_type">Lift Type</string>
@@ -138,6 +157,11 @@
     <string name="lift_info_equipment">Equipment</string>
     <string name="lift_info_equipment_placeholder">e.g. Cable, Dumbbell</string>
     <string name="lift_info_save_equipment">Save equipment</string>
+    <string name="lift_info_equipment_none">None</string>
+    <string name="lift_info_equipment_choose">Choose Equipment</string>
+    <string name="manage_equipment_choose_title">Choose Equipment</string>
+    <string name="manage_equipment_use">Use this equipment</string>
+    <string name="manage_equipment_edit_increments">Edit increments</string>
     <string name="lift_info_save_patterns">Save patterns</string>
     <string name="lift_info_selected_marker">Selected</string>
     <string name="lift_info_category">Category</string>
