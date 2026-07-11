@@ -1,5 +1,10 @@
 package com.stratum.navigation
 
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -95,6 +100,11 @@ fun StratumNavHost(
     NavDisplay(
         backStack = backStack,
         onBack = onNavigateBack,
+        // Match forward/pop fade for predictive back. Library default predictive pop uses
+        // scaleOut(0.7f), which shrinks the outgoing screen into a rectangle on gesture back.
+        transitionSpec = { stratumNavFadeTransform() },
+        popTransitionSpec = { stratumNavFadeTransform() },
+        predictivePopTransitionSpec = { stratumNavFadeTransform() },
         // Scope ViewModels (and saveable state) to each NavEntry. Without the ViewModelStore
         // decorator, hiltViewModel() resolves to the Activity and CreateProgram retains
         // showDiscardConfirm / entryConfigured across visits — discard sheet on library edit open.
@@ -262,3 +272,10 @@ fun StratumNavHost(
         },
     )
 }
+
+/** Matches navigation3 default forward/pop duration; fade only (no predictive scale-out). */
+private fun stratumNavFadeTransform(): ContentTransform =
+    fadeIn(animationSpec = tween(STRATUM_NAV_TRANSITION_MS)) togetherWith
+        fadeOut(animationSpec = tween(STRATUM_NAV_TRANSITION_MS))
+
+private const val STRATUM_NAV_TRANSITION_MS = 700
