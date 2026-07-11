@@ -10,8 +10,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -26,19 +28,28 @@ import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumTextButton
+import com.stratum.core.ui.component.workoutlog.LocalSetLogKeyboardHost
+import com.stratum.core.ui.component.workoutlog.ProvideSetLogKeyboardHost
+import com.stratum.core.ui.component.workoutlog.SetLogKeyboardRevealScroller
 import com.stratum.core.ui.component.workoutlog.StratumWorkoutLogLiftPanel
 import com.stratum.core.ui.component.workoutlog.WorkoutLogLiftUi
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
+import kotlinx.coroutines.android.awaitFrame
 
 internal val LiftListSpacing = 16.dp
 private const val DEFAULT_ESTIMATED_LIFT_HEIGHT_PX = 420
+/** Extra gap kept between focused cell bottom and keyboard top when revealing. */
+private val KeyboardRevealMargin = 8.dp
 
 /**
  * Scrollable lift panels + discard. Bottom [contentPadding] is sized so max scroll pins the
  * last lift under the navigator — only the shortfall after last-lift + gap + discard.
+ *
+ * When the set-log keyboard is open, dock height is **added** to contentPadding (pin padding
+ * stays stable) so low fields can scroll above the overlay without jumping on dismiss.
  */
 @Composable
 internal fun WorkoutLiftList(
@@ -69,6 +80,7 @@ internal fun WorkoutLiftList(
             .firstOrNull { it.key == "discard" }
             ?.size
             ?: discardHeightPx
+    // Pin padding always uses the full list viewport (keyboard overlays; does not shrink it).
     val bottomPinPaddingPx =
         bottomPinSpacerHeightPx(
             viewportHeightPx = viewportHeightPx,
@@ -77,40 +89,94 @@ internal fun WorkoutLiftList(
             listSpacingPx = listSpacingPx,
         )
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier,
-        contentPadding =
-            PaddingValues(bottom = with(density) { bottomPinPaddingPx.toDp() }),
-        verticalArrangement = Arrangement.spacedBy(LiftListSpacing),
-    ) {
-        itemsIndexed(lifts, key = { _, lift -> lift.workoutLiftId }) { _, lift ->
-            LiveLiftSection(
-                lift = lift,
-                onLogSet = onLogSet,
-                onUnlogSet = onUnlogSet,
-                onAddSet = { onAddSet(lift.workoutLiftId) },
-                onDeleteSet = onDeleteSet,
-                onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
-                modifier =
-                    Modifier.onSizeChanged { size ->
-                        liftHeightsPx[lift.workoutLiftId] = size.height
-                    },
-            )
+    ProvideSetLogKeyboardHost(modifier = modifier) { listModifier ->
+        val keyboardHost = LocalSetLogKeyboardHost.current
+        val dockHeightDp = keyboardHost?.dockHeightDp ?: 0.dp
+        val revealMarginPx = with(density) { KeyboardRevealMargin.toPx() }
+        val dockHeightPx = with(density) { dockHeightDp.toPx() }
+        // Preserve scroll anchor across keyboard close (contentPadding shrink clamps otherwise).
+        var previousDockHeightPx by remember { mutableFloatStateOf(0f) }
+        var anchorIndex by remember { mutableIntStateOf(0) }
+        var anchorOffset by remember { mutableIntStateOf(0) }
+
+        // While keyboard is open and idle, remember where the list is scrolled.
+        LaunchedEffect(dockHeightPx, listState.isScrollInProgress) {
+            if (dockHeightPx > 0f && !listState.isScrollInProgress) {
+                anchorIndex = listState.firstVisibleItemIndex
+                anchorOffset = listState.firstVisibleItemScrollOffset
+            }
         }
 
-        item(key = "discard") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onSizeChanged { discardHeightPx = it.height },
-                contentAlignment = Alignment.Center,
-            ) {
-                StratumTextButton(
-                    text = "Discard Workout",
-                    onClick = onDiscardClick,
-                    contentColor = StratumThemeAccessor.colors.error,
+        LaunchedEffect(dockHeightPx) {
+            val prev = previousDockHeightPx
+            if (prev > 0f && dockHeightPx == 0f) {
+                // Keyboard just closed — restore pre-close (or last idle) anchor after padding settles.
+                awaitFrame()
+                listState.scrollToItem(anchorIndex, anchorOffset)
+            }
+            previousDockHeightPx = dockHeightPx
+        }
+
+        DisposableEffect(listState, keyboardHost, revealMarginPx) {
+            if (keyboardHost == null) {
+                return@DisposableEffect onDispose { }
+            }
+            keyboardHost.revealScroller =
+                SetLogKeyboardRevealScroller { cellBounds ->
+                    // Let contentPadding for the dock settle before measuring overflow.
+                    awaitFrame()
+                    val dockTop = keyboardHost.dockTopInWindow
+                    if (!dockTop.isFinite()) return@SetLogKeyboardRevealScroller
+                    val overflow = cellBounds.bottom + revealMarginPx - dockTop
+                    if (overflow > 1f) {
+                        listState.animateScrollBy(overflow)
+                    }
+                    // Update anchor after reveal so dismiss restores this position.
+                    anchorIndex = listState.firstVisibleItemIndex
+                    anchorOffset = listState.firstVisibleItemScrollOffset
+                }
+            onDispose {
+                keyboardHost.revealScroller = null
+            }
+        }
+
+        // Stable pin + keyboard dock as extra scroll room (overlay covers the dock zone).
+        val bottomContentPadding = with(density) { bottomPinPaddingPx.toDp() } + dockHeightDp
+
+        LazyColumn(
+            state = listState,
+            modifier = listModifier,
+            contentPadding = PaddingValues(bottom = bottomContentPadding),
+            verticalArrangement = Arrangement.spacedBy(LiftListSpacing),
+        ) {
+            itemsIndexed(lifts, key = { _, lift -> lift.workoutLiftId }) { _, lift ->
+                LiveLiftSection(
+                    lift = lift,
+                    onLogSet = onLogSet,
+                    onUnlogSet = onUnlogSet,
+                    onAddSet = { onAddSet(lift.workoutLiftId) },
+                    onDeleteSet = onDeleteSet,
+                    onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
+                    modifier =
+                        Modifier.onSizeChanged { size ->
+                            liftHeightsPx[lift.workoutLiftId] = size.height
+                        },
                 )
+            }
+
+            item(key = "discard") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onSizeChanged { discardHeightPx = it.height },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    StratumTextButton(
+                        text = "Discard Workout",
+                        onClick = onDiscardClick,
+                        contentColor = StratumThemeAccessor.colors.error,
+                    )
+                }
             }
         }
     }

@@ -97,23 +97,40 @@ private fun RirTargetPickerContent(
         RirSheetTitleRow(
             onInfoClick = onInfoClick,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RIR_TARGET_OPTIONS.forEach { option ->
-                val isSelected = selectedRirGoal == option.value
-                RirSheetOption(
-                    label = option.label,
-                    rirGoal = option.value,
-                    isSelected = isSelected,
-                    onClick = {
-                        onRirSelected(option.value)
-                        onDismiss()
-                    },
-                )
-            }
+        RirTargetOptionRow(
+            selectedRirGoal = selectedRirGoal,
+            onRirSelected = { rir ->
+                onRirSelected(rir)
+                onDismiss()
+            },
+        )
+    }
+}
+
+/**
+ * Horizontal row of RIR chips (0–5, 6+). Selected chip draws a textPrimary ring.
+ * Used by the standalone RIR sheet and the set-log keyboard.
+ */
+@Composable
+fun RirTargetOptionRow(
+    selectedRirGoal: Int,
+    onRirSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    chipSize: Dp = RirOptionDefaultSize,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RIR_TARGET_OPTIONS.forEach { option ->
+            RirSheetOption(
+                label = option.label,
+                rirGoal = option.value,
+                isSelected = selectedRirGoal == option.value,
+                onClick = { onRirSelected(option.value) },
+                size = chipSize,
+            )
         }
     }
 }
@@ -192,13 +209,26 @@ private fun RirSheetOption(
     rirGoal: Int,
     isSelected: Boolean,
     onClick: () -> Unit,
+    size: Dp = RirOptionDefaultSize,
 ) {
     val background = StratumRirTargetColors.backgroundFor(rirGoal)
     val contentColor = StratumRirTargetColors.contentColor
+    val labelStyle =
+        if (size < RirOptionDefaultSize) {
+            StratumThemeAccessor.typography.sectionLabel.copy(
+                color = contentColor,
+                fontSize = CompactRirBadgeFontSize,
+                lineHeight = CompactRirBadgeLineHeight,
+            )
+        } else {
+            StratumThemeAccessor.typography.sectionLabel.copy(
+                color = contentColor,
+            )
+        }
     Box(
         modifier =
             Modifier
-                .size(40.dp)
+                .size(size)
                 .clip(CircleShape)
                 .background(background)
                 .then(
@@ -217,13 +247,12 @@ private fun RirSheetOption(
     ) {
         StratumNumber(
             text = label,
-            style =
-                StratumThemeAccessor.typography.sectionLabel.copy(
-                    color = contentColor,
-                ),
+            style = labelStyle,
         )
     }
 }
+
+private val RirOptionDefaultSize = 40.dp
 
 @Composable
 fun RirTargetBadge(
