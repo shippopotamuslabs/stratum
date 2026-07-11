@@ -17,6 +17,7 @@ import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSess
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 
 /**
  * Reproduces the user-reported "same muscle on consecutive calendar training days" complaint
@@ -53,7 +54,7 @@ class CalendarAdjacentLiftMetadataRecoveryTest {
                 parseScenarioContext(
                     scenarioPayload(days, SPECIALIZATION_PRESETS.getValue(preset), weekdayLayout = layout),
                 )
-            val pipeline = testProgramGenerationPipeline()
+            val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
             val normalized =
                 pipeline.generate(
                     context = context,

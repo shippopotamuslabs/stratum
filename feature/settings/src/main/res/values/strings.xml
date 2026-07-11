@@ -17,4 +17,12 @@
     <string name="settings_debug_title">Developer tools</string>
     <string name="settings_debug_description">Debug builds only. Skip the 20-workout re-extract gate while testing.</string>
     <string name="settings_debug_force_checkin">Force coach check-in</string>
+    <string name="settings_account_title">Account</string>
+    <string name="settings_account_description">Sign out clears local training data on this device. Your cloud data returns when you sign back in.</string>
+    <string name="settings_logout">Log out</string>
+    <string name="settings_logout_in_progress">Signing out…</string>
+    <string name="settings_logout_confirm_title">Log out?</string>
+    <string name="settings_logout_confirm_body">This clears local training data on this device. Your cloud data returns when you sign back in.</string>
+    <string name="settings_logout_confirm">Log out</string>
+    <string name="settings_logout_cancel">Cancel</string>
 </resources>

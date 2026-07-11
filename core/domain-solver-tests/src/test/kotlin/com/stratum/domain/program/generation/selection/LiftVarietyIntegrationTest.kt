@@ -15,6 +15,7 @@ import com.stratum.domain.program.generation.schema.toProgramNormalizationReques
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 
 class LiftVarietyIntegrationTest {
 
@@ -22,7 +23,7 @@ class LiftVarietyIntegrationTest {
     fun sixDayCycleSpreadsCalfAndSquatLiftsAcrossLowerDays() = runBlocking {
         val context = richLowerBodyCatalog()
         val program =
-            testProgramGenerationPipeline().generate(
+            testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer()).generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
                 options = PipelineOptions(skipLiftSwap = true),

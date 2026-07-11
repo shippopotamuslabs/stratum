@@ -12,6 +12,7 @@ import com.stratum.domain.program.generation.schema.toProgramNormalizationReques
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 
 class CalfSpecializationLowerDayTest {
 
@@ -54,7 +55,7 @@ class CalfSpecializationLowerDayTest {
         context: ProgramGenerationContext,
         specialization: Map<String, String>,
     ) {
-        val program = testProgramGenerationPipeline().generate(
+        val program = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer()).generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
             options = PipelineOptions(skipLiftSwap = true),

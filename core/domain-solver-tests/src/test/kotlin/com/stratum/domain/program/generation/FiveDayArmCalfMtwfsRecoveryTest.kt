@@ -23,6 +23,7 @@ import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSess
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 
 /**
  * Regression: 5-day MTWFS with arm + calf specialization should avoid back-to-back
@@ -45,7 +46,7 @@ class FiveDayArmCalfMtwfsRecoveryTest {
                     weekdayLayout = "mtwfs",
                 ),
             )
-        val pipeline = testProgramGenerationPipeline()
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
         val normalized =
             pipeline.generate(
                 context = context,

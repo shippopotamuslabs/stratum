@@ -9,12 +9,19 @@ import com.stratum.domain.program.generation.naming.ProgramNamingPort
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
 import com.stratum.domain.program.generation.swap.LiftSwapPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
-import com.stratum.domain.solver.CpSatProgramSynthesizer
 
+/**
+ * Full program-generation pipeline for tests.
+ *
+ * Defaults to [FakeProgramSynthesisPort] so JVM unit tests (`:core:domain`, feature modules)
+ * do not require OR-Tools native libraries. Pass
+ * [com.stratum.domain.solver.CpSatProgramSynthesizer] explicitly from
+ * `:core:domain-solver-tests` when exercising real CP-SAT.
+ */
 fun testProgramGenerationPipeline(
     liftSwapPort: LiftSwapPort = FakeLiftSwapPort(),
     programNamingPort: ProgramNamingPort = FakeProgramNamingPort(),
-    programSynthesisPort: ProgramSynthesisPort = CpSatProgramSynthesizer(),
+    programSynthesisPort: ProgramSynthesisPort = FakeProgramSynthesisPort(),
 ): ProgramGenerationPipeline =
     ProgramGenerationPipeline(
         planWeeklyVolume = PlanWeeklyVolumeUseCase(),
