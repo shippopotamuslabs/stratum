@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
@@ -79,6 +80,9 @@ import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
+import com.stratum.feature.workout.AfterSetLoggedDecision
+import com.stratum.feature.workout.decideAfterSetLogged
+import com.stratum.feature.workout.isLiftComplete
 import com.stratum.feature.workout.notification.RestTimerDefaults
 import com.stratum.feature.workout.restSecondsAfterLoggingSet
 
@@ -148,6 +152,8 @@ fun WorkoutScreen(
     var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
     var showCompleteSheet by remember { mutableStateOf(false) }
     var completeSheetPhase by remember { mutableStateOf(CompleteSheetPhase.Incomplete) }
+    /** One auto-prompt per full-completion transition after a set log (#9). */
+    var autoShownCompleteSheet by remember(state.workoutId) { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -165,6 +171,54 @@ fun WorkoutScreen(
     LaunchedEffect(state.lifts.map { it.workoutLiftId }) {
         val keys = state.lifts.map { it.workoutLiftId }.toSet()
         liftHeightsPx.keys.retainAll(keys)
+    }
+
+    // Allow the finish sheet to auto-show again if the user unlogs a set.
+    LaunchedEffect(state.hasIncompleteLifts) {
+        if (state.hasIncompleteLifts) {
+            autoShownCompleteSheet = false
+        }
+    }
+
+    val scrollToLift: (String) -> Unit = { workoutLiftId ->
+        val index = state.lifts.indexOfFirst { it.workoutLiftId == workoutLiftId }
+        if (index >= 0) {
+            selectedLiftId = workoutLiftId
+            tabScrollJob?.cancel()
+            tabScrollJob =
+                scope.launch {
+                    programmaticScroll = true
+                    try {
+                        listState.animateScrollToLiftTop(
+                            targetIndex = index,
+                            liftIds = state.lifts.map { it.workoutLiftId },
+                            itemHeightsPx = liftHeightsPx,
+                            spacingPx = listSpacingPx,
+                        )
+                    } finally {
+                        programmaticScroll = false
+                    }
+                }
+        }
+    }
+
+    val handleLogSet: (String, Double, Int, Int?) -> Unit = { slotKey, weightAmountLb, reps, rir ->
+        actions.onLogSet(slotKey, weightAmountLb, reps, rir)
+        val decision =
+            decideAfterSetLogged(
+                lifts = state.lifts,
+                slotKey = slotKey,
+                alreadyAutoShownCompleteSheet = autoShownCompleteSheet,
+            )
+        applyAfterSetLoggedDecision(
+            decision = decision,
+            onShowCompleteSheet = {
+                autoShownCompleteSheet = true
+                completeSheetPhase = CompleteSheetPhase.AllSetsLogged
+                showCompleteSheet = true
+            },
+            onFocusLift = scrollToLift,
+        )
     }
 
     // Pick the lift whose top edge is closest to the list viewport top (not "first fully pinned").
@@ -189,37 +243,12 @@ fun WorkoutScreen(
     }
 
     // Continuous underline under every member of the selected lift's superset / giant set.
-    val underlinedLiftIds = remember(selectedLiftId, state.lifts) {
-        val primary = selectedLiftId ?: return@remember emptySet()
-        val primaryLift = state.lifts.firstOrNull { it.workoutLiftId == primary }
-        val groupId = primaryLift?.supersetGroupId
-        if (groupId.isNullOrBlank()) {
-            setOf(primary)
-        } else {
-            state.lifts
-                .filter { it.supersetGroupId == groupId }
-                .map { it.workoutLiftId }
-                .toSet()
+    val underlinedLiftIds =
+        remember(selectedLiftId, state.lifts) {
+            underlinedLiftIdsForPrimary(selectedLiftId, state.lifts)
         }
-    }
 
-    var elapsedTimeStr by remember(state.sessionStartedAtEpochMilli) { mutableStateOf("00:00") }
-    LaunchedEffect(state.sessionStartedAtEpochMilli) {
-        while (true) {
-            val now = System.currentTimeMillis()
-            val diffMs = now - state.sessionStartedAtEpochMilli
-            val diffSec = (diffMs / 1000).coerceAtLeast(0)
-            val hrs = diffSec / 3600
-            val mins = (diffSec % 3600) / 60
-            val secs = diffSec % 60
-            elapsedTimeStr = if (hrs > 0) {
-                String.format(java.util.Locale.US, "%d:%02d:%02d", hrs, mins, secs)
-            } else {
-                String.format(java.util.Locale.US, "%02d:%02d", mins, secs)
-            }
-            kotlinx.coroutines.delay(1000L)
-        }
-    }
+    val elapsedTimeStr = rememberElapsedWorkoutTime(state.sessionStartedAtEpochMilli)
 
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
@@ -248,14 +277,18 @@ fun WorkoutScreen(
                     StratumTopBarTextButton(
                         text = stringResource(R.string.workout_screen_complete),
                         onClick = {
-                            if (!state.hasIncompleteLifts && !state.hasDirtyEdits) {
-                                actions.onCompleteWorkout(false)
-                            } else if (state.hasIncompleteLifts) {
-                                completeSheetPhase = CompleteSheetPhase.Incomplete
-                                showCompleteSheet = true
-                            } else {
-                                completeSheetPhase = CompleteSheetPhase.SaveChanges
-                                showCompleteSheet = true
+                            when (
+                                val phase =
+                                    completePhaseForTopBarClick(
+                                        hasIncompleteLifts = state.hasIncompleteLifts,
+                                        hasDirtyEdits = state.hasDirtyEdits,
+                                    )
+                            ) {
+                                null -> actions.onCompleteWorkout(false)
+                                else -> {
+                                    completeSheetPhase = phase
+                                    showCompleteSheet = true
+                                }
                             }
                         }
                     )
@@ -274,27 +307,7 @@ fun WorkoutScreen(
                 lifts = state.lifts,
                 primaryLiftId = selectedLiftId,
                 underlinedLiftIds = underlinedLiftIds,
-                onLiftClick = { workoutLiftId ->
-                    val index = state.lifts.indexOfFirst { it.workoutLiftId == workoutLiftId }
-                    if (index < 0) return@LiftNavigatorRow
-                    selectedLiftId = workoutLiftId
-                    // Cancel any in-flight tab scroll so stacked animations don't stutter.
-                    tabScrollJob?.cancel()
-                    tabScrollJob =
-                        scope.launch {
-                            programmaticScroll = true
-                            try {
-                                listState.animateScrollToLiftTop(
-                                    targetIndex = index,
-                                    liftIds = state.lifts.map { it.workoutLiftId },
-                                    itemHeightsPx = liftHeightsPx,
-                                    spacingPx = listSpacingPx,
-                                )
-                            } finally {
-                                programmaticScroll = false
-                            }
-                        }
-                },
+                onLiftClick = scrollToLift,
                 onAddLift = actions.onAddLift,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -303,7 +316,7 @@ fun WorkoutScreen(
                 lifts = state.lifts,
                 listState = listState,
                 liftHeightsPx = liftHeightsPx,
-                onLogSet = actions.onLogSet,
+                onLogSet = handleLogSet,
                 onUnlogSet = actions.onUnlogSet,
                 onAddSet = actions.onAddSet,
                 onDeleteSet = actions.onDeleteSet,
@@ -317,49 +330,170 @@ fun WorkoutScreen(
         }
     }
 
-    if (showRestSheet) {
+    WorkoutSessionOverlays(
+        state = state,
+        restTimer = restTimer,
+        actions = actions,
+        sheets =
+            WorkoutOverlaySheetState(
+                showRestSheet = showRestSheet,
+                onShowRestSheetChange = { showRestSheet = it },
+                showDiscardDialog = showDiscardDialog,
+                onShowDiscardDialogChange = { showDiscardDialog = it },
+                liftActionsLiftId = liftActionsLiftId,
+                onLiftActionsLiftIdChange = { liftActionsLiftId = it },
+                configureRestLiftId = configureRestLiftId,
+                onConfigureRestLiftIdChange = { configureRestLiftId = it },
+                showRestConfigDiscardDialog = showRestConfigDiscardDialog,
+                onShowRestConfigDiscardDialogChange = { showRestConfigDiscardDialog = it },
+                supersetSheetLiftId = supersetSheetLiftId,
+                onSupersetSheetLiftIdChange = { supersetSheetLiftId = it },
+                showCompleteSheet = showCompleteSheet,
+                completeSheetPhase = completeSheetPhase,
+                onShowCompleteSheetChange = { showCompleteSheet = it },
+                onCompleteSheetPhaseChange = { completeSheetPhase = it },
+            ),
+    )
+}
+
+/** Mutable sheet/dialog flags for [WorkoutSessionOverlays] — one bag for Detekt. */
+private data class WorkoutOverlaySheetState(
+    val showRestSheet: Boolean,
+    val onShowRestSheetChange: (Boolean) -> Unit,
+    val showDiscardDialog: Boolean,
+    val onShowDiscardDialogChange: (Boolean) -> Unit,
+    val liftActionsLiftId: String?,
+    val onLiftActionsLiftIdChange: (String?) -> Unit,
+    val configureRestLiftId: String?,
+    val onConfigureRestLiftIdChange: (String?) -> Unit,
+    val showRestConfigDiscardDialog: Boolean,
+    val onShowRestConfigDiscardDialogChange: (Boolean) -> Unit,
+    val supersetSheetLiftId: String?,
+    val onSupersetSheetLiftIdChange: (String?) -> Unit,
+    val showCompleteSheet: Boolean,
+    val completeSheetPhase: CompleteSheetPhase,
+    val onShowCompleteSheetChange: (Boolean) -> Unit,
+    val onCompleteSheetPhaseChange: (CompleteSheetPhase) -> Unit,
+)
+
+/** Applies a pure [AfterSetLoggedDecision] to UI callbacks (kept free of branching in Compose). */
+internal fun applyAfterSetLoggedDecision(
+    decision: AfterSetLoggedDecision,
+    onShowCompleteSheet: () -> Unit,
+    onFocusLift: (String) -> Unit,
+) {
+    when (decision) {
+        AfterSetLoggedDecision.None -> Unit
+        AfterSetLoggedDecision.ShowCompleteWorkoutSheet -> onShowCompleteSheet()
+        is AfterSetLoggedDecision.FocusLift -> onFocusLift(decision.workoutLiftId)
+    }
+}
+
+/**
+ * Top-bar Complete: null means finish immediately; otherwise open the matching sheet phase.
+ */
+internal fun completePhaseForTopBarClick(
+    hasIncompleteLifts: Boolean,
+    hasDirtyEdits: Boolean,
+): CompleteSheetPhase? =
+    when {
+        !hasIncompleteLifts && !hasDirtyEdits -> null
+        hasIncompleteLifts -> CompleteSheetPhase.Incomplete
+        else -> CompleteSheetPhase.SaveChanges
+    }
+
+/** Continuous underline span for the selected lift's superset / giant set (or itself). */
+internal fun underlinedLiftIdsForPrimary(
+    primaryLiftId: String?,
+    lifts: List<RenderedLiftUi>,
+): Set<String> {
+    val primary = primaryLiftId ?: return emptySet()
+    val primaryLift = lifts.firstOrNull { it.workoutLiftId == primary }
+    val groupId = primaryLift?.supersetGroupId
+    return if (groupId.isNullOrBlank()) {
+        setOf(primary)
+    } else {
+        lifts.filter { it.supersetGroupId == groupId }.map { it.workoutLiftId }.toSet()
+    }
+}
+
+@Composable
+private fun rememberElapsedWorkoutTime(sessionStartedAtEpochMilli: Long): String {
+    var elapsedTimeStr by remember(sessionStartedAtEpochMilli) { mutableStateOf("00:00") }
+    LaunchedEffect(sessionStartedAtEpochMilli) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            val diffMs = now - sessionStartedAtEpochMilli
+            val diffSec = (diffMs / 1000).coerceAtLeast(0)
+            val hrs = diffSec / 3600
+            val mins = (diffSec % 3600) / 60
+            val secs = diffSec % 60
+            elapsedTimeStr =
+                if (hrs > 0) {
+                    String.format(java.util.Locale.US, "%d:%02d:%02d", hrs, mins, secs)
+                } else {
+                    String.format(java.util.Locale.US, "%02d:%02d", mins, secs)
+                }
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+    return elapsedTimeStr
+}
+
+/**
+ * Rest / discard / lift-actions / superset / complete sheets hosted outside [WorkoutScreen]
+ * so Detekt cyclomatic complexity stays under the threshold.
+ */
+@Composable
+private fun WorkoutSessionOverlays(
+    state: WorkoutUiState.Loaded,
+    restTimer: RestTimerChrome,
+    actions: WorkoutScreenActions,
+    sheets: WorkoutOverlaySheetState,
+) {
+    if (sheets.showRestSheet) {
         RestTimerBottomSheet(
             isTimerActive = restTimer.isActive,
             remainingSeconds = restTimer.remainingSeconds,
             totalSeconds = restTimer.totalSeconds,
-            onDismiss = { showRestSheet = false },
+            onDismiss = { sheets.onShowRestSheetChange(false) },
             onAdd10s = restTimer.onAdd10s,
             onSubtract10s = restTimer.onSubtract10s,
             onSkip = {
                 restTimer.onSkip()
-                showRestSheet = false
+                sheets.onShowRestSheetChange(false)
             },
             onStartPreset = restTimer.onStart,
         )
     }
 
-    if (showDiscardDialog) {
+    if (sheets.showDiscardDialog) {
         DiscardWorkoutDialog(
-            onDismiss = { showDiscardDialog = false },
+            onDismiss = { sheets.onShowDiscardDialogChange(false) },
             onConfirm = {
-                showDiscardDialog = false
+                sheets.onShowDiscardDialogChange(false)
                 actions.onAbandon()
                 actions.onNavigateBack()
-            }
+            },
         )
     }
 
     LiftActionsAndRestConfigSheets(
         state = state,
         actions = actions,
-        liftActionsLiftId = liftActionsLiftId,
-        onLiftActionsLiftIdChange = { liftActionsLiftId = it },
-        configureRestLiftId = configureRestLiftId,
-        onConfigureRestLiftIdChange = { configureRestLiftId = it },
-        showRestConfigDiscardDialog = showRestConfigDiscardDialog,
-        onShowRestConfigDiscardDialogChange = { showRestConfigDiscardDialog = it },
+        liftActionsLiftId = sheets.liftActionsLiftId,
+        onLiftActionsLiftIdChange = sheets.onLiftActionsLiftIdChange,
+        configureRestLiftId = sheets.configureRestLiftId,
+        onConfigureRestLiftIdChange = sheets.onConfigureRestLiftIdChange,
+        showRestConfigDiscardDialog = sheets.showRestConfigDiscardDialog,
+        onShowRestConfigDiscardDialogChange = sheets.onShowRestConfigDiscardDialogChange,
         onOpenSupersetSheet = { liftId ->
-            liftActionsLiftId = null
-            supersetSheetLiftId = liftId
+            sheets.onLiftActionsLiftIdChange(null)
+            sheets.onSupersetSheetLiftIdChange(liftId)
         },
     )
 
-    supersetSheetLiftId?.let { liftId ->
+    sheets.supersetSheetLiftId?.let { liftId ->
         val currentLift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
         val options = supersetLinkSheetOptions(lifts = state.lifts, workoutLiftId = liftId)
         if (options.isNotEmpty() && currentLift != null) {
@@ -379,37 +513,40 @@ fun WorkoutScreen(
                         SupersetLinkDirection.Remove -> actions.onRemoveFromSuperset(liftId)
                     }
                     if (!shouldKeepSupersetSheetOpenAfterLink(state.lifts, liftId, direction)) {
-                        supersetSheetLiftId = null
+                        sheets.onSupersetSheetLiftIdChange(null)
                     }
                 },
-                onDismiss = { supersetSheetLiftId = null }
+                onDismiss = { sheets.onSupersetSheetLiftIdChange(null) },
             )
         } else {
-            supersetSheetLiftId = null
+            sheets.onSupersetSheetLiftIdChange(null)
         }
     }
 
-    if (showCompleteSheet) {
+    if (sheets.showCompleteSheet) {
         CompleteWorkoutSheet(
-            phase = completeSheetPhase,
-            onContinueWorkout = { showCompleteSheet = false },
+            phase = sheets.completeSheetPhase,
+            onContinueWorkout = { sheets.onShowCompleteSheetChange(false) },
             onCompleteWorkout = {
-                if (completeSheetPhase == CompleteSheetPhase.Incomplete && state.hasDirtyEdits) {
-                    completeSheetPhase = CompleteSheetPhase.SaveChanges
+                val shouldAskSaveTemplate =
+                    state.hasDirtyEdits &&
+                        sheets.completeSheetPhase != CompleteSheetPhase.SaveChanges
+                if (shouldAskSaveTemplate) {
+                    sheets.onCompleteSheetPhaseChange(CompleteSheetPhase.SaveChanges)
                 } else {
-                    showCompleteSheet = false
+                    sheets.onShowCompleteSheetChange(false)
                     actions.onCompleteWorkout(false)
                 }
             },
             onUpdateTemplate = {
-                showCompleteSheet = false
+                sheets.onShowCompleteSheetChange(false)
                 actions.onCompleteWorkout(true)
             },
             onDiscardChanges = {
-                showCompleteSheet = false
+                sheets.onShowCompleteSheetChange(false)
                 actions.onCompleteWorkout(false)
             },
-            onDismiss = { showCompleteSheet = false },
+            onDismiss = { sheets.onShowCompleteSheetChange(false) },
         )
     }
 }
@@ -621,6 +758,7 @@ private fun LiftNavigatorGroup(
                 LiftNavigatorTab(
                     lift = lift,
                     highlighted = lift.workoutLiftId == primaryLiftId,
+                    isComplete = isLiftComplete(lift),
                     onClick = { onLiftClick(lift.workoutLiftId) },
                 )
             }
@@ -643,6 +781,7 @@ private fun LiftNavigatorGroup(
 private fun LiftNavigatorTab(
     lift: RenderedLiftUi,
     highlighted: Boolean,
+    isComplete: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -652,6 +791,7 @@ private fun LiftNavigatorTab(
     // Prefer catalog image; otherwise two-letter initials (BB / SQ) for denser tabs.
     // Borderless thumbnails — selection is underline + opacity only.
     val hasImage = !lift.imageUrl.isNullOrBlank()
+    val completeCd = stringResource(R.string.workout_screen_lift_complete_cd)
     Box(
         modifier = modifier
             .size(LiftNavigatorTabSize)
@@ -678,6 +818,24 @@ private fun LiftNavigatorTab(
                     text = lift.navigatorInitials.ifBlank { "?" },
                     style = StratumThemeAccessor.typography.titleMedium,
                     muted = !highlighted,
+                )
+            }
+        }
+        if (isComplete) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(3.dp)
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(colors.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_check),
+                    contentDescription = completeCd,
+                    tint = colors.onAccent,
+                    modifier = Modifier.size(14.dp),
                 )
             }
         }
@@ -1443,7 +1601,7 @@ private fun RestConfigDiscardBottomSheet(
     }
 }
 
-enum class CompleteSheetPhase { Incomplete, SaveChanges }
+enum class CompleteSheetPhase { Incomplete, SaveChanges, AllSetsLogged }
 
 @Composable
 private fun CompleteWorkoutSheet(
@@ -1477,6 +1635,27 @@ private fun CompleteWorkoutSheet(
                     text = stringResource(R.string.workout_sheet_complete_workout),
                     onClick = onCompleteWorkout,
                     modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            CompleteSheetPhase.AllSetsLogged -> {
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_all_sets_done_title),
+                    style = StratumThemeAccessor.typography.titleLarge,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+                StratumText(
+                    text = stringResource(R.string.workout_sheet_all_sets_done_message),
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    muted = true,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Primary filled CTA spanning sheet content width (sheet already pads 12.dp).
+                StratumButton(
+                    text = stringResource(R.string.workout_sheet_complete_workout),
+                    onClick = onCompleteWorkout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
                 )
             }
             CompleteSheetPhase.SaveChanges -> {
