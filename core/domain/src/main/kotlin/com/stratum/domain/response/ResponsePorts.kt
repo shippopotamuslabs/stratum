@@ -47,7 +47,8 @@ interface MuscleVolumeResponseSnapshotRepository {
 /**
  * Read access to the per-muscle/week hard-set stimulus series. The dashboard reads a bounded window
  * ([getSince]) for its 3-month charts; the series is refreshed by
- * [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on workout completion.
+ * [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on workout completion and after cloud
+ * pull ([com.stratum.domain.training.RebuildLocalDerivedTrainingDataUseCase]). Not cloud-synced.
  */
 interface MuscleWeeklyStimulusRepository {
     suspend fun replaceAll(stimulus: List<MuscleWeeklyStimulus>)
@@ -60,7 +61,8 @@ interface MuscleWeeklyStimulusRepository {
 /**
  * Read access to the per-lift/week peak-e1RM performance series. The dashboard reads a bounded
  * window ([getSince]) for its 3-month charts; the series is refreshed by
- * [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on workout completion.
+ * [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on workout completion and after cloud
+ * pull ([com.stratum.domain.training.RebuildLocalDerivedTrainingDataUseCase]). Not cloud-synced.
  */
 interface LiftWeeklyPerformanceRepository {
     suspend fun replaceAll(performance: List<LiftWeeklyPerformance>)

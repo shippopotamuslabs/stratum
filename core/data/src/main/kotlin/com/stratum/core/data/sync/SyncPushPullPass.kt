@@ -27,6 +27,9 @@ class CloudSyncResidualException(message: String) : IllegalStateException(messag
  * Residual after max upload passes, dirty residual after post-pull drain, or incomplete pull
  * sets [SyncStatus.Error] and throws [CloudSyncResidualException]. Never claims Idle with work left.
  *
+ * On a clean pass, [afterSuccessfulPull] runs **before** claiming [SyncStatus.Idle] so callers can
+ * rebuild non-synced derived tables (weekly dashboard series) before the UI reloads on Idle.
+ *
  * Lambdas keep engines out of this pure orchestration so unit tests can drive every branch with fakes.
  */
 internal suspend fun runSyncPushPullPass(
@@ -37,6 +40,7 @@ internal suspend fun runSyncPushPullPass(
     hasDirtyResidual: suspend () -> Boolean,
     pull: suspend () -> PullResult,
     logError: (String) -> Unit,
+    afterSuccessfulPull: suspend () -> Unit = {},
 ) {
     awaitSeed()
     setStatus(SyncStatus.Syncing)
@@ -65,6 +69,9 @@ internal suspend fun runSyncPushPullPass(
             "pull incomplete (hadFailures=${pullResult.hadFailures}, hydrated=${pullResult.hydrated})",
         )
     }
+
+    // Derived local tables (not cloud-synced) — run before Idle so dashboard can reload with data.
+    afterSuccessfulPull()
 
     setStatus(SyncStatus.Idle)
 }

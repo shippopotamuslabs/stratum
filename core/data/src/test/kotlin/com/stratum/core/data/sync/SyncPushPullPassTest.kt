@@ -151,4 +151,46 @@ class SyncPushPullPassTest {
         assertTrue(statuses.any { it is SyncStatus.Hydrating })
         assertInstanceOf(SyncStatus.Error::class.java, statuses.last())
     }
+
+    @Test
+    @DisplayName("afterSuccessfulPull runs before Idle on clean pass")
+    fun afterSuccessfulPullBeforeIdle() = runTest {
+        val statuses = mutableListOf<SyncStatus>()
+        var rebuildAtStatus: SyncStatus? = null
+        runSyncPushPullPass(
+            awaitSeed = {},
+            setStatus = { statuses += it },
+            isHydrated = { true },
+            uploadUntilIdle = { false },
+            hasDirtyResidual = { false },
+            pull = { PullResult(hadFailures = false, hydrated = true) },
+            logError = {},
+            afterSuccessfulPull = {
+                rebuildAtStatus = statuses.lastOrNull()
+            },
+        )
+        assertEquals(SyncStatus.Syncing, rebuildAtStatus, "rebuild before Idle claim")
+        assertEquals(listOf(SyncStatus.Syncing, SyncStatus.Idle), statuses)
+    }
+
+    @Test
+    @DisplayName("afterSuccessfulPull is skipped when pull residual fails")
+    fun afterSuccessfulPullSkippedOnPullFailure() = runTest {
+        var rebuildRan = false
+        val outcome =
+            runCatching {
+                runSyncPushPullPass(
+                    awaitSeed = {},
+                    setStatus = {},
+                    isHydrated = { true },
+                    uploadUntilIdle = { false },
+                    hasDirtyResidual = { false },
+                    pull = { PullResult(hadFailures = true, hydrated = true) },
+                    logError = {},
+                    afterSuccessfulPull = { rebuildRan = true },
+                )
+            }
+        assertInstanceOf(CloudSyncResidualException::class.java, outcome.exceptionOrNull())
+        assertTrue(!rebuildRan, "do not rebuild derived tables on incomplete pull")
+    }
 }
