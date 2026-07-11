@@ -76,7 +76,8 @@ import kotlinx.coroutines.sync.withLock
  * the overlay's `recommendations` map (overlay-only — never writes back to the snapshot).
  */
 @HiltViewModel
-@Suppress("LargeClass") // Session owner: structure helpers live in LiveWorkoutOverlayOps; further split is a follow-up.
+@Suppress("LargeClass", "TooManyFunctions")
+// Session owner: structure helpers live in LiveWorkoutOverlayOps; further split is a follow-up.
 class WorkoutViewModel @Inject constructor(
     private val observeCycleProgress: ObserveCycleProgressUseCase,
     private val generateSnapshot: GenerateProgressionSnapshotUseCase,
@@ -373,7 +374,9 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun deleteSet(slotId: SetSlotId) {
-        overlay = overlay.apply(StructuralMutation.DeleteSet(slotId))
+        overlay = overlay
+            .apply(StructuralMutation.DeleteSet(slotId))
+            .copy(restSecondsOverrides = overlay.restSecondsOverrides - slotId)
         recomputeRecommendations()
         render()
         persistOverlay()
@@ -622,6 +625,22 @@ class WorkoutViewModel @Inject constructor(
             useRestTimerBetweenLiftsOverrides = overlay.useRestTimerBetweenLiftsOverrides + (workoutLiftId to enabled)
         )
         recomputeRecommendations()
+        render()
+        persistOverlay()
+    }
+
+    /**
+     * Applies rest overrides for Configure Rest Times confirm.
+     * Keys are presentation [slotKey] strings; marks the overlay dirty so save-template persists.
+     */
+    fun setRestSecondsForSlots(updates: Map<String, Int>) {
+        if (updates.isEmpty()) return
+        val next = LiveWorkoutOverlayOps.mergeRestSecondsOverrides(
+            overlay = overlay,
+            updates = updates,
+            resolveSlotByKey = ::resolveSlotByKey,
+        ) ?: return
+        overlay = overlay.copy(restSecondsOverrides = next)
         render()
         persistOverlay()
     }

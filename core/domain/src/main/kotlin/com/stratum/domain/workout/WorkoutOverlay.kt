@@ -57,6 +57,11 @@ data class WorkoutOverlay(
     val addedLifts: List<OverlayAddedLift> = emptyList(),
     val supersetGroupIdOverrides: Map<WorkoutLiftId, WorkoutSupersetGroupId?> = emptyMap(),
     val useRestTimerBetweenLiftsOverrides: Map<WorkoutLiftId, Boolean> = emptyMap(),
+    /**
+     * Per-slot rest-duration overrides for the live session. Applied on merge into rendered
+     * slots and written back to the template when save-template applies the overlay.
+     */
+    val restSecondsOverrides: Map<SetSlotId, Int> = emptyMap(),
     val orderedLiftIds: List<String>? = null,
 ) {
     /**
@@ -74,6 +79,7 @@ data class WorkoutOverlay(
                 addedLifts.isNotEmpty() ||
                 supersetGroupIdOverrides.isNotEmpty() ||
                 useRestTimerBetweenLiftsOverrides.isNotEmpty() ||
+                restSecondsOverrides.isNotEmpty() ||
                 orderedLiftIds != null
 
     fun apply(mutation: StructuralMutation): WorkoutOverlay {

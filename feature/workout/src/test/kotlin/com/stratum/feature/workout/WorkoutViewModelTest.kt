@@ -1308,6 +1308,30 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("setRestSecondsForSlots updates overlay and rendered rest for the slot")
+    fun setRestSecondsForSlotsUpdatesRenderedRest() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            val slotKey = loaded.lifts.first().sets.first().slotKey
+            assertEquals(120, loaded.lifts.first().sets.first().restSeconds)
+
+            viewModel.setRestSecondsForSlots(mapOf(slotKey to 45))
+            val updated = awaitItem() as WorkoutUiState.Loaded
+            assertEquals(45, updated.lifts.first().sets.first().restSeconds)
+            assertTrue(updated.hasDirtyEdits)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+        val stored = overlayStore.storedOverlay()
+        assertEquals(
+            45,
+            stored.restSecondsOverrides[SetSlotId.Template(liftSetId)],
+        )
+    }
+
+    @Test
     @DisplayName("Given persisted overlay when startSession then overlay is restored")
     fun persistedOverlayIsRestoredOnStartSession() = runTest {
         // Seed a persisted overlay (e.g. left behind by a prior process that was killed) with

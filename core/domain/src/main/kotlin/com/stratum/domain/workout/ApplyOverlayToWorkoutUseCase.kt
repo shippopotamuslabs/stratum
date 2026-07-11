@@ -15,7 +15,8 @@ import javax.inject.Inject
  * applied — logged sets and live recommendations are session activity, not template edits.
  *
  * Applied overlay fields: swapped lifts, deleted lifts, added lifts, deleted sets, added sets,
- * superset group overrides, rest-timer-between-lifts overrides, and lift reordering.
+ * superset group overrides, rest-timer-between-lifts overrides, per-slot rest-seconds overrides,
+ * and lift reordering.
  *
  * Overlay-added slots that are also present in [WorkoutOverlay.deletedSlotIds] are **not**
  * written to the template (matches live merge semantics).
@@ -46,11 +47,17 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     .map { it.liftSetId }
                     .toSet()
 
-                val remainingSets = lift.sets.filterNot { it.id in deletedTemplateSetIds }
+                val remainingSets = lift.sets
+                    .filterNot { it.id in deletedTemplateSetIds }
+                    .map { set ->
+                        val restOverride =
+                            overlay.restSecondsOverrides[SetSlotId.Template(set.id)]
+                        if (restOverride != null) set.copy(restSeconds = restOverride) else set
+                    }
 
                 val addedSets = liveAddedSlots
                     .filter { it.workoutLiftId == lift.id }
-                    .map { slot -> slot.toLiftSet(lift.id) }
+                    .map { slot -> slot.toLiftSet(lift.id, overlay) }
 
                 val allSets = (remainingSets + addedSets)
                     .sortedBy { it.position }
@@ -88,7 +95,7 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
                     )
                 } else {
                     slots.mapIndexed { index, slot ->
-                        slot.toLiftSet(added.workoutLiftId).copy(position = index)
+                        slot.toLiftSet(added.workoutLiftId, overlay).copy(position = index)
                     }
                 }
                 val restOverride = overlay.useRestTimerBetweenLiftsOverrides[added.workoutLiftId]
@@ -128,7 +135,7 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
         return baseline.copy(workoutLifts = positioned)
     }
 
-    private fun SetSlot.toLiftSet(workoutLiftId: WorkoutLiftId): LiftSet =
+    private fun SetSlot.toLiftSet(workoutLiftId: WorkoutLiftId, overlay: WorkoutOverlay): LiftSet =
         LiftSet(
             id = LiftSetId(UUID.randomUUID().toString()),
             workoutLiftId = workoutLiftId,
@@ -138,6 +145,6 @@ class ApplyOverlayToWorkoutUseCase @Inject constructor() {
             repMax = repMax,
             rirGoal = rirGoal,
             isTopSet = isTopSet,
-            restSeconds = restSeconds,
+            restSeconds = overlay.restSecondsOverrides[slotId] ?: restSeconds,
         )
 }
