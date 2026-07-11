@@ -208,9 +208,10 @@ class EditWorkoutViewModelSchemeToggleTest {
             val linearLift = asLinear.lifts.first { it.workoutLiftId == COMPOUND_WL_ID }
             assertEquals(ProgressionScheme.Linear, linearLift.progressionScheme)
             assertTrue(linearLift.sets.first().isTopSet)
-            assertEquals(4, linearLift.sets[0].repMin)
+            // Sub-floor template band (4–6) is healed to MIN_STORED_REP_MIN (5–6).
+            assertEquals(5, linearLift.sets[0].repMin)
             assertEquals(6, linearLift.sets[0].repMax)
-            assertEquals(4, linearLift.sets[1].repMin)
+            assertEquals(5, linearLift.sets[1].repMin)
             assertEquals(6, linearLift.sets[1].repMax)
             assertFalse(linearLift.sets[1].isTopSet)
             cancelAndIgnoreRemainingEvents()

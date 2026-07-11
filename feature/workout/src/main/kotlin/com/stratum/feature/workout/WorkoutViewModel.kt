@@ -300,6 +300,9 @@ class WorkoutViewModel @Inject constructor(
             recomputeRecommendations()
             render()
             persistOverlay()
+            // After uiState reflects the log — UI side effects (rest / scroll / complete sheet)
+            // must not run optimistically before this point.
+            _events.send(WorkoutUiEvent.SetLogged(slotKey = slotKey))
         }
     }
 
