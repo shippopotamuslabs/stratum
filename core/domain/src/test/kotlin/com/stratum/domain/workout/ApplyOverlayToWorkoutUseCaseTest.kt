@@ -129,6 +129,70 @@ class ApplyOverlayToWorkoutUseCaseTest {
     }
 
     @Test
+    @DisplayName("Per-slot restSecondsOverrides are written onto template sets")
+    fun restSecondsOverridesAppliedToTemplateSets() {
+        val baseline = sampleWorkout()
+        val overlay =
+            WorkoutOverlay(
+                restSecondsOverrides =
+                    mapOf(
+                        SetSlotId.Template(LiftSetId("ls-1")) to 45,
+                        SetSlotId.Template(LiftSetId("ls-2")) to 200,
+                    ),
+            )
+
+        val result = useCase(baseline, overlay)
+        val sets = result.workoutLifts[0].sets
+
+        assertEquals(45, sets[0].restSeconds)
+        assertEquals(200, sets[1].restSeconds)
+        // Unaffected lift keeps default rest.
+        assertEquals(
+            com.stratum.domain.program.DEFAULT_LIFT_SET_REST_SECONDS,
+            result.workoutLifts[1].sets[0].restSeconds,
+        )
+    }
+
+    @Test
+    @DisplayName("restSecondsOverrides on overlay-added slots persist into new template sets")
+    fun restSecondsOverridesOnAddedSlotsMaterialized() {
+        val baseline = sampleWorkout()
+        val addedSlot =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-rest")),
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                liftId = LiftId("lift-bench"),
+                position = 2,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 1,
+                restSeconds = 90,
+            )
+        val overlay =
+            WorkoutOverlay(
+                addedSlots = listOf(addedSlot),
+                restSecondsOverrides = mapOf(addedSlot.slotId to 75),
+            )
+
+        val result = useCase(baseline, overlay)
+        val addedSet = result.workoutLifts[0].sets[2]
+        assertEquals(75, addedSet.restSeconds)
+    }
+
+    @Test
+    @DisplayName("restSecondsOverrides mark the overlay dirty")
+    fun restSecondsOverridesAreDirty() {
+        assertFalse(WorkoutOverlay().isDirty)
+        assertTrue(
+            WorkoutOverlay(
+                restSecondsOverrides = mapOf(SetSlotId.Template(LiftSetId("ls-1")) to 60),
+            ).isDirty,
+        )
+    }
+
+    @Test
     @DisplayName("Reorder changes the lift order and renumbers position")
     fun reorderChangesLiftOrder() {
         val baseline = sampleWorkout()

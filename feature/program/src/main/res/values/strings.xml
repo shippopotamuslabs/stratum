@@ -119,7 +119,7 @@
     <string name="edit_workout_add_lift">Add lift</string>
     <string name="edit_workout_add_set">Add set</string>
     <string name="edit_workout_remove_set">Remove set</string>
-    <string name="edit_workout_lift_menu">Lift options</string>
+    <string name="edit_workout_lift_menu">Lift Options</string>
     <string name="edit_workout_create_superset">Configure Superset</string>
     <string name="edit_workout_superset_with_previous">Superset with previous</string>
     <string name="edit_workout_superset_with_next">Superset with next</string>

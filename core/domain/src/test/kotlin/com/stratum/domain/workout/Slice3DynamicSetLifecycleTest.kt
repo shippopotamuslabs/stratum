@@ -147,6 +147,20 @@ class Slice3DynamicSetLifecycleTest {
     }
 
     @Test
+    @DisplayName("S3-delete-set-drops-rest-override")
+    fun `S3-delete-set-drops-rest-override`() {
+        val withRest =
+            WorkoutOverlay(restSecondsOverrides = mapOf(ls2 to 45))
+                .apply(StructuralMutation.DeleteSet(slotId = ls2))
+        assertTrue(withRest.deletedSlotIds.contains(ls2))
+        assertTrue(ls2 !in withRest.restSecondsOverrides)
+        // Undo restores the slot but intentionally does NOT restore the rest override.
+        val afterUndo = withRest.undo()
+        assertTrue(ls2 !in afterUndo.deletedSlotIds)
+        assertTrue(ls2 !in afterUndo.restSecondsOverrides)
+    }
+
+    @Test
     @DisplayName("S3-undo-add-removes")
     fun `S3-undo-add-removes`() {
         val afterAdd = WorkoutOverlay().apply(

@@ -278,10 +278,17 @@ class Slice4LinearProgressionTest {
     @Test
     @DisplayName("S4-linear-hold-when-rir-not-met")
     fun `S4-linear-hold-when-rir-not-met`() {
+        // Bottom met but RIR missed → no Linear increment. Capacity 5@0 → 3@2 is below the
+        // global floor of 5, so weight drops via EstimatedOneRm.weightForReps (never increments).
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 0, weight = 200.0, sessionId = "s-n1"))
+        val capacity = 5 // 5 + 0 RIR
+        val e1rm = EstimatedOneRm.calculate(200.0, capacity)
+        val expectedWeight = EstimatedOneRm.weightForReps(e1rm, 5 + slot.rirGoal)
         val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
-        assertEquals(lb(200.0), recommendation.recommendedWeight)
+        assertEquals(expectedWeight, recommendation.recommendedWeight.amount)
+        assertEquals(5, recommendation.baselineExpectedReps)
+        assertTrue(recommendation.recommendedWeight.amount < 200.0)
     }
 
     @Test
@@ -303,11 +310,17 @@ class Slice4LinearProgressionTest {
         assertEquals(SchemeTransitionReason.ConsecutiveStalls, event.reason)
         assertEquals(2, state.currentStallCount)
 
-        // Recommend still holds load while Linear; transition is applied by the snapshot
-        // orchestrator (scheme flip), not by a 10% deload prescription.
+        // Recommend does not *increment* while Linear; transition is applied by the snapshot
+        // orchestrator (scheme flip), not by a classic 10% greyskull deload. Capacity 4+2=6 →
+        // 4@2 is below the global floor of 5, so weight drops via weightForReps for floor 5.
         val slot = linearSlot(repMin = 5, repMax = 8, rirGoal = 2)
+        val capacity = 6 // newest entry: 4 reps + 2 RIR
+        val e1rm = EstimatedOneRm.calculate(200.0, capacity)
+        val expectedWeight = EstimatedOneRm.weightForReps(e1rm, 5 + slot.rirGoal)
         val recommendation = engine.recommend(request(slot, history))
-        assertEquals(lb(200.0), recommendation.recommendedWeight, "no deload; hold until Double takes over")
+        assertEquals(expectedWeight, recommendation.recommendedWeight.amount)
+        assertEquals(5, recommendation.baselineExpectedReps)
+        assertTrue(recommendation.recommendedWeight.amount < 200.0)
     }
 
     @Test
@@ -550,12 +563,15 @@ class Slice4LinearProgressionTest {
     @Test
     @DisplayName("S4-linear-backoff-reps-floored-at-backoff-floor")
     fun `S4-linear-backoff-reps-floored-at-backoff-floor`() {
-        // rirGoal=2. User did 200 × 5 @ RIR 1 (failure capacity 6), target 6 − 2 = 4,
-        // floored at BACKOFF_REP_FLOOR (5).
+        // rirGoal=2. User did 200 × 5 @ RIR 1 (failure capacity 6), target 6 − 2 = 4.
+        // Prefer weight drop so recommended reps can hit BACKOFF_REP_FLOOR (5).
         val slot = linearBackoffSlot(rirGoal = 2)
         val history = listOf(historyEntry(reps = 5, rir = 1, weight = 200.0, sessionId = "s-n1"))
         val recommendation = LinearProgressionEngine(config()).recommend(request(slot, history))
-        assertEquals(lb(200.0), recommendation.recommendedWeight)
+        assertTrue(
+            recommendation.recommendedWeight.amount < 200.0,
+            "must drop weight when capacity is below BACKOFF_REP_FLOOR",
+        )
         assertEquals(5, recommendation.baselineExpectedReps)
     }
 

@@ -286,6 +286,7 @@ fun LiftActionsBottomSheet(
     onRemoveLift: () -> Unit,
     onReorderLifts: () -> Unit,
     onDismiss: () -> Unit,
+    onConfigureRestTimes: (() -> Unit)? = null,
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
@@ -301,6 +302,13 @@ fun LiftActionsBottomSheet(
             leadingIconRes = CoreUiR.drawable.ic_join,
             onClick = onConfigureSuperset,
         )
+        if (onConfigureRestTimes != null) {
+            LiftActionRow(
+                text = stringResource(CoreUiR.string.edit_workout_configure_rest_times),
+                leadingIconRes = CoreUiR.drawable.ic_settings,
+                onClick = onConfigureRestTimes,
+            )
+        }
         LiftActionRow(
             text = stringResource(CoreUiR.string.edit_workout_swap_lift),
             leadingIconRes = CoreUiR.drawable.ic_swap_horiz,

@@ -98,6 +98,7 @@ internal object WorkoutUiMapper {
                         loggedRir = set.loggedValue?.rir,
                         showWeightInput = showWeightColumn,
                         assistMode = assistMode,
+                        restSeconds = set.restSeconds,
                     )
                 },
                 supersetGroupId = lift.supersetGroupId?.value,

@@ -75,16 +75,17 @@ class RecommendationEngineRirMathTest {
     // --- Regression tests (single remaining set, no tiers) ---
 
     @Test
-    @DisplayName("RIR-1: 75x4@2 RIR top set, next top set 4-12@2 -> Hold 75 (no weight increase)")
-    fun `75x4 at 2 RIR holds weight for next top set`() {
+    @DisplayName("RIR-1: 75x4@2 RIR top set, next top set 4-12@2 -> Reduce for global rep floor of 5")
+    fun `75x4 at 2 RIR reduces weight for global rep floor`() {
+        // projected at 75 is 4 @ 2 RIR; targetReps = max(repMin=4, BACKOFF_REP_FLOOR=5) = 5 → Reduce.
         val outcome = engine.recommendNextSet(
             lastPerformed = performed(75.0, 4, 2),
             completedSlot = topSet(),
             targetSlot = topSet(),
             currentWeight = lb(75.0),
         )
-        assertTrue(outcome is RecommendationOutcome.Hold)
-        assertEquals(75.0, (outcome as RecommendationOutcome.Hold).weight.amount, 0.05)
+        assertTrue(outcome is RecommendationOutcome.Reduce)
+        assertTrue((outcome as RecommendationOutcome.Reduce).weight.amount < 75.0)
     }
 
     @Test
@@ -167,11 +168,11 @@ class RecommendationEngineRirMathTest {
         }
 
         @Test
-        @DisplayName("S2: too hard — 75x2@2, top 4-12@2, 2 remaining -> Reduce 65.9")
+        @DisplayName("S2: too hard — 75x2@2, top 4-12@2, 2 remaining -> Reduce for floor 5")
         fun `S2 too hard reduces weight for last set`() {
-            // achieved = 2+2-2 = 2. floor=4, 4-2=2 → too hard → Reduce.
+            // achieved = 2+2-2 = 2. targetFloor=max(4,5)=5, 5-2=3 → too hard → Reduce.
             // e1RM from 75x4 = 84.10. fatigueForLastSet = 2*(2-1) = 2.
-            // weightForReps(84.10, 4+2+2) = weightForReps(84.10, 8) = 65.9.
+            // weightForReps(84.10, 5+2+2) = weightForReps(84.10, 9) ≈ 63.63.
             val outcome = engine.recommendNextSet(
                 lastPerformed = performed(75.0, 2, 2),
                 completedSlot = topSet(),
@@ -180,7 +181,7 @@ class RecommendationEngineRirMathTest {
                 remainingCount = 2,
             )
             assertTrue(outcome is RecommendationOutcome.Reduce)
-            assertEquals(65.9, (outcome as RecommendationOutcome.Reduce).weight.amount, 0.05)
+            assertEquals(63.63, (outcome as RecommendationOutcome.Reduce).weight.amount, 0.05)
         }
 
         @Test
@@ -433,9 +434,8 @@ class RecommendationEngineRirMathTest {
         @DisplayName("steeper per-lift slope reduces weight more than population slope (2 remaining)")
         fun `steeper slope reduces weight more`() {
             // Same setup as S2 (75x2@2, top 4-12@2, 2 remaining). Population slope -2.0 →
-            // fatigueForLastSet = 2 → weightForReps(84.10, 4+2+2=8) = 65.9.
-            // With per-lift slope -3.0 → fatigueForLastSet = 3 → weightForReps(84.10, 4+2+3=9).
-            // repsForWeight(84.10, 65.9)≈8; one more rep of capacity → lower weight.
+            // fatigueForLastSet = 2 → weightForReps(84.10, 5+2+2=9) ≈ 63.63.
+            // With per-lift slope -3.0 → fatigueForLastSet = 3 → weightForReps(84.10, 5+2+3=10).
             val outcome = engine.recommendNextSet(
                 lastPerformed = performed(75.0, 2, 2),
                 completedSlot = topSet(),
@@ -446,8 +446,8 @@ class RecommendationEngineRirMathTest {
             )
             assertTrue(outcome is RecommendationOutcome.Reduce)
             val reduced = (outcome as RecommendationOutcome.Reduce).weight.amount
-            // Steeper fatigue → must reduce more aggressively than the population-slope 65.9.
-            assertTrue(reduced < 65.9, "Steeper slope must reduce weight below 65.9, got $reduced")
+            // Steeper fatigue → must reduce more aggressively than the population-slope ~63.63.
+            assertTrue(reduced < 63.63, "Steeper slope must reduce weight below 63.63, got $reduced")
         }
 
         @Test
@@ -462,14 +462,14 @@ class RecommendationEngineRirMathTest {
                 perLiftSlope = null,
             )
             assertTrue(outcome is RecommendationOutcome.Reduce)
-            assertEquals(65.9, (outcome as RecommendationOutcome.Reduce).weight.amount, 0.05)
+            assertEquals(63.63, (outcome as RecommendationOutcome.Reduce).weight.amount, 0.05)
         }
 
         @Test
         @DisplayName("shallower per-lift slope reduces weight less than population (2 remaining)")
         fun `shallower slope reduces weight less`() {
-            // Same setup as S2 (population -2.0 → fatigueForLastSet=2 → 65.9). Shallower -1.0
-            // → fatigueForLastSet=1 → weightForReps(84.10, 4+2+1=7) → higher weight (less reduction).
+            // Same setup as S2 (population -2.0 → fatigueForLastSet=2 → ~63.63). Shallower -1.0
+            // → fatigueForLastSet=1 → weightForReps(84.10, 5+2+1=8) → higher weight (less reduction).
             val outcome = engine.recommendNextSet(
                 lastPerformed = performed(75.0, 2, 2),
                 completedSlot = topSet(),
@@ -480,7 +480,7 @@ class RecommendationEngineRirMathTest {
             )
             assertTrue(outcome is RecommendationOutcome.Reduce)
             val reduced = (outcome as RecommendationOutcome.Reduce).weight.amount
-            assertTrue(reduced > 65.9, "Shallower slope must reduce weight above 65.9, got $reduced")
+            assertTrue(reduced > 63.63, "Shallower slope must reduce weight above 63.63, got $reduced")
             assertTrue(reduced < 75.0, "Must still reduce below current weight 75.0, got $reduced")
         }
 

@@ -9,8 +9,8 @@ package com.stratum.domain.program
  * | **Double** | Top set only; others `0/0` (RIR-only) | Exactly one — first working set after normalize |
  * | **Linear** | Every working set (shared band) | First set is the load-progression anchor |
  *
- * Soft floors used by progression engines (e.g. [com.stratum.domain.workout.BACKOFF_REP_FLOOR])
- * are **not** written into templates — only this stored range / top-set shape is.
+ * Stored positive bands are clamped to at least [MIN_STORED_REP_MIN] (same value as the
+ * live recommended-rep floor). Double backoffs remain `0/0` (RIR-only).
  *
  * Call sites (program generation, template import, edit-workout save/toggle) must go through
  * these helpers so the conventions cannot drift.
@@ -24,6 +24,13 @@ object ProgressionRepRangePolicy {
 
     const val DEFAULT_REP_MIN: Int = 8
     const val DEFAULT_REP_MAX: Int = 12
+
+    /**
+     * Global floor for any **stored** positive rep band (top-set / Linear shared range).
+     * Aligns with [com.stratum.domain.workout.BACKOFF_REP_FLOOR]: templates and generation
+     * never prescribe a top-of-range floor below 5. Double backoffs stay `0/0` (RIR-only).
+     */
+    const val MIN_STORED_REP_MIN: Int = 5
 
     /**
      * Minimal set-shape input for [normalize] / [applyBand]. Callers map their own set
@@ -47,7 +54,7 @@ object ProgressionRepRangePolicy {
 
     /**
      * Single-set range clamp: Double non-top → `0/0`; otherwise keep a coherent band
-     * (`max ≥ min`, non-negative).
+     * (`max ≥ min`, non-negative, and positive mins floored at [MIN_STORED_REP_MIN]).
      */
     fun normalizeRange(
         scheme: ProgressionScheme,
@@ -64,7 +71,10 @@ object ProgressionRepRangePolicy {
         }
         // A max-only entry (min was 0) becomes min=max so the band is usable.
         val resolvedMin = if (min <= 0 && max > 0) max else min
-        return resolvedMin to max.coerceAtLeast(resolvedMin)
+        if (resolvedMin <= 0) return 0 to 0
+        val flooredMin = resolvedMin.coerceAtLeast(MIN_STORED_REP_MIN)
+        val flooredMax = max.coerceAtLeast(flooredMin)
+        return flooredMin to flooredMax
     }
 
     private fun hasPositiveBand(spec: WorkingSetRepSpec): Boolean =

@@ -85,4 +85,6 @@ data class RenderedSetUi(
      * sign) and label formatting.
      */
     val assistMode: Boolean = false,
+    /** Configured rest duration for this set (seconds), including live overlay overrides. */
+    val restSeconds: Int = 0,
 )

@@ -74,7 +74,7 @@ class WorkoutNotificationHelper @Inject constructor(
             workoutId = running.workoutId,
         )
         return NotificationCompat.Builder(context, WorkoutNotificationChannels.REST_PROGRESS)
-            .setSmallIcon(R.drawable.ic_workout_notification)
+            .setSmallIcon(R.drawable.ic_rest_notification)
             .setContentTitle(running.workoutName)
             .setContentText(context.getString(R.string.notif_rest_in_progress))
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
@@ -110,7 +110,7 @@ class WorkoutNotificationHelper @Inject constructor(
         if (!areNotificationsEnabled()) return
         ensureChannels()
         val notification = NotificationCompat.Builder(context, WorkoutNotificationChannels.REST_COMPLETE)
-            .setSmallIcon(R.drawable.ic_workout_notification)
+            .setSmallIcon(R.drawable.ic_rest_notification)
             .setContentTitle(context.getString(R.string.notif_rest_complete_title))
             .setContentText(workoutName)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
