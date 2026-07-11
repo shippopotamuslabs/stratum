@@ -1178,6 +1178,101 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("Bug #10: after in-session swap, logSet persists LoggedSet.liftId of the swapped lift")
+    fun swapThenLogSetUsesSwappedLiftId() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+        advanceUntilIdle()
+        viewModel.logSet(
+            slotKey = liftSetId.value,
+            weight = lb(135.0),
+            reps = 5,
+            rir = 2,
+        )
+        advanceUntilIdle()
+
+        val sessionSets =
+            trainingLogRepository.getSetsForSession(TrainingSessionId("ts-active"))
+        assertEquals(1, sessionSets.size)
+        val logged = sessionSets.single()
+        assertEquals(LiftId("L-2"), logged.liftId, "logged set must attribute to performed (swapped) lift")
+        assertEquals("Bench Press", logged.exerciseNameRaw)
+        assertEquals("Bench Press", logged.liftContext.liftName)
+        // Original template lift must not receive the set.
+        assertTrue(
+            trainingLogRepository.getSetsForLift(liftId).none { it.sessionId.value == "ts-active" },
+        )
+    }
+
+    @Test
+    @DisplayName("Bug #10: complete with saveTemplate=false keeps sets on swapped lift and leaves template")
+    fun swapLogCompleteDiscardTemplateKeepsSwappedSetOwnership() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+        advanceUntilIdle()
+        viewModel.logSet(
+            slotKey = liftSetId.value,
+            weight = lb(185.0),
+            reps = 5,
+            rir = 1,
+        )
+        advanceUntilIdle()
+
+        viewModel.completeWorkout(saveTemplate = false)
+        advanceUntilIdle()
+
+        val sessionId = TrainingSessionId("ts-active")
+        val session = trainingLogRepository.getSession(sessionId)
+        assertEquals(TrainingSessionStatus.COMPLETED, session?.status)
+
+        val sessionSets = trainingLogRepository.getSetsForSession(sessionId)
+        assertEquals(1, sessionSets.size)
+        assertEquals(LiftId("L-2"), sessionSets.single().liftId)
+
+        // Template must still point at the original lift when the user discards edits.
+        val templateLift =
+            programRepository.getProgram()!!.workouts.single().workoutLifts.single()
+        assertEquals(liftId, templateLift.liftId)
+        assertEquals(0, programRepository.saveProgramCalls.size)
+    }
+
+    @Test
+    @DisplayName("Bug #10: complete with saveTemplate=true persists structural swap on template")
+    fun swapLogCompleteSaveTemplateUpdatesTemplateLiftId() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+        advanceUntilIdle()
+        viewModel.logSet(
+            slotKey = liftSetId.value,
+            weight = lb(185.0),
+            reps = 5,
+            rir = 1,
+        )
+        advanceUntilIdle()
+
+        viewModel.completeWorkout(saveTemplate = true)
+        advanceUntilIdle()
+
+        val sessionSets =
+            trainingLogRepository.getSetsForSession(TrainingSessionId("ts-active"))
+        assertEquals(LiftId("L-2"), sessionSets.single().liftId)
+
+        val templateLift =
+            programRepository.getProgram()!!.workouts.single().workoutLifts.single()
+        assertEquals(LiftId("L-2"), templateLift.liftId)
+        assertTrue(programRepository.saveProgramCalls.isNotEmpty())
+    }
+
+    @Test
     @DisplayName("Active Session Edit: Remove Lift in memory filters it from UI list")
     fun activeSessionRemoveLiftFiltersFromUiList() = runTest {
         val viewModel = buildViewModel()
