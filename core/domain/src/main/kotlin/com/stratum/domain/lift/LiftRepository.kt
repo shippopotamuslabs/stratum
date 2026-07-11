@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.flow.Flow
 
@@ -70,10 +71,18 @@ interface LiftRepository {
     suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId
 
     /**
-     * Replaces the full increment-tier list for [id] (delete + insert). Empty list clears
-     * tiers so consumers fall back to global defaults. Caller validates before invoking.
+     * Replaces the full **lift-scoped override** increment-tier list for [id] (delete +
+     * insert). Empty list clears the override so the lift re-inherits equipment defaults
+     * (or global fallback when unassigned). Caller validates before invoking.
      */
     suspend fun setIncrementTiers(id: LiftId, tiers: List<IncrementTier>)
+
+    /**
+     * Assigns or clears [equipmentId] on a catalog or custom lift. Clears any lift-scoped
+     * increment override tiers so the lift re-inherits the new equipment defaults (or global
+     * fallback when unassigned).
+     */
+    suspend fun setLiftEquipment(id: LiftId, equipmentId: EquipmentId?)
 
     /**
      * Updates primary/secondary muscle tags for [id]. Bitmasks are derived in the data

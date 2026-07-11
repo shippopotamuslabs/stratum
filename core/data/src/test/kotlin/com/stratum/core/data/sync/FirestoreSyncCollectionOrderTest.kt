@@ -10,6 +10,7 @@ class FirestoreSyncCollectionOrderTest {
         val order = SyncCollection.HYDRATE_ORDER.map { it.firestorePath }
         fun indexOf(name: String) = order.indexOf(name)
 
+        assertTrue(indexOf("equipment") < indexOf("lifts"))
         assertTrue(indexOf("lifts") < indexOf("increment_tiers"))
         assertTrue(indexOf("programs") < indexOf("workouts"))
         assertTrue(indexOf("workouts") < indexOf("workout_lifts"))

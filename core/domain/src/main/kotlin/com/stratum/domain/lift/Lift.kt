@@ -1,5 +1,6 @@
 package com.stratum.domain.lift
 
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 
@@ -12,12 +13,13 @@ import com.stratum.domain.onboarding.MuscleGroup
  *   Up to 4 secondary muscles are supported so compound lifts can credit multiple co-movers
  *   (e.g. triceps + front delts on a press); [CustomLiftMusclePolicy] derives sensible
  *   pattern-based secondary defaults so credit stays accurate even if tags were omitted.
- * - [incrementTiers]: realistic weight jumps per load band (§2.2).
+ * - [incrementTiers]: **effective** weight jumps per load band (§2.2) after resolving
+ *   lift-scoped overrides against equipment defaults (see [resolveEffectiveIncrementTiers]).
+ * - [usesEquipmentDefaultIncrements]: true when no lift-scoped override rows exist (tiers may
+ *   still come from equipment or a global fallback).
  * - [presetTags]: which [GymPreset]s bulk-enable this lift (§2.1).
- * - [equipment]: optional display string for the specific equipment/brand (e.g. "Hammer Strength",
- *   "Nautilus", "Pendulum"). Display copy only — not an entity graph (§2.1 lift-first catalog).
- *   Null on seed lifts (generic equipment is carried implicitly by the lift name); users can set
- *   it on custom lifts or override seed lifts when the brand matters to them.
+ * - [equipmentId] / [equipmentName]: optional link to shared [Equipment] for default
+ *   increments and display. Narrow equipment catalog — not an availability graph.
  * - [enabled]: whether this user has the lift available. Persisted on the lift itself (the
  *   onboarding toggle + voice edits mutate this, not a separate availability graph).
  * - [isCustom]: user-created vs. bundled. Distinguishes the two so generation (OS-6) and voice
@@ -37,7 +39,9 @@ data class Lift(
     val secondaryMuscles: Set<MuscleGroup>,
     val incrementTiers: List<IncrementTier>,
     val presetTags: Set<GymPreset>,
-    val equipment: String? = null,
+    val equipmentId: EquipmentId? = null,
+    val equipmentName: String? = null,
+    val usesEquipmentDefaultIncrements: Boolean = true,
     val enabled: Boolean,
     val isCustom: Boolean = false,
     val description: String? = null,

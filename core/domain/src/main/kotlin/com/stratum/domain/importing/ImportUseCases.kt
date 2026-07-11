@@ -1,9 +1,7 @@
 package com.stratum.domain.importing
 
-import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
-import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.response.ExtractResponseProfileUseCase
 import com.stratum.domain.response.ResponseProfilePersistencePort
@@ -226,13 +224,11 @@ class ResolveImportLiftsUseCase @Inject constructor(
                 customLiftInferenceBatchesAttempted = enrichment.batchesAttempted
                 customLiftInferenceBatchesFailed = enrichment.batchesFailed
                 customLiftInferenceLastError = enrichment.lastFailureMessage
-                val defaultIncrement = Weight(DEFAULT_CUSTOM_INCREMENT_LB, Weight.WeightUnit.Lb)
-
                 unmatchedCounts.values.forEach { aggregate ->
                     val inferred = inferredByName[aggregate.displayName]
                     if (inferred != null) {
                         val createdId =
-                            liftRepository.addCustomLift(inferred.toCustomLiftDefinition(defaultIncrement))
+                            liftRepository.addCustomLift(inferred.toCustomLiftDefinition())
                         customLiftLlmInferredCount += 1
                         if (aggregate.isRecent) {
                             customLiftIds += createdId
@@ -482,7 +478,6 @@ class ResolveImportLiftsUseCase @Inject constructor(
     )
 
     private companion object {
-        const val DEFAULT_CUSTOM_INCREMENT_LB = 5.0
         const val MIN_SEED_CATALOG_SIZE = 50
         const val SEED_CATALOG_WAIT_MS = 60_000L
         const val MAX_DIAGNOSTIC_SAMPLES = 25

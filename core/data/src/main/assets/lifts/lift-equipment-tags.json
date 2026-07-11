@@ -119,7 +119,7 @@
   {
     "id": "barbell-rear-delt-row",
     "equipment": [
-      "Barbell"
+      "FixedBarbell"
     ]
   },
   {
@@ -162,6 +162,12 @@
     "id": "barbell-sumo-deadlift",
     "equipment": [
       "Barbell"
+    ]
+  },
+  {
+    "id": "barbell-upright-row",
+    "equipment": [
+      "FixedBarbell"
     ]
   },
   {
@@ -874,7 +880,7 @@
   {
     "id": "lying-t-bar-row",
     "equipment": [
-      "CableStation"
+      "TBarRowStation"
     ]
   },
   {
@@ -962,7 +968,7 @@
   {
     "id": "one-arm-long-bar-row",
     "equipment": [
-      "CableStation"
+      "Barbell"
     ]
   },
   {
@@ -1091,7 +1097,7 @@
   {
     "id": "reverse-grip-bent-over-rows",
     "equipment": [
-      "CableStation"
+      "Barbell"
     ]
   },
   {
@@ -1344,7 +1350,7 @@
   {
     "id": "t-bar-row-with-handle",
     "equipment": [
-      "CableStation"
+      "TBarRowStation"
     ]
   },
   {

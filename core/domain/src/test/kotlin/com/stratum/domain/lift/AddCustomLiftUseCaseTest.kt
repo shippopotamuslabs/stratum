@@ -25,7 +25,7 @@ class AddCustomLiftUseCaseTest {
                     movementPatterns = setOf(MovementPattern.HorizontalPress),
                     primaryMuscles = setOf(MuscleGroup.Chest),
                     secondaryMuscles = setOf(MuscleGroup.Tricep, MuscleGroup.Chest),
-                    equipment = "  landmine  ",
+                    equipmentName = "  landmine  ",
                     muscleLengthBias = MuscleLengthBias.Lengthened,
                     kinematicProfile = KinematicProfile.NonAxialCompound,
                     loadType = LoadType.Weighted,
@@ -41,7 +41,7 @@ class AddCustomLiftUseCaseTest {
         assertEquals(setOf(MovementPattern.HorizontalPress), lift.movementPatterns)
         assertEquals(setOf(MuscleGroup.Chest), lift.primaryMuscles)
         assertEquals(setOf(MuscleGroup.Tricep), lift.secondaryMuscles)
-        assertEquals("landmine", lift.equipment)
+        assertEquals("landmine", lift.equipmentName)
         assertEquals(MuscleLengthBias.Lengthened, lift.muscleLengthBias)
         assertEquals(KinematicProfile.NonAxialCompound, lift.kinematicProfile)
         assertEquals(LoadType.Weighted, lift.loadType)
@@ -126,7 +126,7 @@ class AddCustomLiftUseCaseTest {
     }
 
     @Test
-    @DisplayName("Given blank equipment when added then equipment is null")
+    @DisplayName("Given blank equipment name when added then equipment is null")
     fun blankEquipmentBecomesNull() = runTest {
         val repo = FakeLiftRepository()
         val useCase = AddCustomLiftUseCase(repo, FakeLoggingPort())
@@ -137,11 +137,12 @@ class AddCustomLiftUseCaseTest {
                     name = "Cable Fly",
                     movementPatterns = setOf(MovementPattern.ShoulderAdduction),
                     primaryMuscles = setOf(MuscleGroup.Chest),
-                    equipment = "   ",
+                    equipmentName = "   ",
                 ),
             )
 
         assertTrue(result.isSuccess)
-        assertNull(repo.currentLifts.single().equipment)
+        assertNull(repo.currentLifts.single().equipmentName)
+        assertNull(repo.currentLifts.single().equipmentId)
     }
 }

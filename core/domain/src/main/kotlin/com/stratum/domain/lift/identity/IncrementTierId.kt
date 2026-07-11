@@ -6,8 +6,10 @@ import kotlin.math.roundToLong
 /**
  * Typed id for a single weight-band increment tier row.
  *
- * Document ids are **deterministic** from [liftId] + lower bound so re-saving the same
- * band on two devices does not fork cloud documents. Format: `{liftId}_{fixedPoint}`.
+ * Document ids are **deterministic** so re-saving the same band on two devices does not fork
+ * cloud documents:
+ * - Lift-owned override: `{liftId}_{fixedPoint}`
+ * - Equipment-owned default: `e_{equipmentId}_{fixedPoint}`
  *
  * Bounds are encoded as millipounds (×1000, half-up) so binary float noise cannot fork ids.
  */
@@ -20,6 +22,9 @@ value class IncrementTierId(override val value: String) : EntityId {
     companion object {
         fun forBand(liftId: LiftId, lowerBound: Double): IncrementTierId =
             IncrementTierId("${liftId.value}_${formatBound(lowerBound)}")
+
+        fun forEquipmentBand(equipmentId: EquipmentId, lowerBound: Double): IncrementTierId =
+            IncrementTierId("e_${equipmentId.value}_${formatBound(lowerBound)}")
 
         /** Stable fixed-point encoding: millipounds as decimal string without locale quirks. */
         private fun formatBound(bound: Double): String {

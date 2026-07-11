@@ -1,15 +1,20 @@
 package com.stratum.liftconfig
 
-import com.stratum.core.testing.logging.FakeLoggingPort
-
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.AddCustomLiftUseCase
+import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -27,14 +32,36 @@ import org.junit.jupiter.api.extension.ExtendWith
 class CreateLiftViewModelTest {
 
     private val fakeLiftRepository = FakeLiftRepository()
+    private val fakeEquipmentRepository =
+        FakeEquipmentRepository(
+            listOf(
+                Equipment(
+                    id = EquipmentId("cable"),
+                    name = "Cables",
+                    incrementTiers =
+                        listOf(
+                            IncrementTier(
+                                Weight(0.0, Weight.WeightUnit.Lb),
+                                null,
+                                Weight(5.0, Weight.WeightUnit.Lb),
+                            ),
+                        ),
+                ),
+            ),
+        )
+    private val equipmentPickResult = EquipmentPickResult()
     private lateinit var subject: CreateLiftViewModel
 
     @BeforeEach
     fun setup() {
         fakeLiftRepository.seedLifts(emptyList())
+        fakeLiftRepository.equipmentNamesById = mapOf(EquipmentId("cable") to "Cables")
+        val logging = FakeLoggingPort()
         subject =
             CreateLiftViewModel(
-                addCustomLift = AddCustomLiftUseCase(fakeLiftRepository, FakeLoggingPort()),
+                addCustomLift = AddCustomLiftUseCase(fakeLiftRepository, logging),
+                observeEquipmentCatalog = ObserveEquipmentCatalogUseCase(fakeEquipmentRepository),
+                equipmentPickResult = equipmentPickResult,
             )
     }
 
@@ -83,9 +110,8 @@ class CreateLiftViewModelTest {
         subject.onSelectLengthBias(MuscleLengthBias.Lengthened.name)
         subject.onSelectKinematic(KinematicProfile.Isolation.name)
         subject.onSelectLoadType(LoadType.Weighted.name)
-        subject.onOpenDetailEditor(LiftDetailEditField.Equipment)
-        subject.onEquipmentDraftChange("cable")
-        subject.onSaveEquipment()
+        subject.onBeginChooseEquipment()
+        equipmentPickResult.publish(EquipmentId("cable"))
         advanceUntilIdle()
 
         subject.events.test {
@@ -103,7 +129,8 @@ class CreateLiftViewModelTest {
         assertEquals(setOf(MuscleGroup.Chest), lift.primaryMuscles)
         assertEquals(setOf(MovementPattern.ShoulderAdduction), lift.movementPatterns)
         assertEquals(MuscleLengthBias.Lengthened, lift.muscleLengthBias)
-        assertEquals("cable", lift.equipment)
+        assertEquals(EquipmentId("cable"), lift.equipmentId)
+        assertEquals("Cables", lift.equipmentName)
     }
 
     @Test

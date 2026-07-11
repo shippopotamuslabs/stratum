@@ -1,6 +1,7 @@
 /** Closed equipment vocabulary — keep in sync with Kotlin `GymEquipment`. */
 export const GYM_EQUIPMENT = [
   "Barbell",
+  "FixedBarbell",
   "Dumbbell",
   "EzBar",
   "Kettlebell",

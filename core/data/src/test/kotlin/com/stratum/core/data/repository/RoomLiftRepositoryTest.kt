@@ -2,10 +2,12 @@ package com.stratum.core.data.repository
 
 import androidx.room.Room
 import app.cash.turbine.test
+import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.LiftEntity
 import com.stratum.core.data.mapper.toBitmask
 import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.KinematicProfile
@@ -13,6 +15,7 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.flow.first
@@ -27,9 +30,11 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 @ExtendWith(RobolectricExtension::class)
+@Config(sdk = [34])
 class RoomLiftRepositoryTest {
 
     private lateinit var database: StratumDatabase
@@ -41,12 +46,26 @@ class RoomLiftRepositoryTest {
             RuntimeEnvironment.getApplication(),
             StratumDatabase::class.java,
         ).allowMainThreadQueries().build()
+        val syncTouch =
+            com.stratum.core.data.sync.testSyncTouch(
+                RuntimeEnvironment.getApplication(),
+                database.pendingCloudDeleteDao(),
+            )
+        val equipmentRepository =
+            RoomEquipmentRepository(
+                database = database,
+                equipmentDao = database.equipmentDao(),
+                incrementTierDao = database.incrementTierDao(),
+                syncTouch = syncTouch,
+            )
         subject = RoomLiftRepository(
             database = database,
             liftDao = database.liftDao(),
             incrementTierDao = database.incrementTierDao(),
+            equipmentDao = database.equipmentDao(),
+            equipmentRepository = equipmentRepository,
             gymPreferenceDao = database.gymPreferenceDao(),
-            syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()),
+            syncTouch = syncTouch,
         )
     }
 
@@ -179,6 +198,60 @@ class RoomLiftRepositoryTest {
 
             val custom = firstLifts().single { it.id == id }
             assertEquals(4, custom.incrementTiers.size)
+        }
+
+        @Test
+        @DisplayName("Given free-text 'cable' when custom lift is added then it links seed Cables not a custom row")
+        fun freeTextCableLinksSeedEquipment() = runTest {
+            val cableId = EquipmentId("cable")
+            database.equipmentDao().upsert(
+                EquipmentEntity(
+                    id = cableId,
+                    name = "Cables",
+                    isCustom = false,
+                    updatedAtEpochMillis = 0L,
+                    pendingSync = SyncFlags.CLEAN,
+                ),
+            )
+
+            val id = subject.addCustomLift(
+                CustomLiftDefinition(
+                    name = "Cable Fly",
+                    movementPatterns = setOf(MovementPattern.HorizontalPress),
+                    primaryMuscles = setOf(MuscleGroup.Chest),
+                    equipmentName = "cable",
+                ),
+            )
+
+            val custom = firstLifts().single { it.id == id }
+            assertEquals(cableId, custom.equipmentId)
+            assertEquals("Cables", custom.equipmentName)
+            assertTrue(custom.usesEquipmentDefaultIncrements)
+            // Must not mint a second equipment row for the free-text label.
+            assertEquals(1, database.equipmentDao().getAll().size)
+        }
+
+        @Test
+        @DisplayName("Given unknown free-text equipment when custom lift is added then equipment and lift are created together")
+        fun freeTextCreatesEquipmentWithLiftAtomically() = runTest {
+            val id = subject.addCustomLift(
+                CustomLiftDefinition(
+                    name = "Pro2 Pec Fly",
+                    movementPatterns = setOf(MovementPattern.HorizontalPress),
+                    primaryMuscles = setOf(MuscleGroup.Chest),
+                    equipmentName = "Life Fitness Pro2 Stack",
+                ),
+            )
+
+            val custom = firstLifts().single { it.id == id }
+            val equipmentId = requireNotNull(custom.equipmentId)
+            val equipment = database.equipmentDao().getById(equipmentId)
+            assertNotNull(equipment)
+            assertEquals("Life Fitness Pro2 Stack", equipment!!.name)
+            assertTrue(equipment.isCustom)
+            assertEquals(equipmentId, custom.equipmentId)
+            // Single custom equipment row — no orphaned extras from a separate write.
+            assertEquals(1, database.equipmentDao().getAll().size)
         }
     }
 

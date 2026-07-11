@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "9277f046ad8be2af883a4c7594f7ab28",
+    "identityHash": "8dfce7d0a0453159cc602fd1810aee5c",
     "entities": [
       {
         "tableName": "onboarding_progress",
@@ -156,8 +156,50 @@
         ]
       },
       {
+        "tableName": "equipment",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `isCustom` INTEGER NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isCustom",
+            "columnName": "isCustom",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pendingSync",
+            "columnName": "pending_sync",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
         "tableName": "lifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipment` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `loadType` TEXT NOT NULL, `defaultRestSeconds` INTEGER, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `movementPatternsBitmask` INTEGER NOT NULL, `primaryMusclesBitmask` INTEGER NOT NULL, `secondaryMusclesBitmask` INTEGER NOT NULL, `presetTags` TEXT NOT NULL, `equipmentId` TEXT, `isCustom` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `description` TEXT, `imageUrisCsv` TEXT, `muscleLengthBias` TEXT NOT NULL, `mainstream` INTEGER NOT NULL, `kinematicProfile` TEXT NOT NULL, `loadType` TEXT NOT NULL, `defaultRestSeconds` INTEGER, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`equipmentId`) REFERENCES `equipment`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -196,8 +238,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "equipment",
-            "columnName": "equipment",
+            "fieldPath": "equipmentId",
+            "columnName": "equipmentId",
             "affinity": "TEXT"
           },
           {
@@ -269,11 +311,35 @@
           "columnNames": [
             "id"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_lifts_equipmentId",
+            "unique": false,
+            "columnNames": [
+              "equipmentId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_lifts_equipmentId` ON `${TABLE_NAME}` (`equipmentId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "equipment",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "equipmentId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
       },
       {
         "tableName": "increment_tiers",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `liftId` TEXT NOT NULL, `lowerBound` REAL NOT NULL, `upperBound` REAL, `increment` REAL NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`liftId`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `liftId` TEXT, `equipmentId` TEXT, `lowerBound` REAL NOT NULL, `upperBound` REAL, `increment` REAL NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, `pending_sync` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`liftId`) REFERENCES `lifts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`equipmentId`) REFERENCES `equipment`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -284,8 +350,12 @@
           {
             "fieldPath": "liftId",
             "columnName": "liftId",
-            "affinity": "TEXT",
-            "notNull": true
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "equipmentId",
+            "columnName": "equipmentId",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "lowerBound",
@@ -334,6 +404,15 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_increment_tiers_liftId` ON `${TABLE_NAME}` (`liftId`)"
           },
           {
+            "name": "index_increment_tiers_equipmentId",
+            "unique": false,
+            "columnNames": [
+              "equipmentId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_increment_tiers_equipmentId` ON `${TABLE_NAME}` (`equipmentId`)"
+          },
+          {
             "name": "index_increment_tiers_liftId_lowerBound",
             "unique": true,
             "columnNames": [
@@ -342,6 +421,16 @@
             ],
             "orders": [],
             "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_increment_tiers_liftId_lowerBound` ON `${TABLE_NAME}` (`liftId`, `lowerBound`)"
+          },
+          {
+            "name": "index_increment_tiers_equipmentId_lowerBound",
+            "unique": true,
+            "columnNames": [
+              "equipmentId",
+              "lowerBound"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_increment_tiers_equipmentId_lowerBound` ON `${TABLE_NAME}` (`equipmentId`, `lowerBound`)"
           }
         ],
         "foreignKeys": [
@@ -351,6 +440,17 @@
             "onUpdate": "NO ACTION",
             "columns": [
               "liftId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "equipment",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "equipmentId"
             ],
             "referencedColumns": [
               "id"
@@ -2377,7 +2477,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9277f046ad8be2af883a4c7594f7ab28')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8dfce7d0a0453159cc602fd1810aee5c')"
     ]
   }
 }

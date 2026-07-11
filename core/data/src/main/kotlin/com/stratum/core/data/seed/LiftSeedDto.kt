@@ -28,15 +28,16 @@ import kotlinx.serialization.Serializable
  *
  * The id is a stable slug (e.g. `"barbell-full-squat"`) so seeding is deterministic across
  * installs and tests can assert against a known catalog. [incrementTiers] are optional per entry;
- * when absent the seeder supplies a sensible default. Tiers use the lift's unit (lb for seed).
+ * when absent the lift inherits equipment default tiers via [equipmentId] (or tag mapping).
+ * Tiers use the lift's unit (lb for seed).
  *
  * [imageSlug] (OS-4b) carries the source dataset's directory id (e.g. `"Barbell_Full_Squat"`)
  * so a future image-display slice can construct lazy-load URLs against the Cloudflare R2
  * mirror. It is **not** persisted by the seeder — forward-looking metadata consumed at display
  * time, not seed time.
  *
- * [equipment] is an optional display string (e.g. "Hammer Strength") — display copy only, not
- * an equipment entity graph. Null on most seed lifts; the seeder passes it through to the entity.
+ * [equipmentId] is an optional seed [com.stratum.domain.lift.identity.EquipmentId] slug. When
+ * omitted, the seeder derives it from `lift-equipment-tags.json` via [GymEquipmentToEquipmentId].
  */
 @Serializable
 data class LiftSeedDto(
@@ -47,7 +48,7 @@ data class LiftSeedDto(
     val secondaryMuscles: List<MuscleGroup> = emptyList(),
     val incrementTiers: List<IncrementTierSeedDto>? = null,
     val presetTags: List<String> = emptyList(),
-    val equipment: String? = null,
+    val equipmentId: String? = null,
     val imageSlug: String? = null,
     val description: String? = null,
     val imageUris: List<String> = emptyList(),
