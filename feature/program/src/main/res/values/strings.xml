@@ -8,6 +8,7 @@
     <string name="programs_rest_day">Rest Day</string>
     <string name="programs_start_workout">Start Workout</string>
     <string name="programs_options_title">Program options</string>
+    <string name="programs_menu_edit_program">Edit Program</string>
     <string name="programs_menu_create_program">New Program</string>
     <string name="programs_menu_program_library">Program Library</string>
     <string name="programs_calendar_content_description">Workout calendar</string>

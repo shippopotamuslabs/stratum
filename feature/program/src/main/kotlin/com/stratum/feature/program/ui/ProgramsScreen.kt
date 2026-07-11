@@ -248,6 +248,7 @@ internal fun ProgramsScreen(
         }
 
         if (showOptionsSheet) {
+            val editProgramId = (state as? ProgramsUiState.Loaded)?.program?.programId
             ProgramsOptionsBottomSheet(
                 onNewProgram = {
                     showOptionsSheet = false
@@ -257,6 +258,13 @@ internal fun ProgramsScreen(
                     showOptionsSheet = false
                     callbacks.onProgramLibraryClick()
                 },
+                onEditProgram =
+                    editProgramId?.let { programId ->
+                        {
+                            showOptionsSheet = false
+                            callbacks.onEditProgramClick(programId)
+                        }
+                    },
                 onDismiss = { showOptionsSheet = false },
             )
         }
