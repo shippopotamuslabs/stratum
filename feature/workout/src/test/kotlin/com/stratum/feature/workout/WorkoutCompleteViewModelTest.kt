@@ -1,40 +1,61 @@
 package com.stratum.feature.workout
 
-import com.stratum.core.testing.logging.FakeLoggingPort
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
+import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
-import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.AnalyzeSessionEquipmentProposalsUseCase
+import com.stratum.domain.lift.ApplyEquipmentIncrementProposalUseCase
+import com.stratum.domain.lift.Equipment
+import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.workout.ui.WorkoutCompleteUiState
 import java.time.Instant
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 /**
  * Presentation-mapping tests for [WorkoutCompleteViewModel]. State-based assertions on
- * `uiState` only (UNIT_TESTING.md §1). The VM is wired with a real
- * [GetWorkoutSummaryUseCase] against `:core:testing` fakes — no MockK.
+ * `uiState` only (UNIT_TESTING.md §1). Wired with real use cases against `:core:testing`
+ * fakes — no MockK.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
 @DisplayName("WorkoutCompleteViewModel presentation mapping")
 class WorkoutCompleteViewModelTest {
+
+    private val lb = Weight.WeightUnit.Lb
+    private val cableId = EquipmentId("cable")
+    private val latId = LiftId("lat-pulldown")
+    private val openFive =
+        listOf(IncrementTier(Weight(0.0, lb), null, Weight(5.0, lb)))
 
     @Test
     @DisplayName("Loaded state maps lift name, performance, RIR, and e1RM for a loaded set")
@@ -54,6 +75,7 @@ class WorkoutCompleteViewModelTest {
         assertEquals("185 × 3", bestSet.performanceLabel)
         assertEquals("1", bestSet.rirLabel)
         assertEquals(expectedOneRmLabel(185.0, 3, 1), bestSet.estimatedOneRmLabel)
+        assertTrue(loaded.equipmentProposals.isEmpty())
     }
 
     @Test
@@ -114,22 +136,305 @@ class WorkoutCompleteViewModelTest {
         )
 
         viewModel.uiState.test {
-            // Initial state is Loading before loadSummary is called.
             assertEquals(WorkoutCompleteUiState.Loading, awaitItem())
             viewModel.loadSummary("ts-1")
             val loaded = awaitItem() as WorkoutCompleteUiState.Loaded
             assertEquals("Workout A", loaded.workoutName)
-            // 3,600,000 ms → 1h, formatDuration emits HH:MM:SS for hour durations.
             assertEquals("1:00:00", loaded.durationFormatted)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
+    @Test
+    @DisplayName("Given off-lattice cable sets when loaded then proposal card is mapped")
+    fun mapsEquipmentProposalCard() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(1, loaded.equipmentProposals.size)
+        val card = loaded.equipmentProposals.single()
+        assertTrue(card.id.isNotBlank())
+        assertTrue(card.title.isNotBlank())
+        assertTrue(card.tierSummary.isNotBlank())
+        assertEquals("Lat pulldown", card.liftNames)
+        assertEquals("Accept", card.primaryButtonLabel)
+        // Many inheritors → Fork primary → no blast confirm on Accept.
+        assertFalse(card.requiresConfirm)
+        assertTrue(card.blastRadiusCount > 3)
+        assertFalse(card.isApplying)
+    }
+
+    @Test
+    @DisplayName("Given proposal when skip then card removed and prefs untouched")
+    fun skipRemovesCardWithoutDismissPref() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val id =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .equipmentProposals
+                .single()
+                .id
+        harness.viewModel.onSkipProposal(id)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertTrue(loaded.equipmentProposals.isEmpty())
+        assertTrue(harness.prefs.dismissedFingerprints.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Given proposal when not now then card removed and fingerprint dismissed")
+    fun notNowDismissesFingerprint() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val id =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .equipmentProposals
+                .single()
+                .id
+        harness.viewModel.onNotNowProposal(id)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertTrue(loaded.equipmentProposals.isEmpty())
+        assertTrue(id in harness.prefs.dismissedFingerprints)
+    }
+
+    @Test
+    @DisplayName("Given fork primary when accept then applies and removes card")
+    fun acceptForkAppliesAndRemoves() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val id =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .equipmentProposals
+                .single()
+                .id
+        harness.viewModel.onAcceptPrimary(id)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertTrue(loaded.equipmentProposals.isEmpty())
+        assertNull(loaded.blastRadiusConfirm)
+        assertNotNull(loaded.userMessage)
+        assertTrue(loaded.userMessage!!.startsWith("Created"))
+        // Custom equipment was created (catalog grew beyond seed cable).
+        assertTrue(harness.equipmentRepo.current.any { it.isCustom })
+    }
+
+    @Test
+    @DisplayName("Given seed amend alternative when chosen then stages blast-radius confirm")
+    fun alternativeAmendStagesConfirm() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val card =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .equipmentProposals
+                .single()
+        assertEquals("Update shared instead", card.alternativeButtonLabel)
+
+        harness.viewModel.onAcceptAlternative(card.id)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertNotNull(loaded.blastRadiusConfirm)
+        assertEquals(card.id, loaded.blastRadiusConfirm!!.proposalId)
+        assertTrue(loaded.blastRadiusConfirm!!.body.contains(card.blastRadiusCount.toString()))
+        // Card still present until confirm.
+        assertEquals(1, loaded.equipmentProposals.size)
+    }
+
+    @Test
+    @DisplayName("Given staged confirm when confirmed then amends seed tiers and removes card")
+    fun confirmAcceptAmendsSeed() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val card =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .equipmentProposals
+                .single()
+        harness.viewModel.onAcceptAlternative(card.id)
+        advanceUntilIdle()
+        harness.viewModel.onConfirmAccept()
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertTrue(loaded.equipmentProposals.isEmpty())
+        assertNull(loaded.blastRadiusConfirm)
+        assertEquals("Updated equipment steps.", loaded.userMessage)
+        val cableTiers = harness.equipmentRepo.getEquipment(cableId)!!.incrementTiers
+        // No longer a single 5-lb open band — inference proposed a finer step.
+        assertTrue(cableTiers.any { it.increment.amount < 5.0 } || cableTiers != openFive)
+    }
+
+    @Test
+    @DisplayName("Given staged confirm when dismissed then card remains and no write")
+    fun dismissConfirmKeepsCard() = runTest {
+        val harness = buildCableAnomalyHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val beforeTiers = harness.equipmentRepo.getEquipment(cableId)!!.incrementTiers
+        val card =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .equipmentProposals
+                .single()
+        harness.viewModel.onAcceptAlternative(card.id)
+        advanceUntilIdle()
+        harness.viewModel.onDismissConfirm()
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertNull(loaded.blastRadiusConfirm)
+        assertEquals(1, loaded.equipmentProposals.size)
+        assertEquals(beforeTiers, harness.equipmentRepo.getEquipment(cableId)!!.incrementTiers)
+    }
+
+    @Test
+    @DisplayName("Given apply failure when accept then card is restored for retry")
+    fun applyFailureRestoresCard() = runTest {
+        val harness = buildCableAnomalyHarness()
+        // Delete seed equipment so Fork still works... actually make apply fail by
+        // emptying tiers validation — force repository to throw on create.
+        harness.equipmentRepo.failNextWrite = true
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val before =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .equipmentProposals
+                .single()
+        harness.viewModel.onAcceptPrimary(before.id)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(1, loaded.equipmentProposals.size)
+        assertEquals(before.id, loaded.equipmentProposals.single().id)
+        assertFalse(loaded.equipmentProposals.single().isApplying)
+        assertEquals("Couldn't apply equipment update.", loaded.userMessage)
+    }
+
+    private data class CableHarness(
+        val viewModel: WorkoutCompleteViewModel,
+        val prefs: FakeEquipmentProposalPreferences,
+        val equipmentRepo: FakeEquipmentRepository,
+        val sessionId: String,
+    )
+
     /**
-     * Mirrors `GetWorkoutSummaryUseCaseTest.bestSetPerLift` fixtures: completed live session
-     * for "Workout A", bench lift catalog entry, one logged bench set. Sets are seeded via
-     * the constructor (non-suspend) so the helper can run outside a coroutine.
+     * Off-lattice cable lat work on a high-inheritor seed so analyze emits a Fork-primary
+     * proposal with Amend as alternative (blast-radius confirm path).
      */
+    private fun buildCableAnomalyHarness(): CableHarness {
+        val sessionId = "ts-cable-1"
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = sessionId)
+        val latSets =
+            listOf(
+                cableSet(sessionId, latId, 62.5, 0, "s1"),
+                cableSet(sessionId, latId, 62.5, 1, "s2"),
+                cableSet(sessionId, latId, 67.5, 2, "s3"),
+            )
+        val logRepo =
+            FakeTrainingLogRepository(
+                initialSessions = listOf(session),
+                initialSets = latSets,
+                programRepository = programRepo,
+            )
+        val liftRepo = FakeLiftRepository()
+        val equipmentRepo = FakeEquipmentRepository(liftRepository = liftRepo)
+        equipmentRepo.seed(
+            listOf(
+                Equipment(
+                    id = cableId,
+                    name = "Cables",
+                    incrementTiers = openFive,
+                    isCustom = false,
+                ),
+            ),
+        )
+        val lifts =
+            (0 until 12).map { index ->
+                val id = if (index == 0) latId else LiftId("cable-lift-$index")
+                val name = if (index == 0) "Lat pulldown" else "Cable lift $index"
+                Lift(
+                    id = id,
+                    name = name,
+                    movementPatterns = setOf(MovementPattern.VerticalPull),
+                    primaryMuscles = setOf(MuscleGroup.Back),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = openFive,
+                    presetTags = emptySet(),
+                    enabled = true,
+                    equipmentId = cableId,
+                    loadType = LoadType.Weighted,
+                )
+            }
+        liftRepo.seedLifts(lifts)
+        liftRepo.equipmentNamesById = mapOf(cableId to "Cables")
+        val prefs = FakeEquipmentProposalPreferences()
+        val logging = FakeLoggingPort()
+        val viewModel =
+            WorkoutCompleteViewModel(
+                getWorkoutSummary =
+                    GetWorkoutSummaryUseCase(
+                        logRepo,
+                        programRepo,
+                        ObserveLiftCatalogUseCase(liftRepo),
+                        logging,
+                    ),
+                analyzeSessionEquipmentProposals =
+                    AnalyzeSessionEquipmentProposalsUseCase(
+                        trainingLogRepository = logRepo,
+                        liftRepository = liftRepo,
+                        equipmentRepository = equipmentRepo,
+                        preferences = prefs,
+                        loggingPort = logging,
+                    ),
+                applyEquipmentIncrementProposal =
+                    ApplyEquipmentIncrementProposalUseCase(
+                        equipmentRepository = equipmentRepo,
+                        liftRepository = liftRepo,
+                        validate = ValidateIncrementTiersUseCase(),
+                        loggingPort = logging,
+                    ),
+                equipmentProposalPreferences = prefs,
+            )
+        return CableHarness(viewModel, prefs, equipmentRepo, sessionId)
+    }
+
+    private fun cableSet(
+        sessionId: String,
+        liftId: LiftId,
+        weight: Double,
+        setIndex: Int,
+        id: String,
+    ): LoggedSet =
+        LoggedSet(
+            id = LoggedSetId(id),
+            sessionId = TrainingSessionId(sessionId),
+            exerciseNameRaw = "Lat pulldown",
+            liftId = liftId,
+            setIndex = setIndex,
+            weight = Weight(weight, lb),
+            reps = 8,
+            rir = 1,
+            completedAt = Instant.parse("2025-01-01T10:05:00Z"),
+            liftContext = WorkoutLoggingFixtures.importLiftContext(),
+        )
+
     private fun buildViewModelWithBenchSet(
         weight: Double,
         reps: Int,
@@ -137,43 +442,71 @@ class WorkoutCompleteViewModelTest {
     ): WorkoutCompleteViewModel {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-1")
-        val benchSet = LoggedSet(
-            id = LoggedSetId("set-1"),
-            sessionId = TrainingSessionId("ts-1"),
-            exerciseNameRaw = "Barbell Bench Press",
-            liftId = WorkoutLoggingFixtures.liftBenchId,
-            setIndex = 0,
-            weight = Weight(weight, Weight.WeightUnit.Lb),
-            reps = reps,
-            rir = rir,
-            completedAt = Instant.parse("2025-01-01T10:05:00Z"),
-            liftContext = WorkoutLoggingFixtures.importLiftContext(),
-        )
-        val logRepo = FakeTrainingLogRepository(
-            initialSessions = listOf(session),
-            initialSets = listOf(benchSet),
-            programRepository = programRepo,
-        )
+        val benchSet =
+            LoggedSet(
+                id = LoggedSetId("set-1"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Barbell Bench Press",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 0,
+                weight = Weight(weight, Weight.WeightUnit.Lb),
+                reps = reps,
+                rir = rir,
+                completedAt = Instant.parse("2025-01-01T10:05:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+            )
+        val logRepo =
+            FakeTrainingLogRepository(
+                initialSessions = listOf(session),
+                initialSets = listOf(benchSet),
+                programRepository = programRepo,
+            )
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
-        val useCase = GetWorkoutSummaryUseCase(logRepo, programRepo, ObserveLiftCatalogUseCase(liftRepo), FakeLoggingPort())
-        return WorkoutCompleteViewModel(useCase)
+        val equipmentRepo = FakeEquipmentRepository()
+        val prefs = FakeEquipmentProposalPreferences()
+        val logging = FakeLoggingPort()
+        return WorkoutCompleteViewModel(
+            getWorkoutSummary =
+                GetWorkoutSummaryUseCase(
+                    logRepo,
+                    programRepo,
+                    ObserveLiftCatalogUseCase(liftRepo),
+                    logging,
+                ),
+            analyzeSessionEquipmentProposals =
+                AnalyzeSessionEquipmentProposalsUseCase(
+                    trainingLogRepository = logRepo,
+                    liftRepository = liftRepo,
+                    equipmentRepository = equipmentRepo,
+                    preferences = prefs,
+                    loggingPort = logging,
+                ),
+            applyEquipmentIncrementProposal =
+                ApplyEquipmentIncrementProposalUseCase(
+                    equipmentRepository = equipmentRepo,
+                    liftRepository = liftRepo,
+                    validate = ValidateIncrementTiersUseCase(),
+                    loggingPort = logging,
+                ),
+            equipmentProposalPreferences = prefs,
+        )
     }
 
-    /** Matches the VM's [WorkoutCompleteViewModel.formatWeight] rounding (1 decimal, no trailing .0). */
     private fun expectedOneRmLabel(weight: Double, reps: Int, rir: Int? = null): String {
         val e1Rm = EstimatedOneRm.calculate(weight, reps + (rir ?: 0))
         val rounded = (e1Rm * 10).toInt() / 10.0
         return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
     }
 
-    private fun benchLift(): Lift = Lift(
-        id = WorkoutLoggingFixtures.liftBenchId,
-        name = "Barbell Bench Press",
-        movementPatterns = setOf(MovementPattern.HorizontalPress),
-        primaryMuscles = setOf(MuscleGroup.Chest),
-        secondaryMuscles = emptySet(),
-        incrementTiers = emptyList(),
-        presetTags = emptySet(),
-        enabled = true,
-    )
+    private fun benchLift(): Lift =
+        Lift(
+            id = WorkoutLoggingFixtures.liftBenchId,
+            name = "Barbell Bench Press",
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            secondaryMuscles = emptySet(),
+            incrementTiers = emptyList(),
+            presetTags = emptySet(),
+            enabled = true,
+        )
 }

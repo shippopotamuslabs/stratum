@@ -19,10 +19,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -41,6 +40,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun ManageEquipmentRoute(
@@ -56,44 +56,67 @@ fun ManageEquipmentRoute(
         snackbarHostState = snackbarHostState,
         onUserMessageShown = viewModel::userMessageShown,
     )
+    LaunchedEffect(viewModel, selectionMode) {
+        viewModel.events.collectLatest { event ->
+            if (!selectionMode) return@collectLatest
+            val id =
+                when (event) {
+                    is ManageEquipmentEvent.Created -> event.equipmentId
+                    is ManageEquipmentEvent.Forked -> event.equipmentId
+                }
+            viewModel.selectEquipment(id)
+            onBackClick()
+        }
+    }
     ManageEquipmentScreen(
         state = state,
         selectionMode = selectionMode,
-        onBackClick = onBackClick,
-        onOpenIncrements = onOpenIncrements,
-        onEquipmentSelected = { equipmentId ->
-            viewModel.selectEquipment(equipmentId)
-            onBackClick()
-        },
-        onCreateEquipment = { onCreated ->
-            viewModel.onCreateEquipment { createdId ->
-                if (createdId != null) {
-                    onCreated()
-                    if (selectionMode) {
-                        viewModel.selectEquipment(createdId)
-                        onBackClick()
-                    }
-                }
-            }
-        },
-        onNameDraftChange = viewModel::onNameDraftChange,
+        actions =
+            ManageEquipmentActions(
+                onBackClick = onBackClick,
+                onOpenIncrements = onOpenIncrements,
+                onEquipmentSelected = { equipmentId ->
+                    viewModel.selectEquipment(equipmentId)
+                    onBackClick()
+                },
+                onOpenCreate = viewModel::onOpenCreate,
+                onDismissCreate = viewModel::onDismissCreate,
+                onCreateEquipment = viewModel::onCreateEquipment,
+                onNameDraftChange = viewModel::onNameDraftChange,
+                onStartFork = viewModel::onStartFork,
+                onForkNameDraftChange = viewModel::onForkNameDraftChange,
+                onConfirmFork = viewModel::onConfirmFork,
+                onDismissFork = viewModel::onDismissFork,
+            ),
         snackbarHostState = snackbarHostState,
     )
 }
+
+/**
+ * Callbacks for [ManageEquipmentScreen] — grouped to keep the composable parameter list short.
+ */
+data class ManageEquipmentActions(
+    val onBackClick: () -> Unit,
+    val onOpenIncrements: (String) -> Unit,
+    val onEquipmentSelected: (String) -> Unit,
+    val onOpenCreate: () -> Unit,
+    val onDismissCreate: () -> Unit,
+    val onCreateEquipment: () -> Unit,
+    val onNameDraftChange: (String) -> Unit,
+    val onStartFork: (String) -> Unit = {},
+    val onForkNameDraftChange: (String) -> Unit = {},
+    val onConfirmFork: () -> Unit = {},
+    val onDismissFork: () -> Unit = {},
+)
 
 @Composable
 fun ManageEquipmentScreen(
     state: ManageEquipmentUiState,
     selectionMode: Boolean,
-    onBackClick: () -> Unit,
-    onOpenIncrements: (String) -> Unit,
-    onEquipmentSelected: (String) -> Unit,
-    onCreateEquipment: (onCreated: () -> Unit) -> Unit,
-    onNameDraftChange: (String) -> Unit,
+    actions: ManageEquipmentActions,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    var showCreate by remember { mutableStateOf(false) }
     val title =
         if (selectionMode) {
             stringResource(UiR.string.manage_equipment_choose_title)
@@ -108,12 +131,12 @@ fun ManageEquipmentScreen(
                 title = title,
                 navigationIcon = {
                     StratumTopBarBackButton(
-                        onClick = onBackClick,
+                        onClick = actions.onBackClick,
                         contentDescription = stringResource(UiR.string.lift_config_navigate_back),
                     )
                 },
                 actions = {
-                    StratumIconButton(onClick = { showCreate = true }) {
+                    StratumIconButton(onClick = actions.onOpenCreate) {
                         Icon(
                             painter = painterResource(UiR.drawable.ic_add),
                             contentDescription = stringResource(UiR.string.manage_equipment_add),
@@ -151,28 +174,34 @@ fun ManageEquipmentScreen(
                     selectionMode = selectionMode,
                     onClick = {
                         if (selectionMode) {
-                            onEquipmentSelected(row.id)
+                            actions.onEquipmentSelected(row.id)
                         } else {
-                            onOpenIncrements(row.id)
+                            actions.onOpenIncrements(row.id)
                         }
                     },
-                    onEditIncrements = { onOpenIncrements(row.id) },
+                    onEditIncrements = { actions.onOpenIncrements(row.id) },
+                    onCopyAsCustom = { actions.onStartFork(row.id) },
                 )
             }
         }
     }
 
-    if (showCreate) {
+    if (state.showCreateSheet) {
         StratumBottomSheet(
             onDismissRequest = {
-                if (!state.isCreating) showCreate = false
+                if (!state.isCreating) actions.onDismissCreate()
             },
             title = stringResource(UiR.string.manage_equipment_add),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                StratumText(
+                    text = stringResource(UiR.string.manage_equipment_create_guidance),
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                )
                 StratumTextField(
                     value = state.nameDraft,
-                    onValueChange = onNameDraftChange,
+                    onValueChange = actions.onNameDraftChange,
                     label = stringResource(UiR.string.manage_equipment_name_placeholder),
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = stringResource(UiR.string.manage_equipment_name_placeholder),
@@ -180,12 +209,45 @@ fun ManageEquipmentScreen(
                 )
                 StratumButton(
                     text = stringResource(UiR.string.manage_equipment_create),
-                    onClick = {
-                        onCreateEquipment {
-                            showCreate = false
-                        }
-                    },
+                    onClick = actions.onCreateEquipment,
                     enabled = state.nameDraft.trim().isNotEmpty() && !state.isCreating,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+
+    if (state.forkingFromId != null) {
+        StratumBottomSheet(
+            onDismissRequest = {
+                if (!state.isForking) actions.onDismissFork()
+            },
+            title = stringResource(UiR.string.manage_equipment_copy_title),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val sourceName = state.forkingFromName.orEmpty()
+                if (sourceName.isNotBlank()) {
+                    StratumText(
+                        text = stringResource(
+                            UiR.string.manage_equipment_copy_from,
+                            sourceName,
+                        ),
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        muted = true,
+                    )
+                }
+                StratumTextField(
+                    value = state.forkNameDraft,
+                    onValueChange = actions.onForkNameDraftChange,
+                    label = stringResource(UiR.string.manage_equipment_name_placeholder),
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = stringResource(UiR.string.manage_equipment_name_placeholder),
+                    enabled = !state.isForking,
+                )
+                StratumButton(
+                    text = stringResource(UiR.string.manage_equipment_copy_create),
+                    onClick = actions.onConfirmFork,
+                    enabled = state.forkNameDraft.trim().isNotEmpty() && !state.isForking,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -233,6 +295,7 @@ private fun EquipmentRow(
     selectionMode: Boolean,
     onClick: () -> Unit,
     onEditIncrements: () -> Unit,
+    onCopyAsCustom: () -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -266,7 +329,20 @@ private fun EquipmentRow(
                 }
             }
         }
-        if (selectionMode) {
+        if (!selectionMode) {
+            StratumIconButton(onClick = onCopyAsCustom) {
+                Icon(
+                    painter = painterResource(UiR.drawable.ic_copy),
+                    contentDescription = stringResource(UiR.string.manage_equipment_copy_as_custom),
+                    tint = colors.textMuted,
+                )
+            }
+            Icon(
+                painter = painterResource(UiR.drawable.ic_chevron_right),
+                contentDescription = stringResource(UiR.string.manage_equipment_open_increments),
+                tint = colors.textMuted,
+            )
+        } else {
             StratumIconButton(
                 onClick = onEditIncrements,
                 containerColor = colors.borderSubtle,
@@ -277,12 +353,6 @@ private fun EquipmentRow(
                     tint = colors.textMuted,
                 )
             }
-        } else {
-            Icon(
-                painter = painterResource(UiR.drawable.ic_chevron_right),
-                contentDescription = stringResource(UiR.string.manage_equipment_open_increments),
-                tint = colors.textMuted,
-            )
         }
     }
 }

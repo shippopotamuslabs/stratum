@@ -36,6 +36,7 @@ fun EquipmentIncrementsRoute(
                 isSaving = state.isSaving,
                 saveSucceeded = state.saveSucceeded,
                 inheritanceBanner = null,
+                affectsBanner = formatAffectsBanner(state),
                 showResetToEquipment = false,
             ),
         onBackClick = onBackClick,
@@ -50,3 +51,37 @@ fun EquipmentIncrementsRoute(
         modifier = Modifier,
     )
 }
+
+/**
+ * Presentation mapping for "Affects N lifts" + first 3 names + "+M more".
+ * Domain models stay out of the leaf editor; only strings enter [LiftIncrementsScreen].
+ */
+@Composable
+internal fun formatAffectsBanner(state: EquipmentIncrementsUiState): String {
+    val count = state.affectedLiftCount
+    if (count <= 0) {
+        return stringResource(UiR.string.equipment_increments_affects_none)
+    }
+    val names = state.affectedLiftNames
+    if (names.isEmpty()) {
+        return stringResource(UiR.string.equipment_increments_affects_count, count)
+    }
+    val preview = names.take(AFFECTS_NAME_PREVIEW_LIMIT).joinToString(", ")
+    val more = count - minOf(AFFECTS_NAME_PREVIEW_LIMIT, names.size)
+    return if (more > 0) {
+        stringResource(
+            UiR.string.equipment_increments_affects_with_more,
+            count,
+            preview,
+            more,
+        )
+    } else {
+        stringResource(
+            UiR.string.equipment_increments_affects_with_names,
+            count,
+            preview,
+        )
+    }
+}
+
+private const val AFFECTS_NAME_PREVIEW_LIMIT = 3

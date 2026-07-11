@@ -1,6 +1,7 @@
 package com.stratum.domain.lift
 
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -22,6 +23,20 @@ interface EquipmentRepository {
      * band is applied (5 lb). Returns the new id.
      */
     suspend fun addCustomEquipment(name: String, tiers: List<IncrementTier> = emptyList()): EquipmentId
+
+    /**
+     * Creates custom equipment with [tiers] and assigns each lift in [liftIds] to it in one
+     * atomic write (same sync lock + Room transaction in the data layer).
+     *
+     * Assignment clears any lift-scoped increment override so the new equipment defaults apply.
+     * Used by fork remedies so a crash cannot leave orphan custom equipment without assignments
+     * (or assigned lifts without equipment).
+     */
+    suspend fun createCustomEquipmentAndAssignLifts(
+        name: String,
+        tiers: List<IncrementTier>,
+        liftIds: List<LiftId>,
+    ): EquipmentId
 
     /** Renames equipment. No-op when missing. */
     suspend fun renameEquipment(id: EquipmentId, name: String)
