@@ -41,8 +41,12 @@ fun SettingsScreen(
     onLogoutClick: () -> Unit = {},
     onLogoutConfirmDismiss: () -> Unit = {},
     onLogoutConfirmed: () -> Unit = {},
+    onDeleteAccountClick: () -> Unit = {},
+    onDeleteAccountConfirmDismiss: () -> Unit = {},
+    onDeleteAccountConfirmed: () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
 ) {
+    val accountBusy = uiState.isLoggingOut || uiState.isDeletingAccount
     StratumScaffold(
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -160,7 +164,20 @@ fun SettingsScreen(
                     ),
                     onClick = onLogoutClick,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoggingOut,
+                    enabled = !accountBusy,
+                    destructive = true,
+                )
+                StratumButton(
+                    text = stringResource(
+                        if (uiState.isDeletingAccount) {
+                            R.string.settings_delete_account_in_progress
+                        } else {
+                            R.string.settings_delete_account
+                        },
+                    ),
+                    onClick = onDeleteAccountClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !accountBusy,
                     destructive = true,
                 )
             }
@@ -182,7 +199,20 @@ fun SettingsScreen(
             onConfirm = onLogoutConfirmed,
             onDismiss = onLogoutConfirmDismiss,
             destructiveConfirm = true,
-            confirmEnabled = !uiState.isLoggingOut,
+            confirmEnabled = !accountBusy,
+        )
+    }
+
+    if (uiState.showDeleteConfirm) {
+        StratumConfirmDialog(
+            title = stringResource(R.string.settings_delete_account_confirm_title),
+            body = stringResource(R.string.settings_delete_account_confirm_body),
+            confirmLabel = stringResource(R.string.settings_delete_account_confirm),
+            dismissLabel = stringResource(R.string.settings_delete_account_cancel),
+            onConfirm = onDeleteAccountConfirmed,
+            onDismiss = onDeleteAccountConfirmDismiss,
+            destructiveConfirm = true,
+            confirmEnabled = !accountBusy,
         )
     }
 }

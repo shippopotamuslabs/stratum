@@ -5,6 +5,7 @@ import { runImportAgentSession } from "./ImportAgentSession";
 import { createAdminToolStorage } from "./toolStorage";
 import { deterministicConvert } from "./deterministic/deterministicConvert";
 import { assessHistoryImportFeasibility } from "./feasibility/assessHistoryImportFeasibility";
+import { updateJobIfPresent } from "./safeJobUpdate";
 
 /**
  * Trigger for historical training-log import jobs.
@@ -97,7 +98,7 @@ export const processImportJob = onDocumentWritten(
           console.info(
             `history import rejected ${uid}/${jobId}: ${feasibility.reasonCode} — ${feasibility.message}`,
           );
-          await jobRef.update({
+          await updateJobIfPresent(jobRef, {
             status: "rejected",
             progressPhase: "failed",
             progressMessage: "Unsupported file format",
@@ -114,10 +115,16 @@ export const processImportJob = onDocumentWritten(
       console.warn(`history feasibility check threw for ${uid}/${jobId}: ${message}`);
     }
 
+    // Account deletion may have cascade-removed the job after claim.
+    if (!(await jobRef.get()).exists) {
+      console.info(`import job ${uid}/${jobId} gone after claim; aborting`);
+      return;
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     const model = process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-v4-pro";
     if (!apiKey) {
-      await jobRef.update({
+      await updateJobIfPresent(jobRef, {
         status: "failed",
         errorMessage: "OPENROUTER_API_KEY missing.",
         progressPhase: "failed",
@@ -129,7 +136,7 @@ export const processImportJob = onDocumentWritten(
     try {
       const result = await runImportAgentSession(uid, jobId, apiKey, model);
       if (result.status === "failed") {
-        await jobRef.update({
+        await updateJobIfPresent(jobRef, {
           status: "failed",
           errorMessage: result.errorMessage ?? "Import failed.",
           progressPhase: "failed",
@@ -138,7 +145,7 @@ export const processImportJob = onDocumentWritten(
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      await jobRef.update({
+      await updateJobIfPresent(jobRef, {
         status: "failed",
         errorMessage: message,
         progressPhase: "failed",
