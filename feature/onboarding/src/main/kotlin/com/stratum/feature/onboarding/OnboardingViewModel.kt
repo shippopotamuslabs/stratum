@@ -12,33 +12,29 @@ import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.RefreshPersistedImportStateUseCase
 import com.stratum.domain.lift.ApplyGymPresetUseCase
 import com.stratum.domain.lift.SetSelectedPresetUseCase
-import com.stratum.domain.onboarding.AdditiveSetEdit
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.AdvanceOnboardingStepResult
 import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
+import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetOnboardingStepCapabilitiesUseCase
 import com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase
-import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.OnboardingStepDirection
 import com.stratum.domain.onboarding.OnboardingWizardState
 import com.stratum.domain.onboarding.SpecializationPreference
-import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.UpdateSpecializationUseCase
 import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase
 import com.stratum.domain.onboarding.Weekday
-import com.stratum.domain.onboarding.applyAdditiveSetEdit
 import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
 import com.stratum.domain.program.ActivateProgramUseCase
 import com.stratum.domain.program.GenerateProgramUseCase
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
-import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.importing.ImportProgramTemplateUseCase
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
-import com.stratum.domain.program.importing.ProgramTemplateRejectedException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -71,7 +67,7 @@ class OnboardingViewModel @Inject constructor(
     private val activateProgram: ActivateProgramUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val importProgramTemplate: ImportProgramTemplateUseCase,
-    private val loggingPort: LoggingPort,
+    private val logError: LogErrorUseCase,
 ) : ViewModel() {
 
     private val edits = MutableStateFlow(ProfileEdit())
@@ -171,7 +167,10 @@ class OnboardingViewModel @Inject constructor(
             sessionLength = when (value) {
                 null -> SessionLengthEdit.Active(minutes = null, customMode = false)
                 ScheduleDraftUi.CUSTOM_KEY -> SessionLengthEdit.Active(
-                    minutes = resolveCustomSessionMinutes(),
+                    minutes = resolveCustomSessionMinutes(
+                        sessionLengthEdit = edits.value.sessionLength,
+                        persistedMinutes = effectiveProfile.value.sessionLengthMinutes,
+                    ),
                     customMode = true,
                 )
                 else -> SessionLengthEdit.Active(minutes = value.toIntOrNull(), customMode = false)
@@ -407,7 +406,9 @@ class OnboardingViewModel @Inject constructor(
                 }
                 AdvanceOnboardingStepResult.NoOp -> Unit
                 AdvanceOnboardingStepResult.PersistenceFailed ->
-                    ephemeral.update { it.copy(navigationError = MSG_NAVIGATION_FAILED) }
+                    ephemeral.update {
+                        it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
+                    }
             }
         }
     }
@@ -436,7 +437,9 @@ class OnboardingViewModel @Inject constructor(
                     }
                 }
                 AdvanceOnboardingStepResult.PersistenceFailed ->
-                    ephemeral.update { it.copy(navigationError = MSG_NAVIGATION_FAILED) }
+                    ephemeral.update {
+                        it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
+                    }
                 else -> Unit
             }
         }
@@ -467,7 +470,9 @@ class OnboardingViewModel @Inject constructor(
                     ephemeral.update { it.copy(navigationError = null) }
                 }
                 AdvanceOnboardingStepResult.PersistenceFailed ->
-                    ephemeral.update { it.copy(navigationError = MSG_NAVIGATION_FAILED) }
+                    ephemeral.update {
+                        it.copy(navigationError = OnboardingProgramFlowOps.MSG_NAVIGATION_FAILED)
+                    }
                 else -> Unit
             }
         }
@@ -506,14 +511,7 @@ class OnboardingViewModel @Inject constructor(
                         }
                     val program = generateResult.getOrElse { error ->
                         logGenerateFailure(error)
-                        ephemeral.update {
-                            it.copy(
-                                generateState = GenerateState.Error,
-                                generateProgress = null,
-                                generateMaxTimelineIndex = 0,
-                                generateErrorMessage = null,
-                            )
-                        }
+                        ephemeral.update(OnboardingProgramFlowOps::generateFailed)
                         return@launch
                     }
                     withContext(Dispatchers.Main.immediate) {
@@ -524,14 +522,7 @@ class OnboardingViewModel @Inject constructor(
                     val activateResult = activateProgram(program)
                     activateResult.exceptionOrNull()?.let { error ->
                         logGenerateFailure(error)
-                        ephemeral.update {
-                            it.copy(
-                                generateState = GenerateState.Error,
-                                generateProgress = null,
-                                generateMaxTimelineIndex = 0,
-                                generateErrorMessage = null,
-                            )
-                        }
+                        ephemeral.update(OnboardingProgramFlowOps::generateFailed)
                         return@launch
                     }
                     completeOnboarding(effectiveProfile.value)
@@ -552,27 +543,13 @@ class OnboardingViewModel @Inject constructor(
                     throw error
                 } catch (error: Exception) {
                     logGenerateFailure(error)
-                    ephemeral.update {
-                        it.copy(
-                            generateState = GenerateState.Error,
-                            generateProgress = null,
-                            generateMaxTimelineIndex = 0,
-                            generateErrorMessage = null,
-                        )
-                    }
+                    ephemeral.update(OnboardingProgramFlowOps::generateFailed)
                 }
             }
     }
 
     private fun publishGenerateProgress(progress: ProgramGenerationProgress) {
-        val ui = progress.toUi()
-        val index = ui.phase.activeTimelineIndex()
-        ephemeral.update { state ->
-            state.copy(
-                generateProgress = ui,
-                generateMaxTimelineIndex = maxOf(state.generateMaxTimelineIndex, index),
-            )
-        }
+        ephemeral.update { OnboardingProgramFlowOps.withGenerateProgress(it, progress) }
     }
 
     /**
@@ -618,11 +595,14 @@ class OnboardingViewModel @Inject constructor(
 
     /**
      * Surface an import error without starting a job — used when the file itself cannot be read
-     * (e.g. a virtual doc that won't materialize). Logs the detail via [LoggingPort] and
+     * (e.g. a virtual doc that won't materialize). Logs the detail via [LogErrorUseCase] and
      * shows the generic error UI; the raw [message] is never displayed to the user.
      */
     fun showImportProgramError(message: String?) {
-        logImportFailure("File read failed: ${message ?: "unknown"}")
+        logError(
+            OnboardingProgramFlowOps.TAG_IMPORT,
+            OnboardingProgramFlowOps.fileReadFailureLogMessage(message),
+        )
         ephemeral.update {
             it.copy(
                 importProgramState = ImportProgramState.Error(null),
@@ -632,114 +612,19 @@ class OnboardingViewModel @Inject constructor(
     }
 
     private fun publishImportProgramProgress(phase: ProgramTemplateImportPhase) {
-        val ui = phase.toUi()
-        val index = ui.activeImportTimelineIndex()
-        ephemeral.update { state ->
-            state.copy(
-                importProgramState = ImportProgramState.Loading(ui),
-                importMaxTimelineIndex = maxOf(state.importMaxTimelineIndex, index),
-            )
-        }
+        ephemeral.update { OnboardingProgramFlowOps.withImportProgramProgress(it, phase) }
     }
 
     private fun setImportProgramError(error: Throwable) {
-        // UI keeps a generic message so Firebase codes never leak; server rejection text is still
-        // logged via LoggingPort for debugging (calculator vs empty vs not-a-program, etc.).
-        if (error is ProgramTemplateRejectedException) {
-            val serverMessage = error.message?.takeIf { it.isNotBlank() }
-            loggingPort.error(
-                TAG_IMPORT,
-                "Program import rejected: ${serverMessage ?: "(no server message)"}",
-                error,
-            )
-        } else {
-            loggingPort.error(TAG_IMPORT, "Program import failed", error)
-        }
-        val state = if (error is ProgramTemplateRejectedException) {
-            ImportProgramState.Rejected(null)
-        } else {
-            ImportProgramState.Error(null)
-        }
-        ephemeral.update {
-            it.copy(
-                importProgramState = state,
-                importMaxTimelineIndex = 0,
-            )
-        }
-    }
-
-    private fun logImportFailure(message: String, error: Throwable? = null) {
-        loggingPort.error(TAG_IMPORT, message, error)
-    }
-
-    private fun resolveCustomSessionMinutes(): Int {
-        val currentEdit = edits.value.sessionLength
-        if (currentEdit is SessionLengthEdit.Active && currentEdit.customMode && currentEdit.minutes != null) {
-            return currentEdit.minutes
-        }
-        val persisted = effectiveProfile.value.sessionLengthMinutes
-        if (persisted != null && persisted !in SESSION_PRESET_MINUTES) return persisted
-        return DEFAULT_CUSTOM_SESSION_MINUTES
-    }
-
-    private data class ProfileEdit(
-        val trainingAge: com.stratum.domain.onboarding.TrainingAge? = null,
-        val lastTrained: com.stratum.domain.onboarding.LastTrainedBucket? = null,
-        val weekdaysEdit: AdditiveSetEdit<Weekday> = AdditiveSetEdit(),
-        val sessionLength: SessionLengthEdit = SessionLengthEdit.Unchanged,
-    )
-
-    private data class UiCombineInputs(
-        val current: OnboardingWizardState,
-        val profile: UserTrainingProfile,
-        val sessionLengthEdit: SessionLengthEdit,
-        val specialization: SpecializationPreference,
-        val ephemeral: OnboardingEphemeralState,
-    )
-
-    private fun UserTrainingProfile.applyEdit(edit: ProfileEdit): UserTrainingProfile = copy(
-        trainingAge = edit.trainingAge ?: trainingAge,
-        lastTrained = edit.lastTrained ?: lastTrained,
-        weekdays = weekdays.applyAdditiveSetEdit(edit.weekdaysEdit),
-        sessionLengthMinutes = when (val sessionLength = edit.sessionLength) {
-            SessionLengthEdit.Unchanged -> sessionLengthMinutes
-            is SessionLengthEdit.Active -> sessionLength.minutes
-        },
-    )
-
-    private data class SpecializationEdit(
-        val musclesEdit: AdditiveSetEdit<MuscleGroup> = AdditiveSetEdit(),
-        val minimumVolumeMusclesEdit: AdditiveSetEdit<MuscleGroup> = AdditiveSetEdit(),
-    )
-
-    private fun SpecializationPreference.applyEdit(edit: SpecializationEdit): SpecializationPreference {
-        val base = levels.toMutableMap()
-        edit.musclesEdit.added.forEach {
-            base[it] = com.stratum.domain.onboarding.SpecializationLevel.Specialize
-        }
-        edit.musclesEdit.removed.forEach { removed ->
-            if (base[removed] == com.stratum.domain.onboarding.SpecializationLevel.Specialize) {
-                base.remove(removed)
-            }
-        }
-        edit.minimumVolumeMusclesEdit.added.forEach {
-            base[it] = com.stratum.domain.onboarding.SpecializationLevel.MinimumVolume
-        }
-        edit.minimumVolumeMusclesEdit.removed.forEach { removed ->
-            if (base[removed] == com.stratum.domain.onboarding.SpecializationLevel.MinimumVolume) {
-                base.remove(removed)
-            }
-        }
-        return copy(levels = base)
+        logError(
+            OnboardingProgramFlowOps.TAG_IMPORT,
+            OnboardingProgramFlowOps.importFailureLogMessage(error),
+            error,
+        )
+        ephemeral.update { OnboardingProgramFlowOps.importProgramFailed(it, error) }
     }
 
     private fun logGenerateFailure(error: Throwable) {
-        loggingPort.error(TAG, "Program generation failed", error)
-    }
-
-    private companion object {
-        const val TAG = "OnboardingViewModel"
-        const val TAG_IMPORT = "ProgramTemplateImport"
-        const val MSG_NAVIGATION_FAILED = "Couldn't save progress. Try again."
+        logError(OnboardingProgramFlowOps.TAG, OnboardingProgramFlowOps.MSG_GENERATE_FAILED, error)
     }
 }
