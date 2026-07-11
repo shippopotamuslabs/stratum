@@ -30,6 +30,15 @@
     <string name="lift_swap_remove_selected_content_description">Remove %1$s from selection</string>
     <string name="lift_swap_overflow_count">+%1$d</string>
 
+    <!-- Set-log custom keyboard -->
+    <string name="set_log_keyboard_hide">Hide keyboard</string>
+    <string name="set_log_keyboard_backspace">Delete</string>
+    <string name="set_log_keyboard_decimal">Decimal point</string>
+    <string name="set_log_keyboard_digit">Digit %1$s</string>
+    <string name="set_log_keyboard_next_reps">Next field, reps</string>
+    <string name="set_log_keyboard_prev_weight">Previous field, weight</string>
+    <string name="set_log_keyboard_complete_set">Complete set</string>
+
     <!-- RirTargetBottomSheet — shared RIR selection UI -->
     <string name="edit_workout_rir_sheet_title">RIR targets</string>
     <string name="edit_workout_rir_info_content_description">About RIR targets</string>

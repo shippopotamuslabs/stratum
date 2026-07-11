@@ -1,21 +1,29 @@
 package com.stratum.feature.history.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
@@ -26,10 +34,14 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.StratumTopBarTextButton
+import com.stratum.core.ui.component.workoutlog.LocalSetLogKeyboardHost
+import com.stratum.core.ui.component.workoutlog.ProvideSetLogKeyboardHost
+import com.stratum.core.ui.component.workoutlog.SetLogKeyboardRevealScroller
 import com.stratum.core.ui.component.workoutlog.StratumWorkoutLogLiftPanel
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
+import kotlinx.coroutines.android.awaitFrame
 
 @Composable
 fun EditHistoricalWorkoutScreen(
@@ -117,35 +129,86 @@ fun EditHistoricalWorkoutScreen(
             is EditHistoricalWorkoutUiState.Loaded -> {
                 val addSetCd = stringResource(R.string.history_edit_add_set)
                 val deleteSetCd = stringResource(R.string.history_edit_delete_set)
-                LazyColumn(
+                val listState = rememberLazyListState()
+                val density = LocalDensity.current
+                ProvideSetLogKeyboardHost(
                     modifier =
                         Modifier
                             .fillMaxSize()
                             .padding(padding)
                             .padding(vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    items(state.lifts, key = { it.key }) { lift ->
-                        StratumWorkoutLogLiftPanel(
-                            lift = lift,
-                            onAddSet = { onAddSet(lift.key) },
-                            addSetContentDescription = addSetCd,
-                            setRowActions = { set ->
-                                WorkoutLogSetRowActions(
-                                    onWeightChange = { text ->
-                                        onWeightChange(lift.key, set.setKey, text)
-                                    },
-                                    onRepsChange = { text ->
-                                        onRepsChange(lift.key, set.setKey, text)
-                                    },
-                                    onRirChange = { rir ->
-                                        onRirChange(lift.key, set.setKey, rir)
-                                    },
-                                    onDelete = { onDeleteSet(lift.key, set.setKey) },
-                                    deleteContentDescription = deleteSetCd,
-                                )
-                            },
-                        )
+                ) { listModifier ->
+                    val keyboardHost = LocalSetLogKeyboardHost.current
+                    val dockHeightDp = keyboardHost?.dockHeightDp ?: 0.dp
+                    val dockHeightPx = with(density) { dockHeightDp.toPx() }
+                    val revealMarginPx = with(density) { 8.dp.toPx() }
+                    var previousDockHeightPx by remember { mutableFloatStateOf(0f) }
+                    var anchorIndex by remember { mutableIntStateOf(0) }
+                    var anchorOffset by remember { mutableIntStateOf(0) }
+
+                    LaunchedEffect(dockHeightPx, listState.isScrollInProgress) {
+                        if (dockHeightPx > 0f && !listState.isScrollInProgress) {
+                            anchorIndex = listState.firstVisibleItemIndex
+                            anchorOffset = listState.firstVisibleItemScrollOffset
+                        }
+                    }
+
+                    LaunchedEffect(dockHeightPx) {
+                        val prev = previousDockHeightPx
+                        if (prev > 0f && dockHeightPx == 0f) {
+                            awaitFrame()
+                            listState.scrollToItem(anchorIndex, anchorOffset)
+                        }
+                        previousDockHeightPx = dockHeightPx
+                    }
+
+                    DisposableEffect(listState, keyboardHost, revealMarginPx) {
+                        if (keyboardHost == null) {
+                            return@DisposableEffect onDispose { }
+                        }
+                        keyboardHost.revealScroller =
+                            SetLogKeyboardRevealScroller { cellBounds ->
+                                awaitFrame()
+                                val dockTop = keyboardHost.dockTopInWindow
+                                if (!dockTop.isFinite()) return@SetLogKeyboardRevealScroller
+                                val overflow = cellBounds.bottom + revealMarginPx - dockTop
+                                if (overflow > 1f) {
+                                    listState.animateScrollBy(overflow)
+                                }
+                                anchorIndex = listState.firstVisibleItemIndex
+                                anchorOffset = listState.firstVisibleItemScrollOffset
+                            }
+                        onDispose { keyboardHost.revealScroller = null }
+                    }
+
+                    LazyColumn(
+                        state = listState,
+                        modifier = listModifier,
+                        contentPadding = PaddingValues(bottom = dockHeightDp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        items(state.lifts, key = { it.key }) { lift ->
+                            StratumWorkoutLogLiftPanel(
+                                lift = lift,
+                                onAddSet = { onAddSet(lift.key) },
+                                addSetContentDescription = addSetCd,
+                                setRowActions = { set ->
+                                    WorkoutLogSetRowActions(
+                                        onWeightChange = { text ->
+                                            onWeightChange(lift.key, set.setKey, text)
+                                        },
+                                        onRepsChange = { text ->
+                                            onRepsChange(lift.key, set.setKey, text)
+                                        },
+                                        onRirChange = { rir ->
+                                            onRirChange(lift.key, set.setKey, rir)
+                                        },
+                                        onDelete = { onDeleteSet(lift.key, set.setKey) },
+                                        deleteContentDescription = deleteSetCd,
+                                    )
+                                },
+                            )
+                        }
                     }
                 }
             }

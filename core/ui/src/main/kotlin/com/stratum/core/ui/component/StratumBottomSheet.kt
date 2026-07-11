@@ -15,6 +15,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -62,6 +64,39 @@ fun StratumBottomSheet(
         }
     }
 }
+
+/**
+ * Full-bleed keyboard-style sheet: square corners, no drag handle, light scrim so the
+ * focused set row stays readable while typing.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StratumKeyboardBottomSheet(
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        modifier = modifier,
+        shape = RectangleShape,
+        containerColor = StratumThemeAccessor.colors.surfaceRaised,
+        contentColor = StratumThemeAccessor.colors.textPrimary,
+        scrimColor = Color.Black.copy(alpha = KEYBOARD_SHEET_SCRIM_ALPHA),
+        dragHandle = null,
+        content = {
+            // No extra chrome padding — the keyboard content owns its height (~33% screen).
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                content = content,
+            )
+        },
+    )
+}
+
+private const val KEYBOARD_SHEET_SCRIM_ALPHA = 0.18f
 
 @Composable
 private fun StratumBottomSheetHandle(
