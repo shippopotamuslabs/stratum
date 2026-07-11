@@ -49,6 +49,9 @@ private fun SettingsRoute(
         onThemeFamilySelected = viewModel::onThemeFamilySelected,
         onCheckInsEnabledChange = viewModel::onCheckInsEnabledChange,
         onForceCheckInPending = viewModel::forceCheckInPending,
+        onLogoutClick = viewModel::onLogoutClick,
+        onLogoutConfirmDismiss = viewModel::onLogoutConfirmDismiss,
+        onLogoutConfirmed = viewModel::onLogoutConfirmed,
         snackbarHostState = snackbarHostState,
     )
 }

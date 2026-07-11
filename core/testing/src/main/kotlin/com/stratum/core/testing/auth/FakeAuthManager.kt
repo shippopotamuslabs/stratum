@@ -12,6 +12,14 @@ class FakeAuthManager(
     private val state = MutableStateFlow(initial)
     override val authState: StateFlow<AuthState> = state
 
+    var signOutCount: Int = 0
+        private set
+    var signOutResult: Result<Unit> = Result.success(Unit)
+
+    fun setState(next: AuthState) {
+        state.value = next
+    }
+
     override suspend fun signInWithGoogle(): Result<UserProfile> {
         val user = UserProfile("uid-test", "Test User", "test@example.com", null)
         state.value = AuthState.Authenticated(user)
@@ -19,7 +27,11 @@ class FakeAuthManager(
     }
 
     override suspend fun signOut(): Result<Unit> {
-        state.value = AuthState.Unauthenticated
-        return Result.success(Unit)
+        signOutCount++
+        return signOutResult.also {
+            if (it.isSuccess) {
+                state.value = AuthState.Unauthenticated
+            }
+        }
     }
 }

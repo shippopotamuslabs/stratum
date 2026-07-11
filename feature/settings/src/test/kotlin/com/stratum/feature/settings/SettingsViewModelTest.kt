@@ -4,12 +4,20 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
+import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.theme.FakeThemePreferencesRepository
+import com.stratum.domain.auth.AuthState
+import com.stratum.domain.auth.LogoutUseCase
+import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.checkin.CheckInPreferences
 import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.domain.checkin.SetCheckInEnabledUseCase
+import com.stratum.domain.sync.EndSessionAndWipeUseCase
+import com.stratum.domain.sync.StartCloudSyncUseCase
+import com.stratum.domain.sync.StopCloudSyncUseCase
 import com.stratum.domain.theme.ColorMode
 import com.stratum.domain.theme.ObserveThemePreferencesUseCase
 import com.stratum.domain.theme.SetColorModeUseCase
@@ -22,6 +30,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -34,12 +43,18 @@ class SettingsViewModelTest {
 
     private val fakeThemePreferences = FakeThemePreferencesRepository()
     private val fakeCheckInPreferences = FakeCheckInPreferencesRepository()
+    private lateinit var fakeAuth: FakeAuthManager
+    private lateinit var fakeCloudSync: FakeCloudSyncPort
     private lateinit var subject: SettingsViewModel
 
     @BeforeEach
     fun setup() {
         fakeThemePreferences.seed(ThemePreferences())
         fakeCheckInPreferences.seed(CheckInPreferences())
+        fakeAuth = FakeAuthManager(
+            AuthState.Authenticated(UserProfile("uid-1", "Test", "t@example.com", null)),
+        )
+        fakeCloudSync = FakeCloudSyncPort()
         subject = buildViewModel()
     }
 
@@ -51,6 +66,12 @@ class SettingsViewModelTest {
             setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
             setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
             markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
+            logout = LogoutUseCase(
+                authManager = fakeAuth,
+                endSessionAndWipe = EndSessionAndWipeUseCase(fakeCloudSync),
+                stopCloudSync = StopCloudSyncUseCase(fakeCloudSync),
+                startCloudSync = StartCloudSyncUseCase(fakeCloudSync),
+            ),
         )
 
     @Test
@@ -63,6 +84,8 @@ class SettingsViewModelTest {
             assertTrue(state.checkInsEnabled)
             // showDebugTools follows BuildConfig.DEBUG of the test variant (true for debug unit tests).
             assertEquals(BuildConfig.DEBUG, state.showDebugTools)
+            assertFalse(state.showLogoutConfirm)
+            assertFalse(state.isLoggingOut)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -153,5 +176,63 @@ class SettingsViewModelTest {
             assertFalse(fakeCheckInPreferences.current.enabled)
             assertEquals(null, fakeCheckInPreferences.current.pendingSinceExtractedAt)
         }
+    }
+
+    @Test
+    @DisplayName("When logout clicked then confirm dialog is shown without wiping yet")
+    fun logoutClickShowsConfirm() = runTest {
+        subject.onLogoutClick()
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            assertTrue(awaitItem().showLogoutConfirm)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(emptyList<String>(), fakeCloudSync.callOrder)
+        assertEquals(0, fakeAuth.signOutCount)
+    }
+
+    @Test
+    @DisplayName("When logout confirmed then wipe and sign out run")
+    fun logoutConfirmedInvokesUseCase() = runTest {
+        subject.onLogoutClick()
+        subject.onLogoutConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(listOf("wipe"), fakeCloudSync.callOrder)
+        assertEquals("uid-1", fakeCloudSync.lastWipedUserId)
+        assertEquals(1, fakeAuth.signOutCount)
+        assertEquals(AuthState.Unauthenticated, fakeAuth.authState.value)
+        assertNull(subject.userMessage.value)
+        assertFalse(subject.uiState.value.isLoggingOut)
+        assertFalse(subject.uiState.value.showLogoutConfirm)
+    }
+
+    @Test
+    @DisplayName("When logout fails then userMessage is set and in-flight clears")
+    fun logoutFailureSurfacesMessage() = runTest {
+        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        subject = buildViewModel()
+
+        subject.onLogoutClick()
+        subject.onLogoutConfirmed()
+        advanceUntilIdle()
+
+        // Wipe fails → recovery start; sign-out not called
+        assertEquals(0, fakeAuth.signOutCount)
+        assertEquals("Couldn't sign out. Try again.", subject.userMessage.value)
+        assertFalse(subject.uiState.value.isLoggingOut)
+    }
+
+    @Test
+    @DisplayName("When logout confirm dismissed then dialog closes")
+    fun logoutConfirmDismiss() = runTest {
+        subject.onLogoutClick()
+        advanceUntilIdle()
+        subject.onLogoutConfirmDismiss()
+        advanceUntilIdle()
+
+        assertFalse(subject.uiState.value.showLogoutConfirm)
+        assertEquals(emptyList<String>(), fakeCloudSync.callOrder)
     }
 }

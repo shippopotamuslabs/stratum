@@ -2,6 +2,7 @@ package com.stratum.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.domain.auth.LogoutUseCase
 import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.domain.checkin.SetCheckInEnabledUseCase
@@ -29,11 +30,15 @@ class SettingsViewModel @Inject constructor(
     private val setColorMode: SetColorModeUseCase,
     private val setCheckInEnabled: SetCheckInEnabledUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
+    private val logout: LogoutUseCase,
 ) : ViewModel() {
 
     private val debugStatusMessage = MutableStateFlow<String?>(null)
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    private val showLogoutConfirm = MutableStateFlow(false)
+    private val isLoggingOut = MutableStateFlow(false)
 
     fun userMessageShown() {
         _userMessage.value = null
@@ -44,13 +49,17 @@ class SettingsViewModel @Inject constructor(
             observeThemePreferences(),
             observeCheckInPreferences(),
             debugStatusMessage,
-        ) { theme, checkIn, debugStatus ->
+            showLogoutConfirm,
+            isLoggingOut,
+        ) { theme, checkIn, debugStatus, logoutConfirm, loggingOut ->
             SettingsUiState(
                 appearance = theme.colorMode.toAppearanceUi(),
                 themeFamily = theme.family.toThemeFamilyUi(),
                 checkInsEnabled = checkIn.enabled,
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
+                showLogoutConfirm = logoutConfirm,
+                isLoggingOut = loggingOut,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -99,8 +108,32 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun onLogoutClick() {
+        if (isLoggingOut.value) return
+        showLogoutConfirm.value = true
+    }
+
+    fun onLogoutConfirmDismiss() {
+        if (isLoggingOut.value) return
+        showLogoutConfirm.value = false
+    }
+
+    fun onLogoutConfirmed() {
+        if (isLoggingOut.value) return
+        viewModelScope.launch {
+            isLoggingOut.value = true
+            showLogoutConfirm.value = false
+            logout()
+                .onFailure {
+                    _userMessage.value = MSG_LOGOUT_FAILED
+                }
+            isLoggingOut.value = false
+        }
+    }
+
     private companion object {
         const val MSG_PREFS_FAILED = "Couldn't save that setting. Try again."
+        const val MSG_LOGOUT_FAILED = "Couldn't sign out. Try again."
     }
 }
 
@@ -112,6 +145,8 @@ data class SettingsUiState(
     /** True only in debug builds; release UI never shows developer tools. */
     val showDebugTools: Boolean = false,
     val debugStatusMessage: String? = null,
+    val showLogoutConfirm: Boolean = false,
+    val isLoggingOut: Boolean = false,
 )
 
 /** Light / Dark / System (device) appearance policy. */
