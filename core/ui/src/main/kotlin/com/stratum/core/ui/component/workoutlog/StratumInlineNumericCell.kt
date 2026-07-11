@@ -81,7 +81,7 @@ fun StratumInlineNumericCell(
                         },
                     shape = StratumThemeAccessor.shapes.chip,
                 )
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 4.dp),
         textStyle =
             StratumThemeAccessor.typography.bodyLarge.copy(
                 color =
@@ -107,7 +107,7 @@ fun StratumInlineNumericCell(
         decorationBox = { innerTextField ->
             Box(contentAlignment = Alignment.Center) {
                 if (fieldValue.text.isEmpty() && !isFocused) {
-                    StratumText(text = placeholder, muted = true)
+                    StratumText(text = placeholder, muted = true, maxLines = 1)
                 }
                 innerTextField()
             }

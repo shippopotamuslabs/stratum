@@ -1,7 +1,6 @@
 package com.stratum.core.ui.component.workoutlog
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
@@ -25,9 +24,15 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 
 private val AddSetIconSize = 16.dp
 
+/** Horizontal inset for lift title / superset chip (table uses [WorkoutLogTableHorizontalPadding]). */
+private val WorkoutLogHeaderHorizontalPadding = 16.dp
+
 /**
  * Raised panel for one lift's set-log table. Optional trailing header actions (e.g. ⋮ menu),
  * optional add-set control under the set-number column, and per-set row actions from the caller.
+ *
+ * Geometry is square and borderless so the panel can sit edge-to-edge on live workout / history
+ * edit lists without a rounded border against the screen bezel.
  */
 @Composable
 fun StratumWorkoutLogLiftPanel(
@@ -44,15 +49,9 @@ fun StratumWorkoutLogLiftPanel(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(StratumThemeAccessor.shapes.panel)
                 .background(
                     color = StratumThemeAccessor.colors.surfaceRaised,
-                    shape = StratumThemeAccessor.shapes.panel,
-                )
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderSubtle,
-                    shape = StratumThemeAccessor.shapes.panel,
+                    shape = RectangleShape,
                 )
                 .padding(top = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -61,7 +60,7 @@ fun StratumWorkoutLogLiftPanel(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = WorkoutLogHeaderHorizontalPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -79,7 +78,7 @@ fun StratumWorkoutLogLiftPanel(
                 modifier =
                     Modifier
                         .padding(vertical = 2.dp)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = WorkoutLogHeaderHorizontalPadding),
             )
         }
 
@@ -134,7 +133,7 @@ private fun WorkoutLogAddSetRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = WorkoutLogTableHorizontalPadding, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(

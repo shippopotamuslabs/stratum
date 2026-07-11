@@ -1,8 +1,19 @@
 package com.stratum.core.ui.component.workoutlog
 
+import androidx.compose.ui.unit.dp
+
+/**
+ * Horizontal inset for set-log table header, set rows, and add-set row.
+ * Shared so the three call sites cannot drift (edge-to-edge densify layout).
+ */
+internal val WorkoutLogTableHorizontalPadding = 8.dp
+
 /**
  * Column weight fractions for one set-log row. Weight column is present for weighted + assisted
  * lifts and absent for bodyweight. Checkbox/delete column can be hidden for pure edit mode.
+ *
+ * When both weight and reps columns are present they use equal fractions so multi-digit rep
+ * ranges (e.g. `10-12`) fit the same width as load fields.
  */
 data class WorkoutLogColumnWeights(
     val label: Float,
@@ -21,18 +32,18 @@ fun workoutLogColumnWeights(
         showWeightColumn && showTrailingColumn ->
             WorkoutLogColumnWeights(
                 label = 0.10f,
-                prev = 0.26f,
+                prev = 0.22f,
                 weight = 0.22f,
-                reps = 0.18f,
+                reps = 0.22f,
                 rir = 0.12f,
                 trailing = 0.12f,
             )
         showWeightColumn && !showTrailingColumn ->
             WorkoutLogColumnWeights(
                 label = 0.12f,
-                prev = 0.28f,
+                prev = 0.24f,
                 weight = 0.24f,
-                reps = 0.20f,
+                reps = 0.24f,
                 rir = 0.16f,
                 trailing = 0f,
             )
