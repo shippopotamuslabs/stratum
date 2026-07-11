@@ -56,6 +56,7 @@ class RoomLiftRepositoryTest {
                 database = database,
                 equipmentDao = database.equipmentDao(),
                 incrementTierDao = database.incrementTierDao(),
+                liftDao = database.liftDao(),
                 syncTouch = syncTouch,
             )
         subject = RoomLiftRepository(

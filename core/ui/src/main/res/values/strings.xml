@@ -8,10 +8,15 @@
     <string name="gym_manage_equipment">Manage Equipment</string>
     <string name="gym_actions_title">Gym</string>
     <string name="manage_equipment_title">Equipment</string>
-    <string name="manage_equipment_help">Weight steps are shared by equipment type. Change Cables once and every cable lift uses those steps. Need different steps for one lift? Open that lift and set them under Details.</string>
+    <string name="manage_equipment_help">Weight steps are shared by equipment type. Change Cables once and every cable lift uses those steps. Need different steps for one machine? Copy it as custom equipment and rename (e.g. Life Fitness lat stack).</string>
     <string name="manage_equipment_add">Add equipment</string>
     <string name="manage_equipment_name_placeholder">Equipment name</string>
     <string name="manage_equipment_create">Create</string>
+    <string name="manage_equipment_create_guidance">Name the machine, not the lift (e.g. Life Fitness lat stack).</string>
+    <string name="manage_equipment_copy_as_custom">Copy as custom equipment</string>
+    <string name="manage_equipment_copy_title">Copy as custom</string>
+    <string name="manage_equipment_copy_from">Starting from %1$s steps</string>
+    <string name="manage_equipment_copy_create">Create copy</string>
     <string name="manage_equipment_empty">No equipment yet</string>
     <!-- Closed band: lower–upper: step  e.g. 0–50: 5 -->
     <string name="manage_equipment_tier_chip_range">%1$s–%2$s: %3$s</string>
@@ -19,6 +24,13 @@
     <string name="manage_equipment_tier_chip_open">%1$s+: %2$s</string>
     <string name="manage_equipment_open_increments">Edit increments</string>
     <string name="equipment_increments_title">Equipment increments</string>
+    <!-- Affects N lifts (no name preview) -->
+    <string name="equipment_increments_affects_count">Affects %1$d lifts</string>
+    <!-- Affects N lifts: Name1, Name2, Name3 -->
+    <string name="equipment_increments_affects_with_names">Affects %1$d lifts: %2$s</string>
+    <!-- Affects N lifts: Name1, Name2, Name3 +M more -->
+    <string name="equipment_increments_affects_with_more">Affects %1$d lifts: %2$s +%3$d more</string>
+    <string name="equipment_increments_affects_none">No lifts use these defaults yet</string>
     <string name="lift_increments_using_equipment">Using defaults from %1$s. Save to override for this lift only.</string>
     <string name="lift_increments_using_fallback">No equipment defaults — these are global fallback bands. Save to override for this lift only.</string>
     <string name="lift_increments_override_banner">Custom override for this lift</string>

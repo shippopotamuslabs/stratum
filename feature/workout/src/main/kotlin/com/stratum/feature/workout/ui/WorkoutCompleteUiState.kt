@@ -12,6 +12,12 @@ sealed interface WorkoutCompleteUiState {
         val workoutName: String,
         val durationFormatted: String,
         val bestSets: List<LiftBestSetUi>,
+        /** Post-workout equipment increment proposals (max 3). Empty when none. */
+        val equipmentProposals: List<EquipmentProposalCardUi> = emptyList(),
+        /** Blast-radius confirmation while accepting a shared-default amend. */
+        val blastRadiusConfirm: BlastRadiusConfirmUi? = null,
+        /** One-shot snackbar / status message after accept. */
+        val userMessage: String? = null,
     ) : WorkoutCompleteUiState
 }
 
@@ -25,4 +31,37 @@ data class LiftBestSetUi(
     val rirLabel: String,
     val estimatedOneRmLabel: String,
     val isPersonalRecord: Boolean,
+)
+
+/**
+ * Presentation model for a single post-workout equipment-increment proposal card.
+ * Mapped by [EquipmentProposalUiMapper] from domain proposals.
+ */
+data class EquipmentProposalCardUi(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val tierSummary: String,
+    val liftNames: String,
+    val primaryButtonLabel: String,
+    /** True when Accept of primary requires blast-radius confirmation first. */
+    val requiresConfirm: Boolean,
+    val blastRadiusCount: Int,
+    /**
+     * Optional secondary action label (e.g. "Create custom instead" / "Update shared instead").
+     * Null when no useful alternative.
+     */
+    val alternativeButtonLabel: String? = null,
+    /** True while an apply write is in flight for this card (disables re-tap). */
+    val isApplying: Boolean = false,
+)
+
+/**
+ * Confirm dialog content for seed / shared-default amend.
+ */
+data class BlastRadiusConfirmUi(
+    val proposalId: String,
+    val title: String,
+    val body: String,
+    val confirmLabel: String,
 )
