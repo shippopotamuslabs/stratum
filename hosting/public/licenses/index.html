@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open-source licenses — Stratum</title>
+    <meta
+      name="description"
+      content="Third-party open-source software used by the Stratum Android app."
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">Stratum</a>
+      <nav>
+        <a href="/terms/">Terms of Use</a>
+        <a href="/privacy/">Privacy Policy</a>
+        <a href="/licenses/">Open source</a>
+      </nav>
+    </header>
+    <main>
+      <h1>Open-source licenses</h1>
+      <p class="meta">Effective date: July 10, 2026</p>
+
+      <p>
+        Stratum is built with free and open-source software. This page acknowledges major
+        third-party components distributed with or used by the Android app. Each project remains
+        under its own license; the summaries below are for convenience, not a substitute for the
+        full license text.
+      </p>
+
+      <h2>Major components</h2>
+      <ul>
+        <li>
+          <strong>Kotlin</strong> — Apache License 2.0 —
+          <a href="https://github.com/JetBrains/kotlin">JetBrains/kotlin</a>
+        </li>
+        <li>
+          <strong>AndroidX / Jetpack</strong> (including Compose, Room, Lifecycle, Navigation,
+          WorkManager, DataStore, Credentials) — Apache License 2.0 —
+          <a href="https://developer.android.com/jetpack">Android Jetpack</a>
+        </li>
+        <li>
+          <strong>Material components for Android / Compose Material3</strong> — Apache License 2.0
+        </li>
+        <li>
+          <strong>Dagger / Hilt</strong> — Apache License 2.0 —
+          <a href="https://github.com/google/dagger">google/dagger</a>
+        </li>
+        <li>
+          <strong>Kotlin coroutines</strong> — Apache License 2.0 —
+          <a href="https://github.com/Kotlin/kotlinx.coroutines">Kotlin/kotlinx.coroutines</a>
+        </li>
+        <li>
+          <strong>kotlinx.serialization</strong> — Apache License 2.0
+        </li>
+        <li>
+          <strong>Firebase Android SDKs</strong> (Auth, Firestore, Functions, Storage, App Check,
+          Crashlytics, and related Google Play services libraries) — see Google’s open-source
+          notices for the specific artifacts you install from Google Play / Maven
+        </li>
+        <li>
+          <strong>Coil</strong> — Apache License 2.0 —
+          <a href="https://github.com/coil-kt/coil">coil-kt/coil</a>
+        </li>
+        <li>
+          <strong>Vico</strong> (charts) by
+          <a href="https://github.com/patrykandpatrick">Patryk Goworowski &amp; Patrick Michalik</a>
+          /
+          <a href="https://github.com/patrykandpatrick/vico">patrykandpatrick/vico</a>
+          — Apache License 2.0.<br />
+          Maven artifacts used by Stratum:
+          <code>com.patrykandpatrick.vico:compose</code>,
+          <code>com.patrykandpatrick.vico:compose-m3</code>
+          (and transitive Vico modules). Copyright © the Vico authors. Licensed under the Apache
+          License, Version 2.0; see
+          <a href="https://github.com/patrykandpatrick/vico/blob/master/LICENSE"
+            >LICENSE</a
+          >
+          in the Vico repository and the Apache summary below.
+        </li>
+        <li>
+          <strong>Google OR-Tools</strong> — Apache License 2.0 and related notices —
+          <a href="https://github.com/google/or-tools">google/or-tools</a>
+        </li>
+        <li>
+          <strong>Turbine</strong> (tests) — Apache License 2.0
+        </li>
+        <li>
+          <strong>JUnit / Robolectric / related test tooling</strong> — EPL / Apache / other licenses
+          as published by those projects (test-only; not shipped in production APK behavior paths)
+        </li>
+        <li>
+          <strong>Body map geometry</strong> used by the muscle picker is derived from
+          <code>react-native-body-highlighter</code> (MIT) — see in-app source attribution
+        </li>
+      </ul>
+
+      <h2>Apache License 2.0 (summary)</h2>
+      <p>
+        Many of the libraries above are licensed under the Apache License, Version 2.0. You may
+        obtain a copy of the License at
+        <a href="https://www.apache.org/licenses/LICENSE-2.0"
+          >https://www.apache.org/licenses/LICENSE-2.0</a
+        >. Unless required by applicable law or agreed to in writing, software distributed under the
+        License is distributed on an “AS IS” BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+        either express or implied.
+      </p>
+
+      <h2>MIT License (summary)</h2>
+      <p>
+        Some components (including certain UI geometry sources) are MIT licensed: free of charge
+        permission to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies,
+        subject to including the copyright notice and permission notice in substantial portions of
+        the software, and without warranty.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        If you need a more complete dependency inventory or a machine-readable license report for a
+        specific Stratum build, email
+        <a href="mailto:browntown.development@gmail.com">browntown.development@gmail.com</a>.
+      </p>
+
+      <p>
+        <a href="/terms/">Terms of Use</a> · <a href="/privacy/">Privacy Policy</a>
+      </p>
+    </main>
+    <footer>Stratum · Open-source licenses</footer>
+  </body>
+</html>

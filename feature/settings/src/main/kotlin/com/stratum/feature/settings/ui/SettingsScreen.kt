@@ -16,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumConfirmDialog
+import com.stratum.core.ui.component.StratumPreferenceRow
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumSwitch
@@ -36,6 +37,7 @@ fun SettingsScreen(
     onThemeFamilySelected: (ThemeFamilyUi) -> Unit,
     onCheckInsEnabledChange: (Boolean) -> Unit = {},
     onForceCheckInPending: () -> Unit = {},
+    onLegalClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {},
     onLogoutConfirmDismiss: () -> Unit = {},
     onLogoutConfirmed: () -> Unit = {},
@@ -162,6 +164,12 @@ fun SettingsScreen(
                     destructive = true,
                 )
             }
+
+            StratumPreferenceRow(
+                title = stringResource(R.string.settings_legal_row_title),
+                subtitle = stringResource(R.string.settings_legal_row_subtitle),
+                onClick = onLegalClick,
+            )
         }
     }
 

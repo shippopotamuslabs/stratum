@@ -35,7 +35,9 @@ import com.stratum.feature.history.navigation.WorkoutSessionDetailKey
 import com.stratum.feature.history.navigation.editHistoricalWorkoutEntry
 import com.stratum.feature.history.navigation.workoutHistoryEntry
 import com.stratum.feature.history.navigation.workoutSessionDetailEntry
+import com.stratum.feature.settings.navigation.LegalKey
 import com.stratum.feature.settings.navigation.SettingsKey
+import com.stratum.feature.settings.navigation.legalEntry
 import com.stratum.feature.settings.navigation.settingsEntry
 import com.stratum.feature.workout.navigation.WorkoutKey
 import com.stratum.feature.workout.navigation.WorkoutCompleteKey
@@ -171,7 +173,9 @@ fun StratumNavHost(
             createLiftEntry(onBackClick = onNavigateBack)
             settingsEntry(
                 onBackClick = onNavigateBack,
+                onNavigateToLegal = { backStack.add(LegalKey) },
             )
+            legalEntry(onBackClick = onNavigateBack)
             workoutHistoryEntry(
                 onBackClick = onNavigateBack,
                 onSessionClick = { sessionId ->
