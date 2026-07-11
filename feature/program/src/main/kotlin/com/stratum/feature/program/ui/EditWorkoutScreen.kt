@@ -64,6 +64,7 @@ import com.stratum.core.ui.component.SupersetGroupChip
 import com.stratum.core.ui.component.supersetLinkSheetOptions
 import com.stratum.core.ui.component.isLastInSupersetChain
 import com.stratum.core.ui.component.isSupersetPairMember
+import com.stratum.core.ui.theme.StratumColors
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
 
 private const val MIN_REST_SECONDS = 0
@@ -569,7 +570,7 @@ private fun EditWorkoutExerciseSummaryHeader(
         }
         StratumIconButton(
             onClick = onAddLift,
-            containerColor = Color.Transparent,
+            containerColor = StratumThemeAccessor.colors.surfaceRaised,
         ) {
             Icon(
                 painter = painterResource(CoreUiR.drawable.ic_add),
