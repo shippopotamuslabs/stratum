@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +37,7 @@ import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumDurationStepper
+import com.stratum.core.ui.component.StratumEdgeToEdgeCard
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumPillToggle
@@ -467,9 +469,11 @@ internal fun EditWorkoutContent(
     modifier: Modifier = Modifier,
     showVolume: Boolean = true,
 ) {
+    // Horizontal padding only on inset chrome; lift cards are full-bleed like live workout.
+    val listInset = Modifier.padding(horizontal = 12.dp)
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 16.dp),
+        contentPadding = PaddingValues(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (showVolume) {
@@ -486,6 +490,7 @@ internal fun EditWorkoutContent(
                                 stringResource(R.string.edit_workout_volume_scope_workout),
                                 stringResource(R.string.edit_workout_volume_scope_program),
                             ),
+                        modifier = listInset,
                     )
                 }
             }
@@ -495,6 +500,7 @@ internal fun EditWorkoutContent(
                 exerciseCount = state.lifts.size,
                 estimatedDurationMinutes = state.estimatedDurationMinutes,
                 onAddLift = callbacks.onAddLift,
+                modifier = listInset,
             )
         }
         if (state.saveBlockedReason == SaveBlockedReason.PlaceholderLift) {
@@ -503,6 +509,7 @@ internal fun EditWorkoutContent(
                     text = stringResource(R.string.edit_workout_save_blocked_placeholder_lift),
                     style = StratumThemeAccessor.typography.bodyLarge,
                     muted = true,
+                    modifier = listInset,
                 )
             }
         }
@@ -525,7 +532,7 @@ internal fun EditWorkoutContent(
             StratumOutlinedButton(
                 text = stringResource(R.string.edit_workout_add_lift),
                 onClick = callbacks.onAddLift,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = listInset.fillMaxWidth(),
             )
         }
     }
@@ -536,9 +543,10 @@ private fun EditWorkoutExerciseSummaryHeader(
     exerciseCount: Int,
     estimatedDurationMinutes: Int,
     onAddLift: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -586,24 +594,14 @@ private fun EditLiftPanel(
     onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
 ) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    color = StratumThemeAccessor.colors.surfaceRaised,
-                    shape = StratumThemeAccessor.shapes.panel,
-                )
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderSubtle,
-                    shape = StratumThemeAccessor.shapes.panel,
-                )
-                .padding(16.dp),
+    StratumEdgeToEdgeCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -629,12 +627,16 @@ private fun EditLiftPanel(
                 selectedScheme = lift.progressionScheme,
                 onSchemeSelected = { scheme -> onSetProgressionScheme(lift.workoutLiftId, scheme) },
                 onInfoClick = onShowProgressionSchemeInfo,
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
 
         if (isSupersetPairMember(lift, allLifts)) {
             lift.supersetGroupId?.let { groupId ->
-                SupersetGroupChip(groupId = groupId)
+                SupersetGroupChip(
+                    groupId = groupId,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
         }
 
@@ -656,6 +658,7 @@ private fun ProgressionSchemeToggleRow(
     selectedScheme: ProgressionScheme,
     onSchemeSelected: (ProgressionScheme) -> Unit,
     onInfoClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val segments =
         listOf(
@@ -663,7 +666,7 @@ private fun ProgressionSchemeToggleRow(
             stringResource(R.string.edit_workout_progression_scheme_double),
         )
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
