@@ -633,6 +633,8 @@ internal fun WorkoutCard(
         } else {
             stringResource(R.string.programs_expand_workout_a11y, workout.name)
         }
+    // No ripple on expand header: default indication draws a hard rectangular flash.
+    val headerInteractionSource = remember { MutableInteractionSource() }
     // Completed workouts are de-emphasized — all text renders muted (light grey).
     val muted = workout.isCompleted
     Column(
@@ -662,30 +664,30 @@ internal fun WorkoutCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Top,
         ) {
+            // Entire header (except checkbox) toggles expand — not only the chevron.
             Row(
                 modifier =
                     Modifier
-                        .weight(1f),
+                        .weight(1f)
+                        .clickable(
+                            interactionSource = headerInteractionSource,
+                            indication = null,
+                            onClick = { onExpandedChange(!expanded) },
+                        )
+                        .semantics { contentDescription = expandCollapseLabel },
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                StratumIconButton(
-                    onClick = { onExpandedChange(!expanded) },
-                    modifier = Modifier
-                        .semantics { contentDescription = expandCollapseLabel }
-                        .padding(top = 2.dp)
-                        .size(24.dp),
-                ) {
-                    Icon(
-                        painter = painterResource(CoreUiR.drawable.ic_chevron_down),
-                        contentDescription = null,
-                        modifier =
-                            Modifier
-                                .size(WorkoutChevronSize)
-                                .rotate(chevronRotation),
-                        tint = StratumThemeAccessor.colors.textMuted,
-                    )
-                }
+                Icon(
+                    painter = painterResource(CoreUiR.drawable.ic_chevron_down),
+                    contentDescription = null,
+                    modifier =
+                        Modifier
+                            .padding(top = 2.dp)
+                            .size(WorkoutChevronSize)
+                            .rotate(chevronRotation),
+                    tint = StratumThemeAccessor.colors.textMuted,
+                )
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
