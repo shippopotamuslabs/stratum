@@ -104,30 +104,47 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             summary.liftResolution?.let(importLiftResolutionLogger::log)
             emit(HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)))
             emit(HistoricalImportEvent.Completed(summary))
-        } catch (error: Throwable) {
-            rollbackHistoricalImport()
-            val message = error.message ?: "Import failed."
-            val kind =
-                if (error is UnsupportedImportFileException) {
-                    ImportFailureKind.UnsupportedFile
-                } else {
-                    ImportFailureKind.Generic
-                }
-            loggingPort.error(TAG, "Historical import failed: $message", error)
-            val resumeState =
-                HistoricalImportResumeState(
-                    files = allFiles,
-                    completedChunks = chunks.toList(),
-                ).takeIf { it.isResumable() }
+        } catch (error: UnsupportedImportFileException) {
             emit(
-                HistoricalImportEvent.Failed(
-                    message = message,
-                    resume = resumeState,
-                    kind = kind,
+                buildImportFailureEvent(
+                    error = error,
+                    kind = ImportFailureKind.UnsupportedFile,
+                    allFiles = allFiles,
+                    chunks = chunks,
+                ),
+            )
+        } catch (error: Throwable) {
+            emit(
+                buildImportFailureEvent(
+                    error = error,
+                    kind = ImportFailureKind.Generic,
+                    allFiles = allFiles,
+                    chunks = chunks,
                 ),
             )
         }
     }.flowOn(importDispatcher)
+
+    private suspend fun buildImportFailureEvent(
+        error: Throwable,
+        kind: ImportFailureKind,
+        allFiles: List<ImportFileInput>,
+        chunks: List<ImportedHistoryChunk>,
+    ): HistoricalImportEvent.Failed {
+        rollbackHistoricalImport()
+        val message = error.message ?: "Import failed."
+        loggingPort.error(TAG, "Historical import failed: $message", error)
+        val resumeState =
+            HistoricalImportResumeState(
+                files = allFiles,
+                completedChunks = chunks.toList(),
+            ).takeIf { it.isResumable() }
+        return HistoricalImportEvent.Failed(
+            message = message,
+            resume = resumeState,
+            kind = kind,
+        )
+    }
 
     private suspend fun convertSingleFile(
         file: ImportFileInput,
