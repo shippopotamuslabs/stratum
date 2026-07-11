@@ -104,7 +104,6 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
      */
     private fun resolvePath(currentStep: OnboardingStep, profile: UserTrainingProfile): OnboardingPath? =
         when (currentStep) {
-            OnboardingStep.Welcome,
             OnboardingStep.Profile,
             OnboardingStep.GymAndLifts,
             OnboardingStep.ChoosePath,

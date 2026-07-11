@@ -82,18 +82,6 @@ class ValidateCurrentOnboardingStepUseCaseTest {
         assertTrue(result is OnboardingStepValidationResult.Valid)
     }
 
-    @Test
-    @DisplayName("Given Welcome step then validation always passes")
-    fun welcomeAlwaysValid() {
-        val result = subject(
-            step = OnboardingStep.Welcome,
-            profile = UserTrainingProfile.Empty,
-            specialization = SpecializationPreference.Empty,
-            lifts = emptyList(),
-        )
-        assertTrue(result is OnboardingStepValidationResult.Valid)
-    }
-
     private fun enabledLift(): Lift = Lift(
         id = LiftId("squat"),
         name = "Squat",

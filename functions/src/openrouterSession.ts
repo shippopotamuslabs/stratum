@@ -28,6 +28,11 @@ export function programGenerationSessionId(uid: string): string {
   return sanitizeOpenRouterSessionId(`stratum-program-generate:${uid}`);
 }
 
+/** Sticky-routing key for custom program-template spreadsheet import (LLM fallback). */
+export function programTemplateImportSessionId(uid: string, jobId: string): string {
+  return sanitizeOpenRouterSessionId(`stratum-program-template-import:${uid}:${jobId}`);
+}
+
 export function sanitizeOpenRouterSessionId(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {

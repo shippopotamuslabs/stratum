@@ -68,7 +68,7 @@ class OnboardingProgressDaoTest {
     @Test
     @DisplayName("Given an existing row when upserted again then it overwrites the single row")
     fun upsertOverwritesExistingRow() = runTest {
-        subject.upsert(OnboardingProgressEntity(currentStep = OnboardingStep.Welcome, startedAt = 1L, completedAt = null))
+        subject.upsert(OnboardingProgressEntity(currentStep = OnboardingStep.Profile, startedAt = 1L, completedAt = null))
         subject.upsert(OnboardingProgressEntity(currentStep = OnboardingStep.Review, startedAt = 1L, completedAt = 99L))
 
         val current = subject.getOrNull()

@@ -1,6 +1,5 @@
 package com.stratum.feature.onboarding
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.importing.CancelHistoricalImportUseCase
@@ -36,6 +35,7 @@ import com.stratum.domain.program.ActivateProgramUseCase
 import com.stratum.domain.program.GenerateProgramUseCase
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.importing.ImportProgramTemplateUseCase
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
 import com.stratum.domain.program.importing.ProgramTemplateRejectedException
@@ -71,6 +71,7 @@ class OnboardingViewModel @Inject constructor(
     private val activateProgram: ActivateProgramUseCase,
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val importProgramTemplate: ImportProgramTemplateUseCase,
+    private val loggingPort: LoggingPort,
 ) : ViewModel() {
 
     private val edits = MutableStateFlow(ProfileEdit())
@@ -585,6 +586,7 @@ class OnboardingViewModel @Inject constructor(
         ephemeral.update {
             it.copy(
                 importProgramState = ImportProgramState.Loading(ImportProgramPhaseUi.Uploading),
+                importMaxTimelineIndex = ImportProgramPhaseUi.Uploading.activeImportTimelineIndex(),
             )
         }
         importProgramJob?.cancel()
@@ -599,7 +601,12 @@ class OnboardingViewModel @Inject constructor(
                         }
                     result.exceptionOrNull()?.let { error -> setImportProgramError(error) }
                     if (result.isSuccess) {
-                        ephemeral.update { it.copy(importProgramState = ImportProgramState.Idle) }
+                        ephemeral.update {
+                            it.copy(
+                                importProgramState = ImportProgramState.Idle,
+                                importMaxTimelineIndex = 0,
+                            )
+                        }
                     }
                 } catch (error: CancellationException) {
                     throw error
@@ -611,38 +618,58 @@ class OnboardingViewModel @Inject constructor(
 
     /**
      * Surface an import error without starting a job — used when the file itself cannot be read
-     * (e.g. a virtual doc that won't materialize). Logs the detail via `android.util.Log` and
+     * (e.g. a virtual doc that won't materialize). Logs the detail via [LoggingPort] and
      * shows the generic error UI; the raw [message] is never displayed to the user.
      */
     fun showImportProgramError(message: String?) {
         logImportFailure("File read failed: ${message ?: "unknown"}")
-        ephemeral.update { it.copy(importProgramState = ImportProgramState.Error(null)) }
+        ephemeral.update {
+            it.copy(
+                importProgramState = ImportProgramState.Error(null),
+                importMaxTimelineIndex = 0,
+            )
+        }
     }
 
     private fun publishImportProgramProgress(phase: ProgramTemplateImportPhase) {
+        val ui = phase.toUi()
+        val index = ui.activeImportTimelineIndex()
         ephemeral.update { state ->
-            state.copy(importProgramState = ImportProgramState.Loading(phase.toUi()))
+            state.copy(
+                importProgramState = ImportProgramState.Loading(ui),
+                importMaxTimelineIndex = maxOf(state.importMaxTimelineIndex, index),
+            )
         }
     }
 
     private fun setImportProgramError(error: Throwable) {
-        // Log the full detail for debugging; the UI shows only a generic message so raw Firebase
-        // error codes (NOT_FOUND, PERMISSION_DENIED, …) never leak to the user.
-        logImportFailure("Program import failed", error)
+        // UI keeps a generic message so Firebase codes never leak; server rejection text is still
+        // logged via LoggingPort for debugging (calculator vs empty vs not-a-program, etc.).
+        if (error is ProgramTemplateRejectedException) {
+            val serverMessage = error.message?.takeIf { it.isNotBlank() }
+            loggingPort.error(
+                TAG_IMPORT,
+                "Program import rejected: ${serverMessage ?: "(no server message)"}",
+                error,
+            )
+        } else {
+            loggingPort.error(TAG_IMPORT, "Program import failed", error)
+        }
         val state = if (error is ProgramTemplateRejectedException) {
             ImportProgramState.Rejected(null)
         } else {
             ImportProgramState.Error(null)
         }
-        ephemeral.update { it.copy(importProgramState = state) }
+        ephemeral.update {
+            it.copy(
+                importProgramState = state,
+                importMaxTimelineIndex = 0,
+            )
+        }
     }
 
     private fun logImportFailure(message: String, error: Throwable? = null) {
-        try {
-            if (error != null) Log.e(TAG_IMPORT, message, error) else Log.e(TAG_IMPORT, message)
-        } catch (_: RuntimeException) {
-            // android.util.Log is not mocked in JVM unit tests.
-        }
+        loggingPort.error(TAG_IMPORT, message, error)
     }
 
     private fun resolveCustomSessionMinutes(): Int {
@@ -706,17 +733,13 @@ class OnboardingViewModel @Inject constructor(
         return copy(levels = base)
     }
 
+    private fun logGenerateFailure(error: Throwable) {
+        loggingPort.error(TAG, "Program generation failed", error)
+    }
+
     private companion object {
         const val TAG = "OnboardingViewModel"
         const val TAG_IMPORT = "ProgramTemplateImport"
         const val MSG_NAVIGATION_FAILED = "Couldn't save progress. Try again."
-
-        private fun logGenerateFailure(error: Throwable) {
-            try {
-                Log.e(TAG, "Program generation failed", error)
-            } catch (_: RuntimeException) {
-                // android.util.Log is not mocked in JVM unit tests.
-            }
-        }
     }
 }

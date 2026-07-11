@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Wizard chrome -->
-    <string name="onboarding_step_welcome">Welcome</string>
     <string name="onboarding_step_profile">Profile</string>
     <string name="onboarding_step_schedule">Schedule</string>
     <string name="onboarding_step_specialization">Specialization</string>
@@ -37,27 +36,27 @@
     <string name="choose_path_scratch_title">Build From Scratch</string>
     <string name="choose_path_scratch_description">Design every workout and exercise yourself, then activate when you\'re ready.</string>
     <string name="choose_path_import_title">Import Existing Workout</string>
-    <string name="choose_path_import_description">Import your own workout program from Alpha Progression or MacroFactor Workouts.</string>
+    <string name="choose_path_import_description">Alpha Progression and MacroFactor exports are supported natively. Custom plans and other spreadsheets are imported with AI conversion when possible.</string>
 
     <!-- Import Existing program (Generate step) -->
     <string name="onboarding_import_existing_button">Import Existing</string>
-    <string name="onboarding_import_supported_hint">Supports Alpha Progression and MacroFactor exports</string>
+    <string name="onboarding_import_supported_hint">Alpha Progression and MacroFactor are supported natively. We\'ll attempt AI conversion for other program spreadsheets.</string>
     <string name="onboarding_import_loading">Importing your program…</string>
     <string name="onboarding_import_phase_uploading">Uploading your file…</string>
     <string name="onboarding_import_phase_sniffing">Reading your file…</string>
-    <string name="onboarding_import_phase_parsing">Parsing your program…</string>
+    <string name="onboarding_import_phase_analyzing">Analyzing your spreadsheet…</string>
+    <string name="onboarding_import_phase_converting">Converting your program…</string>
+    <string name="onboarding_import_phase_parsing">Building your program…</string>
     <string name="onboarding_import_phase_matching_catalog">Matching exercises to your catalog…</string>
     <string name="onboarding_import_phase_complete">Program ready</string>
     <string name="onboarding_import_error_title">Couldn\'t import that file</string>
-    <string name="onboarding_import_error_rejected">We can only import Alpha Progression plan exports and MacroFactor program exports. Choose a supported file.</string>
+    <string name="onboarding_import_error_rejected">We couldn\'t import that file as a workout program. Try an Alpha Progression or MacroFactor export, or a spreadsheet with clear days, lifts, sets, and rep ranges.</string>
     <string name="onboarding_import_error_generic">Something went wrong reading that file. Try a different file.</string>
     <string name="onboarding_import_error_too_large">That file is too large. Program files should be under %1$d MB.</string>
     <string name="onboarding_import_error_retry">Choose another file</string>
     <string name="onboarding_import_error_back">Back</string>
     <string name="onboarding_content_description_back">Go back</string>
 
-    <!-- Welcome -->
-    <string name="welcome_message">Welcome to Stratum. Let\'s build your starting program.</string>
 
     <!-- Profile -->
     <string name="profile_training_age_heading">How many years of solid training have you done?</string>
@@ -98,13 +97,13 @@
     <string name="gym_lifts_intro">Choose a gym preset, or import past logs instead. Import lets us mine your history for a sharper first program.</string>
     <string name="gym_lifts_error_no_preset">Choose a gym preset or import your training data to continue.</string>
     <string name="gym_lifts_import_title">Import training data</string>
-    <string name="gym_lifts_import_description">Upload workout exports (up to 5 files). AI maps each into Stratum, then we derive insights from your combined history.</string>
+    <string name="gym_lifts_import_description">Upload workout exports (up to 5 files). MacroFactor, Alpha Progression, Hevy, and Strong are converted directly; other formats may use AI as a fallback. We then derive insights from your combined history.</string>
     <string name="gym_lifts_import_learn_more">How import works</string>
     <string name="gym_lifts_import_details_title">How import works</string>
-    <string name="gym_lifts_import_details_ai">Every app exports differently. AI reads your file and builds a one-time mapper that converts your exercises, sets, and weights into Stratum\'s format — no manual spreadsheet work.</string>
-    <string name="gym_lifts_import_details_intro">After conversion, we analyze how you actually train to shape your program.</string>
+    <string name="gym_lifts_import_details_ai">Exports from MacroFactor, Alpha Progression, Hevy, and Strong are mapped with built-in converters — no AI required for those. For other file shapes, AI builds a one-time mapper. Either way, your exercises, sets, and weights land in Stratum\'s format without manual spreadsheet work.</string>
+    <string name="gym_lifts_import_details_intro">After conversion, we match lifts to the catalog. AI may only fill in muscle groups and equipment for custom lifts that aren\'t already in Stratum. Then we analyze how you actually train to shape your program.</string>
     <string name="gym_lifts_import_benefits">From your history we estimate working 1RMs, how fatigue builds across sets, lifts you often superset, and which movements you rely on so program generation starts from real data.</string>
-    <string name="gym_lifts_import_format_hint">Select up to 5 JSON or CSV exports from your workout apps.</string>
+    <string name="gym_lifts_import_format_hint">Select up to 5 CSV, JSON, or XLSX exports (MacroFactor, Alpha Progression, Hevy, Strong, and similar apps).</string>
     <string name="gym_lifts_import_in_progress">Importing your training data…</string>
     <string name="gym_lifts_import_complete">Import complete</string>
     <string name="gym_lifts_import_phase_uploading">Uploading your data…</string>

@@ -60,6 +60,7 @@ internal fun buildOnboardingUiState(
         generateMaxTimelineIndex = ephemeral.generateMaxTimelineIndex,
         generateErrorMessage = ephemeral.generateErrorMessage,
         importProgramState = ephemeral.importProgramState,
+        importMaxTimelineIndex = ephemeral.importMaxTimelineIndex,
         navigationError = ephemeral.navigationError,
     )
 }

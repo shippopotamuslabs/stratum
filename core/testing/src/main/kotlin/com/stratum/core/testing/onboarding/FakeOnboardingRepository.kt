@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * In-memory fake for [OnboardingRepository]. Seeds to the Welcome step with a
+ * In-memory fake for [OnboardingRepository]. Seeds to the first wizard step with a
  * fixed start timestamp so tests can assert on state without wall-clock drift.
  */
 class FakeOnboardingRepository(

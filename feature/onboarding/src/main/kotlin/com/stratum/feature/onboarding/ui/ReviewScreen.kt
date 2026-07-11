@@ -34,17 +34,20 @@ import com.stratum.feature.onboarding.ProgramGenerationProgressUi
 import com.stratum.feature.onboarding.R
 import com.stratum.feature.onboarding.ReviewDraftUi
 
+/** Which pane the Review Crossfade shows: summary cards, generate timeline, or import timeline. */
+private enum class ReviewBodyMode {
+    Summary,
+    GenerateTimeline,
+    ImportTimeline,
+}
+
 /**
  * The terminal wizard step. Renders a read-only summary of everything the user entered, then the
  * action that finishes onboarding: **Generate** (Generate path) or **Import** (Import path).
  *
  * On the Import path the Schedule/Specialization/Minimum Volume cards are hidden (the user skipped
- * those steps), so only Profile and Gym & Lifts show. The generate/import loading and error states
- * render inline via [ReviewActionContent].
- *
- * The summary cards are laid out as numbered [ReviewCard] panels. Empty answers render a friendly
- * placeholder rather than a blank line: a skipped specialization reads as "Balanced", and any
- * unanswered field reads as "Not set yet".
+ * those steps), so only Profile and Gym & Lifts show. While generate or import is loading, the
+ * summary Crossfades out and a status timeline takes its place (same pattern for both flows).
  */
 @Composable
 fun ReviewScreen(
@@ -57,10 +60,19 @@ fun ReviewScreen(
     generateMaxTimelineIndex: Int,
     generateErrorMessage: String?,
     importProgramState: ImportProgramState,
+    importMaxTimelineIndex: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val showGenerateCards = path == OnboardingPathUi.Generate
     val generating = generateState == GenerateState.Loading
+    val importLoading = importProgramState is ImportProgramState.Loading
+    val bodyMode =
+        when {
+            generating -> ReviewBodyMode.GenerateTimeline
+            importLoading -> ReviewBodyMode.ImportTimeline
+            else -> ReviewBodyMode.Summary
+        }
+
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -69,33 +81,41 @@ fun ReviewScreen(
         ReviewPrimaryAction(
             path = path,
             generating = generating,
-            importLoading = importProgramState is ImportProgramState.Loading,
+            importLoading = importLoading,
             generateError = generateState == GenerateState.Error,
             onGenerate = onGenerate,
             onImportExisting = onImportExisting,
         )
 
-        // Summary fades out as the generation timeline fades in — only one is on screen at a time,
-        // so the user never has to scroll past the summary to find the timeline (or vice versa).
+        // Summary fades out as a timeline fades in — only one is on screen at a time.
         Crossfade(
-            targetState = generating,
+            targetState = bodyMode,
             animationSpec = tween(durationMillis = 400),
-            label = "review-generate-crossfade",
-        ) { showTimeline ->
-            if (showTimeline) {
-                GenerateLoadingContent(
-                    progress = generateProgress,
-                    maxActiveIndex = generateMaxTimelineIndex,
-                )
-            } else {
-                ReviewSummary(
-                    draft = draft,
-                    showGenerateCards = showGenerateCards,
-                    importProgramState = importProgramState,
-                    generateError = generateState == GenerateState.Error,
-                    generateErrorMessage = generateErrorMessage,
-                    onImportExisting = onImportExisting,
-                )
+            label = "review-body-crossfade",
+        ) { mode ->
+            when (mode) {
+                ReviewBodyMode.GenerateTimeline ->
+                    GenerateLoadingContent(
+                        progress = generateProgress,
+                        maxActiveIndex = generateMaxTimelineIndex,
+                    )
+                ReviewBodyMode.ImportTimeline -> {
+                    val phase =
+                        (importProgramState as? ImportProgramState.Loading)?.phase
+                    ImportLoadingContent(
+                        phase = phase,
+                        maxActiveIndex = importMaxTimelineIndex,
+                    )
+                }
+                ReviewBodyMode.Summary ->
+                    ReviewSummary(
+                        draft = draft,
+                        showGenerateCards = showGenerateCards,
+                        importProgramState = importProgramState,
+                        generateError = generateState == GenerateState.Error,
+                        generateErrorMessage = generateErrorMessage,
+                        onImportExisting = onImportExisting,
+                    )
             }
         }
     }
@@ -103,7 +123,7 @@ fun ReviewScreen(
 
 /**
  * The primary CTA at the top of Review. Shows Generate (Generate path) or Import (Import path).
- * Hides while a generate is loading (the timeline replaces it) or while an import is in flight.
+ * Hides while a generate/import is loading (the timeline replaces the summary).
  */
 @Composable
 private fun ReviewPrimaryAction(
@@ -140,7 +160,7 @@ private fun ReviewPrimaryAction(
 
 /**
  * The summary cards + any inline import/generate-error state. Rendered inside the Crossfade so it
- * disappears entirely when the generation timeline takes over.
+ * disappears entirely when a timeline takes over.
  */
 @Composable
 private fun ReviewSummary(
@@ -212,13 +232,12 @@ private fun ReviewSummary(
             }
         }
 
-        // Inline import progress / errors render below the summary (import doesn't replace it).
+        // Import errors (not progress) render below the summary when not loading.
         ReviewImportState(
             importProgramState = importProgramState,
             onImportExisting = onImportExisting,
         )
 
-        // Generate errors render inline beneath the summary with a retry hint.
         if (generateError) {
             ReviewGenerateError(
                 message = generateErrorMessage,
@@ -233,7 +252,8 @@ private fun ReviewImportState(
     onImportExisting: () -> Unit,
 ) {
     when (importProgramState) {
-        is ImportProgramState.Loading -> ImportLoadingInline(phase = importProgramState.phase)
+        // Loading is handled by the timeline Crossfade pane.
+        is ImportProgramState.Loading -> Unit
         is ImportProgramState.Error -> ImportErrorInline(
             message = importProgramState.message,
             onRetry = onImportExisting,
@@ -261,20 +281,6 @@ private fun ReviewGenerateError(message: String?) {
 }
 
 @Composable
-private fun ImportLoadingInline(phase: ImportProgramPhaseUi) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        StratumText(
-            text = stringResource(R.string.onboarding_import_loading),
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
-        StratumText(text = stringResource(phase.labelRes()), muted = true)
-    }
-}
-
-@Composable
 private fun ImportErrorInline(
     message: String?,
     rejected: Boolean = false,
@@ -298,14 +304,6 @@ private fun ImportErrorInline(
             onClick = onRetry,
         )
     }
-}
-
-private fun ImportProgramPhaseUi.labelRes(): Int = when (this) {
-    ImportProgramPhaseUi.Uploading -> R.string.onboarding_import_phase_uploading
-    ImportProgramPhaseUi.Sniffing -> R.string.onboarding_import_phase_sniffing
-    ImportProgramPhaseUi.Parsing -> R.string.onboarding_import_phase_parsing
-    ImportProgramPhaseUi.MatchingCatalog -> R.string.onboarding_import_phase_matching_catalog
-    ImportProgramPhaseUi.Complete -> R.string.onboarding_import_phase_complete
 }
 
 /**

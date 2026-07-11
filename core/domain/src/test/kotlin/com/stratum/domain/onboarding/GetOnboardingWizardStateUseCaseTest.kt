@@ -28,7 +28,7 @@ class GetOnboardingWizardStateUseCaseTest {
     @BeforeEach
     fun setup() {
         fakeOnboarding.seed(
-            OnboardingProgress(OnboardingStep.Welcome, startedAt = 0L, completedAt = null),
+            OnboardingProgress(OnboardingStep.Profile, startedAt = 0L, completedAt = null),
         )
         fakeProfile.seed(null)
         fakeSpecialization.seed(SpecializationPreference.Empty)
@@ -48,7 +48,7 @@ class GetOnboardingWizardStateUseCaseTest {
     fun composesAllStreams() = runTest {
         subject().test {
             val state = awaitItem()
-            assertEquals(OnboardingStep.Welcome, state.currentStep)
+            assertEquals(OnboardingStep.Profile, state.currentStep)
             assertNull(state.profile)
             assertEquals(SpecializationPreference.Empty, state.specialization)
             assertEquals(emptyList<Lift>(), state.lifts)

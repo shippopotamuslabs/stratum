@@ -30,7 +30,7 @@ class GetOnboardingStepCapabilitiesUseCaseTest {
 
     @Test
     @DisplayName("Given incomplete profile on Profile step then step is invalid and back is unavailable")
-    fun profileStepInvalidOnWelcome() {
+    fun profileStepInvalidOnFirstStep() {
         val capabilities =
             subject(
                 step = OnboardingStep.Profile,
@@ -40,22 +40,6 @@ class GetOnboardingStepCapabilitiesUseCaseTest {
             )
 
         assertFalse(capabilities.stepValid)
-        assertFalse(capabilities.gymLiftsValid)
-        assertTrue(capabilities.canGoBack)
-    }
-
-    @Test
-    @DisplayName("Given Welcome step then step is valid and back is unavailable")
-    fun welcomeStepCapabilities() {
-        val capabilities =
-            subject(
-                step = OnboardingStep.Welcome,
-                profile = UserTrainingProfile.Empty,
-                specialization = SpecializationPreference.Empty,
-                lifts = emptyList(),
-            )
-
-        assertTrue(capabilities.stepValid)
         assertFalse(capabilities.gymLiftsValid)
         assertFalse(capabilities.canGoBack)
     }

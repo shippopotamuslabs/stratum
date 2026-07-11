@@ -6,6 +6,7 @@ import {
   customLiftInferenceSessionId,
   importAgentSessionId,
   OPENROUTER_SESSION_ID_MAX,
+  programTemplateImportSessionId,
   sanitizeOpenRouterSessionId,
 } from "./openrouterSession";
 
@@ -19,6 +20,13 @@ describe("openrouterSession", () => {
 
   it("builds stable custom lift session ids", () => {
     assert.equal(customLiftInferenceSessionId("user-1"), "stratum-custom-lifts:user-1");
+  });
+
+  it("builds stable program-template import session ids", () => {
+    assert.equal(
+      programTemplateImportSessionId("user-1", "job-abc"),
+      "stratum-program-template-import:user-1:job-abc",
+    );
   });
 
   it("truncates session ids longer than 256 characters", () => {

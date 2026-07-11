@@ -44,7 +44,6 @@ class GetOnboardingStepCapabilitiesUseCase @Inject constructor(
 
     private fun resolvePath(step: OnboardingStep, profile: UserTrainingProfile): OnboardingPath? =
         when (step) {
-            OnboardingStep.Welcome,
             OnboardingStep.Profile,
             OnboardingStep.GymAndLifts,
             OnboardingStep.ChoosePath,

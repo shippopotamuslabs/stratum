@@ -264,6 +264,7 @@ class OnboardingImportProgramViewModelTest {
             ),
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
+            loggingPort = FakeLoggingPort(),
         )
         return Triple(viewModel, onboardingRepo, programRepo)
     }

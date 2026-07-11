@@ -18,6 +18,8 @@ internal data class OnboardingEphemeralState(
     val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
     val importProgramState: ImportProgramState = ImportProgramState.Idle,
+    /** Furthest import timeline step reached this run (monotonic, mirrors generate). */
+    val importMaxTimelineIndex: Int = 0,
     val presetApplyError: String? = null,
     /** Transient snackbar for step-navigation I/O failures (not validation). */
     val navigationError: String? = null,

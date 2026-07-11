@@ -16,7 +16,7 @@ class SaveOnboardingProgressUseCaseTest {
     @BeforeEach
     fun setup() {
         // Seed to null so the first save establishes the row, matching a fresh install.
-        fakeRepository.seed(OnboardingProgress(OnboardingStep.Welcome, startedAt = 0L, completedAt = null))
+        fakeRepository.seed(OnboardingProgress(OnboardingStep.Profile, startedAt = 0L, completedAt = null))
         subject = SaveOnboardingProgressUseCase(fakeRepository)
     }
 

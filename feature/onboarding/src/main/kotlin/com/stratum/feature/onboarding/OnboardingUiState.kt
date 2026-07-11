@@ -29,6 +29,7 @@ data class OnboardingUiState(
     val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
     val importProgramState: ImportProgramState = ImportProgramState.Idle,
+    val importMaxTimelineIndex: Int = 0,
     /** Transient snackbar for step-navigation I/O failures (not validation). */
     val navigationError: String? = null,
 ) {
@@ -97,6 +98,8 @@ sealed interface ImportProgramState {
 enum class ImportProgramPhaseUi {
     Uploading,
     Sniffing,
+    Analyzing,
+    Converting,
     Parsing,
     MatchingCatalog,
     Complete,

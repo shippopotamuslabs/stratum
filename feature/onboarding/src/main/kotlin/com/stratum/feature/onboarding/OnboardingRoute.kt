@@ -45,7 +45,7 @@ import com.stratum.feature.onboarding.ui.ReviewScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
 import com.stratum.feature.onboarding.ui.MinimumVolumeScreen
 import com.stratum.feature.onboarding.ui.SpecializationScreen
-import com.stratum.feature.onboarding.ui.WelcomeScreen
+
 
 /**
  * Onboarding wizard root. No NavController is passed in (ARCHITECTURE.md §4.4) —
@@ -207,7 +207,6 @@ private fun OnboardingWizard(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (state.step.id) {
-                    WIZARD_STEP_WELCOME -> WelcomeScreen()
                     WIZARD_STEP_PROFILE -> ProfileScreen(
                         draft = state.profileDraft,
                         onTrainingAgeSelected = profileSchedule.onTrainingAgeSelected,
@@ -245,6 +244,7 @@ private fun OnboardingWizard(
                         generateMaxTimelineIndex = state.generateMaxTimelineIndex,
                         generateErrorMessage = state.generateErrorMessage,
                         importProgramState = state.importProgramState,
+                        importMaxTimelineIndex = state.importMaxTimelineIndex,
                     )
                     WIZARD_STEP_CHOOSE_PATH -> ChoosePathScreen(
                         onSelectGenerate = pathHandlers.onSelectGenerate,
@@ -310,7 +310,6 @@ private fun WizardControls(
     }
 }
 
-private const val WIZARD_STEP_WELCOME = "Welcome"
 private const val WIZARD_STEP_PROFILE = "Profile"
 private const val WIZARD_STEP_SCHEDULE = "Schedule"
 private const val WIZARD_STEP_SPECIALIZATION = "Specialization"
