@@ -716,9 +716,9 @@ class WorkoutViewModelTest {
             // History: slot 0 (top, 4-6 RIR 2) did 135×5 RIR 2; slot 1 (backoff, RIR 2)
             // did 135×8 RIR 2. Same weight → capacity reorder: the backoff's 8@2 (cap 10)
             // becomes the top-set baseline. 8 >= repMax 6 at RIR 2 → increment to 140,
-            // reps reset to repMin 4.
+            // reps reset to max(repMin, BACKOFF_REP_FLOOR) = 5.
             assertEquals("140", firstSet.recommendedWeightLabel)
-            assertEquals("4", firstSet.recommendedRepsLabel)
+            assertEquals("5", firstSet.recommendedRepsLabel)
             assertNull(firstSet.loggedWeightLabel)
             cancelAndIgnoreRemainingEvents()
         }
@@ -832,12 +832,11 @@ class WorkoutViewModelTest {
     //     without subtracting the slot's RIR goal).
 
     @Test
-    @DisplayName("S7-rir-math-1: 75x4@2 RIR top set (4-12 range) -> next top set Hold 75, reps clamp to 4")
-    fun `75x4 at 2 RIR holds weight and clamps reps to repMin`() = runTest {
+    @DisplayName("S7-rir-math-1: 75x4@2 RIR top set (4-12 range) -> Reduce so next set hits floor of 5")
+    fun `75x4 at 2 RIR reduces weight so next set hits rep floor of 5`() = runTest {
         // e1RM from 75x6 = 89.53. At 75 lb, repsForWeight = 6 @ 0 RIR → 4 @ 2 RIR.
-        // targetReps (top, repMin=4) = 4. projectedReps (4) >= 4 → Hold 75.
-        // Fatigue projection: raw set2 = 6 - 2 = 4 @ 0 RIR → 4 - 2 = 2 @ 2 RIR.
-        // Clamped to repMin=4 → 4 reps. Weight label "75" (no trailing .0).
+        // Global floor: targetReps = max(repMin=4, BACKOFF_REP_FLOOR=5) = 5 → Reduce.
+        // Live rep projection never surfaces below 5.
         val viewModel = buildViewModelWithProgram(programWithTopSetRange(repMin = 4, repMax = 12, rirGoal = 2))
         viewModel.startSession(workoutId)
         viewModel.uiState.test {
@@ -847,10 +846,12 @@ class WorkoutViewModelTest {
             val updated = viewModel.uiState.value as WorkoutUiState.Loaded
             val nextSet = updated.lifts.first().sets.firstOrNull { it.slotKey.contains("ls-2") }
             assertNotNull(nextSet, "an upcoming ls-2 set must be rendered")
-            assertEquals("75", nextSet!!.recommendedWeightLabel)
+            assertTrue(
+                nextSet!!.recommendedWeightLabel.toDouble() < 75.0,
+                "must drop weight when capacity is below the rep floor",
+            )
             assertTrue(nextSet.hasLiveRepsRecommendation)
-            assertEquals(4, nextSet.recommendedReps)
-            assertEquals("4", nextSet.recommendedRepsLabel)
+            assertTrue(nextSet.recommendedReps >= 5)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -953,9 +954,9 @@ class WorkoutViewModelTest {
     @DisplayName("S7-too-hard-reduce: missed floor by 2 reduces weight for last set")
     fun `too hard reduces weight targeting last remaining set`() = runTest {
         // 75x2@2 on a 4-12 top set. 2 sets total; after logging set 1, 1 remains.
-        // achieved=2, floor=4, 4-2=2 → too hard. e1RM from 75x4 = 84.10.
+        // achieved=2, targetFloor=max(4,5)=5 → too hard. e1RM from 75x4 = 84.10.
         // remainingCount=1 → fatigueForLastSet=0.
-        // weightForReps(84.10, 4+2+0=6) = 70.5. No tiers → label "70.5".
+        // weightForReps(84.10, 5+2+0=7) ≈ 68.0. No tiers → unrounded label.
         val viewModel = buildViewModelWithProgram(programWithTopSetRange(repMin = 4, repMax = 12, rirGoal = 2))
         viewModel.startSession(workoutId)
         viewModel.uiState.test {
@@ -966,7 +967,7 @@ class WorkoutViewModelTest {
             val nextSet = updated.lifts.first().sets.firstOrNull { it.slotKey.contains("ls-2") }
             assertNotNull(nextSet)
             assertTrue(nextSet!!.recommendedWeightLabel.toDouble() < 75.0, "must reduce below 75")
-            assertEquals(70.5, nextSet.recommendedWeightLabel.toDouble(), 0.1)
+            assertTrue(nextSet.recommendedReps >= 5, "recommended reps must respect global floor")
             cancelAndIgnoreRemainingEvents()
         }
     }

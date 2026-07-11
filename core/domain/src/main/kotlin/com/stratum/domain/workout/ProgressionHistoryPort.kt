@@ -25,7 +25,9 @@ data class SlotHistoryEntry(
 /**
  * Historical-priority read port (D3, research Gap 4). Returns sets for a slot across
  * sessions, ordered n−1, n−2, … (same lift + same workout + same position), then same
- * lift from other workouts. Empty if no history.
+ * lift + same position from other workouts / imports. **Not** scoped to
+ * [SlotHistoryRequest.programId] — imported history uses a sentinel program id and must
+ * still feed live-session previous/recommendation baselines. Empty if no history.
  */
 interface ProgressionHistoryPort {
     suspend fun historyForSlot(request: SlotHistoryRequest): List<SlotHistoryEntry>

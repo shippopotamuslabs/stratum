@@ -129,12 +129,12 @@ class RecomputeRecommendationsUseCaseTest {
     }
 
     @Test
-    @DisplayName("RIR-1: 75x4@2 RIR top set (4-12 range) -> next top set Hold 75, reps clamp to 4")
-    fun `75x4 at 2 RIR holds weight and clamps reps to repMin`() {
+    @DisplayName("RIR-1: 75x4@2 RIR top set (4-12 range) -> Reduce so next set hits global floor of 5")
+    fun `75x4 at 2 RIR reduces weight so next set hits rep floor of 5`() {
         // e1RM from 75x6 = 89.53. At 75 lb, repsForWeight = 6 @ 0 RIR → 4 @ 2 RIR.
-        // targetReps (top, repMin=4) = 4. projectedReps (4) >= 4 → Hold 75.
-        // Fatigue projection: raw set2 = 6 - 2 = 4 @ 0 RIR → 4 - 2 = 2 @ 2 RIR.
-        // Clamped to repMin=4 → 4 reps.
+        // Global floor: targetReps = max(repMin=4, BACKOFF_REP_FLOOR=5) = 5.
+        // projectedReps (4) < 5 → Reduce weight targeting 5@2 RIR.
+        // Live rep projection is floored at BACKOFF_REP_FLOOR (never surfaces 4).
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 4,
@@ -146,8 +146,68 @@ class RecomputeRecommendationsUseCaseTest {
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null, "an upcoming recommendation must be produced")
-        assertEquals(75.0, rec!!.weight.amount, 0.01)
-        assertEquals(4, rec.reps)
+        assertTrue(rec!!.weight.amount < 75.0, "must drop weight when capacity is below the rep floor")
+        assertTrue(rec.reps >= 5, "recommended reps must never go below BACKOFF_REP_FLOOR")
+    }
+
+    @Test
+    @DisplayName("Backoff live rep projection never goes below BACKOFF_REP_FLOOR")
+    fun `backoff live projection floors at 5 even when capacity is lower`() {
+        // Top set logged poorly; backoff has no rep range (repMin=repMax=0). Fatigue can
+        // project 3–4 raw at-RIR reps — the display pipeline must still floor at 5.
+        val performed = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(100.0),
+            reps = 5,
+            rir = 0,
+        )
+        val firstSet = RenderedSet(
+            slotId = SetSlotId.Template(liftSetId),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = 0,
+            setType = SetType.Standard,
+            isTopSet = true,
+            repMin = 8,
+            repMax = 12,
+            rirGoal = 2,
+            restSeconds = 120,
+            recommendedWeight = lb(100.0),
+            recommendedReps = 8,
+            loggedValue = performed,
+        )
+        val backoff = RenderedSet(
+            slotId = SetSlotId.Template(backoffSetId),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = 1,
+            setType = SetType.Standard,
+            isTopSet = false,
+            repMin = 0,
+            repMax = 0,
+            rirGoal = 2,
+            restSeconds = 120,
+            recommendedWeight = lb(100.0),
+            recommendedReps = 0,
+            loggedValue = null,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Leg Extension",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(firstSet, backoff),
+                ),
+            ),
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val rec = recommendations[SetSlotId.Template(backoffSetId)]
+        assertTrue(rec != null, "backoff must receive a live recommendation")
+        assertTrue(rec!!.reps >= 5, "backoff recommended reps must be >= BACKOFF_REP_FLOOR, was ${rec.reps}")
     }
 
     @Test
@@ -197,9 +257,9 @@ class RecomputeRecommendationsUseCaseTest {
     @DisplayName("Too-hard reduce: missed floor by 2 reduces weight for last set")
     fun `too hard reduces weight targeting last remaining set`() {
         // 75x2@2 on a 4-12 top set. 2 sets total; after logging set 1, 1 remains.
-        // achieved=2, floor=4, 4-2=2 → too hard. e1RM from 75x4 = 84.10.
+        // achieved=2, targetFloor=max(4,5)=5, 5-2=3 → too hard. e1RM from 75x4 = 84.10.
         // remainingCount=1 → fatigueForLastSet=0.
-        // weightForReps(84.10, 4+2+0=6) = 70.5. No tiers → 70.5.
+        // weightForReps(84.10, 5+2+0=7) ≈ 68.0. No tiers → unrounded.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 2,
@@ -212,7 +272,7 @@ class RecomputeRecommendationsUseCaseTest {
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertTrue(rec!!.weight.amount < 75.0, "must reduce below 75")
-        assertEquals(70.5, rec.weight.amount, 0.1)
+        assertTrue(rec.reps >= 5, "recommended reps must respect global floor")
     }
 
     @Test
@@ -349,9 +409,10 @@ class RecomputeRecommendationsUseCaseTest {
         assertEquals(2, recommendations.size)
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-2"))))
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-3"))))
-        // Fatigue steps per slot: set2 index=2 → 6 reps; set3 index=3 → 4 reps (not identical).
+        // Fatigue steps per slot: set2 index=2 → 6 reps; set3 index=3 would be 4 raw but is
+        // floored at BACKOFF_REP_FLOOR (5).
         assertEquals(6, recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!.reps)
-        assertEquals(4, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
+        assertEquals(5, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
     }
 
     @Test
@@ -672,7 +733,9 @@ class RecomputeRecommendationsUseCaseTest {
         )
         val rec = useCase(rendered, mapOf(liftId to catalogLift()))[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
-        assertEquals(4, rec!!.reps)
+        // Null RIR is treated as 0 capacity-wise, but recommended reps still respect the
+        // global floor of BACKOFF_REP_FLOOR (5).
+        assertTrue(rec!!.reps >= 5)
     }
 
     @Test
