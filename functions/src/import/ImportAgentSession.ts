@@ -7,6 +7,7 @@ import {
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { JobRef } from "./jobRef";
+import { updateJobIfPresent } from "./safeJobUpdate";
 import { dispatchTool, type ToolContext } from "./tools";
 import {
   IMPORT_AGENT_SYSTEM_PROMPT,
@@ -222,7 +223,7 @@ export async function runImportAgentSession(
       };
     },
     async updateJob(patch) {
-      await jobRef.update(patch);
+      await updateJobIfPresent(jobRef, patch);
     },
     async readJobConversionPath() {
       const snap = await jobRef.get();

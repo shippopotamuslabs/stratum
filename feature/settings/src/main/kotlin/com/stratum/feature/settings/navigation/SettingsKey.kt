@@ -72,6 +72,9 @@ private fun SettingsRoute(
         onLogoutClick = viewModel::onLogoutClick,
         onLogoutConfirmDismiss = viewModel::onLogoutConfirmDismiss,
         onLogoutConfirmed = viewModel::onLogoutConfirmed,
+        onDeleteAccountClick = viewModel::onDeleteAccountClick,
+        onDeleteAccountConfirmDismiss = viewModel::onDeleteAccountConfirmDismiss,
+        onDeleteAccountConfirmed = viewModel::onDeleteAccountConfirmed,
         snackbarHostState = snackbarHostState,
     )
 }

@@ -1,5 +1,6 @@
 package com.stratum.core.inference
 
+import com.stratum.domain.auth.AccountDeletionPort
 import com.stratum.domain.importing.CustomLiftInferencePort
 import com.stratum.domain.importing.HistoricalImportPort
 import com.stratum.domain.importing.HistoricalImportRunnerPort
@@ -18,6 +19,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class InferenceModule {
+    @Binds
+    @Singleton
+    abstract fun bindAccountDeletionPort(impl: FirebaseAccountDeletionAdapter): AccountDeletionPort
+
     @Binds
     @Singleton
     abstract fun bindHistoricalImportPort(impl: FirebaseHistoricalImportAdapter): HistoricalImportPort

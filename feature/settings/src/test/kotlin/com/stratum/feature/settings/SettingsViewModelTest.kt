@@ -4,11 +4,13 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.auth.FakeAccountDeletionPort
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.theme.FakeThemePreferencesRepository
 import com.stratum.domain.auth.AuthState
+import com.stratum.domain.auth.DeleteAccountUseCase
 import com.stratum.domain.auth.LogoutUseCase
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.checkin.CheckInPreferences
@@ -45,6 +47,7 @@ class SettingsViewModelTest {
     private val fakeCheckInPreferences = FakeCheckInPreferencesRepository()
     private lateinit var fakeAuth: FakeAuthManager
     private lateinit var fakeCloudSync: FakeCloudSyncPort
+    private lateinit var fakeAccountDeletion: FakeAccountDeletionPort
     private lateinit var subject: SettingsViewModel
 
     @BeforeEach
@@ -55,6 +58,7 @@ class SettingsViewModelTest {
             AuthState.Authenticated(UserProfile("uid-1", "Test", "t@example.com", null)),
         )
         fakeCloudSync = FakeCloudSyncPort()
+        fakeAccountDeletion = FakeAccountDeletionPort()
         subject = buildViewModel()
     }
 
@@ -71,6 +75,13 @@ class SettingsViewModelTest {
                 endSessionAndWipe = EndSessionAndWipeUseCase(fakeCloudSync),
                 stopCloudSync = StopCloudSyncUseCase(fakeCloudSync),
                 startCloudSync = StartCloudSyncUseCase(fakeCloudSync),
+            ),
+            deleteAccount = DeleteAccountUseCase(
+                authManager = fakeAuth,
+                accountDeletionPort = fakeAccountDeletion,
+                stopCloudSync = StopCloudSyncUseCase(fakeCloudSync),
+                startCloudSync = StartCloudSyncUseCase(fakeCloudSync),
+                endSessionAndWipe = EndSessionAndWipeUseCase(fakeCloudSync),
             ),
         )
 
@@ -234,5 +245,130 @@ class SettingsViewModelTest {
 
         assertFalse(subject.uiState.value.showLogoutConfirm)
         assertEquals(emptyList<String>(), fakeCloudSync.callOrder)
+    }
+
+    @Test
+    @DisplayName("When delete account clicked then confirm dialog is shown without deleting yet")
+    fun deleteAccountClickShowsConfirm() = runTest {
+        subject.onDeleteAccountClick()
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            assertTrue(awaitItem().showDeleteConfirm)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(0, fakeAccountDeletion.deleteCount)
+        assertEquals(emptyList<String>(), fakeCloudSync.callOrder)
+        assertEquals(0, fakeAuth.signOutCount)
+    }
+
+    @Test
+    @DisplayName("When delete account confirmed then stop, remote data, wipe, auth, and sign out run")
+    fun deleteAccountConfirmedInvokesUseCase() = runTest {
+        subject.onDeleteAccountClick()
+        subject.onDeleteAccountConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(1, fakeAccountDeletion.deleteDataCount)
+        assertEquals(1, fakeAccountDeletion.deleteAuthCount)
+        assertEquals(listOf("stop", "wipe"), fakeCloudSync.callOrder)
+        assertEquals("uid-1", fakeCloudSync.lastWipedUserId)
+        assertEquals(1, fakeAuth.signOutCount)
+        assertEquals(AuthState.Unauthenticated, fakeAuth.authState.value)
+        assertNull(subject.userMessage.value)
+        assertFalse(subject.uiState.value.isDeletingAccount)
+        assertFalse(subject.uiState.value.showDeleteConfirm)
+    }
+
+    @Test
+    @DisplayName("When logout confirm is open then delete click does not open second dialog")
+    fun exclusiveAccountConfirmDialogs() = runTest {
+        subject.uiState.test {
+            // Collect so stateIn stays active.
+            skipItems(1)
+            subject.onLogoutClick()
+            val afterLogout = awaitItem()
+            assertTrue(afterLogout.showLogoutConfirm)
+            assertFalse(afterLogout.showDeleteConfirm)
+
+            subject.onDeleteAccountClick()
+            expectNoEvents()
+
+            assertTrue(subject.uiState.value.showLogoutConfirm)
+            assertFalse(subject.uiState.value.showDeleteConfirm)
+            assertEquals(0, fakeAccountDeletion.deleteCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("When auth delete fails after wipe then distinct finish-account message")
+    fun deleteAccountAuthFailureSurfacesGuidance() = runTest {
+        fakeAccountDeletion.deleteAuthResult =
+            Result.failure(IllegalStateException("auth delete failed"))
+        subject = buildViewModel()
+
+        subject.onDeleteAccountClick()
+        subject.onDeleteAccountConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(1, fakeAccountDeletion.deleteDataCount)
+        assertEquals(1, fakeAccountDeletion.deleteAuthCount)
+        assertEquals(0, fakeAuth.signOutCount)
+        assertTrue(
+            subject.userMessage.value?.contains("fully closed") == true ||
+                subject.userMessage.value?.contains("Try Delete account again") == true,
+        )
+        assertFalse(subject.uiState.value.isDeletingAccount)
+    }
+
+    @Test
+    @DisplayName("When remote delete fails then generic userMessage is set")
+    fun deleteAccountFailureSurfacesMessage() = runTest {
+        fakeAccountDeletion.deleteDataResult = Result.failure(IllegalStateException("cloud failed"))
+        subject = buildViewModel()
+
+        subject.onDeleteAccountClick()
+        subject.onDeleteAccountConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(1, fakeAccountDeletion.deleteDataCount)
+        assertEquals(0, fakeAccountDeletion.deleteAuthCount)
+        assertEquals(0, fakeAuth.signOutCount)
+        assertEquals("Couldn't delete account. Try again.", subject.userMessage.value)
+        assertFalse(subject.uiState.value.isDeletingAccount)
+    }
+
+    @Test
+    @DisplayName("When local wipe fails after cloud data delete then local-cleanup guidance snackbar")
+    fun deleteAccountLocalCleanupFailureSurfacesGuidance() = runTest {
+        fakeCloudSync.wipeResult = Result.failure(IllegalStateException("wipe failed"))
+        subject = buildViewModel()
+
+        subject.onDeleteAccountClick()
+        subject.onDeleteAccountConfirmed()
+        advanceUntilIdle()
+
+        assertEquals(1, fakeAccountDeletion.deleteDataCount)
+        assertEquals(0, fakeAccountDeletion.deleteAuthCount)
+        assertEquals(0, fakeAuth.signOutCount)
+        assertTrue(fakeAuth.authState.value is AuthState.Authenticated)
+        assertTrue(
+            subject.userMessage.value?.contains("clear the app") == true ||
+                subject.userMessage.value?.contains("Uninstall") == true,
+        )
+        assertFalse(subject.uiState.value.isDeletingAccount)
+    }
+
+    @Test
+    @DisplayName("When delete account confirm dismissed then dialog closes")
+    fun deleteAccountConfirmDismiss() = runTest {
+        subject.onDeleteAccountClick()
+        advanceUntilIdle()
+        subject.onDeleteAccountConfirmDismiss()
+        advanceUntilIdle()
+
+        assertFalse(subject.uiState.value.showDeleteConfirm)
+        assertEquals(0, fakeAccountDeletion.deleteCount)
     }
 }
