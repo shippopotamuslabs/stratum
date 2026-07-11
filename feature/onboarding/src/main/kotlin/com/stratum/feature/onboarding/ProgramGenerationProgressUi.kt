@@ -1,24 +1,10 @@
 package com.stratum.feature.onboarding
 
 /**
- * Presentation models for program generation progress. Mirrors [ProgramGenerationProgressPhase]
- * without leaking domain types into composables.
+ * Re-exports shared presentation models from :core:ui so onboarding call sites keep a stable package.
  */
-enum class ProgramGenerationProgressPhaseUi {
-    PreparingPayload,
-    ReviewingProfile,
-    PlanningVolume,
-    SynthesizingProgram,
-    EvaluatingSplits,
-    SelectingExercises,
-    PolishingProgram,
-    FinalizingProgram,
-    SavingProgram,
-    Complete,
-    Failed,
-}
+typealias ProgramGenerationProgressPhaseUi =
+    com.stratum.core.ui.progress.ProgramGenerationProgressPhaseUi
 
-data class ProgramGenerationProgressUi(
-    val phase: ProgramGenerationProgressPhaseUi,
-    val detail: String? = null,
-)
+typealias ProgramGenerationProgressUi =
+    com.stratum.core.ui.progress.ProgramGenerationProgressUi

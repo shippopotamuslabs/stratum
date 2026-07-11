@@ -1,11 +1,11 @@
-package com.stratum.feature.onboarding.ui
+package com.stratum.core.ui.progress
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
-class ProgramGenerationProgressUiTest {
+class ProgramGenerationDetailCopyTest {
     @Test
     @DisplayName("Given technical generation detail when sanitized then returns null")
     fun `technical detail is hidden`() {

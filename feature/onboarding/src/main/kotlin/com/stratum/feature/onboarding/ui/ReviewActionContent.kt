@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.ProgramGenerationLoadingContent
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.ImportProgramPhaseUi
@@ -25,19 +26,11 @@ internal fun GenerateLoadingContent(
     maxActiveIndex: Int,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(top = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        StratumText(
-            text = stringResource(R.string.onboarding_generate_loading),
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
-        ProgramGenerationTimeline(
-            progress = progress,
-            maxActiveIndex = maxActiveIndex,
-        )
-    }
+    ProgramGenerationLoadingContent(
+        progress = progress,
+        maxActiveIndex = maxActiveIndex,
+        modifier = modifier,
+    )
 }
 
 @Composable

@@ -1,40 +1,22 @@
 package com.stratum.feature.onboarding
 
-/**
- * Phases emitted during on-device program generation. The timeline shows only live pipeline steps.
- */
-internal val programGenerationTimelinePhases: List<ProgramGenerationProgressPhaseUi> =
-    listOf(
-        ProgramGenerationProgressPhaseUi.PreparingPayload,
-        ProgramGenerationProgressPhaseUi.ReviewingProfile,
-        ProgramGenerationProgressPhaseUi.PlanningVolume,
-        ProgramGenerationProgressPhaseUi.SynthesizingProgram,
-        ProgramGenerationProgressPhaseUi.SelectingExercises,
-        ProgramGenerationProgressPhaseUi.PolishingProgram,
-        ProgramGenerationProgressPhaseUi.FinalizingProgram,
-        ProgramGenerationProgressPhaseUi.SavingProgram,
-    )
+import com.stratum.core.ui.progress.ProgressTimelineStepStatus
+import com.stratum.core.ui.progress.activeTimelineIndex as sharedActiveTimelineIndex
+import com.stratum.core.ui.progress.programGenerationTimelinePhases as sharedProgramGenerationTimelinePhases
+import com.stratum.core.ui.progress.timelineStepStatus as sharedTimelineStepStatus
 
-internal enum class ProgramGenerationTimelineStepStatus {
-    Completed,
-    Active,
-    Pending,
-}
+/** @see com.stratum.core.ui.progress.programGenerationTimelinePhases */
+internal val programGenerationTimelinePhases: List<ProgramGenerationProgressPhaseUi> =
+    sharedProgramGenerationTimelinePhases
+
+/** @see com.stratum.core.ui.progress.ProgressTimelineStepStatus */
+internal typealias ProgramGenerationTimelineStepStatus = ProgressTimelineStepStatus
 
 internal fun ProgramGenerationProgressPhaseUi?.activeTimelineIndex(): Int =
-    when (this) {
-        null -> 0
-        ProgramGenerationProgressPhaseUi.Complete -> programGenerationTimelinePhases.size
-        ProgramGenerationProgressPhaseUi.Failed -> 0
-        else -> programGenerationTimelinePhases.indexOf(this).coerceAtLeast(0)
-    }
+    sharedActiveTimelineIndex()
 
 internal fun timelineStepStatus(
     stepIndex: Int,
     activeIndex: Int,
 ): ProgramGenerationTimelineStepStatus =
-    when {
-        stepIndex < activeIndex -> ProgramGenerationTimelineStepStatus.Completed
-        stepIndex == activeIndex -> ProgramGenerationTimelineStepStatus.Active
-        else -> ProgramGenerationTimelineStepStatus.Pending
-    }
+    sharedTimelineStepStatus(stepIndex, activeIndex)
