@@ -122,7 +122,7 @@ fun EditHistoricalWorkoutScreen(
                         Modifier
                             .fillMaxSize()
                             .padding(padding)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(state.lifts, key = { it.key }) { lift ->

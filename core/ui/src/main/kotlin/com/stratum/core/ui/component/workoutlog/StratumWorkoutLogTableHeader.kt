@@ -23,7 +23,7 @@ fun StratumWorkoutLogTableHeader(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = WorkoutLogTableHorizontalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         HeaderCell("Set", Modifier.weight(weights.label), alignment = Alignment.CenterStart)

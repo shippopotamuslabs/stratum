@@ -2,6 +2,8 @@ package com.stratum.feature.program
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.core.ui.progress.activeTimelineIndex
+import com.stratum.core.ui.progress.toUi
 import com.stratum.core.ui.trainingsetup.MinimumVolumeDraftUi
 import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
 import com.stratum.core.ui.trainingsetup.SpecializationDraftUi
@@ -26,6 +28,7 @@ import com.stratum.domain.program.GetProgramByIdUseCase
 import com.stratum.domain.program.InferLastTrainedBucketUseCase
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
+import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SaveProgramToLibraryUseCase
@@ -313,8 +316,9 @@ class CreateProgramViewModel @Inject constructor(
                 step = CreateProgramStep.Generating,
                 generateState = CreateProgramGenerateState.Loading,
                 generateErrorMessage = null,
-                generatePhaseLabel = null,
-                generateDetail = null,
+                generateProgress =
+                    ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload).toUi(),
+                generateMaxTimelineIndex = 0,
             )
         }
         generateJob?.cancel()
@@ -325,10 +329,13 @@ class CreateProgramViewModel @Inject constructor(
                     val result =
                         generateProgram { progress ->
                             withContext(Dispatchers.Main.immediate) {
+                                val ui = progress.toUi()
+                                val index = ui.phase.activeTimelineIndex()
                                 _uiState.update { state ->
                                     state.copy(
-                                        generatePhaseLabel = progress.phase.toLabel(),
-                                        generateDetail = progress.detail,
+                                        generateProgress = ui,
+                                        generateMaxTimelineIndex =
+                                            maxOf(state.generateMaxTimelineIndex, index),
                                     )
                                 }
                             }
@@ -840,18 +847,4 @@ class CreateProgramViewModel @Inject constructor(
     private fun muscleFromLabel(label: String): MuscleGroup? =
         MuscleGroup.entries.firstOrNull { muscle -> muscle.displayLabel == label }
 
-    private fun ProgramGenerationProgressPhase.toLabel(): String =
-        when (this) {
-            ProgramGenerationProgressPhase.PreparingPayload -> "Preparing…"
-            ProgramGenerationProgressPhase.ReviewingProfile -> "Reviewing profile…"
-            ProgramGenerationProgressPhase.PlanningVolume -> "Planning volume…"
-            ProgramGenerationProgressPhase.SynthesizingProgram -> "Synthesizing program…"
-            ProgramGenerationProgressPhase.EvaluatingSplits -> "Evaluating splits…"
-            ProgramGenerationProgressPhase.SelectingExercises -> "Selecting exercises…"
-            ProgramGenerationProgressPhase.PolishingProgram -> "Polishing…"
-            ProgramGenerationProgressPhase.FinalizingProgram -> "Finalizing…"
-            ProgramGenerationProgressPhase.SavingProgram -> "Saving…"
-            ProgramGenerationProgressPhase.Complete -> "Complete"
-            ProgramGenerationProgressPhase.Failed -> "Failed"
-        }
 }

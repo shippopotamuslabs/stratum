@@ -28,8 +28,11 @@ import kotlinx.coroutines.flow.first
  *
  * Freshness:
  * - Volume / lift e1RM series: [com.stratum.domain.training.RefreshWeeklySeriesUseCase] on finalize
+ *   and after a successful cloud pull via
+ *   [com.stratum.domain.training.RebuildLocalDerivedTrainingDataUseCase] (tables are not synced)
  * - Muscle progress (outcome index): full extract via the response-modeling WorkManager worker
- *   ([com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed-workout cadence)
+ *   ([com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed-workout cadence;
+ *   also enqueued post-pull)
  *
  * Returns `null` when no weekly data exists in the window (no completed workouts + no import) so the
  * UI renders an empty state rather than an empty-as-success board.
