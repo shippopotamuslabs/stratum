@@ -34,6 +34,16 @@
     <string name="workout_complete_pr_cd">Personal record</string>
     <string name="workout_complete_empty">No lifts logged</string>
 
+    <!-- Equipment increment proposals (post-workout only) -->
+    <string name="workout_complete_equipment_section">Equipment updates</string>
+    <string name="workout_complete_equipment_section_hint">Optional — match weight steps to what you logged.</string>
+    <string name="workout_complete_proposal_tiers">Tiers: %1$s</string>
+    <string name="workout_complete_proposal_lifts">Lifts: %1$s</string>
+    <string name="workout_complete_proposal_blast_hint">Affects %1$d lifts using these defaults.</string>
+    <string name="workout_complete_proposal_skip">Skip</string>
+    <string name="workout_complete_proposal_not_now">Not now</string>
+    <string name="workout_complete_proposal_cancel">Cancel</string>
+
     <!-- Notifications -->
     <string name="notif_channel_rest_progress">Rest timer</string>
     <string name="notif_channel_rest_progress_desc">Shows remaining rest time during a workout</string>

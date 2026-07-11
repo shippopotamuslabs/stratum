@@ -110,6 +110,11 @@ fun LiftIncrementsScreen(
                 item {
                     IncrementsHelpCard()
                 }
+                if (state.affectsBanner != null) {
+                    item {
+                        InheritanceBanner(message = state.affectsBanner)
+                    }
+                }
                 if (state.inheritanceBanner != null) {
                     item {
                         InheritanceBanner(message = state.inheritanceBanner)

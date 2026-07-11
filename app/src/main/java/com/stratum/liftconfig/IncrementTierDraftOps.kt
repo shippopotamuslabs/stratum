@@ -1,5 +1,6 @@
 package com.stratum.liftconfig
 
+import com.stratum.core.ui.component.formatIncrementAmount
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationError
 import com.stratum.domain.lift.Weight
@@ -15,8 +16,7 @@ object IncrementTierDraftOps {
     fun filterNumeric(value: String): String =
         value.filter { it.isDigit() || it == '.' || it == '-' }
 
-    fun formatAmount(amount: Double): String =
-        if (amount % 1.0 == 0.0) amount.toInt().toString() else amount.toString()
+    fun formatAmount(amount: Double): String = formatIncrementAmount(amount)
 
     fun defaultDraft(): IncrementTierDraft =
         IncrementTierDraft(

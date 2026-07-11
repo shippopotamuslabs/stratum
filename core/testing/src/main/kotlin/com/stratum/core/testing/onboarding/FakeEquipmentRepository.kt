@@ -6,18 +6,35 @@ import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.identity.LiftId
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * In-memory [EquipmentRepository] for domain and ViewModel tests.
+ *
+ * Optional [liftRepository] keeps [createCustomEquipmentAndAssignLifts] state-based: fork
+ * tests can assert lift equipment ids without a separate Room transaction.
  */
 class FakeEquipmentRepository(
     initial: List<Equipment> = emptyList(),
+    private val liftRepository: FakeLiftRepository? = null,
 ) : EquipmentRepository {
     private val rows = MutableStateFlow(initial)
     private val liftRefs = mutableMapOf<EquipmentId, Int>()
+
+    /** Lift ids assigned via [createCustomEquipmentAndAssignLifts], keyed by new equipment. */
+    val assignedLiftsByEquipment: Map<EquipmentId, List<LiftId>>
+        get() = assignedLifts.toMap()
+
+    private val assignedLifts = mutableMapOf<EquipmentId, List<LiftId>>()
+
+    /**
+     * When true, the next write path throws once (then clears). Used to exercise apply-failure
+     * restore on the workout-complete proposal session.
+     */
+    var failNextWrite: Boolean = false
 
     /** Test hook: mark how many lifts reference an equipment id (for delete rules). */
     fun setLiftReferenceCount(id: EquipmentId, count: Int) {
@@ -36,6 +53,7 @@ class FakeEquipmentRepository(
         rows.value.firstOrNull { it.id == id }
 
     override suspend fun addCustomEquipment(name: String, tiers: List<IncrementTier>): EquipmentId {
+        throwIfFailNextWrite()
         val id = EquipmentId(UUID.randomUUID().toString())
         val resolvedTiers = tiers.ifEmpty { defaultSingleTiers() }
         rows.value = rows.value + Equipment(
@@ -47,15 +65,44 @@ class FakeEquipmentRepository(
         return id
     }
 
+    override suspend fun createCustomEquipmentAndAssignLifts(
+        name: String,
+        tiers: List<IncrementTier>,
+        liftIds: List<LiftId>,
+    ): EquipmentId {
+        // Fail flag checked inside addCustomEquipment (single write boundary).
+        val id = addCustomEquipment(name, tiers)
+        val distinct = liftIds.distinct()
+        assignedLifts[id] = distinct
+        setLiftReferenceCount(id, distinct.size)
+        val lifts = liftRepository
+        if (lifts != null) {
+            lifts.equipmentNamesById = lifts.equipmentNamesById + (id to name)
+            for (liftId in distinct) {
+                lifts.setLiftEquipment(liftId, id)
+            }
+        }
+        return id
+    }
+
     override suspend fun renameEquipment(id: EquipmentId, name: String) {
+        throwIfFailNextWrite()
         rows.value = rows.value.map { row ->
             if (row.id == id) row.copy(name = name) else row
         }
     }
 
     override suspend fun setIncrementTiers(id: EquipmentId, tiers: List<IncrementTier>) {
+        throwIfFailNextWrite()
         rows.value = rows.value.map { row ->
             if (row.id == id) row.copy(incrementTiers = tiers) else row
+        }
+    }
+
+    private fun throwIfFailNextWrite() {
+        if (failNextWrite) {
+            failNextWrite = false
+            error("Simulated equipment write failure")
         }
     }
 

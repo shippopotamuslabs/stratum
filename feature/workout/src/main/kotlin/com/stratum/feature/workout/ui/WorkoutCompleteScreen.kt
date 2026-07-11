@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +24,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumNumber
+import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumStatCard
 import com.stratum.core.ui.component.StratumText
@@ -39,9 +42,17 @@ fun WorkoutCompleteScreen(
     state: WorkoutCompleteUiState.Loaded,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState? = null,
+    onAcceptProposal: (String) -> Unit = {},
+    onAcceptAlternative: (String) -> Unit = {},
+    onSkipProposal: (String) -> Unit = {},
+    onNotNowProposal: (String) -> Unit = {},
+    onConfirmBlastRadius: () -> Unit = {},
+    onDismissBlastRadius: () -> Unit = {},
 ) {
     StratumScaffold(
         modifier = modifier,
+        snackbarHostState = snackbarHostState,
         topBar = {
             StratumTopBar(
                 title = state.workoutName,
@@ -72,6 +83,145 @@ fun WorkoutCompleteScreen(
             if (state.bestSets.isNotEmpty()) {
                 PerformanceTable(state.bestSets)
             }
+
+            if (state.equipmentProposals.isNotEmpty()) {
+                EquipmentProposalsSection(
+                    proposals = state.equipmentProposals,
+                    onAccept = onAcceptProposal,
+                    onAcceptAlternative = onAcceptAlternative,
+                    onSkip = onSkipProposal,
+                    onNotNow = onNotNowProposal,
+                )
+            }
+        }
+    }
+
+    state.blastRadiusConfirm?.let { confirm ->
+        StratumConfirmDialog(
+            title = confirm.title,
+            body = confirm.body,
+            confirmLabel = confirm.confirmLabel,
+            dismissLabel = stringResource(R.string.workout_complete_proposal_cancel),
+            onConfirm = onConfirmBlastRadius,
+            onDismiss = onDismissBlastRadius,
+        )
+    }
+}
+
+@Composable
+private fun EquipmentProposalsSection(
+    proposals: List<EquipmentProposalCardUi>,
+    onAccept: (String) -> Unit,
+    onAcceptAlternative: (String) -> Unit,
+    onSkip: (String) -> Unit,
+    onNotNow: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        StratumText(
+            text = stringResource(R.string.workout_complete_equipment_section),
+            style = StratumThemeAccessor.typography.titleMedium,
+        )
+        StratumText(
+            text = stringResource(R.string.workout_complete_equipment_section_hint),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+        proposals.forEach { card ->
+            EquipmentProposalCard(
+                card = card,
+                onAccept = { onAccept(card.id) },
+                onAcceptAlternative = { onAcceptAlternative(card.id) },
+                onSkip = { onSkip(card.id) },
+                onNotNow = { onNotNow(card.id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun EquipmentProposalCard(
+    card: EquipmentProposalCardUi,
+    onAccept: () -> Unit,
+    onAcceptAlternative: () -> Unit,
+    onSkip: () -> Unit,
+    onNotNow: () -> Unit,
+) {
+    val panelShape = StratumThemeAccessor.shapes.panel
+    val borderWidth = StratumThemeAccessor.shapes.borderWidth
+    val borderColor = StratumThemeAccessor.colors.borderSubtle
+    val cardColor = StratumThemeAccessor.colors.surfaceRaised
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = cardColor, shape = panelShape)
+            .border(width = borderWidth, color = borderColor, shape = panelShape)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        StratumText(
+            text = card.title,
+            style = StratumThemeAccessor.typography.bodyLarge.copy(
+                fontWeight = FontWeight.SemiBold,
+            ),
+        )
+        StratumText(
+            text = card.subtitle,
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+        StratumText(
+            text = stringResource(R.string.workout_complete_proposal_tiers, card.tierSummary),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+        if (card.liftNames.isNotBlank()) {
+            StratumText(
+                text = stringResource(R.string.workout_complete_proposal_lifts, card.liftNames),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+            )
+        }
+        if (card.requiresConfirm && card.blastRadiusCount > 0) {
+            StratumText(
+                text = stringResource(
+                    R.string.workout_complete_proposal_blast_hint,
+                    card.blastRadiusCount,
+                ),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+            )
+        }
+
+        val actionsEnabled = !card.isApplying
+        StratumButton(
+            text = card.primaryButtonLabel,
+            onClick = onAccept,
+            enabled = actionsEnabled,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (card.alternativeButtonLabel != null) {
+            StratumOutlinedButton(
+                text = card.alternativeButtonLabel,
+                onClick = onAcceptAlternative,
+                enabled = actionsEnabled,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        ) {
+            StratumTextButton(
+                text = stringResource(R.string.workout_complete_proposal_skip),
+                onClick = onSkip,
+                enabled = actionsEnabled,
+            )
+            StratumTextButton(
+                text = stringResource(R.string.workout_complete_proposal_not_now),
+                onClick = onNotNow,
+                enabled = actionsEnabled,
+            )
         }
     }
 }
@@ -150,7 +300,6 @@ private fun PerformanceItem(
         modifier = modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // Lift name and PR Badge
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -175,7 +324,6 @@ private fun PerformanceItem(
             )
         }
 
-        // 3-Column Stats Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -183,7 +331,6 @@ private fun PerformanceItem(
             val labelStyle = StratumThemeAccessor.typography.sectionLabel
             val valueStyle = StratumThemeAccessor.typography.dataLarge
 
-            // Performance Column
             Column(
                 modifier = Modifier.weight(1.2f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -199,7 +346,6 @@ private fun PerformanceItem(
                 )
             }
 
-            // RIR Column
             Column(
                 modifier = Modifier.weight(0.8f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -215,7 +361,6 @@ private fun PerformanceItem(
                 )
             }
 
-            // Est. 1RM Column
             Column(
                 modifier = Modifier.weight(1.0f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),

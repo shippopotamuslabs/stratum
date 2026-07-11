@@ -5,6 +5,7 @@ import com.stratum.core.data.db.EquipmentDao
 import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.IncrementTierDao
 import com.stratum.core.data.db.IncrementTierEntity
+import com.stratum.core.data.db.LiftDao
 import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.seed.GymEquipmentToEquipmentId
@@ -18,6 +19,7 @@ import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
+import com.stratum.domain.lift.identity.LiftId
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +29,7 @@ class RoomEquipmentRepository @Inject constructor(
     private val database: StratumDatabase,
     private val equipmentDao: EquipmentDao,
     private val incrementTierDao: IncrementTierDao,
+    private val liftDao: LiftDao,
     private val syncTouch: SyncTouch,
 ) : EquipmentRepository {
 
@@ -51,6 +54,39 @@ class RoomEquipmentRepository @Inject constructor(
         syncTouch.withWriteLock {
             database.withTransaction {
                 insertCustomEquipmentUnlocked(id, name, resolvedTiers, now)
+            }
+            syncTouch.markDirty()
+        }
+        return id
+    }
+
+    override suspend fun createCustomEquipmentAndAssignLifts(
+        name: String,
+        tiers: List<IncrementTier>,
+        liftIds: List<LiftId>,
+    ): EquipmentId {
+        val id = EquipmentId(UUID.randomUUID().toString())
+        val resolvedTiers = tiers.ifEmpty { defaultSingleTiers() }
+        val now = System.currentTimeMillis()
+        val distinctLiftIds = liftIds.distinct()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                insertCustomEquipmentUnlocked(id, name, resolvedTiers, now)
+                for (liftId in distinctLiftIds) {
+                    val previousTierIds = incrementTierDao.idsForLift(liftId)
+                    syncTouch.replaceIds(
+                        SyncCollection.IncrementTiers,
+                        previousTierIds,
+                        emptyList(),
+                        now,
+                    )
+                    incrementTierDao.deleteForLift(liftId)
+                    liftDao.setEquipmentId(
+                        id = liftId,
+                        equipmentId = id,
+                        updatedAtEpochMillis = now,
+                    )
+                }
             }
             syncTouch.markDirty()
         }

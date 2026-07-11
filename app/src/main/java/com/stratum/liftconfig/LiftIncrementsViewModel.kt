@@ -33,6 +33,11 @@ data class LiftIncrementsUiState(
     val saveSucceeded: Boolean = false,
     /** Non-null when the lift is inheriting equipment/fallback defaults (no override rows). */
     val inheritanceBanner: String? = null,
+    /**
+     * Optional blast-radius / affects-N subtitle (equipment increments editor). Distinct from
+     * [inheritanceBanner] so lift override copy is not overloaded.
+     */
+    val affectsBanner: String? = null,
     val showResetToEquipment: Boolean = false,
 )
 

@@ -144,6 +144,7 @@ class WorkoutViewModelTest {
             liftRepository = liftRepo,
             persistence = com.stratum.core.testing.response.FakeResponseProfilePersistencePort(),
         ),
+        loggingPort = FakeLoggingPort(),
         refreshScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
     )
 
