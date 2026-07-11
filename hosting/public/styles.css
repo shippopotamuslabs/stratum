@@ -1,0 +1,139 @@
+:root {
+  color-scheme: dark light;
+  --bg: #121417;
+  --surface: #1a1d21;
+  --text: #e8eaed;
+  --muted: #9aa0a6;
+  --accent: #8ab4f8;
+  --border: #2a2f36;
+  --max: 42rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans",
+    sans-serif;
+  line-height: 1.55;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f7f8;
+    --surface: #ffffff;
+    --text: #1a1d21;
+    --muted: #5f6368;
+    --accent: #1a73e8;
+    --border: #dadce0;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: var(--accent);
+}
+
+header,
+main,
+footer {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem;
+}
+
+header {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+header .brand {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  font-size: 0.95rem;
+}
+
+main {
+  padding-top: 1.75rem;
+  padding-bottom: 3rem;
+}
+
+h1 {
+  font-size: 1.75rem;
+  line-height: 1.25;
+  margin: 0 0 0.5rem;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0 1.75rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 1.75rem 0 0.5rem;
+}
+
+p,
+li {
+  color: var(--text);
+}
+
+ul {
+  padding-left: 1.25rem;
+}
+
+.note {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.note strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding-bottom: 2.5rem;
+}
+
+.landing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 1rem 0;
+}
+
+.landing-card a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.landing-card p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}

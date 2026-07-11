@@ -10,6 +10,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.feature.settings.SettingsViewModel
+import com.stratum.feature.settings.ui.LegalScreen
 import com.stratum.feature.settings.ui.SettingsScreen
 import kotlinx.serialization.Serializable
 
@@ -17,21 +18,39 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object SettingsKey : NavKey
 
+/** Nav3 key for the Legal destinations list (Terms, Privacy, OSS licenses). */
+@Serializable
+data object LegalKey : NavKey
+
 /**
  * Registers the Settings entry in a Nav3 [EntryProviderScope]. Back is handled by the app
- * shell via [onBackClick].
+ * shell via [onBackClick]; Legal is reached via [onNavigateToLegal].
  */
 fun EntryProviderScope<NavKey>.settingsEntry(
     onBackClick: () -> Unit,
+    onNavigateToLegal: () -> Unit,
 ) {
     entry<SettingsKey> {
-        SettingsRoute(onBackClick = onBackClick)
+        SettingsRoute(
+            onBackClick = onBackClick,
+            onNavigateToLegal = onNavigateToLegal,
+        )
+    }
+}
+
+/** Registers the Legal list entry. */
+fun EntryProviderScope<NavKey>.legalEntry(
+    onBackClick: () -> Unit,
+) {
+    entry<LegalKey> {
+        LegalScreen(onBackClick = onBackClick)
     }
 }
 
 @Composable
 private fun SettingsRoute(
     onBackClick: () -> Unit,
+    onNavigateToLegal: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -49,6 +68,7 @@ private fun SettingsRoute(
         onThemeFamilySelected = viewModel::onThemeFamilySelected,
         onCheckInsEnabledChange = viewModel::onCheckInsEnabledChange,
         onForceCheckInPending = viewModel::forceCheckInPending,
+        onLegalClick = onNavigateToLegal,
         onLogoutClick = viewModel::onLogoutClick,
         onLogoutConfirmDismiss = viewModel::onLogoutConfirmDismiss,
         onLogoutConfirmed = viewModel::onLogoutConfirmed,

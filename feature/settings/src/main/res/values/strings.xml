@@ -25,4 +25,14 @@
     <string name="settings_logout_confirm_body">This clears local training data on this device. Your cloud data returns when you sign back in.</string>
     <string name="settings_logout_confirm">Log out</string>
     <string name="settings_logout_cancel">Cancel</string>
+    <string name="settings_legal_row_title">Legal</string>
+    <string name="settings_legal_row_subtitle">Terms, privacy, and open-source licenses</string>
+    <string name="legal_title">Legal</string>
+    <string name="legal_navigate_back">Go back</string>
+    <string name="legal_terms_title">Terms of Use</string>
+    <string name="legal_terms_subtitle">Training risk, liability, and how you may use Stratum</string>
+    <string name="legal_privacy_title">Privacy Policy</string>
+    <string name="legal_privacy_subtitle">What we collect and how to request deletion</string>
+    <string name="legal_oss_title">Open-source licenses</string>
+    <string name="legal_oss_subtitle">Third-party software notices</string>
 </resources>

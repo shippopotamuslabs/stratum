@@ -5,6 +5,10 @@
     <string name="sign_in_preparing_session">Loading your training data</string>
     <string name="sign_in_retry">Try again</string>
     <string name="sign_in_sign_out">Sign out</string>
+    <!-- %1$s = Terms of Use, %2$s = Privacy Policy (linked spans in SignInScreen). -->
+    <string name="sign_in_legal_agreement">By continuing, you agree to Stratum\'s %1$s and %2$s.</string>
+    <string name="sign_in_legal_terms">Terms of Use</string>
+    <string name="sign_in_legal_privacy">Privacy Policy</string>
     <string name="tab_dashboard">Dashboard</string>
     <string name="tab_program">Program</string>
     <string name="tab_gym">Gym</string>
