@@ -377,9 +377,9 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun deleteSet(slotId: SetSlotId) {
-        overlay = overlay
-            .apply(StructuralMutation.DeleteSet(slotId))
-            .copy(restSecondsOverrides = overlay.restSecondsOverrides - slotId)
+        // DeleteSet also drops restSecondsOverrides[slotId] (domain apply). Undo does not
+        // restore rest overrides — they are not on the undo stack.
+        overlay = overlay.apply(StructuralMutation.DeleteSet(slotId))
         recomputeRecommendations()
         render()
         persistOverlay()

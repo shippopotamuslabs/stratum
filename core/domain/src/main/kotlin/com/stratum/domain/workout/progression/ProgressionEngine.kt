@@ -10,6 +10,7 @@ import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotRecommendation
+import com.stratum.domain.workout.fatigue.projectReps
 
 /** Request for a [ProgressionEngine] per-slot recommendation. */
 data class SlotProgressionRequest(
@@ -45,6 +46,226 @@ data class SlotProgressionRequest(
 interface ProgressionEngine {
     val scheme: ProgressionScheme
     fun recommend(request: SlotProgressionRequest): SlotRecommendation
+}
+
+/**
+ * Scheme-specific top-set load selection for [recommendShared]. Engines supply only the
+ * advance gate and increment amount; shared orchestration owns floor drops, fatigue
+ * projection, inherit guards, and cold-start rep floors.
+ */
+data class ProgressionLoadPolicy(
+    /**
+     * Whether the top-set load lever advances from [baseline] (Double: top-at-RIR;
+     * Linear: bottom-at-RIR).
+     */
+    val shouldAdvanceLoad: (baseline: SlotHistoryEntry?, slot: SetSlot) -> Boolean,
+    /** Increment magnitude when [shouldAdvanceLoad] is true. */
+    val incrementFor: (request: SlotProgressionRequest, baseWeight: Weight) -> Weight,
+    /**
+     * Held-load, missing-RIR top-set rep target. Double keeps [prevReps]; Linear resets
+     * to [minRecommendedReps].
+     */
+    val heldTopRepsWithoutRir: (prevReps: Int, slot: SetSlot) -> Int,
+)
+
+/**
+ * Shared Double/Linear recommend orchestration. Bodyweight short-circuits; weighted
+ * path selects target load via [policy], then projects reps (and floor-driven weight
+ * drops) from the capacity baseline / prior-slot fatigue model.
+ */
+fun recommendShared(
+    request: SlotProgressionRequest,
+    policy: ProgressionLoadPolicy,
+): SlotRecommendation {
+    val slot = request.slot
+    val latest = request.history.firstOrNull()
+    val prevWeight = latest?.loggedSet?.weight
+    val prevReps = latest?.loggedSet?.reps
+    val baselineEntry = baselineEntryFor(request.progressionBaseline)
+
+    if (request.loadType == LoadType.Bodyweight) {
+        val zeroWeight = Weight(0.0, prevWeight?.unit ?: Weight.WeightUnit.Lb)
+        val baselineReps = baselineEntry?.loggedSet?.reps ?: slot.repMin
+        return SlotRecommendation(
+            slotId = slot.slotId,
+            recommendedWeight = zeroWeight,
+            baselineExpectedReps = baselineReps,
+            previousWeight = prevWeight,
+            previousReps = prevReps,
+        )
+    }
+
+    val baseWeight = baselineEntry?.loggedSet?.weight
+        ?: request.fallbackOneRm
+        ?: Weight(0.0, Weight.WeightUnit.Lb)
+    val baselineExpectedReps = baselineEntry?.loggedSet?.reps ?: minRecommendedReps(slot)
+
+    var targetWeight = request.currentTopSetWeight ?: run {
+        if (!slot.isTopSet) {
+            baseWeight
+        } else {
+            val raw =
+                if (policy.shouldAdvanceLoad(baselineEntry, slot)) {
+                    val increment = policy.incrementFor(request, baseWeight)
+                    Weight(baseWeight.amount + increment.amount, baseWeight.unit)
+                } else {
+                    baseWeight
+                }
+            request.incrementTiers
+                .roundToIncrement(raw, request.loadType)
+                .capAssistedAtZero(request.loadType)
+        }
+    }
+
+    var recommendedReps = when {
+        // No recent baseline for this slot — project from the prior slot rec via
+        // the fatigue model (e.g. slots beyond the most-recent session's set count).
+        baselineEntry == null &&
+            request.progressionBaseline is ProgressionBaseline.ProjectFromPrior -> {
+            val projected = projectFromPrior(request, slot, targetWeight)
+            if (projected != null) {
+                targetWeight = projected.first
+                projected.second
+            } else {
+                coldStartReps(slot, baselineExpectedReps)
+            }
+        }
+
+        baselineEntry != null && baselineEntry.loggedSet.weight == targetWeight -> {
+            if (slot.isTopSet && policy.shouldAdvanceLoad(baselineEntry, slot)) {
+                minRecommendedReps(slot)
+            } else {
+                val prevSet = baselineEntry.loggedSet
+                if (prevSet.rir != null) {
+                    val capacity = prevSet.reps + prevSet.rir
+                    val e1rm = EstimatedOneRm.calculate(prevSet.weight.amount, capacity)
+                    val (w, r) = ensureRepFloorPreferWeightDrop(
+                        targetWeight = targetWeight,
+                        capacityRepsAt0Rir = capacity,
+                        slot = slot,
+                        e1rm = e1rm,
+                        incrementTiers = request.incrementTiers,
+                        loadType = request.loadType,
+                    )
+                    targetWeight = applyFloorWeight(request, targetWeight, w)
+                    r
+                } else {
+                    clampRecommendedReps(
+                        if (slot.isTopSet) {
+                            policy.heldTopRepsWithoutRir(prevSet.reps, slot)
+                        } else {
+                            baselineExpectedReps
+                        },
+                        slot,
+                    )
+                }
+            }
+        }
+
+        else -> {
+            val priorRec = request.priorSlotRecommendation
+            val priorSlot = request.priorSlot
+            if (priorRec != null && priorSlot != null) {
+                val (w, r) = floorFromPriorFatigue(
+                    request = request,
+                    slot = slot,
+                    targetWeight = targetWeight,
+                    priorRec = priorRec,
+                    priorSlot = priorSlot,
+                )
+                targetWeight = applyFloorWeight(request, targetWeight, w)
+                r
+            } else {
+                coldStartReps(slot, baselineExpectedReps)
+            }
+        }
+    }
+
+    // Final safety net: never emit sub-floor recommended reps for weighted progression.
+    recommendedReps = recommendedReps.coerceAtLeast(minRecommendedReps(slot))
+
+    val isProjected = baselineEntry != null || (request.priorSlotRecommendation?.isProjected == true)
+
+    return SlotRecommendation(
+        slotId = slot.slotId,
+        recommendedWeight = targetWeight,
+        baselineExpectedReps = recommendedReps,
+        previousWeight = prevWeight,
+        previousReps = prevReps,
+        isProjected = isProjected,
+    )
+}
+
+/**
+ * Projects reps (and possibly a lower weight) from the prior slot recommendation via
+ * the fatigue model. Returns null when no prior rec is available.
+ */
+fun projectFromPrior(
+    request: SlotProgressionRequest,
+    slot: SetSlot,
+    targetWeight: Weight,
+): Pair<Weight, Int>? {
+    val priorRec = request.priorSlotRecommendation ?: return null
+    val priorSlot = request.priorSlot ?: return null
+    return floorFromPriorFatigue(request, slot, targetWeight, priorRec, priorSlot)
+}
+
+/**
+ * Inherit top-set weight for backoffs unless a floor-driven drop is needed.
+ * When [SlotProgressionRequest.currentTopSetWeight] is set (straight-set inheritance),
+ * only accept [floorWeight] if it is strictly lower than [targetWeight].
+ */
+fun applyFloorWeight(
+    request: SlotProgressionRequest,
+    targetWeight: Weight,
+    floorWeight: Weight,
+): Weight =
+    if (request.currentTopSetWeight == null || floorWeight.amount < targetWeight.amount) {
+        floorWeight
+    } else {
+        targetWeight
+    }
+
+/** Cold-start / no-prior rep target: floor for top sets, clamped baseline for backoffs. */
+fun coldStartReps(slot: SetSlot, baselineExpectedReps: Int): Int =
+    if (slot.isTopSet) {
+        minRecommendedReps(slot)
+    } else {
+        clampRecommendedReps(baselineExpectedReps, slot)
+    }
+
+fun baselineEntryFor(baseline: ProgressionBaseline?): SlotHistoryEntry? =
+    when (baseline) {
+        is ProgressionBaseline.FromRecent -> baseline.entry
+        ProgressionBaseline.ProjectFromPrior, null -> null
+    }
+
+private fun floorFromPriorFatigue(
+    request: SlotProgressionRequest,
+    slot: SetSlot,
+    targetWeight: Weight,
+    priorRec: SlotRecommendation,
+    priorSlot: SetSlot,
+): Pair<Weight, Int> {
+    val priorE1rm = EstimatedOneRm.calculate(
+        priorRec.recommendedWeight.amount,
+        priorRec.baselineExpectedReps + priorSlot.rirGoal,
+    )
+    val rawCapacityReps = projectReps(
+        baselineOneRm = priorE1rm,
+        targetWeight = targetWeight,
+        nextSetIndex = slot.position + 1,
+        perLiftSlope = request.perLiftSlope,
+        perLiftIntercept = request.perLiftIntercept,
+    )
+    return ensureRepFloorPreferWeightDrop(
+        targetWeight = targetWeight,
+        capacityRepsAt0Rir = rawCapacityReps,
+        slot = slot,
+        e1rm = priorE1rm,
+        incrementTiers = request.incrementTiers,
+        loadType = request.loadType,
+    )
 }
 
 /**

@@ -91,7 +91,14 @@ data class WorkoutOverlay(
                     undoStack = nextUndoStack,
                 )
             is StructuralMutation.DeleteSet ->
-                copy(deletedSlotIds = deletedSlotIds + mutation.slotId, undoStack = nextUndoStack)
+                // Drop any rest override for the deleted slot. Undo restores the slot
+                // identity only — restSecondsOverrides are not on the undo stack, so a
+                // DeleteSet → undo path intentionally does not re-apply a prior rest override.
+                copy(
+                    deletedSlotIds = deletedSlotIds + mutation.slotId,
+                    restSecondsOverrides = restSecondsOverrides - mutation.slotId,
+                    undoStack = nextUndoStack,
+                )
             is StructuralMutation.GenerateMyoRepMiniSet ->
                 copy(addedSlots = addedSlots + mutation.newSlot, undoStack = nextUndoStack)
             is StructuralMutation.AddDropSet ->
@@ -110,6 +117,7 @@ data class WorkoutOverlay(
                     undoStack = remaining,
                 )
             is StructuralMutation.DeleteSet ->
+                // Rest overrides are not restored (never pushed on the undo stack).
                 copy(deletedSlotIds = deletedSlotIds - last.slotId, undoStack = remaining)
             is StructuralMutation.GenerateMyoRepMiniSet ->
                 copy(addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId }, undoStack = remaining)
@@ -118,3 +126,13 @@ data class WorkoutOverlay(
         }
     }
 }
+
+/**
+ * Applies [WorkoutOverlay.restSecondsOverrides] onto this slot when present.
+ * Canonical rest-override apply path for merge, live session resolve, and template save.
+ */
+fun SetSlot.applyRestOverride(overlay: WorkoutOverlay): SetSlot {
+    val override = overlay.restSecondsOverrides[slotId] ?: return this
+    return if (restSeconds == override) this else copy(restSeconds = override)
+}
+
