@@ -50,7 +50,7 @@ fun StratumWorkoutLogSetRow(
                 Modifier
                     .fillMaxWidth()
                     .background(rowBg)
-                    .padding(vertical = 4.dp, horizontal = 16.dp),
+                    .padding(vertical = 4.dp, horizontal = WorkoutLogTableHorizontalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(modifier = Modifier.weight(weights.label), contentAlignment = Alignment.CenterStart) {
