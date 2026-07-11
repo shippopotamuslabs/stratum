@@ -59,6 +59,7 @@ import com.stratum.core.ui.component.LiftActionsBottomSheet
 import com.stratum.core.ui.component.LiftThumbnail
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumDurationStepper
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
@@ -79,6 +80,7 @@ import com.stratum.core.ui.component.workoutlog.WorkoutLogSetUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.notification.RestTimerDefaults
+import com.stratum.feature.workout.restSecondsAfterLoggingSet
 
 /**
  * Rest-timer chrome + actions passed as one bag so [WorkoutScreen] stays under Detekt's
@@ -112,7 +114,13 @@ data class WorkoutScreenActions(
     val onAddSet: (workoutLiftId: String) -> Unit = {},
     val onDeleteSet: (slotKey: String) -> Unit = {},
     val onAddLift: () -> Unit = {},
+    /** Batch rest overrides for Configure Rest Times (slotKey → seconds). */
+    val onSetRestSecondsForSlots: (Map<String, Int>) -> Unit = {},
 )
+
+private const val MIN_CONFIGURE_REST_SECONDS = 0
+private const val MAX_CONFIGURE_REST_SECONDS = 600
+private const val CONFIGURE_REST_SECONDS_STEP = 15
 
 /** 56.dp + 25% for denser, more tappable tabs. */
 private val LiftNavigatorTabSize = 70.dp
@@ -135,6 +143,8 @@ fun WorkoutScreen(
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
+    var configureRestLiftId by remember { mutableStateOf<String?>(null) }
+    var showRestConfigDiscardDialog by remember { mutableStateOf(false) }
     var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
     var showCompleteSheet by remember { mutableStateOf(false) }
     var completeSheetPhase by remember { mutableStateOf(CompleteSheetPhase.Incomplete) }
@@ -334,32 +344,20 @@ fun WorkoutScreen(
         )
     }
 
-    liftActionsLiftId?.let { liftId ->
-        val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
-        if (lift != null) {
-            LiftActionsBottomSheet(
-                onConfigureSuperset = {
-                    liftActionsLiftId = null
-                    supersetSheetLiftId = liftId
-                },
-                onSwapLift = {
-                    liftActionsLiftId = null
-                    actions.onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
-                },
-                onRemoveLift = {
-                    liftActionsLiftId = null
-                    actions.onRemoveLift(liftId)
-                },
-                onReorderLifts = {
-                    liftActionsLiftId = null
-                    actions.onReorderLiftsClick()
-                },
-                onDismiss = { liftActionsLiftId = null }
-            )
-        } else {
+    LiftActionsAndRestConfigSheets(
+        state = state,
+        actions = actions,
+        liftActionsLiftId = liftActionsLiftId,
+        onLiftActionsLiftIdChange = { liftActionsLiftId = it },
+        configureRestLiftId = configureRestLiftId,
+        onConfigureRestLiftIdChange = { configureRestLiftId = it },
+        showRestConfigDiscardDialog = showRestConfigDiscardDialog,
+        onShowRestConfigDiscardDialogChange = { showRestConfigDiscardDialog = it },
+        onOpenSupersetSheet = { liftId ->
             liftActionsLiftId = null
-        }
-    }
+            supersetSheetLiftId = liftId
+        },
+    )
 
     supersetSheetLiftId?.let { liftId ->
         val currentLift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
@@ -525,6 +523,7 @@ private fun WorkoutLiftList(
         itemsIndexed(lifts, key = { _, lift -> lift.workoutLiftId }) { _, lift ->
             LiveLiftSection(
                 lift = lift,
+                allLifts = lifts,
                 onLogSet = onLogSet,
                 onUnlogSet = onUnlogSet,
                 onAddSet = { onAddSet(lift.workoutLiftId) },
@@ -894,6 +893,7 @@ private const val DEFAULT_ESTIMATED_LIFT_HEIGHT_PX = 420
 @Composable
 private fun LiveLiftSection(
     lift: RenderedLiftUi,
+    allLifts: List<RenderedLiftUi>,
     onLogSet: (slotKey: String, weightAmountLb: Double, reps: Int, rir: Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onAddSet: () -> Unit,
@@ -1021,7 +1021,16 @@ private fun LiveLiftSection(
                             finalReps,
                             rir,
                         )
-                        onStartRestTimer(RestTimerDefaults.DEFAULT_REST_SECONDS)
+                        val restSeconds =
+                            restSecondsAfterLoggingSet(
+                                setRestSeconds = source.restSeconds,
+                                isSupersetMember = isSupersetPairMember(lift, allLifts),
+                                useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
+                                isLastInSupersetChain = isLastInSupersetChain(lift, allLifts),
+                            )
+                        if (restSeconds != null) {
+                            onStartRestTimer(restSeconds)
+                        }
                     } else {
                         onUnlogSet(source.slotKey)
                     }
@@ -1227,6 +1236,211 @@ private fun formatRestDisplay(seconds: Int): String {
     val s = seconds % 60
     val sStr = s.toString().padStart(2, '0')
     return "$m:$sStr"
+}
+
+/**
+ * Hosts Lift Options + Configure Rest Times sheets so [WorkoutScreen] stays under
+ * Detekt cyclomatic-complexity limits.
+ */
+@Composable
+private fun LiftActionsAndRestConfigSheets(
+    state: WorkoutUiState.Loaded,
+    actions: WorkoutScreenActions,
+    liftActionsLiftId: String?,
+    onLiftActionsLiftIdChange: (String?) -> Unit,
+    configureRestLiftId: String?,
+    onConfigureRestLiftIdChange: (String?) -> Unit,
+    showRestConfigDiscardDialog: Boolean,
+    onShowRestConfigDiscardDialogChange: (Boolean) -> Unit,
+    onOpenSupersetSheet: (String) -> Unit,
+) {
+    liftActionsLiftId?.let { liftId ->
+        val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
+        if (lift != null) {
+            LiftActionsBottomSheet(
+                onConfigureSuperset = { onOpenSupersetSheet(liftId) },
+                onConfigureRestTimes = {
+                    onLiftActionsLiftIdChange(null)
+                    onConfigureRestLiftIdChange(liftId)
+                },
+                onSwapLift = {
+                    onLiftActionsLiftIdChange(null)
+                    actions.onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
+                },
+                onRemoveLift = {
+                    onLiftActionsLiftIdChange(null)
+                    actions.onRemoveLift(liftId)
+                },
+                onReorderLifts = {
+                    onLiftActionsLiftIdChange(null)
+                    actions.onReorderLiftsClick()
+                },
+                onDismiss = { onLiftActionsLiftIdChange(null) },
+            )
+        } else {
+            onLiftActionsLiftIdChange(null)
+        }
+    }
+
+    configureRestLiftId?.let { liftId ->
+        val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
+        if (lift != null) {
+            ConfigureRestTimesBottomSheet(
+                lift = lift,
+                onConfirm = { updates ->
+                    if (updates.isNotEmpty()) {
+                        actions.onSetRestSecondsForSlots(updates)
+                    }
+                    onConfigureRestLiftIdChange(null)
+                    onShowRestConfigDiscardDialogChange(false)
+                },
+                onRequestDismiss = { hasUnsaved ->
+                    if (hasUnsaved) {
+                        onShowRestConfigDiscardDialogChange(true)
+                    } else {
+                        onConfigureRestLiftIdChange(null)
+                    }
+                },
+            )
+            if (showRestConfigDiscardDialog) {
+                RestConfigDiscardBottomSheet(
+                    onConfirmDiscard = {
+                        onShowRestConfigDiscardDialogChange(false)
+                        onConfigureRestLiftIdChange(null)
+                    },
+                    onDismiss = { onShowRestConfigDiscardDialogChange(false) },
+                )
+            }
+        } else {
+            onConfigureRestLiftIdChange(null)
+            onShowRestConfigDiscardDialogChange(false)
+        }
+    }
+}
+
+/**
+ * Nested Configure Rest Times mode (UX option a): list each set with a tappable rest
+ * field; expanding a row shows [StratumDurationStepper] + confirm. Dismiss with unsaved
+ * edits routes through [onRequestDismiss] so the host can show a discard dialog.
+ */
+@Composable
+private fun ConfigureRestTimesBottomSheet(
+    lift: RenderedLiftUi,
+    onConfirm: (Map<String, Int>) -> Unit,
+    onRequestDismiss: (hasUnsaved: Boolean) -> Unit,
+) {
+    val baseline = remember(lift.workoutLiftId, lift.sets.map { it.slotKey to it.restSeconds }) {
+        lift.sets.associate { it.slotKey to it.restSeconds }
+    }
+    val pending = remember(lift.workoutLiftId) {
+        mutableStateMapOf<String, Int>().apply { putAll(baseline) }
+    }
+    var expandedSlotKey by remember(lift.workoutLiftId) { mutableStateOf<String?>(null) }
+    val hasUnsaved =
+        pending.entries.any { (key, value) -> baseline[key] != value } ||
+            pending.keys != baseline.keys
+
+    StratumBottomSheet(
+        onDismissRequest = { onRequestDismiss(hasUnsaved) },
+        title = stringResource(CoreUiR.string.edit_workout_configure_rest_times),
+    ) {
+        lift.sets.forEach { set ->
+            val restSeconds = pending[set.slotKey] ?: set.restSeconds
+            val isExpanded = expandedSlotKey == set.slotKey
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = StratumThemeAccessor.colors.surfaceRaised,
+                            shape = StratumThemeAccessor.shapes.panel,
+                        )
+                        .border(
+                            width = StratumThemeAccessor.shapes.borderWidth,
+                            color = StratumThemeAccessor.colors.borderSubtle,
+                            shape = StratumThemeAccessor.shapes.panel,
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                expandedSlotKey = if (isExpanded) null else set.slotKey
+                            },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    StratumText(
+                        text = stringResource(
+                            CoreUiR.string.edit_workout_rest_set_label,
+                            set.positionLabel.toIntOrNull() ?: (lift.sets.indexOf(set) + 1),
+                        ),
+                        style = StratumThemeAccessor.typography.bodyLarge,
+                    )
+                    StratumText(
+                        text = formatRestDisplay(restSeconds),
+                        style = StratumThemeAccessor.typography.titleMedium,
+                    )
+                }
+                if (isExpanded) {
+                    StratumDurationStepper(
+                        totalMinutes = restSeconds,
+                        onTotalMinutesChange = { pending[set.slotKey] = it },
+                        minMinutes = MIN_CONFIGURE_REST_SECONDS,
+                        maxMinutes = MAX_CONFIGURE_REST_SECONDS,
+                        minutesStep = CONFIGURE_REST_SECONDS_STEP,
+                        hoursLabel = stringResource(CoreUiR.string.edit_workout_rest_minutes_label),
+                        minutesLabel = stringResource(CoreUiR.string.edit_workout_rest_seconds_label),
+                        incrementContentDescription =
+                            stringResource(CoreUiR.string.edit_workout_rest_increment),
+                        decrementContentDescription =
+                            stringResource(CoreUiR.string.edit_workout_rest_decrement),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+        StratumButton(
+            text = stringResource(CoreUiR.string.edit_workout_rest_confirm),
+            onClick = {
+                val updates =
+                    pending
+                        .filter { (key, value) -> baseline[key] != value }
+                        .toMap()
+                onConfirm(updates)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun RestConfigDiscardBottomSheet(
+    onConfirmDiscard: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(CoreUiR.string.edit_workout_rest_discard_title),
+    ) {
+        StratumText(
+            text = stringResource(CoreUiR.string.edit_workout_rest_discard_message),
+            style = StratumThemeAccessor.typography.bodyLarge,
+        )
+        StratumButton(
+            text = stringResource(CoreUiR.string.edit_workout_rest_discard_confirm),
+            onClick = onConfirmDiscard,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        StratumOutlinedButton(
+            text = stringResource(CoreUiR.string.edit_workout_rest_discard_cancel),
+            onClick = onDismiss,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 enum class CompleteSheetPhase { Incomplete, SaveChanges }

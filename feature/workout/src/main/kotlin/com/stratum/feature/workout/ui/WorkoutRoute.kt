@@ -180,6 +180,7 @@ fun WorkoutRoute(
                     onAddLift = {
                         onSwapLiftClick(state.workoutId, null, null, null)
                     },
+                    onSetRestSecondsForSlots = viewModel::setRestSecondsForSlots,
                 ),
                 modifier = modifier,
             )

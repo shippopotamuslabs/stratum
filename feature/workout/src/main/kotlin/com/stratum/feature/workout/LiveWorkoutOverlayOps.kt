@@ -131,6 +131,12 @@ internal object LiveWorkoutOverlayOps {
                     ordered == naturalOrder || ordered == baselineLiftIdsInOrder
                 }
 
+        // Drop rest overrides for slots belonging to the removed lift (template + overlay).
+        val restOverrideKeysToDrop =
+            overlay.restSecondsOverrides.keys.filter { key ->
+                key in slotsToDrop || resolveSlot(key)?.workoutLiftId == workoutLiftId
+            }.toSet()
+
         return if (isSessionAdded) {
             overlay.copy(
                 addedLifts = remainingAdded,
@@ -139,6 +145,7 @@ internal object LiveWorkoutOverlayOps {
                 dynamicBaselines = overlay.dynamicBaselines.filterKeys { it !in slotsToDrop },
                 loggedSets = overlay.loggedSets.filterKeys { it !in slotsToDrop },
                 recommendations = overlay.recommendations.filterKeys { it !in slotsToDrop },
+                restSecondsOverrides = overlay.restSecondsOverrides - restOverrideKeysToDrop,
                 supersetGroupIdOverrides = cleanedGroupOverrides,
                 useRestTimerBetweenLiftsOverrides = cleanedRestOverrides,
                 orderedLiftIds = nextOrdered,
@@ -155,6 +162,7 @@ internal object LiveWorkoutOverlayOps {
                 recommendations = overlay.recommendations.filterKeys { key ->
                     resolveSlot(key)?.workoutLiftId != workoutLiftId
                 },
+                restSecondsOverrides = overlay.restSecondsOverrides - restOverrideKeysToDrop,
                 supersetGroupIdOverrides = cleanedGroupOverrides,
                 useRestTimerBetweenLiftsOverrides = cleanedRestOverrides,
                 orderedLiftIds = nextOrdered,
@@ -176,8 +184,8 @@ internal object LiveWorkoutOverlayOps {
         val added = overlay.addedSlots
             .filter { it.workoutLiftId == workoutLiftId }
             .filterNot { it.slotId in overlay.deletedSlotIds }
-        // Apply swaps so callers see the performed liftId (same as merge / resolveSlot).
-        return (templateSlots + added).map { applySwapToSlot(it, overlay) }
+        // Apply swaps + rest overrides so callers see live-session values.
+        return (templateSlots + added).map { applyOverlaySlotFields(it, overlay) }
     }
 
     fun slotKey(slotId: SetSlotId): String = when (slotId) {
@@ -194,7 +202,7 @@ internal object LiveWorkoutOverlayOps {
         val slot = struct.lifts.flatMap { it.slots }.firstOrNull { it.slotId == slotId }
             ?: overlay.addedSlots.firstOrNull { it.slotId == slotId }
             ?: return null
-        return applySwapToSlot(slot, overlay)
+        return applyOverlaySlotFields(slot, overlay)
     }
 
     fun resolveSlotByKey(
@@ -206,7 +214,7 @@ internal object LiveWorkoutOverlayOps {
         val slot = struct.lifts.flatMap { it.slots }.firstOrNull { slotKey(it.slotId) == slotKey }
             ?: overlay.addedSlots.firstOrNull { slotKey(it.slotId) == slotKey }
             ?: return null
-        return applySwapToSlot(slot, overlay)
+        return applyOverlaySlotFields(slot, overlay)
     }
 
     /**
@@ -218,6 +226,35 @@ internal object LiveWorkoutOverlayOps {
     internal fun applySwapToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot {
         val swappedLiftId = overlay.swappedLifts[slot.workoutLiftId] ?: return slot
         return if (slot.liftId == swappedLiftId) slot else slot.copy(liftId = swappedLiftId)
+    }
+
+    /** Applies [WorkoutOverlay.restSecondsOverrides] onto a resolved slot. */
+    internal fun applyRestOverrideToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot {
+        val override = overlay.restSecondsOverrides[slot.slotId] ?: return slot
+        return if (slot.restSeconds == override) slot else slot.copy(restSeconds = override)
+    }
+
+    private fun applyOverlaySlotFields(slot: SetSlot, overlay: WorkoutOverlay): SetSlot =
+        applyRestOverrideToSlot(applySwapToSlot(slot, overlay), overlay)
+
+    /**
+     * Merges presentation slotKey → restSeconds updates into the overlay override map.
+     * Returns `null` when no resolvable slots changed.
+     */
+    fun mergeRestSecondsOverrides(
+        overlay: WorkoutOverlay,
+        updates: Map<String, Int>,
+        resolveSlotByKey: (String) -> SetSlot?,
+    ): Map<SetSlotId, Int>? {
+        if (updates.isEmpty()) return null
+        val next = overlay.restSecondsOverrides.toMutableMap()
+        var changed = false
+        for ((slotKey, restSeconds) in updates) {
+            val slot = resolveSlotByKey(slotKey) ?: continue
+            next[slot.slotId] = restSeconds.coerceAtLeast(0)
+            changed = true
+        }
+        return if (changed) next else null
     }
 
     fun merge(
@@ -252,10 +289,10 @@ internal object LiveWorkoutOverlayOps {
                 lift.supersetGroupId
             }
 
-            val baseSlots = lift.slots.map { applySwapToSlot(it, overlay) }
+            val baseSlots = lift.slots.map { applyOverlaySlotFields(it, overlay) }
             val appended = overlay.addedSlots
                 .filter { it.workoutLiftId == lift.workoutLiftId }
-                .map { applySwapToSlot(it, overlay) }
+                .map { applyOverlaySlotFields(it, overlay) }
 
             lift.copy(
                 liftId = currentLiftId,

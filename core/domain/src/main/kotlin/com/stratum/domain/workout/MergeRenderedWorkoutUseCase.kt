@@ -62,7 +62,7 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                     repMin = slot.repMin,
                     repMax = slot.repMax,
                     rirGoal = slot.rirGoal,
-                    restSeconds = slot.restSeconds,
+                    restSeconds = overlay.restSecondsOverrides[slot.slotId] ?: slot.restSeconds,
                     recommendedWeight = recommendedWeight,
                     recommendedReps = recommendedReps,
                     hasLiveRepsRecommendation = hasLiveRepsRecommendation,

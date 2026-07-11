@@ -160,4 +160,40 @@ class LiveWorkoutOverlayOpsTest {
             ),
         )
     }
+
+    @Test
+    @DisplayName("resolveSlot applies restSecondsOverrides")
+    fun resolveSlotAppliesRestSecondsOverride() {
+        val overlay =
+            WorkoutOverlay(
+                restSecondsOverrides = mapOf(templateSlotId to 45),
+            )
+
+        val resolved =
+            LiveWorkoutOverlayOps.resolveSlot(
+                structure = structure,
+                overlay = overlay,
+                slotId = templateSlotId,
+            )
+
+        assertEquals(45, resolved!!.restSeconds)
+    }
+
+    @Test
+    @DisplayName("visibleSlotsForLift applies restSecondsOverrides")
+    fun visibleSlotsApplyRestSecondsOverride() {
+        val overlay =
+            WorkoutOverlay(
+                restSecondsOverrides = mapOf(templateSlotId to 30),
+            )
+
+        val slots =
+            LiveWorkoutOverlayOps.visibleSlotsForLift(
+                structure = structure,
+                overlay = overlay,
+                workoutLiftId = workoutLiftId,
+            )
+
+        assertEquals(30, slots.single().restSeconds)
+    }
 }

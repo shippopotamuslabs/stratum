@@ -147,6 +147,13 @@ data class RestTimerOverrideEntryDto(
     val enabled: Boolean,
 )
 
+/** One entry of the `restSecondsOverrides` map (slot key + rest duration). */
+@Serializable
+data class RestSecondsOverrideEntryDto(
+    val slotId: SetSlotIdDto,
+    val restSeconds: Int,
+)
+
 /** DTO mirror of [com.stratum.domain.workout.OverlayAddedLift]. */
 @Serializable
 data class OverlayAddedLiftDto(
@@ -173,6 +180,7 @@ data class WorkoutOverlayDto(
     val addedLifts: List<OverlayAddedLiftDto> = emptyList(),
     val supersetGroupIdOverrides: List<SupersetGroupOverrideEntryDto> = emptyList(),
     val useRestTimerBetweenLiftsOverrides: List<RestTimerOverrideEntryDto> = emptyList(),
+    val restSecondsOverrides: List<RestSecondsOverrideEntryDto> = emptyList(),
     val orderedLiftIds: List<String>? = null,
 )
 

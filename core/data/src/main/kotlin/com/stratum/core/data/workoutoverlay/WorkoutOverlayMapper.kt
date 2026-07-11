@@ -46,6 +46,9 @@ fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
     useRestTimerBetweenLiftsOverrides = useRestTimerBetweenLiftsOverrides.entries.map { (workoutLiftId, enabled) ->
         RestTimerOverrideEntryDto(workoutLiftId.value, enabled)
     },
+    restSecondsOverrides = restSecondsOverrides.entries.map { (slotId, restSeconds) ->
+        RestSecondsOverrideEntryDto(slotId.toDto(), restSeconds)
+    },
     orderedLiftIds = orderedLiftIds,
 )
 
@@ -73,6 +76,12 @@ fun WorkoutOverlayDto.toDomain(): WorkoutOverlay = WorkoutOverlay(
         for (entry in useRestTimerBetweenLiftsOverrides) {
             val key = entry.workoutLiftId.toWorkoutLiftIdOrNull() ?: continue
             put(key, entry.enabled)
+        }
+    },
+    restSecondsOverrides = buildMap {
+        for (entry in restSecondsOverrides) {
+            val key = entry.slotId.toDomain() ?: continue
+            put(key, entry.restSeconds)
         }
     },
     orderedLiftIds = orderedLiftIds,

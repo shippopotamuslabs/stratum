@@ -99,6 +99,7 @@ class WorkoutOverlayMapperTest {
                 WorkoutLiftId("wl-unlinked") to null, // override = "removed from superset"
             ),
             useRestTimerBetweenLiftsOverrides = mapOf(workoutLiftId to false),
+            restSecondsOverrides = mapOf(templateSlotId to 45, overlaySlotId to 75),
             orderedLiftIds = listOf("wl-1", "wl-2"),
         )
 
