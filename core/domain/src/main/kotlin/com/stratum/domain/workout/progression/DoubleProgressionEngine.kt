@@ -6,7 +6,6 @@ import com.stratum.domain.lift.incrementFor
 import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.EstimatedOneRm
-import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotRecommendation
 import com.stratum.domain.workout.fatigue.projectReps
@@ -48,9 +47,9 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
         }
 
         val baseWeight = baselineEntry?.loggedSet?.weight ?: request.fallbackOneRm ?: defaultWeight()
-        val baselineExpectedReps = baselineEntry?.loggedSet?.reps ?: slot.repMin
+        val baselineExpectedReps = baselineEntry?.loggedSet?.reps ?: minRecommendedReps(slot)
 
-        val targetWeight = request.currentTopSetWeight ?: run {
+        var targetWeight = request.currentTopSetWeight ?: run {
             if (!slot.isTopSet) {
                 baseWeight
             } else {
@@ -68,30 +67,46 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
             }
         }
 
-        val recommendedReps = when {
+        var recommendedReps = when {
             // No recent baseline for this slot — project from the prior slot rec via
             // the fatigue model (e.g. slots beyond the most-recent session's set count).
-            baselineEntry == null && request.progressionBaseline is ProgressionBaseline.ProjectFromPrior ->
-                projectFromPrior(request, slot, targetWeight)
-                    ?: coldStartReps(slot, baselineExpectedReps)
+            baselineEntry == null && request.progressionBaseline is ProgressionBaseline.ProjectFromPrior -> {
+                val projected = projectFromPrior(request, slot, targetWeight)
+                if (projected != null) {
+                    targetWeight = projected.first
+                    projected.second
+                } else {
+                    coldStartReps(slot, baselineExpectedReps)
+                }
+            }
 
             baselineEntry != null && baselineEntry.loggedSet.weight == targetWeight -> {
-                if (slot.isTopSet) {
-                    val incremented = shouldIncrement(baselineEntry, slot)
-                    if (incremented) {
-                        slot.repMin
-                    } else {
-                        val prevSet = baselineEntry.loggedSet
-                        rirAdjustedReps(prevSet.reps, prevSet.rir, slot)
-                            ?: prevSet.reps.coerceIn(slot.repMin, slot.repMax)
-                    }
+                if (slot.isTopSet && shouldIncrement(baselineEntry, slot)) {
+                    minRecommendedReps(slot)
                 } else {
                     val prevSet = baselineEntry.loggedSet
-                    rirAdjustedReps(
-                        prevSet.reps,
-                        prevSet.rir,
-                        slot,
-                    ) ?: baselineExpectedReps
+                    if (prevSet.rir != null) {
+                        val capacity = prevSet.reps + prevSet.rir
+                        val e1rm = EstimatedOneRm.calculate(prevSet.weight.amount, capacity)
+                        val (w, r) = ensureRepFloorPreferWeightDrop(
+                            targetWeight = targetWeight,
+                            capacityRepsAt0Rir = capacity,
+                            slot = slot,
+                            e1rm = e1rm,
+                            incrementTiers = request.incrementTiers,
+                            loadType = request.loadType,
+                        )
+                        // Inherit top-set weight for backoffs unless a floor-driven drop is needed.
+                        if (request.currentTopSetWeight == null || w.amount < targetWeight.amount) {
+                            targetWeight = w
+                        }
+                        r
+                    } else {
+                        clampRecommendedReps(
+                            if (slot.isTopSet) prevSet.reps else baselineExpectedReps,
+                            slot,
+                        )
+                    }
                 }
             }
 
@@ -110,17 +125,27 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
                         perLiftSlope = request.perLiftSlope,
                         perLiftIntercept = request.perLiftIntercept,
                     )
-                    val repsAtTargetRir = rawCapacityReps - slot.rirGoal
-                    if (slot.isTopSet) {
-                        repsAtTargetRir.coerceIn(slot.repMin, slot.repMax)
-                    } else {
-                        repsAtTargetRir.coerceAtLeast(BACKOFF_REP_FLOOR)
+                    val (w, r) = ensureRepFloorPreferWeightDrop(
+                        targetWeight = targetWeight,
+                        capacityRepsAt0Rir = rawCapacityReps,
+                        slot = slot,
+                        e1rm = priorE1rm,
+                        incrementTiers = request.incrementTiers,
+                        loadType = request.loadType,
+                    )
+                    // Straight-set inheritance keeps top weight unless a floor-driven drop is needed.
+                    if (request.currentTopSetWeight == null || w.amount < targetWeight.amount) {
+                        targetWeight = w
                     }
+                    r
                 } else {
                     coldStartReps(slot, baselineExpectedReps)
                 }
             }
         }
+
+        // Final safety net: never emit sub-floor recommended reps for weighted progression.
+        recommendedReps = recommendedReps.coerceAtLeast(minRecommendedReps(slot))
 
         val isProjected = baselineEntry != null || (request.priorSlotRecommendation?.isProjected == true)
 
@@ -134,11 +159,15 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
         )
     }
 
+    /**
+     * Projects reps (and possibly a lower weight) from the prior slot recommendation via
+     * the fatigue model. Returns null when no prior rec is available.
+     */
     private fun projectFromPrior(
         request: SlotProgressionRequest,
         slot: com.stratum.domain.workout.SetSlot,
         targetWeight: Weight,
-    ): Int? {
+    ): Pair<Weight, Int>? {
         val priorRec = request.priorSlotRecommendation ?: return null
         val priorSlot = request.priorSlot ?: return null
         val priorE1rm = EstimatedOneRm.calculate(
@@ -152,18 +181,24 @@ class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
             perLiftSlope = request.perLiftSlope,
             perLiftIntercept = request.perLiftIntercept,
         )
-        val repsAtTargetRir = rawCapacityReps - slot.rirGoal
-        return if (slot.isTopSet) {
-            repsAtTargetRir.coerceIn(slot.repMin, slot.repMax)
-        } else {
-            repsAtTargetRir.coerceAtLeast(BACKOFF_REP_FLOOR)
-        }
+        return ensureRepFloorPreferWeightDrop(
+            targetWeight = targetWeight,
+            capacityRepsAt0Rir = rawCapacityReps,
+            slot = slot,
+            e1rm = priorE1rm,
+            incrementTiers = request.incrementTiers,
+            loadType = request.loadType,
+        )
     }
 
     private fun coldStartReps(
         slot: com.stratum.domain.workout.SetSlot,
         baselineExpectedReps: Int,
-    ): Int = if (slot.isTopSet) slot.repMin else baselineExpectedReps
+    ): Int = if (slot.isTopSet) {
+        minRecommendedReps(slot)
+    } else {
+        clampRecommendedReps(baselineExpectedReps, slot)
+    }
 
     private fun baselineEntryFor(baseline: ProgressionBaseline?): SlotHistoryEntry? =
         when (baseline) {

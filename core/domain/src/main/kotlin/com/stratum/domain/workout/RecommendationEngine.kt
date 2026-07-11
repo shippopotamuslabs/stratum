@@ -74,7 +74,13 @@ class RecommendationEngine @Inject constructor() {
         val effectiveRir = lastPerformed.rir ?: 0
         val reps = lastPerformed.reps + effectiveRir
         val e1rm = if (reps > 0) EstimatedOneRm.calculate(lastPerformed.weight.amount, reps) else 0.0
-        val targetReps = if (targetSlot.isTopSet) targetSlot.repMin else BACKOFF_REP_FLOOR
+        // Global recommended-rep floor (BACKOFF_REP_FLOOR): top sets use max(repMin, floor);
+        // backoff/RIR-only slots target the floor. Prefer Reduce over sub-floor Hold.
+        val targetReps = if (targetSlot.isTopSet) {
+            maxOf(targetSlot.repMin, BACKOFF_REP_FLOOR)
+        } else {
+            BACKOFF_REP_FLOOR
+        }
 
         if (e1rm <= 0.0 || targetReps <= 0) return null
 
@@ -88,7 +94,11 @@ class RecommendationEngine @Inject constructor() {
         // achievedRepsAtTargetRir normalizes the performed reps to the completed slot's RIR
         // intent so the floor/ceiling comparisons are apples-to-apples.
         val achievedRepsAtTargetRir = lastPerformed.reps + effectiveRir - (completedSlot?.rirGoal ?: 0)
-        val targetFloor = if (completedSlot?.isTopSet == true) completedSlot.repMin else BACKOFF_REP_FLOOR
+        val targetFloor = if (completedSlot?.isTopSet == true) {
+            maxOf(completedSlot.repMin, BACKOFF_REP_FLOOR)
+        } else {
+            BACKOFF_REP_FLOOR
+        }
 
         // Too hard: missed the floor by ≥ 2 reps considering RIR. The e1RM round-trip can
         // mask this (e.g. 75×2@2 projects 4 @ 2 RIR), so an explicit trigger is needed.

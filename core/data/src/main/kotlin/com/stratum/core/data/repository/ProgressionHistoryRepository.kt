@@ -12,7 +12,10 @@ import javax.inject.Singleton
 
 /**
  * Historical-priority read implementation (D3, research Gap 4). Returns sets for a slot
- * across sessions: same-workout entries first (n−1, n−2, …), then same-lift-other-workout.
+ * across sessions (including imported history and other programs): same-workout entries
+ * first (n−1, n−2, … by recency), then same-lift / same-position from other workouts or
+ * imports. Program id is not a hard filter — imports use sentinel `import-history` and
+ * soft-unlinked sessions may have a null program id.
  */
 @Singleton
 class ProgressionHistoryRepository @Inject constructor(
@@ -22,7 +25,6 @@ class ProgressionHistoryRepository @Inject constructor(
     override suspend fun historyForSlot(request: SlotHistoryRequest): List<SlotHistoryEntry> {
         val sets =
             setDao.getHistoryForSlot(
-                programId = request.programId,
                 workoutId = request.workoutId,
                 liftId = request.liftId,
                 setIndex = request.setIndex,

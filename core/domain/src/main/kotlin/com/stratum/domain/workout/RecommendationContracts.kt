@@ -3,9 +3,11 @@ package com.stratum.domain.workout
 import com.stratum.domain.lift.Weight
 
 /**
- * "Meaningful backoff set" floor (D4). At least [BACKOFF_REP_FLOOR] reps at the target
- * RIR. Lifts the "reasonable rep count by the last backoff set" intent into a named,
- * testable constant. Tunable.
+ * Global floor for weighted progression **recommended reps** (D4). Applies to top sets and
+ * backoff/RIR-only slots: engines and the live overlay pipeline never recommend fewer than
+ * this many reps. When capacity at the current load would fall below the floor, prefer
+ * dropping weight (via increment tiers) so the lifter can hit ≥[BACKOFF_REP_FLOOR] rather
+ * than prescribing a sub-floor rep count. Tunable.
  */
 const val BACKOFF_REP_FLOOR: Int = 5
 

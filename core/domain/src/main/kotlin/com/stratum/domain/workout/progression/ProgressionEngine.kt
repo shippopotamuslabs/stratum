@@ -3,7 +3,9 @@ package com.stratum.domain.workout.progression
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SlotHistoryEntry
@@ -62,13 +64,17 @@ fun Weight.capAssistedAtZero(loadType: LoadType): Weight =
  * `prevReps + prevRir`; the next session targets `failureCapacity − slot.rirGoal`.
  *
  * - **Top sets** (rep range present, [SetSlot.isTopSet] = true): the target is coerced
- *   into `[slot.repMin, slot.repMax]` so it never leaves the prescribed band.
+ *   into `[max(repMin, floor), max(repMax, floor)]` so it stays in band and never
+ *   drops below [BACKOFF_REP_FLOOR].
  * - **Backoff sets** (RIR-only slots): the target is floored at [BACKOFF_REP_FLOOR]
  *   so a wide gap doesn't prescribe an unreasonable last-set rep count.
  *
  * Returns `null` when RIR data is absent — callers fall back to the previous rep count
  * (no rep-projection signal available). Pure and shared by both progression engines so
  * the rep-scaling math is canonical.
+ *
+ * Note: this helper only adjusts **reps**. Callers that detect capacity below the floor
+ * should prefer [ensureRepFloorPreferWeightDrop] so load is reduced first.
  */
 fun rirAdjustedReps(
     prevReps: Int,
@@ -78,9 +84,61 @@ fun rirAdjustedReps(
     if (prevRir == null) return null
     val failureCapacity = prevReps + prevRir
     val targetAtRir = failureCapacity - slot.rirGoal
-    return if (slot.isTopSet) {
-        targetAtRir.coerceIn(slot.repMin, slot.repMax)
+    return clampRecommendedReps(targetAtRir, slot)
+}
+
+/** Lower bound for recommended reps on [slot] — never below [BACKOFF_REP_FLOOR]. */
+fun minRecommendedReps(slot: SetSlot): Int =
+    if (slot.isTopSet) maxOf(slot.repMin, BACKOFF_REP_FLOOR) else BACKOFF_REP_FLOOR
+
+/** Upper bound for top-set recommended reps; backoff slots are unbounded above the floor. */
+fun maxRecommendedReps(slot: SetSlot): Int =
+    if (slot.isTopSet && slot.repMax > 0) maxOf(slot.repMax, BACKOFF_REP_FLOOR) else Int.MAX_VALUE
+
+/** Clamps a raw at-RIR rep projection into the slot band with a global floor of 5. */
+fun clampRecommendedReps(atTargetRir: Int, slot: SetSlot): Int {
+    val minReps = minRecommendedReps(slot)
+    val maxReps = maxRecommendedReps(slot)
+    return if (slot.isTopSet && slot.repMax > 0) {
+        atTargetRir.coerceIn(minReps, maxReps)
     } else {
-        targetAtRir.coerceAtLeast(BACKOFF_REP_FLOOR)
+        atTargetRir.coerceAtLeast(minReps)
     }
+}
+
+/**
+ * Enforces [BACKOFF_REP_FLOOR] on a (weight, reps) recommendation. When capacity at
+ * [targetWeight] would yield fewer than the floor at the slot's RIR goal, **drop weight**
+ * (tier-rounded) so the lifter can hit the floor rather than prescribing sub-floor reps.
+ * If load cannot be reduced (bodyweight / zero e1RM / already at floor load), still never
+ * returns a rep recommendation below the floor.
+ *
+ * @param capacityRepsAt0Rir failure-capacity reps at [targetWeight] (0-RIR scale)
+ * @param e1rm e1RM used to invert a lower load when dropping weight; ≤0 skips the drop
+ */
+fun ensureRepFloorPreferWeightDrop(
+    targetWeight: Weight,
+    capacityRepsAt0Rir: Int,
+    slot: SetSlot,
+    e1rm: Double,
+    incrementTiers: List<IncrementTier>,
+    loadType: LoadType,
+): Pair<Weight, Int> {
+    val minReps = minRecommendedReps(slot)
+    val atRir = capacityRepsAt0Rir - slot.rirGoal
+    if (atRir >= minReps) {
+        return targetWeight to clampRecommendedReps(atRir, slot)
+    }
+    // Capacity below floor — prefer a weight drop so ≥minReps is achievable at rirGoal.
+    if (loadType == LoadType.Bodyweight || e1rm <= 0.0 || targetWeight.amount <= 0.0) {
+        return targetWeight to minReps
+    }
+    val reducedAmount = EstimatedOneRm.weightForReps(e1rm, minReps + slot.rirGoal)
+    val reduced = incrementTiers
+        .roundToIncrement(Weight(reducedAmount, targetWeight.unit), loadType)
+        .capAssistedAtZero(loadType)
+    // Never raise load when trying to recover the rep floor.
+    val finalWeight =
+        if (reduced.amount < targetWeight.amount) reduced else targetWeight
+    return finalWeight to minReps
 }

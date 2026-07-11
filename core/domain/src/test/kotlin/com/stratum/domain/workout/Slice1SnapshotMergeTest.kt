@@ -260,6 +260,81 @@ class Slice1SnapshotMergeTest {
     }
 
     @Test
+    @DisplayName("S1-import-history-visible-to-live-program-session")
+    fun `S1-import-history-visible-to-live-program-session`() = runTest {
+        // Bug #3: imported sessions use sentinel programId "import-history" and null workoutId.
+        // Live "Start next workout" must still see that history for previous + weight recs.
+        val history = FakeProgressionHistoryRepository()
+        val importProgramId = com.stratum.domain.importing.ImportHistoryTrainingMapper.programId
+        val importSession = TrainingSession(
+            id = TrainingSessionId("import-s1"),
+            programId = importProgramId,
+            workoutId = null,
+            status = TrainingSessionStatus.COMPLETED,
+            kind = TrainingSessionKind.AD_HOC,
+            origin = TrainingSessionOrigin.IMPORT,
+            cycleNumberSnapshot = 1,
+            weekdaySnapshot = null,
+            startedAt = Instant.parse("2026-06-20T10:00:00Z"),
+            endedAt = Instant.parse("2026-06-20T11:00:00Z"),
+            sourceApp = "hevy",
+            programNameSnapshot = "Import History",
+            workoutNameSnapshot = null,
+        )
+        val importSet = LoggedSet(
+            id = LoggedSetId("import-set-1"),
+            sessionId = importSession.id,
+            exerciseNameRaw = "Squat",
+            liftId = liftId,
+            setIndex = 0,
+            weight = lb(185.0),
+            reps = 8,
+            rir = 2,
+            completedAt = Instant.parse("2026-06-20T10:30:00Z"),
+            liftContext = LoggedLiftContext(
+                liftName = "Squat",
+                movementPatternsBitmask = 1,
+                primaryMusclesBitmask = 1,
+                secondaryMusclesBitmask = 0,
+                kinematicProfile = KinematicProfile.Isolation,
+                muscleLengthBias = MuscleLengthBias.MidRange,
+            ),
+        )
+        // Seed under the import program id (what PersistImportedHistory writes).
+        // workoutId on the request is ignored for IMPORT origin (session keeps null).
+        history.seed(
+            SlotHistoryRequest(importProgramId, workoutId, workoutLiftId, liftId, 0),
+            SlotHistoryEntry(importSession, importSet),
+        )
+
+        // Live session queries with the *active* program id — must still resolve import rows.
+        val entries = history.historyForSlot(req(0))
+        assertEquals(1, entries.size)
+        assertEquals(lb(185.0), entries.first().loggedSet.weight)
+        assertEquals(8, entries.first().loggedSet.reps)
+
+        val useCase =
+            GenerateProgressionSnapshotUseCase(
+                progressionHistoryPort = history,
+                doubleProgressionEngine = DoubleProgressionEngine(),
+                linearProgressionEngine = LinearProgressionEngine(LinearProgressionDefaults.config),
+                programChangeEventRepository = NoOpProgramChangeEventRepository(),
+                liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
+                programRepository = com.stratum.core.testing.program.FakeProgramRepository(),
+            )
+        val snapshot = useCase(SnapshotRequest(programId, workoutId, oneLiftWorkout().workoutLifts))
+            .getOrThrow()
+        val rec = snapshot.bySlot[slotId]
+        assertNotNull(rec)
+        assertEquals(lb(185.0), rec!!.previousWeight, "Previous column must show imported weight")
+        assertEquals(8, rec.previousReps, "Previous column must show imported reps")
+        assertTrue(
+            rec.recommendedWeight.amount > 0.0,
+            "Weight recommendation must be derived from imported history",
+        )
+    }
+
+    @Test
     @DisplayName("S1-merge-empty-overlay-renders-snapshot-baseline")
     fun `S1-merge-empty-overlay-renders-snapshot-baseline`() {
         val structure = WorkoutStructureProjection(
