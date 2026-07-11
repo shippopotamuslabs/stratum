@@ -57,6 +57,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.ProgramGenerationLoadingContent
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumOutlinedButton
@@ -66,6 +67,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.progress.ProgramGenerationProgressUi
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
@@ -198,8 +200,8 @@ fun CreateProgramScreen(
                     )
                 CreateProgramStep.Generating ->
                     GeneratingContent(
-                        phaseLabel = state.generatePhaseLabel,
-                        detail = state.generateDetail,
+                        progress = state.generateProgress,
+                        maxActiveIndex = state.generateMaxTimelineIndex,
                         error = state.generateErrorMessage,
                         isError = state.generateState == CreateProgramGenerateState.Error,
                         onRetry = callbacks.onGenerate,
@@ -328,8 +330,8 @@ private fun PathCard(
 
 @Composable
 private fun GeneratingContent(
-    phaseLabel: String?,
-    detail: String?,
+    progress: ProgramGenerationProgressUi?,
+    maxActiveIndex: Int,
     error: String?,
     isError: Boolean,
     onRetry: () -> Unit,
@@ -338,9 +340,14 @@ private fun GeneratingContent(
         modifier =
             Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement =
+            if (isError) {
+                Arrangement.Center
+            } else {
+                Arrangement.Top
+            },
+        horizontalAlignment = if (isError) Alignment.CenterHorizontally else Alignment.Start,
     ) {
         if (isError) {
             StratumText(
@@ -350,15 +357,10 @@ private fun GeneratingContent(
             Spacer(Modifier.height(16.dp))
             StratumButton(text = stringResource(R.string.create_program_generate_cta), onClick = onRetry)
         } else {
-            StratumText(text = stringResource(R.string.create_program_generating))
-            if (phaseLabel != null) {
-                Spacer(Modifier.height(8.dp))
-                StratumText(text = phaseLabel, muted = true)
-            }
-            if (detail != null) {
-                Spacer(Modifier.height(4.dp))
-                StratumText(text = detail, muted = true)
-            }
+            ProgramGenerationLoadingContent(
+                progress = progress,
+                maxActiveIndex = maxActiveIndex,
+            )
         }
     }
 }
