@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { createAdminToolStorage } from "../import/toolStorage";
+import { updateJobIfPresent } from "../import/safeJobUpdate";
 import { deterministicProgramConvert } from "./deterministic/deterministicProgramConvert";
 import { customLlmProgramConvert } from "./customLlmProgramConvert";
 import { ProgramTemplateTooLargeError } from "./programTemplateLimits";
@@ -59,6 +60,12 @@ export const processProgramTemplateJob = onDocumentWritten(
       return;
     }
 
+    // Account deletion may have cascade-removed the job after claim.
+    if (!(await jobRef.get()).exists) {
+      console.info(`program import job ${uid}/${jobId} gone after claim; aborting`);
+      return;
+    }
+
     // 1. Deterministic known formats (milliseconds, no LLM).
     try {
       const deterministic = await deterministicProgramConvert({
@@ -72,7 +79,7 @@ export const processProgramTemplateJob = onDocumentWritten(
       }
     } catch (err) {
       if (err instanceof ProgramTemplateTooLargeError) {
-        await jobRef.update({
+        await updateJobIfPresent(jobRef, {
           status: "rejected",
           progressPhase: "failed",
           progressMessage: "File too large",
@@ -98,7 +105,7 @@ export const processProgramTemplateJob = onDocumentWritten(
         return;
       }
       if (outcome.status === "rejected") {
-        await jobRef.update({
+        await updateJobIfPresent(jobRef, {
           status: "rejected",
           progressPhase: "failed",
           progressMessage: outcome.progressMessage,
@@ -107,7 +114,7 @@ export const processProgramTemplateJob = onDocumentWritten(
         });
         return;
       }
-      await jobRef.update({
+      await updateJobIfPresent(jobRef, {
         status: "failed",
         progressPhase: "failed",
         progressMessage: "Import failed",
@@ -116,7 +123,7 @@ export const processProgramTemplateJob = onDocumentWritten(
       });
     } catch (err) {
       if (err instanceof ProgramTemplateTooLargeError) {
-        await jobRef.update({
+        await updateJobIfPresent(jobRef, {
           status: "rejected",
           progressPhase: "failed",
           progressMessage: "File too large",
@@ -127,7 +134,7 @@ export const processProgramTemplateJob = onDocumentWritten(
       }
       const message = err instanceof Error ? err.message : String(err);
       console.warn(`customLlmProgramConvert threw for ${uid}/${jobId}: ${message}`);
-      await jobRef.update({
+      await updateJobIfPresent(jobRef, {
         status: "failed",
         progressPhase: "failed",
         progressMessage: "Import failed",

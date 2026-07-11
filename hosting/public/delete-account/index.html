@@ -6,7 +6,7 @@
     <title>Delete your Stratum account</title>
     <meta
       name="description"
-      content="How to request deletion of your Stratum account and associated data."
+      content="How to delete your Stratum account and associated data from the app."
     />
     <link rel="stylesheet" href="/styles.css" />
   </head>
@@ -27,52 +27,64 @@
       </p>
 
       <div class="note">
-        <strong>How to request deletion</strong>
-        There is no self-serve delete button in the app yet. Follow the steps below.
-        We process reasonable deletion requests within a commercially reasonable time
-        (typically within 30 days).
+        <strong>Self-serve deletion</strong>
+        You can delete your account and associated data from inside the app. Use the steps below.
+        We also process reasonable email requests within a commercially reasonable time (typically
+        within 30 days) if you cannot use the in-app control.
       </div>
 
-      <h2>Steps</h2>
+      <h2>Delete from the app (recommended)</h2>
+      <ol>
+        <li>Open Stratum on your Android device and sign in with Google.</li>
+        <li>Open <strong>Settings</strong>.</li>
+        <li>In the <strong>Account</strong> section, tap <strong>Delete account</strong>.</li>
+        <li>
+          Confirm when prompted. This permanently removes your Stratum account and training data
+          from this device and the cloud. Your Google Account is not deleted.
+        </li>
+        <li>
+          After deletion you are signed out and returned to the sign-in screen. You may also revoke
+          Stratum’s access under your
+          <a href="https://myaccount.google.com/permissions">Google Account permissions</a>
+          if it still appears there.
+        </li>
+      </ol>
+
+      <h2>Email request (if you cannot use the app)</h2>
       <ol>
         <li>
           Email
           <a href="mailto:browntown.development@gmail.com?subject=Stratum%20account%20deletion%20request"
             >browntown.development@gmail.com</a
           >
-          from the <strong>same Google account email</strong> you use to sign in to
-          Stratum.
+          from the <strong>same Google account email</strong> you use to sign in to Stratum.
         </li>
         <li>
           Use a subject line like <strong>Stratum account deletion request</strong>.
         </li>
         <li>
-          In the body, state that you want your Stratum account and associated data
-          deleted, and include the Google account email used in the app.
-        </li>
-        <li>
-          After we confirm, you may also revoke Stratum’s access under your
-          <a href="https://myaccount.google.com/permissions">Google Account permissions</a>
-          if it still appears there.
+          In the body, state that you want your Stratum account and associated data deleted, and
+          include the Google account email used in the app.
         </li>
       </ol>
 
       <h2>What we delete</h2>
-      <p>When we complete a deletion request, we remove from our systems:</p>
+      <p>When account deletion completes, we remove from our systems:</p>
       <ul>
         <li>Your Firebase Auth account for Stratum (where applicable)</li>
         <li>
-          Cloud training data tied to that account (for example programs, workouts,
-          logs, preferences, and related sync documents we store for the app)
+          Cloud training data tied to that account (for example programs, workouts, logs,
+          preferences, import job metadata, and related sync documents we store for the app)
         </li>
-        <li>Associated support emails you sent about the request, after we’re done</li>
+        <li>Local training data on the device when you delete from the app</li>
+        <li>Associated support emails you sent about a manual request, after we’re done</li>
       </ul>
 
       <h2>What we may keep (limited retention)</h2>
       <ul>
         <li>
-          Short-lived backups or logs needed for security, fraud prevention, or legal
-          compliance, deleted or rotated on normal retention schedules
+          Short-lived backups or logs needed for security, fraud prevention, or legal compliance,
+          deleted or rotated on normal retention schedules
         </li>
         <li>
           Aggregated or de-identified analytics that cannot reasonably identify you
@@ -85,13 +97,16 @@
       <h2>What deletion does not do</h2>
       <ul>
         <li>
-          It does not delete your Google Account itself—only Stratum’s account and our
-          app data for that sign-in.
+          It does not delete your Google Account itself—only Stratum’s account and our app data for
+          that sign-in.
         </li>
         <li>
-          Uninstalling the app or signing out only clears local data on that device;
-          cloud data remains until you request deletion (or use an in-app delete
-          control when we ship one).
+          <strong>Log out</strong> (without deleting) only clears local data on that device; cloud
+          data remains so it can return when you sign back in.
+        </li>
+        <li>
+          Uninstalling the app alone does not delete cloud data; use Delete account (or email us)
+          for a full wipe.
         </li>
       </ul>
 
@@ -103,7 +118,8 @@
       <p>
         See also the
         <a href="/privacy/">Privacy Policy</a>
-        (account deletion and data handling).
+        and
+        <a href="/terms/">Terms of Use</a>.
       </p>
     </main>
     <footer>Stratum · Delete account</footer>
