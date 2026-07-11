@@ -13,6 +13,7 @@ import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolu
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 
 /**
  * Reference comparison against Sean's manual 5-day U/L specialization workbook
@@ -33,7 +34,7 @@ class SeanWorkbookSynthesisTest {
     @Test
     fun `unified synthesis matches Sean workbook shape and volume priorities`() = runBlocking {
         val context = seanContext()
-        val pipeline = testProgramGenerationPipeline()
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
         val normalized =
             pipeline.generate(
                 context = context,

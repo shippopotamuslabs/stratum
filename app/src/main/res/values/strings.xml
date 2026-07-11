@@ -1,6 +1,10 @@
 <resources>
     <string name="app_name">Stratum</string>
     <string name="sign_in_message">Sign in to build your training program.</string>
+    <string name="sign_in_checking">Checking sign-in</string>
+    <string name="sign_in_preparing_session">Loading your training data</string>
+    <string name="sign_in_retry">Try again</string>
+    <string name="sign_in_sign_out">Sign out</string>
     <string name="tab_dashboard">Dashboard</string>
     <string name="tab_program">Program</string>
     <string name="tab_gym">Gym</string>

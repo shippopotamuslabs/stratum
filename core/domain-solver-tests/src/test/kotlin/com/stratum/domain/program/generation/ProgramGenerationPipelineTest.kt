@@ -35,10 +35,11 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 
 class ProgramGenerationPipelineTest {
 
-  private val pipeline = testProgramGenerationPipeline()
+  private val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")

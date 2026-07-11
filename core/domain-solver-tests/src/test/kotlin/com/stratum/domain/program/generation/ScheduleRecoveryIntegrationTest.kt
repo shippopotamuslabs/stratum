@@ -25,6 +25,7 @@ import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSess
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 
 class ScheduleRecoveryIntegrationTest {
 
@@ -33,7 +34,7 @@ class ScheduleRecoveryIntegrationTest {
         val context = parseScenarioContext(
             scenarioPayload(5, SPECIALIZATION_PRESETS.getValue("arms")),
         )
-        val pipeline = testProgramGenerationPipeline()
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
         val normalized = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
@@ -78,7 +79,7 @@ class ScheduleRecoveryIntegrationTest {
                 "Calf" to "Specialize",
             )
         val context = parseScenarioContext(scenarioPayload(6, specialization))
-        val pipeline = testProgramGenerationPipeline()
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
         val normalized = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
