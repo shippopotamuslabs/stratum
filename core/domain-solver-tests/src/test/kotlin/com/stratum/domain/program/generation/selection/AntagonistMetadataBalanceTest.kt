@@ -16,6 +16,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.stratum.domain.solver.CpSatProgramSynthesizer
 
 class AntagonistMetadataBalanceTest {
     @Test
@@ -127,7 +128,7 @@ class AntagonistMetadataBalanceTest {
                     sessionLengthMinutes = 60,
                 ),
             )
-        val pipeline = testProgramGenerationPipeline()
+        val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
         val normalized =
             pipeline.generate(
                 context = context,

@@ -15,9 +15,9 @@ import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import com.stratum.app.MainViewModel
+import com.stratum.app.ShellUiState
 import com.stratum.app.ui.SignInScreen
 import com.stratum.core.data.auth.SignInHostContext
-import com.stratum.core.ui.auth.StratumAuthUiState
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.feature.workout.notification.WorkoutNavExtras
@@ -45,21 +45,18 @@ class MainActivity : FragmentActivity() {
             val viewModel: MainViewModel = hiltViewModel()
             val themePreferences by viewModel.themePreferences.collectAsStateWithLifecycle()
             StratumTheme(preferences = themePreferences) {
-                val authState by viewModel.authState.collectAsStateWithLifecycle()
-                when (authState) {
-                    StratumAuthUiState.Loading -> SignInScreen(
-                        authState = authState,
-                        onSignInWithGoogle = viewModel::onSignInWithGoogle,
-                    )
-                    StratumAuthUiState.Unauthenticated,
-                    is StratumAuthUiState.Error,
-                    -> SignInScreen(
-                        authState = authState,
-                        onSignInWithGoogle = viewModel::onSignInWithGoogle,
-                    )
-                    is StratumAuthUiState.Authenticated -> StratumNavHost(
+                val shellState by viewModel.shellUiState.collectAsStateWithLifecycle()
+                if (shellState is ShellUiState.Ready) {
+                    StratumNavHost(
                         pendingWorkoutId = pendingWorkoutId,
                         onPendingWorkoutConsumed = { pendingWorkoutId = null },
+                    )
+                } else {
+                    SignInScreen(
+                        shellState = shellState,
+                        onSignInWithGoogle = viewModel::onSignInWithGoogle,
+                        onRetrySession = viewModel::onRetrySession,
+                        onSignOut = viewModel::onSignOutFromShell,
                     )
                 }
             }

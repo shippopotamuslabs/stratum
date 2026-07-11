@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumSwitch
@@ -35,6 +36,9 @@ fun SettingsScreen(
     onThemeFamilySelected: (ThemeFamilyUi) -> Unit,
     onCheckInsEnabledChange: (Boolean) -> Unit = {},
     onForceCheckInPending: () -> Unit = {},
+    onLogoutClick: () -> Unit = {},
+    onLogoutConfirmDismiss: () -> Unit = {},
+    onLogoutConfirmed: () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
 ) {
     StratumScaffold(
@@ -139,7 +143,39 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            SettingsSection(
+                title = stringResource(R.string.settings_account_title),
+                description = stringResource(R.string.settings_account_description),
+            ) {
+                StratumButton(
+                    text = stringResource(
+                        if (uiState.isLoggingOut) {
+                            R.string.settings_logout_in_progress
+                        } else {
+                            R.string.settings_logout
+                        },
+                    ),
+                    onClick = onLogoutClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoggingOut,
+                    destructive = true,
+                )
+            }
         }
+    }
+
+    if (uiState.showLogoutConfirm) {
+        StratumConfirmDialog(
+            title = stringResource(R.string.settings_logout_confirm_title),
+            body = stringResource(R.string.settings_logout_confirm_body),
+            confirmLabel = stringResource(R.string.settings_logout_confirm),
+            dismissLabel = stringResource(R.string.settings_logout_cancel),
+            onConfirm = onLogoutConfirmed,
+            onDismiss = onLogoutConfirmDismiss,
+            destructiveConfirm = true,
+            confirmEnabled = !uiState.isLoggingOut,
+        )
     }
 }
 
