@@ -176,7 +176,8 @@ internal object LiveWorkoutOverlayOps {
         val added = overlay.addedSlots
             .filter { it.workoutLiftId == workoutLiftId }
             .filterNot { it.slotId in overlay.deletedSlotIds }
-        return templateSlots + added
+        // Apply swaps so callers see the performed liftId (same as merge / resolveSlot).
+        return (templateSlots + added).map { applySwapToSlot(it, overlay) }
     }
 
     fun slotKey(slotId: SetSlotId): String = when (slotId) {
@@ -190,8 +191,10 @@ internal object LiveWorkoutOverlayOps {
         slotId: SetSlotId,
     ): SetSlot? {
         val struct = structure ?: return null
-        return struct.lifts.flatMap { it.slots }.firstOrNull { it.slotId == slotId }
+        val slot = struct.lifts.flatMap { it.slots }.firstOrNull { it.slotId == slotId }
             ?: overlay.addedSlots.firstOrNull { it.slotId == slotId }
+            ?: return null
+        return applySwapToSlot(slot, overlay)
     }
 
     fun resolveSlotByKey(
@@ -200,8 +203,21 @@ internal object LiveWorkoutOverlayOps {
         slotKey: String,
     ): SetSlot? {
         val struct = structure ?: return null
-        return struct.lifts.flatMap { it.slots }.firstOrNull { slotKey(it.slotId) == slotKey }
+        val slot = struct.lifts.flatMap { it.slots }.firstOrNull { slotKey(it.slotId) == slotKey }
             ?: overlay.addedSlots.firstOrNull { slotKey(it.slotId) == slotKey }
+            ?: return null
+        return applySwapToSlot(slot, overlay)
+    }
+
+    /**
+     * In-session lift swaps live only on [WorkoutOverlay.swappedLifts]; template
+     * [SetSlot.liftId] values stay original until template save. Log/unlog/add-set
+     * paths resolve slots outside of [merge], so they must re-apply the swap here —
+     * otherwise [LoggedSet.liftId] is attributed to the pre-swap (template) lift.
+     */
+    internal fun applySwapToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot {
+        val swappedLiftId = overlay.swappedLifts[slot.workoutLiftId] ?: return slot
+        return if (slot.liftId == swappedLiftId) slot else slot.copy(liftId = swappedLiftId)
     }
 
     fun merge(
@@ -236,12 +252,10 @@ internal object LiveWorkoutOverlayOps {
                 lift.supersetGroupId
             }
 
-            val baseSlots = lift.slots.map { slot ->
-                if (swappedLiftId != null) slot.copy(liftId = swappedLiftId) else slot
-            }
-            val appended = overlay.addedSlots.filter { it.workoutLiftId == lift.workoutLiftId }.map { slot ->
-                if (swappedLiftId != null) slot.copy(liftId = swappedLiftId) else slot
-            }
+            val baseSlots = lift.slots.map { applySwapToSlot(it, overlay) }
+            val appended = overlay.addedSlots
+                .filter { it.workoutLiftId == lift.workoutLiftId }
+                .map { applySwapToSlot(it, overlay) }
 
             lift.copy(
                 liftId = currentLiftId,
