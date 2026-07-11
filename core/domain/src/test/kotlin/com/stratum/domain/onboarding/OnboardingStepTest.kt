@@ -8,7 +8,6 @@ class OnboardingStepTest {
 
     @Test
     fun `next on common prefix with null path walks ordinally`() {
-        assertEquals(OnboardingStep.Profile, OnboardingStep.Welcome.next())
         assertEquals(OnboardingStep.GymAndLifts, OnboardingStep.Profile.next())
         assertEquals(OnboardingStep.ChoosePath, OnboardingStep.GymAndLifts.next())
     }
@@ -37,7 +36,7 @@ class OnboardingStepTest {
     @Test
     fun `previous on common prefix walks ordinally`() {
         assertEquals(OnboardingStep.Profile, OnboardingStep.GymAndLifts.previous())
-        assertEquals(OnboardingStep.Welcome, OnboardingStep.Profile.previous())
+        assertNull(OnboardingStep.Profile.previous())
     }
 
     @Test
@@ -56,17 +55,13 @@ class OnboardingStepTest {
     }
 
     @Test
-    fun `previous on Welcome returns null`() {
-        assertNull(OnboardingStep.Welcome.previous())
-    }
-
-    @Test
     fun `isLast is Review`() {
         assertEquals(OnboardingStep.Review, OnboardingStep.entries.last { it.isLast })
     }
 
     @Test
-    fun `isFirst is Welcome`() {
-        assertEquals(OnboardingStep.Welcome, OnboardingStep.entries.last { it.isFirst })
+    fun `isFirst is Profile`() {
+        assertEquals(OnboardingStep.Profile, OnboardingStep.entries.last { it.isFirst })
+        assertEquals(OnboardingStep.Profile, OnboardingStep.First)
     }
 }

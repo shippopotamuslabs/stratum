@@ -31,39 +31,46 @@ class OnboardingNavigationViewModelTest {
     @DisplayName("OS-1 step navigation (regression)")
     inner class StepNavigation {
         @Test
-        @DisplayName("Given Welcome is current when next() then state advances to Profile")
-        fun nextAdvancesFromWelcomeToProfile() = runTest {
-            subject.uiState.test {
-                assertEquals("Welcome", awaitItem().step.id)
-                subject.next()
-                assertEquals("Profile", awaitItem().step.id)
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-        @Test
-        @DisplayName("Given Profile is current when back() then state returns to Welcome")
-        fun backReturnsFromProfileToWelcome() = runTest {
-            OnboardingViewModelTestFixtures.fakeRepository.seed(
-                OnboardingProgress(OnboardingStep.Profile, startedAt = 0L, completedAt = null),
-            )
+        @DisplayName("Given Profile is current when next() then state advances to GymAndLifts")
+        fun nextAdvancesFromProfileToGymAndLifts() = runTest {
+            OnboardingViewModelTestFixtures.fakeProfileRepository.seed(validProfile())
             subject = OnboardingViewModelTestFixtures.buildViewModel()
 
             subject.uiState.test {
                 assertEquals("Profile", awaitItem().step.id)
-                subject.back()
-                assertEquals("Welcome", awaitItem().step.id)
+                subject.next()
+                assertEquals("GymAndLifts", awaitItem().step.id)
                 cancelAndIgnoreRemainingEvents()
             }
         }
 
         @Test
-        @DisplayName("Given Welcome is current when next() then the step is persisted to the repository")
+        @DisplayName("Given Profile is current when back() then state stays on Profile (first step)")
+        fun backOnFirstStepIsNoOp() = runTest {
+            subject.uiState.test {
+                assertEquals("Profile", awaitItem().step.id)
+                subject.back()
+                // No step change — still Profile (NoOp).
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        @DisplayName("Given Profile is current when next() then the step is persisted to the repository")
         fun nextPersistsStepToRepository() = runTest {
+            OnboardingViewModelTestFixtures.fakeProfileRepository.seed(validProfile())
+            subject = OnboardingViewModelTestFixtures.buildViewModel()
             subject.next()
 
-            assertEquals(OnboardingStep.Profile, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
+            assertEquals(OnboardingStep.GymAndLifts, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
         }
+
+        private fun validProfile() =
+            UserTrainingProfile(
+                trainingAge = TrainingAge.Beginner,
+                lastTrained = com.stratum.domain.onboarding.LastTrainedBucket.WithinLastThreeMonths,
+            )
 
         @Test
         @DisplayName("Given onboarding is incomplete then uiState reports isComplete false")
@@ -79,18 +86,20 @@ class OnboardingNavigationViewModelTest {
     @DisplayName("OS-2 back-navigation preserves edits")
     inner class BackPreserves {
         @Test
-        @DisplayName("Given profile edits when back() then the draft is persisted before leaving")
-        fun backPersistsProfileDraft() = runTest {
+        @DisplayName("Given profile edits when next() then the draft is persisted before leaving")
+        fun nextPersistsProfileDraft() = runTest {
             OnboardingViewModelTestFixtures.fakeRepository.seed(
                 OnboardingProgress(OnboardingStep.Profile, startedAt = 0L, completedAt = null),
             )
             subject = OnboardingViewModelTestFixtures.buildViewModel()
             subject.onTrainingAgeSelected("0–2 years")
+            subject.onLastTrainedSelected("Within the last 3 months")
 
-            subject.back()
+            subject.next()
 
             val saved = OnboardingViewModelTestFixtures.fakeProfileRepository.current
             assertEquals(TrainingAge.Beginner, saved?.trainingAge)
+            assertEquals(OnboardingStep.GymAndLifts, OnboardingViewModelTestFixtures.fakeRepository.current.currentStep)
         }
     }
 

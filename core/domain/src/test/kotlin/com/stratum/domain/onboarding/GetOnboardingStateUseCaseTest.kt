@@ -24,12 +24,12 @@ class GetOnboardingStateUseCaseTest {
     @Test
     @DisplayName("Given both repos empty when invoked then state emits null progress and profile")
     fun bothEmptyEmitsNulls() = runTest {
-        fakeOnboarding.seed(OnboardingProgress(OnboardingStep.Welcome, startedAt = 0L, completedAt = null))
+        fakeOnboarding.seed(OnboardingProgress(OnboardingStep.Profile, startedAt = 0L, completedAt = null))
         fakeProfile.seed(null)
 
         subject().test {
             val state = awaitItem()
-            assertEquals(OnboardingStep.Welcome, state.currentStep)
+            assertEquals(OnboardingStep.Profile, state.currentStep)
             assertNull(state.profile)
             assertEquals(false, state.isComplete)
             cancelAndIgnoreRemainingEvents()

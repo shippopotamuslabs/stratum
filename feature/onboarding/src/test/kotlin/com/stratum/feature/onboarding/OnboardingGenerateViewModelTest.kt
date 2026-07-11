@@ -267,6 +267,7 @@ class OnboardingGenerateViewModelTest {
                 profileRepository = profileRepo,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
+            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
         )
         return Triple(viewModel, onboardingRepo, programRepo)
     }

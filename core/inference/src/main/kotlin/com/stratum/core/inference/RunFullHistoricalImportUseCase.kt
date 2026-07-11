@@ -15,8 +15,10 @@ import com.stratum.domain.importing.ImportedHistoryChunk
 import com.stratum.domain.importing.MergeImportedHistoryUseCase
 import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.domain.importing.RollbackHistoricalImportUseCase
+import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.RemoteImportJobStatus
 import com.stratum.domain.importing.StartHistoricalImportUseCase
+import com.stratum.domain.importing.UnsupportedImportFileException
 import com.stratum.domain.di.DefaultDispatcher
 import com.stratum.domain.logging.LoggingPort
 import java.time.Instant
@@ -102,18 +104,47 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             summary.liftResolution?.let(importLiftResolutionLogger::log)
             emit(HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)))
             emit(HistoricalImportEvent.Completed(summary))
+        } catch (error: UnsupportedImportFileException) {
+            emit(
+                buildImportFailureEvent(
+                    error = error,
+                    kind = ImportFailureKind.UnsupportedFile,
+                    allFiles = allFiles,
+                    chunks = chunks,
+                ),
+            )
         } catch (error: Throwable) {
-            rollbackHistoricalImport()
-            val message = error.message ?: "Import failed."
-            loggingPort.error(TAG, "Historical import failed: $message", error)
-            val resumeState =
-                HistoricalImportResumeState(
-                    files = allFiles,
-                    completedChunks = chunks.toList(),
-                ).takeIf { it.isResumable() }
-            emit(HistoricalImportEvent.Failed(message = message, resume = resumeState))
+            emit(
+                buildImportFailureEvent(
+                    error = error,
+                    kind = ImportFailureKind.Generic,
+                    allFiles = allFiles,
+                    chunks = chunks,
+                ),
+            )
         }
     }.flowOn(importDispatcher)
+
+    private suspend fun buildImportFailureEvent(
+        error: Throwable,
+        kind: ImportFailureKind,
+        allFiles: List<ImportFileInput>,
+        chunks: List<ImportedHistoryChunk>,
+    ): HistoricalImportEvent.Failed {
+        rollbackHistoricalImport()
+        val message = error.message ?: "Import failed."
+        loggingPort.error(TAG, "Historical import failed: $message", error)
+        val resumeState =
+            HistoricalImportResumeState(
+                files = allFiles,
+                completedChunks = chunks.toList(),
+            ).takeIf { it.isResumable() }
+        return HistoricalImportEvent.Failed(
+            message = message,
+            resume = resumeState,
+            kind = kind,
+        )
+    }
 
     private suspend fun convertSingleFile(
         file: ImportFileInput,
@@ -151,6 +182,13 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     val message = snapshot.errorMessage ?: "Import failed."
                     updateLocalJob(job, ImportJobStatus.Failed, message)
                     error(message)
+                }
+                RemoteImportJobStatus.Rejected -> {
+                    val message =
+                        snapshot.errorMessage
+                            ?: "This file does not look like a training log."
+                    updateLocalJob(job, ImportJobStatus.Failed, message)
+                    throw UnsupportedImportFileException(message)
                 }
                 RemoteImportJobStatus.Ready -> Unit
                 RemoteImportJobStatus.PendingAgent,
@@ -213,6 +251,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             when (snapshot.status) {
                 RemoteImportJobStatus.Ready,
                 RemoteImportJobStatus.Failed,
+                RemoteImportJobStatus.Rejected,
                 -> return Result.success(snapshot)
                 RemoteImportJobStatus.PendingAgent,
                 RemoteImportJobStatus.AgentRunning,

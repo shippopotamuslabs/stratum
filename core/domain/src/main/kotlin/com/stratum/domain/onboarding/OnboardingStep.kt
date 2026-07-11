@@ -3,7 +3,7 @@ package com.stratum.domain.onboarding
 /**
  * Steps of the first-time onboarding wizard.
  *
- * The flow forks at [ChoosePath]: the common setup steps (Welcome → Profile → GymAndLifts) lead to a
+ * The flow forks at [ChoosePath]: the common setup steps (Profile → GymAndLifts) lead to a
  * path choice, then either the **Generate** branch (Schedule → Specialization → MinimumVolume → Review)
  * or the **Import** branch (straight to Review). [Review] is terminal for both paths — the
  * Generate/Import action runs from there.
@@ -16,7 +16,6 @@ package com.stratum.domain.onboarding
  * Generate-only steps when they exist (suggestions + saturation warnings).
  */
 enum class OnboardingStep {
-    Welcome,
     Profile,
     GymAndLifts,
     ChoosePath,
@@ -55,14 +54,14 @@ enum class OnboardingStep {
             null -> ChoosePath
         }
         Schedule -> ChoosePath
-        Welcome -> null
+        Profile -> null
         else -> entries.getOrNull(ordinal - 1)
     }
 
     val isLast: Boolean get() = this == Review
-    val isFirst: Boolean get() = this == Welcome
+    val isFirst: Boolean get() = this == Profile
 
     companion object {
-        val First: OnboardingStep = Welcome
+        val First: OnboardingStep = Profile
     }
 }

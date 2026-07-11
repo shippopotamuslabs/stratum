@@ -15,6 +15,7 @@ sealed interface HistoricalImportOrchestrationEvent {
         val message: String,
         val resume: HistoricalImportResumeState?,
         val refresh: RefreshPersistedImportStateResult,
+        val kind: ImportFailureKind = ImportFailureKind.Generic,
     ) : HistoricalImportOrchestrationEvent
 }
 
@@ -53,6 +54,7 @@ class ExecuteHistoricalImportUseCase @Inject constructor(
                             message = event.message,
                             resume = event.resume,
                             refresh = refresh,
+                            kind = event.kind,
                         ),
                     )
                 }

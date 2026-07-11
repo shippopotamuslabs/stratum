@@ -29,6 +29,7 @@ data class OnboardingUiState(
     val generateMaxTimelineIndex: Int = 0,
     val generateErrorMessage: String? = null,
     val importProgramState: ImportProgramState = ImportProgramState.Idle,
+    val importMaxTimelineIndex: Int = 0,
     /** Transient snackbar for step-navigation I/O failures (not validation). */
     val navigationError: String? = null,
 ) {
@@ -97,6 +98,8 @@ sealed interface ImportProgramState {
 enum class ImportProgramPhaseUi {
     Uploading,
     Sniffing,
+    Analyzing,
+    Converting,
     Parsing,
     MatchingCatalog,
     Complete,
@@ -158,6 +161,10 @@ data class GymLiftsDraftUi(
     val hasCompletedHistoricalImport: Boolean = false,
     val importProgress: ImportProgressUi? = null,
     val importError: String? = null,
+    /** Server rejected the file as not a training log — distinct title/hint vs generic fail. */
+    val importUnsupportedFile: Boolean = false,
+    /** Furthest historical-import timeline step this run (monotonic). */
+    val historicalImportMaxTimelineIndex: Int = 0,
     val presetApplyError: String? = null,
     val importInsightsSummary: ImportInsightsSummaryUi? = null,
     /** 1-based index of the file that failed during a multi-file import; enables resume UX. */

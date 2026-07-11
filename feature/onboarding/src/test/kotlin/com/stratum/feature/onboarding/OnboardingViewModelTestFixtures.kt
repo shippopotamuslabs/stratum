@@ -83,7 +83,7 @@ internal object OnboardingViewModelTestFixtures {
 
     fun resetDefaults() {
         fakeRepository.seed(
-            OnboardingProgress(OnboardingStep.Welcome, startedAt = 0L, completedAt = null),
+            OnboardingProgress(OnboardingStep.Profile, startedAt = 0L, completedAt = null),
         )
         fakeProfileRepository.seed(null)
         fakeSpecializationRepository.seed(SpecializationPreference.Empty)
@@ -217,6 +217,7 @@ internal object OnboardingViewModelTestFixtures {
                 profileRepository = fakeProfileRepository,
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
+            logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
         )
     }
 
