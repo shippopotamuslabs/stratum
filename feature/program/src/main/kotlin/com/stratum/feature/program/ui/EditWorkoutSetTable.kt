@@ -67,7 +67,8 @@ internal fun EditWorkoutSetTable(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        // Match live workout log table inset; panel itself is edge-to-edge.
+        modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Column(
