@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ fun StratumWorkoutLogSetRow(
     modifier: Modifier = Modifier,
 ) {
     var showRirSheet by remember(set.setKey) { mutableStateOf(false) }
+    val keyboardHost = LocalSetLogKeyboardHost.current
     val showTrailing = set.showCheckbox
     val weights = workoutLogColumnWeights(set.showWeightInput, showTrailing)
     val rowBg =
@@ -43,6 +45,51 @@ fun StratumWorkoutLogSetRow(
             "DropSet" -> "D"
             else -> set.positionLabel
         }
+
+    // Keep host drafts live while this row is composed (row may scroll but host stays mounted).
+    LaunchedEffect(set.setKey, set.weightText, set.repsText, set.rir, keyboardHost?.session?.setKey) {
+        keyboardHost?.syncValues(
+            setKey = set.setKey,
+            weightText = set.weightText,
+            repsText = set.repsText,
+            rir = set.rir,
+        )
+    }
+
+    // Dismiss keyboard if this set is completed while open.
+    LaunchedEffect(set.isComplete, set.fieldsEnabled) {
+        if ((!set.fieldsEnabled || set.isComplete) && keyboardHost?.isSetActive(set.setKey) == true) {
+            keyboardHost.dismiss()
+        }
+    }
+
+    val openKeyboard: (SetLogKeyboardField) -> Unit = { field ->
+        if (set.fieldsEnabled) {
+            showRirSheet = false
+            keyboardHost?.open(
+                setKey = set.setKey,
+                field = field,
+                weightText = set.weightText,
+                repsText = set.repsText,
+                rir = set.rir,
+                showWeightInput = set.showWeightInput,
+                canComplete = actions.onCheckedChange != null,
+                onWeightChange = actions.onWeightChange,
+                onRepsChange = actions.onRepsChange,
+                onRirChange = actions.onRirChange,
+                onComplete =
+                    actions.onCheckedChange?.let { onChecked ->
+                        { onChecked(true) }
+                    },
+            )
+        }
+    }
+
+    val weightActive =
+        keyboardHost?.isFieldActive(set.setKey, SetLogKeyboardField.Weight) == true
+    val repsActive =
+        keyboardHost?.isFieldActive(set.setKey, SetLogKeyboardField.Reps) == true
+    val keyboardOpenForSet = keyboardHost?.isSetActive(set.setKey) == true
 
     val rowContent: @Composable () -> Unit = {
         Row(
@@ -77,6 +124,8 @@ fun StratumWorkoutLogSetRow(
                     placeholder = set.weightPlaceholder,
                     onValueChange = actions.onWeightChange,
                     enabled = set.fieldsEnabled,
+                    isActive = weightActive,
+                    onActivate = { openKeyboard(SetLogKeyboardField.Weight) },
                     modifier =
                         Modifier
                             .weight(weights.weight)
@@ -89,6 +138,8 @@ fun StratumWorkoutLogSetRow(
                 placeholder = set.repsPlaceholder,
                 onValueChange = actions.onRepsChange,
                 enabled = set.fieldsEnabled,
+                isActive = repsActive,
+                onActivate = { openKeyboard(SetLogKeyboardField.Reps) },
                 modifier =
                     Modifier
                         .weight(weights.reps)
@@ -99,7 +150,7 @@ fun StratumWorkoutLogSetRow(
                 RirTargetBadge(
                     rirGoal = set.rir,
                     onClick = {
-                        if (set.fieldsEnabled) {
+                        if (set.fieldsEnabled && !keyboardOpenForSet) {
                             showRirSheet = true
                         }
                     },
@@ -123,7 +174,12 @@ fun StratumWorkoutLogSetRow(
                         StratumCheckbox(
                             checked = set.isComplete,
                             enabled = isCheckboxEnabled,
-                            onCheckedChange = actions.onCheckedChange,
+                            onCheckedChange = { checked ->
+                                if (checked && keyboardOpenForSet) {
+                                    keyboardHost?.dismiss()
+                                }
+                                actions.onCheckedChange.invoke(checked)
+                            },
                         )
                     } else {
                         Box(modifier = Modifier.size(24.dp))
@@ -157,7 +213,7 @@ fun StratumWorkoutLogSetRow(
         }
     }
 
-    if (showRirSheet) {
+    if (showRirSheet && !keyboardOpenForSet) {
         RirTargetBottomSheet(
             selectedRirGoal = set.rir,
             onRirSelected = { rir ->
