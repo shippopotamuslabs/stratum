@@ -2,6 +2,9 @@ package com.stratum.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.domain.auth.AuthDeleteAfterAccountWipeException
+import com.stratum.domain.auth.DeleteAccountUseCase
+import com.stratum.domain.auth.LocalCleanupAfterAccountDeletionException
 import com.stratum.domain.auth.LogoutUseCase
 import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
@@ -20,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -31,14 +35,15 @@ class SettingsViewModel @Inject constructor(
     private val setCheckInEnabled: SetCheckInEnabledUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
     private val logout: LogoutUseCase,
+    private val deleteAccount: DeleteAccountUseCase,
 ) : ViewModel() {
 
     private val debugStatusMessage = MutableStateFlow<String?>(null)
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
-    private val showLogoutConfirm = MutableStateFlow(false)
-    private val isLoggingOut = MutableStateFlow(false)
+    /** Exclusive account lifecycle UI — only one dialog or in-flight op at a time. */
+    private val accountUi = MutableStateFlow<AccountUi>(AccountUi.Idle)
 
     fun userMessageShown() {
         _userMessage.value = null
@@ -49,17 +54,18 @@ class SettingsViewModel @Inject constructor(
             observeThemePreferences(),
             observeCheckInPreferences(),
             debugStatusMessage,
-            showLogoutConfirm,
-            isLoggingOut,
-        ) { theme, checkIn, debugStatus, logoutConfirm, loggingOut ->
+            accountUi,
+        ) { theme, checkIn, debugStatus, account ->
             SettingsUiState(
                 appearance = theme.colorMode.toAppearanceUi(),
                 themeFamily = theme.family.toThemeFamilyUi(),
                 checkInsEnabled = checkIn.enabled,
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
-                showLogoutConfirm = logoutConfirm,
-                isLoggingOut = loggingOut,
+                showLogoutConfirm = account is AccountUi.ConfirmLogout,
+                isLoggingOut = account is AccountUi.LoggingOut,
+                showDeleteConfirm = account is AccountUi.ConfirmDelete,
+                isDeletingAccount = account is AccountUi.DeletingAccount,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -109,31 +115,99 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onLogoutClick() {
-        if (isLoggingOut.value) return
-        showLogoutConfirm.value = true
+        accountUi.update { current ->
+            if (current is AccountUi.Idle) AccountUi.ConfirmLogout else current
+        }
     }
 
     fun onLogoutConfirmDismiss() {
-        if (isLoggingOut.value) return
-        showLogoutConfirm.value = false
+        accountUi.update { current ->
+            if (current is AccountUi.ConfirmLogout) AccountUi.Idle else current
+        }
     }
 
     fun onLogoutConfirmed() {
-        if (isLoggingOut.value) return
+        var claimed = false
+        accountUi.update { current ->
+            if (current is AccountUi.ConfirmLogout) {
+                claimed = true
+                AccountUi.LoggingOut
+            } else {
+                current
+            }
+        }
+        if (!claimed) return
         viewModelScope.launch {
-            isLoggingOut.value = true
-            showLogoutConfirm.value = false
-            logout()
-                .onFailure {
+            try {
+                logout().onFailure {
                     _userMessage.value = MSG_LOGOUT_FAILED
                 }
-            isLoggingOut.value = false
+            } finally {
+                accountUi.value = AccountUi.Idle
+            }
         }
+    }
+
+    fun onDeleteAccountClick() {
+        accountUi.update { current ->
+            if (current is AccountUi.Idle) AccountUi.ConfirmDelete else current
+        }
+    }
+
+    fun onDeleteAccountConfirmDismiss() {
+        accountUi.update { current ->
+            if (current is AccountUi.ConfirmDelete) AccountUi.Idle else current
+        }
+    }
+
+    fun onDeleteAccountConfirmed() {
+        var claimed = false
+        accountUi.update { current ->
+            if (current is AccountUi.ConfirmDelete) {
+                claimed = true
+                AccountUi.DeletingAccount
+            } else {
+                current
+            }
+        }
+        if (!claimed) return
+        viewModelScope.launch {
+            try {
+                deleteAccount()
+                    .onFailure { error ->
+                        _userMessage.value =
+                            when (error) {
+                                is LocalCleanupAfterAccountDeletionException ->
+                                    MSG_DELETE_LOCAL_CLEANUP_FAILED
+                                is AuthDeleteAfterAccountWipeException ->
+                                    MSG_DELETE_AUTH_FAILED
+                                else -> MSG_DELETE_FAILED
+                            }
+                    }
+            } finally {
+                accountUi.value = AccountUi.Idle
+            }
+        }
+    }
+
+    private sealed class AccountUi {
+        data object Idle : AccountUi()
+        data object ConfirmLogout : AccountUi()
+        data object ConfirmDelete : AccountUi()
+        data object LoggingOut : AccountUi()
+        data object DeletingAccount : AccountUi()
     }
 
     private companion object {
         const val MSG_PREFS_FAILED = "Couldn't save that setting. Try again."
         const val MSG_LOGOUT_FAILED = "Couldn't sign out. Try again."
+        const val MSG_DELETE_FAILED = "Couldn't delete account. Try again."
+        const val MSG_DELETE_AUTH_FAILED =
+            "Your training data was removed, but the account could not be fully closed. " +
+                "Try Delete account again, or use Log out and contact support."
+        const val MSG_DELETE_LOCAL_CLEANUP_FAILED =
+            "Your cloud data was deleted, but this device could not clear local data. " +
+                "Uninstall Stratum or clear the app’s storage in system settings."
     }
 }
 
@@ -147,6 +221,8 @@ data class SettingsUiState(
     val debugStatusMessage: String? = null,
     val showLogoutConfirm: Boolean = false,
     val isLoggingOut: Boolean = false,
+    val showDeleteConfirm: Boolean = false,
+    val isDeletingAccount: Boolean = false,
 )
 
 /** Light / Dark / System (device) appearance policy. */

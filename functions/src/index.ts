@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import { deleteAccount } from "./account/deleteAccount";
 import { startImport } from "./import/startImport";
 import { getImportJobStatus } from "./import/getImportJobStatus";
 import { processImportJob } from "./import/processImportJob";
@@ -13,6 +14,7 @@ import { processProgramTemplateJob } from "./program-import/processProgramTempla
 admin.initializeApp();
 
 export {
+  deleteAccount,
   startImport,
   getImportJobStatus,
   processImportJob,
