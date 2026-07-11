@@ -26,6 +26,7 @@ sealed interface ProgramsUiState {
 }
 
 data class ProgramViewState(
+    val programId: String,
     val name: String,
 )
 
