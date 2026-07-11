@@ -23,17 +23,15 @@ val hasReleaseKeystore = keystorePropertiesFile.exists().also { exists ->
 android {
     namespace = "com.stratum"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
 
     defaultConfig {
         applicationId = "com.aether.stratum"
         minSdk = 34
-        targetSdk = 36
-        versionCode = 2
-        versionName = "1.2"
+        targetSdk = 37
+        versionCode = 6
+        versionName = "1.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
