@@ -11,8 +11,9 @@ import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.reference.RpRepRirBand
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import com.stratum.domain.training.EstimatedOneRm
-import kotlin.math.abs
-import kotlin.math.round
+import com.stratum.domain.workout.fatigue.LAST_SET_REP_FLOOR
+import com.stratum.domain.workout.fatigue.REP_RANGE_CEILING
+import com.stratum.domain.workout.fatigue.fatigueDropReps
 import kotlin.math.roundToInt
 
 private val LOWER_FREE_WEIGHT_PATTERNS = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge)
@@ -93,11 +94,13 @@ fun repRangeFromFatigue(
     if (fatigueSlope == null && setCount <= 1) {
         return fallback.repMin to fallback.repMax
     }
-    val fatigueDrop = if (fatigueSlope == null || setCount <= 1) {
-        0
-    } else {
-        round(abs(fatigueSlope) * (setCount - 1)).toInt()
-    }
+    val fatigueDrop =
+        if (fatigueSlope == null || setCount <= 1) {
+            0
+        } else {
+            fatigueDropReps(fatigueSlope, setCount)
+        }
+    // Generation also enforces the hypertrophic floor (strength bands stay out of this planner).
     val repMin = maxOf(HYPERTROPHIC_FLOOR, LAST_SET_FLOOR + fatigueDrop)
     val repMax = (repMin + incrementWidth).coerceAtMost(REP_RANGE_CEILING_CAP)
     return repMin to repMax
@@ -169,8 +172,11 @@ private fun continuousRepsForWeight(e1rm: Double, weight: Double): Double {
 /** Hypertrophic floor — below this many reps the set drifts into strength territory. */
 const val HYPERTROPHIC_FLOOR: Int = 8
 
-/** Absolute last-set floor — fatigue raises the band floor so the last set stays ≥ this. */
-const val LAST_SET_FLOOR: Int = 5
+/**
+ * Absolute last-set floor — fatigue raises the band floor so the last set stays ≥ this.
+ * Aliases [LAST_SET_REP_FLOOR] so generation and post-workout shift share one definition.
+ */
+const val LAST_SET_FLOOR: Int = LAST_SET_REP_FLOOR
 
 /** Rep count used as the typical-load anchor (weight for this many reps at 0 RIR). */
 const val TYPICAL_LOAD_ANCHOR_REPS: Int = 10
@@ -195,5 +201,8 @@ private const val BRZYCKI_DENOMINATOR_FACTOR = 0.0278
 private const val DECAY_RATE = 0.0278 / 0.75
 private const val EXP_BASE = 0.75 / 1.0278
 
-/** Caps the slope-derived ceiling so extreme slopes can't produce absurd rep ranges. */
-const val REP_RANGE_CEILING_CAP: Int = 30
+/**
+ * Caps the slope-derived ceiling so extreme slopes can't produce absurd rep ranges.
+ * Aliases [REP_RANGE_CEILING] so generation and post-workout shift share one definition.
+ */
+const val REP_RANGE_CEILING_CAP: Int = REP_RANGE_CEILING

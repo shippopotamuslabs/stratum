@@ -107,6 +107,18 @@ class AnalyzeSessionEquipmentProposalsUseCaseTest {
         }
 
         @Test
+        @DisplayName("Given feature disabled when analyzed then no proposals")
+        fun featureDisabledNoProposals() = runTest {
+            seedCableCatalogWithInheritors(inheritorCount = 12)
+            logRepo.seedSession(WorkoutLoggingFixtures.completedLiveSession(sessionId.value))
+            logRepo.seedSet(setAt(latId, 62.5, setIndex = 0, id = "s1"))
+            logRepo.seedSet(setAt(latId, 67.5, setIndex = 1, id = "s2"))
+            prefs.seedEnabled(false)
+
+            assertTrue(subject(sessionId).isEmpty())
+        }
+
+        @Test
         @DisplayName("Given on-lattice weights when analyzed then no proposals")
         fun onLatticeNoProposal() = runTest {
             seedCableCatalogWithInheritors(inheritorCount = 4)

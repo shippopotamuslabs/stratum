@@ -44,6 +44,16 @@
     <string name="workout_complete_proposal_not_now">Not now</string>
     <string name="workout_complete_proposal_cancel">Cancel</string>
 
+    <!-- Rep-range shift proposals (post-workout only) -->
+    <string name="workout_complete_rep_range_section">Rep range</string>
+    <string name="workout_complete_rep_range_section_hint">Optional — based on your recent fatigue pattern, raise the band so last sets stay productive.</string>
+    <string name="workout_complete_rep_range_band">Range: %1$s</string>
+    <string name="workout_complete_rep_range_accept">Shift range</string>
+    <string name="workout_complete_rep_range_title">Shift %1$s to %2$s?</string>
+    <string name="workout_complete_rep_range_subtitle">Fatigue across sets is steep — at %1$s the last set tends to fall under %2$d reps.</string>
+    <string name="workout_complete_rep_range_success">Updated %1$s to %2$s.</string>
+    <string name="workout_complete_rep_range_apply_failed">Couldn\'t update rep range.</string>
+
     <!-- Notifications -->
     <string name="notif_channel_rest_progress">Rest timer</string>
     <string name="notif_channel_rest_progress_desc">Shows remaining rest time during a workout</string>

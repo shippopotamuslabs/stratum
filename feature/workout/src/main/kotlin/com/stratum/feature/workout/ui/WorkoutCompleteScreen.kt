@@ -45,6 +45,7 @@ fun WorkoutCompleteScreen(
     snackbarHostState: SnackbarHostState? = null,
     onAcceptProposal: (String) -> Unit = {},
     onAcceptAlternative: (String) -> Unit = {},
+    onAcceptRepRangeShift: (String) -> Unit = {},
     onSkipProposal: (String) -> Unit = {},
     onNotNowProposal: (String) -> Unit = {},
     onConfirmBlastRadius: () -> Unit = {},
@@ -84,6 +85,15 @@ fun WorkoutCompleteScreen(
                 PerformanceTable(state.bestSets)
             }
 
+            if (state.repRangeProposals.isNotEmpty()) {
+                RepRangeProposalsSection(
+                    proposals = state.repRangeProposals,
+                    onAccept = onAcceptRepRangeShift,
+                    onSkip = onSkipProposal,
+                    onNotNow = onNotNowProposal,
+                )
+            }
+
             if (state.equipmentProposals.isNotEmpty()) {
                 EquipmentProposalsSection(
                     proposals = state.equipmentProposals,
@@ -105,6 +115,104 @@ fun WorkoutCompleteScreen(
             onConfirm = onConfirmBlastRadius,
             onDismiss = onDismissBlastRadius,
         )
+    }
+}
+
+@Composable
+private fun RepRangeProposalsSection(
+    proposals: List<RepRangeShiftCardUi>,
+    onAccept: (String) -> Unit,
+    onSkip: (String) -> Unit,
+    onNotNow: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        StratumText(
+            text = stringResource(R.string.workout_complete_rep_range_section),
+            style = StratumThemeAccessor.typography.titleMedium,
+        )
+        StratumText(
+            text = stringResource(R.string.workout_complete_rep_range_section_hint),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+        proposals.forEach { card ->
+            RepRangeShiftCard(
+                card = card,
+                onAccept = { onAccept(card.id) },
+                onSkip = { onSkip(card.id) },
+                onNotNow = { onNotNow(card.id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RepRangeShiftCard(
+    card: RepRangeShiftCardUi,
+    onAccept: () -> Unit,
+    onSkip: () -> Unit,
+    onNotNow: () -> Unit,
+) {
+    val panelShape = StratumThemeAccessor.shapes.panel
+    val borderWidth = StratumThemeAccessor.shapes.borderWidth
+    val borderColor = StratumThemeAccessor.colors.borderSubtle
+    val cardColor = StratumThemeAccessor.colors.surfaceRaised
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = cardColor, shape = panelShape)
+            .border(width = borderWidth, color = borderColor, shape = panelShape)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        StratumText(
+            text = stringResource(
+                R.string.workout_complete_rep_range_title,
+                card.liftName,
+                card.proposedBand,
+            ),
+            style = StratumThemeAccessor.typography.bodyLarge.copy(
+                fontWeight = FontWeight.SemiBold,
+            ),
+        )
+        StratumText(
+            text = stringResource(
+                R.string.workout_complete_rep_range_subtitle,
+                card.currentBand,
+                card.lastSetFloor,
+            ),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+        StratumText(
+            text = stringResource(R.string.workout_complete_rep_range_band, card.bandSummary),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+        )
+
+        val actionsEnabled = !card.isApplying
+        StratumButton(
+            text = stringResource(R.string.workout_complete_rep_range_accept),
+            onClick = onAccept,
+            enabled = actionsEnabled,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        ) {
+            StratumTextButton(
+                text = stringResource(R.string.workout_complete_proposal_skip),
+                onClick = onSkip,
+                enabled = actionsEnabled,
+            )
+            StratumTextButton(
+                text = stringResource(R.string.workout_complete_proposal_not_now),
+                onClick = onNotNow,
+                enabled = actionsEnabled,
+            )
+        }
     }
 }
 
