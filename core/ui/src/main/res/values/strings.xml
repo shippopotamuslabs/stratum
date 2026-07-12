@@ -70,6 +70,13 @@
     <string name="set_log_keyboard_prev_weight">Previous field, weight</string>
     <string name="set_log_keyboard_complete_set">Complete set</string>
 
+    <!-- Rep-range slim keyboard (edit workout) -->
+    <string name="rep_range_keyboard_over_to_max">Next field, max reps</string>
+    <string name="rep_range_keyboard_over_to_min">Previous field, min reps</string>
+    <string name="rep_range_error_missing_value">Must have a value</string>
+    <string name="rep_range_error_below_min_floor">Rep target must be at least %1$d</string>
+    <string name="rep_range_error_max_not_above_min">Max reps must be greater than min</string>
+
     <!-- RirTargetBottomSheet — shared RIR selection UI -->
     <string name="edit_workout_rir_sheet_title">RIR targets</string>
     <string name="edit_workout_rir_info_content_description">About RIR targets</string>

@@ -14,7 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,10 +27,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 
 /**
  * Compact numeric cell for weight/reps in a set-log row.
@@ -42,21 +37,25 @@ import kotlinx.coroutines.flow.map
  *
  * [completed] is visual only: keeps the dark sunken chip on finished sets even when
  * [enabled] so lifters can still edit without losing the completed-row look.
+ *
+ * [onValueChange] is only used on the system-IME path ([onActivate] null). Custom-keyboard
+ * hosts update values through the dock session instead.
  */
 @Composable
 fun StratumInlineNumericCell(
     value: String,
     placeholder: String,
-    onValueChange: (String) -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
+    onValueChange: (String) -> Unit = {},
     isActive: Boolean = false,
     onActivate: (() -> Unit)? = null,
     completed: Boolean = false,
+    /** When true, border uses error color (takes priority over [isActive] accent). */
+    isError: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val useCustomKeyboard = onActivate != null
-    val keyboardHost = LocalSetLogKeyboardHost.current
     var cellBoundsInWindow by remember { mutableStateOf(Rect.Zero) }
     var fieldValue by remember(value) {
         mutableStateOf(TextFieldValue(text = value, selection = TextRange(value.length)))
@@ -66,37 +65,18 @@ fun StratumInlineNumericCell(
         fieldValue = TextFieldValue(text = value, selection = TextRange(value.length))
     }
 
-    // Coordinate-based reveal: wait until dock is laid out, then ask the list to scroll
-    // this cell fully above the keyboard (BringIntoView alone treats overlay area as valid).
-    LaunchedEffect(isActive, keyboardHost?.revealEpoch) {
-        if (!isActive || !useCustomKeyboard || keyboardHost == null) return@LaunchedEffect
-        // Session open.
-        snapshotFlow { keyboardHost.isOpen }
-            .distinctUntilChanged()
-            .filter { it }
-            .first()
-        // Dock has a real window Y.
-        snapshotFlow { keyboardHost.dockTopInWindow }
-            .filter { it.isFinite() }
-            .first()
-        // Cell positioned.
-        snapshotFlow { cellBoundsInWindow }
-            .filter { it != Rect.Zero && it.height > 0f }
-            .first()
-        // Scroller registered by list host.
-        val scroller =
-            snapshotFlow { keyboardHost.revealScroller }
-                .map { it }
-                .filter { it != null }
-                .first()
-        scroller?.ensureCellAboveKeyboard(cellBoundsInWindow)
+    if (useCustomKeyboard) {
+        DockCellRevealEffect(
+            isActive = isActive,
+            cellBoundsInWindow = cellBoundsInWindow,
+        )
     }
 
     val borderColor =
-        if (isActive) {
-            StratumThemeAccessor.colors.accent
-        } else {
-            StratumThemeAccessor.colors.borderSubtle
+        when {
+            isError -> StratumThemeAccessor.colors.error
+            isActive -> StratumThemeAccessor.colors.accent
+            else -> StratumThemeAccessor.colors.borderSubtle
         }
 
     // Completed rows keep sunken chips (dark on setComplete green); incomplete enabled

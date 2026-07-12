@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,14 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,41 +22,39 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetBadge
-import com.stratum.core.ui.component.formatRirLabel
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
-import com.stratum.core.ui.theme.StratumRirTargetColors
+import com.stratum.core.ui.component.workoutlog.DockCellRevealEffect
+import com.stratum.core.ui.component.workoutlog.RepRangeKeyboardField
+import com.stratum.core.ui.component.workoutlog.StratumInlineNumericCell
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.feature.program.R
 import com.stratum.feature.program.showsRepRange
 
 private val SetTableRowHeight = 48.dp
-private val SetTableCellMinWidth = 36.dp
 
 @Composable
 internal fun EditWorkoutSetTable(
+    workoutLiftId: String,
     sets: List<EditSetState>,
     progressionScheme: ProgressionScheme,
     onAddSet: () -> Unit,
     onRemoveSet: (setId: String) -> Unit,
-    onRepMinChange: (setId: String, repMin: Int) -> Unit,
-    onRepMaxChange: (setId: String, repMax: Int) -> Unit,
-    onRestClick: (EditSetState) -> Unit,
+    onRepBandChange: (setId: String, repMin: Int, repMax: Int) -> Unit,
+    onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit,
+    onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     onRirClick: (EditSetState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -79,13 +71,14 @@ internal fun EditWorkoutSetTable(
         }
         sets.forEach { set ->
             EditWorkoutSetTableRow(
+                workoutLiftId = workoutLiftId,
                 set = set,
                 showRepRange = showsRepRange(progressionScheme, set),
                 canRemove = sets.size > 1,
                 onRemoveSet = { onRemoveSet(set.setId) },
-                onRepMinChange = { value -> onRepMinChange(set.setId, value) },
-                onRepMaxChange = { value -> onRepMaxChange(set.setId, value) },
-                onRestClick = { onRestClick(set) },
+                onRepBandChange = { min, max -> onRepBandChange(set.setId, min, max) },
+                onSetRestSeconds = onSetRestSeconds,
+                onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
                 onRirClick = { onRirClick(set) },
             )
         }
@@ -158,15 +151,19 @@ private fun SetTableHeaderCell(
 
 @Composable
 private fun EditWorkoutSetTableRow(
+    workoutLiftId: String,
     set: EditSetState,
     showRepRange: Boolean,
     canRemove: Boolean,
     onRemoveSet: () -> Unit,
-    onRepMinChange: (Int) -> Unit,
-    onRepMaxChange: (Int) -> Unit,
-    onRestClick: () -> Unit,
+    onRepBandChange: (repMin: Int, repMax: Int) -> Unit,
+    onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit,
+    onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     onRirClick: () -> Unit,
 ) {
+    val committedMinText = if (set.repMin > 0) set.repMin.toString() else ""
+    val committedMaxText = if (set.repMax > 0) set.repMax.toString() else ""
+
     StratumSwipeToRevealRow(
         onActionClick = onRemoveSet,
         actionContentDescription = stringResource(R.string.edit_workout_remove_set),
@@ -189,10 +186,10 @@ private fun EditWorkoutSetTableRow(
             // Linear: every set shows the shared band. Double: top set only (RIR-only backoffs).
             if (showRepRange) {
                 RepRangeCell(
-                    repMin = set.repMin,
-                    repMax = set.repMax,
-                    onRepMinChange = onRepMinChange,
-                    onRepMaxChange = onRepMaxChange,
+                    setId = set.setId,
+                    committedMinText = committedMinText,
+                    committedMaxText = committedMaxText,
+                    onRepBandChange = onRepBandChange,
                     modifier = Modifier.weight(REP_RANGE_COLUMN_WEIGHT),
                 )
             } else {
@@ -201,8 +198,11 @@ private fun EditWorkoutSetTableRow(
                 )
             }
             RestTimeCell(
+                setId = set.setId,
+                workoutLiftId = workoutLiftId,
                 restSeconds = set.restSeconds,
-                onClick = onRestClick,
+                onSetRestSeconds = onSetRestSeconds,
+                onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
                 modifier = Modifier.weight(REST_COLUMN_WEIGHT),
             )
             Box(
@@ -287,23 +287,48 @@ private fun SetColumnCircleBadge(
 
 @Composable
 private fun RepRangeCell(
-    repMin: Int,
-    repMax: Int,
-    onRepMinChange: (Int) -> Unit,
-    onRepMaxChange: (Int) -> Unit,
+    setId: String,
+    committedMinText: String,
+    committedMaxText: String,
+    onRepBandChange: (repMin: Int, repMax: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val dock = LocalEditWorkoutDock.current
+    val sessionOpen = dock?.isRepSessionFor(setId) == true
+    val minActive = dock?.isRepFieldActive(setId, RepRangeKeyboardField.Min) == true
+    val maxActive = dock?.isRepFieldActive(setId, RepRangeKeyboardField.Max) == true
+    val validation = if (sessionOpen) dock?.repRangeValidation else null
+    // While editing, show host drafts (not applyBand-clamped storage).
+    val displayMin = if (sessionOpen) dock?.minText.orEmpty() else committedMinText
+    val displayMax = if (sessionOpen) dock?.maxText.orEmpty() else committedMaxText
+
+    val openField: (RepRangeKeyboardField) -> Unit = { field ->
+        // Same set: tab field only (no commit). Other set / new session: host commits or blocks.
+        if (dock?.isRepSessionFor(setId) == true) {
+            dock.setRepField(field)
+        } else {
+            dock?.openRepRange(
+                setId = setId,
+                field = field,
+                minText = committedMinText,
+                maxText = committedMaxText,
+                onCommitBand = onRepBandChange,
+            )
+        }
+    }
+
     Row(
         modifier = modifier.padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        InlineNumericCell(
-            value = if (repMin > 0) repMin.toString() else "",
-            placeholder = "0",
-            onCommit = { text ->
-                onRepMinChange(text.toIntOrNull()?.coerceAtLeast(0) ?: 0)
-            },
+        StratumInlineNumericCell(
+            value = displayMin,
+            placeholder = "",
+            enabled = true,
+            isActive = minActive,
+            isError = validation?.minInvalid == true,
+            onActivate = { openField(RepRangeKeyboardField.Min) },
             modifier = Modifier.weight(1f),
         )
         StratumText(
@@ -311,12 +336,13 @@ private fun RepRangeCell(
             style = StratumThemeAccessor.typography.sectionLabel,
             muted = true,
         )
-        InlineNumericCell(
-            value = if (repMax > 0) repMax.toString() else "",
-            placeholder = stringResource(R.string.edit_workout_rep_range_max_placeholder),
-            onCommit = { text ->
-                onRepMaxChange(text.toIntOrNull()?.coerceAtLeast(0) ?: 0)
-            },
+        StratumInlineNumericCell(
+            value = displayMax,
+            placeholder = "",
+            enabled = true,
+            isActive = maxActive,
+            isError = validation?.maxInvalid == true,
+            onActivate = { openField(RepRangeKeyboardField.Max) },
             modifier = Modifier.weight(1f),
         )
     }
@@ -339,104 +365,57 @@ private fun BackoffRepRangeCell(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun InlineNumericCell(
-    value: String,
-    placeholder: String,
-    onCommit: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-    val focusManager = LocalFocusManager.current
-    var fieldValue by remember(value) {
-        mutableStateOf(TextFieldValue(text = value, selection = TextRange(value.length)))
-    }
-
-    LaunchedEffect(value) {
-        if (!isFocused) {
-            fieldValue = TextFieldValue(text = value, selection = TextRange(value.length))
-        }
-    }
-
-    LaunchedEffect(isFocused) {
-        if (!isFocused && fieldValue.text != value) {
-            onCommit(fieldValue.text)
-        }
-    }
-
-    BasicTextField(
-        value = fieldValue,
-        onValueChange = { updated ->
-            val digitsOnly = updated.text.filter { char -> char.isDigit() }
-            fieldValue = updated.copy(text = digitsOnly, selection = TextRange(digitsOnly.length))
-        },
-        modifier =
-            modifier
-                .height(36.dp)
-                .widthIn(min = SetTableCellMinWidth)
-                .clip(StratumThemeAccessor.shapes.chip)
-                .background(StratumThemeAccessor.colors.surfaceInset)
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color =
-                        if (isFocused) {
-                            StratumThemeAccessor.colors.accent
-                        } else {
-                            StratumThemeAccessor.colors.borderSubtle
-                        },
-                    shape = StratumThemeAccessor.shapes.chip,
-                )
-                .padding(horizontal = 8.dp),
-        textStyle =
-            StratumThemeAccessor.typography.bodyLarge.copy(
-                color = StratumThemeAccessor.colors.textPrimary,
-                textAlign = TextAlign.Center,
-            ),
-        singleLine = true,
-        cursorBrush = SolidColor(StratumThemeAccessor.colors.accent),
-        interactionSource = interactionSource,
-        keyboardOptions =
-            KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done,
-            ),
-        keyboardActions =
-            KeyboardActions(
-                onDone = {
-                    onCommit(fieldValue.text)
-                    focusManager.clearFocus()
-                },
-            ),
-        decorationBox = { innerTextField ->
-            Box(contentAlignment = Alignment.Center) {
-                if (fieldValue.text.isEmpty() && !isFocused) {
-                    StratumText(text = placeholder, muted = true)
-                }
-                innerTextField()
-            }
-        },
-    )
-}
-
-@Composable
 private fun RestTimeCell(
+    setId: String,
+    workoutLiftId: String,
     restSeconds: Int,
-    onClick: () -> Unit,
+    onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit,
+    onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val dock = LocalEditWorkoutDock.current
+    val isActive = dock?.isRestActive(setId) == true
+    var cellBoundsInWindow by remember { mutableStateOf(Rect.Zero) }
+
+    DockCellRevealEffect(
+        isActive = isActive,
+        cellBoundsInWindow = cellBoundsInWindow,
+    )
+
     Box(
         modifier =
             modifier
+                .onGloballyPositioned { coords ->
+                    cellBoundsInWindow = coords.boundsInWindow()
+                }
                 .padding(horizontal = 4.dp)
                 .height(36.dp)
                 .clip(StratumThemeAccessor.shapes.chip)
                 .background(StratumThemeAccessor.colors.surfaceInset)
                 .border(
                     width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderSubtle,
+                    color =
+                        if (isActive) {
+                            StratumThemeAccessor.colors.accent
+                        } else {
+                            StratumThemeAccessor.colors.borderSubtle
+                        },
                     shape = StratumThemeAccessor.shapes.chip,
                 )
-                .clickable(onClick = onClick)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        dock?.openRest(
+                            setId = setId,
+                            restSeconds = restSeconds,
+                            onApplyToSet = { seconds -> onSetRestSeconds(setId, seconds) },
+                            onApplyToAllSets = { seconds ->
+                                onSetRestSecondsForAllSetsOnLift(workoutLiftId, seconds)
+                            },
+                        )
+                    },
+                )
                 .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -446,7 +425,6 @@ private fun RestTimeCell(
         )
     }
 }
-
 
 internal fun formatRestDisplay(restSeconds: Int): String {
     val total = restSeconds.coerceAtLeast(0)

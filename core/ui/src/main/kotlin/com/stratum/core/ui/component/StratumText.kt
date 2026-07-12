@@ -19,17 +19,20 @@ fun StratumText(
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
     textAlign: TextAlign? = null,
+    /** When set, overrides [muted] / primary (e.g. error copy on a keyboard). */
+    color: Color? = null,
 ) {
     Text(
         text = text,
         modifier = modifier,
         style = style,
         color =
-            if (muted) {
-                StratumThemeAccessor.colors.textMuted
-            } else {
-                StratumThemeAccessor.colors.textPrimary
-            },
+            color
+                ?: if (muted) {
+                    StratumThemeAccessor.colors.textMuted
+                } else {
+                    StratumThemeAccessor.colors.textPrimary
+                },
         maxLines = maxLines,
         overflow = overflow,
         textAlign = textAlign,
