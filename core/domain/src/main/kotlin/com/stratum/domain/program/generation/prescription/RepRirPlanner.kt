@@ -9,7 +9,7 @@ import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.reference.RP_REP_RIR_BANDS
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.reference.RpRepRirBand
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import com.stratum.domain.training.EstimatedOneRm
 import kotlin.math.abs
 import kotlin.math.round

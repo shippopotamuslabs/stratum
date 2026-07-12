@@ -6,10 +6,10 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleLengthBias
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.split.MuscleLengthBiasPreference
-import com.stratum.domain.program.generation.split.SiblingVariant
-import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.MuscleLengthBiasPreference
+import com.stratum.domain.program.generation.slots.SiblingVariant
+import com.stratum.domain.program.generation.slots.SlotRole
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import org.junit.jupiter.api.Test
 import java.io.File
 

@@ -3,9 +3,8 @@ package com.stratum.domain.program
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.split.MuscleSessionExposure
 import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
-import com.stratum.domain.program.generation.split.inferSessionTypeFromWorkoutName
-import com.stratum.domain.program.generation.split.SessionTypeId
-import com.stratum.domain.program.generation.split.primaryMusclesForSessionType
+import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.slots.primaryMusclesForSessionType
 
 private const val MAX_SESSION_LETTER_INDEX = 25
 
@@ -106,6 +105,14 @@ internal fun relabelWorkoutNamesByWeekday(workouts: List<Workout>): List<Workout
     }
 }
 
+/**
+ * Builds per-muscle calendar exposures for recovery streak analysis.
+ *
+ * Prefer passing [workoutMuscleExposures] (metadata / dose truth). Structure is **not** inferred
+ * from workout names — names are polish (including LLM renames) and [MuscleSessionExposure.sessionType]
+ * is left null on the dose path. The no-dose branch is a legacy estimated fallback only
+ * (FullBody template muscles); it does not parse names.
+ */
 fun buildScheduleMuscleExposures(
     workouts: List<Workout>,
     weekdayIndices: List<Int>,
@@ -114,7 +121,6 @@ fun buildScheduleMuscleExposures(
     val out = mutableListOf<MuscleSessionExposure>()
     workouts.forEachIndexed { sessionIdx, workout ->
         val weekdayIdx = weekdayIndices.getOrElse(sessionIdx) { sessionIdx }
-        val sessionType = inferSessionTypeFromWorkoutName(workout.name)
         val doseMap = workoutMuscleExposures?.getOrNull(sessionIdx)
         if (doseMap != null && doseMap.isNotEmpty()) {
             for ((muscle, dose) in doseMap) {
@@ -125,21 +131,24 @@ fun buildScheduleMuscleExposures(
                             weekdayIndex = weekdayIdx,
                             fractionalSets = dose,
                             workoutName = workout.name,
-                            sessionType = sessionType,
+                            // Not structure truth; adjacency helpers that need SessionTypeId
+                            // should construct exposures explicitly (tests), not parse names.
+                            sessionType = null,
                         ),
                     )
                 }
             }
         } else {
-            val resolvedSessionType = sessionType ?: SessionTypeId.FullBody
-            for (muscle in primaryMusclesForSessionType(resolvedSessionType)) {
+            // Legacy estimated path when no dose map — do not parse workout names.
+            val estimatedType = SessionTypeId.FullBody
+            for (muscle in primaryMusclesForSessionType(estimatedType)) {
                 out.add(
                     MuscleSessionExposure(
                         muscle = muscle.name,
                         weekdayIndex = weekdayIdx,
                         fractionalSets = 5.0,
                         workoutName = workout.name,
-                        sessionType = resolvedSessionType,
+                        sessionType = estimatedType,
                     ),
                 )
             }

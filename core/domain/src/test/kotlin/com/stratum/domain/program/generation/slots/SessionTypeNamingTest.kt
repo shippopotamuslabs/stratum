@@ -1,7 +1,8 @@
-package com.stratum.domain.program.generation.split
+package com.stratum.domain.program.generation.slots
 
-import com.stratum.domain.program.generation.split.SessionTypeId.Lower
-import com.stratum.domain.program.generation.split.SessionTypeId.Upper
+import com.stratum.domain.program.generation.slots.SessionTypeId.Lower
+import com.stratum.domain.program.generation.slots.SessionTypeId.Upper
+import com.stratum.domain.program.generation.split.inferSessionTypeFromWorkoutName
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

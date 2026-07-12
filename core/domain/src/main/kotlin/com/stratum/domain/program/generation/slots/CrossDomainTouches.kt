@@ -1,6 +1,6 @@
 @file:Suppress("MagicNumber", "ReturnCount", "LoopWithTooManyJumpStatements", "MatchingDeclarationName", "ComplexCondition", "MaxLineLength")
 
-package com.stratum.domain.program.generation.split
+package com.stratum.domain.program.generation.slots
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
@@ -32,6 +32,8 @@ private const val MAX_TOUCH_SLOTS_ON_LOWER_WITH_IN_DOMAIN_SPEC = 1
 /**
  * Adds optional isolation slots on sessions outside a specialized muscle's primary domain
  * so CP-SAT can allocate supplementary direct volume (e.g. arms on a lower day).
+ *
+ * Legacy session-plan path: still keyed by [SessionTypeId] for slot ids used in assembled sessions.
  */
 internal fun injectCrossDomainTouchSlots(
     sessionType: SessionTypeId,
@@ -40,22 +42,46 @@ internal fun injectCrossDomainTouchSlots(
     sessionPosition: Int? = null,
     composition: SessionComposition? = null,
 ) {
+    injectCrossDomainTouchSlots(
+        slots = slots,
+        context = context,
+        sessionDomain = sessionTrainingDomain(sessionType),
+        sessionPosition = sessionPosition,
+        composition = composition,
+        touchSlotId = { muscle -> "touch-${muscle.name.lowercase()}-${sessionType.name.lowercase()}" },
+    )
+}
+
+/**
+ * Domain-driven cross-domain touch injection (no [SessionTypeId] in identity).
+ * Used by universe construction and any caller that only has region/domain context.
+ */
+internal fun injectCrossDomainTouchSlots(
+    slots: MutableList<WorkoutSlotTemplate>,
+    context: ProgramGenerationContext,
+    sessionDomain: TrainingDomain?,
+    sessionPosition: Int? = null,
+    composition: SessionComposition? = null,
+    touchSlotId: (MuscleGroup) -> String = { muscle -> "touch-${muscle.name.lowercase()}" },
+) {
     val sessionPrimaries = slots.map { it.primaryMuscle }.toSet()
     val patternsByMuscle = availablePatternsByMuscle(context)
     var touchCount = slots.count { it.isCrossDomainTouch }
-    val touchBudget = maxTouchSlotsForSession(sessionType, slots, context, composition)
+    val touchBudget = maxTouchSlotsForDomain(sessionDomain, slots, context, composition)
 
     for ((muscle, level) in context.specialization) {
         if (level != SpecializationLevel.Specialize) continue
         if (muscle in sessionPrimaries) continue
-        if (muscle == MuscleGroup.Calf && !allowsCalfCrossDomainTouch(sessionType, sessionPosition, context, composition)) {
+        if (muscle == MuscleGroup.Calf &&
+            !allowsCalfCrossDomainTouch(sessionDomain, sessionPosition, context, composition)
+        ) {
             continue
         }
         if (touchCount >= touchBudget) break
         if (slots.any { it.isCrossDomainTouch && it.primaryMuscle == muscle }) continue
 
         val pattern = resolveTouchPattern(muscle.name, patternsByMuscle) ?: continue
-        val slotId = "touch-${muscle.name.lowercase()}-${sessionType.name.lowercase()}"
+        val slotId = touchSlotId(muscle)
         if (slots.any { it.slotId == slotId }) continue
 
         val touchSlot = WorkoutSlotTemplate(
@@ -70,6 +96,57 @@ internal fun injectCrossDomainTouchSlots(
         slots.add(insertAt, touchSlot)
         touchCount++
     }
+}
+
+/**
+ * Universe-level cross-domain touches driven by [context] specialization and domain shells
+ * derived from base library catalog groups (not [SessionTypeId] names in slot ids).
+ *
+ * Domain shells align with former SOURCE_SESSION_TYPES contributions so candidate existence
+ * (which touch keys appear) matches the pre–slot-library universe. Touch [slotId]s are stable
+ * (`touch-{muscle}`); universe identity is [librarySlotKey] / pattern|muscle|role|touch|variant.
+ */
+internal fun crossDomainTouches(
+    context: ProgramGenerationContext,
+): List<WorkoutSlotTemplate> {
+    // Shells mirror the five former source catalogs + compositions used by buildSlotUniverse.
+    data class DomainShell(
+        val templates: List<WorkoutSlotTemplate>,
+        val domain: TrainingDomain?,
+        val composition: SessionComposition?,
+        val sessionPosition: Int = 0,
+    )
+
+    val shells =
+        listOf(
+            DomainShell(UPPER_SLOTS, TrainingDomain.Upper, SessionComposition.UpperBalanced, sessionPosition = 0),
+            DomainShell(LOWER_SLOTS, TrainingDomain.Lower, SessionComposition.LowerPrimary, sessionPosition = 0),
+            DomainShell(FULL_BODY_SLOTS, domain = null, composition = null, sessionPosition = 0),
+            DomainShell(UPPER_PUSH_SLOTS, TrainingDomain.Upper, composition = null, sessionPosition = 0),
+            DomainShell(UPPER_PULL_SLOTS, TrainingDomain.Upper, composition = null, sessionPosition = 0),
+        )
+
+    val byKey = linkedMapOf<String, WorkoutSlotTemplate>()
+    for (shell in shells) {
+        val shellSlots = shell.templates.map { it.copy() }.toMutableList()
+        promoteSpecializedSlots(shellSlots, context)
+        injectCrossDomainTouchSlots(
+            slots = shellSlots,
+            context = context,
+            sessionDomain = shell.domain,
+            sessionPosition = shell.sessionPosition,
+            composition = shell.composition,
+            touchSlotId = { muscle -> "touch-${muscle.name.lowercase()}" },
+        )
+        for (slot in shellSlots) {
+            if (!slot.isCrossDomainTouch) continue
+            val key = librarySlotKey(slot)
+            if (key !in byKey) {
+                byKey[key] = slot
+            }
+        }
+    }
+    return byKey.values.toList()
 }
 
 private fun resolveTouchPattern(
@@ -115,14 +192,14 @@ private fun touchSlotInsertIndex(
  * recovery streaks — one upper slot per cycle plus lower-day isolation is enough.
  */
 private fun allowsCalfCrossDomainTouch(
-    sessionType: SessionTypeId,
+    sessionDomain: TrainingDomain?,
     sessionPosition: Int?,
     context: ProgramGenerationContext,
     composition: SessionComposition? = null,
 ): Boolean {
     if (composition == SessionComposition.UpperSpecFocused) return true
     if (context.trainingDaysPerWeek < 5) return true
-    if (sessionTrainingDomain(sessionType) != TrainingDomain.Upper) return true
+    if (sessionDomain != TrainingDomain.Upper) return true
     if (sessionPosition == null) return true
     // Alternating lower-first weekly cycles place the first upper at index 1.
     return sessionPosition == 1
@@ -137,11 +214,18 @@ internal fun maxTouchSlotsForSession(
     slots: List<WorkoutSlotTemplate>,
     context: ProgramGenerationContext,
     composition: SessionComposition? = null,
+): Int = maxTouchSlotsForDomain(sessionTrainingDomain(sessionType), slots, context, composition)
+
+internal fun maxTouchSlotsForDomain(
+    sessionDomain: TrainingDomain?,
+    slots: List<WorkoutSlotTemplate>,
+    context: ProgramGenerationContext,
+    composition: SessionComposition? = null,
 ): Int {
     if (composition == SessionComposition.LowerWithUpperTouch) {
         return MAX_TOUCH_SLOTS_PER_SESSION
     }
-    if (sessionTrainingDomain(sessionType) != TrainingDomain.Lower) {
+    if (sessionDomain != TrainingDomain.Lower) {
         return MAX_TOUCH_SLOTS_PER_SESSION
     }
     val hasInDomainSpecialized =

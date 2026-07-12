@@ -19,8 +19,8 @@ import com.stratum.domain.program.generation.reference.MuscleSessionStress
 import com.stratum.domain.program.generation.reference.calendarDayIndexGap
 import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.swap.alternativesForLift
-import com.stratum.domain.program.generation.split.SessionTypeId
-import com.stratum.domain.program.generation.split.inferSessionTypeFromWorkoutName
+import com.stratum.domain.program.generation.volume.TrainingDomain
+import com.stratum.domain.program.generation.volume.muscleTrainingDomain
 
 private val LOWER_FORBIDDEN_PRIMARY_PATTERNS = setOf(
     MovementPattern.VerticalPull,
@@ -97,7 +97,11 @@ private fun resolveWorkoutCollisions(
                     .firstOrNull { candidate ->
                         candidate !in previousLiftIds &&
                             candidate !in currentLiftIds &&
-                            isReplacementAppropriateForWorkout(workout, context.liftsById[candidate])
+                            isReplacementAppropriateForWorkout(
+                                workout,
+                                context.liftsById[candidate],
+                                context,
+                            )
                     }
             if (replacement != null) {
                 currentLiftIds.remove(liftId)
@@ -149,7 +153,11 @@ private fun resolveMetadataMuscleExposure(
             alternativesForLift(context, liftId, emptyList())
                 .firstOrNull { candidate ->
                     candidate !in currentLiftIds &&
-                        isReplacementAppropriateForWorkout(workout, context.liftsById[candidate]) &&
+                        isReplacementAppropriateForWorkout(
+                            workout,
+                            context.liftsById[candidate],
+                            context,
+                        ) &&
                         !replacementStressesMuscle(context.liftsById[candidate], muscleHere)
                 }
         if (replacement != null) {
@@ -225,12 +233,38 @@ private fun workoutMetadataMuscleVolume(
     return totals
 }
 
+/**
+ * Whether [lift] is an appropriate collision/exposure replacement for [workout].
+ *
+ * Uses **existing lift metadata** (primary-muscle training domain), not workout names.
+ * Names are polish (LLM rename) and must not gate recovery/variety behavior.
+ */
 private fun isReplacementAppropriateForWorkout(
     workout: Workout,
     lift: LiftContext?,
+    context: ProgramGenerationContext,
 ): Boolean {
     if (lift == null) return false
-    val sessionType = inferSessionTypeFromWorkoutName(workout.name) ?: return true
-    if (sessionType != SessionTypeId.Lower) return true
+    if (!workoutIsLowerDominant(workout, context)) return true
     return lift.movementPattern !in LOWER_FORBIDDEN_PRIMARY_PATTERNS
+}
+
+/** True when primary-muscle credits on the workout skew lower (or exclusively lower). */
+private fun workoutIsLowerDominant(
+    workout: Workout,
+    context: ProgramGenerationContext,
+): Boolean {
+    var lower = 0
+    var upper = 0
+    for (workoutLift in workout.workoutLifts) {
+        val meta = context.liftsById[workoutLift.liftId.value] ?: continue
+        for (muscle in meta.primaryMuscles) {
+            when (muscleTrainingDomain(muscle.name)) {
+                TrainingDomain.Lower -> lower++
+                TrainingDomain.Upper -> upper++
+            }
+        }
+    }
+    if (lower == 0 && upper == 0) return false
+    return lower >= upper
 }
