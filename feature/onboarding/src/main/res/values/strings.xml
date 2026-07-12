@@ -53,9 +53,9 @@
     <!-- Schedule -->
     <string name="schedule_weekdays_heading">Training days</string>
     <string name="schedule_session_length_heading">Desired Session Length</string>
-    <string name="schedule_session_preset_45">45 min</string>
-    <string name="schedule_session_preset_60">60 min</string>
-    <string name="schedule_session_preset_75">75 min</string>
+    <string name="schedule_session_preset_short">20–40</string>
+    <string name="schedule_session_preset_medium">40–60</string>
+    <string name="schedule_session_preset_long">60–90</string>
     <string name="schedule_session_custom">Custom</string>
     <string name="schedule_session_hours_label">Hours</string>
     <string name="schedule_session_minutes_label">Min</string>

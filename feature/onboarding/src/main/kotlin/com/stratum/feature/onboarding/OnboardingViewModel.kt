@@ -174,7 +174,15 @@ class OnboardingViewModel @Inject constructor(
                     ),
                     customMode = true,
                 )
-                else -> SessionLengthEdit.Active(minutes = value.toIntOrNull(), customMode = false)
+                // Band keys (20-40 / 40-60 / 60-90) → soft-aim midpoint minutes
+                else -> {
+                    val draft =
+                        ScheduleDraftUi(sessionLengthSelection = value)
+                    SessionLengthEdit.Active(
+                        minutes = draft.resolvedSessionMinutes,
+                        customMode = false,
+                    )
+                }
             },
         )
     }
