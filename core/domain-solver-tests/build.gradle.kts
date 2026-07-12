@@ -1,27 +1,20 @@
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.jvm)
 }
 
-android {
-    namespace = "com.stratum.domain.solver.tests"
-    compileSdk {
-        version = release(37)
-    }
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
 
-    defaultConfig {
-        minSdk = 34
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+kotlin {
+    jvmToolchain(17)
 }
 
 dependencies {
-    implementation(project(":core:domain"))
-    implementation(project(":core:domain-solver"))
-    implementation(libs.ortools.java)
+    testImplementation(project(":core:domain"))
+    testImplementation(project(":core:domain-solver"))
+    testImplementation(libs.ortools.java)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test.junit5)
@@ -32,8 +25,8 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
-// Slow/synthesis tests are separated and disabled by default during standard unit tests.
-// Run them explicitly via: ./gradlew :core:domain-solver-tests:testDebugUnitTest -PrunSolverTests=true
+// Slow/synthesis tests are disabled by default during standard unit tests.
+// Run them explicitly via: ./gradlew :core:domain-solver-tests:test -PrunSolverTests=true
 val runSolverTests = project.hasProperty("runSolverTests")
 
 tasks.withType<Test>().configureEach {

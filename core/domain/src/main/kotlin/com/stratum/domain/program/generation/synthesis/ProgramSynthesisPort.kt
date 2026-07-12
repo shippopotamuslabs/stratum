@@ -16,10 +16,13 @@ data class ProgramSynthesisResult(
 )
 
 interface ProgramSynthesisPort {
-    fun synthesize(
+    suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
         context: ProgramGenerationContext,
     ): ProgramSynthesisResult
 }
 
-class ProgramSynthesisException(message: String) : RuntimeException(message)
+class ProgramSynthesisException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)

@@ -30,18 +30,10 @@ android {
         applicationId = "com.aether.stratum"
         minSdk = 34
         targetSdk = 37
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // OR-Tools natives ship only as arm64-v8a (:core:domain-solver jniLibs). Without this
-        // filter, x86_64 emulators install the app as primaryCpuAbi=x86_64 and System.loadLibrary
-        // cannot resolve libjniortools.so — generation fails instantly. arm64-only forces the
-        // process onto the ARM translation layer (or a real arm64 device/image) where the .so loads.
-        ndk {
-            abiFilters += listOf("arm64-v8a")
-        }
     }
 
     signingConfigs {
@@ -84,11 +76,6 @@ android {
                 "META-INF/NOTICE",
                 "META-INF/NOTICE.txt",
                 "META-INF/*.kotlin_module",
-                "ortools-linux-x86-64/**",
-                "ortools-darwin-x86-64/**",
-                "ortools-win32-x86-64/**",
-                "ortools-darwin-aarch64/**",
-                "ortools-linux-aarch64/**",
             )
         }
     }
@@ -96,7 +83,6 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
-    implementation(project(":core:domain-solver"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
     implementation(project(":core:inference"))

@@ -10,6 +10,10 @@ import { nameGeneratedProgram } from "./program-naming/nameGeneratedProgram";
 import { startProgramTemplateImport } from "./program-import/startProgramTemplateImport";
 import { getProgramTemplateJobStatus } from "./program-import/getProgramTemplateJobStatus";
 import { processProgramTemplateJob } from "./program-import/processProgramTemplateJob";
+import { startProgramSynthesis } from "./program-synthesis/startProgramSynthesis";
+import { getProgramSynthesisStatus } from "./program-synthesis/getProgramSynthesisStatus";
+import { processProgramSynthesisJob } from "./program-synthesis/processProgramSynthesisJob";
+import { onSynthesisJobWritten } from "./program-synthesis/onSynthesisQuota";
 
 admin.initializeApp();
 
@@ -25,4 +29,8 @@ export {
   startProgramTemplateImport,
   getProgramTemplateJobStatus,
   processProgramTemplateJob,
+  startProgramSynthesis,
+  getProgramSynthesisStatus,
+  processProgramSynthesisJob,
+  onSynthesisJobWritten,
 };
