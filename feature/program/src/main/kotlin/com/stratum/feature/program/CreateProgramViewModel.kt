@@ -373,6 +373,8 @@ class CreateProgramViewModel @Inject constructor(
     fun addDay() {
         val id = UUID.randomUUID().toString()
         _uiState.update { state ->
+            // Cap at one Mon–Sun week; multi-week rotating splits are not supported yet.
+            if (!state.canAddDay) return@update state
             val position = state.days.size
             val day =
                 CreateProgramDayUi(

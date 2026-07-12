@@ -27,6 +27,14 @@ enum class CreateProgramGenerateState {
     Error,
 }
 
+/**
+ * Maximum day tabs in the create/edit program editor.
+ *
+ * Day tabs map onto a single Mon–Sun calendar week. Multi-week / rotating splits longer than
+ * 7 slots are not implemented yet — the editor blocks adding past this cap.
+ */
+const val MAX_CREATE_PROGRAM_DAYS = 7
+
 data class CreateProgramDayUi(
     val id: String,
     val name: String,
@@ -75,6 +83,10 @@ data class CreateProgramUiState(
                     day.editState.lifts.isNotEmpty() &&
                     day.editState.lifts.none { lift -> lift.name == PLACEHOLDER_LIFT_NAME }
             }
+
+    /** False when the Mon–Sun week is full ([MAX_CREATE_PROGRAM_DAYS] day tabs). */
+    val canAddDay: Boolean
+        get() = days.size < MAX_CREATE_PROGRAM_DAYS
 
     /** Secondary library save is only for new drafts or inactive library edits. */
     val showSaveToLibraryAction: Boolean
