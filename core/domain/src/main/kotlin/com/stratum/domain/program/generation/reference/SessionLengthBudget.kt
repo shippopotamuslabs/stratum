@@ -56,7 +56,8 @@ const val SESSION_BAND_MAX_LONG = 90
 
 /**
  * Resolve budget from persisted soft-aim minutes.
- * Known band midpoints expand to their range; any other positive value is custom (aim = max).
+ * Known band midpoints (30 / 50 / 75) expand to their range; any other positive value is custom
+ * (aim = max). Prefer not to use 30/50/75 as custom values — UI bands own those midpoints.
  */
 fun sessionLengthBudget(sessionLengthMinutes: Int?): SessionLengthBudget? {
     if (sessionLengthMinutes == null || sessionLengthMinutes <= 0) return null

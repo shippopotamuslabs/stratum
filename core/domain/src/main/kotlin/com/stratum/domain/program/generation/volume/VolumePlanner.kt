@@ -79,7 +79,7 @@ fun weeklySessionCountsByDomain(context: ProgramGenerationContext): WeeklySessio
 }
 
 /** Soft per-session hard-set aim (band midpoint) for informational domain budgets. */
-internal fun perSessionHardSetCap(context: ProgramGenerationContext): Int? =
+internal fun perSessionHardSetAim(context: ProgramGenerationContext): Int? =
     sessionAimHardSetsForLength(context.sessionLengthMinutes)
 
 /** Per-domain weekly hard-set budget from session length × domain session count (informational). */
@@ -87,7 +87,7 @@ fun domainWeeklyBudget(
     context: ProgramGenerationContext,
     domain: TrainingDomain,
 ): Int? {
-    val perSession = perSessionHardSetCap(context) ?: return null
+    val perSession = perSessionHardSetAim(context) ?: return null
     val counts = weeklySessionCountsByDomain(context)
     val dedicated = if (domain == TrainingDomain.Lower) counts.lower else counts.upper
     val mixedShare = counts.mixed * 0.5

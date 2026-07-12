@@ -27,6 +27,7 @@ import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGa
 import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.reference.trainingDayPairsForRecoveryCheck
 import com.stratum.domain.program.generation.reference.frequencyTierForWeeklySets
+import com.stratum.domain.program.generation.reference.DURATION_TRIM_GRACE_MINUTES
 import com.stratum.domain.program.generation.reference.sessionDurationBudgetMinutes
 import com.stratum.domain.program.generation.split.trainingWeekdayIndices
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
@@ -122,8 +123,9 @@ fun validateWorkoutDuration(
     if (sessionLength == null || sessionLength <= 0) return emptyList()
     val minutes = estimatedMinutes
         ?: program.workouts.map { workout -> countWorkoutHardSets(workout) * MINUTES_PER_HARD_SET }
-    // Band max (+ grace is for trim only); validation flags over the hard max minutes.
-    val budget = sessionDurationBudgetMinutes(sessionLength).toDouble()
+    // Align with post-pass: allow band max + grace (same as sessionTrimHardSets).
+    val maxMinutes = sessionDurationBudgetMinutes(sessionLength)
+    val budget = (maxMinutes + DURATION_TRIM_GRACE_MINUTES).toDouble()
     val issues = mutableListOf<ValidationIssue>()
     program.workouts.forEachIndexed { index, workout ->
         val estimate = minutes.getOrElse(index) { 0.0 }
@@ -132,11 +134,13 @@ fun validateWorkoutDuration(
                 code = "WORKOUT_DURATION_EXCEEDED",
                 severity = ValidationSeverity.Error,
                 message = "Workout \"${workout.name ?: index}\" estimated ${"%.1f".format(estimate)} min " +
-                    "exceeds max session budget ${"%.0f".format(budget)} min.",
+                    "exceeds session budget ${"%.0f".format(budget)} min " +
+                    "(max $maxMinutes + ${DURATION_TRIM_GRACE_MINUTES}m grace).",
                 details = mapOf(
                     "workoutIndex" to index,
                     "estimatedMinutes" to estimate,
                     "budgetMinutes" to budget,
+                    "maxMinutes" to maxMinutes,
                     "aimMinutes" to sessionLength,
                 ),
             )
