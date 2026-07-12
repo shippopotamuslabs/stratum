@@ -38,6 +38,7 @@ import com.stratum.domain.training.ComputePersonalRecordsUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.domain.training.UpdateLoggedSetUseCase
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
@@ -336,6 +337,7 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
                 loggingPort = FakeLoggingPort(),
             ),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
@@ -386,6 +388,7 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
                 loggingPort = FakeLoggingPort(),
             ),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
@@ -437,6 +440,7 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
                 loggingPort = FakeLoggingPort(),
             ),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
@@ -750,6 +754,61 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("S7-amend-completed-set-updates-without-insert-or-SetLogged")
+    fun `S7-amend-completed-set-updates-without-insert-or-SetLogged`() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.uiState.test {
+            awaitLoaded()
+            viewModel.events.test {
+                viewModel.logSet(
+                    slotKey = liftSetId.value,
+                    weight = lb(135.0),
+                    reps = 5,
+                    rir = 2,
+                )
+                advanceUntilIdle()
+                assertEquals(1, trainingLogRepository.insertSetCallCount)
+                val firstEvent = awaitItem()
+                assertEquals(
+                    com.stratum.feature.workout.ui.WorkoutUiEvent.SetLogged(liftSetId.value),
+                    firstEvent,
+                )
+
+                viewModel.logSet(
+                    slotKey = liftSetId.value,
+                    weight = lb(140.0),
+                    reps = 6,
+                    rir = 1,
+                )
+                advanceUntilIdle()
+                // Amend emits SetAmended (draft rollback signal) but not SetLogged (no rest).
+                val amendEvent = awaitItem()
+                assertEquals(
+                    com.stratum.feature.workout.ui.WorkoutUiEvent.SetAmended(liftSetId.value),
+                    amendEvent,
+                )
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+            val amended = viewModel.uiState.value as WorkoutUiState.Loaded
+            val set = amended.lifts.first().sets.first()
+            assertEquals("140", set.loggedWeightLabel)
+            assertEquals("6", set.loggedRepsLabel)
+            assertTrue(set.isComplete)
+            assertEquals(1, trainingLogRepository.insertSetCallCount)
+            val allSets = trainingLogRepository.getAllSets()
+            assertEquals(1, allSets.size, "amend must not insert a duplicate logged set")
+            assertEquals(140.0, allSets.single().weight.amount, 0.001)
+            assertEquals(6, allSets.single().reps)
+            assertEquals(1, allSets.single().rir)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("S7-add-delete-undo-mutate-overlay")
     fun `S7-add-delete-undo-mutate-overlay`() = runTest {
         val viewModel = buildViewModel()
@@ -1022,6 +1081,7 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
                 loggingPort = FakeLoggingPort(),
             ),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
@@ -1084,6 +1144,7 @@ class WorkoutViewModelTest {
                 loggedLiftContextFactory = DefaultLoggedLiftContextFactory(),
                 loggingPort = FakeLoggingPort(),
             ),
+            updateLoggedSet = UpdateLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),

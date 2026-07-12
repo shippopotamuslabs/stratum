@@ -48,7 +48,9 @@ data class SetLogKeyboardSession(
     val setKey: String,
     val field: SetLogKeyboardField,
     val showWeightInput: Boolean,
-    val canComplete: Boolean,
+    /** Static rec flags for live [canCompleteSetLog] while buffers change under the pad. */
+    val hasWeightRecommendation: Boolean,
+    val hasRepsRecommendation: Boolean,
     val onWeightChange: (String) -> Unit,
     val onRepsChange: (String) -> Unit,
     val onRirChange: (Int) -> Unit,
@@ -113,7 +115,8 @@ class SetLogKeyboardHostState {
         repsText: String,
         rir: Int,
         showWeightInput: Boolean,
-        canComplete: Boolean,
+        hasWeightRecommendation: Boolean,
+        hasRepsRecommendation: Boolean,
         onWeightChange: (String) -> Unit,
         onRepsChange: (String) -> Unit,
         onRirChange: (Int) -> Unit,
@@ -127,7 +130,8 @@ class SetLogKeyboardHostState {
                 setKey = setKey,
                 field = field,
                 showWeightInput = showWeightInput,
-                canComplete = canComplete,
+                hasWeightRecommendation = hasWeightRecommendation,
+                hasRepsRecommendation = hasRepsRecommendation,
                 onWeightChange = onWeightChange,
                 onRepsChange = onRepsChange,
                 onRirChange = onRirChange,
@@ -142,11 +146,26 @@ class SetLogKeyboardHostState {
         weightText: String,
         repsText: String,
         rir: Int,
+        hasWeightRecommendation: Boolean? = null,
+        hasRepsRecommendation: Boolean? = null,
     ) {
-        if (session?.setKey != setKey) return
+        val current = session ?: return
+        if (current.setKey != setKey) return
         this.weightText = weightText
         this.repsText = repsText
         this.rir = rir
+        val nextWeightRec = hasWeightRecommendation ?: return
+        val nextRepsRec = hasRepsRecommendation ?: return
+        val recsChanged =
+            nextWeightRec != current.hasWeightRecommendation ||
+                nextRepsRec != current.hasRepsRecommendation
+        if (recsChanged) {
+            session =
+                current.copy(
+                    hasWeightRecommendation = nextWeightRec,
+                    hasRepsRecommendation = nextRepsRec,
+                )
+        }
     }
 
     fun setField(field: SetLogKeyboardField) {
@@ -294,6 +313,14 @@ private fun SetLogKeyboardDock(
                 }
                 .fillMaxWidth(),
     ) {
+        val liveCanComplete =
+            canCompleteSetLog(
+                showWeightInput = session.showWeightInput,
+                weightText = weightBuffer,
+                hasWeightRecommendation = session.hasWeightRecommendation,
+                repsText = repsBuffer,
+                hasRepsRecommendation = session.hasRepsRecommendation,
+            )
         StratumSetLogKeyboardContent(
             modifier =
                 Modifier
@@ -305,6 +332,7 @@ private fun SetLogKeyboardDock(
             repsText = repsBuffer,
             showWeightInput = session.showWeightInput,
             allowDecimal = allowDecimal,
+            canComplete = liveCanComplete,
             onRirSelected = onRirChange,
             onDigit = { digit ->
                 val base =
@@ -329,10 +357,8 @@ private fun SetLogKeyboardDock(
                 when (
                     resolveSetLogKeyboardAction(
                         active = session.field,
-                        weightText = weightBuffer,
-                        repsText = repsBuffer,
+                        canComplete = liveCanComplete,
                         showWeightInput = session.showWeightInput,
-                        canComplete = session.canComplete,
                     )
                 ) {
                     SetLogKeyboardAction.FocusReps -> onFieldChange(SetLogKeyboardField.Reps)

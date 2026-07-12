@@ -8,5 +8,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class EquipmentProposalPrefsRecord(
+    /** Master switch for post-workout equipment-increment cards (default on). */
+    val enabled: Boolean = true,
     val dismissedFingerprints: List<String> = emptyList(),
 )

@@ -25,7 +25,9 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.settings.AppearanceUi
+import com.stratum.feature.settings.PostWorkoutSuggestionUi
 import com.stratum.feature.settings.R
+import com.stratum.feature.settings.SettingsAccountActions
 import com.stratum.feature.settings.SettingsUiState
 import com.stratum.feature.settings.ThemeFamilyUi
 
@@ -36,14 +38,10 @@ fun SettingsScreen(
     onAppearanceSelected: (AppearanceUi) -> Unit,
     onThemeFamilySelected: (ThemeFamilyUi) -> Unit,
     onCheckInsEnabledChange: (Boolean) -> Unit = {},
+    onPostWorkoutSuggestionEnabledChange: (PostWorkoutSuggestionUi, Boolean) -> Unit = { _, _ -> },
     onForceCheckInPending: () -> Unit = {},
     onLegalClick: () -> Unit = {},
-    onLogoutClick: () -> Unit = {},
-    onLogoutConfirmDismiss: () -> Unit = {},
-    onLogoutConfirmed: () -> Unit = {},
-    onDeleteAccountClick: () -> Unit = {},
-    onDeleteAccountConfirmDismiss: () -> Unit = {},
-    onDeleteAccountConfirmed: () -> Unit = {},
+    accountActions: SettingsAccountActions = SettingsAccountActions(),
     snackbarHostState: SnackbarHostState? = null,
 ) {
     val accountBusy = uiState.isLoggingOut || uiState.isDeletingAccount
@@ -113,21 +111,37 @@ fun SettingsScreen(
                 title = stringResource(R.string.settings_checkin_title),
                 description = stringResource(R.string.settings_checkin_description),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    StratumText(
-                        text = stringResource(R.string.settings_checkin_enabled),
-                        style = StratumThemeAccessor.typography.bodyLarge,
-                        modifier = Modifier.weight(1f).padding(end = 12.dp),
-                    )
-                    StratumSwitch(
-                        checked = uiState.checkInsEnabled,
-                        onCheckedChange = onCheckInsEnabledChange,
-                    )
-                }
+                SettingsSwitchRow(
+                    label = stringResource(R.string.settings_checkin_enabled),
+                    checked = uiState.checkInsEnabled,
+                    onCheckedChange = onCheckInsEnabledChange,
+                )
+            }
+
+            SettingsSection(
+                title = stringResource(R.string.settings_post_workout_title),
+                description = stringResource(R.string.settings_post_workout_description),
+            ) {
+                SettingsSwitchRow(
+                    label = stringResource(R.string.settings_equipment_proposals_enabled),
+                    checked = uiState.equipmentProposalsEnabled,
+                    onCheckedChange = { enabled ->
+                        onPostWorkoutSuggestionEnabledChange(
+                            PostWorkoutSuggestionUi.EquipmentSteps,
+                            enabled,
+                        )
+                    },
+                )
+                SettingsSwitchRow(
+                    label = stringResource(R.string.settings_rep_range_proposals_enabled),
+                    checked = uiState.repRangeProposalsEnabled,
+                    onCheckedChange = { enabled ->
+                        onPostWorkoutSuggestionEnabledChange(
+                            PostWorkoutSuggestionUi.RepRangeShift,
+                            enabled,
+                        )
+                    },
+                )
             }
 
             if (uiState.showDebugTools) {
@@ -162,7 +176,7 @@ fun SettingsScreen(
                             R.string.settings_logout
                         },
                     ),
-                    onClick = onLogoutClick,
+                    onClick = accountActions.onLogoutClick,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !accountBusy,
                     destructive = true,
@@ -175,7 +189,7 @@ fun SettingsScreen(
                             R.string.settings_delete_account
                         },
                     ),
-                    onClick = onDeleteAccountClick,
+                    onClick = accountActions.onDeleteAccountClick,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !accountBusy,
                     destructive = true,
@@ -196,8 +210,8 @@ fun SettingsScreen(
             body = stringResource(R.string.settings_logout_confirm_body),
             confirmLabel = stringResource(R.string.settings_logout_confirm),
             dismissLabel = stringResource(R.string.settings_logout_cancel),
-            onConfirm = onLogoutConfirmed,
-            onDismiss = onLogoutConfirmDismiss,
+            onConfirm = accountActions.onLogoutConfirmed,
+            onDismiss = accountActions.onLogoutConfirmDismiss,
             destructiveConfirm = true,
             confirmEnabled = !accountBusy,
         )
@@ -209,8 +223,8 @@ fun SettingsScreen(
             body = stringResource(R.string.settings_delete_account_confirm_body),
             confirmLabel = stringResource(R.string.settings_delete_account_confirm),
             dismissLabel = stringResource(R.string.settings_delete_account_cancel),
-            onConfirm = onDeleteAccountConfirmed,
-            onDismiss = onDeleteAccountConfirmDismiss,
+            onConfirm = accountActions.onDeleteAccountConfirmed,
+            onDismiss = accountActions.onDeleteAccountConfirmDismiss,
             destructiveConfirm = true,
             confirmEnabled = !accountBusy,
         )
@@ -237,5 +251,28 @@ private fun SettingsSection(
             style = StratumThemeAccessor.typography.sectionLabel,
         )
         content()
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        StratumText(
+            text = label,
+            style = StratumThemeAccessor.typography.bodyLarge,
+            modifier = Modifier.weight(1f).padding(end = 12.dp),
+        )
+        StratumSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }

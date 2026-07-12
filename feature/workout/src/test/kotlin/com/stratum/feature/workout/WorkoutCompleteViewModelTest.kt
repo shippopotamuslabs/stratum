@@ -3,12 +3,19 @@ package com.stratum.feature.workout
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
+import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
+import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
+import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.onboarding.FakeEquipmentRepository
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.core.testing.workout.FakeRepRangeShiftProposalPreferences
+import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.domain.lift.ApplyEquipmentIncrementProposalUseCase
@@ -27,6 +34,8 @@ import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
+import com.stratum.domain.workout.ApplyRepRangeShiftUseCase
 import com.stratum.feature.workout.ui.WorkoutCompleteUiState
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -143,6 +152,67 @@ class WorkoutCompleteViewModelTest {
             assertEquals("1:00:00", loaded.durationFormatted)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("Given steep fatigue + weak last set when loaded then rep-range card is mapped")
+    fun mapsRepRangeProposalCard() = runTest {
+        val harness = buildRepRangeHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertEquals(1, loaded.repRangeProposals.size)
+        val card = loaded.repRangeProposals.single()
+        assertTrue(card.id.startsWith("rrs:"))
+        assertEquals("Barbell Bench Press", card.liftName)
+        assertEquals("8–10", card.currentBand)
+        assertTrue(card.proposedBand.isNotBlank())
+        assertFalse(card.isApplying)
+    }
+
+    @Test
+    @DisplayName("Given rep-range proposal when accept then template band updates and card removes")
+    fun acceptRepRangeAppliesAndRemoves() = runTest {
+        val harness = buildRepRangeHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val before = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        val card = before.repRangeProposals.single()
+        harness.viewModel.onAcceptRepRangeShift(card.id)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertTrue(loaded.repRangeProposals.isEmpty())
+        assertNotNull(loaded.userMessage)
+        val updated =
+            harness.programRepo.current!!
+                .workouts
+                .single()
+                .workoutLifts
+                .single()
+        assertEquals(true, updated.sets[0].repMin > 8)
+    }
+
+    @Test
+    @DisplayName("Given rep-range proposal when not now then fingerprint dismissed on shared prefs")
+    fun notNowRepRangeDismissesFingerprint() = runTest {
+        val harness = buildRepRangeHarness()
+        harness.viewModel.loadSummary(harness.sessionId)
+        advanceUntilIdle()
+
+        val id =
+            (harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded)
+                .repRangeProposals
+                .single()
+                .id
+        harness.viewModel.onNotNowProposal(id)
+        advanceUntilIdle()
+
+        val loaded = harness.viewModel.uiState.value as WorkoutCompleteUiState.Loaded
+        assertTrue(loaded.repRangeProposals.isEmpty())
+        assertTrue(id in harness.repRangePrefs.dismissedFingerprints)
     }
 
     @Test
@@ -333,6 +403,190 @@ class WorkoutCompleteViewModelTest {
         val sessionId: String,
     )
 
+    private data class RepRangeHarness(
+        val viewModel: WorkoutCompleteViewModel,
+        val programRepo: FakeProgramRepository,
+        val repRangePrefs: FakeRepRangeShiftProposalPreferences,
+        val sessionId: String,
+    )
+
+    /**
+     * Multi-session steep fatigue + current last set under floor on a 4-set 8–10 Double lift.
+     */
+    private fun buildRepRangeHarness(): RepRangeHarness {
+        val sessionId = "ts-rrs-vm"
+        val wlId = com.stratum.domain.program.identity.WorkoutLiftId("wl-bench-vm")
+        val program =
+            WorkoutLoggingFixtures.twoWorkoutProgram(
+                workouts =
+                    listOf(
+                        com.stratum.domain.program.Workout(
+                            id = WorkoutLoggingFixtures.workoutAId,
+                            programId = WorkoutLoggingFixtures.programId,
+                            name = "Workout A",
+                            weekday = com.stratum.domain.onboarding.Weekday.Monday,
+                            position = 0,
+                            workoutLifts =
+                                listOf(
+                                    com.stratum.domain.program.WorkoutLift(
+                                        id = wlId,
+                                        workoutId = WorkoutLoggingFixtures.workoutAId,
+                                        liftId = WorkoutLoggingFixtures.liftBenchId,
+                                        progressionScheme =
+                                            com.stratum.domain.program.ProgressionScheme.Double,
+                                        position = 0,
+                                        sets =
+                                            (0 until 4).map { index ->
+                                                com.stratum.domain.program.LiftSet(
+                                                    id =
+                                                        com.stratum.domain.program.identity.LiftSetId(
+                                                            "ls-$index",
+                                                        ),
+                                                    workoutLiftId = wlId,
+                                                    position = index,
+                                                    setType =
+                                                        com.stratum.domain.program.SetType.Standard,
+                                                    repMin = if (index == 0) 8 else 0,
+                                                    repMax = if (index == 0) 10 else 0,
+                                                    rirGoal = if (index == 0) 2 else 1,
+                                                    isTopSet = index == 0,
+                                                )
+                                            },
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val programRepo = FakeProgramRepository(program)
+        val logRepo = FakeTrainingLogRepository(programRepository = programRepo)
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        // Seed history + current via runBlocking is awkward in sync factory — use
+        // initial sessions/sets constructed inline after coroutine-free inserts.
+        // FakeTrainingLogRepository seed methods are suspend; use constructor seeds.
+        val histSessions =
+            (1..3).map { sessionIndex ->
+                WorkoutLoggingFixtures.completedLiveSession(
+                    id = "ts-hist-$sessionIndex",
+                ).copy(
+                    startedAt = t0.plusSeconds(sessionIndex * 86_400L),
+                    endedAt = t0.plusSeconds(sessionIndex * 86_400L + 3600),
+                )
+            }
+        val histSets =
+            histSessions.flatMap { session ->
+                listOf(14, 11, 8).mapIndexed { setIndex, reps ->
+                    LoggedSet(
+                        id = LoggedSetId("${session.id.value}-$setIndex"),
+                        sessionId = session.id,
+                        exerciseNameRaw = "Bench Press",
+                        liftId = WorkoutLoggingFixtures.liftBenchId,
+                        setIndex = setIndex,
+                        weight = Weight(135.0, lb),
+                        reps = reps,
+                        rir = 0,
+                        completedAt = session.startedAt.plusSeconds(setIndex * 120L),
+                        liftContext =
+                            com.stratum.domain.training.LoggedLiftContext(
+                                liftName = "Barbell Bench Press",
+                                workoutLiftId = wlId,
+                            ),
+                    )
+                }
+            }
+        val current =
+            WorkoutLoggingFixtures.completedLiveSession(id = sessionId).copy(
+                startedAt = t0.plusSeconds(10 * 86_400L),
+                endedAt = t0.plusSeconds(10 * 86_400L + 3600),
+            )
+        val currentSets =
+            listOf(8, 6, 5, 3).mapIndexed { setIndex, reps ->
+                LoggedSet(
+                    id = LoggedSetId("cur-$setIndex"),
+                    sessionId = current.id,
+                    exerciseNameRaw = "Bench Press",
+                    liftId = WorkoutLoggingFixtures.liftBenchId,
+                    setIndex = setIndex,
+                    weight = Weight(135.0, lb),
+                    reps = reps,
+                    rir = 2,
+                    completedAt = current.startedAt.plusSeconds(setIndex * 120L),
+                    liftContext =
+                        com.stratum.domain.training.LoggedLiftContext(
+                            liftName = "Barbell Bench Press",
+                            workoutLiftId = wlId,
+                        ),
+                )
+            }
+        val allSessions = histSessions + current
+        val allSets = histSets + currentSets
+        val seededLog =
+            FakeTrainingLogRepository(
+                initialSessions = allSessions,
+                initialSets = allSets,
+                programRepository = programRepo,
+            )
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
+        val equipmentRepo = FakeEquipmentRepository()
+        val equipPrefs = FakeEquipmentProposalPreferences()
+        val repRangePrefs = FakeRepRangeShiftProposalPreferences()
+        val logging = FakeLoggingPort()
+        val insightsRepo = FakeLiftTrainingInsightsRepository()
+        val viewModel =
+            WorkoutCompleteViewModel(
+                getWorkoutSummary =
+                    GetWorkoutSummaryUseCase(
+                        seededLog,
+                        programRepo,
+                        ObserveLiftCatalogUseCase(liftRepo),
+                        logging,
+                    ),
+                analyzeSessionEquipmentProposals =
+                    AnalyzeSessionEquipmentProposalsUseCase(
+                        trainingLogRepository = seededLog,
+                        liftRepository = liftRepo,
+                        equipmentRepository = equipmentRepo,
+                        preferences = equipPrefs,
+                        loggingPort = logging,
+                    ),
+                applyEquipmentIncrementProposal =
+                    ApplyEquipmentIncrementProposalUseCase(
+                        equipmentRepository = equipmentRepo,
+                        liftRepository = liftRepo,
+                        validate = ValidateIncrementTiersUseCase(),
+                        loggingPort = logging,
+                    ),
+                equipmentProposalPreferences = equipPrefs,
+                analyzeSessionRepRangeShiftProposals =
+                    AnalyzeSessionRepRangeShiftProposalsUseCase(
+                        trainingLogRepository = seededLog,
+                        programRepository = programRepo,
+                        liftTrainingInsightsRepository = insightsRepo,
+                        liftRepository = liftRepo,
+                        preferences = repRangePrefs,
+                        extractTrainingInsights =
+                            ExtractTrainingInsightsUseCase(
+                                trainingLogRepository = seededLog,
+                                liftTrainingInsightsRepository = insightsRepo,
+                                supersetAffinityRepository = FakeSupersetAffinityRepository(),
+                                muscleVolumeBaselineRepository =
+                                    FakeMuscleVolumeBaselineRepository(),
+                                importAnalysisMetadataRepository =
+                                    FakeImportAnalysisMetadataRepository(),
+                                liftRepository = liftRepo,
+                            ),
+                        loggingPort = logging,
+                    ),
+                applyRepRangeShift =
+                    ApplyRepRangeShiftUseCase(
+                        programRepository = programRepo,
+                        programChangeEventRepository = FakeProgramChangeEventRepository(),
+                        loggingPort = logging,
+                    ),
+                repRangeShiftProposalPreferences = repRangePrefs,
+            )
+        return RepRangeHarness(viewModel, programRepo, repRangePrefs, sessionId)
+    }
+
     /**
      * Off-lattice cable lat work on a high-inheritor seed so analyze emits a Fork-primary
      * proposal with Amend as alternative (blast-radius confirm path).
@@ -385,7 +639,9 @@ class WorkoutCompleteViewModelTest {
         liftRepo.seedLifts(lifts)
         liftRepo.equipmentNamesById = mapOf(cableId to "Cables")
         val prefs = FakeEquipmentProposalPreferences()
+        val repRangePrefs = FakeRepRangeShiftProposalPreferences()
         val logging = FakeLoggingPort()
+        val insightsRepo = FakeLiftTrainingInsightsRepository()
         val viewModel =
             WorkoutCompleteViewModel(
                 getWorkoutSummary =
@@ -411,6 +667,33 @@ class WorkoutCompleteViewModelTest {
                         loggingPort = logging,
                     ),
                 equipmentProposalPreferences = prefs,
+                analyzeSessionRepRangeShiftProposals =
+                    AnalyzeSessionRepRangeShiftProposalsUseCase(
+                        trainingLogRepository = logRepo,
+                        programRepository = programRepo,
+                        liftTrainingInsightsRepository = insightsRepo,
+                        liftRepository = liftRepo,
+                        preferences = repRangePrefs,
+                        extractTrainingInsights =
+                            ExtractTrainingInsightsUseCase(
+                                trainingLogRepository = logRepo,
+                                liftTrainingInsightsRepository = insightsRepo,
+                                supersetAffinityRepository = FakeSupersetAffinityRepository(),
+                                muscleVolumeBaselineRepository =
+                                    FakeMuscleVolumeBaselineRepository(),
+                                importAnalysisMetadataRepository =
+                                    FakeImportAnalysisMetadataRepository(),
+                                liftRepository = liftRepo,
+                            ),
+                        loggingPort = logging,
+                    ),
+                applyRepRangeShift =
+                    ApplyRepRangeShiftUseCase(
+                        programRepository = programRepo,
+                        programChangeEventRepository = FakeProgramChangeEventRepository(),
+                        loggingPort = logging,
+                    ),
+                repRangeShiftProposalPreferences = repRangePrefs,
             )
         return CableHarness(viewModel, prefs, equipmentRepo, sessionId)
     }
@@ -464,7 +747,9 @@ class WorkoutCompleteViewModelTest {
         val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift()))
         val equipmentRepo = FakeEquipmentRepository()
         val prefs = FakeEquipmentProposalPreferences()
+        val repRangePrefs = FakeRepRangeShiftProposalPreferences()
         val logging = FakeLoggingPort()
+        val insightsRepo = FakeLiftTrainingInsightsRepository()
         return WorkoutCompleteViewModel(
             getWorkoutSummary =
                 GetWorkoutSummaryUseCase(
@@ -489,6 +774,32 @@ class WorkoutCompleteViewModelTest {
                     loggingPort = logging,
                 ),
             equipmentProposalPreferences = prefs,
+            analyzeSessionRepRangeShiftProposals =
+                AnalyzeSessionRepRangeShiftProposalsUseCase(
+                    trainingLogRepository = logRepo,
+                    programRepository = programRepo,
+                    liftTrainingInsightsRepository = insightsRepo,
+                    liftRepository = liftRepo,
+                    preferences = repRangePrefs,
+                    extractTrainingInsights =
+                        ExtractTrainingInsightsUseCase(
+                            trainingLogRepository = logRepo,
+                            liftTrainingInsightsRepository = insightsRepo,
+                            supersetAffinityRepository = FakeSupersetAffinityRepository(),
+                            muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
+                            importAnalysisMetadataRepository =
+                                FakeImportAnalysisMetadataRepository(),
+                            liftRepository = liftRepo,
+                        ),
+                    loggingPort = logging,
+                ),
+            applyRepRangeShift =
+                ApplyRepRangeShiftUseCase(
+                    programRepository = programRepo,
+                    programChangeEventRepository = FakeProgramChangeEventRepository(),
+                    loggingPort = logging,
+                ),
+            repRangeShiftProposalPreferences = repRangePrefs,
         )
     }
 
