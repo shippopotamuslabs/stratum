@@ -42,7 +42,7 @@ class FirestoreRemotePullEngine @Inject constructor(
      * Marks hydrated after a clean pass with zero apply failures (first time or recovery).
      */
     suspend fun pull(userId: String): Result<PullResult> =
-        runCatching {
+        try {
             val deviceId = stateStore.deviceId()
             var anyFailures = false
             for (handler in handlers.inHydrateOrder()) {
@@ -58,12 +58,20 @@ class FirestoreRemotePullEngine @Inject constructor(
             } else if (!stateStore.isHydrated(userId)) {
                 loggingPort.error(TAG, "pull incomplete; will retry failed docs before hydrated")
             }
-            PullResult(
-                hadFailures = anyFailures,
-                hydrated = stateStore.isHydrated(userId),
+            Result.success(
+                PullResult(
+                    hadFailures = anyFailures,
+                    hydrated = stateStore.isHydrated(userId),
+                ),
             )
-        }.onFailure { error ->
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            // WorkManager REPLACE / stop cancels in-flight CloudSyncWorker coroutines — not a pull
+            // failure. Never log CancellationException as error (runCatching would also swallow it
+            // incorrectly into Result.failure).
+            throw error
+        } catch (error: Exception) {
             loggingPort.error(TAG, "pull failed: ${error.message}", error)
+            Result.failure(error)
         }
 
     private data class PullCollectionResult(

@@ -150,6 +150,30 @@ internal class ProgramSynthesisModel(
         return model
     }
 
+    /**
+     * Soft warm-start: writes [seed] as incomplete CP-SAT solution hints.
+     *
+     * Only domains, days, and **positively activated** slots are hinted. Inactive slots are left
+     * free — forcing active=0/x=0 on every unused slot made the v1 seed sticky and regressed
+     * first-incumbent quality (~97M vs ~57M cold).
+     */
+    fun applyWarmStartHints(model: CpModel, seed: SynthesisSeedAssignment) {
+        for ((position, domain) in seed.domainBySession) {
+            val domainVar = unifiedStructureState.domainVarByPosition[position] ?: continue
+            model.addHint(domainVar, domain.ordinal.toLong())
+        }
+        for ((position, weekday) in seed.weekdayBySession) {
+            val dayVar = _dayVarByPosition[position] ?: continue
+            model.addHint(dayVar, weekday.toLong())
+        }
+        for (sv in _slots) {
+            val sets = seed.setsBySlotId[sv.slot.slotId] ?: continue
+            if (sets <= 0) continue
+            sv.active?.let { lit -> model.addHint(lit, true) }
+            model.addHint(sv.x, sets.toLong())
+        }
+    }
+
     fun readUnifiedSolution(
         solver: CpSolver,
         plans: List<SessionSlotPlan>,

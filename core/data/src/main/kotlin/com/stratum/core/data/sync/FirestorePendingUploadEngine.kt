@@ -33,7 +33,7 @@ class FirestorePendingUploadEngine @Inject constructor(
      * @return true when residual dirty rows or deletes may remain (caller should re-pass).
      */
     suspend fun uploadPending(userId: String): Result<Boolean> =
-        runCatching {
+        try {
             val deviceId = stateStore.deviceId()
             val writtenAt = stateStore.currentTimeMillis()
             var hitLimit = false
@@ -77,9 +77,15 @@ class FirestorePendingUploadEngine @Inject constructor(
             val deletesRemaining = flushTombstones(userId, deviceId, writtenAt)
             // Residual: limit hit, tombstones left, or cheap dirty existence (no encode).
             // Cheap hasPending covers concurrent edits that failed markSyncedIfUnchanged CAS.
-            hitLimit || deletesRemaining || handlers.inUploadOrder().any { it.hasPending() }
-        }.onFailure { error ->
+            Result.success(
+                hitLimit || deletesRemaining || handlers.inUploadOrder().any { it.hasPending() },
+            )
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            // WorkManager REPLACE cancels in-flight workers — not an upload failure.
+            throw error
+        } catch (error: Exception) {
             loggingPort.error(TAG, "uploadPending failed: ${error.message}", error)
+            Result.failure(error)
         }
 
     /**
