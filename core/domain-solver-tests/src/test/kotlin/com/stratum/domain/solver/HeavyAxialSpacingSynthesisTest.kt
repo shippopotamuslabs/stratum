@@ -14,7 +14,7 @@ import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MODERATE_
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.reference.calendarGapBetweenDays
 import com.stratum.domain.program.generation.reference.computePatternSecondaryCredits
-import com.stratum.domain.program.generation.split.SlotRole
+import com.stratum.domain.program.generation.slots.SlotRole
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import kotlinx.coroutines.runBlocking

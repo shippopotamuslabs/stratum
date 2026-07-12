@@ -2,10 +2,10 @@
 
 package com.stratum.domain.solver
 
-import com.stratum.core.testing.program.GENERATION_SCENARIOS
 import com.stratum.core.testing.program.SPECIALIZATION_PRESETS
 import com.stratum.core.testing.program.ScenarioConfig
 import com.stratum.core.testing.program.WEEKDAY_LAYOUT_SCENARIOS
+import com.stratum.core.testing.program.activeSolverScenarios
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
@@ -18,15 +18,13 @@ import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 
 /**
- * Tagged `slow` — excluded from the default `testDebugUnitTest` run. Use
- * `./gradlew :core:domain-solver:testSlow` or `-PincludeSlow` to run.
+ * Property checks on the active solver scenario matrix ([activeSolverScenarios]).
+ * Default matrix is core (~10); full cartesian with `-PfullSolverScenarios=true`.
  */
-@Tag("slow")
 class ProgramSynthesisPropertyTest {
 
     private val pipeline = testProgramGenerationPipeline(
@@ -38,7 +36,14 @@ class ProgramSynthesisPropertyTest {
     @DisplayName("synthesis: specialized muscles meet MEV and session caps hold")
     fun specializedMusclesAndCaps(config: ScenarioConfig) = runBlocking {
         val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
-        val context = parseScenarioContext(scenarioPayload(config.days, specialization))
+        val context =
+            parseScenarioContext(
+                scenarioPayload(
+                    days = config.days,
+                    specialization = specialization,
+                    weekdayLayout = config.weekdayLayout,
+                ),
+            )
         val targets = planWeeklyVolume(context)
         val program =
             pipeline.generate(
@@ -61,22 +66,24 @@ class ProgramSynthesisPropertyTest {
                 "${config.label}: $muscle volume $volume below MEV ${target.min}",
             )
         }
+        assertTrue(
+            draft.workouts.all { workout -> !workout.weekday.isNullOrBlank() },
+            "${config.label}: every workout should carry a synthesis weekday",
+        )
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("weekdayLayoutScenarios")
     @DisplayName("synthesis: alternate weekday layouts produce scheduled workouts")
     fun weekdayLayoutsProduceSchedule(config: ScenarioConfig) = runBlocking {
-        val layoutKey =
-            when {
-                config.label.contains("mwf") -> "mwf"
-                config.label.contains("spread5") -> "spread5"
-                else -> "sequential"
-            }
         val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
         val context =
             parseScenarioContext(
-                scenarioPayload(config.days, specialization, weekdayLayout = layoutKey),
+                scenarioPayload(
+                    days = config.days,
+                    specialization = specialization,
+                    weekdayLayout = config.weekdayLayout,
+                ),
             )
         val program =
             pipeline.generate(
@@ -92,11 +99,12 @@ class ProgramSynthesisPropertyTest {
     }
 
   companion object {
-        // 30s solver deadline: tight enough to catch regressions, generous enough for a valid incumbent.
-        const val SOLVER_DEADLINE_MILLIS = 30_000L
+        // Overridden by Gradle systemProperty stratum.solver.deadline (15s smoke / 30s full).
+        val SOLVER_DEADLINE_MILLIS =
+            System.getProperty("stratum.solver.deadline")?.toLongOrNull() ?: 15_000L
 
         @JvmStatic
-        fun coreScenarios(): List<ScenarioConfig> = GENERATION_SCENARIOS
+        fun coreScenarios(): List<ScenarioConfig> = activeSolverScenarios()
 
         @JvmStatic
         fun weekdayLayoutScenarios(): List<ScenarioConfig> = WEEKDAY_LAYOUT_SCENARIOS

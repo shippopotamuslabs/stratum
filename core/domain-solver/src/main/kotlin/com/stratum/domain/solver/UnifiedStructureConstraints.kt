@@ -3,16 +3,15 @@
 package com.stratum.domain.solver
 
 import com.google.ortools.sat.CpModel
-import com.google.ortools.sat.IntVar
 import com.google.ortools.sat.LinearExpr
-import com.google.ortools.sat.Literal
 import com.google.ortools.util.Domain
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
-import com.stratum.domain.program.generation.synthesis.SynthesisSessionDomain
-import com.stratum.domain.program.generation.synthesis.SynthesisSlot
-import com.stratum.domain.program.generation.synthesis.isSlotCompatibleWithDomain
+import com.stratum.domain.program.generation.structure.SessionRegionFilter
+import com.stratum.domain.program.generation.universe.SynthesisSlot
+import com.stratum.domain.program.generation.structure.isSlotCompatibleWithRegionFilter
 import com.stratum.domain.program.generation.synthesis.parseSessionSlotId
+import com.stratum.domain.program.generation.structure.regionFiltersBySessionPosition
 
 internal fun addUnifiedStructureConstraints(
     model: CpModel,
@@ -20,30 +19,46 @@ internal fun addUnifiedStructureConstraints(
     universe: List<SynthesisSlot>,
     slotVars: List<ProgramSynthesisModel.SlotVar>,
     state: UnifiedStructureState,
+    weekdays: List<String>,
 ) {
     val universeById = universe.associateBy { it.id }
+    val filtersByPosition = regionFiltersBySessionPosition(weekdays)
+    require(filtersByPosition.isNotEmpty()) {
+        "regionFiltersBySessionPosition is empty for weekdays=$weekdays"
+    }
+    require(filtersByPosition.size == plans.size) {
+        "region filter positions ${filtersByPosition.size} != session count ${plans.size} " +
+            "(weekdays=$weekdays)"
+    }
     plans.forEach { plan ->
-        val domainVar =
+        val allowed = filtersByPosition[plan.position]
+        require(allowed.isNotEmpty()) {
+            "allowed region filters empty for session position ${plan.position}"
+        }
+        val filterOrdinals = allowed.map { it.ordinal.toLong() }.sorted().toLongArray()
+        val regionFilterVar =
             model.newIntVarFromDomain(
-                Domain.fromValues(longArrayOf(0, 1, 2)),
-                "domain_${plan.position}",
+                Domain.fromValues(filterOrdinals),
+                "regionFilter_${plan.position}",
             )
-        state.domainVarByPosition[plan.position] = domainVar
+        state.regionFilterVarByPosition[plan.position] = regionFilterVar
     }
 
     val bySession = slotVars.groupBy { sv -> sv.plan.position }
     for ((sessionIndex, sessionVars) in bySession) {
-        val domainVar = state.domainVarByPosition.getValue(sessionIndex)
-        for (domain in SynthesisSessionDomain.entries) {
-            val isDomain = model.newBoolVar("isDomain_${sessionIndex}_${domain.name}")
-            model.addEquality(domainVar, domain.ordinal.toLong()).onlyEnforceIf(isDomain)
-            model.addDifferent(domainVar, domain.ordinal.toLong()).onlyEnforceIf(isDomain.not())
+        val regionFilterVar = state.regionFilterVarByPosition.getValue(sessionIndex)
+        val allowed = filtersByPosition[sessionIndex]
+        // Only branch on region filters still in the per-session search universe.
+        for (regionFilter in allowed) {
+            val isFilter = model.newBoolVar("isRegionFilter_${sessionIndex}_${regionFilter.name}")
+            model.addEquality(regionFilterVar, regionFilter.ordinal.toLong()).onlyEnforceIf(isFilter)
+            model.addDifferent(regionFilterVar, regionFilter.ordinal.toLong()).onlyEnforceIf(isFilter.not())
             for (sv in sessionVars) {
                 val active = sv.active ?: continue
                 val universeId = parseSessionSlotId(sv.slot.slotId)?.second ?: continue
                 val synthesisSlot = universeById[universeId] ?: continue
-                if (!isSlotCompatibleWithDomain(synthesisSlot, domain)) {
-                    model.addEquality(active, 0).onlyEnforceIf(isDomain)
+                if (!isSlotCompatibleWithRegionFilter(synthesisSlot, regionFilter)) {
+                    model.addEquality(active, 0).onlyEnforceIf(isFilter)
                 }
             }
         }
@@ -63,10 +78,12 @@ internal fun addUnifiedStructureConstraints(
             sessionVars.filter { sv ->
                 sv.slot.pattern in LOWER_LEG_ANCHOR_PATTERNS && sv.active != null
             }
-        if (lowerAnchors.isNotEmpty()) {
-            val isLower = model.newBoolVar("isLowerDomain_$sessionIndex")
-            model.addEquality(domainVar, SynthesisSessionDomain.Lower.ordinal.toLong()).onlyEnforceIf(isLower)
-            model.addDifferent(domainVar, SynthesisSessionDomain.Lower.ordinal.toLong()).onlyEnforceIf(isLower.not())
+        if (lowerAnchors.isNotEmpty() && SessionRegionFilter.LowerOnly in allowed) {
+            val isLower = model.newBoolVar("isLowerRegionFilter_$sessionIndex")
+            model.addEquality(regionFilterVar, SessionRegionFilter.LowerOnly.ordinal.toLong())
+                .onlyEnforceIf(isLower)
+            model.addDifferent(regionFilterVar, SessionRegionFilter.LowerOnly.ordinal.toLong())
+                .onlyEnforceIf(isLower.not())
             val anchorActiveSum =
                 LinearExpr.sum(lowerAnchors.mapNotNull { it.active }.toTypedArray())
             model.addGreaterOrEqual(anchorActiveSum, 1L).onlyEnforceIf(isLower)
