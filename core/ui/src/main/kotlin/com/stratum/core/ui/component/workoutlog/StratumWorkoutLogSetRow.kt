@@ -47,18 +47,43 @@ fun StratumWorkoutLogSetRow(
         }
 
     // Keep host drafts live while this row is composed (row may scroll but host stays mounted).
-    LaunchedEffect(set.setKey, set.weightText, set.repsText, set.rir, keyboardHost?.session?.setKey) {
+    // Also recompute live canComplete from current drafts (buffers may diverge mid-key).
+    val weightRec =
+        hasWeightRecommendation(
+            showWeightInput = set.showWeightInput,
+            recommendedWeightAmount = set.recommendedWeightAmount,
+            weightPlaceholder = set.weightPlaceholder,
+            assistMode = set.assistMode,
+        )
+    val repsRec =
+        hasRepsRecommendation(
+            recommendedReps = set.recommendedReps,
+            repsPlaceholder = set.repsPlaceholder,
+        )
+
+    LaunchedEffect(
+        set.setKey,
+        set.weightText,
+        set.repsText,
+        set.rir,
+        weightRec,
+        repsRec,
+        keyboardHost?.session?.setKey,
+    ) {
         keyboardHost?.syncValues(
             setKey = set.setKey,
             weightText = set.weightText,
             repsText = set.repsText,
             rir = set.rir,
+            hasWeightRecommendation = weightRec,
+            hasRepsRecommendation = repsRec,
         )
     }
 
-    // Dismiss keyboard if this set is completed while open.
-    LaunchedEffect(set.isComplete, set.fieldsEnabled) {
-        if ((!set.fieldsEnabled || set.isComplete) && keyboardHost?.isSetActive(set.setKey) == true) {
+    // Dismiss when fields become disabled; completed rows stay editable so do not dismiss on
+    // isComplete alone (checkbox / keyboard complete still dismiss on first commit).
+    LaunchedEffect(set.fieldsEnabled) {
+        if (!set.fieldsEnabled && keyboardHost?.isSetActive(set.setKey) == true) {
             keyboardHost.dismiss()
         }
     }
@@ -73,7 +98,8 @@ fun StratumWorkoutLogSetRow(
                 repsText = set.repsText,
                 rir = set.rir,
                 showWeightInput = set.showWeightInput,
-                canComplete = actions.onCheckedChange != null,
+                hasWeightRecommendation = weightRec,
+                hasRepsRecommendation = repsRec,
                 onWeightChange = actions.onWeightChange,
                 onRepsChange = actions.onRepsChange,
                 onRirChange = actions.onRirChange,
@@ -90,6 +116,9 @@ fun StratumWorkoutLogSetRow(
     val repsActive =
         keyboardHost?.isFieldActive(set.setKey, SetLogKeyboardField.Reps) == true
     val keyboardOpenForSet = keyboardHost?.isSetActive(set.setKey) == true
+    val checkboxEnabled =
+        actions.onCheckedChange != null &&
+            isSetLogCheckboxEnabled(isComplete = set.isComplete, canComplete = set.canComplete)
 
     val rowContent: @Composable () -> Unit = {
         Row(
@@ -126,6 +155,7 @@ fun StratumWorkoutLogSetRow(
                     enabled = set.fieldsEnabled,
                     isActive = weightActive,
                     onActivate = { openKeyboard(SetLogKeyboardField.Weight) },
+                    completed = set.isComplete,
                     modifier =
                         Modifier
                             .weight(weights.weight)
@@ -140,6 +170,7 @@ fun StratumWorkoutLogSetRow(
                 enabled = set.fieldsEnabled,
                 isActive = repsActive,
                 onActivate = { openKeyboard(SetLogKeyboardField.Reps) },
+                completed = set.isComplete,
                 modifier =
                     Modifier
                         .weight(weights.reps)
@@ -160,23 +191,12 @@ fun StratumWorkoutLogSetRow(
             if (showTrailing) {
                 Box(modifier = Modifier.weight(weights.trailing), contentAlignment = Alignment.Center) {
                     if (actions.onCheckedChange != null) {
-                        val weightMagnitude =
-                            if (set.assistMode) {
-                                kotlin.math.abs(set.recommendedWeightAmount)
-                            } else {
-                                set.recommendedWeightAmount
-                            }
-                        val isCheckboxEnabled =
-                            !set.showWeightInput ||
-                                weightMagnitude > 0.0 ||
-                                set.weightText.isNotEmpty() ||
-                                set.isComplete
                         StratumCheckbox(
                             checked = set.isComplete,
-                            enabled = isCheckboxEnabled,
+                            enabled = checkboxEnabled,
                             onCheckedChange = { checked ->
                                 if (checked && keyboardOpenForSet) {
-                                    keyboardHost?.dismiss()
+                                    keyboardHost.dismiss()
                                 }
                                 actions.onCheckedChange.invoke(checked)
                             },
