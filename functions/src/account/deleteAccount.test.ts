@@ -13,11 +13,12 @@ describe("deleteAccount helpers", () => {
     assert.equal(userFirestorePath("abc"), "users/abc");
   });
 
-  it("userStoragePrefixes covers import roots", () => {
-    assert.deepEqual(USER_STORAGE_PREFIXES, ["imports", "programImports"]);
+  it("userStoragePrefixes covers import and synthesis roots", () => {
+    assert.deepEqual(USER_STORAGE_PREFIXES, ["imports", "programImports", "synthesis"]);
     assert.deepEqual(userStoragePrefixes("uid-1"), [
       "imports/uid-1/",
       "programImports/uid-1/",
+      "synthesis/uid-1/",
     ]);
   });
 

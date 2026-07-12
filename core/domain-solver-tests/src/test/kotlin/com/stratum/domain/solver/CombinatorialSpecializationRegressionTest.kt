@@ -68,10 +68,10 @@ class CombinatorialSpecializationRegressionTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("generationScenarios")
     @DisplayName("CP-SAT synthesis: co-specialized muscles with equal aims are balanced (pre-repair)")
-    fun coSpecializedMusclesBalancedAtSynthesizer(config: ScenarioConfig) {
+    fun coSpecializedMusclesBalancedAtSynthesizer(config: ScenarioConfig) = runBlocking {
         val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
         val specialized = specialization.filterValues { it == "Specialize" }.keys.toList()
-        if (specialized.size < 2) return
+        if (specialized.size < 2) return@runBlocking
 
         val context = parseScenarioContext(scenarioPayload(config.days, specialization))
         val targets = planWeeklyVolume(context)

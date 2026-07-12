@@ -7,7 +7,7 @@ import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
-import org.junit.jupiter.api.Assertions.assertEquals
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -22,7 +22,7 @@ class WeirdCalendarFourDaySynthesisTest {
 
     @Test
     @DisplayName("weird 4-day calendar spaces chest press on Mon and Fri")
-    fun chestPressOnMaxSpacedDays() {
+    fun chestPressOnMaxSpacedDays() = runBlocking {
         val context =
             parseScenarioContext(
                 scenarioPayload(

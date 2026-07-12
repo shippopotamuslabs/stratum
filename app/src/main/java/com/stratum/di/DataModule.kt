@@ -20,8 +20,6 @@ import com.stratum.core.data.seed.AssetLiftEmbeddingCatalog
 import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import com.stratum.core.data.seed.EquipmentCatalogSeeder
 import com.stratum.core.data.seed.LiftCatalogSeeder
-import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
-import com.stratum.domain.solver.CpSatProgramSynthesizer
 import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.onboarding.OnboardingRepository
@@ -267,15 +265,6 @@ object DatabaseModule {
     fun provideLiftEquipmentCatalog(
         @ApplicationContext context: Context,
     ): LiftEquipmentCatalogPort = AssetLiftEquipmentCatalog(context)
-}
-
-@Module
-@InstallIn(SingletonComponent::class)
-object SolverModule {
-    @Provides
-    @Singleton
-    fun provideProgramSynthesisPort(): ProgramSynthesisPort =
-        CpSatProgramSynthesizer()
 }
 
 @Module
