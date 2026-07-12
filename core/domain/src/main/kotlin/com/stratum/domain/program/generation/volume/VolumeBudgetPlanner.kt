@@ -5,7 +5,7 @@ package com.stratum.domain.program.generation.volume
 import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
+import com.stratum.domain.program.generation.reference.sessionAimHardSetsForLength
 import kotlin.math.max
 import kotlin.math.round
 
@@ -47,9 +47,10 @@ internal fun applyWeeklyTimeBudgetPrecedence(
 ): WeeklyVolumeTargets {
     val sessionLength = context.sessionLengthMinutes
     if (sessionLength == null || sessionLength <= 0) return unscaled
-    val perSessionCap = checkNotNull(sessionHardSetCapForLength(sessionLength))
+    // Scale weekly aims from soft session aim (band midpoint), not hard max.
+    val perSessionAim = checkNotNull(sessionAimHardSetsForLength(sessionLength))
     val weeklyTimeBudget =
-        context.trainingDaysPerWeek * perSessionCap.toDouble() * WEEKLY_MUSCLE_AIM_OVERLAP_FACTOR
+        context.trainingDaysPerWeek * perSessionAim.toDouble() * WEEKLY_MUSCLE_AIM_OVERLAP_FACTOR
     val totalAim = unscaled.values.sumOf { target -> target.aim }
     if (totalAim <= weeklyTimeBudget) return unscaled
 

@@ -3,8 +3,8 @@
 package com.stratum.domain.program.generation.volume
 
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
-import com.stratum.domain.program.generation.split.SessionTypeId
+import com.stratum.domain.program.generation.reference.sessionAimHardSetsForLength
+import com.stratum.domain.program.generation.slots.SessionTypeId
 import kotlin.math.round
 
 private val LOWER_BODY_MUSCLES = setOf("Quad", "Hamstring", "Glute", "Calf", "LowerBack")
@@ -78,8 +78,9 @@ fun weeklySessionCountsByDomain(context: ProgramGenerationContext): WeeklySessio
     )
 }
 
+/** Soft per-session hard-set aim (band midpoint) for informational domain budgets. */
 internal fun perSessionHardSetCap(context: ProgramGenerationContext): Int? =
-    sessionHardSetCapForLength(context.sessionLengthMinutes)
+    sessionAimHardSetsForLength(context.sessionLengthMinutes)
 
 /** Per-domain weekly hard-set budget from session length × domain session count (informational). */
 fun domainWeeklyBudget(
@@ -93,16 +94,12 @@ fun domainWeeklyBudget(
     return round((dedicated + mixedShare) * perSession).toInt()
 }
 
-internal fun volumePlannerTrainableMuscles(context: ProgramGenerationContext): List<String> {
-    val patternsByMuscle = availablePatternsByMuscle(context)
-    val muscles = mutableSetOf<String>()
-    muscles.addAll(context.muscleVolumeSnapshotsByMuscle.keys)
-    muscles.addAll(context.specialization.keys.map { it.name })
-    return muscles.filter { muscle ->
-        if (specializationLevelForMuscle(muscle, context) == "Omit") return@filter false
-        (patternsByMuscle[muscle]?.size ?: 0) > 0
-    }
-}
+/**
+ * Core aim muscles with at least one enabled-lift pattern contribution.
+ * Delegates the membership set to [targetableMuscles] (MAJOR / CORE volume list only).
+ */
+internal fun volumePlannerTrainableMuscles(context: ProgramGenerationContext): List<String> =
+    trainableMuscles(context)
 
 /**
  * Plans weekly volume per muscle from MV/PV/RC snapshots. Specialized muscles aim at RC;

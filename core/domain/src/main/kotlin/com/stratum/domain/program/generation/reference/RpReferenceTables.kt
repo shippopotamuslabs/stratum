@@ -5,7 +5,6 @@ package com.stratum.domain.program.generation.reference
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
-import com.stratum.domain.program.generation.context.MINUTES_PER_HARD_SET
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 
@@ -15,14 +14,7 @@ const val SESSION_MUSCLE_SET_CAP = 11
 /** Max hard sets on a single exercise in one session — avoids repetitive high-volume stacks. */
 const val SETS_PER_LIFT_CAP = 5
 
-/** Hard-set cap for one workout from stated session length (3 min per set). */
-fun sessionHardSetCapForLength(sessionLengthMinutes: Int?): Int? {
-    if (sessionLengthMinutes == null || sessionLengthMinutes <= 0) return null
-    return kotlin.math.floor(sessionLengthMinutes / MINUTES_PER_HARD_SET).toInt()
-}
-
-/** Duration budget in minutes for validation (matches the user's stated session length). */
-fun sessionDurationBudgetMinutes(sessionLengthMinutes: Int): Int = sessionLengthMinutes
+// Session hard-set / duration helpers live in SessionLengthBudget.kt (aim vs max bands).
 
 enum class FrequencyTier(val value: Int) {
     One(1),
