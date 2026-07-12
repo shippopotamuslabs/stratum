@@ -16,6 +16,7 @@ import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.lift.classifyLiftCategory
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.inferKinematicProfile
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -119,7 +120,17 @@ class CreateLiftViewModel @Inject constructor(
     }
 
     fun onNameChange(value: String) {
-        draft.update { it.copy(name = value) }
+        draft.update { current ->
+            val nextName = value
+            if (current.patterns.isEmpty()) {
+                current.copy(name = nextName)
+            } else {
+                current.copy(
+                    name = nextName,
+                    kinematic = inferKinematicProfile(current.patterns, nextName),
+                )
+            }
+        }
     }
 
     fun onMuscleRoleSelected(role: MuscleRoleFilter) {
@@ -214,7 +225,12 @@ class CreateLiftViewModel @Inject constructor(
     fun onConfirmMovementPatterns() {
         val patterns = sheets.value.draftPatterns
         if (patterns.isEmpty()) return
-        draft.update { it.copy(patterns = patterns) }
+        draft.update { current ->
+            current.copy(
+                patterns = patterns,
+                kinematic = inferKinematicProfile(patterns, current.name),
+            )
+        }
         sheets.update { it.copy(editing = null) }
     }
 
