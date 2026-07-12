@@ -132,17 +132,19 @@ fun StratumInlineNumericCell(
             modifier = cellModifier,
             contentAlignment = Alignment.Center,
         ) {
+            // Keep the recommendation placeholder while focused and empty so the lifter
+            // still sees the suggested weight/reps; typed digits replace it, and clearing
+            // the buffer brings the placeholder back. Active state is the accent border.
             when {
-                value.isEmpty() && !isActive ->
+                value.isEmpty() ->
                     StratumText(text = placeholder, muted = true, maxLines = 1)
-                value.isNotEmpty() ->
+                else ->
                     StratumText(
                         text = value,
                         muted = !enabled,
                         maxLines = 1,
                         textAlign = TextAlign.Center,
                     )
-                // Empty + active: border only (value typed via custom pad).
             }
         }
     } else {

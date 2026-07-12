@@ -342,28 +342,32 @@ class CreateProgramViewModel @Inject constructor(
                         }
                     val program =
                         result.getOrElse { error ->
-                            _uiState.update {
-                                it.copy(
-                                    generateState = CreateProgramGenerateState.Error,
-                                    generateErrorMessage = error.message ?: "Generation failed",
-                                    step = CreateProgramStep.Schedule,
-                                )
-                            }
+                            publishGenerateFailure(error)
                             return@launch
                         }
                     loadProgramIntoEditor(program)
                 } catch (error: kotlinx.coroutines.CancellationException) {
                     throw error
                 } catch (error: Exception) {
-                    _uiState.update {
-                        it.copy(
-                            generateState = CreateProgramGenerateState.Error,
-                            generateErrorMessage = error.message,
-                            step = CreateProgramStep.Schedule,
-                        )
-                    }
+                    publishGenerateFailure(error)
                 }
             }
+    }
+
+    /**
+     * Stay on [CreateProgramStep.Generating] so [GeneratingContent] can show the message + retry.
+     * (Previously bounced to Schedule, which never renders [generateErrorMessage] — silent flash.)
+     */
+    private fun publishGenerateFailure(error: Throwable) {
+        android.util.Log.e(GENERATE_LOG_TAG, "program generation failed", error)
+        _uiState.update {
+            it.copy(
+                generateState = CreateProgramGenerateState.Error,
+                generateErrorMessage = error.message ?: "Generation failed",
+                // Keep Generating step — error UI lives there.
+                step = CreateProgramStep.Generating,
+            )
+        }
     }
 
     fun selectDay(dayId: String) {
@@ -849,4 +853,7 @@ class CreateProgramViewModel @Inject constructor(
     private fun muscleFromLabel(label: String): MuscleGroup? =
         MuscleGroup.entries.firstOrNull { muscle -> muscle.displayLabel == label }
 
+    private companion object {
+        const val GENERATE_LOG_TAG = "CreateProgramGenerate"
+    }
 }

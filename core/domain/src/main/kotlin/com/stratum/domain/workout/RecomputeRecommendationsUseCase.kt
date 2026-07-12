@@ -77,6 +77,9 @@ class RecomputeRecommendationsUseCase @Inject constructor(
                         incrementTiers = incrementTiers,
                         perLiftSlope = fatigue.slope,
                         loadType = loadType,
+                        // Snapshot baseline on the logged slot (merge preserves baseline when
+                        // logged) — used to detect "went heavier than prescribed" re-anchor.
+                        completedSetPrescribedWeight = lastPerformedSet.recommendedWeight,
                     )
                     val recommendedWeight = when (rec) {
                         is RecommendationOutcome.Hold -> rec.weight

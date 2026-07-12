@@ -64,10 +64,16 @@ fun ProgramGenerationLoadingContent(
         modifier = modifier.fillMaxWidth().padding(top = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        StratumText(
-            text = stringResource(R.string.program_generate_loading),
-            style = StratumThemeAccessor.typography.titleLarge,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            StratumText(
+                text = stringResource(R.string.program_generate_loading),
+                style = StratumThemeAccessor.typography.titleLarge,
+            )
+            StratumText(
+                text = stringResource(R.string.program_generate_loading_duration),
+                muted = true,
+            )
+        }
         ProgramGenerationTimeline(
             progress = progress,
             maxActiveIndex = maxActiveIndex,
