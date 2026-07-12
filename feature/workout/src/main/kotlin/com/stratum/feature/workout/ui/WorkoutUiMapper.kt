@@ -86,6 +86,10 @@ internal object WorkoutUiMapper {
                             if (!showWeightColumn) "" else formatWeightAmount(it.weight.amount, assistMode)
                         },
                         loggedRepsLabel = set.loggedValue?.reps?.toString(),
+                        loggedWeightAmount = set.loggedValue?.let {
+                            if (assistMode) kotlin.math.abs(it.weight.amount) else it.weight.amount
+                        },
+                        loggedReps = set.loggedValue?.reps,
                         isComplete = set.loggedValue != null,
                         previousWeightLabel = prevLabel,
                         rirGoal = set.rirGoal,

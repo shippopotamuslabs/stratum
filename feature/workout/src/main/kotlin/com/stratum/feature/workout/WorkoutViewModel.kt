@@ -26,6 +26,9 @@ import com.stratum.domain.training.LogSetCommand
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.UpdateLoggedSetUseCase
+import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.domain.program.Workout
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
@@ -86,6 +89,7 @@ class WorkoutViewModel @Inject constructor(
     private val recomputeRecommendationsUseCase: RecomputeRecommendationsUseCase,
     private val estimateAddedSetReps: EstimateAddedSetRepsUseCase,
     private val logSetUseCase: LogSetUseCase,
+    private val updateLoggedSet: UpdateLoggedSetUseCase,
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
     private val deleteLoggedSet: DeleteLoggedSetUseCase,
@@ -171,6 +175,8 @@ class WorkoutViewModel @Inject constructor(
      */
     private var templateSavedThisComplete: Boolean = false
     private val overlayPersistMutex = Mutex()
+    /** Serializes log/unlog so concurrent first-completes cannot double-insert. */
+    private val setLogMutex = Mutex()
 
     fun startSession(workoutId: WorkoutId) {
         if (activeWorkoutId == workoutId && snapshotLoaded) return
@@ -278,31 +284,90 @@ class WorkoutViewModel @Inject constructor(
             LoadType.Weighted -> weight
         }
         viewModelScope.launch {
-            val result = logSetUseCase(
+            setLogMutex.withLock {
+                // Re-read after lock so concurrent first-completes do not double-insert.
+                val wasAlreadyLogged = slotId in overlay.loggedSets
+                val persistOk =
+                    persistLoggedSet(
+                        session = session,
+                        slot = slot,
+                        weight = normalizedWeight,
+                        reps = reps,
+                        rir = rir,
+                    )
+                if (!persistOk) {
+                    _events.send(WorkoutUiEvent.SetLogFailed(slotKey = slotKey))
+                    return@withLock
+                }
+
+                overlay = overlay.copy(
+                    loggedSets =
+                        overlay.loggedSets +
+                            (slotId to LoggedSetValue(slotId, normalizedWeight, reps, rir)),
+                )
+                recomputeRecommendations()
+                render()
+                persistOverlay()
+                if (wasAlreadyLogged) {
+                    _events.send(WorkoutUiEvent.SetAmended(slotKey = slotKey))
+                } else {
+                    // First complete — rest timer / focus / complete sheet.
+                    _events.send(WorkoutUiEvent.SetLogged(slotKey = slotKey))
+                }
+            }
+        }
+    }
+
+    /**
+     * Single write path: update existing Room row when present, otherwise insert.
+     * Returns false on failure (message already set).
+     */
+    private suspend fun persistLoggedSet(
+        session: TrainingSessionId,
+        slot: SetSlot,
+        weight: Weight,
+        reps: Int,
+        rir: Int?,
+    ): Boolean {
+        val dbSet = findLoggedSetForSlot(session, slot)
+        if (dbSet != null) {
+            val updateResult =
+                updateLoggedSet(
+                    dbSet.copy(weight = weight, reps = reps, rir = rir),
+                )
+            if (updateResult.isFailure) {
+                _userMessage.value = MSG_LOG_SET_FAILED
+                return false
+            }
+            return true
+        }
+        val insertResult =
+            logSetUseCase(
                 LogSetCommand(
                     sessionId = session,
                     liftId = slot.liftId,
                     workoutLiftId = slot.workoutLiftId,
                     setIndex = slot.position,
-                    weight = normalizedWeight,
+                    weight = weight,
                     reps = reps,
                     rir = rir,
                     completedAt = Instant.now(),
                 ),
             )
-            if (result.isFailure) {
-                _userMessage.value = MSG_LOG_SET_FAILED
-                return@launch
-            }
-            overlay = overlay.copy(
-                loggedSets = overlay.loggedSets + (slotId to LoggedSetValue(slotId, normalizedWeight, reps, rir)),
-            )
-            recomputeRecommendations()
-            render()
-            persistOverlay()
-            // After uiState reflects the log — UI side effects (rest / scroll / complete sheet)
-            // must not run optimistically before this point.
-            _events.send(WorkoutUiEvent.SetLogged(slotKey = slotKey))
+        if (insertResult.isFailure) {
+            _userMessage.value = MSG_LOG_SET_FAILED
+            return false
+        }
+        return true
+    }
+
+    private suspend fun findLoggedSetForSlot(
+        session: TrainingSessionId,
+        slot: SetSlot,
+    ): LoggedSet? {
+        val dbSets = getLoggedSetsForSession(session)
+        return dbSets.firstOrNull {
+            it.liftContext.workoutLiftId == slot.workoutLiftId && it.setIndex == slot.position
         }
     }
 
@@ -311,23 +376,22 @@ class WorkoutViewModel @Inject constructor(
         val slot = resolveSlotByKey(slotKey) ?: return
         val slotId = slot.slotId
         viewModelScope.launch {
-            val dbSets = getLoggedSetsForSession(session)
-            val dbSet = dbSets.firstOrNull {
-                it.liftContext.workoutLiftId == slot.workoutLiftId && it.setIndex == slot.position
-            }
-            if (dbSet != null) {
-                val deleteResult = deleteLoggedSet(dbSet.id)
-                if (deleteResult.isFailure) {
-                    _userMessage.value = MSG_UNLOG_SET_FAILED
-                    return@launch
+            setLogMutex.withLock {
+                val dbSet = findLoggedSetForSlot(session, slot)
+                if (dbSet != null) {
+                    val deleteResult = deleteLoggedSet(dbSet.id)
+                    if (deleteResult.isFailure) {
+                        _userMessage.value = MSG_UNLOG_SET_FAILED
+                        return@withLock
+                    }
                 }
+                overlay = overlay.copy(
+                    loggedSets = overlay.loggedSets - slotId,
+                )
+                recomputeRecommendations()
+                render()
+                persistOverlay()
             }
-            overlay = overlay.copy(
-                loggedSets = overlay.loggedSets - slotId,
-            )
-            recomputeRecommendations()
-            render()
-            persistOverlay()
         }
     }
 
@@ -397,17 +461,12 @@ class WorkoutViewModel @Inject constructor(
 
         val slotId = slot.slotId
         val workoutLiftId = slot.workoutLiftId
-        val setPosition = slot.position
 
         if (slotId in overlay.loggedSets) {
             val session = cachedSessionId
             if (session != null) {
                 viewModelScope.launch {
-                    val dbSets = getLoggedSetsForSession(session)
-                    val dbSet = dbSets.firstOrNull {
-                        it.liftContext.workoutLiftId == workoutLiftId &&
-                            it.setIndex == setPosition
-                    }
+                    val dbSet = findLoggedSetForSlot(session, slot)
                     if (dbSet != null) {
                         val deleteResult = deleteLoggedSet(dbSet.id)
                         if (deleteResult.isFailure) {

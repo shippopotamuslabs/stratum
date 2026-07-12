@@ -102,6 +102,9 @@ fun WorkoutScreen(
     /** Slot key from [WorkoutUiEvent.SetLogged]; cleared via [onSetLoggedConsumed]. */
     pendingSetLoggedSlotKey: String? = null,
     onSetLoggedConsumed: () -> Unit = {},
+    /** Persist failed after optimistic draft materialise — reseed that slot. */
+    failedLogSlotKey: String? = null,
+    onFailedLogConsumed: () -> Unit = {},
 ) {
     var showRestSheet by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -310,6 +313,8 @@ fun WorkoutScreen(
                 onDeleteSet = actions.onDeleteSet,
                 onShowLiftActions = { liftActionsLiftId = it },
                 onDiscardClick = { showDiscardDialog = true },
+                failedLogSlotKey = failedLogSlotKey,
+                onFailedLogConsumed = onFailedLogConsumed,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
