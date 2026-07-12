@@ -1,6 +1,7 @@
 package com.stratum.feature.program
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ScheduleDayItem
@@ -48,6 +49,7 @@ internal fun Program.toCreateProgramDays(
                     position = index,
                     isRest = true,
                     editState = null,
+                    // Rest slots keep the calendar weekday for display; save rebinds by index.
                     weekday = item.weekday,
                 )
             is ScheduleDayItem.WorkoutDay ->
@@ -58,7 +60,9 @@ internal fun Program.toCreateProgramDays(
                     isRest = false,
                     editState =
                         item.workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId),
-                    weekday = item.weekday,
+                    // Prefer the workout's true binding. Fallback schedule may invent Monday
+                    // for unbound workouts — do not stamp that placeholder onto editor state.
+                    weekday = item.workout.weekday,
                 )
         }
     }
@@ -66,49 +70,51 @@ internal fun Program.toCreateProgramDays(
 
 internal fun CreateProgramUiState.toDomainProgram(meta: LoadedProgramMeta?): Program {
     val programId = ProgramId(this.programId.ifBlank { UUID.randomUUID().toString() })
-    val workouts =
-        days
-            .filter { day -> !day.isRest && day.editState != null }
-            .mapIndexed { index, day ->
-                val edit = day.editState!!
-                Workout(
-                    id = WorkoutId(edit.workoutId),
-                    programId = programId,
-                    name = day.name,
-                    weekday = day.weekday,
-                    position = index,
-                    workoutLifts =
-                        edit.lifts.mapIndexed { liftIndex, lift ->
-                            WorkoutLift(
-                                id = WorkoutLiftId(lift.workoutLiftId),
-                                workoutId = WorkoutId(edit.workoutId),
-                                liftId = LiftId(lift.liftId),
-                                progressionScheme = lift.progressionScheme,
-                                position = liftIndex,
-                                sets =
-                                    lift.sets.mapIndexed { setIndex, set ->
-                                        LiftSet(
-                                            id = LiftSetId(set.setId),
-                                            workoutLiftId = WorkoutLiftId(lift.workoutLiftId),
-                                            position = setIndex,
-                                            setType = SetType.Standard,
-                                            repMin = set.repMin,
-                                            repMax = set.repMax,
-                                            rirGoal = set.rirGoal,
-                                            isTopSet = set.isTopSet,
-                                            restSeconds = set.restSeconds,
-                                        )
-                                    },
-                                supersetGroupId = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) },
-                                useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
-                            )
-                        },
-                )
-            }
-    val trainingWeekdays =
-        workouts.mapNotNull { workout -> workout.weekday }.toSet().ifEmpty {
-            days.mapNotNull { day -> day.weekday.takeIf { !day.isRest } }.toSet()
-        }
+    // Single source of truth: tab list order maps onto Mon–Sun (rest slots are calendar gaps).
+    // e.g. Workout / Rest / Workout → Monday + Wednesday. Stored day.weekday is display-only.
+    // Editor enforces MAX_CREATE_PROGRAM_DAYS (7); multi-week chains are deferred.
+    val orderedDays = days.sortedBy { day -> day.position }
+    val workouts = mutableListOf<Workout>()
+    orderedDays.forEachIndexed { calendarIndex, day ->
+        if (day.isRest || day.editState == null) return@forEachIndexed
+        val edit = day.editState
+        val weekday = Weekday.entries.getOrNull(calendarIndex)
+        workouts +=
+            Workout(
+                id = WorkoutId(edit.workoutId),
+                programId = programId,
+                name = day.name,
+                weekday = weekday,
+                position = workouts.size,
+                workoutLifts =
+                    edit.lifts.mapIndexed { liftIndex, lift ->
+                        WorkoutLift(
+                            id = WorkoutLiftId(lift.workoutLiftId),
+                            workoutId = WorkoutId(edit.workoutId),
+                            liftId = LiftId(lift.liftId),
+                            progressionScheme = lift.progressionScheme,
+                            position = liftIndex,
+                            sets =
+                                lift.sets.mapIndexed { setIndex, set ->
+                                    LiftSet(
+                                        id = LiftSetId(set.setId),
+                                        workoutLiftId = WorkoutLiftId(lift.workoutLiftId),
+                                        position = setIndex,
+                                        setType = SetType.Standard,
+                                        repMin = set.repMin,
+                                        repMax = set.repMax,
+                                        rirGoal = set.rirGoal,
+                                        isTopSet = set.isTopSet,
+                                        restSeconds = set.restSeconds,
+                                    )
+                                },
+                            supersetGroupId = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) },
+                            useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
+                        )
+                    },
+            )
+    }
+    val trainingWeekdays = workouts.mapNotNull { workout -> workout.weekday }.toSet()
     val workoutCount = workouts.size.coerceAtLeast(1)
     val cyclePosition =
         meta?.cyclePosition?.coerceIn(0, (workoutCount - 1).coerceAtLeast(0)) ?: 0

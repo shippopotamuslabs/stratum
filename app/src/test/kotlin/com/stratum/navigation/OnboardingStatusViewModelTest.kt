@@ -1,17 +1,22 @@
 package com.stratum.navigation
 
-import com.stratum.core.testing.logging.FakeLoggingPort
-
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeOnboardingRepository
+import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.onboarding.ObserveOnboardingCompleteUseCase
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.ReopenOnboardingWizardUseCase
+import com.stratum.domain.program.DeleteProgramUseCase
+import com.stratum.domain.program.DiscardActiveProgramUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -21,6 +26,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 class OnboardingStatusViewModelTest {
 
     private val fakeRepository = FakeOnboardingRepository()
+    private val programRepository = FakeProgramRepository()
+    private val trainingLog = FakeTrainingLogRepository()
     private lateinit var subject: OnboardingStatusViewModel
 
     @BeforeEach
@@ -35,11 +42,19 @@ class OnboardingStatusViewModelTest {
         subject = buildViewModel()
     }
 
-    private fun buildViewModel(): OnboardingStatusViewModel =
-        OnboardingStatusViewModel(
+    private fun buildViewModel(): OnboardingStatusViewModel {
+        val logging = FakeLoggingPort()
+        return OnboardingStatusViewModel(
             observeComplete = ObserveOnboardingCompleteUseCase(fakeRepository),
-            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(fakeRepository, FakeLoggingPort()),
+            reopenOnboardingWizard = ReopenOnboardingWizardUseCase(fakeRepository, logging),
+            discardActiveProgram =
+                DiscardActiveProgramUseCase(
+                    programRepository = programRepository,
+                    deleteProgram = DeleteProgramUseCase(programRepository, trainingLog, logging),
+                    loggingPort = logging,
+                ),
         )
+    }
 
     @Test
     @DisplayName("Given incomplete onboarding when observed then emits false and never true")
@@ -100,11 +115,13 @@ class OnboardingStatusViewModelTest {
     }
 
     @Test
-    @DisplayName("Given completed onboarding when reopenOnboarding is called then resets isComplete to false")
-    fun reopenOnboardingResetsIsComplete() = runTest {
+    @DisplayName("Discard program deletes active template and reopens onboarding to ChoosePath")
+    fun discardProgramDeletesActiveAndReopens() = runTest {
+        val program = WorkoutLoggingFixtures.twoWorkoutProgram()
+        programRepository.saveProgram(program.copy(isActive = true))
         fakeRepository.seed(
             OnboardingProgress(
-                currentStep = OnboardingStep.Profile,
+                currentStep = OnboardingStep.Review,
                 startedAt = FakeOnboardingRepository.STARTED_AT,
                 completedAt = FakeOnboardingRepository.COMPLETED_AT,
             ),
@@ -114,10 +131,37 @@ class OnboardingStatusViewModelTest {
         subject.isComplete.test {
             assertEquals(true, awaitItem())
 
-            subject.reopenOnboarding()
+            subject.discardProgramAndReopenOnboarding()
 
             assertEquals(false, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
+
+        assertNull(programRepository.getProgram())
+        assertNull(programRepository.getProgramById(program.id))
+        assertEquals(OnboardingStep.ChoosePath, fakeRepository.current.currentStep)
+        assertNull(fakeRepository.current.completedAt)
+    }
+
+    @Test
+    @DisplayName("Discard with no active program still reopens onboarding")
+    fun discardWithNoProgramStillReopens() = runTest {
+        fakeRepository.seed(
+            OnboardingProgress(
+                currentStep = OnboardingStep.Review,
+                startedAt = FakeOnboardingRepository.STARTED_AT,
+                completedAt = FakeOnboardingRepository.COMPLETED_AT,
+            ),
+        )
+        subject = buildViewModel()
+
+        subject.isComplete.test {
+            assertEquals(true, awaitItem())
+            subject.discardProgramAndReopenOnboarding()
+            assertEquals(false, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(OnboardingStep.ChoosePath, fakeRepository.current.currentStep)
     }
 }

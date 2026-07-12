@@ -92,8 +92,31 @@ class ProgramLibraryViewModelTest {
             viewModel.activateProgram("library")
             val updated = awaitItemUntil { it.programs.first().programId == "library" }
             assertTrue(updated.programs.first().isActive)
+            // No duplicate ids after activate (LazyColumn keys programId).
+            assertEquals(
+                updated.programs.map { it.programId }.distinct().size,
+                updated.programs.size,
+            )
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("mergeActiveAndLibraryPrograms drops library row that still matches active id")
+    fun mergeDedupesActiveStillPresentInLibrary() {
+        val active = program(id = "shared", name = "Shared", isActive = true)
+        // Stale library emission still includes the program that is now (or still) active.
+        val library =
+            listOf(
+                program(id = "shared", name = "Shared stale", isActive = false),
+                program(id = "other", name = "Other", isActive = false),
+            )
+
+        val merged = mergeActiveAndLibraryPrograms(active, library)
+
+        assertEquals(listOf("shared", "other"), merged.map { it.id.value })
+        assertTrue(merged.first().isActive)
+        assertEquals(1, merged.count { it.id.value == "shared" })
     }
 
     @Test
