@@ -66,7 +66,8 @@ class RecomputeRecommendationsUseCaseTest {
      * Builds a rendered workout with one lift, two top-set slots at the same rep range,
      * the first slot logged and the second upcoming. The snapshot baseline weight for the
      * upcoming slot is [upcomingWeight] (0.0 means "blank" — engine falls back to the
-     * performed weight).
+     * performed weight). [completedSetPrescribedWeight] is the logged slot's baseline
+     * prescription (merge keeps baseline when a set is logged).
      */
     private fun twoTopSets(
         performedWeight: Double,
@@ -76,6 +77,7 @@ class RecomputeRecommendationsUseCaseTest {
         repMax: Int,
         rirGoal: Int,
         upcomingWeight: Double = performedWeight,
+        completedSetPrescribedWeight: Double = performedWeight,
     ): RenderedWorkout {
         val performed = LoggedSetValue(
             slotId = SetSlotId.Template(liftSetId),
@@ -94,7 +96,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMax = repMax,
             rirGoal = rirGoal,
             restSeconds = 120,
-            recommendedWeight = lb(performedWeight),
+            recommendedWeight = lb(completedSetPrescribedWeight),
             recommendedReps = repMin,
             loggedValue = performed,
         )
@@ -230,6 +232,29 @@ class RecomputeRecommendationsUseCaseTest {
         assertTrue(rec != null)
         assertEquals(75.0, rec!!.weight.amount, 0.01)
         assertEquals(6, rec.reps)
+    }
+
+    @Test
+    @DisplayName("Re-anchor: logged heavier than snapshot prescription reanchors upcoming weight")
+    fun `heavier than prescription reanchors upcoming recommendation weight`() {
+        // Performed 400 on a set prescribed 200; upcoming snapshot still 200.
+        // Must re-anchor to 400 rather than Hold(200) with inflated projected reps.
+        val rendered = twoTopSets(
+            performedWeight = 400.0,
+            performedReps = 5,
+            performedRir = 2,
+            repMin = 4,
+            repMax = 8,
+            rirGoal = 2,
+            upcomingWeight = 200.0,
+            completedSetPrescribedWeight = 200.0,
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val rec = recommendations[SetSlotId.Template(backoffSetId)]
+        assertTrue(rec != null, "upcoming set must receive a live recommendation")
+        assertEquals(400.0, rec!!.weight.amount, 0.01)
+        // At the re-anchored load, projected reps stay in the prescribed band (not 30+).
+        assertTrue(rec.reps in 4..8, "reps must stay in range at re-anchored load, was ${rec.reps}")
     }
 
     @Test
