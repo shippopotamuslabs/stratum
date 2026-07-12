@@ -12,9 +12,10 @@ import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
-import com.stratum.domain.program.generation.synthesis.buildSlotUniverse
+import com.stratum.domain.program.generation.universe.buildSlotUniverse
 import com.stratum.domain.program.generation.synthesis.buildUnifiedSessionPlans
 import com.stratum.domain.program.generation.synthesis.materializeSynthesisResult
+import com.stratum.domain.program.generation.structure.regionFiltersBySessionPosition
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import java.util.Locale
 import java.util.function.Consumer
@@ -74,15 +75,23 @@ class CpSatProgramSynthesizer(
                 )
             modelBuilder.applyWarmStartHints(model, seed)
             logInfo(
-                "warmStart domains=${seed.domainBySession.toSortedMap().values.joinToString(",") { it.name }} " +
+                "warmStart regionFilters=" +
+                    "${seed.regionFilterBySession.toSortedMap().values.joinToString(",") { it.name }} " +
+                    "families=" +
+                    "${seed.seedFamilyBySession.toSortedMap().values.joinToString(",") { it.name }} " +
                     "actives=${seed.activeSlotCount} totalSets=${seed.totalSets} " +
                     "days=${seed.weekdayBySession.toSortedMap().values.joinToString(",")}",
             )
         }
 
+        val regionFilters = regionFiltersBySessionPosition(context.weekdays)
         logInfo(
             "start days=$sessionCount universe=${universe.size} " +
-                "slotVars=${plans.sumOf { it.filledSlots.size }} " +
+                "regionFiltersBySession=" +
+                regionFilters.joinToString(";") { allowed ->
+                    allowed.joinToString(",") { it.name }
+                } +
+                " slotVars=${plans.sumOf { it.filledSlots.size }} " +
                 "deadlineMs=$deadlineMillis logSearch=$logSearchProgress warmStart=$useWarmStart",
         )
         // Multi-line model size dump from OR-Tools (vars / constraints / domains).

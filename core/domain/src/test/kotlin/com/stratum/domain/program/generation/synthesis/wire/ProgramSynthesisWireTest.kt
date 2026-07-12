@@ -17,14 +17,15 @@ import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 import com.stratum.domain.program.generation.reference.RpRepProfile
-import com.stratum.domain.program.generation.split.MuscleLengthBiasPreference
+import com.stratum.domain.program.generation.slots.MuscleLengthBiasPreference
 import com.stratum.domain.program.generation.split.ResolvedSessionPlan
-import com.stratum.domain.program.generation.split.SessionComposition
-import com.stratum.domain.program.generation.split.SessionTypeId
-import com.stratum.domain.program.generation.split.SiblingVariant
-import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.SessionComposition
+import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.slots.SiblingVariant
+import com.stratum.domain.program.generation.slots.SlotRole
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
+import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -67,6 +68,41 @@ class ProgramSynthesisWireTest {
         assertEquals(result.weekdayIndexByPosition, decoded.weekdayIndexByPosition)
         assertEquals(result.objective, decoded.objective)
         assertEquals(result.activeSlotIdsBySession, decoded.activeSlotIdsBySession)
+        assertEquals(result.regionFilterBySession, decoded.regionFilterBySession)
+    }
+
+    @Test
+    fun `decodeResult without regionFilterBySession infers from sessionType labels`() {
+        val result = minimalResult()
+        val encoded = ProgramSynthesisWire.encodeResult(result)
+        // Strip the new field to simulate a pre-regionFilter cloud result.
+        val legacyJson =
+            encoded.replace(
+                Regex(""",\s*"regionFilterBySession"\s*:\s*\[[^\]]*\]"""),
+                "",
+            )
+        assertTrue(!legacyJson.contains("regionFilterBySession"), "precondition: field stripped")
+
+        val decoded = ProgramSynthesisWire.decodeResult(legacyJson)
+
+        assertEquals(listOf(SessionRegionFilter.UpperOnly), decoded.regionFilterBySession)
+        assertEquals(result.sessions, decoded.sessions)
+    }
+
+    @Test
+    fun `sessionTypeIdToRegionFilter maps legacy labels`() {
+        assertEquals(
+            SessionRegionFilter.UpperOnly,
+            sessionTypeIdToRegionFilter(SessionTypeId.Upper),
+        )
+        assertEquals(
+            SessionRegionFilter.LowerOnly,
+            sessionTypeIdToRegionFilter(SessionTypeId.Lower),
+        )
+        assertEquals(
+            SessionRegionFilter.Unrestricted,
+            sessionTypeIdToRegionFilter(SessionTypeId.FullBody),
+        )
     }
 
     @Test
@@ -250,6 +286,7 @@ class ProgramSynthesisWireTest {
                     sessionFillShortfall = 0L,
                 ),
             activeSlotIdsBySession = listOf(setOf("h-press")),
+            regionFilterBySession = listOf(SessionRegionFilter.UpperOnly),
         )
     }
 }

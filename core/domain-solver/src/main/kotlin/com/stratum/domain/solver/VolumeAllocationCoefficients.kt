@@ -23,7 +23,7 @@ import kotlin.math.round
  * so those fractions survive scaling: `round(0.1875 * 100) = 19`. Callers multiply every credit,
  * cap, and target by [scale] consistently, so raising [SCALE] shifts everything in lockstep.
  *
- * Note: `muscleCreditsInSession` (`SlotSetAllocator.kt`) uses the *static*
+ * Note: `muscleCreditsInSession` (`SessionSlotPlan.kt`) uses the *static*
  * `PATTERN_SECONDARY_MUSCLE_CREDITS` table, not this catalog-aware table — it is a separate,
  * coarser volume model, kept for contexts without a lift catalog.
  */

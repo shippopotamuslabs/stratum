@@ -71,7 +71,45 @@ sections **2–3** (Cloud Build staging + `gcloud run deploy`). Summary:
 Then set Functions `SOLVER_SERVICE_URL` and grant **Cloud Run Invoker** to the
 Functions runtime SA.
 
-## Local run (optional)
+## Local CP-SAT lab (experimentation)
+
+For iterating on `CpSatProgramSynthesizer` **without** Firebase/Cloud Run, use the
+host JVM (linux/darwin OR-Tools natives) or the local Docker image:
+
+```bash
+# Core scenario matrix (PR gate — ~10 high-signal cases, not 28×N cartesian)
+./scripts/solver-local.sh smoke
+# Full cartesian: -PfullSolverScenarios=true
+# Benchmark (~56): -PincludeBenchmark=true --tests '*benchmarkTuningSuite*'
+
+# Dump a 4-day program (host JVM — works when Docker is not installed)
+./scripts/solver-local.sh lab
+
+# Custom scenario
+./scripts/solver-local.sh lab \
+  -Dstratum.lab.days=5 \
+  -Dstratum.lab.layout=sean5 \
+  -Dstratum.lab.spec=Chest:Specialize,Bicep:Specialize \
+  -Dstratum.solver.deadline=60000
+
+# Force Docker (JDK 17 + libgomp). First run builds stratum-solver-lab:local
+./scripts/solver-local.sh docker lab
+
+# Compose alternative
+docker compose -f docker-compose.solver.yml build
+docker compose -f docker-compose.solver.yml run --rm solver-lab ./scripts/solver-local.sh lab
+```
+
+| Path | Role |
+|------|------|
+| `scripts/solver-local.sh` | Host or Docker runner for the lab / solver tests |
+| `solver-service/Dockerfile.local` | Dev image (JDK 17 + libgomp, bind-mount repo) |
+| `docker-compose.solver.yml` | Named Gradle cache volume + bind mount |
+| `LocalSynthesisLab` | Prints schedule, aims, domain policy, weekly volumes |
+
+Production Cloud Run image remains `solver-service/Dockerfile` (fat jar + JRE).
+
+## Local run (optional — Cloud Run worker with Firebase)
 
 ```bash
 export GOOGLE_CLOUD_PROJECT=stratum-a1a5b

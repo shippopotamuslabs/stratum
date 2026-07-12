@@ -11,8 +11,8 @@ import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.reference.PatternSecondaryMuscleCredit
 import com.stratum.domain.program.generation.reference.RpRepProfile
-import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.synthesis.buildSlotUniverse
+import com.stratum.domain.program.generation.slots.SlotRole
+import com.stratum.domain.program.generation.universe.buildSlotUniverse
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -6,7 +6,7 @@ import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 
 private val LIFT_ID_PENALTIES: Map<String, Double> = mapOf(
     "decline-barbell-bench-press" to 0.4,

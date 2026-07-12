@@ -1,5 +1,6 @@
 package com.stratum.domain.importing
 
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.Weight
@@ -79,5 +80,57 @@ class InferredCustomLiftMetadataTest {
             ).toCustomLiftDefinition()
 
         assertEquals(InferredEquipmentLoading.DEFAULT_EQUIPMENT_NAME, definition.equipmentName)
+    }
+
+    @Test
+    @DisplayName("Horizontal press custom lift is NonAxialCompound, not Isolation")
+    fun pressInfersNonAxialCompound() {
+        val definition =
+            InferredCustomLiftMetadata(
+                exerciseNameRaw = "Seated Neutral Grip Plate-Loaded Machine Chest Press",
+                movementPattern = MovementPattern.HorizontalPress,
+                primaryMuscles = setOf(MuscleGroup.Chest),
+                loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.DoubleWeightPlates),
+            ).toCustomLiftDefinition()
+        assertEquals(KinematicProfile.NonAxialCompound, definition.kinematicProfile)
+    }
+
+    @Test
+    @DisplayName("Vertical pull custom lift is NonAxialCompound")
+    fun pulldownInfersNonAxialCompound() {
+        val definition =
+            InferredCustomLiftMetadata(
+                exerciseNameRaw = "Overhand Grip Cable Lat Pulldown",
+                movementPattern = MovementPattern.VerticalPull,
+                primaryMuscles = setOf(MuscleGroup.Back),
+                loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.Cable),
+            ).toCustomLiftDefinition()
+        assertEquals(KinematicProfile.NonAxialCompound, definition.kinematicProfile)
+    }
+
+    @Test
+    @DisplayName("Barbell RDL name + HipHinge is AxialCompound")
+    fun barbellRdlInfersAxial() {
+        val definition =
+            InferredCustomLiftMetadata(
+                exerciseNameRaw = "Barbell Romanian Deadlift",
+                movementPattern = MovementPattern.HipHinge,
+                primaryMuscles = setOf(MuscleGroup.Hamstring),
+                loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.DoubleWeightPlates),
+            ).toCustomLiftDefinition()
+        assertEquals(KinematicProfile.AxialCompound, definition.kinematicProfile)
+    }
+
+    @Test
+    @DisplayName("Elbow extension isolation stays Isolation")
+    fun tricepIsoStaysIsolation() {
+        val definition =
+            InferredCustomLiftMetadata(
+                exerciseNameRaw = "Cable Rope Triceps Pushdown",
+                movementPattern = MovementPattern.ElbowExtension,
+                primaryMuscles = setOf(MuscleGroup.Tricep),
+                loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.Cable),
+            ).toCustomLiftDefinition()
+        assertEquals(KinematicProfile.Isolation, definition.kinematicProfile)
     }
 }

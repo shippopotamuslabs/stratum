@@ -1,0 +1,36 @@
+# Local CP-SAT experiment image (not the Cloud Run worker).
+#
+# Build (monorepo root as context):
+#   docker build -f solver-service/Dockerfile.local -t stratum-solver-lab .
+#
+# Or use scripts/solver-local.sh docker …
+#
+# The image has JDK 17 + libgomp (OR-Tools OpenMP). Source is expected to be
+# bind-mounted at /workspace so edit → re-run is fast without rebuilding.
+
+FROM eclipse-temurin:17-jdk-jammy
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgomp1 \
+        ca-certificates \
+        curl \
+        unzip \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Non-root user matching common host UIDs; override with --user if needed.
+RUN useradd --create-home --uid 1000 --shell /bin/bash solver \
+    && mkdir -p /workspace \
+    && chown solver:solver /workspace
+
+WORKDIR /workspace
+USER solver
+
+# Gradle caches live in the image home so repeated container runs stay warm when
+# the cache volume is not mounted; scripts/solver-local.sh also mounts a host cache.
+ENV GRADLE_USER_HOME=/home/solver/.gradle
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
+# Default: interactive shell. Override with `docker run … ./scripts/solver-local.sh lab …`
+CMD ["bash"]

@@ -11,7 +11,7 @@ import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.prescription.FilledSlot
-import com.stratum.domain.program.generation.split.SlotRole
+import com.stratum.domain.program.generation.slots.SlotRole
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest

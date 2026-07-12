@@ -1,6 +1,6 @@
 @file:Suppress("MagicNumber", "LoopWithTooManyJumpStatements")
 
-package com.stratum.domain.program.generation.split
+package com.stratum.domain.program.generation.slots
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
