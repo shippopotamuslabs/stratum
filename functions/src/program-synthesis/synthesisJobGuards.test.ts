@@ -27,7 +27,7 @@ describe("isSynthesisJobStale", () => {
     );
   });
 
-  it("is stale when updatedAt is older than the lease window (~4 min)", () => {
+  it("is stale when updatedAt is older than the lease window (6 min)", () => {
     const now = 1_000_000;
     assert.equal(
       isSynthesisJobStale(

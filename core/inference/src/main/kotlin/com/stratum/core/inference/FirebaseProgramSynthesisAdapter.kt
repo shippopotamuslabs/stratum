@@ -14,20 +14,15 @@ import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 
 /**
  * Firebase-backed [ProgramSynthesisPort]. Encodes the CP-SAT request, uploads it to Storage under
- * `synthesis/{uid}/{jobId}/`, starts the job via `startProgramSynthesis`, polls
+ * `synthesis/{uid}/{jobId}/request.json`, starts the job via `startProgramSynthesis`, polls
  * `getProgramSynthesisStatus` until terminal, then downloads and decodes the result JSON.
  *
- * Mirrors the historical / program-template import job loop (1.5s → 3s after 30s). Client timeout
- * is 5 minutes to cover cold start + the 120s solver deadline.
- *
- * Auth, monthly fair-use quota, and single-active-job rules are enforced by the callables;
- * failures surface as [ProgramSynthesisException] with user-safe messages.
+ * Client poll ceiling is 5 minutes (must stay ≤ server stale reclaim window of 6 minutes).
+ * Auth and monthly fair-use (starts) are enforced by the callables.
  */
 @Singleton
 class FirebaseProgramSynthesisAdapter @Inject constructor(
@@ -64,14 +59,23 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                 )
                 .await()
 
-            val snapshot = pollUntilTerminal(jobId)
+            val snapshot =
+                try {
+                    pollUntil(
+                        timeoutMs = POLL_TIMEOUT_MS,
+                        isTerminal = { it.status.isTerminal() },
+                        poll = { pollStatus(jobId) },
+                    )
+                } catch (_: IllegalStateException) {
+                    throw ProgramSynthesisException(MESSAGE_TIMEOUT)
+                }
+
             return when (snapshot.status) {
                 SynthesisRemoteStatus.Ready -> {
                     val resultPath =
                         snapshot.resultStoragePath
-                            ?: throw ProgramSynthesisException(
-                                "Program generation finished but the result path was missing.",
-                            )
+                            ?: throw ProgramSynthesisException(MESSAGE_GENERATION_FAILED)
+                    requireOwnedResultPath(uid, resultPath)
                     val bytes =
                         storage.reference
                             .child(resultPath)
@@ -83,85 +87,60 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
                 SynthesisRemoteStatus.Rejected,
                 ->
                     throw ProgramSynthesisException(
-                        snapshot.errorMessage?.takeIf { it.isNotBlank() }
+                        // Prefer server-provided user-safe copy when present; never surface raw infra.
+                        snapshot.errorMessage
+                            ?.takeIf { it.isUserSafeErrorMessage() }
                             ?: MESSAGE_GENERATION_FAILED,
                     )
                 SynthesisRemoteStatus.Pending,
                 SynthesisRemoteStatus.Running,
                 ->
-                    throw ProgramSynthesisException(
-                        "Program generation ended in an unexpected state: ${snapshot.status}.",
-                    )
+                    throw ProgramSynthesisException(MESSAGE_GENERATION_FAILED)
             }
         } catch (error: ProgramSynthesisException) {
             throw error
         } catch (error: FirebaseFunctionsException) {
             FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, START_CALLABLE, error)
             throw ProgramSynthesisException(
-                message = mapFunctionsExceptionToUserMessage(error.code.name, error.message),
+                message = mapFunctionsExceptionToUserMessage(error.code.name),
                 cause = error,
             )
         } catch (error: Throwable) {
             loggingPort.error(TAG, "Program synthesis failed: ${error.message}", error)
             throw ProgramSynthesisException(
-                message = error.message?.takeIf { it.isNotBlank() } ?: MESSAGE_GENERATION_FAILED,
+                message = MESSAGE_GENERATION_FAILED,
                 cause = error,
             )
         }
     }
 
-    private suspend fun pollUntilTerminal(jobId: String): SynthesisJobSnapshot {
-        val deadline = System.currentTimeMillis() + POLL_TIMEOUT_MS
-        var elapsedMs = 0L
-        var interval = INITIAL_POLL_INTERVAL_MS
-        while (System.currentTimeMillis() < deadline) {
-            val snapshot =
-                try {
-                    pollStatus(jobId)
-                } catch (error: FirebaseFunctionsException) {
-                    FirebaseCallableErrorLogger.logFailure(
-                        loggingPort,
-                        TAG,
-                        STATUS_CALLABLE,
-                        error,
-                    )
-                    throw ProgramSynthesisException(
-                        message = mapFunctionsExceptionToUserMessage(error.code.name, error.message),
-                        cause = error,
-                    )
-                }
-            snapshot.progressPhase?.let { phase ->
-                loggingPort.info(
-                    TAG,
-                    "synthesis job=$jobId phase=$phase message=${snapshot.progressMessage}",
-                )
-            }
-            when (snapshot.status) {
-                SynthesisRemoteStatus.Ready,
-                SynthesisRemoteStatus.Failed,
-                SynthesisRemoteStatus.Rejected,
-                -> return snapshot
-                SynthesisRemoteStatus.Pending,
-                SynthesisRemoteStatus.Running,
-                -> {
-                    delay(interval.milliseconds)
-                    elapsedMs += interval
-                    if (elapsedMs > BACKOFF_AFTER_MS) {
-                        interval = SLOW_POLL_INTERVAL_MS
-                    }
-                }
-            }
-        }
-        throw ProgramSynthesisException(MESSAGE_TIMEOUT)
-    }
-
     private suspend fun pollStatus(jobId: String): SynthesisJobSnapshot {
         val result =
-            functions
-                .getHttpsCallable(STATUS_CALLABLE)
-                .call(mapOf("jobId" to jobId))
-                .await()
-        return parseSynthesisStatusResponse(result.data)
+            try {
+                functions
+                    .getHttpsCallable(STATUS_CALLABLE)
+                    .call(mapOf("jobId" to jobId))
+                    .await()
+            } catch (error: FirebaseFunctionsException) {
+                FirebaseCallableErrorLogger.logFailure(
+                    loggingPort,
+                    TAG,
+                    STATUS_CALLABLE,
+                    error,
+                )
+                throw ProgramSynthesisException(
+                    message = mapFunctionsExceptionToUserMessage(error.code.name),
+                    cause = error,
+                )
+            }
+        val snapshot = parseSynthesisStatusResponse(result.data)
+        snapshot.progressPhase?.let { phase ->
+            loggingPort.info(
+                TAG,
+                "synthesis job=$jobId phase=$phase message=${snapshot.progressMessage}",
+            )
+        }
+        return snapshot
     }
 
     private companion object {
@@ -169,11 +148,8 @@ class FirebaseProgramSynthesisAdapter @Inject constructor(
         const val START_CALLABLE = "startProgramSynthesis"
         const val STATUS_CALLABLE = "getProgramSynthesisStatus"
         const val MAX_DOWNLOAD_BYTES = 10L * 1024L * 1024L
-        const val INITIAL_POLL_INTERVAL_MS = 1_500L
-        const val SLOW_POLL_INTERVAL_MS = 3_000L
-        const val BACKOFF_AFTER_MS = 30_000L
-        /** Covers 120s solve + Cloud Run cold start. */
-        const val POLL_TIMEOUT_MS = 300_000L
+        /** Must stay ≤ server SYNTHESIS_STALE_JOB_MS (6 min). */
+        const val POLL_TIMEOUT_MS = 5 * 60 * 1000L
     }
 }
 
@@ -183,6 +159,10 @@ internal enum class SynthesisRemoteStatus {
     Ready,
     Failed,
     Rejected,
+    ;
+
+    fun isTerminal(): Boolean =
+        this == Ready || this == Failed || this == Rejected
 }
 
 internal data class SynthesisJobSnapshot(
@@ -195,6 +175,13 @@ internal data class SynthesisJobSnapshot(
 
 internal fun buildSynthesisRequestStoragePath(uid: String, jobId: String): String =
     "synthesis/$uid/$jobId/request.json"
+
+internal fun requireOwnedResultPath(uid: String, path: String) {
+    val prefix = "synthesis/$uid/"
+    if (!path.startsWith(prefix) || path.contains("..") || path.contains("//")) {
+        throw ProgramSynthesisException(MESSAGE_GENERATION_FAILED)
+    }
+}
 
 internal fun parseSynthesisRemoteStatus(value: String?): SynthesisRemoteStatus = when (value) {
     "pending" -> SynthesisRemoteStatus.Pending
@@ -229,17 +216,22 @@ internal const val MESSAGE_TIMEOUT =
 
 /**
  * Maps Firebase Functions [code] names (e.g. `RESOURCE_EXHAUSTED`) to user-safe copy.
- * Takes the enum [name] rather than the SDK type so JVM unit tests stay Firebase-free.
+ * Never forwards arbitrary server exception text.
  */
-internal fun mapFunctionsExceptionToUserMessage(
-    codeName: String?,
-    message: String?,
-): String =
+internal fun mapFunctionsExceptionToUserMessage(codeName: String?): String =
     when (codeName) {
         "RESOURCE_EXHAUSTED" -> MESSAGE_MONTHLY_LIMIT
         "FAILED_PRECONDITION" -> MESSAGE_ALREADY_IN_PROGRESS
         "UNAUTHENTICATED" -> MESSAGE_SIGN_IN_REQUIRED
-        else ->
-            message?.takeIf { it.isNotBlank() }
-                ?: MESSAGE_GENERATION_FAILED
+        else -> MESSAGE_GENERATION_FAILED
     }
+
+private const val MAX_USER_SAFE_ERROR_CHARS = 200
+
+/** Server-authored messages we trust enough to show; reject stack traces / paths. */
+internal fun String.isUserSafeErrorMessage(): Boolean {
+    if (isBlank() || length > MAX_USER_SAFE_ERROR_CHARS) return false
+    if (contains("gs://") || contains("Exception")) return false
+    if (contains("http") || contains("\n")) return false
+    return true
+}

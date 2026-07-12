@@ -1,27 +1,32 @@
 /**
- * Monthly fair-use quota for successful program-synthesis jobs.
+ * Monthly fair-use quota for program-synthesis jobs.
  *
- * Cap is 10 **successful** (`ready`) jobs per uid per calendar month (UTC).
+ * Cap is 10 **starts** per uid per calendar month (UTC) so failed full-length solves still
+ * consume budget (compute abuse). Success count is still tracked for analytics/TOS.
+ *
  * Doc path: `users/{uid}/synthesisQuota/current`
- * Fields: `{ monthKey: "YYYY-MM", successCount: number, updatedAt }`
+ * Fields: `{ monthKey: "YYYY-MM", startCount: number, successCount: number, updatedAt }`
  *
- * Success counting is owned by the Firestore trigger `onSynthesisJobWritten` so the JVM
- * worker only needs to mark jobs `ready` — quota logic stays in Node.
+ * Success counting is owned by the Firestore trigger `onSynthesisJobWritten`.
+ * Start counting is owned by `startProgramSynthesis` admission transaction.
  */
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 
-/** Successful program-synthesis jobs allowed per uid per UTC calendar month. */
+/** Program-synthesis **starts** allowed per uid per UTC calendar month (failed or ready). */
 export const MAX_SYNTHESIS_PER_MONTH = 10;
 
-/** Document-only request size budget (client uploads; start may check metadata later). */
+/** Document-only request size budget; enforced via Storage rules + start metadata check. */
 export const MAX_REQUEST_BYTES = 5 * 1024 * 1024;
 
 export const SYNTHESIS_QUOTA_DOC_ID = "current";
 
 export type SynthesisQuotaDoc = {
   monthKey: string;
+  /** Number of start admissions this month (incremented on successful start callable). */
+  startCount: number;
+  /** Number of ready jobs this month (incremented on ready + quotaCounted). */
   successCount: number;
 };
 
@@ -36,6 +41,30 @@ export function synthesisQuotaPath(uid: string): string {
   return `users/${uid}/synthesisQuota/${SYNTHESIS_QUOTA_DOC_ID}`;
 }
 
+function nonNegInt(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+  return Math.floor(value);
+}
+
+/**
+ * Effective start count for [monthKey]. Missing/rolled month → 0.
+ * Backward compatible: if startCount missing but successCount present for same month,
+ * treat startCount as at least successCount (legacy docs).
+ */
+export function effectiveStartCount(
+  doc: Partial<SynthesisQuotaDoc> | undefined | null,
+  monthKey: string,
+): number {
+  if (!doc || doc.monthKey !== monthKey) {
+    return 0;
+  }
+  const starts = nonNegInt(doc.startCount);
+  const successes = nonNegInt(doc.successCount);
+  return Math.max(starts, successes);
+}
+
 /**
  * Effective success count for [monthKey] given a stored quota doc (or missing doc).
  * Rolled months restart at 0.
@@ -47,25 +76,34 @@ export function effectiveSuccessCount(
   if (!doc || doc.monthKey !== monthKey) {
     return 0;
   }
-  const n = doc.successCount;
-  if (typeof n !== "number" || !Number.isFinite(n) || n < 0) {
-    return 0;
-  }
-  return Math.floor(n);
+  return nonNegInt(doc.successCount);
 }
 
-/** True when the user is already at the monthly success cap for [monthKey]. */
+/** True when the user is already at the monthly **start** cap for [monthKey]. */
 export function isAtMonthlyQuota(
   doc: Partial<SynthesisQuotaDoc> | undefined | null,
   monthKey: string,
   cap: number = MAX_SYNTHESIS_PER_MONTH,
 ): boolean {
-  return effectiveSuccessCount(doc, monthKey) >= cap;
+  return effectiveStartCount(doc, monthKey) >= cap;
+}
+
+/**
+ * Next stored shape after one **start** admission in [monthKey].
+ */
+export function nextQuotaAfterStart(
+  doc: Partial<SynthesisQuotaDoc> | undefined | null,
+  monthKey: string,
+): SynthesisQuotaDoc {
+  return {
+    monthKey,
+    startCount: effectiveStartCount(doc, monthKey) + 1,
+    successCount: effectiveSuccessCount(doc, monthKey),
+  };
 }
 
 /**
  * Next stored shape after one successful job in [monthKey].
- * Pure helper for tests and shared with [incrementSuccessCount].
  */
 export function nextQuotaAfterSuccess(
   doc: Partial<SynthesisQuotaDoc> | undefined | null,
@@ -73,13 +111,14 @@ export function nextQuotaAfterSuccess(
 ): SynthesisQuotaDoc {
   return {
     monthKey,
+    startCount: effectiveStartCount(doc, monthKey),
     successCount: effectiveSuccessCount(doc, monthKey) + 1,
   };
 }
 
 /**
  * Throws `resource-exhausted` when the caller has already used [MAX_SYNTHESIS_PER_MONTH]
- * successful synthesis jobs in the current UTC month.
+ * synthesis **starts** in the current UTC month.
  */
 export async function assertUnderMonthlyQuota(uid: string): Promise<void> {
   const monthKey = utcMonthKey();
@@ -94,37 +133,9 @@ export async function assertUnderMonthlyQuota(uid: string): Promise<void> {
 }
 
 /**
- * Increment the uid's success counter for the current UTC month.
- * Safe to call more than once for different jobs; callers must ensure per-job idempotency
- * (see `onSynthesisJobWritten` + `quotaCounted`).
- */
-export async function incrementSuccessCount(uid: string): Promise<SynthesisQuotaDoc> {
-  const monthKey = utcMonthKey();
-  const ref = admin.firestore().doc(synthesisQuotaPath(uid));
-  return admin.firestore().runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.exists ? (snap.data() as Partial<SynthesisQuotaDoc>) : undefined;
-    const next = nextQuotaAfterSuccess(data, monthKey);
-    tx.set(
-      ref,
-      {
-        monthKey: next.monthKey,
-        successCount: next.successCount,
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-    return next;
-  });
-}
-
-/**
  * Idempotent success increment keyed by job: only counts when the job is not yet
  * `quotaCounted`. Sets `quotaCounted: true` on the job in the same transaction as the
  * quota bump so retries never double-count.
- *
- * Prefer the Firestore trigger path; this helper is also available if a worker needs to
- * call Admin-side quota counting later.
  */
 export async function incrementSynthesisSuccessIfNeeded(
   uid: string,
@@ -155,6 +166,7 @@ export async function incrementSynthesisSuccessIfNeeded(
       quotaRef,
       {
         monthKey: next.monthKey,
+        startCount: next.startCount,
         successCount: next.successCount,
         updatedAt: FieldValue.serverTimestamp(),
       },

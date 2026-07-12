@@ -12,6 +12,7 @@ import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWire
 import com.stratum.domain.program.generation.synthesis.wire.ProgramSynthesisWireException
 import com.stratum.domain.solver.CpSatProgramSynthesizer
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -99,8 +100,8 @@ class SynthesisJobWorker(
                 "deadlineMs=$deadlineMillis",
         )
         val synthesizer = synthesizerFactory(deadlineMillis)
-        // ProgramSynthesisException propagates to process() and becomes status=failed.
-        val result = runBlocking {
+        // Blocking CP-SAT on Default so we don't pin the HTTP pool thread alone.
+        val result = runBlocking(Dispatchers.Default) {
             synthesizer.synthesize(
                 weeklyTargets = wireRequest.weeklyTargets,
                 context = wireRequest.context,
@@ -162,8 +163,8 @@ class SynthesisJobWorker(
                 require(requestStoragePath.isNotEmpty()) {
                     "Job $uid/$jobId is missing requestStoragePath"
                 }
-                require(!requestStoragePath.contains("..")) {
-                    "requestStoragePath must not contain '..'"
+                require(isValidRequestStoragePath(uid, jobId, requestStoragePath)) {
+                    "requestStoragePath must be synthesis/$uid/$jobId/request.json"
                 }
                 transaction.update(
                     jobRef,
@@ -189,9 +190,14 @@ class SynthesisJobWorker(
 
     private fun downloadBytes(storagePath: String): ByteArray {
         val blob = storage.get(BlobId.of(bucketName, storagePath))
-            ?: error("Request object not found in Storage: gs://$bucketName/$storagePath")
+            ?: error("Request object not found in Storage")
+        val size = blob.size
+        require(size > 0) { "Request object is empty" }
+        require(size <= MAX_REQUEST_BYTES) {
+            "Request object exceeds max size ($MAX_REQUEST_BYTES bytes)"
+        }
         val content = blob.getContent()
-        require(content.isNotEmpty()) { "Request object is empty: gs://$bucketName/$storagePath" }
+        require(content.isNotEmpty()) { "Request object is empty" }
         return content
     }
 
@@ -241,11 +247,26 @@ class SynthesisJobWorker(
         return error is FirestoreException && error.code == GRPC_NOT_FOUND
     }
 
+    /**
+     * User-safe error for the job doc / client. Full detail goes only to Cloud Run logs.
+     */
     private fun sanitizeError(t: Throwable): String {
+        log("failure detail: ${t::class.java.name}: ${t.message}")
         val root = generateSequence(t) { it.cause }.last()
-        val raw = (root.message ?: t.message ?: t::class.java.simpleName).trim()
-        val singleLine = raw.replace(Regex("\\s+"), " ")
-        return singleLine.take(MAX_ERROR_MESSAGE_CHARS).ifEmpty { "Program synthesis failed" }
+        val msg = (root.message ?: t.message).orEmpty()
+        return when {
+            msg.contains("Invalid synthesis request", ignoreCase = true) ||
+                t is ProgramSynthesisWireException ||
+                t is IllegalArgumentException ->
+                "Invalid generation request. Please try again."
+            msg.contains("INFEASIBLE", ignoreCase = true) ||
+                msg.contains("CP-SAT synthesis returned", ignoreCase = true) ->
+                "Could not build a feasible program for this profile. Try relaxing specialization or adding a training day."
+            msg.contains("requestStoragePath", ignoreCase = true) ||
+                msg.contains("Request object", ignoreCase = true) ->
+                "Generation request was missing or invalid. Please try again."
+            else -> "Program generation failed. Please try again."
+        }
     }
 
     private fun log(message: String) {
@@ -255,7 +276,13 @@ class SynthesisJobWorker(
     companion object {
         const val CLAIMABLE_STATUS = "pending"
         const val DEFAULT_SOLVE_DEADLINE_MILLIS = 120_000L
-        private const val MAX_ERROR_MESSAGE_CHARS = 500
+        private const val MAX_REQUEST_BYTES = 5L * 1024L * 1024L
         private const val GRPC_NOT_FOUND = 5
+
+        fun isValidRequestStoragePath(uid: String, jobId: String, path: String): Boolean {
+            if (path.contains("..") || path.contains("//")) return false
+            if (path.startsWith("/") || path.contains("\\")) return false
+            return path == "synthesis/$uid/$jobId/request.json"
+        }
     }
 }

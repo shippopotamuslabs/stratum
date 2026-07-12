@@ -1,5 +1,6 @@
 package com.stratum.solver
 
+import com.stratum.domain.json.jsonString
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import java.io.IOException
@@ -8,9 +9,9 @@ import java.nio.charset.StandardCharsets
 /**
  * `POST /process` — body `{ "uid", "jobId" }`.
  *
- * Always returns 2xx after a successful claim attempt so the Node dispatcher does not
- * overwrite a terminal job status. Synthesis failures are written to the job doc as
- * `status=failed` and still return HTTP 200.
+ * Runs the full claim+solve synchronously so Cloud Run request-based CPU stays allocated.
+ * Returns 2xx after the worker finishes so the Node dispatcher can treat non-2xx as dispatch
+ * failure only when the job is still active (never clobber `ready`).
  */
 class ProcessHandler(
     private val worker: SynthesisJobWorker = SynthesisJobWorker(),
@@ -30,7 +31,7 @@ class ProcessHandler(
                 ProcessRequestParser.parse(body)
             } catch (e: IllegalArgumentException) {
                 log("bad request: ${e.message}")
-                respond(exchange, HTTP_BAD_REQUEST, jsonError(e.message ?: "Invalid body"))
+                respond(exchange, HTTP_BAD_REQUEST, jsonError("Invalid body"))
                 return
             }
 
@@ -43,7 +44,8 @@ class ProcessHandler(
                 is SynthesisJobWorker.Outcome.Ready ->
                     HTTP_OK to """{"status":"ready","resultStoragePath":${jsonString(outcome.resultStoragePath)}}"""
                 is SynthesisJobWorker.Outcome.Failed ->
-                    HTTP_OK to """{"status":"failed","errorMessage":${jsonString(outcome.errorMessage)}}"""
+                    // Still 200: failure is recorded on the job doc; Node must not clobber terminal state.
+                    HTTP_OK to """{"status":"failed"}"""
             }
             respond(exchange, code, payload)
         } catch (t: Throwable) {
@@ -69,22 +71,6 @@ class ProcessHandler(
 
     private fun jsonError(message: String): String =
         """{"error":${jsonString(message)}}"""
-
-    private fun jsonString(value: String): String {
-        val escaped = buildString(value.length + 8) {
-            for (c in value) {
-                when (c) {
-                    '\\' -> append("\\\\")
-                    '"' -> append("\\\"")
-                    '\n' -> append("\\n")
-                    '\r' -> append("\\r")
-                    '\t' -> append("\\t")
-                    else -> append(c)
-                }
-            }
-        }
-        return "\"$escaped\""
-    }
 
     private fun log(message: String) {
         println("ProcessHandler: $message")

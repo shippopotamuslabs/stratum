@@ -2,10 +2,12 @@
 #
 # Build fat jar first (from monorepo root):
 #   ./gradlew :solver-service:shadowJar
-#   docker build -t stratum-solver solver-service/
 #
-# Or with build context = monorepo root:
+# Build image with monorepo root as context (required — COPY path below):
 #   docker build -f solver-service/Dockerfile -t stratum-solver .
+#
+# Or via Cloud Build from a staging dir that preserves the same layout:
+#   solver-service/build/libs/solver-service-all.jar + this Dockerfile at root.
 
 FROM eclipse-temurin:17-jre-jammy
 
@@ -16,7 +18,7 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Prefer monorepo-root build context path; fall back to module-local context.
+# Build context must be the monorepo root (or a layout-compatible staging tree).
 COPY solver-service/build/libs/solver-service-all.jar /app/app.jar
 
 ENV PORT=8080

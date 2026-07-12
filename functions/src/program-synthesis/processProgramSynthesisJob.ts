@@ -1,15 +1,21 @@
 import * as admin from "firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { GoogleAuth } from "google-auth-library";
-import { updateJobIfPresent } from "../import/safeJobUpdate";
+import { isFirestoreNotFound } from "../import/safeJobUpdate";
 
 /**
- * Env var: base URL of the Phase 3 JVM Cloud Run solver service
+ * Env var: base URL of the JVM Cloud Run solver service
  * (e.g. `https://solver-xxxxx.run.app`). Dispatcher POSTs to `{url}/process`.
  * When unset (local/dev without a solver), the job is marked failed with a clear message.
  */
 export const SOLVER_SERVICE_URL_ENV = "SOLVER_SERVICE_URL";
+
+/**
+ * When `"true"`, allow unauthenticated fetch to the solver after OIDC failure.
+ * Production must leave this unset/false — Cloud Run is private.
+ */
+export const ALLOW_UNAUTH_SOLVER_DISPATCH_ENV = "ALLOW_UNAUTH_SOLVER_DISPATCH";
 
 export type SolverDispatchBody = {
   uid: string;
@@ -30,6 +36,12 @@ export function resolveSolverServiceUrl(
   return trimmed.length > 0 ? trimmed : null;
 }
 
+export function allowUnauthSolverDispatch(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return env[ALLOW_UNAUTH_SOLVER_DISPATCH_ENV]?.trim().toLowerCase() === "true";
+}
+
 /**
  * Build the Cloud Run process endpoint from a base service URL.
  */
@@ -46,21 +58,21 @@ export type SolverDispatchResult = {
 /**
  * POST `{uid, jobId}` to the JVM solver with an OIDC ID token (audience = service base URL).
  * Inject [requestImpl] in tests to avoid real GoogleAuth / network.
+ *
+ * Production fails closed on OIDC errors unless [ALLOW_UNAUTH_SOLVER_DISPATCH_ENV] is `"true"`.
  */
 export async function dispatchSynthesisJobToSolver(opts: {
   baseUrl: string;
   body: SolverDispatchBody;
-  /**
-   * Optional HTTP layer. Default uses `GoogleAuth.getIdTokenClient(baseUrl).request(...)`
-   * so Cloud Run receives a valid identity token.
-   */
   requestImpl?: (url: string, body: SolverDispatchBody) => Promise<SolverDispatchResult>;
+  env?: NodeJS.ProcessEnv;
 }): Promise<SolverDispatchResult> {
   const url = solverProcessUrl(opts.baseUrl);
   if (opts.requestImpl) {
     return opts.requestImpl(url, opts.body);
   }
 
+  const env = opts.env ?? process.env;
   try {
     const auth = new GoogleAuth();
     // Audience must be the Cloud Run service URL (base), not the /process path.
@@ -82,9 +94,20 @@ export async function dispatchSynthesisJobToSolver(opts: {
           : JSON.stringify(res.data);
     return { ok: status >= 200 && status < 300, status, bodyText };
   } catch (err) {
-    // Fall back to unauthenticated fetch for local/dev when ADC/ID tokens are unavailable.
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`Cloud Run ID-token request failed (${message}); retrying without auth`);
+    if (!allowUnauthSolverDispatch(env)) {
+      console.error(
+        `Cloud Run ID-token request failed (${message}); unauth fallback disabled`,
+      );
+      return {
+        ok: false,
+        status: 0,
+        bodyText: `OIDC failed: ${message}`,
+      };
+    }
+    console.warn(
+      `Cloud Run ID-token request failed (${message}); ALLOW_UNAUTH_SOLVER_DISPATCH=true, retrying without auth`,
+    );
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -96,18 +119,60 @@ export async function dispatchSynthesisJobToSolver(opts: {
 }
 
 /**
+ * Mark job failed only when it is still non-terminal (`pending` or `running`).
+ * Never overwrites `ready` / `failed` / `rejected` — worker owns terminal success.
+ */
+export async function markJobFailedIfStillActive(
+  jobRef: DocumentReference,
+  fields: {
+    progressMessage: string;
+    errorMessage: string;
+  },
+): Promise<boolean> {
+  const db = admin.firestore();
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(jobRef);
+      if (!snap.exists) {
+        return false;
+      }
+      const status = snap.get("status") as string | undefined;
+      if (status !== "pending" && status !== "running") {
+        return false;
+      }
+      tx.update(jobRef, {
+        status: "failed",
+        progressPhase: "failed",
+        progressMessage: fields.progressMessage,
+        errorMessage: fields.errorMessage,
+        updatedAt: FieldValue.serverTimestamp(),
+        progressUpdatedAt: FieldValue.serverTimestamp(),
+      });
+      return true;
+    });
+  } catch (error: unknown) {
+    if (isFirestoreNotFound(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/**
  * Firestore dispatcher for program-synthesis jobs.
  *
- * When a job becomes `pending`, HTTP POSTs to the Cloud Run solver. Does **not** claim the
- * job as `running` — the JVM worker owns claim/progress/ready|failed so multi-instance
- * workers can coordinate without Node racing them.
+ * When a job becomes `pending`, HTTP POSTs to the Cloud Run solver. The JVM worker owns
+ * claim (`running`) and terminal `ready`/`failed`. The HTTP call is synchronous for the
+ * full solve (Cloud Run request-based CPU requires an open request), so this function's
+ * timeout must exceed the worker deadline (120s) + cold start + I/O.
  *
- * On dispatch failure (missing URL, non-2xx, network error) marks the job `failed`.
+ * On dispatch failure only marks failed when the job is still active — never clobbers `ready`.
  */
 export const processProgramSynthesisJob = onDocumentWritten(
   {
     document: "users/{uid}/synthesisJobs/{jobId}",
-    timeoutSeconds: 60,
+    // Event-driven max is 540s. Worker: 120s solve + cold start + upload headroom.
+    timeoutSeconds: 540,
     memory: "256MiB",
   },
   async (event) => {
@@ -131,14 +196,11 @@ export const processProgramSynthesisJob = onDocumentWritten(
 
     const baseUrl = resolveSolverServiceUrl();
     if (!baseUrl) {
-      await updateJobIfPresent(jobRef, {
-        status: "failed",
-        progressPhase: "failed",
+      await markJobFailedIfStillActive(jobRef, {
         progressMessage: "Solver unavailable",
-        errorMessage:
-          "Program synthesis solver is not configured (SOLVER_SERVICE_URL unset). Deploy the Cloud Run worker or set the env var.",
-        updatedAt: FieldValue.serverTimestamp(),
+        errorMessage: "Program generation is temporarily unavailable. Please try again later.",
       });
+      console.error("SOLVER_SERVICE_URL unset; cannot dispatch synthesis job");
       return;
     }
 
@@ -152,23 +214,17 @@ export const processProgramSynthesisJob = onDocumentWritten(
         console.warn(
           `Solver dispatch non-OK for ${uid}/${jobId}: status=${result.status} body=${detail}`,
         );
-        await updateJobIfPresent(jobRef, {
-          status: "failed",
-          progressPhase: "failed",
+        await markJobFailedIfStillActive(jobRef, {
           progressMessage: "Failed to start solver",
-          errorMessage: `Solver dispatch failed (HTTP ${result.status}). Please try again.`,
-          updatedAt: FieldValue.serverTimestamp(),
+          errorMessage: "Program generation failed. Please try again.",
         });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn(`Solver dispatch threw for ${uid}/${jobId}: ${message}`);
-      await updateJobIfPresent(jobRef, {
-        status: "failed",
-        progressPhase: "failed",
+      await markJobFailedIfStillActive(jobRef, {
         progressMessage: "Failed to start solver",
-        errorMessage: `Solver dispatch error: ${message}`,
-        updatedAt: FieldValue.serverTimestamp(),
+        errorMessage: "Program generation failed. Please try again.",
       });
     }
   },
