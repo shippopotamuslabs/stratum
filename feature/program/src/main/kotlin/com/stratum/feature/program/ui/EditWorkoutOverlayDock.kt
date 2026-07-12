@@ -35,8 +35,9 @@ import com.stratum.core.ui.component.workoutlog.RepRangeDraftValidation
 import com.stratum.core.ui.component.workoutlog.RepRangeKeyboardField
 import com.stratum.core.ui.component.workoutlog.StratumOverlayDockHostState
 import com.stratum.core.ui.component.workoutlog.StratumRepRangeKeyboardContent
-import com.stratum.core.ui.component.workoutlog.appendSetLogKey
-import com.stratum.core.ui.component.workoutlog.backspaceSetLogValue
+import com.stratum.core.ui.component.workoutlog.NumericEditBuffer
+import com.stratum.core.ui.component.workoutlog.backspaceNumericBuffer
+import com.stratum.core.ui.component.workoutlog.insertNumericKey
 import com.stratum.core.ui.component.workoutlog.parseRepRangeDraft
 import com.stratum.core.ui.component.workoutlog.setLogKeyboardContentHeight
 import com.stratum.core.ui.component.workoutlog.toggleRepRangeField
@@ -85,6 +86,12 @@ class EditWorkoutDockHostState(
         private set
 
     var maxText: String by mutableStateOf("")
+        private set
+
+    /** Caret indices for [minText] / [maxText] (`0..length`). */
+    var minCursor: Int by mutableIntStateOf(0)
+        private set
+    var maxCursor: Int by mutableIntStateOf(0)
         private set
 
     /**
@@ -136,6 +143,8 @@ class EditWorkoutDockHostState(
         if (!tryCommitPendingOrBlock()) return false
         this.minText = minText
         this.maxText = maxText
+        minCursor = minText.length
+        maxCursor = maxText.length
         requireCompleteBand = false
         session =
             EditWorkoutDockSession.RepRange(
@@ -191,15 +200,44 @@ class EditWorkoutDockHostState(
         }
     }
 
-    fun setMinDraft(text: String) {
+    fun setCursor(
+        field: RepRangeKeyboardField,
+        index: Int,
+    ) {
         if (session !is EditWorkoutDockSession.RepRange) return
-        minText = text
-        clearCompleteBandFlagIfValid()
+        when (field) {
+            RepRangeKeyboardField.Min -> minCursor = index.coerceIn(0, minText.length)
+            RepRangeKeyboardField.Max -> maxCursor = index.coerceIn(0, maxText.length)
+        }
     }
 
-    fun setMaxDraft(text: String) {
-        if (session !is EditWorkoutDockSession.RepRange) return
-        maxText = text
+    fun activeBuffer(): NumericEditBuffer? {
+        val current = session as? EditWorkoutDockSession.RepRange ?: return null
+        return when (current.field) {
+            RepRangeKeyboardField.Min ->
+                NumericEditBuffer(text = minText, cursor = minCursor).coerced()
+            RepRangeKeyboardField.Max ->
+                NumericEditBuffer(text = maxText, cursor = maxCursor).coerced()
+        }
+    }
+
+    /**
+     * Applies a pad edit to the active rep-range draft only (no domain commit — band commits
+     * on leave via [tryCommitPendingOrBlock]).
+     */
+    fun applyPadEditToDrafts(updated: NumericEditBuffer) {
+        val current = session as? EditWorkoutDockSession.RepRange ?: return
+        val coerced = updated.coerced()
+        when (current.field) {
+            RepRangeKeyboardField.Min -> {
+                minText = coerced.text
+                minCursor = coerced.cursor
+            }
+            RepRangeKeyboardField.Max -> {
+                maxText = coerced.text
+                maxCursor = coerced.cursor
+            }
+        }
         clearCompleteBandFlagIfValid()
     }
 
@@ -392,19 +430,13 @@ private fun EditWorkoutRepRangeDock(
         activeField = session.field,
         errorMessage = errorMessage,
         onDigit = { digit ->
-            when (session.field) {
-                RepRangeKeyboardField.Min ->
-                    host.setMinDraft(appendSetLogKey(host.minText, digit, allowDecimal = false))
-                RepRangeKeyboardField.Max ->
-                    host.setMaxDraft(appendSetLogKey(host.maxText, digit, allowDecimal = false))
+            host.activeBuffer()?.let { base ->
+                host.applyPadEditToDrafts(insertNumericKey(base, digit, allowDecimal = false))
             }
         },
         onBackspace = {
-            when (session.field) {
-                RepRangeKeyboardField.Min ->
-                    host.setMinDraft(backspaceSetLogValue(host.minText))
-                RepRangeKeyboardField.Max ->
-                    host.setMaxDraft(backspaceSetLogValue(host.maxText))
+            host.activeBuffer()?.let { base ->
+                host.applyPadEditToDrafts(backspaceNumericBuffer(base))
             }
         },
         onOver = {

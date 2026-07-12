@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,6 +46,11 @@ data class SetLogKeyboardSession(
  * List/screen-level keyboard host. Set rows open a session; the dock is composed once
  * outside the scrollable so large scrolls cannot tear down the pad.
  *
+ * While a session is open for a set, **host drafts are source of truth** for weight/reps text
+ * (pad + active cell). Parent [syncSessionChrome] only updates RIR/recs — never overwrites
+ * mid-edit buffers. Same-set re-activation uses [setField] / same-set branch of [open] and
+ * does not reseed text from row props.
+ *
  * Dock height / reveal live on [overlay] ([LocalStratumOverlayDock]).
  */
 @Stable
@@ -56,12 +60,18 @@ class SetLogKeyboardHostState(
     var session: SetLogKeyboardSession? by mutableStateOf(null)
         private set
 
-    /** Live draft values for the open set (updated via [syncValues]). */
+    /** Live draft values for the open set (host-owned while session is open). */
     var weightText: String by mutableStateOf("")
         private set
     var repsText: String by mutableStateOf("")
         private set
     var rir: Int by mutableIntStateOf(2)
+        private set
+
+    /** Caret indices for [weightText] / [repsText] (`0..length`). */
+    var weightCursor: Int by mutableIntStateOf(0)
+        private set
+    var repsCursor: Int by mutableIntStateOf(0)
         private set
 
     /** @see StratumOverlayDockHostState.dockHeightDp */
@@ -96,13 +106,46 @@ class SetLogKeyboardHostState(
         onRirChange: (Int) -> Unit,
         onComplete: (() -> Unit)?,
     ) {
+        val previous = session
+        if (previous != null && previous.setKey == setKey) {
+            // Same set: host drafts stay SoT. Refresh chrome/callbacks and tab the field only.
+            this.rir = rir
+            val nextField =
+                if (!showWeightInput && field == SetLogKeyboardField.Weight) {
+                    SetLogKeyboardField.Reps
+                } else {
+                    field
+                }
+            session =
+                previous.copy(
+                    field = nextField,
+                    showWeightInput = showWeightInput,
+                    hasWeightRecommendation = hasWeightRecommendation,
+                    hasRepsRecommendation = hasRepsRecommendation,
+                    onWeightChange = onWeightChange,
+                    onRepsChange = onRepsChange,
+                    onRirChange = onRirChange,
+                    onComplete = onComplete,
+                )
+            overlay.requestReveal()
+            return
+        }
+
+        // New set (or first open): seed drafts from row props, carets at end.
         this.weightText = weightText
         this.repsText = repsText
         this.rir = rir
+        weightCursor = weightText.length
+        repsCursor = repsText.length
         session =
             SetLogKeyboardSession(
                 setKey = setKey,
-                field = field,
+                field =
+                    if (!showWeightInput && field == SetLogKeyboardField.Weight) {
+                        SetLogKeyboardField.Reps
+                    } else {
+                        field
+                    },
                 showWeightInput = showWeightInput,
                 hasWeightRecommendation = hasWeightRecommendation,
                 hasRepsRecommendation = hasRepsRecommendation,
@@ -116,19 +159,18 @@ class SetLogKeyboardHostState(
         overlay.requestReveal()
     }
 
-    /** Keep host drafts in sync while the owning row is composed. */
-    fun syncValues(
+    /**
+     * Syncs session **chrome** (RIR + recommendation flags) while the row is composed.
+     * Does **not** overwrite host weight/reps drafts — those are owned by the pad session.
+     */
+    fun syncSessionChrome(
         setKey: String,
-        weightText: String,
-        repsText: String,
         rir: Int,
         hasWeightRecommendation: Boolean? = null,
         hasRepsRecommendation: Boolean? = null,
     ) {
         val current = session ?: return
         if (current.setKey != setKey) return
-        this.weightText = weightText
-        this.repsText = repsText
         this.rir = rir
         val nextWeightRec = hasWeightRecommendation ?: return
         val nextRepsRec = hasRepsRecommendation ?: return
@@ -144,6 +186,28 @@ class SetLogKeyboardHostState(
         }
     }
 
+    /**
+     * @deprecated Prefer [syncSessionChrome]. Name retained so older call sites compile during
+     * migration; still does not reseed weight/reps text.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun syncValues(
+        setKey: String,
+        weightText: String,
+        repsText: String,
+        rir: Int,
+        hasWeightRecommendation: Boolean? = null,
+        hasRepsRecommendation: Boolean? = null,
+    ) {
+        // weightText/repsText intentionally ignored — host is SoT while open.
+        syncSessionChrome(
+            setKey = setKey,
+            rir = rir,
+            hasWeightRecommendation = hasWeightRecommendation,
+            hasRepsRecommendation = hasRepsRecommendation,
+        )
+    }
+
     fun setField(field: SetLogKeyboardField) {
         val current = session ?: return
         val next =
@@ -155,6 +219,56 @@ class SetLogKeyboardHostState(
         if (next != current.field) {
             session = current.copy(field = next)
             overlay.requestReveal()
+        }
+    }
+
+    /** Cell tap moved the caret inside the given field. */
+    fun setCursor(
+        field: SetLogKeyboardField,
+        index: Int,
+    ) {
+        when (field) {
+            SetLogKeyboardField.Weight ->
+                weightCursor = index.coerceIn(0, weightText.length)
+            SetLogKeyboardField.Reps ->
+                repsCursor = index.coerceIn(0, repsText.length)
+        }
+    }
+
+    /**
+     * Applies a pad edit to the active field and **commits** text to the session callbacks
+     * (live set-log write-through).
+     */
+    fun applyPadEditAndCommit(updated: NumericEditBuffer) {
+        val current = session ?: return
+        val coerced = updated.coerced()
+        when (current.field) {
+            SetLogKeyboardField.Weight -> {
+                val textChanged = weightText != coerced.text
+                weightText = coerced.text
+                weightCursor = coerced.cursor
+                if (textChanged) {
+                    current.onWeightChange(coerced.text)
+                }
+            }
+            SetLogKeyboardField.Reps -> {
+                val textChanged = repsText != coerced.text
+                repsText = coerced.text
+                repsCursor = coerced.cursor
+                if (textChanged) {
+                    current.onRepsChange(coerced.text)
+                }
+            }
+        }
+    }
+
+    fun activeBuffer(): NumericEditBuffer? {
+        val current = session ?: return null
+        return when (current.field) {
+            SetLogKeyboardField.Weight ->
+                NumericEditBuffer(text = weightText, cursor = weightCursor).coerced()
+            SetLogKeyboardField.Reps ->
+                NumericEditBuffer(text = repsText, cursor = repsCursor).coerced()
         }
     }
 
@@ -199,29 +313,9 @@ fun ProvideSetLogKeyboardHost(
                 host.session?.let { session ->
                     {
                         SetLogKeyboardDockContent(
+                            host = host,
                             session = session,
-                            weightText = host.weightText,
-                            repsText = host.repsText,
-                            rir = host.rir,
                             contentHeight = contentHeight,
-                            onWeightChange = { text ->
-                                host.syncValues(session.setKey, text, host.repsText, host.rir)
-                                session.onWeightChange(text)
-                            },
-                            onRepsChange = { text ->
-                                host.syncValues(session.setKey, host.weightText, text, host.rir)
-                                session.onRepsChange(text)
-                            },
-                            onRirChange = { value ->
-                                host.syncValues(session.setKey, host.weightText, host.repsText, value)
-                                session.onRirChange(value)
-                            },
-                            onFieldChange = host::setField,
-                            onComplete = {
-                                session.onComplete?.invoke()
-                                host.dismiss()
-                            },
-                            onDismiss = host::dismiss,
                         )
                     }
                 },
@@ -233,76 +327,56 @@ fun ProvideSetLogKeyboardHost(
 
 @Composable
 private fun SetLogKeyboardDockContent(
+    host: SetLogKeyboardHostState,
     session: SetLogKeyboardSession,
-    weightText: String,
-    repsText: String,
-    rir: Int,
     contentHeight: Dp,
-    onWeightChange: (String) -> Unit,
-    onRepsChange: (String) -> Unit,
-    onRirChange: (Int) -> Unit,
-    onFieldChange: (SetLogKeyboardField) -> Unit,
-    onComplete: () -> Unit,
-    onDismiss: () -> Unit,
 ) {
-    // Local buffers so rapid key taps stay consistent before parent recomposes.
-    var weightBuffer by remember(session.setKey) { mutableStateOf(weightText) }
-    var repsBuffer by remember(session.setKey) { mutableStateOf(repsText) }
-    LaunchedEffect(weightText) { weightBuffer = weightText }
-    LaunchedEffect(repsText) { repsBuffer = repsText }
-
     val allowDecimal = session.field == SetLogKeyboardField.Weight
-    val commit: (String) -> Unit = { updated ->
-        when (session.field) {
-            SetLogKeyboardField.Weight -> {
-                weightBuffer = updated
-                onWeightChange(updated)
-            }
-            SetLogKeyboardField.Reps -> {
-                repsBuffer = updated
-                onRepsChange(updated)
-            }
-        }
-    }
-
     val liveCanComplete =
         canCompleteSetLog(
             showWeightInput = session.showWeightInput,
-            weightText = weightBuffer,
+            weightText = host.weightText,
             hasWeightRecommendation = session.hasWeightRecommendation,
-            repsText = repsBuffer,
+            repsText = host.repsText,
             hasRepsRecommendation = session.hasRepsRecommendation,
         )
+    val completeAndDismiss: () -> Unit = {
+        session.onComplete?.invoke()
+        host.dismiss()
+    }
     StratumSetLogKeyboardContent(
         state =
             SetLogKeyboardPadState(
                 activeField = session.field,
-                selectedRir = rir,
+                selectedRir = host.rir,
                 showWeightInput = session.showWeightInput,
                 allowDecimal = allowDecimal,
                 canComplete = liveCanComplete,
             ),
         actions =
             SetLogKeyboardPadActions(
-                onRirSelected = onRirChange,
+                onRirSelected = { value ->
+                    host.syncSessionChrome(session.setKey, value)
+                    session.onRirChange(value)
+                },
                 onDigit = { digit ->
-                    val base =
-                        when (session.field) {
-                            SetLogKeyboardField.Weight -> weightBuffer
-                            SetLogKeyboardField.Reps -> repsBuffer
-                        }
-                    commit(appendSetLogKey(base, digit, allowDecimal))
+                    host.activeBuffer()?.let { base ->
+                        host.applyPadEditAndCommit(insertNumericKey(base, digit, allowDecimal))
+                    }
                 },
                 onDecimal = {
-                    commit(appendSetLogKey(weightBuffer, '.', allowDecimal = true))
+                    if (session.field == SetLogKeyboardField.Weight) {
+                        host.activeBuffer()?.let { base ->
+                            host.applyPadEditAndCommit(
+                                insertNumericKey(base, '.', allowDecimal = true),
+                            )
+                        }
+                    }
                 },
                 onBackspace = {
-                    val base =
-                        when (session.field) {
-                            SetLogKeyboardField.Weight -> weightBuffer
-                            SetLogKeyboardField.Reps -> repsBuffer
-                        }
-                    commit(backspaceSetLogValue(base))
+                    host.activeBuffer()?.let { base ->
+                        host.applyPadEditAndCommit(backspaceNumericBuffer(base))
+                    }
                 },
                 onPrimaryAction = {
                     applySetLogKeyboardAction(
@@ -312,12 +386,12 @@ private fun SetLogKeyboardDockContent(
                                 canComplete = liveCanComplete,
                                 showWeightInput = session.showWeightInput,
                             ),
-                        onFieldChange = onFieldChange,
-                        onComplete = onComplete,
-                        onDismiss = onDismiss,
+                        onFieldChange = host::setField,
+                        onComplete = completeAndDismiss,
+                        onDismiss = host::dismiss,
                     )
                 },
-                onDismiss = onDismiss,
+                onDismiss = host::dismiss,
                 onElevatedNavAction = {
                     applySetLogKeyboardAction(
                         action =
@@ -326,9 +400,9 @@ private fun SetLogKeyboardDockContent(
                                 canComplete = liveCanComplete,
                                 showWeightInput = session.showWeightInput,
                             ),
-                        onFieldChange = onFieldChange,
-                        onComplete = onComplete,
-                        onDismiss = onDismiss,
+                        onFieldChange = host::setField,
+                        onComplete = completeAndDismiss,
+                        onDismiss = host::dismiss,
                     )
                 },
             ),

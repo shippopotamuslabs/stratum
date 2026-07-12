@@ -102,50 +102,187 @@ class SetLogKeyboardLogicTest {
     }
 
     @Nested
-    @DisplayName("appendSetLogKey")
-    inner class Append {
+    @DisplayName("insertNumericKey")
+    inner class InsertAtCursor {
         @Test
-        @DisplayName("digits append")
-        fun digitsAppend() {
-            assertEquals("12", appendSetLogKey("1", '2', allowDecimal = true))
-            assertEquals("5", appendSetLogKey("", '5', allowDecimal = false))
+        @DisplayName("digits insert mid-string and advance cursor")
+        fun digitMid() {
+            val next =
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "135", cursor = 1),
+                    key = '2',
+                    allowDecimal = true,
+                )
+            assertEquals(NumericEditBuffer(text = "1235", cursor = 2), next)
         }
 
         @Test
-        @DisplayName("decimal appends once when allowed")
+        @DisplayName("digits insert at start and end")
+        fun digitEnds() {
+            assertEquals(
+                NumericEditBuffer(text = "91", cursor = 1),
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "1", cursor = 0),
+                    key = '9',
+                    allowDecimal = false,
+                ),
+            )
+            assertEquals(
+                NumericEditBuffer(text = "15", cursor = 2),
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "1", cursor = 1),
+                    key = '5',
+                    allowDecimal = false,
+                ),
+            )
+        }
+
+        @Test
+        @DisplayName("decimal inserts once when allowed")
         fun decimalOnce() {
-            assertEquals("1.", appendSetLogKey("1", '.', allowDecimal = true))
-            assertEquals("1.5", appendSetLogKey("1.", '5', allowDecimal = true))
-            assertEquals("1.5", appendSetLogKey("1.5", '.', allowDecimal = true))
+            assertEquals(
+                NumericEditBuffer(text = "1.5", cursor = 2),
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "15", cursor = 1),
+                    key = '.',
+                    allowDecimal = true,
+                ),
+            )
+            assertEquals(
+                NumericEditBuffer(text = "1.5", cursor = 2),
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "1.5", cursor = 2),
+                    key = '.',
+                    allowDecimal = true,
+                ),
+            )
         }
 
         @Test
         @DisplayName("decimal ignored when not allowed")
         fun decimalDisallowed() {
-            assertEquals("12", appendSetLogKey("12", '.', allowDecimal = false))
+            assertEquals(
+                NumericEditBuffer(text = "12", cursor = 1),
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "12", cursor = 1),
+                    key = '.',
+                    allowDecimal = false,
+                ),
+            )
         }
 
         @Test
         @DisplayName("non digit non decimal ignored")
         fun junkIgnored() {
-            assertEquals("1", appendSetLogKey("1", 'a', allowDecimal = true))
+            assertEquals(
+                NumericEditBuffer(text = "1", cursor = 1),
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "1", cursor = 1),
+                    key = 'a',
+                    allowDecimal = true,
+                ),
+            )
+        }
+
+        @Test
+        @DisplayName("out-of-range cursor is clamped before insert")
+        fun clampsCursor() {
+            assertEquals(
+                NumericEditBuffer(text = "12", cursor = 2),
+                insertNumericKey(
+                    buffer = NumericEditBuffer(text = "1", cursor = 99),
+                    key = '2',
+                    allowDecimal = false,
+                ),
+            )
         }
     }
 
     @Nested
-    @DisplayName("backspaceSetLogValue")
-    inner class Backspace {
+    @DisplayName("backspaceNumericBuffer")
+    inner class BackspaceAtCursor {
         @Test
-        @DisplayName("drops last char")
-        fun dropsLast() {
-            assertEquals("13", backspaceSetLogValue("135"))
-            assertEquals("", backspaceSetLogValue("1"))
+        @DisplayName("deletes char before caret mid-string")
+        fun mid() {
+            assertEquals(
+                NumericEditBuffer(text = "15", cursor = 1),
+                backspaceNumericBuffer(NumericEditBuffer(text = "135", cursor = 2)),
+            )
+        }
+
+        @Test
+        @DisplayName("no-op at caret index 0")
+        fun atStart() {
+            assertEquals(
+                NumericEditBuffer(text = "135", cursor = 0),
+                backspaceNumericBuffer(NumericEditBuffer(text = "135", cursor = 0)),
+            )
+        }
+
+        @Test
+        @DisplayName("deletes last char when caret at end")
+        fun atEnd() {
+            assertEquals(
+                NumericEditBuffer(text = "13", cursor = 2),
+                backspaceNumericBuffer(NumericEditBuffer(text = "135", cursor = 3)),
+            )
         }
 
         @Test
         @DisplayName("empty stays empty")
         fun empty() {
-            assertEquals("", backspaceSetLogValue(""))
+            assertEquals(
+                NumericEditBuffer(text = "", cursor = 0),
+                backspaceNumericBuffer(NumericEditBuffer(text = "", cursor = 0)),
+            )
+        }
+    }
+
+    @Nested
+    @DisplayName("appendNumericKey")
+    inner class Append {
+        @Test
+        @DisplayName("digits append")
+        fun digitsAppend() {
+            assertEquals("12", appendNumericKey("1", '2', allowDecimal = true))
+            assertEquals("5", appendNumericKey("", '5', allowDecimal = false))
+        }
+
+        @Test
+        @DisplayName("decimal appends once when allowed")
+        fun decimalOnce() {
+            assertEquals("1.", appendNumericKey("1", '.', allowDecimal = true))
+            assertEquals("1.5", appendNumericKey("1.", '5', allowDecimal = true))
+            assertEquals("1.5", appendNumericKey("1.5", '.', allowDecimal = true))
+        }
+
+        @Test
+        @DisplayName("decimal ignored when not allowed")
+        fun decimalDisallowed() {
+            assertEquals("12", appendNumericKey("12", '.', allowDecimal = false))
+        }
+
+        @Test
+        @DisplayName("non digit non decimal ignored")
+        fun junkIgnored() {
+            assertEquals("1", appendNumericKey("1", 'a', allowDecimal = true))
+        }
+    }
+
+    @Nested
+    @DisplayName("backspaceNumericValue")
+    inner class Backspace {
+        @Test
+        @DisplayName("drops last char")
+        fun dropsLast() {
+            assertEquals("13", backspaceNumericValue("135"))
+            assertEquals("", backspaceNumericValue("1"))
+        }
+
+        @Test
+        @DisplayName("empty stays empty")
+        fun empty() {
+            assertEquals("", backspaceNumericValue(""))
         }
     }
 
