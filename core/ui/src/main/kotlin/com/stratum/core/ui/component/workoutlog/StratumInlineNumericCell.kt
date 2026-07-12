@@ -39,6 +39,9 @@ import kotlinx.coroutines.flow.map
  * When [onActivate] is non-null, the system IME is suppressed and taps open the custom
  * set-log keyboard via [onActivate]. [isActive] drives the accent border and requests
  * list scroll so the cell sits above the docked keyboard.
+ *
+ * [completed] is visual only: keeps the dark sunken chip on finished sets even when
+ * [enabled] so lifters can still edit without losing the completed-row look.
  */
 @Composable
 fun StratumInlineNumericCell(
@@ -49,6 +52,7 @@ fun StratumInlineNumericCell(
     modifier: Modifier = Modifier,
     isActive: Boolean = false,
     onActivate: (() -> Unit)? = null,
+    completed: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val useCustomKeyboard = onActivate != null
@@ -95,6 +99,15 @@ fun StratumInlineNumericCell(
             StratumThemeAccessor.colors.borderSubtle
         }
 
+    // Completed rows keep sunken chips (dark on setComplete green); incomplete enabled
+    // fields use inset; disabled incomplete uses sunken.
+    val cellBackground =
+        if (completed || !enabled) {
+            StratumThemeAccessor.colors.surfaceSunken
+        } else {
+            StratumThemeAccessor.colors.surfaceInset
+        }
+
     val cellModifier =
         modifier
             .onGloballyPositioned { coords ->
@@ -102,13 +115,7 @@ fun StratumInlineNumericCell(
             }
             .height(36.dp)
             .clip(StratumThemeAccessor.shapes.chip)
-            .background(
-                if (enabled) {
-                    StratumThemeAccessor.colors.surfaceInset
-                } else {
-                    StratumThemeAccessor.colors.surfaceSunken
-                },
-            )
+            .background(cellBackground)
             .border(
                 width = StratumThemeAccessor.shapes.borderWidth,
                 color = borderColor,
@@ -141,6 +148,8 @@ fun StratumInlineNumericCell(
                 else ->
                     StratumText(
                         text = value,
+                        // Primary text when interactive (including amend-complete); muted only
+                        // when truly disabled.
                         muted = !enabled,
                         maxLines = 1,
                         textAlign = TextAlign.Center,
