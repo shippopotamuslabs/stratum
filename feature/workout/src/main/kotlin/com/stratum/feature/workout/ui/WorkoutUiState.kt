@@ -62,6 +62,12 @@ data class RenderedSetUi(
     val recommendedRepsLabel: String,
     val loggedWeightLabel: String?,
     val loggedRepsLabel: String?,
+    /**
+     * UI magnitude of the last logged weight (assist: absolute value). Used when amending
+     * a completed set so empty drafts fall back to the prior log, not a recommendation.
+     */
+    val loggedWeightAmount: Double? = null,
+    val loggedReps: Int? = null,
     val isComplete: Boolean,
     val previousWeightLabel: String? = null,
     val rirGoal: Int,

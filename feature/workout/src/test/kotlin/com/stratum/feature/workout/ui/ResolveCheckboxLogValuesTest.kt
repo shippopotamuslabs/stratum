@@ -90,4 +90,58 @@ class ResolveCheckboxLogValuesTest {
         assertEquals(0.0, weight)
         assertEquals(0, reps)
     }
+
+    @Test
+    fun `KeepPreviousLogged empty fields prefer previous logged over recommendations`() {
+        val (weight, reps) =
+            resolveCommitLogValues(
+                emptyFieldFallback = EmptyFieldFallback.KeepPreviousLogged,
+                enteredWeight = "",
+                enteredReps = "",
+                showWeightInput = true,
+                recommendedWeightAmount = 999.0,
+                recommendedReps = 99,
+                repMin = 4,
+                previousLoggedWeight = 275.0,
+                previousLoggedReps = 12,
+            )
+        assertEquals(275.0, weight)
+        assertEquals(12, reps)
+    }
+
+    @Test
+    fun `AcceptPlaceholders empty fields use recommendations even when previous logged exists`() {
+        val (weight, reps) =
+            resolveCommitLogValues(
+                emptyFieldFallback = EmptyFieldFallback.AcceptPlaceholders,
+                enteredWeight = "",
+                enteredReps = "",
+                showWeightInput = true,
+                recommendedWeightAmount = 135.0,
+                recommendedReps = 8,
+                repMin = 4,
+                previousLoggedWeight = 275.0,
+                previousLoggedReps = 12,
+            )
+        assertEquals(135.0, weight)
+        assertEquals(8, reps)
+    }
+
+    @Test
+    fun `KeepPreviousLogged keeps previous weight when only reps typed`() {
+        val (weight, reps) =
+            resolveCommitLogValues(
+                emptyFieldFallback = EmptyFieldFallback.KeepPreviousLogged,
+                enteredWeight = "",
+                enteredReps = "10",
+                showWeightInput = true,
+                recommendedWeightAmount = 999.0,
+                recommendedReps = 99,
+                repMin = 4,
+                previousLoggedWeight = 275.0,
+                previousLoggedReps = 12,
+            )
+        assertEquals(275.0, weight)
+        assertEquals(10, reps)
+    }
 }

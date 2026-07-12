@@ -96,6 +96,7 @@ fun WorkoutRoute(
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSetLoggedSlotKey by remember { mutableStateOf<String?>(null) }
+    var failedLogSlotKey by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(workoutId) {
         viewModel.startSession(WorkoutId(workoutId))
@@ -106,6 +107,10 @@ fun WorkoutRoute(
             when (event) {
                 is WorkoutUiEvent.NavigateToFinalize -> onNavigateToFinalize(event.sessionId)
                 is WorkoutUiEvent.SetLogged -> pendingSetLoggedSlotKey = event.slotKey
+                is WorkoutUiEvent.SetAmended -> {
+                    // Durable state is updating; seed will clear pending when labels match.
+                }
+                is WorkoutUiEvent.SetLogFailed -> failedLogSlotKey = event.slotKey
             }
         }
     }
@@ -149,6 +154,8 @@ fun WorkoutRoute(
                 snackbarHostState = snackbarHostState,
                 pendingSetLoggedSlotKey = pendingSetLoggedSlotKey,
                 onSetLoggedConsumed = { pendingSetLoggedSlotKey = null },
+                failedLogSlotKey = failedLogSlotKey,
+                onFailedLogConsumed = { failedLogSlotKey = null },
                 actions = WorkoutScreenActions(
                     onNavigateBack = onNavigateBack,
                     onCompleteWorkout = viewModel::completeWorkout,
