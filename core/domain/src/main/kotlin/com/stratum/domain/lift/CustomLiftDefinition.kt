@@ -10,8 +10,10 @@ import com.stratum.domain.onboarding.MuscleGroup
  * kinematic profile, and primary muscles. Defaults for bias / kinematic / load type match
  * [Lift] construction defaults.
  *
- * Prefer [equipmentId] when known. [equipmentName] is free-text from LLM/import paths; the
- * repository finds or creates equipment by name when id is null.
+ * Prefer [equipmentId] when known (seed loading methods from import). [equipmentName] is
+ * free-text for custom / manual paths; the repository finds or creates equipment by name when
+ * id is null. [equipmentCreateIncrement] is used only when minting new equipment from
+ * [equipmentName] (single open band) — it is not a lift-scoped override ([increment] is).
  */
 data class CustomLiftDefinition(
     val name: String,
@@ -20,6 +22,11 @@ data class CustomLiftDefinition(
     val secondaryMuscles: Set<MuscleGroup> = emptySet(),
     val equipmentId: EquipmentId? = null,
     val equipmentName: String? = null,
+    /**
+     * When non-null with [equipmentName], new custom equipment is created with a single
+     * open-ended tier at this increment. Ignored when linking an existing equipment row.
+     */
+    val equipmentCreateIncrement: Weight? = null,
     val increment: Weight? = null,
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,

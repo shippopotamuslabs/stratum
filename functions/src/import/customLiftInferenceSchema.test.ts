@@ -2,11 +2,22 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   CUSTOM_LIFT_INFERENCE_MAX_BATCH,
+  DEFAULT_CUSTOM_INCREMENT_LB,
+  DEFAULT_EQUIPMENT_NAME,
   parseInferredCustomLifts,
 } from "./customLiftInferenceSchema";
 
+/** Helper: seed loading fields for fixtures. */
+function seedLoading(kind: string) {
+  return {
+    equipmentKind: kind,
+    customEquipmentName: null,
+    customIncrementLb: null,
+  };
+}
+
 describe("parseInferredCustomLifts", () => {
-  it("keeps valid rows for requested exercise names", () => {
+  it("keeps valid rows for requested exercise names with seed loading", () => {
     const rows = parseInferredCustomLifts(
       {
         lifts: [
@@ -15,14 +26,14 @@ describe("parseInferredCustomLifts", () => {
             movementPattern: "ElbowExtension",
             primaryMuscles: ["Tricep"],
             secondaryMuscles: [],
-            equipment: "cable",
+            ...seedLoading("cable"),
           },
           {
             name: "Not Requested",
             movementPattern: "ElbowFlexion",
             primaryMuscles: ["Bicep"],
             secondaryMuscles: [],
-            equipment: null,
+            ...seedLoading("dumbbell"),
           },
         ],
       },
@@ -33,6 +44,134 @@ describe("parseInferredCustomLifts", () => {
     assert.equal(rows[0]?.name, "Katana Triceps Extension");
     assert.equal(rows[0]?.movementPattern, "ElbowExtension");
     assert.deepEqual(rows[0]?.primaryMuscles, ["Tricep"]);
+    assert.deepEqual(rows[0]?.loading, { type: "seed", equipmentId: "cable" });
+  });
+
+  it("maps plate-loaded dual-horn presses to double-weight-plates", () => {
+    const name = "Seated Neutral Grip Plate-Loaded Machine Press";
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name,
+            movementPattern: "HorizontalPress",
+            primaryMuscles: ["Chest"],
+            secondaryMuscles: [],
+            ...seedLoading("double-weight-plates"),
+          },
+        ],
+      },
+      new Set([name]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.loading, {
+      type: "seed",
+      equipmentId: "double-weight-plates",
+    });
+  });
+
+  it("parses explicit custom loading with name and increment", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Pro2 Pec Fly",
+            movementPattern: "HorizontalPress",
+            primaryMuscles: ["Chest"],
+            secondaryMuscles: [],
+            equipmentKind: "custom",
+            customEquipmentName: "Life Fitness Pro2 Stack",
+            customIncrementLb: 12.5,
+          },
+        ],
+      },
+      new Set(["Pro2 Pec Fly"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.loading, {
+      type: "custom",
+      name: "Life Fitness Pro2 Stack",
+      incrementLb: 12.5,
+    });
+  });
+
+  it("falls back blank custom name to shared Default equipment and +5 increment", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Mystery Brand Press",
+            movementPattern: "HorizontalPress",
+            primaryMuscles: ["Chest"],
+            secondaryMuscles: [],
+            equipmentKind: "custom",
+            customEquipmentName: null,
+            customIncrementLb: null,
+          },
+        ],
+      },
+      new Set(["Mystery Brand Press"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.loading, {
+      type: "custom",
+      name: DEFAULT_EQUIPMENT_NAME,
+      incrementLb: DEFAULT_CUSTOM_INCREMENT_LB,
+    });
+  });
+
+  it("invalid equipmentKind becomes shared Default equipment without fuzzy seed matching", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Unknown Gizmo",
+            movementPattern: "ElbowExtension",
+            primaryMuscles: ["Tricep"],
+            secondaryMuscles: [],
+            equipmentKind: "not-a-real-kind",
+            customEquipmentName: null,
+            customIncrementLb: null,
+          },
+        ],
+      },
+      new Set(["Unknown Gizmo"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.loading, {
+      type: "custom",
+      name: DEFAULT_EQUIPMENT_NAME,
+      incrementLb: DEFAULT_CUSTOM_INCREMENT_LB,
+    });
+  });
+
+  it("clamps absurd custom increments to default 5", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Wild Stack",
+            movementPattern: "HorizontalPress",
+            primaryMuscles: ["Chest"],
+            secondaryMuscles: [],
+            equipmentKind: "custom",
+            customEquipmentName: "Wild Stack",
+            customIncrementLb: 1_000_000,
+          },
+        ],
+      },
+      new Set(["Wild Stack"]),
+    );
+
+    assert.deepEqual(rows[0]?.loading, {
+      type: "custom",
+      name: "Wild Stack",
+      incrementLb: DEFAULT_CUSTOM_INCREMENT_LB,
+    });
   });
 
   it("rejects rows with invalid enums or missing primary muscles", () => {
@@ -44,14 +183,14 @@ describe("parseInferredCustomLifts", () => {
             movementPattern: "NotReal",
             primaryMuscles: ["Tricep"],
             secondaryMuscles: [],
-            equipment: null,
+            ...seedLoading("cable"),
           },
           {
             name: "Mystery Move",
             movementPattern: "ElbowExtension",
             primaryMuscles: [],
             secondaryMuscles: [],
-            equipment: null,
+            ...seedLoading("cable"),
           },
         ],
       },
@@ -74,7 +213,7 @@ describe("parseInferredCustomLifts", () => {
             movementPattern: "HorizontalPull",
             primaryMuscles: ["Back"],
             secondaryMuscles: [],
-            equipment: "cable",
+            ...seedLoading("cable"),
           },
         ],
       },
@@ -94,7 +233,7 @@ describe("parseInferredCustomLifts", () => {
             movementPattern: "HorizontalPress",
             primaryMuscles: ["Chest"],
             secondaryMuscles: [],
-            equipment: "machine",
+            ...seedLoading("pin-loaded-machine"),
           },
         ],
       },
@@ -114,7 +253,7 @@ describe("parseInferredCustomLifts", () => {
             movementPattern: "HorizontalPress",
             primaryMuscles: ["Chest"],
             secondaryMuscles: ["Tricep", "AnteriorDeltoid", "Bicep", "Back"],
-            equipment: "barbell",
+            ...seedLoading("double-weight-plates"),
           },
         ],
       },
@@ -135,7 +274,7 @@ describe("parseInferredCustomLifts", () => {
             movementPattern: "HipExtension",
             primaryMuscles: ["Glute"],
             secondaryMuscles: ["Glute", "Hamstring"],
-            equipment: "barbell",
+            ...seedLoading("double-weight-plates"),
           },
         ],
       },
