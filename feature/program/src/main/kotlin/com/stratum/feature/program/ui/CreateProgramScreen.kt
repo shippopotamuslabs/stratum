@@ -77,6 +77,7 @@ import com.stratum.feature.program.CreateProgramDayUi
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
+import com.stratum.feature.program.MAX_CREATE_PROGRAM_DAYS
 import com.stratum.feature.program.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -374,6 +375,7 @@ private fun CreateProgramEditorContent(
         DayTabsRow(
             days = state.days,
             selectedDayId = state.selectedDayId,
+            canAddDay = state.canAddDay,
             onSelectDay = callbacks.onSelectDay,
             onAddDay = callbacks.onAddDay,
             onReorderDays = callbacks.onReorderDays,
@@ -445,6 +447,7 @@ private const val DAY_TAB_AUTO_SCROLL_FRAME_MS = 16L
 private fun DayTabsRow(
     days: List<CreateProgramDayUi>,
     selectedDayId: String?,
+    canAddDay: Boolean,
     onSelectDay: (String) -> Unit,
     onAddDay: () -> Unit,
     onReorderDays: (fromIndex: Int, toIndex: Int) -> Unit,
@@ -575,19 +578,22 @@ private fun DayTabsRow(
                     },
                 )
             }
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxHeight()
-                        .clickable(onClick = onAddDay)
-                        .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                StratumText(
-                    text = stringResource(R.string.create_program_add_day) + " +",
-                    style = StratumThemeAccessor.typography.bodyLarge,
-                    muted = true,
-                )
+            // Hide once the Mon–Sun week is full (multi-week chains deferred).
+            if (canAddDay) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxHeight()
+                            .clickable(onClick = onAddDay)
+                            .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    StratumText(
+                        text = stringResource(R.string.create_program_add_day) + " +",
+                        style = StratumThemeAccessor.typography.bodyLarge,
+                        muted = true,
+                    )
+                }
             }
         }
     }
@@ -1055,8 +1061,10 @@ private fun DayTabsRowPreviewContent() {
         DayTabsRow(
             days = days,
             selectedDayId = selectedId,
+            canAddDay = days.size < MAX_CREATE_PROGRAM_DAYS,
             onSelectDay = { selectedId = it },
             onAddDay = {
+                if (days.size >= MAX_CREATE_PROGRAM_DAYS) return@DayTabsRow
                 val next = days.size + 1
                 days = days +
                     CreateProgramDayUi(
