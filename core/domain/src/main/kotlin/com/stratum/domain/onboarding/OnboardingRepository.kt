@@ -28,8 +28,9 @@ interface OnboardingRepository {
     suspend fun markComplete()
 
     /**
-     * Re-enter the wizard after completion so the user can edit choices and regenerate/re-import.
-     * Clears [OnboardingProgress.completedAt] and resumes on [OnboardingStep.Review].
+     * Re-enter the wizard after completion so the user can pick a program path again
+     * (Generate / Build From Scratch / Import). Clears [OnboardingProgress.completedAt] and
+     * resumes on [OnboardingStep.ChoosePath].
      */
     suspend fun reopenWizard()
 }

@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 
 class ReopenOnboardingWizardUseCaseTest {
     @Test
-    fun `reopen clears completion and returns to Review`() = runTest {
+    fun `reopen clears completion and returns to ChoosePath`() = runTest {
         val repository =
             FakeOnboardingRepository(
                 initial =
@@ -26,6 +26,6 @@ class ReopenOnboardingWizardUseCaseTest {
         subject()
 
         assertNull(repository.current.completedAt)
-        assertEquals(OnboardingStep.Review, repository.current.currentStep)
+        assertEquals(OnboardingStep.ChoosePath, repository.current.currentStep)
     }
 }
