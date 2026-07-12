@@ -34,6 +34,14 @@ android {
         versionName = "1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // OR-Tools natives ship only as arm64-v8a (:core:domain-solver jniLibs). Without this
+        // filter, x86_64 emulators install the app as primaryCpuAbi=x86_64 and System.loadLibrary
+        // cannot resolve libjniortools.so — generation fails instantly. arm64-only forces the
+        // process onto the ARM translation layer (or a real arm64 device/image) where the .so loads.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     signingConfigs {

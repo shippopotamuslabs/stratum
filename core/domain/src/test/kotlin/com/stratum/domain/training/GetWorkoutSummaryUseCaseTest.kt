@@ -5,18 +5,21 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.Program
+import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.TrainingSessionId
-import com.stratum.domain.importing.identity.LoggedSetId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -108,11 +111,181 @@ class GetWorkoutSummaryUseCaseTest {
         assertEquals(3, best.reps)
     }
 
+    @Test
+    @DisplayName("Best sets follow program workout-lift order, not alphabetical name")
+    fun bestSetsFollowWorkoutLiftOrder() = runTest {
+        // Squat (Z name) is position 0; Bench (A name) is position 1 — reverse alpha.
+        val squatWlId = WorkoutLiftId("wl-squat")
+        val benchWlId = WorkoutLiftId("wl-bench")
+        val program = programWithOrderedLifts(
+            WorkoutLift(
+                id = squatWlId,
+                workoutId = WorkoutLoggingFixtures.workoutAId,
+                liftId = WorkoutLoggingFixtures.liftSquatId,
+                progressionScheme = ProgressionScheme.Double,
+                position = 0,
+                sets = emptyList(),
+            ),
+            WorkoutLift(
+                id = benchWlId,
+                workoutId = WorkoutLoggingFixtures.workoutAId,
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                progressionScheme = ProgressionScheme.Double,
+                position = 1,
+                sets = emptyList(),
+            ),
+        )
+        val programRepo = FakeProgramRepository(program)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-order")
+        val logRepo = FakeTrainingLogRepository(
+            initialSessions = listOf(session),
+            programRepository = programRepo,
+        )
+        // Insert bench first (would sort first alphabetically and by completedAt).
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("set-bench"),
+                sessionId = TrainingSessionId("ts-order"),
+                exerciseNameRaw = "Barbell Bench Press",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 0,
+                weight = Weight(135.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 2,
+                completedAt = Instant.parse("2025-01-01T10:05:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext().copy(
+                    liftName = "Barbell Bench Press",
+                    workoutLiftId = benchWlId,
+                ),
+            ),
+        )
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("set-squat"),
+                sessionId = TrainingSessionId("ts-order"),
+                exerciseNameRaw = "Barbell Squat",
+                liftId = WorkoutLoggingFixtures.liftSquatId,
+                setIndex = 0,
+                weight = Weight(225.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 2,
+                completedAt = Instant.parse("2025-01-01T10:20:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext().copy(
+                    liftName = "Barbell Squat",
+                    workoutLiftId = squatWlId,
+                ),
+            ),
+        )
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift(), squatLift()))
+        val useCase = GetWorkoutSummaryUseCase(
+            logRepo,
+            programRepo,
+            ObserveLiftCatalogUseCase(liftRepo),
+            FakeLoggingPort(),
+        )
+
+        val summary = useCase(TrainingSessionId("ts-order")).getOrThrow()
+
+        assertEquals(2, summary.bestSets.size)
+        assertEquals("Barbell Squat", summary.bestSets[0].liftName)
+        assertEquals("Barbell Bench Press", summary.bestSets[1].liftName)
+    }
+
+    @Test
+    @DisplayName("Orphan lifts (no matching workout-lift) follow program lifts chronologically")
+    fun orphanLiftsAppendAfterProgramOrder() = runTest {
+        val squatWlId = WorkoutLiftId("wl-squat")
+        val program = programWithOrderedLifts(
+            WorkoutLift(
+                id = squatWlId,
+                workoutId = WorkoutLoggingFixtures.workoutAId,
+                liftId = WorkoutLoggingFixtures.liftSquatId,
+                progressionScheme = ProgressionScheme.Double,
+                position = 0,
+                sets = emptyList(),
+            ),
+        )
+        val programRepo = FakeProgramRepository(program)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "ts-orphan")
+        val logRepo = FakeTrainingLogRepository(
+            initialSessions = listOf(session),
+            programRepository = programRepo,
+        )
+        // Orphan (no workoutLiftId) completed first; program squat completed later.
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("set-bench-orphan"),
+                sessionId = TrainingSessionId("ts-orphan"),
+                exerciseNameRaw = "Barbell Bench Press",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 0,
+                weight = Weight(135.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 2,
+                completedAt = Instant.parse("2025-01-01T10:05:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext().copy(
+                    liftName = "Barbell Bench Press",
+                    workoutLiftId = null,
+                ),
+            ),
+        )
+        logRepo.insertSet(
+            LoggedSet(
+                id = LoggedSetId("set-squat"),
+                sessionId = TrainingSessionId("ts-orphan"),
+                exerciseNameRaw = "Barbell Squat",
+                liftId = WorkoutLoggingFixtures.liftSquatId,
+                setIndex = 0,
+                weight = Weight(225.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 2,
+                completedAt = Instant.parse("2025-01-01T10:20:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext().copy(
+                    liftName = "Barbell Squat",
+                    workoutLiftId = squatWlId,
+                ),
+            ),
+        )
+        val liftRepo = FakeLiftRepository(initialLifts = listOf(benchLift(), squatLift()))
+        val useCase = GetWorkoutSummaryUseCase(
+            logRepo,
+            programRepo,
+            ObserveLiftCatalogUseCase(liftRepo),
+            FakeLoggingPort(),
+        )
+
+        val summary = useCase(TrainingSessionId("ts-orphan")).getOrThrow()
+
+        assertEquals(2, summary.bestSets.size)
+        assertEquals("Barbell Squat", summary.bestSets[0].liftName)
+        assertEquals("Barbell Bench Press", summary.bestSets[1].liftName)
+    }
+
+    private fun programWithOrderedLifts(vararg lifts: WorkoutLift): Program {
+        val base = WorkoutLoggingFixtures.twoWorkoutProgram()
+        val workoutA = base.workouts.first { it.id == WorkoutLoggingFixtures.workoutAId }
+            .copy(workoutLifts = lifts.toList())
+        return base.copy(
+            workouts = base.workouts.map { if (it.id == workoutA.id) workoutA else it },
+        )
+    }
+
     private fun benchLift(): Lift = Lift(
         id = WorkoutLoggingFixtures.liftBenchId,
         name = "Barbell Bench Press",
         movementPatterns = setOf(MovementPattern.HorizontalPress),
         primaryMuscles = setOf(MuscleGroup.Chest),
+        secondaryMuscles = emptySet(),
+        incrementTiers = emptyList(),
+        presetTags = emptySet(),
+        enabled = true,
+    )
+
+    private fun squatLift(): Lift = Lift(
+        id = WorkoutLoggingFixtures.liftSquatId,
+        name = "Barbell Squat",
+        movementPatterns = setOf(MovementPattern.SquatPattern),
+        primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
         incrementTiers = emptyList(),
         presetTags = emptySet(),

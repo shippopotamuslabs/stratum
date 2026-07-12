@@ -104,14 +104,91 @@ class RecommendationEngineRirMathTest {
     @Test
     @DisplayName("RIR-3: 75x4@2 RIR top set, next backoff@2 -> Hold 60 (backoff weight unchanged)")
     fun `75x4 at 2 RIR holds backoff weight`() {
+        // Performed equals completed prescription → intentional backoff drop is preserved.
         val outcome = engine.recommendNextSet(
             lastPerformed = performed(75.0, 4, 2),
             completedSlot = topSet(),
             targetSlot = backoffSlot(),
             currentWeight = lb(60.0),
+            completedSetPrescribedWeight = lb(75.0),
         )
         assertTrue(outcome is RecommendationOutcome.Hold)
         assertEquals(60.0, (outcome as RecommendationOutcome.Hold).weight.amount, 0.05)
+    }
+
+    @Test
+    @DisplayName("Re-anchor: performed heavier than completed prescription holds at performed weight")
+    fun `heavier than prescription reanchors remaining sets to performed weight`() {
+        // Snapshot next slot still says 200, but lifter logged 400 on a set prescribed 200.
+        // Without re-anchor the engine would Hold(200) with inflated projected reps.
+        val outcome = engine.recommendNextSet(
+            lastPerformed = performed(400.0, 5, 2),
+            completedSlot = topSet(repMin = 4, repMax = 8, rirGoal = 2),
+            targetSlot = topSet(repMin = 4, repMax = 8, rirGoal = 2),
+            currentWeight = lb(200.0),
+            completedSetPrescribedWeight = lb(200.0),
+        )
+        assertTrue(outcome is RecommendationOutcome.Hold)
+        assertEquals(400.0, (outcome as RecommendationOutcome.Hold).weight.amount, 0.05)
+    }
+
+    @Test
+    @DisplayName("Re-anchor off: performed at prescription keeps intentional lighter next-slot weight")
+    fun `matched prescription does not reanchor intentional backoff drop`() {
+        val outcome = engine.recommendNextSet(
+            lastPerformed = performed(75.0, 6, 2),
+            completedSlot = topSet(),
+            targetSlot = backoffSlot(),
+            currentWeight = lb(60.0),
+            completedSetPrescribedWeight = lb(75.0),
+        )
+        assertTrue(outcome is RecommendationOutcome.Hold)
+        assertEquals(60.0, (outcome as RecommendationOutcome.Hold).weight.amount, 0.05)
+    }
+
+    @Nested
+    @DisplayName("resolveWorkingWeight")
+    inner class ResolveWorkingWeight {
+
+        @Test
+        @DisplayName("blank target falls back to performed")
+        fun blankTargetUsesPerformed() {
+            assertEquals(
+                400.0,
+                engine.resolveWorkingWeight(lb(400.0), lb(0.0), lb(200.0)).amount,
+                0.0,
+            )
+        }
+
+        @Test
+        @DisplayName("performed heavier than baseline and target re-anchors")
+        fun reanchorsWhenHeavierThanBoth() {
+            assertEquals(
+                400.0,
+                engine.resolveWorkingWeight(lb(400.0), lb(200.0), lb(200.0)).amount,
+                0.0,
+            )
+        }
+
+        @Test
+        @DisplayName("matched baseline keeps intentional lighter target")
+        fun keepsIntentionalBackoff() {
+            assertEquals(
+                60.0,
+                engine.resolveWorkingWeight(lb(75.0), lb(60.0), lb(75.0)).amount,
+                0.0,
+            )
+        }
+
+        @Test
+        @DisplayName("null completed prescribed keeps target (legacy callers)")
+        fun nullCompletedKeepsTarget() {
+            assertEquals(
+                200.0,
+                engine.resolveWorkingWeight(lb(400.0), lb(200.0), null).amount,
+                0.0,
+            )
+        }
     }
 
     @Test

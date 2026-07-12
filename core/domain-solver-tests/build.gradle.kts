@@ -42,5 +42,7 @@ tasks.withType<Test>().configureEach {
 
     systemProperty("stratum.solver.weights", System.getProperty("stratum.solver.weights") ?: "")
     systemProperty("stratum.solver.deadline", System.getProperty("stratum.solver.deadline") ?: "")
+    systemProperty("stratum.solver.log_search", System.getProperty("stratum.solver.log_search") ?: "")
+    systemProperty("stratum.solver.warm_start", System.getProperty("stratum.solver.warm_start") ?: "")
     systemProperty("stratum.audit.run", System.getProperty("stratum.audit.run") ?: "")
 }
