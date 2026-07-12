@@ -60,9 +60,11 @@ class RoomOnboardingRepository @Inject constructor(
         syncTouch.mutate {
             val current = dao.getOrNull()
             val startedAt = current?.startedAt ?: System.currentTimeMillis()
+            // Return to Choose Path (Generate / Build From Scratch / Import) rather than Review.
+            // Review + empty weekdays (scratch never sets schedule) incorrectly surfaces Import.
             dao.upsert(
                 OnboardingProgress(
-                    currentStep = OnboardingStep.Review,
+                    currentStep = OnboardingStep.ChoosePath,
                     startedAt = startedAt,
                     completedAt = null,
                 ).toEntity(),
