@@ -73,6 +73,9 @@ class GenerateProgramUseCase @Inject constructor(
                 ).copy(isActive = false)
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))
                 Result.success(program)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                // Structured cancellation must not become Result.failure.
+                throw error
             } catch (error: Throwable) {
                 Result.failure(error)
             }
