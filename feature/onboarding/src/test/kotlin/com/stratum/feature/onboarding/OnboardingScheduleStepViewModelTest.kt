@@ -79,7 +79,7 @@ class OnboardingScheduleStepViewModelTest {
     fun completeScheduleNextAdvancesAndPersists() = runTest {
         subject.onWeekdayToggled("Mon")
         subject.onWeekdayToggled("Wed")
-        subject.onSessionPresetSelected("60")
+        subject.onSessionPresetSelected("40-60")
         advanceUntilIdle()
         assertTrue(subject.uiState.value.canAdvance)
 
@@ -89,7 +89,8 @@ class OnboardingScheduleStepViewModelTest {
 
         val saved = OnboardingViewModelTestFixtures.fakeProfileRepository.current
         assertEquals(setOf(Weekday.Monday, Weekday.Wednesday), saved?.weekdays)
-        assertEquals(60, saved?.sessionLengthMinutes)
+        // Soft aim midpoint for the 40–60 band
+        assertEquals(50, saved?.sessionLengthMinutes)
     }
 
     @Test

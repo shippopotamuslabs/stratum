@@ -108,10 +108,10 @@
 
     <!-- Training setup prefs (onboarding + create program) -->
     <string name="training_setup_schedule_weekdays_heading">Training days</string>
-    <string name="training_setup_schedule_session_length_heading">Desired Session Length</string>
-    <string name="training_setup_schedule_session_preset_45">45 min</string>
-    <string name="training_setup_schedule_session_preset_60">60 min</string>
-    <string name="training_setup_schedule_session_preset_75">75 min</string>
+    <string name="training_setup_schedule_session_length_heading">Desired session length</string>
+    <string name="training_setup_schedule_session_preset_short">20–40</string>
+    <string name="training_setup_schedule_session_preset_medium">40–60</string>
+    <string name="training_setup_schedule_session_preset_long">60–90</string>
     <string name="training_setup_schedule_session_custom">Custom</string>
     <string name="training_setup_schedule_session_hours_label">Hours</string>
     <string name="training_setup_schedule_session_minutes_label">Min</string>
@@ -201,16 +201,17 @@
     <string name="program_generate_loading">Building your program…</string>
     <string name="program_generate_loading_duration">Program generation takes 2–3 minutes.</string>
     <string name="program_generate_timeline_checkmark">✓</string>
-    <string name="program_generate_phase_preparing">Preparing your profile…</string>
-    <string name="program_generate_phase_reviewing">Reviewing your training profile…</string>
+    <string name="program_generate_phase_preparing">Preparing your profile</string>
+    <string name="program_generate_phase_reviewing">Reviewing your training profile</string>
     <string name="program_generate_phase_planning_volume">Planning weekly volume targets</string>
     <string name="program_generate_phase_synthesizing_program">Synthesizing your weekly split</string>
     <string name="program_generate_phase_evaluating_splits">Finding your best weekly split</string>
     <string name="program_generate_phase_selecting_exercises">Choosing exercises for each session</string>
-    <string name="program_generate_phase_polishing_program">Polishing program…</string>
-    <string name="program_generate_phase_finalizing">Balancing volume and finalizing</string>
+    <string name="program_generate_phase_polishing_program">Polishing program</string>
+    <!-- Finalizing = normalize + validate after optional LLM name/swap (not volume rebalance). -->
+    <string name="program_generate_phase_finalizing">Finalizing your program</string>
     <string name="program_generate_phase_evaluating_splits_detail">Evaluating split %1$s</string>
-    <string name="program_generate_phase_saving">Saving your program…</string>
+    <string name="program_generate_phase_saving">Saving your program</string>
     <string name="program_generate_phase_complete">Program ready</string>
     <string name="program_generate_error_title">Something went wrong</string>
 </resources>

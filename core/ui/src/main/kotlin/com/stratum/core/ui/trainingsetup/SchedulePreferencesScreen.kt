@@ -26,8 +26,6 @@ import com.stratum.core.ui.component.StratumToggleGroup
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 private val WEEKDAY_OPTIONS = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-private val SESSION_LENGTH_KEYS =
-    listOf("45", "60", "75", ScheduleDraftUi.CUSTOM_KEY)
 
 /**
  * Shared schedule preferences step (weekdays + session length). Used by onboarding and create program.
@@ -68,20 +66,20 @@ fun SchedulePreferencesScreen(
                 style = StratumThemeAccessor.typography.bodyLarge,
             )
             val sessionLengthLabels = listOf(
-                stringResource(R.string.training_setup_schedule_session_preset_45),
-                stringResource(R.string.training_setup_schedule_session_preset_60),
-                stringResource(R.string.training_setup_schedule_session_preset_75),
+                stringResource(R.string.training_setup_schedule_session_preset_short),
+                stringResource(R.string.training_setup_schedule_session_preset_medium),
+                stringResource(R.string.training_setup_schedule_session_preset_long),
                 stringResource(R.string.training_setup_schedule_session_custom),
             )
             val selectedSessionIndex = draft.sessionLengthSelection?.let { selection ->
-                SESSION_LENGTH_KEYS.indexOf(selection).takeIf { it >= 0 }
+                ScheduleDraftUi.BAND_KEYS.indexOf(selection).takeIf { it >= 0 }
             }
             StratumSegmentedControl(
                 modifier = Modifier.fillMaxWidth(),
                 segments = sessionLengthLabels,
                 selectedIndex = selectedSessionIndex,
                 onSelectedIndexChange = { index ->
-                    onSessionPresetSelected(SESSION_LENGTH_KEYS[index])
+                    onSessionPresetSelected(ScheduleDraftUi.BAND_KEYS[index])
                 },
             )
             val sessionError = draft.sessionLengthErrorKind

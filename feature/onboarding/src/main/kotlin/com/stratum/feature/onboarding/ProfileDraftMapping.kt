@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
@@ -27,18 +28,23 @@ internal sealed interface SessionLengthEdit {
 internal fun UserTrainingProfile.toScheduleDraft(
     sessionLengthEdit: SessionLengthEdit = SessionLengthEdit.Unchanged,
 ): ScheduleDraftUi {
-    val persistedPreset = sessionLengthMinutes != null && sessionLengthMinutes in SESSION_PRESET_VALUES.keys
+    val persistedPreset =
+        sessionLengthMinutes != null && sessionLengthMinutes in ScheduleDraftUi.AIM_TO_BAND_KEY.keys
     val selection = when (sessionLengthEdit) {
         is SessionLengthEdit.Active -> when {
             sessionLengthEdit.customMode -> ScheduleDraftUi.CUSTOM_KEY
             sessionLengthEdit.minutes == null -> null
-            sessionLengthEdit.minutes in SESSION_PRESET_VALUES.keys ->
-                SESSION_PRESET_VALUES.getValue(sessionLengthEdit.minutes)
+            sessionLengthEdit.minutes in ScheduleDraftUi.AIM_TO_BAND_KEY.keys ->
+                ScheduleDraftUi.AIM_TO_BAND_KEY.getValue(sessionLengthEdit.minutes)
             else -> ScheduleDraftUi.CUSTOM_KEY
         }
         SessionLengthEdit.Unchanged ->
             sessionLengthMinutes?.let {
-                if (persistedPreset) SESSION_PRESET_VALUES.getValue(it) else ScheduleDraftUi.CUSTOM_KEY
+                if (persistedPreset) {
+                    ScheduleDraftUi.AIM_TO_BAND_KEY.getValue(it)
+                } else {
+                    ScheduleDraftUi.CUSTOM_KEY
+                }
             }
     }
     val customMinutes = when {
@@ -55,12 +61,11 @@ internal fun UserTrainingProfile.toScheduleDraft(
     )
 }
 
-internal val SESSION_PRESET_MINUTES: Set<Int> = setOf(45, 60, 75)
+/** Soft-aim minutes for known UI bands (30 / 50 / 75). */
+internal val SESSION_PRESET_MINUTES: Set<Int> = ScheduleDraftUi.AIM_TO_BAND_KEY.keys
 
 internal const val DEFAULT_CUSTOM_SESSION_MINUTES: Int =
     com.stratum.core.ui.trainingsetup.DEFAULT_CUSTOM_SESSION_MINUTES
-
-private val SESSION_PRESET_VALUES: Map<Int, String> = mapOf(45 to "45", 60 to "60", 75 to "75")
 
 /** Training-age chip labels exposed for [ProfileScreen]. */
 val TRAINING_AGE_OPTIONS: List<String> = TrainingAge.entries.map { it.toDisplayLabel() }
