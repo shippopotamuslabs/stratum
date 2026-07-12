@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.onboarding.ObserveOnboardingCompleteUseCase
 import com.stratum.domain.onboarding.ReopenOnboardingWizardUseCase
+import com.stratum.domain.program.DiscardActiveProgramUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 class OnboardingStatusViewModel @Inject constructor(
     observeComplete: ObserveOnboardingCompleteUseCase,
     private val reopenOnboardingWizard: ReopenOnboardingWizardUseCase,
+    private val discardActiveProgram: DiscardActiveProgramUseCase,
 ) : ViewModel() {
     /**
      * `null` until the first repository emission — callers must not route on `false` while
@@ -28,11 +30,15 @@ class OnboardingStatusViewModel @Inject constructor(
                 initialValue = null,
             )
 
-    fun reopenOnboarding() {
+    /**
+     * Preview "Discard Program": delete the active template (if any), then reopen the wizard
+     * at Choose Path. Failures are logged in use cases; onboarding still reopens so the user
+     * is not stuck on preview.
+     */
+    fun discardProgramAndReopenOnboarding() {
         viewModelScope.launch {
-            // Failure is logged in the use case; navigation is driven by isComplete flow.
+            discardActiveProgram()
             reopenOnboardingWizard()
         }
     }
 }
-
