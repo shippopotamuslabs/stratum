@@ -93,21 +93,48 @@ class VolumeTargetPlannerTest {
     @Nested
     inner class ComputeAllWeeklyTargets {
         @Test
-        fun `returns a target for every non-Omitted major muscle and any specialized muscle`() {
+        fun `returns a target for every non-Omitted always-aim muscle only`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = mapOf("Chest" to "Specialize"),
             )
             val targets = computeAllWeeklyTargets(ctx)
+            // Always-on: chest/back/bi/tri/lat/quad/ham.
             assertTrue(targets.containsKey("Chest"))
             assertTrue(targets.containsKey("Back"))
+            assertTrue(targets.containsKey("Bicep"))
+            assertTrue(targets.containsKey("Tricep"))
+            assertTrue(targets.containsKey("LateralDeltoid"))
             assertTrue(targets.containsKey("Quad"))
             assertTrue(targets.containsKey("Hamstring"))
-            assertTrue(targets.containsKey("Glute"))
-            assertTrue(targets.containsKey("Tricep"))
-            assertTrue(targets.containsKey("Bicep"))
-            assertTrue(targets.containsKey("LateralDeltoid"))
-            assertTrue(targets.containsKey("PosteriorDeltoid"))
-            assertTrue(targets.containsKey("AnteriorDeltoid"))
+            // Calf/glute: opt-in only when specialized (maintenance → no aim).
+            assertFalse(targets.containsKey("Calf"))
+            assertFalse(targets.containsKey("Glute"))
+            assertFalse(targets.containsKey("PosteriorDeltoid"))
+            assertFalse(targets.containsKey("AnteriorDeltoid"))
+            assertFalse(targets.containsKey("Trap"))
+            assertFalse(targets.containsKey("Forearm"))
+            assertFalse(targets.containsKey("Adductor"))
+        }
+
+        @Test
+        fun `calf and glute get aims only when specialized`() {
+            val maint = GenerationContextTestFixtures.contextWith(specialization = emptyMap())
+            assertFalse(computeAllWeeklyTargets(maint).containsKey("Calf"))
+            assertFalse(computeAllWeeklyTargets(maint).containsKey("Glute"))
+
+            val calfSpec =
+                GenerationContextTestFixtures.contextWith(
+                    specialization = mapOf("Calf" to "Specialize"),
+                )
+            assertTrue(computeAllWeeklyTargets(calfSpec).containsKey("Calf"))
+            assertFalse(computeAllWeeklyTargets(calfSpec).containsKey("Glute"))
+
+            val gluteSpec =
+                GenerationContextTestFixtures.contextWith(
+                    specialization = mapOf("Glute" to "Specialize"),
+                )
+            assertTrue(computeAllWeeklyTargets(gluteSpec).containsKey("Glute"))
+            assertFalse(computeAllWeeklyTargets(gluteSpec).containsKey("Calf"))
         }
 
         @Test
@@ -131,15 +158,40 @@ class VolumeTargetPlannerTest {
         }
 
         @Test
-        fun `includes a muscle that appears only via a literature snapshot (not a major muscle)`() {
+        fun `calf literature snapshot alone does not create an aim without specialization`() {
             val ctx = GenerationContextTestFixtures.contextWith(
                 specialization = emptyMap(),
                 profileOverrides = mapOf("sessionLengthMinutes" to null),
                 literatureVolumeSnapshots = listOf(GenerationContextTestFixtures.literatureSnapshotContext("Calf")),
             )
             val targets = computeAllWeeklyTargets(ctx)
+            assertFalse(targets.containsKey("Calf"))
+        }
+
+        @Test
+        fun `specialized calf uses literature snapshot for aim`() {
+            val ctx = GenerationContextTestFixtures.contextWith(
+                specialization = mapOf("Calf" to "Specialize"),
+                profileOverrides = mapOf("sessionLengthMinutes" to null),
+                literatureVolumeSnapshots = listOf(GenerationContextTestFixtures.literatureSnapshotContext("Calf")),
+            )
+            val targets = computeAllWeeklyTargets(ctx)
             assertTrue(targets.containsKey("Calf"))
-            assertEquals(literaturePv("Calf"), targets.getValue("Calf").aim)
+            assertEquals(literatureRc("Calf"), targets.getValue("Calf").aim)
+        }
+
+        @Test
+        fun `non-core snapshot muscles do not receive weekly aims`() {
+            val ctx = GenerationContextTestFixtures.contextWith(
+                specialization = emptyMap(),
+                literatureVolumeSnapshots = listOf(
+                    GenerationContextTestFixtures.literatureSnapshotContext("Trap"),
+                    GenerationContextTestFixtures.literatureSnapshotContext("Forearm"),
+                ),
+            )
+            val targets = computeAllWeeklyTargets(ctx)
+            assertFalse(targets.containsKey("Trap"))
+            assertFalse(targets.containsKey("Forearm"))
         }
     }
 

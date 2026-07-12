@@ -122,6 +122,7 @@ fun validateWorkoutDuration(
     if (sessionLength == null || sessionLength <= 0) return emptyList()
     val minutes = estimatedMinutes
         ?: program.workouts.map { workout -> countWorkoutHardSets(workout) * MINUTES_PER_HARD_SET }
+    // Band max (+ grace is for trim only); validation flags over the hard max minutes.
     val budget = sessionDurationBudgetMinutes(sessionLength).toDouble()
     val issues = mutableListOf<ValidationIssue>()
     program.workouts.forEachIndexed { index, workout ->
@@ -131,11 +132,12 @@ fun validateWorkoutDuration(
                 code = "WORKOUT_DURATION_EXCEEDED",
                 severity = ValidationSeverity.Error,
                 message = "Workout \"${workout.name ?: index}\" estimated ${"%.1f".format(estimate)} min " +
-                    "exceeds budget $sessionLength min (cap ${"%.1f".format(budget)}).",
+                    "exceeds max session budget ${"%.0f".format(budget)} min.",
                 details = mapOf(
                     "workoutIndex" to index,
                     "estimatedMinutes" to estimate,
-                    "budgetMinutes" to sessionLength,
+                    "budgetMinutes" to budget,
+                    "aimMinutes" to sessionLength,
                 ),
             )
         }
