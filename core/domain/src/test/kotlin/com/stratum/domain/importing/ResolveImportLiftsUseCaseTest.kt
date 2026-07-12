@@ -9,6 +9,7 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -41,7 +42,7 @@ class ResolveImportLiftsUseCaseTest {
                             movementPattern = MovementPattern.ElbowExtension,
                             primaryMuscles = setOf(MuscleGroup.Tricep),
                             secondaryMuscles = emptySet(),
-                            equipment = "cable",
+                            loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.Cable),
                         ),
                     ),
             )
@@ -63,7 +64,7 @@ class ResolveImportLiftsUseCaseTest {
         assertEquals("Katana Triceps Extension", custom.name)
         assertEquals(MovementPattern.ElbowExtension, custom.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Tricep), custom.primaryMuscles)
-        assertEquals("cable", custom.equipmentName)
+        assertEquals(SeedEquipmentIds.Cable, custom.equipmentId)
         assertEquals(1, inference.invocations.single().size)
     }
 
@@ -80,7 +81,7 @@ class ResolveImportLiftsUseCaseTest {
                             movementPattern = MovementPattern.HorizontalPull,
                             primaryMuscles = setOf(MuscleGroup.Back),
                             secondaryMuscles = emptySet(),
-                            equipment = "cable",
+                            loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.Cable),
                         ),
                     ),
             )
@@ -91,6 +92,66 @@ class ResolveImportLiftsUseCaseTest {
         val custom = liftRepo.currentLifts.single { it.isCustom }
         assertEquals(MovementPattern.HorizontalPull, custom.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Bicep), custom.secondaryMuscles)
+    }
+
+    @Test
+    @DisplayName("Given plate-loaded machine inference when creating custom lift then double-weight-plates seed id is set")
+    fun plateLoadedMachineUsesDoubleWeightPlates() = runTest {
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val name = "Seated Neutral Grip Plate-Loaded Machine Press"
+        val inference =
+            FakeCustomLiftInferencePort(
+                results =
+                    listOf(
+                        InferredCustomLiftMetadata(
+                            exerciseNameRaw = name,
+                            movementPattern = MovementPattern.HorizontalPress,
+                            primaryMuscles = setOf(MuscleGroup.Chest),
+                            loading =
+                                InferredEquipmentLoading.Seed(SeedEquipmentIds.DoubleWeightPlates),
+                        ),
+                    ),
+            )
+        val subject = buildSubject(liftRepo, customInference = inference)
+
+        subject(listOf(loggedSet(exerciseNameRaw = name)))
+
+        val custom = liftRepo.currentLifts.single { it.isCustom }
+        assertEquals(SeedEquipmentIds.DoubleWeightPlates, custom.equipmentId)
+        assertNull(custom.equipmentName)
+    }
+
+    @Test
+    @DisplayName("Given custom loading when creating custom lift then name and create increment are passed through")
+    fun customLoadingPassesCreateIncrement() = runTest {
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val inference =
+            FakeCustomLiftInferencePort(
+                results =
+                    listOf(
+                        InferredCustomLiftMetadata(
+                            exerciseNameRaw = "Pro2 Pec Fly",
+                            movementPattern = MovementPattern.HorizontalPress,
+                            primaryMuscles = setOf(MuscleGroup.Chest),
+                            loading =
+                                InferredEquipmentLoading.Custom(
+                                    name = "Life Fitness Pro2 Stack",
+                                    incrementLb = 12.5,
+                                ),
+                        ),
+                    ),
+            )
+        val subject = buildSubject(liftRepo, customInference = inference)
+
+        subject(listOf(loggedSet(exerciseNameRaw = "Pro2 Pec Fly")))
+
+        val custom = liftRepo.currentLifts.single { it.isCustom }
+        assertEquals("Life Fitness Pro2 Stack", custom.equipmentName)
+        assertNull(custom.equipmentId)
+        assertEquals(
+            Weight(12.5, Weight.WeightUnit.Lb),
+            liftRepo.lastEquipmentCreateIncrements.single(),
+        )
     }
 
     @Test

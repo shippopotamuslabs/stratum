@@ -162,12 +162,20 @@ class RoomEquipmentRepository @Inject constructor(
      * Caller **must** already hold the write lock and should wrap DAO work in a Room
      * transaction (nested [androidx.room.withTransaction] joins the outer one). Used by
      * [RoomLiftRepository.addCustomLift] so equipment + lift land in one atomic write.
+     *
+     * When minting a new row, [createTiers] overrides the default single +5 lb band (used by
+     * import custom loading). Existing rows are returned as-is; [createTiers] is ignored.
      */
-    suspend fun findOrCreateByNameUnlocked(name: String, nowMillis: Long): EquipmentId {
+    suspend fun findOrCreateByNameUnlocked(
+        name: String,
+        nowMillis: Long,
+        createTiers: List<IncrementTier>? = null,
+    ): EquipmentId {
         val trimmed = name.trim()
         resolveExistingByName(trimmed)?.let { return it }
         val id = EquipmentId(UUID.randomUUID().toString())
-        insertCustomEquipmentUnlocked(id, trimmed, defaultSingleTiers(), nowMillis)
+        val tiers = createTiers?.takeIf { it.isNotEmpty() } ?: defaultSingleTiers()
+        insertCustomEquipmentUnlocked(id, trimmed, tiers, nowMillis)
         return id
     }
 

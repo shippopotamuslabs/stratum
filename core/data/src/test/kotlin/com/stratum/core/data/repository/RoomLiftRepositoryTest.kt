@@ -254,6 +254,92 @@ class RoomLiftRepositoryTest {
             // Single custom equipment row — no orphaned extras from a separate write.
             assertEquals(1, database.equipmentDao().getAll().size)
         }
+
+        @Test
+        @DisplayName("Given seed equipmentId when custom lift is added then it links that row without minting equipment")
+        fun seedEquipmentIdLinksDirectly() = runTest {
+            val platesId = EquipmentId("double-weight-plates")
+            database.equipmentDao().upsert(
+                EquipmentEntity(
+                    id = platesId,
+                    name = "Double Weight Plates",
+                    isCustom = false,
+                    updatedAtEpochMillis = 0L,
+                    pendingSync = SyncFlags.CLEAN,
+                ),
+            )
+
+            val id = subject.addCustomLift(
+                CustomLiftDefinition(
+                    name = "Seated Neutral Grip Plate-Loaded Machine Press",
+                    movementPatterns = setOf(MovementPattern.HorizontalPress),
+                    primaryMuscles = setOf(MuscleGroup.Chest),
+                    equipmentId = platesId,
+                ),
+            )
+
+            val custom = firstLifts().single { it.id == id }
+            assertEquals(platesId, custom.equipmentId)
+            assertEquals("Double Weight Plates", custom.equipmentName)
+            assertTrue(custom.usesEquipmentDefaultIncrements)
+            assertEquals(1, database.equipmentDao().getAll().size)
+        }
+
+        @Test
+        @DisplayName("Given equipmentCreateIncrement when custom equipment is minted then open band uses that step")
+        fun customEquipmentCreateIncrementApplied() = runTest {
+            val id = subject.addCustomLift(
+                CustomLiftDefinition(
+                    name = "Pro2 Pec Fly",
+                    movementPatterns = setOf(MovementPattern.HorizontalPress),
+                    primaryMuscles = setOf(MuscleGroup.Chest),
+                    equipmentName = "Life Fitness Pro2 Stack",
+                    equipmentCreateIncrement = Weight(12.5, Weight.WeightUnit.Lb),
+                ),
+            )
+
+            val custom = firstLifts().single { it.id == id }
+            val equipmentId = requireNotNull(custom.equipmentId)
+            val tiers = database.incrementTierDao().getForEquipment(equipmentId)
+            assertEquals(1, tiers.size)
+            assertEquals(12.5, tiers.single().increment)
+            assertEquals(0.0, tiers.single().lowerBound)
+            assertEquals(null, tiers.single().upperBound)
+            assertTrue(custom.usesEquipmentDefaultIncrements)
+        }
+
+        @Test
+        @DisplayName("Given Default equipment name when custom lift is added then shared Default row is find-or-created at +5")
+        fun defaultEquipmentFindOrCreate() = runTest {
+            val firstId =
+                subject.addCustomLift(
+                    CustomLiftDefinition(
+                        name = "Unknown A",
+                        movementPatterns = setOf(MovementPattern.ElbowExtension),
+                        primaryMuscles = setOf(MuscleGroup.Tricep),
+                        equipmentName = "Default",
+                        equipmentCreateIncrement = Weight(5.0, Weight.WeightUnit.Lb),
+                    ),
+                )
+            val secondId =
+                subject.addCustomLift(
+                    CustomLiftDefinition(
+                        name = "Unknown B",
+                        movementPatterns = setOf(MovementPattern.ElbowFlexion),
+                        primaryMuscles = setOf(MuscleGroup.Bicep),
+                        equipmentName = "Default",
+                        equipmentCreateIncrement = Weight(5.0, Weight.WeightUnit.Lb),
+                    ),
+                )
+
+            val first = firstLifts().single { it.id == firstId }
+            val second = firstLifts().single { it.id == secondId }
+            assertEquals(first.equipmentId, second.equipmentId)
+            assertEquals("Default", first.equipmentName)
+            assertEquals(1, database.equipmentDao().getAll().size)
+            val tiers = database.incrementTierDao().getForEquipment(requireNotNull(first.equipmentId))
+            assertEquals(5.0, tiers.single().increment)
+        }
     }
 
     @Nested
