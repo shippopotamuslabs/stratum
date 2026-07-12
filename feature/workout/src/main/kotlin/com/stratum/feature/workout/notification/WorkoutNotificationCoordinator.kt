@@ -68,8 +68,11 @@ class WorkoutNotificationCoordinator @Inject constructor(
             }.distinctUntilChanged().collect { (rest, session) ->
                 val running = rest is RestTimerState.Running
                 if (running && !previousRestWasRunning) {
-                    // Fresh rest start after idle — allow the rest notification again.
+                    // Fresh rest start after idle — allow the rest notification again and
+                    // clear any leftover "rest complete" heads-up so it does not stack with
+                    // the active countdown notification.
                     restNotificationSuppressed = false
+                    notificationHelper.cancelRestComplete()
                 }
                 if (!running) {
                     restNotificationSuppressed = false
