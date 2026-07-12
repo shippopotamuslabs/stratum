@@ -163,7 +163,17 @@ class RoomLiftRepository @Inject constructor(
                             ?.trim()
                             ?.takeIf { it.isNotEmpty() }
                             ?.let { name ->
-                                equipmentRepository.findOrCreateByNameUnlocked(name, now)
+                                // find-or-create: reuse existing (incl. seed aliases); mint only
+                                // when unknown. createTiers apply only on first insert.
+                                val createTiers =
+                                    definition.equipmentCreateIncrement?.let {
+                                        listOf(singleOpenTier(it))
+                                    }
+                                equipmentRepository.findOrCreateByNameUnlocked(
+                                    name = name,
+                                    nowMillis = now,
+                                    createTiers = createTiers,
+                                )
                             }
                 val lift =
                     Lift(

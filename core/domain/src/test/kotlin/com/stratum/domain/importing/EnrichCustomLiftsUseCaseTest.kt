@@ -2,6 +2,7 @@ package com.stratum.domain.importing
 
 import com.stratum.core.testing.importing.FakeCustomLiftInferencePort
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -52,7 +53,7 @@ class EnrichCustomLiftsUseCaseTest {
                                     movementPattern = MovementPattern.ShoulderAbduction,
                                     primaryMuscles = setOf(MuscleGroup.LateralDeltoid),
                                     secondaryMuscles = emptySet(),
-                                    equipment = "cable",
+                                    loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.Cable),
                                 )
                             },
                         )

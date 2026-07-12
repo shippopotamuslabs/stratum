@@ -5,8 +5,10 @@ import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.importing.CustomLiftInferencePort
 import com.stratum.domain.importing.CustomLiftMusclePolicy
 import com.stratum.domain.importing.InferredCustomLiftMetadata
+import com.stratum.domain.importing.InferredEquipmentLoading
 import com.stratum.domain.importing.UnmatchedExerciseCandidate
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.onboarding.MuscleGroup
 import java.util.concurrent.TimeUnit
@@ -14,6 +16,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Firebase Callable client for `inferCustomLifts`.
+ *
+ * Decodes the **server-normalized** payload (`loading: { type, ... }`), not the raw LLM
+ * schema fields. Unknown or malformed loading becomes the shared Default equipment lattice.
+ */
 @Singleton
 class FirebaseCustomLiftInferenceAdapter @Inject constructor(
     private val loggingPort: LoggingPort,
@@ -45,53 +53,86 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor(
         FirebaseCallableErrorLogger.logFailure(loggingPort, TAG, CALLABLE_NAME, error)
     }
 
-    private companion object {
-        const val TAG = "StratumCustomLiftInference"
-        const val CALLABLE_NAME = "inferCustomLifts"
-        const val CALLABLE_TIMEOUT_SECONDS = 300L
-    }
-
     private fun requireAuth() {
         checkNotNull(auth.currentUser) { "Sign-in required for custom lift inference." }
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun parseResponse(data: Any?): List<InferredCustomLiftMetadata> {
-        val map = data as? Map<*, *> ?: error("Invalid inferCustomLifts response.")
-        val lifts = map["lifts"] as? List<*> ?: error("Missing lifts in inferCustomLifts response.")
-        return lifts.mapNotNull { entry -> parseLift(entry as? Map<*, *>) }
-    }
+    internal companion object {
+        const val TAG = "StratumCustomLiftInference"
+        const val CALLABLE_NAME = "inferCustomLifts"
+        const val CALLABLE_TIMEOUT_SECONDS = 300L
 
-    private fun parseLift(entry: Map<*, *>?): InferredCustomLiftMetadata? {
-        if (entry == null) return null
-        val name = entry["name"] as? String
-        val movementPattern = parseMovementPattern(entry["movementPattern"] as? String)
-        val primary = parseMuscleGroups(entry["primaryMuscles"], maxItems = 2)
-        if (name == null || movementPattern == null || primary.isEmpty()) {
-            return null
+        @Suppress("UNCHECKED_CAST")
+        internal fun parseResponse(data: Any?): List<InferredCustomLiftMetadata> {
+            val map = data as? Map<*, *> ?: error("Invalid inferCustomLifts response.")
+            val lifts =
+                map["lifts"] as? List<*> ?: error("Missing lifts in inferCustomLifts response.")
+            return lifts.mapNotNull { entry -> parseLift(entry as? Map<*, *>) }
         }
-        val secondary =
-            parseMuscleGroups(entry["secondaryMuscles"], maxItems = 4)
-                .filterNot { it in primary }
-                .toSet()
-        val equipment = (entry["equipment"] as? String)?.takeIf { it.isNotBlank() }
-        return InferredCustomLiftMetadata(
-            exerciseNameRaw = name,
-            movementPattern = movementPattern,
-            primaryMuscles = primary,
-            secondaryMuscles = secondary,
-            equipment = equipment,
-        ).let(CustomLiftMusclePolicy::withPatternSecondaryDefaults)
+
+        private fun parseLift(entry: Map<*, *>?): InferredCustomLiftMetadata? {
+            if (entry == null) return null
+            val name = entry["name"] as? String
+            val movementPattern = parseMovementPattern(entry["movementPattern"] as? String)
+            val primary = parseMuscleGroups(entry["primaryMuscles"], maxItems = 2)
+            if (name == null || movementPattern == null || primary.isEmpty()) {
+                return null
+            }
+            val secondary =
+                parseMuscleGroups(entry["secondaryMuscles"], maxItems = 4)
+                    .filterNot { it in primary }
+                    .toSet()
+            return InferredCustomLiftMetadata(
+                exerciseNameRaw = name,
+                movementPattern = movementPattern,
+                primaryMuscles = primary,
+                secondaryMuscles = secondary,
+                loading = parseCallableLoading(entry["loading"]),
+            ).let(CustomLiftMusclePolicy::withPatternSecondaryDefaults)
+        }
+
+        /**
+         * Decodes server `loading` objects produced by `parseInferredCustomLifts`.
+         * Malformed / missing → shared Default equipment (+5 lb).
+         */
+        private fun parseCallableLoading(raw: Any?): InferredEquipmentLoading {
+            val loading = raw as? Map<*, *> ?: return InferredEquipmentLoading.defaultEquipment()
+            return when ((loading["type"] as? String)?.trim()) {
+                "seed" -> {
+                    val wireId = (loading["equipmentId"] as? String)?.trim().orEmpty()
+                    SeedEquipmentIds.fromWireId(wireId)?.let { InferredEquipmentLoading.Seed(it) }
+                        ?: InferredEquipmentLoading.defaultEquipment()
+                }
+                "custom" -> {
+                    val rawName = (loading["name"] as? String)?.trim().orEmpty()
+                    val name =
+                        rawName.ifEmpty { InferredEquipmentLoading.DEFAULT_EQUIPMENT_NAME }
+                    val increment =
+                        InferredEquipmentLoading.sanitizeIncrementLb(
+                            parseNumber(loading["incrementLb"]),
+                        )
+                    InferredEquipmentLoading.Custom(name = name, incrementLb = increment)
+                }
+                else -> InferredEquipmentLoading.defaultEquipment()
+            }
+        }
+
+        private fun parseNumber(raw: Any?): Double? =
+            when (raw) {
+                is Number -> raw.toDouble()
+                is String -> raw.toDoubleOrNull()
+                else -> null
+            }
+
+        private fun parseMuscleGroups(value: Any?, maxItems: Int): Set<MuscleGroup> {
+            val list = value as? List<*> ?: return emptySet()
+            return list.mapNotNull { parseMuscleGroup(it as? String) }.take(maxItems).toSet()
+        }
+
+        private fun parseMovementPattern(value: String?): MovementPattern? =
+            value?.let { runCatching { MovementPattern.valueOf(it) }.getOrNull() }
+
+        private fun parseMuscleGroup(value: String?): MuscleGroup? =
+            value?.let { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }
     }
-
-    private fun parseMuscleGroups(value: Any?, maxItems: Int): Set<MuscleGroup> {
-        val list = value as? List<*> ?: return emptySet()
-        return list.mapNotNull { parseMuscleGroup(it as? String) }.take(maxItems).toSet()
-    }
-
-    private fun parseMovementPattern(value: String?): MovementPattern? =
-        value?.let { runCatching { MovementPattern.valueOf(it) }.getOrNull() }
-
-    private fun parseMuscleGroup(value: String?): MuscleGroup? =
-        value?.let { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }
 }
