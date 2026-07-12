@@ -1,4 +1,4 @@
-package com.stratum.domain.program.generation.split
+package com.stratum.domain.program.generation.slots
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class CrossDomainTouchSlotsTest {
+class CrossDomainTouchesTest {
 
     private val touchTestLifts =
         GenerationContextTestFixtures.volumePlannerLifts +

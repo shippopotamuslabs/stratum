@@ -1,5 +1,6 @@
 package com.stratum.domain.program.generation.split
 
+import com.stratum.domain.program.generation.slots.SessionTypeId
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

@@ -1,5 +1,16 @@
 package com.stratum.domain.program.generation.split
 
+import com.stratum.domain.program.generation.slots.SessionTypeId
+
+/**
+ * Presentation-only name → [SessionTypeId] heuristic.
+ *
+ * **Not structure truth.** Workout names are polish (placeholders, catalog display, or LLM
+ * renames) and must not drive recovery, variety, or synthesis. Production generation paths
+ * use [com.stratum.domain.program.generation.structure.SessionRegionFilter] /
+ * muscle-dose metadata instead. Kept for unit tests and any UI that still maps fixed catalog
+ * name prefixes to labels.
+ */
 internal fun inferSessionTypeFromWorkoutName(name: String): SessionTypeId? {
     val normalized = name.trim().lowercase()
     return when {

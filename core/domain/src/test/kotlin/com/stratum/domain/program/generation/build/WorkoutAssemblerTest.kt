@@ -9,8 +9,8 @@ import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
-import com.stratum.domain.program.generation.split.SessionTypeId
-import com.stratum.domain.program.generation.split.SlotRole
+import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.slots.SlotRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName

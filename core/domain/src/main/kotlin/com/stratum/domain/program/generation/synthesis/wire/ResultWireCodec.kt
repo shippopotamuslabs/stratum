@@ -15,13 +15,13 @@ import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.prescription.SessionSlotPlan
 import com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown
 import com.stratum.domain.program.generation.reference.RpRepProfile
-import com.stratum.domain.program.generation.split.MuscleLengthBiasPreference
+import com.stratum.domain.program.generation.slots.MuscleLengthBiasPreference
 import com.stratum.domain.program.generation.split.ResolvedSessionPlan
-import com.stratum.domain.program.generation.split.SessionComposition
-import com.stratum.domain.program.generation.split.SessionTypeId
-import com.stratum.domain.program.generation.split.SiblingVariant
-import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.SessionComposition
+import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.slots.SiblingVariant
+import com.stratum.domain.program.generation.slots.SlotRole
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 
 // region Result nested types
 
@@ -84,6 +84,12 @@ private fun encodeFilledSlot(slot: FilledSlot): String =
         "lengthBiasPreference" to jsonStringOrNull(slot.lengthBiasPreference?.name),
         "siblingVariant" to jsonStringOrNull(slot.siblingVariant?.name),
         "isCrossDomainTouch" to jsonBoolean(slot.isCrossDomainTouch),
+        "allowedKinematicProfiles" to
+            if (slot.allowedKinematicProfiles == null) {
+                "null"
+            } else {
+                jsonArray(slot.allowedKinematicProfiles.map { jsonString(it.name) })
+            },
         "setCount" to jsonNumber(slot.setCount),
     )
 
@@ -101,6 +107,7 @@ private fun decodeFilledSlot(obj: JsonObject): FilledSlot =
         siblingVariant =
             obj.optionalString("siblingVariant")?.let { enumValueOf<SiblingVariant>(it) },
         isCrossDomainTouch = obj.optionalBoolean("isCrossDomainTouch") ?: false,
+        allowedKinematicProfiles = decodeKinematicProfileSet(obj["allowedKinematicProfiles"]),
         setCount = obj.requireInt("setCount"),
     )
 

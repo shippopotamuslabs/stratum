@@ -167,7 +167,7 @@ Literature hours → minimum gap: 24h→1, 48h→2, 72h→3, 96h→4.
 ### 3.1 Explicit evaluations requested
 
 **Is 24h high-frequency isolation desirable/feasible?** Feasible only narrowly. Split templates
-(`split/SessionTypeCatalog.kt`) and weekly aims mean a muscle trained on adjacent days almost always
+(`slots/SessionTypeCatalog.kt`) and weekly aims mean a muscle trained on adjacent days almost always
 carries ≥ 2.0 credits per session (the solver's `MIN_SETS_PER_ACTIVE_SLOT = 2` makes *every active
 slot* recovery-visible by design). Real beneficiaries are arm/calf specialization on 5–6-day splits
 (the exact scenarios in `FiveDayArmCalfMtwfsRecoveryTest` and `ScheduleRecoveryIntegrationTest`),

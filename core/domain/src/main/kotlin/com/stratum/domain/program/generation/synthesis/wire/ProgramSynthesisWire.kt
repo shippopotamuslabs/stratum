@@ -1,11 +1,15 @@
 package com.stratum.domain.program.generation.synthesis.wire
 
+import com.stratum.domain.json.JsonObject
 import com.stratum.domain.json.JsonReader
 import com.stratum.domain.json.jsonArray
 import com.stratum.domain.json.jsonNumber
 import com.stratum.domain.json.jsonObject
 import com.stratum.domain.json.jsonString
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.split.ResolvedSessionPlan
+import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 
@@ -51,6 +55,9 @@ data class ProgramSynthesisWireRequest(
  * - `weekdayIndexByPosition`: int array
  * - `objective`: [SynthesisObjectiveBreakdown] (all Long fields)
  * - `activeSlotIdsBySession`: array of string arrays
+ * - `regionFilterBySession`: array of [SessionRegionFilter] enum name strings
+ *   (optional on **decode** for rolling-deploy compatibility with pre-field solvers;
+ *   inferred from legacy `sessions[].sessionType` when absent/empty)
  *
  * Enums serialize as **enum name** strings (`MuscleGroup.Chest` → `"Chest"`).
  *
@@ -85,15 +92,19 @@ object ProgramSynthesisWire {
                         jsonArray(sessionIds.map { jsonString(it) })
                     },
                 ),
+            "regionFilterBySession" to
+                jsonArray(result.regionFilterBySession.map { jsonString(it.name) }),
         )
 
     fun decodeResult(json: String): ProgramSynthesisResult =
         wrapParse("result") {
             val root = JsonReader(json).readRootObject()
-            ProgramSynthesisResult(
-                sessions = root.requireArray("sessions").values.map {
+            val sessions =
+                root.requireArray("sessions").values.map {
                     decodeResolvedSession(it.requireAsObject("sessions[]"))
-                },
+                }
+            ProgramSynthesisResult(
+                sessions = sessions,
                 plans = root.requireArray("plans").values.map {
                     decodeSessionSlotPlan(it.requireAsObject("plans[]"))
                 },
@@ -110,9 +121,48 @@ object ProgramSynthesisWire {
                             it.asStringOrNull() ?: error("Expected string slot id")
                         }.toSet()
                     },
+                regionFilterBySession = decodeRegionFilterBySession(root, sessions),
             )
         }
 }
+
+/**
+ * Prefer explicit wire field; when missing/empty (legacy cloud results), derive coarse
+ * filters from legacy [ResolvedSessionPlan.sessionType] display labels.
+ */
+internal fun decodeRegionFilterBySession(
+    root: JsonObject,
+    sessions: List<ResolvedSessionPlan>,
+): List<SessionRegionFilter> {
+    val raw = root["regionFilterBySession"]
+    if (raw == null || raw.isNull()) {
+        return sessions.map { sessionTypeIdToRegionFilter(it.sessionType) }
+    }
+    val arr = raw.asArrayOrNull()
+        ?: error("Expected array in regionFilterBySession")
+    if (arr.values.isEmpty() && sessions.isNotEmpty()) {
+        return sessions.map { sessionTypeIdToRegionFilter(it.sessionType) }
+    }
+    return arr.values.map { filterVal ->
+        val name = filterVal.asStringOrNull()
+            ?: error("Expected string in regionFilterBySession")
+        enumValueOf<SessionRegionFilter>(name)
+    }
+}
+
+/** Coarse legacy map: old wire only had SessionTypeId labels, not structure filters. */
+internal fun sessionTypeIdToRegionFilter(sessionType: SessionTypeId): SessionRegionFilter =
+    when (sessionType) {
+        SessionTypeId.Lower,
+        SessionTypeId.QuadsCalves,
+        SessionTypeId.GlutesHams,
+        -> SessionRegionFilter.LowerOnly
+        SessionTypeId.FullBody,
+        SessionTypeId.FullPush,
+        SessionTypeId.FullPull,
+        -> SessionRegionFilter.Unrestricted
+        else -> SessionRegionFilter.UpperOnly
+    }
 
 /** Thrown when synthesis wire JSON cannot be parsed or fails schema checks. */
 class ProgramSynthesisWireException(

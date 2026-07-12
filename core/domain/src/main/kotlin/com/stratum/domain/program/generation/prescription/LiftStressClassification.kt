@@ -8,7 +8,7 @@ import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.reference.LiftStressClass
 import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.RpRepProfile
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 
 /**
  * Classifies movement stress for recovery scheduling (literature-aligned three-tier model).

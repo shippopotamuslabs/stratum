@@ -2,27 +2,6 @@ package com.stratum.domain.program.generation.synthesis
 
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
-import com.stratum.domain.program.generation.reference.RpRepProfile
-import com.stratum.domain.program.generation.split.SiblingVariant
-import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.volume.TrainingDomain
-
-enum class SynthesisSessionDomain {
-    Upper,
-    Lower,
-    Full,
-}
-
-data class SynthesisSlot(
-    val id: String,
-    val pattern: String,
-    val primaryMuscle: String,
-    val role: SlotRole,
-    val repProfile: RpRepProfile,
-    val allowedDomains: Set<SynthesisSessionDomain>,
-    val isCrossDomainTouch: Boolean,
-    val siblingVariant: SiblingVariant?,
-)
 
 internal const val PLACEHOLDER_PROGRAM_NAME = "Generated Program"
 
@@ -58,11 +37,3 @@ private fun weekdaySortKey(weekday: String?, position: Int?): Int =
         ?.let { runCatching { Weekday.valueOf(it).ordinal }.getOrNull() }
         ?: position
         ?: Int.MAX_VALUE
-
-
-internal fun synthesisSessionDomainToTrainingDomain(domain: SynthesisSessionDomain): TrainingDomain? =
-    when (domain) {
-        SynthesisSessionDomain.Upper -> TrainingDomain.Upper
-        SynthesisSessionDomain.Lower -> TrainingDomain.Lower
-        SynthesisSessionDomain.Full -> null
-    }

@@ -1,7 +1,7 @@
-package com.stratum.domain.program.generation.synthesis
+package com.stratum.domain.program.generation.universe
 
 import com.stratum.core.testing.program.scenarioContext
-import com.stratum.domain.program.generation.split.SlotRole
+import com.stratum.domain.program.generation.slots.SlotRole
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -35,6 +35,6 @@ class SlotUniverseBuilderTest {
         val touchSlots = universe.filter { slot -> slot.isCrossDomainTouch }
 
         assertTrue(touchSlots.isNotEmpty())
-        assertTrue(touchSlots.all { slot -> slot.allowedDomains.size >= 2 })
+        assertTrue(touchSlots.all { slot -> slot.allowedRegionFilters.size >= 2 })
     }
 }
