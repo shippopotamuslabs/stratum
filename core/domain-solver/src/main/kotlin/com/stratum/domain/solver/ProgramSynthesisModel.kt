@@ -33,12 +33,13 @@ import com.stratum.domain.program.generation.reference.calendarDayPairsWithMaxGa
 import com.stratum.domain.program.generation.reference.calendarGapBetweenDays
 import com.stratum.domain.program.generation.reference.isLargeCompoundMuscle
 import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGap
+import com.stratum.domain.program.generation.reference.sessionAimHardSetsForLength
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
-import com.stratum.domain.program.generation.split.SlotRole
+import com.stratum.domain.program.generation.slots.SlotRole
 import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
 import com.stratum.domain.program.generation.split.trainingWeekdayIndices
-import com.stratum.domain.program.generation.synthesis.SynthesisSessionDomain
-import com.stratum.domain.program.generation.synthesis.SynthesisSlot
+import com.stratum.domain.program.generation.structure.SessionRegionFilter
+import com.stratum.domain.program.generation.universe.SynthesisSlot
 import com.stratum.domain.program.generation.synthesis.UnifiedSynthesisSolution
 import com.stratum.domain.program.generation.synthesis.parseSessionSlotId
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
@@ -110,7 +111,7 @@ internal class ProgramSynthesisModel(
         meaningfulExposureBySessionMuscle.clear()
         heavyAxialPrimaryExposureBySlot.clear()
         heavyAxialPrimaryHardForbidBySlot.clear()
-        unifiedStructureState.domainVarByPosition.clear()
+        unifiedStructureState.regionFilterVarByPosition.clear()
         plans.forEach { plan ->
             plan.filledSlots.forEach { slot ->
                 val cap = perSlotCap(slot)
@@ -136,7 +137,14 @@ internal class ProgramSynthesisModel(
         _muscles.addAll(muscleSet)
 
         addCalendarAssignment(model, plans)
-        addUnifiedStructureConstraints(model, plans, unifiedUniverse, _slots, unifiedStructureState)
+        addUnifiedStructureConstraints(
+            model = model,
+            plans = plans,
+            universe = unifiedUniverse,
+            slotVars = _slots,
+            state = unifiedStructureState,
+            weekdays = context.weekdays,
+        )
         addPerSessionMuscleCaps(model)
         addSessionTimeCaps(model)
         addWeeklyVolumeCeilings(model)
@@ -153,14 +161,14 @@ internal class ProgramSynthesisModel(
     /**
      * Soft warm-start: writes [seed] as incomplete CP-SAT solution hints.
      *
-     * Only domains, days, and **positively activated** slots are hinted. Inactive slots are left
-     * free — forcing active=0/x=0 on every unused slot made the v1 seed sticky and regressed
+     * Only region filters, days, and **positively activated** slots are hinted. Inactive slots are
+     * left free — forcing active=0/x=0 on every unused slot made the v1 seed sticky and regressed
      * first-incumbent quality (~97M vs ~57M cold).
      */
     fun applyWarmStartHints(model: CpModel, seed: SynthesisSeedAssignment) {
-        for ((position, domain) in seed.domainBySession) {
-            val domainVar = unifiedStructureState.domainVarByPosition[position] ?: continue
-            model.addHint(domainVar, domain.ordinal.toLong())
+        for ((position, regionFilter) in seed.regionFilterBySession) {
+            val regionFilterVar = unifiedStructureState.regionFilterVarByPosition[position] ?: continue
+            model.addHint(regionFilterVar, regionFilter.ordinal.toLong())
         }
         for ((position, weekday) in seed.weekdayBySession) {
             val dayVar = _dayVarByPosition[position] ?: continue
@@ -194,11 +202,13 @@ internal class ProgramSynthesisModel(
             plans.sortedBy { it.position }.map { plan ->
                 solver.value(dayVarByPosition.getValue(plan.position)).toInt()
             }
-        val domainBySession =
+        val regionFilterBySession =
             plans.sortedBy { it.position }.map { plan ->
                 val ordinal =
-                    solver.value(unifiedStructureState.domainVarByPosition.getValue(plan.position)).toInt()
-                SynthesisSessionDomain.entries[ordinal]
+                    solver.value(
+                        unifiedStructureState.regionFilterVarByPosition.getValue(plan.position),
+                    ).toInt()
+                SessionRegionFilter.entries[ordinal]
             }
         return UnifiedSynthesisSolution(
             activeSlotIdsBySession =
@@ -207,7 +217,7 @@ internal class ProgramSynthesisModel(
                 },
             setCountBySessionSlot = setCounts,
             weekdayIndexByPosition = weekdayIndexByPosition,
-            domainBySession = domainBySession,
+            regionFilterBySession = regionFilterBySession,
         )
     }
 
@@ -1059,10 +1069,8 @@ internal class ProgramSynthesisModel(
         plans: List<SessionSlotPlan>,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
-        val sessionCap = sessionHardSetCapForLength(context.sessionLengthMinutes)?.toLong() ?: return
-        // Session budget is fully defined by sessionLengthMinutes / MINUTES_PER_HARD_SET (hard cap above).
-        // Soft fill penalizes under-using that budget — no secondary ratio trim.
-        val targetSets = sessionCap
+        // Soft fill toward band midpoint (aim); hard ceiling is band max via addSessionTimeCaps.
+        val targetSets = sessionAimHardSetsForLength(context.sessionLengthMinutes)?.toLong() ?: return
         val byPlan = _slots.groupBy { it.plan }
         plans.forEach { plan ->
             val slotVars = byPlan[plan].orEmpty()

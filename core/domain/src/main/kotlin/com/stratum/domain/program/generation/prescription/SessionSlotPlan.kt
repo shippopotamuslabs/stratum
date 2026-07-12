@@ -2,16 +2,17 @@
 
 package com.stratum.domain.program.generation.prescription
 
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.reference.PATTERN_SECONDARY_MUSCLE_CREDITS
 import com.stratum.domain.program.generation.reference.RpRepProfile
-import com.stratum.domain.program.generation.split.MuscleLengthBiasPreference
-import com.stratum.domain.program.generation.split.SessionTypeId
-import com.stratum.domain.program.generation.split.SiblingVariant
-import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.MuscleLengthBiasPreference
+import com.stratum.domain.program.generation.slots.SessionTypeId
+import com.stratum.domain.program.generation.slots.SiblingVariant
+import com.stratum.domain.program.generation.slots.SlotRole
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 
 data class FilledSlot(
     val slotId: String,
@@ -22,6 +23,7 @@ data class FilledSlot(
     val lengthBiasPreference: MuscleLengthBiasPreference? = null,
     val siblingVariant: SiblingVariant? = null,
     val isCrossDomainTouch: Boolean = false,
+    val allowedKinematicProfiles: Set<KinematicProfile>? = null,
     var setCount: Int,
 ) {
     fun toWorkoutSlotTemplate(): WorkoutSlotTemplate =
@@ -34,6 +36,7 @@ data class FilledSlot(
             lengthBiasPreference = lengthBiasPreference,
             siblingVariant = siblingVariant,
             isCrossDomainTouch = isCrossDomainTouch,
+            allowedKinematicProfiles = allowedKinematicProfiles,
         )
 }
 

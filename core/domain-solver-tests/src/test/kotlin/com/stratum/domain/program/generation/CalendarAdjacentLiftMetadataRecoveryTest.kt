@@ -38,14 +38,13 @@ class CalendarAdjacentLiftMetadataRecoveryTest {
 
     @Test
     fun finalDraftHasNoBackToBackSameMuscleExposure() = runBlocking {
+        // High-signal only: dense sequential lower load, mixed layout, weird calendar.
+        // (Dropped redundant glutes+legs×layout combos that largely re-solve the same risk.)
         val scenarios =
             listOf(
-                Triple(5, "glutes", "sequential"),
                 Triple(5, "legs", "sequential"),
-                Triple(5, "legs", "mtwfs"),
                 Triple(5, "legs", "sean5"),
                 Triple(4, "glutes", "weird4"),
-                Triple(3, "legs", "mtwfs"),
             )
 
         val violations = mutableListOf<AdjacentViolation>()

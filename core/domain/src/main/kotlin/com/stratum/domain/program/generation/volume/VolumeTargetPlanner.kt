@@ -5,7 +5,8 @@ package com.stratum.domain.program.generation.volume
 import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
-import com.stratum.domain.program.generation.context.MAJOR_MUSCLES
+import com.stratum.domain.program.generation.context.ALWAYS_AIM_MUSCLES
+import com.stratum.domain.program.generation.context.OPTIONAL_AIM_WHEN_SPECIALIZED
 import com.stratum.domain.program.generation.context.MuscleVolumeSnapshotContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.response.modeling.VolumePosture
@@ -88,13 +89,30 @@ internal fun buildUnscaledWeeklyTargets(
         resolveUnscaledTarget(muscle, level, context)
     }
 
+/**
+ * Muscles eligible for weekly aim/MEV targets.
+ *
+ * - Always: [ALWAYS_AIM_MUSCLES] (chest/back/bi/tri/lat/quad/ham)
+ * - Plus [OPTIONAL_AIM_WHEN_SPECIALIZED] (calf, glute) only when Specialize or MinimumVolume
+ *
+ * Trap/Forearm/Adductor/Ab/LowerBack/anterior-posterior delts never get aims; they still
+ * receive secondary credits from compounds.
+ */
 internal fun targetableMuscles(context: ProgramGenerationContext): List<String> {
-    val muscles = MAJOR_MUSCLES.map { it.name }.toMutableSet()
-    muscles.addAll(context.muscleVolumeSnapshotsByMuscle.keys)
-    muscles.addAll(context.specialization.keys.map { it.name })
-    return muscles.filter { muscle ->
-        specializationLevelForMuscle(muscle, context) != SpecializationLevel.Omit.name
-    }
+    val always =
+        ALWAYS_AIM_MUSCLES.map { it.name }.filter { muscle ->
+            specializationLevelForMuscle(muscle, context) != SpecializationLevel.Omit.name
+        }
+    val optional =
+        OPTIONAL_AIM_WHEN_SPECIALIZED.mapNotNull { group ->
+            val level = context.specialization[group] ?: return@mapNotNull null
+            if (level == SpecializationLevel.Specialize || level == SpecializationLevel.MinimumVolume) {
+                group.name
+            } else {
+                null
+            }
+        }
+    return (always + optional).distinct()
 }
 
 fun computeAllWeeklyTargets(context: ProgramGenerationContext): WeeklyVolumeTargets {

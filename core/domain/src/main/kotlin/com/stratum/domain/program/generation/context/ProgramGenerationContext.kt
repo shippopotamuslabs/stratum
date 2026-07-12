@@ -108,18 +108,42 @@ data class ProgramGenerationContext(
 private val PUSH_PATTERNS = setOf(MovementPattern.HorizontalPress, MovementPattern.VerticalPress, MovementPattern.InclinePress)
 private val PULL_PATTERNS = setOf(MovementPattern.HorizontalPull, MovementPattern.VerticalPull)
 
-val MAJOR_MUSCLES: Set<MuscleGroup> = setOf(
+/**
+ * Always-on **weekly volume aim** surface for program generation (MV/PV/RC targets and
+ * CP-SAT aim/MEV soft costs).
+ *
+ * Deliberately excludes:
+ * - **Glute** — usually covered by squat/hinge secondaries; dedicated aim only when specialized
+ * - **Calf** — same; optional isolation unless the user specializes calves
+ * - Trap, Forearm, Adductor, Ab, LowerBack, anterior/posterior delts — secondary/incidental only
+ *
+ * [ALWAYS_AIM_MUSCLES] is the default set. [OPTIONAL_AIM_WHEN_SPECIALIZED] are added only when
+ * specialization is Specialize or MinimumVolume (see volume [targetableMuscles]).
+ */
+val ALWAYS_AIM_MUSCLES: Set<MuscleGroup> = setOf(
     MuscleGroup.Chest,
     MuscleGroup.Back,
+    MuscleGroup.Bicep,
+    MuscleGroup.Tricep,
+    MuscleGroup.LateralDeltoid,
     MuscleGroup.Quad,
     MuscleGroup.Hamstring,
-    MuscleGroup.Glute,
-    MuscleGroup.Tricep,
-    MuscleGroup.Bicep,
-    MuscleGroup.LateralDeltoid,
-    MuscleGroup.PosteriorDeltoid,
-    MuscleGroup.AnteriorDeltoid,
 )
+
+/** Opt-in aim muscles — only when the user marks Specialize / MinimumVolume. */
+val OPTIONAL_AIM_WHEN_SPECIALIZED: Set<MuscleGroup> = setOf(
+    MuscleGroup.Calf,
+    MuscleGroup.Glute,
+)
+
+/**
+ * Historical name used by validation and volume helpers. Equals the default aim surface
+ * ([ALWAYS_AIM_MUSCLES]); optional aims are layered in [targetableMuscles], not here.
+ */
+val MAJOR_MUSCLES: Set<MuscleGroup> = ALWAYS_AIM_MUSCLES
+
+/** @see ALWAYS_AIM_MUSCLES */
+val CORE_VOLUME_AIM_MUSCLES: Set<MuscleGroup> = ALWAYS_AIM_MUSCLES
 
 const val SECONDARY_SET_CREDIT = 0.5
 const val PRIMARY_SET_CREDIT = 1.0

@@ -1,6 +1,13 @@
 package com.stratum.domain.program.generation.split
 
-/** One muscle's fractional hard-set dose on a specific calendar weekday index. */
+import com.stratum.domain.program.generation.slots.SessionTypeId
+
+/**
+ * One muscle's fractional hard-set dose on a specific calendar weekday index.
+ *
+ * [sessionType] is an optional legacy annotation for split-adjacency unit tests — not structure
+ * truth and not derived from workout names in production. Prefer dose fields + muscle identity.
+ */
 data class MuscleSessionExposure(
     val muscle: String,
     val weekdayIndex: Int,

@@ -8,10 +8,10 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.prescription.FilledSlot
-import com.stratum.domain.program.generation.split.MuscleLengthBiasPreference
-import com.stratum.domain.program.generation.split.SiblingVariant
-import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.MuscleLengthBiasPreference
+import com.stratum.domain.program.generation.slots.SiblingVariant
+import com.stratum.domain.program.generation.slots.SlotRole
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 
 data class SelectedSlotLift(
     val slot: FilledSlot,
@@ -64,6 +64,17 @@ private fun slotRoleBonus(slot: WorkoutSlotTemplate, lift: LiftContext): Double 
         SlotRole.Isolation -> {
             if (Regex("""\b(cable|machine)\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.name)) {
                 bonus += LiftSelectionWeights.ISOLATION_CABLE_MACHINE_BONUS
+            }
+            // Quad/ham iso slots admit NonAxial compounds (leg press, hack squat, …) as
+            // variety — but pure Isolation kinematics still rank first.
+            if (slot.allowedKinematicProfiles != null) {
+                when (lift.kinematicProfile) {
+                    KinematicProfile.Isolation ->
+                        bonus += LiftSelectionWeights.ISOLATION_TRUE_KINEMATIC_BONUS
+                    KinematicProfile.NonAxialCompound ->
+                        bonus += LiftSelectionWeights.ISOLATION_NON_AXIAL_FALLBACK_PENALTY
+                    else -> Unit
+                }
             }
         }
         else -> Unit
@@ -253,11 +264,19 @@ private fun pickWithCycleVariety(
     selectionState: LiftSelectionState,
     allowAnchorReuse: Boolean,
 ): LiftContext? {
+    // Session: never repeat a lift inside one workout.
     val sessionEligible = ranked.filter { it.id !in usedLiftIds }
-    val cycleFresh = sessionEligible.filter {
-        it.id !in selectionState.cycleUsedLiftIdsByPattern[pattern].orEmpty()
-    }
-    return cycleFresh.firstOrNull()
+    // Cycle: hard-exclude any lift already used anywhere in the program, unless the pool
+    // would otherwise empty (then allow reuse). This covers NonAxial compounds that share the
+    // isolation slot but differ in movement pattern from true isolations.
+    val cycleFreshGlobal =
+        sessionEligible.filter { it.id !in selectionState.cycleUsedLiftIds }
+    val cycleFreshByPattern =
+        sessionEligible.filter {
+            it.id !in selectionState.cycleUsedLiftIdsByPattern[pattern].orEmpty()
+        }
+    return cycleFreshGlobal.firstOrNull()
+        ?: cycleFreshByPattern.firstOrNull()
         ?: sessionEligible.firstOrNull()
         ?: ranked.firstOrNull { it.id !in usedLiftIds }
         ?: if (allowAnchorReuse) ranked.firstOrNull() else null

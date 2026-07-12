@@ -6,7 +6,7 @@ import javax.inject.Inject
  * Validates the Schedule step of onboarding. Pure (no I/O).
  *
  * The user must pick at least one weekday and a session length within the custom range.
- * Preset session lengths (45 / 60 / 75) are always in range by construction.
+ * UI band midpoints (30 / 50 / 75 for 20–40 / 40–60 / 60–90) are always in range by construction.
  */
 class ValidateScheduleStepUseCase @Inject constructor() {
     operator fun invoke(profile: UserTrainingProfile): ScheduleValidationResult {

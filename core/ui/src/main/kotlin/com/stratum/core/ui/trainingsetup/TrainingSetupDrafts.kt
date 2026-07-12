@@ -3,6 +3,16 @@ package com.stratum.core.ui.trainingsetup
 /** Default custom session length when the user first picks Custom. */
 const val DEFAULT_CUSTOM_SESSION_MINUTES = 90
 
+/** Soft-aim midpoints persisted as [com.stratum.domain.onboarding.UserTrainingProfile.sessionLengthMinutes]. */
+const val SESSION_BAND_AIM_SHORT = 30
+const val SESSION_BAND_AIM_MEDIUM = 50
+const val SESSION_BAND_AIM_LONG = 75
+
+/** UI band keys (segmented control). */
+const val SESSION_BAND_KEY_SHORT = "20-40"
+const val SESSION_BAND_KEY_MEDIUM = "40-60"
+const val SESSION_BAND_KEY_LONG = "60-90"
+
 /**
  * UI-shaped snapshot of the Schedule preferences step (weekdays + session length).
  */
@@ -12,10 +22,14 @@ data class ScheduleDraftUi(
     val customSessionMinutes: Int = DEFAULT_CUSTOM_SESSION_MINUTES,
     val showErrors: Boolean = false,
 ) {
+    /** Soft-aim minutes written to the profile (band midpoint or custom value). */
     val resolvedSessionMinutes: Int?
         get() = when (sessionLengthSelection) {
             null -> null
             CUSTOM_KEY -> customSessionMinutes
+            SESSION_BAND_KEY_SHORT -> SESSION_BAND_AIM_SHORT
+            SESSION_BAND_KEY_MEDIUM -> SESSION_BAND_AIM_MEDIUM
+            SESSION_BAND_KEY_LONG -> SESSION_BAND_AIM_LONG
             else -> sessionLengthSelection.toIntOrNull()
         }
 
@@ -40,6 +54,17 @@ data class ScheduleDraftUi(
     companion object {
         const val CUSTOM_KEY = "custom"
         val Empty = ScheduleDraftUi()
+
+        val BAND_KEYS: List<String> =
+            listOf(SESSION_BAND_KEY_SHORT, SESSION_BAND_KEY_MEDIUM, SESSION_BAND_KEY_LONG, CUSTOM_KEY)
+
+        /** Soft-aim minutes → band key for restoring UI from profile. */
+        val AIM_TO_BAND_KEY: Map<Int, String> =
+            mapOf(
+                SESSION_BAND_AIM_SHORT to SESSION_BAND_KEY_SHORT,
+                SESSION_BAND_AIM_MEDIUM to SESSION_BAND_KEY_MEDIUM,
+                SESSION_BAND_AIM_LONG to SESSION_BAND_KEY_LONG,
+            )
     }
 }
 

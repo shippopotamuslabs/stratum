@@ -1,42 +1,38 @@
 @file:Suppress("MagicNumber")
 
-package com.stratum.domain.program.generation.synthesis
+package com.stratum.domain.program.generation.universe
 
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.split.SessionComposition
-import com.stratum.domain.program.generation.split.SessionTypeId
-import com.stratum.domain.program.generation.split.SlotRole
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
-import com.stratum.domain.program.generation.split.slotsForSessionType
 import com.stratum.domain.program.generation.selection.candidatesForSlot
-import com.stratum.domain.program.generation.volume.TrainingDomain
+import com.stratum.domain.program.generation.slots.SlotRole
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.baseSlotLibrary
+import com.stratum.domain.program.generation.slots.crossDomainTouches
+import com.stratum.domain.program.generation.slots.injectSpecializedVariantSlots
+import com.stratum.domain.program.generation.slots.librarySlotKey
+import com.stratum.domain.program.generation.slots.promoteSpecializedSlots
+import com.stratum.domain.program.generation.structure.allowedRegionFiltersForSlot
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
-import com.stratum.domain.program.generation.volume.muscleTrainingDomain
 
 private const val MAX_UNIVERSE_SLOTS = 80
 
-private val LOWER_PRIMARY_PATTERNS =
-    setOf(
-        MovementPattern.SquatPattern,
-        MovementPattern.HipHinge,
-        MovementPattern.HipExtension,
-        MovementPattern.KneeExtension,
-        MovementPattern.KneeFlexion,
-        MovementPattern.PlantarFlexion,
-    )
-
-private val SOURCE_SESSION_TYPES =
-    listOf(
-        SessionTypeId.Upper,
-        SessionTypeId.Lower,
-        SessionTypeId.FullBody,
-        SessionTypeId.UpperPush,
-        SessionTypeId.UpperPull,
-    )
-
+/**
+ * Builds the realizable slot universe for CP-SAT from the explicit [baseSlotLibrary],
+ * specialized sibling variants, and cross-domain touch candidates — not a loop over
+ * [com.stratum.domain.program.generation.slots.SessionTypeId].
+ *
+ * Pipeline:
+ * ```
+ * baseSlotLibrary()
+ *   + specializedVariants(context)
+ *   + crossDomainTouches(context)
+ *   .filter(isSlotRelevant)
+ *   .distinctBy(slotKey)
+ * ```
+ */
 fun buildSlotUniverse(
     context: ProgramGenerationContext,
     weeklyTargets: WeeklyVolumeTargets,
@@ -54,33 +50,36 @@ fun buildSlotUniverse(
             .plus(priorityMuscles)
             .toSet()
 
+    val base = baseSlotLibrary()
+    val withVariants = specializedVariants(base, context)
+    val touches = crossDomainTouches(context)
+
     val raw = linkedMapOf<String, WorkoutSlotTemplate>()
-    for (sessionType in SOURCE_SESSION_TYPES) {
-        val slots =
-            slotsForSessionType(
-                sessionType = sessionType,
-                context = context,
-                siblingIndex = 0,
-                sessionPosition = 0,
-                composition =
-                    when (sessionType) {
-                        SessionTypeId.Upper -> SessionComposition.UpperBalanced
-                        SessionTypeId.Lower -> SessionComposition.LowerPrimary
-                        else -> null
-                    },
-            )
-        for (slot in slots) {
-            if (!isSlotRelevant(slot, relevantMuscles, context)) continue
-            val key = slotKey(slot)
-            if (key !in raw) {
-                raw[key] = slot
-            }
+    for (slot in withVariants + touches) {
+        if (!isSlotRelevant(slot, relevantMuscles, context)) continue
+        val key = slotKey(slot)
+        if (key !in raw) {
+            raw[key] = slot
         }
     }
 
     return raw.values
         .map { slot -> slot.toSynthesisSlot() }
         .take(MAX_UNIVERSE_SLOTS)
+}
+
+/**
+ * Promote specialized optionals and inject sibling-B variants when the user specializes
+ * a muscle that has only one in-domain library slot and multiple lift options.
+ */
+internal fun specializedVariants(
+    base: List<WorkoutSlotTemplate>,
+    context: ProgramGenerationContext,
+): List<WorkoutSlotTemplate> {
+    val slots = base.map { it.copy() }.toMutableList()
+    promoteSpecializedSlots(slots, context)
+    injectSpecializedVariantSlots(slots, context)
+    return slots
 }
 
 private fun isSlotRelevant(
@@ -117,14 +116,7 @@ private fun isSlotRelevant(
     return candidatesForSlot(slot, context).isNotEmpty()
 }
 
-private fun slotKey(slot: WorkoutSlotTemplate): String =
-    listOf(
-        slot.pattern.name,
-        slot.primaryMuscle.name,
-        slot.role.name,
-        slot.isCrossDomainTouch.toString(),
-        slot.siblingVariant?.name ?: "Any",
-    ).joinToString("|")
+internal fun slotKey(slot: WorkoutSlotTemplate): String = librarySlotKey(slot)
 
 private fun WorkoutSlotTemplate.toSynthesisSlot(): SynthesisSlot =
     SynthesisSlot(
@@ -133,34 +125,9 @@ private fun WorkoutSlotTemplate.toSynthesisSlot(): SynthesisSlot =
         primaryMuscle = primaryMuscle.name,
         role = role,
         repProfile = repProfile,
-        allowedDomains = allowedDomainsForSlot(this),
+        allowedRegionFilters = allowedRegionFiltersForSlot(this),
         isCrossDomainTouch = isCrossDomainTouch,
         siblingVariant = siblingVariant,
+        lengthBiasPreference = lengthBiasPreference,
+        allowedKinematicProfiles = allowedKinematicProfiles,
     )
-
-internal fun allowedDomainsForSlot(slot: WorkoutSlotTemplate): Set<SynthesisSessionDomain> =
-    allowedDomainsForPattern(slot.pattern.name, slot.primaryMuscle.name, slot.isCrossDomainTouch)
-
-internal fun allowedDomainsForPattern(
-    pattern: String,
-    primaryMuscle: String,
-    isCrossDomainTouch: Boolean,
-): Set<SynthesisSessionDomain> {
-    if (isCrossDomainTouch) {
-        return when (muscleTrainingDomain(primaryMuscle)) {
-            TrainingDomain.Lower -> setOf(SynthesisSessionDomain.Upper, SynthesisSessionDomain.Full)
-            TrainingDomain.Upper -> setOf(SynthesisSessionDomain.Lower, SynthesisSessionDomain.Full)
-        }
-    }
-    if (runCatching { MovementPattern.valueOf(pattern) }.getOrNull() in LOWER_PRIMARY_PATTERNS ||
-        muscleTrainingDomain(primaryMuscle) == TrainingDomain.Lower
-    ) {
-        return setOf(SynthesisSessionDomain.Lower, SynthesisSessionDomain.Full)
-    }
-    return setOf(SynthesisSessionDomain.Upper, SynthesisSessionDomain.Full)
-}
-
-fun isSlotCompatibleWithDomain(
-    slot: SynthesisSlot,
-    domain: SynthesisSessionDomain,
-): Boolean = domain in slot.allowedDomains

@@ -4,15 +4,17 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.selection.candidatesForSlot
-import com.stratum.domain.program.generation.split.WorkoutSlotTemplate
+import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 import com.stratum.domain.program.generation.split.trainingWeekdayIndicesInUserOrder
+import com.stratum.domain.program.generation.structure.SessionRegionFilter
+import com.stratum.domain.program.generation.structure.isSlotCompatibleWithRegionFilter
+import com.stratum.domain.program.generation.structure.regionFiltersBySessionPosition
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
-import com.stratum.domain.program.generation.synthesis.SynthesisSessionDomain
-import com.stratum.domain.program.generation.synthesis.SynthesisSlot
 import com.stratum.domain.program.generation.synthesis.UnifiedSynthesisSolution
-import com.stratum.domain.program.generation.synthesis.buildSlotUniverse
 import com.stratum.domain.program.generation.synthesis.materializeSynthesisResult
+import com.stratum.domain.program.generation.universe.SynthesisSlot
+import com.stratum.domain.program.generation.universe.buildSlotUniverse
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 
 /**
@@ -44,27 +46,43 @@ class FakeProgramSynthesisPort(
 
         val sessionCount = context.trainingDaysPerWeek.coerceAtLeast(1)
         val weekdayIndices = weekdayIndicesForSessions(context.weekdays, sessionCount)
+        val regionFilters = regionFiltersForSessions(context.weekdays, sessionCount)
 
         val activeBySession = List(sessionCount) { linkedSetOf<String>() }
         val setCounts = linkedMapOf<Pair<Int, String>, Int>()
 
         // Round-robin fill so each session gets distinct work when the universe allows it.
+        // Only activate slots compatible with the session's region filter (structure fidelity).
+        // Enforce at most one active slot per (pattern, primaryMuscle) per session — matches
+        // CP-SAT uniqueness groups so sparse catalogs are not asked for two rear-delt lifts, etc.
         var cursor = 0
         for (sessionIndex in 0 until sessionCount) {
+            val regionFilter = regionFilters[sessionIndex]
+            val eligible =
+                selectable.filter { slot ->
+                    isSlotCompatibleWithRegionFilter(slot, regionFilter)
+                }
+            val pool = eligible.ifEmpty { selectable }
+            val patternMuscleUsed = linkedSetOf<Pair<String, String>>()
             var filled = 0
             var attempts = 0
-            val maxAttempts = selectable.size * 2
+            val maxAttempts = pool.size * 3
             while (filled < targetSlotsPerSession && attempts < maxAttempts) {
-                val slot = selectable[cursor % selectable.size]
+                val slot = pool[cursor % pool.size]
                 cursor++
                 attempts++
-                if (!activeBySession[sessionIndex].add(slot.id)) continue
-                setCounts[sessionIndex to slot.id] = setsPerSlot
-                filled++
+                val patternMuscle = slot.pattern to slot.primaryMuscle
+                val isFreshPatternMuscle = patternMuscle !in patternMuscleUsed
+                val activated = isFreshPatternMuscle && activeBySession[sessionIndex].add(slot.id)
+                if (activated) {
+                    patternMuscleUsed += patternMuscle
+                    setCounts[sessionIndex to slot.id] = setsPerSlot
+                    filled++
+                }
             }
             // Guarantee at least one slot so workouts are never empty.
             if (activeBySession[sessionIndex].isEmpty()) {
-                val slot = selectable[sessionIndex % selectable.size]
+                val slot = pool[sessionIndex % pool.size]
                 activeBySession[sessionIndex].add(slot.id)
                 setCounts[sessionIndex to slot.id] = setsPerSlot
             }
@@ -75,9 +93,29 @@ class FakeProgramSynthesisPort(
                 activeSlotIdsBySession = activeBySession.map { ids -> ids.toSet() },
                 setCountBySessionSlot = setCounts,
                 weekdayIndexByPosition = weekdayIndices,
-                domainBySession = List(sessionCount) { SynthesisSessionDomain.Full },
+                regionFilterBySession = regionFilters,
             )
         return materializeSynthesisResult(universe, solution)
+    }
+
+    private fun regionFiltersForSessions(
+        weekdays: List<String>,
+        sessionCount: Int,
+    ): List<SessionRegionFilter> {
+        val perSession = regionFiltersBySessionPosition(weekdays)
+        if (perSession.isEmpty()) {
+            return List(sessionCount) { SessionRegionFilter.Unrestricted }
+        }
+        return List(sessionCount) { index ->
+            val allowed = perSession.getOrElse(index) { perSession[index % perSession.size] }
+            when {
+                SessionRegionFilter.Unrestricted in allowed -> SessionRegionFilter.Unrestricted
+                SessionRegionFilter.LowerOnly in allowed && index % 2 == 0 ->
+                    SessionRegionFilter.LowerOnly
+                SessionRegionFilter.UpperOnly in allowed -> SessionRegionFilter.UpperOnly
+                else -> allowed.first()
+            }
+        }
     }
 
     private fun weekdayIndicesForSessions(
@@ -105,6 +143,7 @@ class FakeProgramSynthesisPort(
             repProfile = repProfile,
             siblingVariant = siblingVariant,
             isCrossDomainTouch = isCrossDomainTouch,
+            allowedKinematicProfiles = allowedKinematicProfiles,
         )
 
     private companion object {
