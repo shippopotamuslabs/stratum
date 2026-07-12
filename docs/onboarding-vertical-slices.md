@@ -604,6 +604,14 @@ tagged lifts are backfilled. The derived gym type is discarded after this step â
 persisted (the old `inferredGymProfile` heuristic is removed). Equipment and gym type are transient
 import-enablement signals only.
 
+**Custom-lift loading method (`inferCustomLifts`).** Unmatched import names get movement/muscle
+metadata plus a closed **seed loading-method** enum (`dumbbell`, `double-weight-plates`,
+`pin-loaded-machine`, â€¦) or an explicit `custom` branch (name + single open-ended increment).
+Server returns structured `loading` objects; Android decodes that shape and maps seed ids to
+Room `Equipment` (or find-or-create for custom names). Unknown / blank loading uses a shared
+**Default** custom equipment at +5 lb so progression always has a lattice. Plate-loaded dual-horn
+machines (e.g. Hammer Strength chest press) use `double-weight-plates`.
+
 #### Domain models (new in `:core:domain`)
 
 Historical logging is distinct from program-template hierarchy (OS-7):

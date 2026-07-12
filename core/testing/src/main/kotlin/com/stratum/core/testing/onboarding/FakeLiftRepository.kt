@@ -83,8 +83,15 @@ class FakeLiftRepository(
         if (used) selectedPreset.value = null
     }
 
+    /**
+     * Last [equipmentCreateIncrement] values passed through [addCustomLift] (test hook for
+     * import custom loading).
+     */
+    val lastEquipmentCreateIncrements = mutableListOf<Weight?>()
+
     override suspend fun addCustomLift(definition: CustomLiftDefinition): LiftId {
         val id = LiftId(UUID.randomUUID().toString())
+        lastEquipmentCreateIncrements += definition.equipmentCreateIncrement
         val equipmentId = definition.equipmentId
         val equipmentName =
             definition.equipmentName
