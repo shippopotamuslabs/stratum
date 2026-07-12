@@ -9,6 +9,7 @@ import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.training.isEligibleCompletedLiveSession
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlinx.coroutines.flow.first
@@ -49,12 +50,17 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
         }.getOrElse { emptyList() }
 
     private suspend fun analyze(sessionId: TrainingSessionId): List<EquipmentIncrementProposal> {
-        val session = trainingLogRepository.getSession(sessionId) ?: return emptyList()
-        if (!isEligibleCompletedLiveSession(session.status, session.origin)) {
-            return emptyList()
-        }
-
-        val sets = trainingLogRepository.getSetsForSession(sessionId)
+        if (!preferences.isEnabled()) return emptyList()
+        val session = trainingLogRepository.getSession(sessionId)
+        val sets =
+            if (
+                session != null &&
+                isEligibleCompletedLiveSession(session.status, session.origin)
+            ) {
+                trainingLogRepository.getSetsForSession(sessionId)
+            } else {
+                emptyList()
+            }
         if (sets.isEmpty()) return emptyList()
 
         val lifts = liftRepository.observeLifts().first()
@@ -201,12 +207,7 @@ class AnalyzeSessionEquipmentProposalsUseCase @Inject constructor(
     }
 }
 
-/** Completed live sessions only — imports and in-progress work never surface proposals. */
-internal fun isEligibleCompletedLiveSession(
-    status: TrainingSessionStatus,
-    origin: TrainingSessionOrigin,
-): Boolean =
-    status == TrainingSessionStatus.COMPLETED && origin == TrainingSessionOrigin.LIVE
+// isEligibleCompletedLiveSession lives in training/CompletedLiveSessionEligibility.kt
 
 /**
  * Suppresses weak single-lift signals on high-blast-radius seed equipment.

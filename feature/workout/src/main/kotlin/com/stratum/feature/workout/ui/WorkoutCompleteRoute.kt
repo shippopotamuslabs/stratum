@@ -66,6 +66,7 @@ fun WorkoutCompleteRoute(
                 snackbarHostState = snackbarHostState,
                 onAcceptProposal = viewModel::onAcceptPrimary,
                 onAcceptAlternative = viewModel::onAcceptAlternative,
+                onAcceptRepRangeShift = viewModel::onAcceptRepRangeShift,
                 onSkipProposal = viewModel::onSkipProposal,
                 onNotNowProposal = viewModel::onNotNowProposal,
                 onConfirmBlastRadius = viewModel::onConfirmAccept,

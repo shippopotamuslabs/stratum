@@ -46,31 +46,124 @@ fun backspaceSetLogValue(current: String): String =
     if (current.isEmpty()) current else current.dropLast(1)
 
 /**
- * Icon for the bottom-right pad key based on the active field and filled drafts.
+ * Whether a weight recommendation is available for complete-gate purposes.
+ * Bodyweight rows have no weight lever — treated as always satisfied.
+ */
+fun hasWeightRecommendation(
+    showWeightInput: Boolean,
+    recommendedWeightAmount: Double,
+    weightPlaceholder: String,
+    assistMode: Boolean = false,
+): Boolean {
+    if (!showWeightInput) return true
+    val magnitude =
+        if (assistMode) {
+            kotlin.math.abs(recommendedWeightAmount)
+        } else {
+            recommendedWeightAmount
+        }
+    return magnitude > 0.0 || weightPlaceholder.isNotEmpty()
+}
+
+/** Whether a reps recommendation / placeholder can stand in for typed reps. */
+fun hasRepsRecommendation(
+    recommendedReps: Int,
+    repsPlaceholder: String,
+): Boolean = recommendedReps > 0 || repsPlaceholder.isNotEmpty()
+
+/** True when [text] parses as a weight the log path can persist (not junk like `"abc"`). */
+fun isUsableWeightText(text: String): Boolean = text.toDoubleOrNull() != null
+
+/** True when [text] parses as integer reps. */
+fun isUsableRepsText(text: String): Boolean = text.toIntOrNull() != null
+
+/**
+ * Single shared gate for **committing** a set (keyboard Check + enabling check-to-complete).
  *
- * - Weight: Check when reps text is non-empty; otherwise NextReps.
- * - Reps: Check when weight is not required or weight text is non-empty; otherwise PrevWeight.
+ * - Weight: bodyweight always OK; else **parseable** typed text **or** weight recommendation.
+ * - Reps: **parseable** typed text **or** reps recommendation / placeholder.
+ * - RIR is always present on the row — not part of the gate.
+ *
+ * Uncheck / unlog is separate — use [isSetLogCheckboxEnabled].
+ */
+fun canCompleteSetLog(
+    showWeightInput: Boolean,
+    weightText: String,
+    hasWeightRecommendation: Boolean,
+    repsText: String,
+    hasRepsRecommendation: Boolean,
+): Boolean {
+    val weightOk =
+        !showWeightInput ||
+            isUsableWeightText(weightText) ||
+            hasWeightRecommendation
+    val repsOk = isUsableRepsText(repsText) || hasRepsRecommendation
+    return weightOk && repsOk
+}
+
+/**
+ * Checkbox enablement: always allow interaction on a **completed** row (to unlog), else
+ * require [canComplete] so incomplete rows cannot check without weight/reps (or recs).
+ */
+fun isSetLogCheckboxEnabled(
+    isComplete: Boolean,
+    canComplete: Boolean,
+): Boolean = isComplete || canComplete
+
+/**
+ * Derives [canCompleteSetLog] from the presentation fields already on a set row.
+ */
+fun canCompleteSetLogFromFields(
+    showWeightInput: Boolean,
+    weightText: String,
+    weightPlaceholder: String,
+    recommendedWeightAmount: Double,
+    assistMode: Boolean,
+    repsText: String,
+    repsPlaceholder: String,
+    recommendedReps: Int,
+): Boolean =
+    canCompleteSetLog(
+        showWeightInput = showWeightInput,
+        weightText = weightText,
+        hasWeightRecommendation =
+            hasWeightRecommendation(
+                showWeightInput = showWeightInput,
+                recommendedWeightAmount = recommendedWeightAmount,
+                weightPlaceholder = weightPlaceholder,
+                assistMode = assistMode,
+            ),
+        repsText = repsText,
+        hasRepsRecommendation =
+            hasRepsRecommendation(
+                recommendedReps = recommendedReps,
+                repsPlaceholder = repsPlaceholder,
+            ),
+    )
+
+/**
+ * Icon for the bottom-right pad key.
+ *
+ * When [canComplete] is true → always Check (same rule as the row checkbox).
+ * Otherwise navigate toward the unfilled field: weight → reps, reps → weight.
  */
 fun setLogKeyboardPrimaryIcon(
     active: SetLogKeyboardField,
-    weightText: String,
-    repsText: String,
+    canComplete: Boolean,
     showWeightInput: Boolean,
 ): SetLogKeyboardPrimaryIcon =
-    when (active) {
-        SetLogKeyboardField.Weight ->
-            if (repsText.isNotEmpty()) {
-                SetLogKeyboardPrimaryIcon.Check
-            } else {
-                SetLogKeyboardPrimaryIcon.NextReps
-            }
-        SetLogKeyboardField.Reps -> {
-            val weightFilled = !showWeightInput || weightText.isNotEmpty()
-            if (weightFilled) {
-                SetLogKeyboardPrimaryIcon.Check
-            } else {
-                SetLogKeyboardPrimaryIcon.PrevWeight
-            }
+    if (canComplete) {
+        SetLogKeyboardPrimaryIcon.Check
+    } else {
+        when (active) {
+            SetLogKeyboardField.Weight -> SetLogKeyboardPrimaryIcon.NextReps
+            SetLogKeyboardField.Reps ->
+                if (showWeightInput) {
+                    SetLogKeyboardPrimaryIcon.PrevWeight
+                } else {
+                    // Bodyweight without a reps value/rec — Check dismisses (cannot complete).
+                    SetLogKeyboardPrimaryIcon.Check
+                }
         }
     }
 
@@ -82,16 +175,13 @@ fun setLogKeyboardPrimaryIcon(
  */
 fun resolveSetLogKeyboardAction(
     active: SetLogKeyboardField,
-    weightText: String,
-    repsText: String,
-    showWeightInput: Boolean,
     canComplete: Boolean,
+    showWeightInput: Boolean,
 ): SetLogKeyboardAction =
     when (
         setLogKeyboardPrimaryIcon(
             active = active,
-            weightText = weightText,
-            repsText = repsText,
+            canComplete = canComplete,
             showWeightInput = showWeightInput,
         )
     ) {
@@ -104,3 +194,4 @@ fun resolveSetLogKeyboardAction(
                 SetLogKeyboardAction.Dismiss
             }
     }
+

@@ -36,6 +36,11 @@ data class WorkoutLogSetUi(
     val recommendedWeightAmount: Double = 0.0,
     val recommendedReps: Int = 0,
     val repMin: Int = 0,
+    /**
+     * Shared complete gate for the row checkbox and keyboard Check.
+     * Computed via [canCompleteSetLogFromFields] from drafts + recommendations.
+     */
+    val canComplete: Boolean = false,
 )
 
 /** Callbacks for one set row — bag avoids Detekt LongParameterList on the composable. */

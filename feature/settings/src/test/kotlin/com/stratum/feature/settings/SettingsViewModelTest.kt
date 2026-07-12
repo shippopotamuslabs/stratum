@@ -13,10 +13,14 @@ import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.DeleteAccountUseCase
 import com.stratum.domain.auth.LogoutUseCase
 import com.stratum.domain.auth.UserProfile
+import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
+import com.stratum.core.testing.workout.FakeRepRangeShiftProposalPreferences
 import com.stratum.domain.checkin.CheckInPreferences
 import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.domain.checkin.SetCheckInEnabledUseCase
+import com.stratum.domain.lift.ObserveEquipmentProposalsEnabledUseCase
+import com.stratum.domain.lift.SetEquipmentProposalsEnabledUseCase
 import com.stratum.domain.sync.EndSessionAndWipeUseCase
 import com.stratum.domain.sync.StartCloudSyncUseCase
 import com.stratum.domain.sync.StopCloudSyncUseCase
@@ -26,6 +30,8 @@ import com.stratum.domain.theme.SetColorModeUseCase
 import com.stratum.domain.theme.SetThemeFamilyUseCase
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.domain.theme.ThemePreferences
+import com.stratum.domain.workout.ObserveRepRangeShiftProposalsEnabledUseCase
+import com.stratum.domain.workout.SetRepRangeShiftProposalsEnabledUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -45,6 +51,8 @@ class SettingsViewModelTest {
 
     private val fakeThemePreferences = FakeThemePreferencesRepository()
     private val fakeCheckInPreferences = FakeCheckInPreferencesRepository()
+    private val fakeEquipmentProposals = FakeEquipmentProposalPreferences()
+    private val fakeRepRangeProposals = FakeRepRangeShiftProposalPreferences()
     private lateinit var fakeAuth: FakeAuthManager
     private lateinit var fakeCloudSync: FakeCloudSyncPort
     private lateinit var fakeAccountDeletion: FakeAccountDeletionPort
@@ -54,6 +62,8 @@ class SettingsViewModelTest {
     fun setup() {
         fakeThemePreferences.seed(ThemePreferences())
         fakeCheckInPreferences.seed(CheckInPreferences())
+        fakeEquipmentProposals.seedEnabled(true)
+        fakeRepRangeProposals.seedEnabled(true)
         fakeAuth = FakeAuthManager(
             AuthState.Authenticated(UserProfile("uid-1", "Test", "t@example.com", null)),
         )
@@ -66,9 +76,17 @@ class SettingsViewModelTest {
         SettingsViewModel(
             observeThemePreferences = ObserveThemePreferencesUseCase(fakeThemePreferences),
             observeCheckInPreferences = ObserveCheckInPreferencesUseCase(fakeCheckInPreferences),
+            observeEquipmentProposalsEnabled =
+                ObserveEquipmentProposalsEnabledUseCase(fakeEquipmentProposals),
+            observeRepRangeShiftProposalsEnabled =
+                ObserveRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals),
             setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences, FakeLoggingPort()),
             setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
             setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
+            setEquipmentProposalsEnabled =
+                SetEquipmentProposalsEnabledUseCase(fakeEquipmentProposals, FakeLoggingPort()),
+            setRepRangeShiftProposalsEnabled =
+                SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals, FakeLoggingPort()),
             markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
             logout = LogoutUseCase(
                 authManager = fakeAuth,
@@ -86,17 +104,51 @@ class SettingsViewModelTest {
         )
 
     @Test
-    @DisplayName("Given default prefs when observed then state is System + Stratum + check-ins on")
+    @DisplayName("Given default prefs when observed then state is System + Stratum + features on")
     fun defaultState() = runTest {
         subject.uiState.test {
             val state = awaitItem()
             assertEquals(AppearanceUi.System, state.appearance)
             assertEquals(ThemeFamilyUi.Stratum, state.themeFamily)
             assertTrue(state.checkInsEnabled)
+            assertTrue(state.equipmentProposalsEnabled)
+            assertTrue(state.repRangeProposalsEnabled)
             // showDebugTools follows BuildConfig.DEBUG of the test variant (true for debug unit tests).
             assertEquals(BuildConfig.DEBUG, state.showDebugTools)
             assertFalse(state.showLogoutConfirm)
             assertFalse(state.isLoggingOut)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given rep-range toggle when disabled then uiState reflects off")
+    fun repRangeProposalsToggle() = runTest {
+        subject.uiState.test {
+            skipItems(1)
+            subject.onPostWorkoutSuggestionEnabledChange(
+                PostWorkoutSuggestionUi.RepRangeShift,
+                false,
+            )
+            advanceUntilIdle()
+            assertFalse(awaitItem().repRangeProposalsEnabled)
+            assertFalse(fakeRepRangeProposals.isEnabled())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given equipment toggle when disabled then uiState reflects off")
+    fun equipmentProposalsToggle() = runTest {
+        subject.uiState.test {
+            skipItems(1)
+            subject.onPostWorkoutSuggestionEnabledChange(
+                PostWorkoutSuggestionUi.EquipmentSteps,
+                false,
+            )
+            advanceUntilIdle()
+            assertFalse(awaitItem().equipmentProposalsEnabled)
+            assertFalse(fakeEquipmentProposals.isEnabled())
             cancelAndIgnoreRemainingEvents()
         }
     }

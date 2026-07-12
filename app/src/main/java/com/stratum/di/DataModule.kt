@@ -59,12 +59,14 @@ import com.stratum.domain.workout.ProgressionHistoryPort
 import com.stratum.domain.workout.WorkoutOverlayStore
 import com.stratum.core.data.repository.DataStoreCheckInPreferencesRepository
 import com.stratum.core.data.repository.DataStoreEquipmentProposalPreferences
+import com.stratum.core.data.repository.DataStoreRepRangeShiftProposalPreferences
 import com.stratum.core.data.repository.DataStoreThemePreferencesRepository
 import com.stratum.core.data.repository.DataStoreWorkoutOverlayStore
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.domain.checkin.CheckInPreferencesRepository
 import com.stratum.domain.lift.EquipmentProposalPreferences
 import com.stratum.domain.theme.ThemePreferencesRepository
+import com.stratum.domain.workout.RepRangeShiftProposalPreferences
 import com.stratum.core.data.repository.RoomMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.data.repository.RoomMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.data.repository.RoomMuscleWeeklyStimulusRepository
@@ -520,4 +522,10 @@ abstract class RepositoryModule {
     abstract fun bindEquipmentProposalPreferences(
         impl: DataStoreEquipmentProposalPreferences,
     ): EquipmentProposalPreferences
+
+    @Binds
+    @Singleton
+    abstract fun bindRepRangeShiftProposalPreferences(
+        impl: DataStoreRepRangeShiftProposalPreferences,
+    ): RepRangeShiftProposalPreferences
 }

@@ -13,21 +13,30 @@ import com.stratum.domain.lift.EquipmentProposalPreferences
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.workout.AnalyzeSessionRepRangeShiftProposalsUseCase
+import com.stratum.domain.workout.ApplyRepRangeShiftUseCase
+import com.stratum.domain.workout.RepRangeShiftProposalPreferences
 import com.stratum.feature.workout.ui.EquipmentProposalUiMapper
 import com.stratum.feature.workout.ui.LiftBestSetUi
+import com.stratum.feature.workout.ui.RepRangeShiftUiMapper
 import com.stratum.feature.workout.ui.WorkoutCompleteUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
- * Orchestrates workout-complete summary + equipment-increment proposals.
+ * Orchestrates workout-complete summary + equipment-increment and rep-range shift proposals.
  *
- * Domain analysis/apply live in use cases; card copy and session state live in
- * [EquipmentProposalUiMapper] / [EquipmentProposalSession].
+ * Domain analysis/apply live in use cases; card copy and session state live in mappers /
+ * [EquipmentProposalSession] / [RepRangeShiftProposalSession].
  */
 @HiltViewModel
 class WorkoutCompleteViewModel @Inject constructor(
@@ -35,113 +44,215 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val analyzeSessionEquipmentProposals: AnalyzeSessionEquipmentProposalsUseCase,
     private val applyEquipmentIncrementProposal: ApplyEquipmentIncrementProposalUseCase,
     private val equipmentProposalPreferences: EquipmentProposalPreferences,
+    private val analyzeSessionRepRangeShiftProposals: AnalyzeSessionRepRangeShiftProposalsUseCase,
+    private val applyRepRangeShift: ApplyRepRangeShiftUseCase,
+    private val repRangeShiftProposalPreferences: RepRangeShiftProposalPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WorkoutCompleteUiState>(WorkoutCompleteUiState.Loading)
     val uiState: StateFlow<WorkoutCompleteUiState> = _uiState.asStateFlow()
 
-    private val proposalSession = EquipmentProposalSession()
+    private val equipmentSession = EquipmentProposalSession()
+    private val repRangeSession = RepRangeShiftProposalSession()
+
+    private var loadJob: Job? = null
+    private var loadGeneration: Long = 0L
+    private val repRangeApplyMutex = Mutex()
+    private val pendingUserMessages = ArrayDeque<String>()
 
     fun loadSummary(sessionId: String) {
-        viewModelScope.launch {
-            val result = getWorkoutSummary(TrainingSessionId(sessionId))
-            _uiState.value =
-                result.fold(
-                    onSuccess = { summary ->
-                        // Analyze logs failures internally and returns empty list.
-                        val proposals =
-                            analyzeSessionEquipmentProposals(TrainingSessionId(sessionId))
-                        val sessionSnap = proposalSession.load(proposals)
-                        WorkoutCompleteUiState.Loaded(
-                            workoutName = summary.workoutName,
-                            durationFormatted = formatWorkoutDuration(summary.durationMillis),
-                            bestSets =
-                                summary.bestSets.map { best ->
-                                    LiftBestSetUi(
-                                        liftName = best.liftName,
-                                        performanceLabel =
-                                            formatSetPerformance(best.weight, best.reps),
-                                        rirLabel = best.rir?.toString() ?: RIR_NONE_LABEL,
-                                        estimatedOneRmLabel =
-                                            best.estimatedOneRm?.let {
-                                                formatWeightAmount(it).ifEmpty { "0" }
-                                            }
-                                                ?: formatEstimatedOneRm(
-                                                    best.weight,
-                                                    best.reps,
-                                                    best.rir,
-                                                ),
-                                        isPersonalRecord = best.isPersonalRecord,
-                                    )
-                                },
-                            equipmentProposals = sessionSnap.cards,
-                            blastRadiusConfirm = sessionSnap.blastRadiusConfirm,
-                            userMessage = sessionSnap.userMessage,
-                        )
-                    },
-                    onFailure = { WorkoutCompleteUiState.Error },
-                )
-        }
+        loadJob?.cancel()
+        val generation = ++loadGeneration
+        loadJob =
+            viewModelScope.launch {
+                val result = getWorkoutSummary(TrainingSessionId(sessionId))
+                if (generation != loadGeneration) return@launch
+                _uiState.value =
+                    result.fold(
+                        onSuccess = { summary ->
+                            val trainingSessionId = TrainingSessionId(sessionId)
+                            // Parallel analyze; each use case fails soft to empty list.
+                            val (equipmentProposals, repRangeProposals) =
+                                coroutineScope {
+                                    val equipmentDeferred =
+                                        async {
+                                            analyzeSessionEquipmentProposals(trainingSessionId)
+                                        }
+                                    val repRangeDeferred =
+                                        async {
+                                            analyzeSessionRepRangeShiftProposals(trainingSessionId)
+                                        }
+                                    equipmentDeferred.await() to repRangeDeferred.await()
+                                }
+                            if (generation != loadGeneration) {
+                                return@fold _uiState.value
+                            }
+                            val equipmentSnap = equipmentSession.load(equipmentProposals)
+                            val repRangeSnap = repRangeSession.load(repRangeProposals)
+                            pendingUserMessages.clear()
+                            WorkoutCompleteUiState.Loaded(
+                                workoutName = summary.workoutName,
+                                durationFormatted =
+                                    formatWorkoutDuration(summary.durationMillis),
+                                bestSets =
+                                    summary.bestSets.map { best ->
+                                        LiftBestSetUi(
+                                            liftName = best.liftName,
+                                            performanceLabel =
+                                                formatSetPerformance(best.weight, best.reps),
+                                            rirLabel =
+                                                best.rir?.toString() ?: RIR_NONE_LABEL,
+                                            estimatedOneRmLabel =
+                                                best.estimatedOneRm?.let {
+                                                    formatWeightAmount(it).ifEmpty { "0" }
+                                                }
+                                                    ?: formatEstimatedOneRm(
+                                                        best.weight,
+                                                        best.reps,
+                                                        best.rir,
+                                                    ),
+                                            isPersonalRecord = best.isPersonalRecord,
+                                        )
+                                    },
+                                equipmentProposals = equipmentSnap.cards,
+                                repRangeProposals = repRangeSnap.cards,
+                                blastRadiusConfirm = equipmentSnap.blastRadiusConfirm,
+                                userMessage = null,
+                            )
+                        },
+                        onFailure = { WorkoutCompleteUiState.Error },
+                    )
+            }
     }
 
     fun onAcceptPrimary(proposalId: String) {
-        when (val action = proposalSession.acceptPrimary(proposalId)) {
+        when (val action = equipmentSession.acceptPrimary(proposalId)) {
             is EquipmentProposalSession.AcceptAction.NeedsConfirm ->
-                applySessionSnapshot(
-                    proposalSession.stageConfirm(action.proposalId, action.remedy),
+                applyEquipmentSnapshot(
+                    equipmentSession.stageConfirm(action.proposalId, action.remedy),
                 )
             is EquipmentProposalSession.AcceptAction.ApplyNow ->
-                launchApply(action.proposalId, action.remedy)
+                launchEquipmentApply(action.proposalId, action.remedy)
             EquipmentProposalSession.AcceptAction.Ignored -> Unit
         }
     }
 
     fun onAcceptAlternative(proposalId: String) {
-        when (val action = proposalSession.acceptAlternative(proposalId)) {
+        when (val action = equipmentSession.acceptAlternative(proposalId)) {
             is EquipmentProposalSession.AcceptAction.NeedsConfirm ->
-                applySessionSnapshot(
-                    proposalSession.stageConfirm(action.proposalId, action.remedy),
+                applyEquipmentSnapshot(
+                    equipmentSession.stageConfirm(action.proposalId, action.remedy),
                 )
             is EquipmentProposalSession.AcceptAction.ApplyNow ->
-                launchApply(action.proposalId, action.remedy)
+                launchEquipmentApply(action.proposalId, action.remedy)
             EquipmentProposalSession.AcceptAction.Ignored -> Unit
         }
     }
 
+    fun onAcceptRepRangeShift(proposalId: String) {
+        val proposal = repRangeSession.beginApply(proposalId) ?: return
+        applyRepRangeSnapshot(repRangeSession.snapshot())
+        viewModelScope.launch {
+            repRangeApplyMutex.withLock {
+                var settled = false
+                try {
+                    val result =
+                        applyRepRangeShift(
+                            workoutLiftId = proposal.workoutLiftId,
+                            expectedCurrentRepMin = proposal.currentRepMin,
+                            expectedCurrentRepMax = proposal.currentRepMax,
+                            proposedRepMin = proposal.proposedRepMin,
+                            proposedRepMax = proposal.proposedRepMax,
+                            fatigueSlope = proposal.fatigueSlope,
+                            setCount = proposal.setCount,
+                        )
+                    result
+                        .onSuccess {
+                            settled = true
+                            enqueueUserMessage(RepRangeShiftUiMapper.successMessage(proposal))
+                            applyRepRangeSnapshot(
+                                repRangeSession.completeSuccess(
+                                    proposalId = proposalId,
+                                    message = "",
+                                ),
+                            )
+                            publishNextUserMessage()
+                        }
+                        .onFailure {
+                            settled = true
+                            enqueueUserMessage(RepRangeShiftUiMapper.MSG_APPLY_FAILED)
+                            applyRepRangeSnapshot(
+                                repRangeSession.completeFailure(
+                                    proposalId = proposalId,
+                                    message = "",
+                                ),
+                            )
+                            publishNextUserMessage()
+                        }
+                } finally {
+                    if (!settled) {
+                        applyRepRangeSnapshot(repRangeSession.releaseApply(proposalId))
+                    }
+                }
+            }
+        }
+    }
+
     fun onConfirmAccept() {
-        when (val action = proposalSession.confirmAccept()) {
+        when (val action = equipmentSession.confirmAccept()) {
             is EquipmentProposalSession.AcceptAction.ApplyNow ->
-                launchApply(action.proposalId, action.remedy)
+                launchEquipmentApply(action.proposalId, action.remedy)
             else -> Unit
         }
     }
 
     fun onDismissConfirm() {
-        applySessionSnapshot(proposalSession.dismissConfirm())
+        applyEquipmentSnapshot(equipmentSession.dismissConfirm())
     }
 
     fun onSkipProposal(proposalId: String) {
-        applySessionSnapshot(proposalSession.remove(proposalId))
+        if (equipmentSession.proposal(proposalId) != null) {
+            applyEquipmentSnapshot(equipmentSession.remove(proposalId))
+            return
+        }
+        if (repRangeSession.proposal(proposalId) != null) {
+            applyRepRangeSnapshot(repRangeSession.remove(proposalId))
+        }
     }
 
     fun onNotNowProposal(proposalId: String) {
         viewModelScope.launch {
-            equipmentProposalPreferences.dismiss(proposalId)
-            applySessionSnapshot(proposalSession.remove(proposalId))
+            when {
+                equipmentSession.proposal(proposalId) != null -> {
+                    equipmentProposalPreferences.dismiss(proposalId)
+                    applyEquipmentSnapshot(equipmentSession.remove(proposalId))
+                }
+                repRangeSession.proposal(proposalId) != null -> {
+                    if (repRangeSession.isApplying(proposalId)) return@launch
+                    repRangeShiftProposalPreferences.dismiss(proposalId)
+                    applyRepRangeSnapshot(repRangeSession.remove(proposalId))
+                }
+            }
         }
     }
 
     fun userMessageShown() {
-        applySessionSnapshot(proposalSession.clearUserMessage())
+        // Drop the message currently displayed; show the next queued one if any.
+        equipmentSession.clearUserMessage()
+        repRangeSession.clearUserMessage()
+        if (pendingUserMessages.isNotEmpty()) {
+            pendingUserMessages.removeFirst()
+        }
+        val next = pendingUserMessages.firstOrNull()
+        updateLoaded { loaded -> loaded.copy(userMessage = next) }
     }
 
-    private fun launchApply(
+    private fun launchEquipmentApply(
         proposalId: String,
         remedy: EquipmentIncrementRemedy,
     ) {
-        if (proposalSession.beginApply(proposalId) == null) return
-        // Reflect isApplying on cards immediately.
-        applySessionSnapshot(proposalSession.snapshot())
+        if (equipmentSession.beginApply(proposalId) == null) return
+        applyEquipmentSnapshot(equipmentSession.snapshot())
         viewModelScope.launch {
             var settled = false
             try {
@@ -149,40 +260,62 @@ class WorkoutCompleteViewModel @Inject constructor(
                 result
                     .onSuccess { outcome ->
                         settled = true
-                        applySessionSnapshot(
-                            proposalSession.completeSuccess(
-                                proposalId = proposalId,
-                                message =
-                                    EquipmentProposalUiMapper.successMessage(outcome, remedy),
-                            ),
+                        enqueueUserMessage(
+                            EquipmentProposalUiMapper.successMessage(outcome, remedy),
                         )
+                        applyEquipmentSnapshot(
+                            equipmentSession.completeSuccess(
+                                proposalId = proposalId,
+                                message = "",
+                            ).copy(userMessage = null),
+                        )
+                        publishNextUserMessage()
                     }
                     .onFailure {
                         settled = true
-                        applySessionSnapshot(
-                            proposalSession.completeFailure(
+                        enqueueUserMessage(EquipmentProposalUiMapper.MSG_APPLY_FAILED)
+                        applyEquipmentSnapshot(
+                            equipmentSession.completeFailure(
                                 proposalId = proposalId,
-                                message = EquipmentProposalUiMapper.MSG_APPLY_FAILED,
-                            ),
+                                message = "",
+                            ).copy(userMessage = null),
                         )
+                        publishNextUserMessage()
                     }
             } finally {
-                // Cancellation mid-apply: release in-flight without dropping the card.
                 if (!settled) {
-                    applySessionSnapshot(proposalSession.releaseApply(proposalId))
+                    applyEquipmentSnapshot(equipmentSession.releaseApply(proposalId))
                 }
             }
         }
     }
 
-    private fun applySessionSnapshot(snap: EquipmentProposalSession.Snapshot?) {
+    private fun enqueueUserMessage(message: String) {
+        if (message.isBlank()) return
+        pendingUserMessages.addLast(message)
+    }
+
+    private fun publishNextUserMessage() {
+        val next = pendingUserMessages.firstOrNull()
+        updateLoaded { loaded ->
+            if (loaded.userMessage == next) loaded else loaded.copy(userMessage = next)
+        }
+    }
+
+    private fun applyEquipmentSnapshot(snap: EquipmentProposalSession.Snapshot?) {
         if (snap == null) return
         updateLoaded { loaded ->
             loaded.copy(
                 equipmentProposals = snap.cards,
                 blastRadiusConfirm = snap.blastRadiusConfirm,
-                userMessage = snap.userMessage,
             )
+        }
+    }
+
+    private fun applyRepRangeSnapshot(snap: RepRangeShiftProposalSession.Snapshot?) {
+        if (snap == null) return
+        updateLoaded { loaded ->
+            loaded.copy(repRangeProposals = snap.cards)
         }
     }
 

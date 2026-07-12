@@ -1,7 +1,9 @@
 package com.stratum
 
 import android.content.Intent
+import android.graphics.Color as AndroidColor
 import android.os.Bundle
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
@@ -38,7 +40,21 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         signInHostContext.attach(this)
         initFirebaseAppCheck()
-        enableEdgeToEdge()
+        // Transparent system bar scrims so scaffold/list surfaces truly reach the glass edge.
+        // Default enableEdgeToEdge() applies a dark nav-bar scrim that reads as a dead strip
+        // under the gesture pill on Pixel gesture navigation.
+        enableEdgeToEdge(
+            statusBarStyle =
+                SystemBarStyle.auto(
+                    lightScrim = AndroidColor.TRANSPARENT,
+                    darkScrim = AndroidColor.TRANSPARENT,
+                ),
+            navigationBarStyle =
+                SystemBarStyle.auto(
+                    lightScrim = AndroidColor.TRANSPARENT,
+                    darkScrim = AndroidColor.TRANSPARENT,
+                ),
+        )
         pendingWorkoutId = intent.workoutIdExtra()
         setContent {
             val viewModel: MainViewModel = hiltViewModel()

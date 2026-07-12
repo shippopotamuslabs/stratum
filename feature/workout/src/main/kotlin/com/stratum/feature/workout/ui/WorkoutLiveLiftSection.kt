@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumTextButton
@@ -32,9 +33,7 @@ import com.stratum.core.ui.component.workoutlog.LocalSetLogKeyboardHost
 import com.stratum.core.ui.component.workoutlog.ProvideSetLogKeyboardHost
 import com.stratum.core.ui.component.workoutlog.SetLogKeyboardRevealScroller
 import com.stratum.core.ui.component.workoutlog.StratumWorkoutLogLiftPanel
-import com.stratum.core.ui.component.workoutlog.WorkoutLogLiftUi
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
-import com.stratum.core.ui.component.workoutlog.WorkoutLogSetUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
 import kotlinx.coroutines.android.awaitFrame
@@ -63,6 +62,8 @@ internal fun WorkoutLiftList(
     onShowLiftActions: (workoutLiftId: String) -> Unit,
     onDiscardClick: () -> Unit,
     modifier: Modifier = Modifier,
+    failedLogSlotKey: String? = null,
+    onFailedLogConsumed: () -> Unit = {},
 ) {
     var discardHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -157,6 +158,8 @@ internal fun WorkoutLiftList(
                     onAddSet = { onAddSet(lift.workoutLiftId) },
                     onDeleteSet = onDeleteSet,
                     onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
+                    failedLogSlotKey = failedLogSlotKey,
+                    onFailedLogConsumed = onFailedLogConsumed,
                     modifier =
                         Modifier.onSizeChanged { size ->
                             liftHeightsPx[lift.workoutLiftId] = size.height
@@ -183,8 +186,13 @@ internal fun WorkoutLiftList(
 }
 
 /**
- * Live session adapter over [StratumWorkoutLogLiftPanel]: local draft fields until checkbox
- * commits a log. Rest timer / autoscroll / complete sheet are driven after log success
+ * Live session adapter over [StratumWorkoutLogLiftPanel].
+ *
+ * Drafts, seed rules, merge, and commit resolution live in [LiveSetLogDraftStore] /
+ * pure helpers ([seedLiveSetLogDrafts], [mergeLiveLogLift], [resolveLiveSetLogCommit]).
+ * This composable only wires keyboard focus + panel callbacks.
+ *
+ * Rest timer / autoscroll / complete sheet run after log success
  * (see [pendingSetLoggedSlotKey] on [WorkoutScreen]).
  */
 @Composable
@@ -196,78 +204,34 @@ internal fun LiveLiftSection(
     onDeleteSet: (slotKey: String) -> Unit,
     onShowLiftActions: () -> Unit,
     modifier: Modifier = Modifier,
+    failedLogSlotKey: String? = null,
+    onFailedLogConsumed: () -> Unit = {},
 ) {
-    // Snapshot-state maps so edits recompose without mutating plain maps during composition.
-    val weightDrafts = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }
-    val repsDrafts = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() }
-    val rirDrafts = remember { androidx.compose.runtime.mutableStateMapOf<String, Int>() }
+    val draftStore = remember(lift.workoutLiftId) { LiveSetLogDraftStore() }
+    val keyboardHost = LocalSetLogKeyboardHost.current
+    val focusedSetKey = keyboardHost?.session?.setKey
+    val revision by draftStore.revision.collectAsStateWithLifecycle()
 
-    // Seed incomplete drafts once; overwrite from logged values whenever a set completes.
-    LaunchedEffect(lift.sets) {
-        for (set in lift.sets) {
-            if (set.isComplete) {
-                weightDrafts[set.slotKey] = set.loggedWeightLabel.orEmpty()
-                repsDrafts[set.slotKey] = set.loggedRepsLabel.orEmpty()
-                rirDrafts[set.slotKey] = set.loggedRir ?: set.rirGoal
-            } else {
-                if (set.slotKey !in weightDrafts) {
-                    weightDrafts[set.slotKey] = set.loggedWeightLabel.orEmpty()
-                }
-                if (set.slotKey !in repsDrafts) {
-                    repsDrafts[set.slotKey] = set.loggedRepsLabel.orEmpty()
-                }
-                if (set.slotKey !in rirDrafts) {
-                    rirDrafts[set.slotKey] = set.loggedRir ?: set.rirGoal
-                }
-            }
-        }
+    LaunchedEffect(lift.sets, focusedSetKey) {
+        draftStore.syncFromRendered(lift.sets, focusedSetKey)
     }
 
+    // Persist failed after optimistic materialise — restore durable drafts for that slot.
+    LaunchedEffect(failedLogSlotKey) {
+        val key = failedLogSlotKey ?: return@LaunchedEffect
+        val source = lift.sets.firstOrNull { it.slotKey == key } ?: run {
+            onFailedLogConsumed()
+            return@LaunchedEffect
+        }
+        draftStore.forceReseedSlot(source)
+        onFailedLogConsumed()
+    }
+
+    // revision forces re-merge when drafts change; lift.sets when durable state updates.
     val logLift =
-        WorkoutLogLiftUi(
-            key = lift.workoutLiftId,
-            liftName = lift.liftName,
-            showWeightColumn = lift.showWeightColumn,
-            weightHeaderLabel = lift.weightHeaderLabel,
-            supersetGroupId = lift.supersetGroupId,
-            sets =
-                lift.sets.map { set ->
-                    WorkoutLogSetUi(
-                        setKey = set.slotKey,
-                        positionLabel = set.positionLabel,
-                        setTypeLabel = set.setTypeLabel,
-                        previousLabel = set.previousWeightLabel ?: "—",
-                        weightText =
-                            if (set.isComplete) {
-                                set.loggedWeightLabel.orEmpty()
-                            } else {
-                                weightDrafts[set.slotKey].orEmpty()
-                            },
-                        weightPlaceholder = set.recommendedWeightLabel,
-                        repsText =
-                            if (set.isComplete) {
-                                set.loggedRepsLabel.orEmpty()
-                            } else {
-                                repsDrafts[set.slotKey].orEmpty()
-                            },
-                        repsPlaceholder = set.recommendedRepsLabel,
-                        rir =
-                            if (set.isComplete) {
-                                set.loggedRir ?: set.rirGoal
-                            } else {
-                                rirDrafts[set.slotKey] ?: set.rirGoal
-                            },
-                        isComplete = set.isComplete,
-                        fieldsEnabled = !set.isComplete,
-                        showWeightInput = set.showWeightInput,
-                        showCheckbox = true,
-                        assistMode = set.assistMode,
-                        recommendedWeightAmount = set.recommendedWeightAmount,
-                        recommendedReps = set.recommendedReps,
-                        repMin = set.repMin,
-                    )
-                },
-        )
+        remember(lift, revision) {
+            mergeLiveLogLift(lift, draftStore.snapshot())
+        }
 
     val addSetCd = stringResource(R.string.workout_screen_add_set)
     val deleteSetCd = stringResource(R.string.workout_screen_delete_set)
@@ -292,35 +256,31 @@ internal fun LiveLiftSection(
         addSetContentDescription = addSetCd,
         setRowActions = { setUi ->
             val source = lift.sets.first { it.slotKey == setUi.setKey }
+            val commitLog: (EmptyFieldFallback) -> Unit = { emptyFallback ->
+                val commit = draftStore.resolveCommit(source, emptyFallback)
+                // Materialize placeholders into draft text before/while VM persists so the row
+                // never sits empty+placeholder after confirm.
+                draftStore.applyResolvedCommit(source, commit)
+                onLogSet(commit.slotKey, commit.weightAmountLb, commit.reps, commit.rir)
+            }
             WorkoutLogSetRowActions(
-                onWeightChange = { weightDrafts[setUi.setKey] = it },
-                onRepsChange = { repsDrafts[setUi.setKey] = it },
-                onRirChange = { rirDrafts[setUi.setKey] = it },
+                onWeightChange = { draftStore.setWeight(setUi.setKey, it) },
+                onRepsChange = { draftStore.setReps(setUi.setKey, it) },
+                onRirChange = { rir ->
+                    draftStore.setRir(setUi.setKey, rir)
+                    // RIR-only: keep previous weight/reps if fields were cleared mid-edit.
+                    if (source.isComplete) {
+                        commitLog(EmptyFieldFallback.KeepPreviousLogged)
+                    }
+                },
                 onCheckedChange = { checked ->
                     if (checked) {
-                        val weightText = weightDrafts[setUi.setKey].orEmpty()
-                        val repsText = repsDrafts[setUi.setKey].orEmpty()
-                        val rir = rirDrafts[setUi.setKey] ?: source.rirGoal
-                        val (finalWeight, finalReps) =
-                            resolveCheckboxLogValues(
-                                enteredWeight = weightText,
-                                enteredReps = repsText,
-                                showWeightInput = source.showWeightInput,
-                                recommendedWeightAmount = source.recommendedWeightAmount,
-                                recommendedReps = source.recommendedReps,
-                                repMin = source.repMin,
-                            )
-                        onLogSet(
-                            source.slotKey,
-                            finalWeight,
-                            finalReps,
-                            rir,
-                        )
+                        // Explicit complete: empty fields accept visible placeholders.
+                        commitLog(EmptyFieldFallback.AcceptPlaceholders)
                     } else {
                         onUnlogSet(source.slotKey)
                     }
                 },
-                // Last remaining set on a lift: no swipe — remove the lift via ⋮ instead.
                 onDelete = if (canDeleteSets) {
                     { onDeleteSet(setUi.setKey) }
                 } else {

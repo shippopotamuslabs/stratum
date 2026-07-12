@@ -9,11 +9,15 @@ import com.stratum.domain.auth.LogoutUseCase
 import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.domain.checkin.SetCheckInEnabledUseCase
+import com.stratum.domain.lift.ObserveEquipmentProposalsEnabledUseCase
+import com.stratum.domain.lift.SetEquipmentProposalsEnabledUseCase
 import com.stratum.domain.theme.ColorMode
 import com.stratum.domain.theme.ObserveThemePreferencesUseCase
 import com.stratum.domain.theme.SetColorModeUseCase
 import com.stratum.domain.theme.SetThemeFamilyUseCase
 import com.stratum.domain.theme.ThemeFamily
+import com.stratum.domain.workout.ObserveRepRangeShiftProposalsEnabledUseCase
+import com.stratum.domain.workout.SetRepRangeShiftProposalsEnabledUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
@@ -30,9 +34,13 @@ import kotlinx.coroutines.launch
 class SettingsViewModel @Inject constructor(
     observeThemePreferences: ObserveThemePreferencesUseCase,
     observeCheckInPreferences: ObserveCheckInPreferencesUseCase,
+    observeEquipmentProposalsEnabled: ObserveEquipmentProposalsEnabledUseCase,
+    observeRepRangeShiftProposalsEnabled: ObserveRepRangeShiftProposalsEnabledUseCase,
     private val setThemeFamily: SetThemeFamilyUseCase,
     private val setColorMode: SetColorModeUseCase,
     private val setCheckInEnabled: SetCheckInEnabledUseCase,
+    private val setEquipmentProposalsEnabled: SetEquipmentProposalsEnabledUseCase,
+    private val setRepRangeShiftProposalsEnabled: SetRepRangeShiftProposalsEnabledUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
     private val logout: LogoutUseCase,
     private val deleteAccount: DeleteAccountUseCase,
@@ -51,15 +59,29 @@ class SettingsViewModel @Inject constructor(
 
     val uiState: StateFlow<SettingsUiState> =
         combine(
-            observeThemePreferences(),
-            observeCheckInPreferences(),
+            combine(
+                observeThemePreferences(),
+                observeCheckInPreferences(),
+                observeEquipmentProposalsEnabled(),
+                observeRepRangeShiftProposalsEnabled(),
+            ) { theme, checkIn, equipmentEnabled, repRangeEnabled ->
+                PreferenceSnapshot(
+                    appearance = theme.colorMode.toAppearanceUi(),
+                    themeFamily = theme.family.toThemeFamilyUi(),
+                    checkInsEnabled = checkIn.enabled,
+                    equipmentProposalsEnabled = equipmentEnabled,
+                    repRangeProposalsEnabled = repRangeEnabled,
+                )
+            },
             debugStatusMessage,
             accountUi,
-        ) { theme, checkIn, debugStatus, account ->
+        ) { prefs, debugStatus, account ->
             SettingsUiState(
-                appearance = theme.colorMode.toAppearanceUi(),
-                themeFamily = theme.family.toThemeFamilyUi(),
-                checkInsEnabled = checkIn.enabled,
+                appearance = prefs.appearance,
+                themeFamily = prefs.themeFamily,
+                checkInsEnabled = prefs.checkInsEnabled,
+                equipmentProposalsEnabled = prefs.equipmentProposalsEnabled,
+                repRangeProposalsEnabled = prefs.repRangeProposalsEnabled,
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
                 showLogoutConfirm = account is AccountUi.ConfirmLogout,
@@ -92,6 +114,24 @@ class SettingsViewModel @Inject constructor(
     fun onCheckInsEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
             setCheckInEnabled(enabled).onFailure {
+                _userMessage.value = MSG_PREFS_FAILED
+            }
+        }
+    }
+
+    fun onPostWorkoutSuggestionEnabledChange(
+        kind: PostWorkoutSuggestionUi,
+        enabled: Boolean,
+    ) {
+        viewModelScope.launch {
+            val result =
+                when (kind) {
+                    PostWorkoutSuggestionUi.EquipmentSteps ->
+                        setEquipmentProposalsEnabled(enabled)
+                    PostWorkoutSuggestionUi.RepRangeShift ->
+                        setRepRangeShiftProposalsEnabled(enabled)
+                }
+            result.onFailure {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -190,6 +230,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    private data class PreferenceSnapshot(
+        val appearance: AppearanceUi,
+        val themeFamily: ThemeFamilyUi,
+        val checkInsEnabled: Boolean,
+        val equipmentProposalsEnabled: Boolean,
+        val repRangeProposalsEnabled: Boolean,
+    )
+
     private sealed class AccountUi {
         data object Idle : AccountUi()
         data object ConfirmLogout : AccountUi()
@@ -216,6 +264,8 @@ data class SettingsUiState(
     val appearance: AppearanceUi = AppearanceUi.System,
     val themeFamily: ThemeFamilyUi = ThemeFamilyUi.Stratum,
     val checkInsEnabled: Boolean = true,
+    val equipmentProposalsEnabled: Boolean = true,
+    val repRangeProposalsEnabled: Boolean = true,
     /** True only in debug builds; release UI never shows developer tools. */
     val showDebugTools: Boolean = false,
     val debugStatusMessage: String? = null,
@@ -223,6 +273,25 @@ data class SettingsUiState(
     val isLoggingOut: Boolean = false,
     val showDeleteConfirm: Boolean = false,
     val isDeletingAccount: Boolean = false,
+)
+
+/** Which post-workout suggestion switch the user toggled. */
+enum class PostWorkoutSuggestionUi {
+    EquipmentSteps,
+    RepRangeShift,
+}
+
+/**
+ * Account lifecycle callbacks for [com.stratum.feature.settings.ui.SettingsScreen].
+ * Grouped so the composable stays under Detekt [LongParameterList].
+ */
+data class SettingsAccountActions(
+    val onLogoutClick: () -> Unit = {},
+    val onLogoutConfirmDismiss: () -> Unit = {},
+    val onLogoutConfirmed: () -> Unit = {},
+    val onDeleteAccountClick: () -> Unit = {},
+    val onDeleteAccountConfirmDismiss: () -> Unit = {},
+    val onDeleteAccountConfirmed: () -> Unit = {},
 )
 
 /** Light / Dark / System (device) appearance policy. */

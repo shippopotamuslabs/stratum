@@ -34,6 +34,16 @@ class DataStoreEquipmentProposalPreferencesTest {
     }
 
     @Test
+    @DisplayName("enabled is true by default and setEnabled persists")
+    fun enabledToggle() = runTest {
+        assertTrue(store.isEnabled())
+        store.setEnabled(false)
+        assertFalse(store.isEnabled())
+        store.setEnabled(true)
+        assertTrue(store.isEnabled())
+    }
+
+    @Test
     @DisplayName("dismiss persists and isDismissed returns true")
     fun dismissPersists() = runTest {
         val fp = "cable|lat-pulldown|2.5"

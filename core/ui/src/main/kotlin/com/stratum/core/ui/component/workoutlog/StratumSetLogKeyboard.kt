@@ -40,8 +40,6 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 internal fun StratumSetLogKeyboardContent(
     activeField: SetLogKeyboardField,
     selectedRir: Int,
-    weightText: String,
-    repsText: String,
     showWeightInput: Boolean,
     allowDecimal: Boolean,
     onRirSelected: (Int) -> Unit,
@@ -51,12 +49,15 @@ internal fun StratumSetLogKeyboardContent(
     onPrimaryAction: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    canComplete: Boolean = false,
+    // Retained for call-site readability / future field chrome; icon uses [canComplete] only.
+    @Suppress("UNUSED_PARAMETER") weightText: String = "",
+    @Suppress("UNUSED_PARAMETER") repsText: String = "",
 ) {
     val primaryIcon =
         setLogKeyboardPrimaryIcon(
             active = activeField,
-            weightText = weightText,
-            repsText = repsText,
+            canComplete = canComplete,
             showWeightInput = showWeightInput,
         )
 
