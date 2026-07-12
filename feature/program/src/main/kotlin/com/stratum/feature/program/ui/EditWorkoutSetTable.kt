@@ -329,6 +329,13 @@ private fun RepRangeCell(
             isActive = minActive,
             isError = validation?.minInvalid == true,
             onActivate = { openField(RepRangeKeyboardField.Min) },
+            cursorIndex = dock?.takeIf { sessionOpen }?.minCursor ?: displayMin.length,
+            onCursorChange =
+                if (minActive) {
+                    { index -> dock?.setCursor(RepRangeKeyboardField.Min, index) }
+                } else {
+                    null
+                },
             modifier = Modifier.weight(1f),
         )
         StratumText(
@@ -343,6 +350,13 @@ private fun RepRangeCell(
             isActive = maxActive,
             isError = validation?.maxInvalid == true,
             onActivate = { openField(RepRangeKeyboardField.Max) },
+            cursorIndex = dock?.takeIf { sessionOpen }?.maxCursor ?: displayMax.length,
+            onCursorChange =
+                if (maxActive) {
+                    { index -> dock?.setCursor(RepRangeKeyboardField.Max, index) }
+                } else {
+                    null
+                },
             modifier = Modifier.weight(1f),
         )
     }

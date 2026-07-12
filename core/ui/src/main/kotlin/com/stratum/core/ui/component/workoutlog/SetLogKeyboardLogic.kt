@@ -40,23 +40,92 @@ enum class SetLogKeyboardAction {
 }
 
 /**
- * Appends a pad key to [current]. Digits always append; `.` appends only when
+ * Editable numeric buffer with a caret index in `0..text.length` (between characters).
+ * Used by custom set-log / rep-range pads so insert and backspace are not end-only.
+ */
+data class NumericEditBuffer(
+    val text: String,
+    val cursor: Int,
+) {
+    /** Caret clamped into a valid range for [text]. */
+    fun coerced(): NumericEditBuffer {
+        val clamped = cursor.coerceIn(0, text.length)
+        return if (clamped == cursor) this else copy(cursor = clamped)
+    }
+}
+
+/**
+ * Inserts a pad key at the caret. Digits always insert; `.` inserts only when
+ * [allowDecimal] and the value does not already contain a decimal point.
+ * Cursor advances past the inserted character on success.
+ */
+fun insertNumericKey(
+    buffer: NumericEditBuffer,
+    key: Char,
+    allowDecimal: Boolean,
+): NumericEditBuffer {
+    val current = buffer.coerced()
+    val insert =
+        when {
+            key.isDigit() -> key.toString()
+            key == '.' && allowDecimal && !current.text.contains('.') -> "."
+            else -> return current
+        }
+    val index = current.cursor
+    val nextText = current.text.substring(0, index) + insert + current.text.substring(index)
+    return NumericEditBuffer(text = nextText, cursor = index + insert.length)
+}
+
+/**
+ * Deletes the character before the caret, or no-ops when the caret is at index 0.
+ */
+fun backspaceNumericBuffer(buffer: NumericEditBuffer): NumericEditBuffer {
+    val current = buffer.coerced()
+    if (current.cursor <= 0) return current
+    val index = current.cursor
+    val nextText = current.text.removeRange(index - 1, index)
+    return NumericEditBuffer(text = nextText, cursor = index - 1)
+}
+
+/** @deprecated Prefer [insertNumericKey]. Kept as a name alias for set-log call sites. */
+fun insertSetLogKey(
+    buffer: NumericEditBuffer,
+    key: Char,
+    allowDecimal: Boolean,
+): NumericEditBuffer = insertNumericKey(buffer, key, allowDecimal)
+
+/** @deprecated Prefer [backspaceNumericBuffer]. */
+fun backspaceSetLogBuffer(buffer: NumericEditBuffer): NumericEditBuffer =
+    backspaceNumericBuffer(buffer)
+
+/**
+ * Appends a pad key to [current] (caret at end). Digits always append; `.` appends only when
  * [allowDecimal] and the value does not already contain a decimal point.
  */
-fun appendSetLogKey(
+fun appendNumericKey(
     current: String,
     key: Char,
     allowDecimal: Boolean,
 ): String =
-    when {
-        key.isDigit() -> current + key
-        key == '.' && allowDecimal && !current.contains('.') -> current + "."
-        else -> current
-    }
+    insertNumericKey(
+        buffer = NumericEditBuffer(text = current, cursor = current.length),
+        key = key,
+        allowDecimal = allowDecimal,
+    ).text
 
 /** Drops the last character, or returns [current] when empty. */
-fun backspaceSetLogValue(current: String): String =
-    if (current.isEmpty()) current else current.dropLast(1)
+fun backspaceNumericValue(current: String): String =
+    backspaceNumericBuffer(NumericEditBuffer(text = current, cursor = current.length)).text
+
+/** @deprecated Prefer [appendNumericKey]. */
+fun appendSetLogKey(
+    current: String,
+    key: Char,
+    allowDecimal: Boolean,
+): String = appendNumericKey(current, key, allowDecimal)
+
+/** @deprecated Prefer [backspaceNumericValue]. */
+fun backspaceSetLogValue(current: String): String = backspaceNumericValue(current)
 
 /**
  * Parses a rep-range pad draft into a non-negative int for ViewModel commit.

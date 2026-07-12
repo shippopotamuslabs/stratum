@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -199,6 +200,8 @@ internal fun RowScope.PadKeyContainer(
                     color = StratumThemeAccessor.colors.borderSubtle,
                     shape = shape,
                 )
+                // Keep focus on the active numeric cell so the caret stays visible while typing.
+                .focusProperties { canFocus = false }
                 .semantics { this.contentDescription = contentDescription }
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
