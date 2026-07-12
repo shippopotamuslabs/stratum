@@ -163,6 +163,37 @@ class ProgramScheduleTest {
         }
     }
 
+    @Test
+    @DisplayName("buildWeeklyScheduleOrFallback shows unbound workouts instead of seven rest days")
+    fun buildWeeklyScheduleOrFallback_unboundWorkoutsNotAllRest() {
+        val program =
+            Program(
+                id = ProgramId("p-1"),
+                name = "Scratch",
+                createdAt = Instant.parse("2026-06-26T12:00:00Z"),
+                cycleLength = 2,
+                trainingWeekdays = emptySet(),
+                workouts =
+                    listOf(
+                        workout("w-0", 0),
+                        workout("w-1", 1),
+                    ),
+            )
+
+        val schedule = buildWeeklyScheduleOrFallback(program)
+
+        assertEquals(2, schedule.size)
+        assertTrue(schedule.all { item -> item is ScheduleDayItem.WorkoutDay })
+        assertEquals(
+            listOf("w-0", "w-1"),
+            schedule.filterIsInstance<ScheduleDayItem.WorkoutDay>().map { item -> item.workout.id.value },
+        )
+        // Strict builder still produces all rest for empty training (invariant for active UI).
+        val strict = buildWeeklySchedule(program)
+        assertEquals(7, strict.size)
+        assertTrue(strict.all { item -> item is ScheduleDayItem.RestDay })
+    }
+
     private fun workout(id: String, position: Int) =
         Workout(
             id = WorkoutId(id),

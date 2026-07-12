@@ -174,14 +174,24 @@ fun buildWeeklySchedule(program: Program): List<ScheduleDayItem> {
  *
  * Prefer this for library/editor presentation that must stay resilient; use [buildWeeklySchedule]
  * when an invariant violation should surface (e.g. Programs active overview after generation).
+ *
+ * Note: [buildWeeklySchedule] succeeds with seven rest days when workouts exist but none are
+ * weekday-bound (empty [Program.effectiveTrainingWeekdays]). That silent all-rest result is
+ * treated as incomplete binding and falls back so library/editor still show the workouts.
  */
-fun buildWeeklyScheduleOrFallback(program: Program): List<ScheduleDayItem> =
-    runCatching { buildWeeklySchedule(program) }
-        .getOrElse {
-            program.workouts.sortedBy { workout -> workout.position }.map { workout ->
-                ScheduleDayItem.WorkoutDay(
-                    weekday = workout.weekday ?: Weekday.Monday,
-                    workout = workout,
-                )
-            }
-        }
+fun buildWeeklyScheduleOrFallback(program: Program): List<ScheduleDayItem> {
+    val training = program.effectiveTrainingWeekdays()
+    if (program.workouts.isNotEmpty() && training.isEmpty()) {
+        return fallbackScheduleFromWorkouts(program)
+    }
+    return runCatching { buildWeeklySchedule(program) }
+        .getOrElse { fallbackScheduleFromWorkouts(program) }
+}
+
+private fun fallbackScheduleFromWorkouts(program: Program): List<ScheduleDayItem> =
+    program.workouts.sortedBy { workout -> workout.position }.map { workout ->
+        ScheduleDayItem.WorkoutDay(
+            weekday = workout.weekday ?: Weekday.Monday,
+            workout = workout,
+        )
+    }
