@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -242,6 +243,8 @@ private fun RirSheetOption(
                         Modifier
                     },
                 )
+                // Keyboard RIR row must not steal focus from the active numeric caret.
+                .focusProperties { canFocus = false }
                 .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

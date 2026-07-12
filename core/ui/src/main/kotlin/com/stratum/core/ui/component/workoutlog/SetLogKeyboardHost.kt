@@ -1,36 +1,21 @@
 package com.stratum.core.ui.component.workoutlog
 
 import android.content.res.Configuration
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.stratum.core.ui.theme.StratumThemeAccessor
 
 /**
  * Fraction of the **screen** height for the custom set-log keyboard pad (~system IME).
@@ -58,27 +43,24 @@ data class SetLogKeyboardSession(
 )
 
 /**
- * Scrolls a focused cell so it sits above the keyboard dock. Implemented by the list host
- * (e.g. [LazyListState.animateScrollBy]); cells only supply window bounds.
- */
-fun interface SetLogKeyboardRevealScroller {
-    /**
-     * Scroll the list so [cellBoundsInWindow] sits fully above the keyboard.
-     * No-op when the cell is already clear of the dock.
-     */
-    suspend fun ensureCellAboveKeyboard(cellBoundsInWindow: Rect)
-}
-
-/**
  * List/screen-level keyboard host. Set rows open a session; the dock is composed once
  * outside the scrollable so large scrolls cannot tear down the pad.
+ *
+ * While a session is open for a set, **host drafts are source of truth** for weight/reps text
+ * (pad + active cell). Parent [syncSessionChrome] only updates RIR/recs — never overwrites
+ * mid-edit buffers. Same-set re-activation uses [setField] / same-set branch of [open] and
+ * does not reseed text from row props.
+ *
+ * Dock height / reveal live on [overlay] ([LocalStratumOverlayDock]).
  */
 @Stable
-class SetLogKeyboardHostState {
+class SetLogKeyboardHostState(
+    val overlay: StratumOverlayDockHostState = StratumOverlayDockHostState(),
+) {
     var session: SetLogKeyboardSession? by mutableStateOf(null)
         private set
 
-    /** Live draft values for the open set (updated via [syncValues]). */
+    /** Live draft values for the open set (host-owned while session is open). */
     var weightText: String by mutableStateOf("")
         private set
     var repsText: String by mutableStateOf("")
@@ -86,25 +68,27 @@ class SetLogKeyboardHostState {
     var rir: Int by mutableIntStateOf(2)
         private set
 
-    /**
-     * Total height of the dock (pad + nav bar) while open, else 0. Host lists should add this
-     * to LazyColumn **contentPadding** (not Modifier.padding) so low fields can scroll up.
-     */
-    var dockHeightDp: Dp by mutableStateOf(0.dp)
-        internal set
-
-    /** Window Y of the top edge of the keyboard dock while open (for reveal math). */
-    var dockTopInWindow: Float by mutableFloatStateOf(Float.NaN)
-        internal set
-
-    /**
-     * List-level scroller. Set by [ProvideSetLogKeyboardHost] consumers that own a LazyList.
-     */
-    var revealScroller: SetLogKeyboardRevealScroller? by mutableStateOf(null)
-
-    /** Bumps when a session opens or field changes so cells re-request reveal. */
-    var revealEpoch: Int by mutableIntStateOf(0)
+    /** Caret indices for [weightText] / [repsText] (`0..length`). */
+    var weightCursor: Int by mutableIntStateOf(0)
         private set
+    var repsCursor: Int by mutableIntStateOf(0)
+        private set
+
+    /** @see StratumOverlayDockHostState.dockHeightDp */
+    val dockHeightDp: Dp get() = overlay.dockHeightDp
+
+    /** @see StratumOverlayDockHostState.dockTopInWindow */
+    val dockTopInWindow: Float get() = overlay.dockTopInWindow
+
+    /** @see StratumOverlayDockHostState.revealScroller */
+    var revealScroller: StratumOverlayDockRevealScroller?
+        get() = overlay.revealScroller
+        set(value) {
+            overlay.revealScroller = value
+        }
+
+    /** @see StratumOverlayDockHostState.revealEpoch */
+    val revealEpoch: Int get() = overlay.revealEpoch
 
     val isOpen: Boolean get() = session != null
 
@@ -122,13 +106,46 @@ class SetLogKeyboardHostState {
         onRirChange: (Int) -> Unit,
         onComplete: (() -> Unit)?,
     ) {
+        val previous = session
+        if (previous != null && previous.setKey == setKey) {
+            // Same set: host drafts stay SoT. Refresh chrome/callbacks and tab the field only.
+            this.rir = rir
+            val nextField =
+                if (!showWeightInput && field == SetLogKeyboardField.Weight) {
+                    SetLogKeyboardField.Reps
+                } else {
+                    field
+                }
+            session =
+                previous.copy(
+                    field = nextField,
+                    showWeightInput = showWeightInput,
+                    hasWeightRecommendation = hasWeightRecommendation,
+                    hasRepsRecommendation = hasRepsRecommendation,
+                    onWeightChange = onWeightChange,
+                    onRepsChange = onRepsChange,
+                    onRirChange = onRirChange,
+                    onComplete = onComplete,
+                )
+            overlay.requestReveal()
+            return
+        }
+
+        // New set (or first open): seed drafts from row props, carets at end.
         this.weightText = weightText
         this.repsText = repsText
         this.rir = rir
+        weightCursor = weightText.length
+        repsCursor = repsText.length
         session =
             SetLogKeyboardSession(
                 setKey = setKey,
-                field = field,
+                field =
+                    if (!showWeightInput && field == SetLogKeyboardField.Weight) {
+                        SetLogKeyboardField.Reps
+                    } else {
+                        field
+                    },
                 showWeightInput = showWeightInput,
                 hasWeightRecommendation = hasWeightRecommendation,
                 hasRepsRecommendation = hasRepsRecommendation,
@@ -137,22 +154,23 @@ class SetLogKeyboardHostState {
                 onRirChange = onRirChange,
                 onComplete = onComplete,
             )
-        revealEpoch++
+        // Open chrome is derived by ProvideStratumOverlayDock from session != null (dockContent).
+        // Always request reveal (also covers open-while-open set switches where isOpen stays true).
+        overlay.requestReveal()
     }
 
-    /** Keep host drafts in sync while the owning row is composed. */
-    fun syncValues(
+    /**
+     * Syncs session **chrome** (RIR + recommendation flags) while the row is composed.
+     * Does **not** overwrite host weight/reps drafts — those are owned by the pad session.
+     */
+    fun syncSessionChrome(
         setKey: String,
-        weightText: String,
-        repsText: String,
         rir: Int,
         hasWeightRecommendation: Boolean? = null,
         hasRepsRecommendation: Boolean? = null,
     ) {
         val current = session ?: return
         if (current.setKey != setKey) return
-        this.weightText = weightText
-        this.repsText = repsText
         this.rir = rir
         val nextWeightRec = hasWeightRecommendation ?: return
         val nextRepsRec = hasRepsRecommendation ?: return
@@ -168,6 +186,28 @@ class SetLogKeyboardHostState {
         }
     }
 
+    /**
+     * @deprecated Prefer [syncSessionChrome]. Name retained so older call sites compile during
+     * migration; still does not reseed weight/reps text.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun syncValues(
+        setKey: String,
+        weightText: String,
+        repsText: String,
+        rir: Int,
+        hasWeightRecommendation: Boolean? = null,
+        hasRepsRecommendation: Boolean? = null,
+    ) {
+        // weightText/repsText intentionally ignored — host is SoT while open.
+        syncSessionChrome(
+            setKey = setKey,
+            rir = rir,
+            hasWeightRecommendation = hasWeightRecommendation,
+            hasRepsRecommendation = hasRepsRecommendation,
+        )
+    }
+
     fun setField(field: SetLogKeyboardField) {
         val current = session ?: return
         val next =
@@ -178,13 +218,63 @@ class SetLogKeyboardHostState {
             }
         if (next != current.field) {
             session = current.copy(field = next)
-            revealEpoch++
+            overlay.requestReveal()
+        }
+    }
+
+    /** Cell tap moved the caret inside the given field. */
+    fun setCursor(
+        field: SetLogKeyboardField,
+        index: Int,
+    ) {
+        when (field) {
+            SetLogKeyboardField.Weight ->
+                weightCursor = index.coerceIn(0, weightText.length)
+            SetLogKeyboardField.Reps ->
+                repsCursor = index.coerceIn(0, repsText.length)
+        }
+    }
+
+    /**
+     * Applies a pad edit to the active field and **commits** text to the session callbacks
+     * (live set-log write-through).
+     */
+    fun applyPadEditAndCommit(updated: NumericEditBuffer) {
+        val current = session ?: return
+        val coerced = updated.coerced()
+        when (current.field) {
+            SetLogKeyboardField.Weight -> {
+                val textChanged = weightText != coerced.text
+                weightText = coerced.text
+                weightCursor = coerced.cursor
+                if (textChanged) {
+                    current.onWeightChange(coerced.text)
+                }
+            }
+            SetLogKeyboardField.Reps -> {
+                val textChanged = repsText != coerced.text
+                repsText = coerced.text
+                repsCursor = coerced.cursor
+                if (textChanged) {
+                    current.onRepsChange(coerced.text)
+                }
+            }
+        }
+    }
+
+    fun activeBuffer(): NumericEditBuffer? {
+        val current = session ?: return null
+        return when (current.field) {
+            SetLogKeyboardField.Weight ->
+                NumericEditBuffer(text = weightText, cursor = weightCursor).coerced()
+            SetLogKeyboardField.Reps ->
+                NumericEditBuffer(text = repsText, cursor = repsCursor).coerced()
         }
     }
 
     fun dismiss() {
         session = null
-        dockTopInWindow = Float.NaN
+        // Closed chrome is derived by ProvideStratumOverlayDock when dockContent becomes null.
     }
 
     fun isFieldActive(
@@ -210,166 +300,117 @@ fun ProvideSetLogKeyboardHost(
 ) {
     val host = remember { SetLogKeyboardHostState() }
     val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
     val contentHeight =
         remember(configuration.screenHeightDp) {
             setLogKeyboardContentHeight(configuration)
         }
-    val navBottomPx = WindowInsets.navigationBars.getBottom(density)
-    val navBottomDp = with(density) { navBottomPx.toDp() }
-    val dockHeight = if (host.isOpen) contentHeight + navBottomDp else 0.dp
-    host.dockHeightDp = dockHeight
 
     CompositionLocalProvider(LocalSetLogKeyboardHost provides host) {
-        Box(modifier = modifier.fillMaxSize()) {
-            // Full-size list — keyboard overlays; list uses contentPadding for dock height.
-            content(Modifier.fillMaxSize())
-            val session = host.session
-            if (session != null) {
-                SetLogKeyboardDock(
-                    session = session,
-                    weightText = host.weightText,
-                    repsText = host.repsText,
-                    rir = host.rir,
-                    contentHeight = contentHeight,
-                    onWeightChange = { text ->
-                        host.syncValues(session.setKey, text, host.repsText, host.rir)
-                        session.onWeightChange(text)
-                    },
-                    onRepsChange = { text ->
-                        host.syncValues(session.setKey, host.weightText, text, host.rir)
-                        session.onRepsChange(text)
-                    },
-                    onRirChange = { value ->
-                        host.syncValues(session.setKey, host.weightText, host.repsText, value)
-                        session.onRirChange(value)
-                    },
-                    onFieldChange = host::setField,
-                    onComplete = {
-                        session.onComplete?.invoke()
-                        host.dismiss()
-                    },
-                    onDismiss = host::dismiss,
-                    onDockPositioned = { topInWindow ->
-                        host.dockTopInWindow = topInWindow
-                    },
-                    // Pin to the physical bottom; background fills the nav-bar region so the
-                    // list cannot peek under the pad (insets only pad the key content).
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth(),
-                )
-            }
+        ProvideStratumOverlayDock(
+            modifier = modifier,
+            host = host.overlay,
+            dockContent =
+                host.session?.let { session ->
+                    {
+                        SetLogKeyboardDockContent(
+                            host = host,
+                            session = session,
+                            contentHeight = contentHeight,
+                        )
+                    }
+                },
+        ) { listModifier, _ ->
+            content(listModifier)
         }
     }
 }
 
 @Composable
-private fun SetLogKeyboardDock(
+private fun SetLogKeyboardDockContent(
+    host: SetLogKeyboardHostState,
     session: SetLogKeyboardSession,
-    weightText: String,
-    repsText: String,
-    rir: Int,
     contentHeight: Dp,
-    onWeightChange: (String) -> Unit,
-    onRepsChange: (String) -> Unit,
-    onRirChange: (Int) -> Unit,
-    onFieldChange: (SetLogKeyboardField) -> Unit,
-    onComplete: () -> Unit,
-    onDismiss: () -> Unit,
-    onDockPositioned: (topInWindow: Float) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    // Local buffers so rapid key taps stay consistent before parent recomposes.
-    var weightBuffer by remember(session.setKey) { mutableStateOf(weightText) }
-    var repsBuffer by remember(session.setKey) { mutableStateOf(repsText) }
-    LaunchedEffect(weightText) { weightBuffer = weightText }
-    LaunchedEffect(repsText) { repsBuffer = repsText }
-
     val allowDecimal = session.field == SetLogKeyboardField.Weight
-    val commit: (String) -> Unit = { updated ->
-        when (session.field) {
-            SetLogKeyboardField.Weight -> {
-                weightBuffer = updated
-                onWeightChange(updated)
-            }
-            SetLogKeyboardField.Reps -> {
-                repsBuffer = updated
-                onRepsChange(updated)
-            }
-        }
-    }
-
-    // Order: background first (edge-to-edge to screen bottom), then nav-bar padding for keys.
-    Column(
-        modifier =
-            modifier
-                .background(StratumThemeAccessor.colors.surfaceRaised)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .onGloballyPositioned { coords ->
-                    // Top of the key content (above the nav-bar inset), used for reveal scroll.
-                    onDockPositioned(coords.boundsInWindow().top)
-                }
-                .fillMaxWidth(),
-    ) {
-        val liveCanComplete =
-            canCompleteSetLog(
-                showWeightInput = session.showWeightInput,
-                weightText = weightBuffer,
-                hasWeightRecommendation = session.hasWeightRecommendation,
-                repsText = repsBuffer,
-                hasRepsRecommendation = session.hasRepsRecommendation,
-            )
-        StratumSetLogKeyboardContent(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(contentHeight),
-            activeField = session.field,
-            selectedRir = rir,
-            weightText = weightBuffer,
-            repsText = repsBuffer,
+    val liveCanComplete =
+        canCompleteSetLog(
             showWeightInput = session.showWeightInput,
-            allowDecimal = allowDecimal,
-            canComplete = liveCanComplete,
-            onRirSelected = onRirChange,
-            onDigit = { digit ->
-                val base =
-                    when (session.field) {
-                        SetLogKeyboardField.Weight -> weightBuffer
-                        SetLogKeyboardField.Reps -> repsBuffer
-                    }
-                commit(appendSetLogKey(base, digit, allowDecimal))
-            },
-            onDecimal = {
-                commit(appendSetLogKey(weightBuffer, '.', allowDecimal = true))
-            },
-            onBackspace = {
-                val base =
-                    when (session.field) {
-                        SetLogKeyboardField.Weight -> weightBuffer
-                        SetLogKeyboardField.Reps -> repsBuffer
-                    }
-                commit(backspaceSetLogValue(base))
-            },
-            onPrimaryAction = {
-                when (
-                    resolveSetLogKeyboardAction(
-                        active = session.field,
-                        canComplete = liveCanComplete,
-                        showWeightInput = session.showWeightInput,
-                    )
-                ) {
-                    SetLogKeyboardAction.FocusReps -> onFieldChange(SetLogKeyboardField.Reps)
-                    SetLogKeyboardAction.FocusWeight -> onFieldChange(SetLogKeyboardField.Weight)
-                    SetLogKeyboardAction.Complete -> onComplete()
-                    SetLogKeyboardAction.Dismiss -> onDismiss()
-                }
-            },
-            onDismiss = onDismiss,
+            weightText = host.weightText,
+            hasWeightRecommendation = session.hasWeightRecommendation,
+            repsText = host.repsText,
+            hasRepsRecommendation = session.hasRepsRecommendation,
         )
+    val completeAndDismiss: () -> Unit = {
+        session.onComplete?.invoke()
+        host.dismiss()
     }
+    StratumSetLogKeyboardContent(
+        state =
+            SetLogKeyboardPadState(
+                activeField = session.field,
+                selectedRir = host.rir,
+                showWeightInput = session.showWeightInput,
+                allowDecimal = allowDecimal,
+                canComplete = liveCanComplete,
+            ),
+        actions =
+            SetLogKeyboardPadActions(
+                onRirSelected = { value ->
+                    host.syncSessionChrome(session.setKey, value)
+                    session.onRirChange(value)
+                },
+                onDigit = { digit ->
+                    host.activeBuffer()?.let { base ->
+                        host.applyPadEditAndCommit(insertNumericKey(base, digit, allowDecimal))
+                    }
+                },
+                onDecimal = {
+                    if (session.field == SetLogKeyboardField.Weight) {
+                        host.activeBuffer()?.let { base ->
+                            host.applyPadEditAndCommit(
+                                insertNumericKey(base, '.', allowDecimal = true),
+                            )
+                        }
+                    }
+                },
+                onBackspace = {
+                    host.activeBuffer()?.let { base ->
+                        host.applyPadEditAndCommit(backspaceNumericBuffer(base))
+                    }
+                },
+                onPrimaryAction = {
+                    applySetLogKeyboardAction(
+                        action =
+                            resolveSetLogKeyboardAction(
+                                active = session.field,
+                                canComplete = liveCanComplete,
+                                showWeightInput = session.showWeightInput,
+                            ),
+                        onFieldChange = host::setField,
+                        onComplete = completeAndDismiss,
+                        onDismiss = host::dismiss,
+                    )
+                },
+                onDismiss = host::dismiss,
+                onElevatedNavAction = {
+                    applySetLogKeyboardAction(
+                        action =
+                            resolveSetLogKeyboardElevatedNavAction(
+                                active = session.field,
+                                canComplete = liveCanComplete,
+                                showWeightInput = session.showWeightInput,
+                            ),
+                        onFieldChange = host::setField,
+                        onComplete = completeAndDismiss,
+                        onDismiss = host::dismiss,
+                    )
+                },
+            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(contentHeight),
+    )
 }
 
 @Composable
@@ -379,3 +420,21 @@ fun rememberSetLogKeyboardHeight(): Dp {
         setLogKeyboardContentHeight(configuration)
     }
 }
+
+private fun applySetLogKeyboardAction(
+    action: SetLogKeyboardAction?,
+    onFieldChange: (SetLogKeyboardField) -> Unit,
+    onComplete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    when (action) {
+        SetLogKeyboardAction.FocusReps -> onFieldChange(SetLogKeyboardField.Reps)
+        SetLogKeyboardAction.FocusWeight -> onFieldChange(SetLogKeyboardField.Weight)
+        SetLogKeyboardAction.Complete -> onComplete()
+        SetLogKeyboardAction.Dismiss -> onDismiss()
+        null -> Unit
+    }
+}
+
+// Backward-compatible name used by list hosts.
+typealias SetLogKeyboardRevealScroller = StratumOverlayDockRevealScroller

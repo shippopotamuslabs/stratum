@@ -13,6 +13,16 @@ import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
 
+private val PreviewPadActions =
+    SetLogKeyboardPadActions(
+        onRirSelected = {},
+        onDigit = {},
+        onDecimal = {},
+        onBackspace = {},
+        onPrimaryAction = {},
+        onDismiss = {},
+    )
+
 @PreviewLightDark
 @Composable
 private fun StratumSetLogKeyboardWeightPreview() {
@@ -24,23 +34,19 @@ private fun StratumSetLogKeyboardWeightPreview() {
                     .padding(8.dp),
         ) {
             StratumSetLogKeyboardContent(
+                state =
+                    SetLogKeyboardPadState(
+                        activeField = SetLogKeyboardField.Weight,
+                        selectedRir = 2,
+                        showWeightInput = true,
+                        allowDecimal = true,
+                        canComplete = false,
+                    ),
+                actions = PreviewPadActions,
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .height(280.dp),
-                activeField = SetLogKeyboardField.Weight,
-                selectedRir = 2,
-                weightText = "135",
-                repsText = "",
-                showWeightInput = true,
-                allowDecimal = true,
-                canComplete = false,
-                onRirSelected = {},
-                onDigit = {},
-                onDecimal = {},
-                onBackspace = {},
-                onPrimaryAction = {},
-                onDismiss = {},
             )
         }
     }
@@ -57,23 +63,19 @@ private fun StratumSetLogKeyboardRepsPreview() {
                     .padding(8.dp),
         ) {
             StratumSetLogKeyboardContent(
+                state =
+                    SetLogKeyboardPadState(
+                        activeField = SetLogKeyboardField.Reps,
+                        selectedRir = 1,
+                        showWeightInput = true,
+                        allowDecimal = false,
+                        canComplete = true,
+                    ),
+                actions = PreviewPadActions,
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .height(280.dp),
-                activeField = SetLogKeyboardField.Reps,
-                selectedRir = 1,
-                weightText = "135",
-                repsText = "5",
-                showWeightInput = true,
-                allowDecimal = false,
-                canComplete = true,
-                onRirSelected = {},
-                onDigit = {},
-                onDecimal = {},
-                onBackspace = {},
-                onPrimaryAction = {},
-                onDismiss = {},
             )
         }
     }

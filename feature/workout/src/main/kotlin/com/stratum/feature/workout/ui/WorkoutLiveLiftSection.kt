@@ -10,10 +10,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -31,12 +29,11 @@ import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.workoutlog.LocalSetLogKeyboardHost
 import com.stratum.core.ui.component.workoutlog.ProvideSetLogKeyboardHost
-import com.stratum.core.ui.component.workoutlog.SetLogKeyboardRevealScroller
 import com.stratum.core.ui.component.workoutlog.StratumWorkoutLogLiftPanel
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetRowActions
+import com.stratum.core.ui.component.workoutlog.rememberOverlayDockListBinding
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
-import kotlinx.coroutines.android.awaitFrame
 
 internal val LiftListSpacing = 16.dp
 private const val DEFAULT_ESTIMATED_LIFT_HEIGHT_PX = 420
@@ -92,54 +89,12 @@ internal fun WorkoutLiftList(
 
     ProvideSetLogKeyboardHost(modifier = modifier) { listModifier ->
         val keyboardHost = LocalSetLogKeyboardHost.current
-        val dockHeightDp = keyboardHost?.dockHeightDp ?: 0.dp
-        val revealMarginPx = with(density) { KeyboardRevealMargin.toPx() }
-        val dockHeightPx = with(density) { dockHeightDp.toPx() }
-        // Preserve scroll anchor across keyboard close (contentPadding shrink clamps otherwise).
-        var previousDockHeightPx by remember { mutableFloatStateOf(0f) }
-        var anchorIndex by remember { mutableIntStateOf(0) }
-        var anchorOffset by remember { mutableIntStateOf(0) }
-
-        // While keyboard is open and idle, remember where the list is scrolled.
-        LaunchedEffect(dockHeightPx, listState.isScrollInProgress) {
-            if (dockHeightPx > 0f && !listState.isScrollInProgress) {
-                anchorIndex = listState.firstVisibleItemIndex
-                anchorOffset = listState.firstVisibleItemScrollOffset
-            }
-        }
-
-        LaunchedEffect(dockHeightPx) {
-            val prev = previousDockHeightPx
-            if (prev > 0f && dockHeightPx == 0f) {
-                // Keyboard just closed — restore pre-close (or last idle) anchor after padding settles.
-                awaitFrame()
-                listState.scrollToItem(anchorIndex, anchorOffset)
-            }
-            previousDockHeightPx = dockHeightPx
-        }
-
-        DisposableEffect(listState, keyboardHost, revealMarginPx) {
-            if (keyboardHost == null) {
-                return@DisposableEffect onDispose { }
-            }
-            keyboardHost.revealScroller =
-                SetLogKeyboardRevealScroller { cellBounds ->
-                    // Let contentPadding for the dock settle before measuring overflow.
-                    awaitFrame()
-                    val dockTop = keyboardHost.dockTopInWindow
-                    if (!dockTop.isFinite()) return@SetLogKeyboardRevealScroller
-                    val overflow = cellBounds.bottom + revealMarginPx - dockTop
-                    if (overflow > 1f) {
-                        listState.animateScrollBy(overflow)
-                    }
-                    // Update anchor after reveal so dismiss restores this position.
-                    anchorIndex = listState.firstVisibleItemIndex
-                    anchorOffset = listState.firstVisibleItemScrollOffset
-                }
-            onDispose {
-                keyboardHost.revealScroller = null
-            }
-        }
+        val dockHeightDp =
+            rememberOverlayDockListBinding(
+                listState = listState,
+                dock = keyboardHost?.overlay,
+                revealMargin = KeyboardRevealMargin,
+            )
 
         // Stable pin + keyboard dock as extra scroll room (overlay covers the dock zone).
         val bottomContentPadding = with(density) { bottomPinPaddingPx.toDp() } + dockHeightDp

@@ -61,19 +61,16 @@ fun StratumWorkoutLogSetRow(
             repsPlaceholder = set.repsPlaceholder,
         )
 
+    // Host owns weight/reps drafts while open; only sync RIR + rec chrome from the row.
     LaunchedEffect(
         set.setKey,
-        set.weightText,
-        set.repsText,
         set.rir,
         weightRec,
         repsRec,
         keyboardHost?.session?.setKey,
     ) {
-        keyboardHost?.syncValues(
+        keyboardHost?.syncSessionChrome(
             setKey = set.setKey,
-            weightText = set.weightText,
-            repsText = set.repsText,
             rir = set.rir,
             hasWeightRecommendation = weightRec,
             hasRepsRecommendation = repsRec,
@@ -147,15 +144,25 @@ fun StratumWorkoutLogSetRow(
                 )
             }
 
+            // While this set's pad is open, host drafts are SoT for both fields (not just the
+            // active one) so weight stays correct while editing reps mid-session.
+            val setSessionHost = keyboardHost.takeIf { keyboardOpenForSet }
             if (set.showWeightInput) {
                 StratumInlineNumericCell(
-                    value = set.weightText,
+                    value = setSessionHost?.weightText ?: set.weightText,
                     placeholder = set.weightPlaceholder,
                     onValueChange = actions.onWeightChange,
                     enabled = set.fieldsEnabled,
                     isActive = weightActive,
                     onActivate = { openKeyboard(SetLogKeyboardField.Weight) },
                     completed = set.isComplete,
+                    cursorIndex = setSessionHost?.weightCursor ?: set.weightText.length,
+                    onCursorChange =
+                        if (weightActive && setSessionHost != null) {
+                            { index -> setSessionHost.setCursor(SetLogKeyboardField.Weight, index) }
+                        } else {
+                            null
+                        },
                     modifier =
                         Modifier
                             .weight(weights.weight)
@@ -164,13 +171,20 @@ fun StratumWorkoutLogSetRow(
             }
 
             StratumInlineNumericCell(
-                value = set.repsText,
+                value = setSessionHost?.repsText ?: set.repsText,
                 placeholder = set.repsPlaceholder,
                 onValueChange = actions.onRepsChange,
                 enabled = set.fieldsEnabled,
                 isActive = repsActive,
                 onActivate = { openKeyboard(SetLogKeyboardField.Reps) },
                 completed = set.isComplete,
+                cursorIndex = setSessionHost?.repsCursor ?: set.repsText.length,
+                onCursorChange =
+                    if (repsActive && setSessionHost != null) {
+                        { index -> setSessionHost.setCursor(SetLogKeyboardField.Reps, index) }
+                    } else {
+                        null
+                    },
                 modifier =
                     Modifier
                         .weight(weights.reps)
