@@ -17,7 +17,6 @@ tasks.withType<Test>().configureEach {
 
 dependencies {
     implementation(project(":core:domain"))
-    api(project(":core:domain-solver"))
     implementation(libs.kotlinx.serialization.json)
     api(libs.junit.jupiter)
     api(libs.kotlinx.coroutines.test)

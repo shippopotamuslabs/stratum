@@ -112,15 +112,26 @@ Whenever production code is added or modified (new classes, public functions, lo
 `is_editing`). Database schema changes require explicit developer authorization.
 We do not perform any Room database version bumps or migrations during development (keep the database at version 1); schema updates are applied by resetting the database (uninstall/reinstall).
 
-### 4.6 Intelligence — Deterministic Core, Cloud LLM
+### 4.6 Intelligence — Deterministic Core, Cloud Execution, Cloud LLM
 
-**No on-device / local LLM models.** Stratum does not bundle weights or run inference on
-device (no LiteRT, no local GGUF, etc.). All LLM work goes through **cloud APIs**.
+**No on-device LLM weights.** Stratum does not bundle models or run inference on device
+(no LiteRT, no local GGUF, etc.). **No on-device OR-Tools / CP-SAT natives** either —
+program synthesis is deterministic domain logic, but the solver **runs server-side**
+(Firebase / Cloud Run) so results stay consistent across devices.
 
 | Concern | Layer | Notes |
 |---------|--------|-------|
-| Progression math, volume accounting, session construction, set logging | Deterministic (`:core:domain`) | Runs offline; no network |
-| Program generation and other high-judgment synthesis | **OpenRouter** via Firebase Callable Function | Secrets `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` in Secret Manager (**provisioned**) |
+| Progression math, volume accounting, session construction, set logging | Deterministic (`:core:domain`) | Runs offline on device; no network |
+| Program synthesis (CP-SAT / structured program build) | Deterministic domain logic; **executed in cloud** (Firebase / Cloud Run) | Client calls via `:core:inference`; not on-device OR-Tools |
+| Bounded LLM tasks (lift swap, naming, import assist) | **OpenRouter** via Firebase Callable Function | Secrets `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` in Secret Manager (**provisioned**) |
+
+**Cloud execution and fair use:**
+
+- Synthesis and LLM jobs require **Firebase Auth** + **App Check**. **Google Sign-In**
+  (not anonymous). Enforce **per-user rate limits** and a **monthly program-generation
+  cap** (fair use — see Terms §7). Queue, refuse, or suspend abuse.
+- Firebase **console provisioning is complete** (SHA fingerprints, Google provider,
+  App Check, secrets) — do not ask maintainer; wire SDK in OS-6.
 
 **Cloud LLM rules:**
 
@@ -130,16 +141,16 @@ device (no LiteRT, no local GGUF, etc.). All LLM work goes through **cloud APIs*
   are already in **Firebase Secret Manager** (maintainer-provisioned — do not ask to create).
   Model value: `deepseek/deepseek-v4-pro`.
 - Firebase Android config: **`app/google-services.json`** — gitignored; not an API key.
-- Android `:core:inference` is a **Firebase Functions client** — not a direct OpenRouter
-  caller. See pocket-crew `OpenRouterInferenceServiceImpl` for server-side patterns.
-- Require **Firebase Auth** + **App Check** on inference endpoints; rate-limit per user.
-  **Google Sign-In** (not anonymous). Firebase **console provisioning is complete** (SHA
-  fingerprints, Google provider, App Check, secrets) — do not ask maintainer; wire SDK in OS-6.
+- Android `:core:inference` is a **Firebase Functions / cloud-job client** — not a direct
+  OpenRouter caller and not a solver host. See pocket-crew `OpenRouterInferenceServiceImpl`
+  for server-side LLM patterns.
 - Prefer **bounded, single-purpose calls** with structured output over conversational sessions.
-- Domain defines **ports** (`LiftSwapPort`, import inference ports, etc.); `:core:inference` implements network boundaries only.
+- Domain owns **models and ports** (`LiftSwapPort`, synthesis/import ports, etc.);
+  `:core:inference` implements network boundaries only. The CP-SAT solver runs **server-side**.
   Unit tests use fakes and recorded fixtures — **no live API in CI**.
-- Keep deterministic and LLM responsibilities clearly separated: deterministic program synthesis runs in
-  `:core:domain`; the cloud LLM may only suggest bounded lift swaps via `swapProgramLifts`.
+- Keep deterministic and LLM responsibilities clearly separated: program synthesis is
+  deterministic (domain rules + server solver); the cloud LLM is limited to bounded assist
+  (e.g. `swapProgramLifts`, naming, import assist) — not free-form program generation.
 
 **Reference:** `~/Code/pocket-crew` (`OpenRouterInferenceServiceImpl`); `docs/onboarding-vertical-slices.md` §2.3 (progression), §2.7 (credentials).
 

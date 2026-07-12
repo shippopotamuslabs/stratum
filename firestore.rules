@@ -60,6 +60,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Program-template import job metadata (server writes via Admin SDK only).
+    match /users/{userId}/programImportJobs/{jobId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Program-synthesis job metadata (server writes via Admin SDK / Cloud Run only).
+    match /users/{userId}/synthesisJobs/{jobId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Monthly program-synthesis fair-use quota (server writes via Admin SDK only).
+    match /users/{userId}/synthesisQuota/{docId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
     // User-owned syncable entity documents (client read/write when owner).
     // Hard deletes are denied — clients must write pure tombstones (deleted: true)
     // so other devices observe the delete via LWW rather than silent doc disappearance.

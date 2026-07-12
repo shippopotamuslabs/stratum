@@ -16,7 +16,6 @@ import com.stratum.domain.program.generation.synthesis.buildSlotUniverse
 import com.stratum.domain.program.generation.synthesis.buildUnifiedSessionPlans
 import com.stratum.domain.program.generation.synthesis.materializeSynthesisResult
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
-import android.util.Log
 import java.util.Locale
 import java.util.function.Consumer
 import kotlin.math.abs
@@ -24,6 +23,10 @@ import kotlin.math.max
 
 /**
  * Unified CP-SAT program synthesis: structure, set counts, and calendar in one solve.
+ *
+ * Pure JVM host: loads desktop OR-Tools natives via [Loader.loadNativeLibraries] (linux/darwin/
+ * windows platform jars from `ortools-java`). Intended for Cloud Run / host unit tests — not the
+ * Android APK path.
  *
  * Diagnostics (always on): each improving incumbent is logged with wall time + objective, then a
  * final summary with objective, dual bound, relative gap, and response stats.
@@ -38,7 +41,7 @@ import kotlin.math.max
  * Note: do **not** wire Kotlin lambdas into [CpSolver.setBestBoundCallback] /
  * [CpSolver.setLogCallback] without a concrete [Consumer] class. The OR-Tools SWIG JNI layer
  * looks up `accept` via GetMethodID and aborts (`jarg2_method_id != nullptr`) when the lambda
- * shape is not what it expects — observed as SIGABRT on Android during solve setup.
+ * shape is not what it expects.
  */
 class CpSatProgramSynthesizer(
     private val deadlineMillis: Long = DEFAULT_DEADLINE_MILLIS,
@@ -46,7 +49,7 @@ class CpSatProgramSynthesizer(
     private val useWarmStart: Boolean = defaultUseWarmStart(),
 ) : ProgramSynthesisPort {
 
-    override fun synthesize(
+    override suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
         context: ProgramGenerationContext,
     ): ProgramSynthesisResult {
@@ -268,36 +271,25 @@ class CpSatProgramSynthesizer(
             }
 
         fun logInfo(message: String) {
-            // Logcat tag for device runs; println keeps host JVM solver tests readable.
-            Log.i(LOG_TAG, message)
             println("$LOG_TAG: $message")
         }
 
         @Synchronized
         fun ensureNativeLibrariesLoaded() {
-            if (!nativeLoaded) {
-                try {
-                    Loader.loadNativeLibraries()
-                } catch (t: Throwable) {
-                    try {
-                        System.loadLibrary("ortools")
-                    } catch (e: UnsatisfiedLinkError) {
-                        // libortools may be statically linked into libjniortools.
-                    }
-                    try {
-                        System.loadLibrary("jniortools")
-                    } catch (e: UnsatisfiedLinkError) {
-                        val abi = runCatching { android.os.Build.SUPPORTED_ABIS.joinToString() }
-                            .getOrElse { "unknown" }
-                        throw UnsatisfiedLinkError(
-                            "OR-Tools natives failed to load (supported ABIs: $abi). " +
-                                "Stratum packages arm64-v8a only — use an arm64 device/emulator, " +
-                                "not a pure x86_64 image. Cause: ${e.message}",
-                        ).apply { initCause(e) }
-                    }
-                }
-                nativeLoaded = true
+            if (nativeLoaded) return
+            try {
+                Loader.loadNativeLibraries()
+            } catch (t: Throwable) {
+                val os = System.getProperty("os.name") ?: "unknown"
+                val arch = System.getProperty("os.arch") ?: "unknown"
+                throw UnsatisfiedLinkError(
+                    "OR-Tools natives failed to load on $os/$arch via Loader.loadNativeLibraries(). " +
+                        "Ensure ortools-java platform natives are on the classpath " +
+                        "(desktop JVM / Cloud Run only — not packaged in the Android APK). " +
+                        "Cause: ${t.message}",
+                ).apply { initCause(t) }
             }
+            nativeLoaded = true
         }
     }
 }

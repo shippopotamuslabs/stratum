@@ -8,8 +8,12 @@
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 
-/** Storage object prefixes owned by a user (must stay aligned with client import paths). */
-export const USER_STORAGE_PREFIXES = ["imports", "programImports"] as const;
+/**
+ * Storage object prefixes owned by a user (must stay aligned with client import/synthesis paths).
+ * Firestore subcollections under `users/{uid}` (importJobs, programImportJobs, synthesisJobs,
+ * synthesisQuota, sync entities) are removed via recursiveDelete of the user doc.
+ */
+export const USER_STORAGE_PREFIXES = ["imports", "programImports", "synthesis"] as const;
 
 export type DeleteAccountPhase = "data" | "auth" | "all";
 
