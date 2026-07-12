@@ -10,6 +10,98 @@ import org.junit.jupiter.api.Test
 class SetLogKeyboardLogicTest {
 
     @Nested
+    @DisplayName("toggleRepRangeField")
+    inner class ToggleRepRange {
+        @Test
+        @DisplayName("min toggles to max and back")
+        fun togglesBothWays() {
+            assertEquals(RepRangeKeyboardField.Max, toggleRepRangeField(RepRangeKeyboardField.Min))
+            assertEquals(RepRangeKeyboardField.Min, toggleRepRangeField(RepRangeKeyboardField.Max))
+        }
+    }
+
+    @Nested
+    @DisplayName("parseRepRangeDraft")
+    inner class ParseRepDraft {
+        @Test
+        @DisplayName("empty and junk become 0; digits parse")
+        fun parseDrafts() {
+            assertEquals(0, parseRepRangeDraft(""))
+            assertEquals(0, parseRepRangeDraft("abc"))
+            assertEquals(8, parseRepRangeDraft("8"))
+            assertEquals(12, parseRepRangeDraft("12"))
+        }
+    }
+
+    @Nested
+    @DisplayName("validateRepRangeDrafts")
+    inner class ValidateRepDrafts {
+        @Test
+        @DisplayName("blank is soft-valid until leave/collapse")
+        fun blankSoftValid() {
+            val live = validateRepRangeDrafts("", "16", requireCompleteBand = false)
+            assertTrue(live.isValid)
+            assertFalse(live.minInvalid)
+            val commit = validateRepRangeDrafts("", "16", requireCompleteBand = true)
+            assertFalse(commit.isValid)
+            assertTrue(commit.minInvalid)
+            assertEquals(RepRangeDraftIssue.MissingValue, commit.issue)
+        }
+
+        @Test
+        @DisplayName("typed zero is hard-invalid (below floor)")
+        fun zeroHardInvalid() {
+            val v = validateRepRangeDrafts("0", "16")
+            assertFalse(v.isValid)
+            assertTrue(v.minInvalid)
+            assertEquals(RepRangeDraftIssue.BelowMinFloor, v.issue)
+        }
+
+        @Test
+        @DisplayName("positive min below floor is invalid")
+        fun minBelowFloor() {
+            val v = validateRepRangeDrafts("3", "12")
+            assertFalse(v.isValid)
+            assertTrue(v.minInvalid)
+            assertEquals(RepRangeDraftIssue.BelowMinFloor, v.issue)
+        }
+
+        @Test
+        @DisplayName("min equals max is invalid")
+        fun maxEqualsMin() {
+            val v = validateRepRangeDrafts("8", "8")
+            assertFalse(v.isValid)
+            assertTrue(v.maxInvalid)
+            assertEquals(RepRangeDraftIssue.MaxNotAboveMin, v.issue)
+        }
+
+        @Test
+        @DisplayName("min greater than max is invalid")
+        fun minGreaterThanMax() {
+            val v = validateRepRangeDrafts("12", "8")
+            assertFalse(v.isValid)
+            assertTrue(v.maxInvalid)
+            assertEquals(RepRangeDraftIssue.MaxNotAboveMin, v.issue)
+        }
+
+        @Test
+        @DisplayName("max greater than min at floor is valid")
+        fun validBand() {
+            val v = validateRepRangeDrafts("5", "6")
+            assertTrue(v.isValid)
+        }
+
+        @Test
+        @DisplayName("both blank invalid only when requireCompleteBand")
+        fun bothBlank() {
+            assertTrue(validateRepRangeDrafts("", "", requireCompleteBand = false).isValid)
+            val commit = validateRepRangeDrafts("", "", requireCompleteBand = true)
+            assertFalse(commit.isValid)
+            assertEquals(RepRangeDraftIssue.MissingValue, commit.issue)
+        }
+    }
+
+    @Nested
     @DisplayName("appendSetLogKey")
     inner class Append {
         @Test
@@ -275,6 +367,89 @@ class SetLogKeyboardLogicTest {
             assertEquals(
                 SetLogKeyboardAction.Dismiss,
                 resolveSetLogKeyboardAction(
+                    active = SetLogKeyboardField.Reps,
+                    canComplete = false,
+                    showWeightInput = false,
+                ),
+            )
+        }
+    }
+
+    @Nested
+    @DisplayName("elevated nav icon")
+    inner class ElevatedNav {
+        @Test
+        @DisplayName("when check is primary and weight input shown, elevates field chevron")
+        fun elevatesWhenCheckWithWeight() {
+            assertEquals(
+                SetLogKeyboardPrimaryIcon.NextReps,
+                setLogKeyboardElevatedNavIcon(
+                    active = SetLogKeyboardField.Weight,
+                    canComplete = true,
+                    showWeightInput = true,
+                ),
+            )
+            assertEquals(
+                SetLogKeyboardPrimaryIcon.PrevWeight,
+                setLogKeyboardElevatedNavIcon(
+                    active = SetLogKeyboardField.Reps,
+                    canComplete = true,
+                    showWeightInput = true,
+                ),
+            )
+            assertEquals(
+                SetLogKeyboardAction.FocusReps,
+                resolveSetLogKeyboardElevatedNavAction(
+                    active = SetLogKeyboardField.Weight,
+                    canComplete = true,
+                    showWeightInput = true,
+                ),
+            )
+            assertEquals(
+                SetLogKeyboardAction.FocusWeight,
+                resolveSetLogKeyboardElevatedNavAction(
+                    active = SetLogKeyboardField.Reps,
+                    canComplete = true,
+                    showWeightInput = true,
+                ),
+            )
+        }
+
+        @Test
+        @DisplayName("null when primary is already a nav chevron (no duplicate)")
+        fun nullWhenPrimaryIsNav() {
+            assertEquals(
+                null,
+                setLogKeyboardElevatedNavIcon(
+                    active = SetLogKeyboardField.Weight,
+                    canComplete = false,
+                    showWeightInput = true,
+                ),
+            )
+            assertEquals(
+                null,
+                setLogKeyboardElevatedNavIcon(
+                    active = SetLogKeyboardField.Reps,
+                    canComplete = false,
+                    showWeightInput = true,
+                ),
+            )
+        }
+
+        @Test
+        @DisplayName("null on bodyweight (no second field to navigate)")
+        fun nullBodyweight() {
+            assertEquals(
+                null,
+                setLogKeyboardElevatedNavIcon(
+                    active = SetLogKeyboardField.Reps,
+                    canComplete = true,
+                    showWeightInput = false,
+                ),
+            )
+            assertEquals(
+                null,
+                setLogKeyboardElevatedNavIcon(
                     active = SetLogKeyboardField.Reps,
                     canComplete = false,
                     showWeightInput = false,

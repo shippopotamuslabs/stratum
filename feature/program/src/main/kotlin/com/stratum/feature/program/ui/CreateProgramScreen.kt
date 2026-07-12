@@ -847,11 +847,10 @@ private fun EmbeddedWorkoutEditor(
                 onAddLift = onAddExercise,
                 onSwapLiftClick = onSwapLift,
                 onReorderLiftsClick = onReorderLifts,
-                onSetRepMin = { setId, value ->
-                    onUpdate { loaded -> loaded.updateSet(setId) { set -> set.copy(repMin = value) } }
-                },
-                onSetRepMax = { setId, value ->
-                    onUpdate { loaded -> loaded.updateSet(setId) { set -> set.copy(repMax = value) } }
+                onSetRepBand = { setId, min, max ->
+                    onUpdate { loaded ->
+                        loaded.updateSet(setId) { set -> set.copy(repMin = min, repMax = max) }
+                    }
                 },
                 onSetRirGoal = { setId, value ->
                     onUpdate { loaded -> loaded.updateSet(setId) { set -> set.copy(rirGoal = value) } }

@@ -14,12 +14,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,7 +37,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
-import com.stratum.core.ui.component.StratumDurationStepper
 import com.stratum.core.ui.component.StratumEdgeToEdgeCard
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
@@ -52,6 +52,8 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.component.RirTargetBottomSheet
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.core.ui.component.StratumScopedMuscleVolumeRow
+import com.stratum.core.ui.component.workoutlog.OverlayDockDefaultRevealMargin
+import com.stratum.core.ui.component.workoutlog.rememberOverlayDockListBinding
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.feature.program.EditWorkoutViewModel
@@ -64,12 +66,7 @@ import com.stratum.core.ui.component.SupersetGroupChip
 import com.stratum.core.ui.component.supersetLinkSheetOptions
 import com.stratum.core.ui.component.isLastInSupersetChain
 import com.stratum.core.ui.component.isSupersetPairMember
-import com.stratum.core.ui.theme.StratumColors
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
-
-private const val MIN_REST_SECONDS = 0
-private const val MAX_REST_SECONDS = 600
-private const val REST_SECONDS_STEP = 30
 
 @Composable
 fun EditWorkoutRoute(
@@ -88,7 +85,6 @@ fun EditWorkoutRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val loadedState = state as? EditWorkoutUiState.Loaded
     var showDiscardDialog by remember { mutableStateOf(false) }
 
     UserMessageEffect(
@@ -96,10 +92,6 @@ fun EditWorkoutRoute(
         snackbarHostState = snackbarHostState,
         onUserMessageShown = viewModel::userMessageShown,
     )
-
-    BackHandler(enabled = loadedState?.isDirty == true) {
-        showDiscardDialog = true
-    }
 
     EditWorkoutScreen(
         state = state,
@@ -110,14 +102,15 @@ fun EditWorkoutRoute(
             viewModel.clearSession()
             onBackClick()
         },
-        onBackClick = {
-            if (loadedState?.isDirty == true) {
-                showDiscardDialog = true
-            } else {
-                viewModel.clearSession()
-                onBackClick()
-            }
+        // Fresh read after dock commit so back sees newly dirtied state.
+        isWorkoutDirty = {
+            (viewModel.uiState.value as? EditWorkoutUiState.Loaded)?.isDirty == true
         },
+        onLeave = {
+            viewModel.clearSession()
+            onBackClick()
+        },
+        onRequestDiscardDialog = { showDiscardDialog = true },
         callbacks =
             EditWorkoutScreenCallbacks(
                 onAddSet = viewModel::addSet,
@@ -133,8 +126,7 @@ fun EditWorkoutRoute(
                 onSetRestSecondsForAllSetsOnLift = { id, value ->
                     viewModel.setRestSeconds(setId = null, workoutLiftId = id, restSeconds = value)
                 },
-                onSetRepMin = { id, value -> viewModel.setReps(id, min = value) },
-                onSetRepMax = { id, value -> viewModel.setReps(id, max = value) },
+                onSetRepBand = { id, min, max -> viewModel.setReps(id, min = min, max = max) },
                 onSetRirGoal = viewModel::setRirGoal,
                 onSetUseRestTimerBetweenLifts = viewModel::setUseRestTimerBetweenLifts,
                 onSetProgressionScheme = viewModel::setProgressionScheme,
@@ -160,100 +152,101 @@ fun EditWorkoutRoute(
 @Composable
 fun EditWorkoutScreen(
     state: EditWorkoutUiState,
-    onBackClick: () -> Unit,
     callbacks: EditWorkoutScreenCallbacks,
     modifier: Modifier = Modifier,
     showDiscardDialog: Boolean = false,
     onDismissDiscardDialog: () -> Unit = {},
     onConfirmDiscard: () -> Unit = {},
+    /** Fresh dirty check after dock commit (reads ViewModel, not composition snapshot). */
+    isWorkoutDirty: () -> Boolean = {
+        (state as? EditWorkoutUiState.Loaded)?.isDirty == true
+    },
+    /** Navigate away after clean leave or confirmed discard. */
+    onLeave: () -> Unit = {},
+    onRequestDiscardDialog: () -> Unit = {},
     snackbarHostState: SnackbarHostState? = null,
 ) {
-    var restSheetSet by remember { mutableStateOf<EditSetState?>(null) }
-    var restSheetLiftId by remember { mutableStateOf<String?>(null) }
-    var restSheetSeconds by remember { mutableIntStateOf(DEFAULT_REST_SECONDS) }
     var rirSheetSet by remember { mutableStateOf<EditSetState?>(null) }
     var supersetSheetLiftId by remember { mutableStateOf<String?>(null) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
     var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
+    val dockHost = remember { EditWorkoutDockHostState() }
 
-    StratumScaffold(
-        modifier = modifier.fillMaxSize(),
-        snackbarHostState = snackbarHostState,
-        topBar = {
-            EditWorkoutTopBar(
-                state = state,
-                onBackClick = onBackClick,
-                onSaveWorkout = callbacks.onSaveWorkout,
-            )
-        },
-    ) { padding ->
-        when (state) {
-            EditWorkoutUiState.Loading ->
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    StratumText(
-                        text = stringResource(R.string.edit_workout_loading),
-                        muted = true,
-                    )
-                }
-
-            EditWorkoutUiState.NotFound ->
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    StratumText(
-                        text = stringResource(R.string.edit_workout_not_found),
-                        muted = true,
-                    )
-                }
-
-            is EditWorkoutUiState.Loaded ->
-                EditWorkoutContent(
-                    state = state,
-                    callbacks = callbacks,
-                    onRestClick = { liftId, set ->
-                        restSheetSet = set
-                        restSheetLiftId = liftId
-                        restSheetSeconds = set.restSeconds
-                    },
-                    onRirClick = { set -> rirSheetSet = set },
-                    onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
-                    onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
-                    modifier = Modifier.padding(padding),
-                )
+    fun attemptLeave() {
+        if (!dockHost.tryCommitPendingOrBlock()) return
+        if (isWorkoutDirty()) {
+            onRequestDiscardDialog()
+        } else {
+            onLeave()
         }
     }
 
-    restSheetSet?.let { targetSet ->
-        val liftId = restSheetLiftId
-        if (liftId != null) {
-            RestTimeBottomSheet(
-                totalSeconds = restSheetSeconds,
-                onTotalSecondsChange = { seconds -> restSheetSeconds = seconds },
-                onApplyToSet = {
-                    callbacks.onSetRestSeconds(targetSet.setId, restSheetSeconds)
-                    restSheetSet = null
-                    restSheetLiftId = null
-                },
-                onApplyToAllSets = {
-                    callbacks.onSetRestSecondsForAllSetsOnLift(liftId, restSheetSeconds)
-                    restSheetSet = null
-                    restSheetLiftId = null
-                },
-                onDismiss = {
-                    restSheetSet = null
-                    restSheetLiftId = null
-                },
-            )
+    fun attemptSave() {
+        if (!dockHost.tryCommitPendingOrBlock()) return
+        callbacks.onSaveWorkout()
+    }
+
+    // Dock open: system back tries commit/block first (also registered inside ProvideEditWorkoutDock).
+    // When dock closed: dirty → discard dialog; clean → leave.
+    BackHandler(enabled = state is EditWorkoutUiState.Loaded && !dockHost.isOpen) {
+        attemptLeave()
+    }
+
+    ProvideEditWorkoutDock(
+        modifier = modifier.fillMaxSize(),
+        host = dockHost,
+    ) { listModifier, _ ->
+        StratumScaffold(
+            modifier = listModifier,
+            snackbarHostState = snackbarHostState,
+            topBar = {
+                EditWorkoutTopBar(
+                    state = state,
+                    onBackClick = { attemptLeave() },
+                    onSaveWorkout = { attemptSave() },
+                )
+            },
+        ) { padding ->
+            when (state) {
+                EditWorkoutUiState.Loading ->
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(padding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        StratumText(
+                            text = stringResource(R.string.edit_workout_loading),
+                            muted = true,
+                        )
+                    }
+
+                EditWorkoutUiState.NotFound ->
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(padding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        StratumText(
+                            text = stringResource(R.string.edit_workout_not_found),
+                            muted = true,
+                        )
+                    }
+
+                is EditWorkoutUiState.Loaded ->
+                    EditWorkoutContent(
+                        state = state,
+                        callbacks = callbacks,
+                        onRirClick = { set -> rirSheetSet = set },
+                        onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
+                        onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
+                        modifier = Modifier.padding(padding),
+                        dockHost = dockHost,
+                    )
+            }
         }
     }
 
@@ -380,50 +373,32 @@ internal fun EditWorkoutEmbeddedContent(
     modifier: Modifier = Modifier,
     showVolume: Boolean = false,
 ) {
-    var restSheetSet by remember { mutableStateOf<EditSetState?>(null) }
-    var restSheetLiftId by remember { mutableStateOf<String?>(null) }
-    var restSheetSeconds by remember { mutableIntStateOf(DEFAULT_REST_SECONDS) }
     var rirSheetSet by remember { mutableStateOf<EditSetState?>(null) }
     var liftActionsLiftId by remember { mutableStateOf<String?>(null) }
     var showProgressionSchemeExplainer by remember { mutableStateOf(false) }
+    val dockHost = remember { EditWorkoutDockHostState() }
 
-    EditWorkoutContent(
-        state = state,
-        callbacks = callbacks,
-        onRestClick = { liftId, set ->
-            restSheetSet = set
-            restSheetLiftId = liftId
-            restSheetSeconds = set.restSeconds
-        },
-        onRirClick = { set -> rirSheetSet = set },
-        onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
-        onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
-        modifier = modifier,
-        showVolume = showVolume,
-    )
-
-    restSheetSet?.let { targetSet ->
-        val liftId = restSheetLiftId
-        if (liftId != null) {
-            RestTimeBottomSheet(
-                totalSeconds = restSheetSeconds,
-                onTotalSecondsChange = { seconds -> restSheetSeconds = seconds },
-                onApplyToSet = {
-                    callbacks.onSetRestSeconds(targetSet.setId, restSheetSeconds)
-                    restSheetSet = null
-                    restSheetLiftId = null
-                },
-                onApplyToAllSets = {
-                    callbacks.onSetRestSecondsForAllSetsOnLift(liftId, restSheetSeconds)
-                    restSheetSet = null
-                    restSheetLiftId = null
-                },
-                onDismiss = {
-                    restSheetSet = null
-                    restSheetLiftId = null
-                },
-            )
+    // Embed torn down mid-edit: commit valid drafts; cannot block dispose for invalid.
+    DisposableEffect(dockHost) {
+        onDispose {
+            dockHost.commitIfValidThenClose()
         }
+    }
+
+    ProvideEditWorkoutDock(
+        modifier = modifier,
+        host = dockHost,
+    ) { listModifier, _ ->
+        EditWorkoutContent(
+            state = state,
+            callbacks = callbacks,
+            onRirClick = { set -> rirSheetSet = set },
+            onShowLiftActions = { liftId -> liftActionsLiftId = liftId },
+            onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
+            modifier = listModifier,
+            showVolume = showVolume,
+            dockHost = dockHost,
+        )
     }
 
     rirSheetSet?.let { targetSet ->
@@ -463,72 +438,87 @@ internal fun EditWorkoutEmbeddedContent(
 internal fun EditWorkoutContent(
     state: EditWorkoutUiState.Loaded,
     callbacks: EditWorkoutScreenCallbacks,
-    onRestClick: (workoutLiftId: String, EditSetState) -> Unit,
     onRirClick: (EditSetState) -> Unit,
     onShowLiftActions: (workoutLiftId: String) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
+    dockHost: EditWorkoutDockHostState,
     modifier: Modifier = Modifier,
     showVolume: Boolean = true,
 ) {
     // Horizontal padding only on inset chrome; lift cards are full-bleed like live workout.
     val listInset = Modifier.padding(horizontal = 12.dp)
+    val listState = rememberLazyListState()
+    // Parent ProvideEditWorkoutDock already supplies listModifier-sized host; we only bind list.
+    val dockHeightDp =
+        rememberOverlayDockListBinding(
+            listState = listState,
+            dock = dockHost.overlay,
+            revealMargin = OverlayDockDefaultRevealMargin,
+        )
+
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 16.dp),
+        state = listState,
+        modifier = modifier,
+        contentPadding =
+            PaddingValues(
+                top = 16.dp,
+                bottom = 16.dp + dockHeightDp,
+            ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        if (showVolume) {
-            val workoutVolumeCards = state.upperVolumeByMuscle + state.lowerVolumeByMuscle
-            val programVolumeCards = state.programUpperVolumeByMuscle + state.programLowerVolumeByMuscle
-            if (workoutVolumeCards.isNotEmpty() || programVolumeCards.isNotEmpty()) {
+            if (showVolume) {
+                val workoutVolumeCards = state.upperVolumeByMuscle + state.lowerVolumeByMuscle
+                val programVolumeCards =
+                    state.programUpperVolumeByMuscle + state.programLowerVolumeByMuscle
+                if (workoutVolumeCards.isNotEmpty() || programVolumeCards.isNotEmpty()) {
+                    item {
+                        StratumScopedMuscleVolumeRow(
+                            workoutCards = workoutVolumeCards,
+                            programCards = programVolumeCards,
+                            title = stringResource(R.string.edit_workout_volume_title),
+                            scopeLabels =
+                                listOf(
+                                    stringResource(R.string.edit_workout_volume_scope_workout),
+                                    stringResource(R.string.edit_workout_volume_scope_program),
+                                ),
+                            modifier = listInset,
+                        )
+                    }
+                }
+            }
+            item {
+                EditWorkoutExerciseSummaryHeader(
+                    exerciseCount = state.lifts.size,
+                    estimatedDurationMinutes = state.estimatedDurationMinutes,
+                    onAddLift = callbacks.onAddLift,
+                    modifier = listInset,
+                )
+            }
+            if (state.saveBlockedReason == SaveBlockedReason.PlaceholderLift) {
                 item {
-                    StratumScopedMuscleVolumeRow(
-                        workoutCards = workoutVolumeCards,
-                        programCards = programVolumeCards,
-                        title = stringResource(R.string.edit_workout_volume_title),
-                        scopeLabels =
-                            listOf(
-                                stringResource(R.string.edit_workout_volume_scope_workout),
-                                stringResource(R.string.edit_workout_volume_scope_program),
-                            ),
+                    StratumText(
+                        text = stringResource(R.string.edit_workout_save_blocked_placeholder_lift),
+                        style = StratumThemeAccessor.typography.bodyLarge,
+                        muted = true,
                         modifier = listInset,
                     )
                 }
             }
-        }
-        item {
-            EditWorkoutExerciseSummaryHeader(
-                exerciseCount = state.lifts.size,
-                estimatedDurationMinutes = state.estimatedDurationMinutes,
-                onAddLift = callbacks.onAddLift,
-                modifier = listInset,
-            )
-        }
-        if (state.saveBlockedReason == SaveBlockedReason.PlaceholderLift) {
-            item {
-                StratumText(
-                    text = stringResource(R.string.edit_workout_save_blocked_placeholder_lift),
-                    style = StratumThemeAccessor.typography.bodyLarge,
-                    muted = true,
-                    modifier = listInset,
+            itemsIndexed(state.lifts, key = { _, lift -> lift.workoutLiftId }) { _, lift ->
+                EditLiftPanel(
+                    lift = lift,
+                    allLifts = state.lifts,
+                    onAddSet = { callbacks.onAddSet(lift.workoutLiftId) },
+                    onRemoveSet = callbacks.onRemoveSet,
+                    onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
+                    onRirClick = onRirClick,
+                    onSetRepBand = callbacks.onSetRepBand,
+                    onSetRestSeconds = callbacks.onSetRestSeconds,
+                    onSetRestSecondsForAllSetsOnLift = callbacks.onSetRestSecondsForAllSetsOnLift,
+                    onSetProgressionScheme = callbacks.onSetProgressionScheme,
+                    onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
                 )
             }
-        }
-        itemsIndexed(state.lifts, key = { _, lift -> lift.workoutLiftId }) { _, lift ->
-            EditLiftPanel(
-                lift = lift,
-                allLifts = state.lifts,
-                onAddSet = { callbacks.onAddSet(lift.workoutLiftId) },
-                onRemoveSet = callbacks.onRemoveSet,
-                onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
-                onRestClick = onRestClick,
-                onRirClick = onRirClick,
-                onSetRepMin = callbacks.onSetRepMin,
-                onSetRepMax = callbacks.onSetRepMax,
-                onSetProgressionScheme = callbacks.onSetProgressionScheme,
-                onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
-            )
-        }
         item {
             StratumOutlinedButton(
                 text = stringResource(R.string.edit_workout_add_lift),
@@ -588,10 +578,10 @@ private fun EditLiftPanel(
     onAddSet: () -> Unit,
     onRemoveSet: (setId: String) -> Unit,
     onShowLiftActions: () -> Unit,
-    onRestClick: (workoutLiftId: String, EditSetState) -> Unit,
     onRirClick: (EditSetState) -> Unit,
-    onSetRepMin: (setId: String, repMin: Int) -> Unit,
-    onSetRepMax: (setId: String, repMax: Int) -> Unit,
+    onSetRepBand: (setId: String, repMin: Int, repMax: Int) -> Unit,
+    onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit,
+    onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
 ) {
@@ -642,13 +632,14 @@ private fun EditLiftPanel(
         }
 
         EditWorkoutSetTable(
+            workoutLiftId = lift.workoutLiftId,
             sets = lift.sets,
             progressionScheme = lift.progressionScheme,
             onAddSet = onAddSet,
             onRemoveSet = onRemoveSet,
-            onRepMinChange = onSetRepMin,
-            onRepMaxChange = onSetRepMax,
-            onRestClick = { set -> onRestClick(lift.workoutLiftId, set) },
+            onRepBandChange = onSetRepBand,
+            onSetRestSeconds = onSetRestSeconds,
+            onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
             onRirClick = onRirClick,
         )
     }
@@ -698,45 +689,6 @@ private fun ProgressionSchemeToggleRow(
                 )
             },
             selectedColor = StratumThemeAccessor.colors.surfaceInset,
-        )
-    }
-}
-
-@Composable
-private fun RestTimeBottomSheet(
-    totalSeconds: Int,
-    onTotalSecondsChange: (Int) -> Unit,
-    onApplyToSet: () -> Unit,
-    onApplyToAllSets: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetColor = StratumThemeAccessor.colors.surfaceRaised
-    StratumBottomSheet(
-        onDismissRequest = onDismiss,
-        title = stringResource(R.string.edit_workout_rest_sheet_title),
-    ) {
-        StratumDurationStepper(
-            totalMinutes = totalSeconds,
-            onTotalMinutesChange = onTotalSecondsChange,
-            minMinutes = MIN_REST_SECONDS,
-            maxMinutes = MAX_REST_SECONDS,
-            minutesStep = REST_SECONDS_STEP,
-            hoursLabel = stringResource(R.string.edit_workout_rest_minutes_label),
-            minutesLabel = stringResource(R.string.edit_workout_rest_seconds_label),
-            incrementContentDescription = stringResource(R.string.edit_workout_rest_increment),
-            decrementContentDescription = stringResource(R.string.edit_workout_rest_decrement),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        StratumButton(
-            text = stringResource(R.string.edit_workout_rest_apply_to_set),
-            onClick = onApplyToSet,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        StratumOutlinedButton(
-            text = stringResource(R.string.edit_workout_rest_apply_to_all_sets),
-            onClick = onApplyToAllSets,
-            containerColor = sheetColor,
-            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -821,7 +773,7 @@ fun EditWorkoutScreenLoadedPreview() {
                             ),
                         ),
                 ),
-            onBackClick = {},
+            onLeave = {},
             callbacks = EditWorkoutScreenCallbacks(),
         )
     }
