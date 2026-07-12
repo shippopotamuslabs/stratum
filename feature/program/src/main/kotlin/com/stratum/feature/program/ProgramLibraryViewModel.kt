@@ -45,10 +45,7 @@ class ProgramLibraryViewModel @Inject constructor(
             observeProgram(),
             observeLibraryPrograms(),
         ) { active, library ->
-            buildList {
-                if (active != null) add(active)
-                addAll(library.sortedByDescending { program -> program.createdAt })
-            }
+            mergeActiveAndLibraryPrograms(active, library)
         }
 
     private val transientFlow =
@@ -172,3 +169,24 @@ class ProgramLibraryViewModel @Inject constructor(
         val restDayName: String,
     )
 }
+
+/**
+ * Merges active + library program lists for the library screen.
+ *
+ * Active and library flows can re-emit out of lockstep during [ActivateStoredProgramUseCase]
+ * (demote/promote). Without de-duplication the same [ProgramId] can appear twice and crash
+ * LazyColumn keys on the library UI.
+ */
+internal fun mergeActiveAndLibraryPrograms(
+    active: Program?,
+    library: List<Program>,
+): List<Program> =
+    buildList {
+        val activeId = active?.id
+        if (active != null) add(active)
+        addAll(
+            library
+                .filter { program -> program.id != activeId }
+                .sortedByDescending { program -> program.createdAt },
+        )
+    }

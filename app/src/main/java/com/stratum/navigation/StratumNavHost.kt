@@ -140,7 +140,7 @@ fun StratumNavHost(
                     callbacks =
                         MainTabShellCallbacks(
                             onDiscardProgramClick = {
-                                statusViewModel.reopenOnboarding()
+                                statusViewModel.discardProgramAndReopenOnboarding()
                                 backStack.removeAll { it is MainTabKey }
                                 backStack.add(OnboardingKey)
                             },
