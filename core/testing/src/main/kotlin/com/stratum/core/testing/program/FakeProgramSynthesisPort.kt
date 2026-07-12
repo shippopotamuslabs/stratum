@@ -20,14 +20,14 @@ import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
  *
  * Builds a valid slot universe and greedily activates slots that have catalog candidates.
  * Real CP-SAT synthesis lives behind [com.stratum.domain.solver.CpSatProgramSynthesizer]
- * and is exercised only in `:core:domain-solver-tests` (with host/Android natives available).
+ * and is exercised only in `:core:domain-solver-tests` (host JVM OR-Tools natives).
  */
 class FakeProgramSynthesisPort(
     private val setsPerSlot: Int = DEFAULT_SETS,
     private val targetSlotsPerSession: Int = DEFAULT_SLOTS_PER_SESSION,
 ) : ProgramSynthesisPort {
 
-    override fun synthesize(
+    override suspend fun synthesize(
         weeklyTargets: WeeklyVolumeTargets,
         context: ProgramGenerationContext,
     ): ProgramSynthesisResult {

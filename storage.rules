@@ -12,6 +12,21 @@ service firebase.storage {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // CP-SAT synthesis: client may only write request.json; worker (Admin SDK) writes result.json.
+    // Soft 5 MiB cap on request writes matches MAX_REQUEST_BYTES on the Node side.
+    match /synthesis/{userId}/{jobId}/request.json {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+    match /synthesis/{userId}/{jobId}/result.json {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+    match /synthesis/{userId}/{jobId}/{other=**} {
+      allow read, write: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
