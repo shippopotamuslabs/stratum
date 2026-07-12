@@ -5,10 +5,15 @@
 import type { DocumentData, Timestamp } from "firebase-admin/firestore";
 
 /**
- * Slightly above the JVM Cloud Run worker timeout (180s) so legitimate solves finish first
- * before `startProgramSynthesis` reclaims the slot.
+ * Must be **greater than** the Android client poll ceiling (5 minutes) so we never
+ * reclaim a job and start a second solve while the first client is still polling.
+ *
+ * Worker Cloud Run timeout is 180s; client poll is 300s; stale at 360s leaves margin.
  */
-export const SYNTHESIS_STALE_JOB_MS = 4 * 60 * 1000;
+export const SYNTHESIS_STALE_JOB_MS = 6 * 60 * 1000;
+
+/** Client-side poll ceiling (must stay ≤ SYNTHESIS_STALE_JOB_MS). Documented for alignment. */
+export const SYNTHESIS_CLIENT_POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 function timestampToMillis(value: unknown): number | null {
   if (value == null) {

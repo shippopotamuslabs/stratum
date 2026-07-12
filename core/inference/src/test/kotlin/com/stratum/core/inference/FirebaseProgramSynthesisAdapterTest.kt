@@ -1,7 +1,9 @@
 package com.stratum.core.inference
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -21,6 +23,27 @@ class FirebaseProgramSynthesisAdapterTest {
                 "synthesis/user-1/job-abc/request.json",
                 buildSynthesisRequestStoragePath(uid = "user-1", jobId = "job-abc"),
             )
+        }
+    }
+
+    @Nested
+    @DisplayName("requireOwnedResultPath")
+    inner class ResultPath {
+        @Test
+        @DisplayName("accepts owned result path")
+        fun acceptsOwned() {
+            requireOwnedResultPath("u1", "synthesis/u1/j1/result.json")
+        }
+
+        @Test
+        @DisplayName("rejects cross-user or escape paths")
+        fun rejectsBad() {
+            assertThrows(com.stratum.domain.program.generation.synthesis.ProgramSynthesisException::class.java) {
+                requireOwnedResultPath("u1", "synthesis/other/j1/result.json")
+            }
+            assertThrows(com.stratum.domain.program.generation.synthesis.ProgramSynthesisException::class.java) {
+                requireOwnedResultPath("u1", "synthesis/u1/../x/result.json")
+            }
         }
     }
 
@@ -100,13 +123,7 @@ class FirebaseProgramSynthesisAdapterTest {
         @Test
         @DisplayName("resource-exhausted maps to monthly limit message")
         fun resourceExhausted() {
-            assertEquals(
-                MESSAGE_MONTHLY_LIMIT,
-                mapFunctionsExceptionToUserMessage(
-                    "RESOURCE_EXHAUSTED",
-                    "Monthly program generation limit reached",
-                ),
-            )
+            assertEquals(MESSAGE_MONTHLY_LIMIT, mapFunctionsExceptionToUserMessage("RESOURCE_EXHAUSTED"))
         }
 
         @Test
@@ -114,37 +131,37 @@ class FirebaseProgramSynthesisAdapterTest {
         fun failedPrecondition() {
             assertEquals(
                 MESSAGE_ALREADY_IN_PROGRESS,
-                mapFunctionsExceptionToUserMessage(
-                    "FAILED_PRECONDITION",
-                    "Another program synthesis is already in progress.",
-                ),
+                mapFunctionsExceptionToUserMessage("FAILED_PRECONDITION"),
             )
         }
 
         @Test
         @DisplayName("unauthenticated maps to sign-in required message")
         fun unauthenticated() {
-            assertEquals(
-                MESSAGE_SIGN_IN_REQUIRED,
-                mapFunctionsExceptionToUserMessage("UNAUTHENTICATED", "Sign-in required."),
-            )
+            assertEquals(MESSAGE_SIGN_IN_REQUIRED, mapFunctionsExceptionToUserMessage("UNAUTHENTICATED"))
         }
 
         @Test
-        @DisplayName("other codes fall back to exception message or generic failure")
+        @DisplayName("other codes use generic failure (never raw server text)")
         fun otherCodes() {
-            assertEquals(
-                "jobId is invalid.",
-                mapFunctionsExceptionToUserMessage("INVALID_ARGUMENT", "jobId is invalid."),
-            )
-            assertEquals(
-                MESSAGE_GENERATION_FAILED,
-                mapFunctionsExceptionToUserMessage("INTERNAL", "  "),
-            )
-            assertEquals(
-                MESSAGE_GENERATION_FAILED,
-                mapFunctionsExceptionToUserMessage("INTERNAL", null),
-            )
+            assertEquals(MESSAGE_GENERATION_FAILED, mapFunctionsExceptionToUserMessage("INVALID_ARGUMENT"))
+            assertEquals(MESSAGE_GENERATION_FAILED, mapFunctionsExceptionToUserMessage("INTERNAL"))
+            assertEquals(MESSAGE_GENERATION_FAILED, mapFunctionsExceptionToUserMessage(null))
+        }
+    }
+
+    @Nested
+    @DisplayName("isUserSafeErrorMessage")
+    inner class SafeMessage {
+        @Test
+        fun acceptsShortPlainCopy() {
+            assertTrue("Could not build a feasible program for this profile.".isUserSafeErrorMessage())
+        }
+
+        @Test
+        fun rejectsInfraLeak() {
+            assertFalse("gs://bucket/path failed".isUserSafeErrorMessage())
+            assertFalse("java.lang.IllegalStateException: boom".isUserSafeErrorMessage())
         }
     }
 }

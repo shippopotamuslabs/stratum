@@ -4,7 +4,7 @@ package com.stratum.domain.json
  * Minimal streaming JSON reader (objects, arrays, strings, numbers, booleans, null).
  * Package-visible for hand-rolled domain codecs.
  */
-internal class JsonReader(private val text: String) {
+class JsonReader(private val text: String) {
     private var pos = 0
 
     fun readRootObject(): JsonObject {

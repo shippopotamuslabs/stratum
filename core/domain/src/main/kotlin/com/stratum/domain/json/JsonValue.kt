@@ -5,7 +5,7 @@ package com.stratum.domain.json
  * Shared by import templates and program-synthesis wire formats so the module stays free of
  * kotlinx.serialization (ARCHITECTURE.md — stdlib, coroutines, javax.inject only).
  */
-internal sealed interface JsonValue {
+sealed interface JsonValue {
     fun asStringOrNull(): String? = null
     fun asIntOrNull(): Int? = null
     fun asLongOrNull(): Long? = null
@@ -16,7 +16,7 @@ internal sealed interface JsonValue {
     fun isNull(): Boolean = false
 }
 
-internal class JsonObject(val entries: Map<String, JsonValue>) : JsonValue {
+class JsonObject(val entries: Map<String, JsonValue>) : JsonValue {
     operator fun get(key: String): JsonValue? = entries[key]
     override fun asObjectOrNull(): JsonObject = this
 
@@ -73,24 +73,24 @@ internal class JsonObject(val entries: Map<String, JsonValue>) : JsonValue {
     }
 }
 
-internal class JsonArray(val values: List<JsonValue>) : JsonValue {
+class JsonArray(val values: List<JsonValue>) : JsonValue {
     override fun asArrayOrNull(): JsonArray = this
 }
 
-internal class JsonString(val value: String) : JsonValue {
+class JsonString(val value: String) : JsonValue {
     override fun asStringOrNull(): String = value
 }
 
-internal class JsonNumber(val raw: String) : JsonValue {
+class JsonNumber(val raw: String) : JsonValue {
     override fun asIntOrNull(): Int? = raw.toIntOrNull() ?: raw.toDoubleOrNull()?.toInt()
     override fun asLongOrNull(): Long? = raw.toLongOrNull() ?: raw.toDoubleOrNull()?.toLong()
     override fun asDoubleOrNull(): Double? = raw.toDoubleOrNull()
 }
 
-internal class JsonBoolean(val value: Boolean) : JsonValue {
+class JsonBoolean(val value: Boolean) : JsonValue {
     override fun asBooleanOrNull(): Boolean = value
 }
 
-internal object JsonNull : JsonValue {
+object JsonNull : JsonValue {
     override fun isNull(): Boolean = true
 }
