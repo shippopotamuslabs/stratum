@@ -14,6 +14,8 @@ sealed interface WorkoutCompleteUiState {
         val bestSets: List<LiftBestSetUi>,
         /** Post-workout equipment increment proposals (max 3). Empty when none. */
         val equipmentProposals: List<EquipmentProposalCardUi> = emptyList(),
+        /** Post-workout rep-range shift proposals (max 3). Empty when none. */
+        val repRangeProposals: List<RepRangeShiftCardUi> = emptyList(),
         /** Blast-radius confirmation while accepting a shared-default amend. */
         val blastRadiusConfirm: BlastRadiusConfirmUi? = null,
         /** One-shot snackbar / status message after accept. */
@@ -64,4 +66,20 @@ data class BlastRadiusConfirmUi(
     val title: String,
     val body: String,
     val confirmLabel: String,
+)
+
+/**
+ * Presentation model for a single post-workout rep-range shift proposal card.
+ * Mapped by [RepRangeShiftUiMapper] from domain proposals. Title/subtitle copy is
+ * localized in the composable from these fields + string resources.
+ */
+data class RepRangeShiftCardUi(
+    val id: String,
+    val liftName: String,
+    val currentBand: String,
+    val proposedBand: String,
+    val lastSetFloor: Int,
+    val bandSummary: String,
+    /** True while an apply write is in flight for this card (disables re-tap). */
+    val isApplying: Boolean = false,
 )

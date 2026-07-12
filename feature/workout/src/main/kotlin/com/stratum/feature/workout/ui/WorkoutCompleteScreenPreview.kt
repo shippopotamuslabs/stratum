@@ -103,6 +103,17 @@ private fun previewLoadedBase(): WorkoutCompleteUiState.Loaded =
 
 private fun previewLoadedWithProposals(): WorkoutCompleteUiState.Loaded =
     previewLoadedBase().copy(
+        repRangeProposals =
+            listOf(
+                RepRangeShiftCardUi(
+                    id = "rrs:wl-bench:8-10->14-16",
+                    liftName = "Barbell Bench Press",
+                    currentBand = "8–10",
+                    proposedBand = "14–16",
+                    lastSetFloor = 5,
+                    bandSummary = "8–10 → 14–16",
+                ),
+            ),
         equipmentProposals =
             listOf(
                 EquipmentProposalCardUi(
