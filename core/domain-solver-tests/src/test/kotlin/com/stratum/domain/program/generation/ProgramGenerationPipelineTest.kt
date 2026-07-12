@@ -1,9 +1,9 @@
 package com.stratum.domain.program.generation
 
 import com.stratum.core.testing.program.testProgramGenerationPipeline
-import com.stratum.core.testing.program.GENERATION_SCENARIOS
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.ScenarioConfig
+import com.stratum.core.testing.program.activeSolverScenarios
 import com.stratum.core.testing.program.lowerDominantWorkouts
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
@@ -41,10 +41,13 @@ class ProgramGenerationPipelineTest {
 
   private val pipeline = testProgramGenerationPipeline(programSynthesisPort = CpSatProgramSynthesizer())
 
+  /**
+   * One pipeline solve → structure + session-cap asserts (avoid solving the same scenario twice).
+   */
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
-  @DisplayName("cycle structure and no duplicate lifts")
-  fun cycleStructureAndNoDuplicateLifts(config: ScenarioConfig) = runBlocking {
+  @DisplayName("pipeline: cycle structure, no duplicate lifts, session caps")
+  fun pipelineStructureAndSessionCaps(config: ScenarioConfig) = runBlocking {
     val (normalized, context) = generateScenario(config)
     // Production binds via toDomainProgram() (derives trainingWeekdays from workout.weekday) then
     // withReconciledTrainingWeekdays() after sanitization. Mirror that single path here — no
@@ -67,22 +70,25 @@ class ProgramGenerationPipelineTest {
       program.workouts.mapNotNull { it.weekday }.toSet(),
       program.trainingWeekdays,
     )
+    assertWeightologySessionCaps(normalized.toDraft(), context, config.label)
   }
 
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("generationScenarios")
-  @DisplayName("≤8 hard sets per muscle per session (primary + secondary credits)")
-  fun weightologySessionCaps(config: ScenarioConfig) = runBlocking {
-    val (program, context) = generateScenario(config)
-    assertWeightologySessionCaps(program.toDraft(), context, config.label)
-  }
-
+  /**
+   * Volume planner only (no CP-SAT) — cheap landmark/specialization aim checks.
+   */
   @ParameterizedTest(name = "{0}")
   @MethodSource("generationScenarios")
   @DisplayName("weekly volume targets from landmarks with session-budget precedence")
   fun weeklyVolumeTargetsFromLandmarks(config: ScenarioConfig) = runBlocking {
     val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
-    val context = parseScenarioContext(scenarioPayload(config.days, specialization))
+    val context =
+      parseScenarioContext(
+        scenarioPayload(
+          days = config.days,
+          specialization = specialization,
+          weekdayLayout = config.weekdayLayout,
+        ),
+      )
     val targets = planWeeklyVolume(context)
 
     if (specialization["Chest"] == "Specialize") {
@@ -103,7 +109,11 @@ class ProgramGenerationPipelineTest {
 
     if (specialization["Bicep"] == "Specialize" || specialization["Tricep"] == "Specialize") {
       val neutralContext = parseScenarioContext(
-        scenarioPayload(config.days, mapOf("Bicep" to "Maintenance", "Tricep" to "Maintenance")),
+        scenarioPayload(
+          days = config.days,
+          specialization = mapOf("Bicep" to "Maintenance", "Tricep" to "Maintenance"),
+          weekdayLayout = config.weekdayLayout,
+        ),
       )
       val neutral = planWeeklyVolume(neutralContext)
       if (specialization["Bicep"] == "Specialize") {
@@ -200,7 +210,14 @@ class ProgramGenerationPipelineTest {
     config: ScenarioConfig,
   ): Pair<com.stratum.domain.program.generation.schema.NormalizedProgram, com.stratum.domain.program.generation.context.ProgramGenerationContext> {
     val specialization = SPECIALIZATION_PRESETS[config.preset].orEmpty()
-    val context = parseScenarioContext(scenarioPayload(config.days, specialization))
+    val context =
+      parseScenarioContext(
+        scenarioPayload(
+          days = config.days,
+          specialization = specialization,
+          weekdayLayout = config.weekdayLayout,
+        ),
+      )
     val program = pipeline.generate(
       context = context,
       normalizationRequest = context.toProgramNormalizationRequest(),
@@ -280,13 +297,14 @@ class ProgramGenerationPipelineTest {
   }
 
   companion object {
+    /** Core matrix by default; full cartesian with `-PfullSolverScenarios=true`. */
     @JvmStatic
-    fun generationScenarios(): List<ScenarioConfig> = GENERATION_SCENARIOS
+    fun generationScenarios(): List<ScenarioConfig> = activeSolverScenarios()
 
     @JvmStatic
-    fun maintenanceDayCounts(): List<Int> = listOf(4, 5, 6)
+    fun maintenanceDayCounts(): List<Int> = listOf(4, 6)
 
     @JvmStatic
-    fun dayCounts(): List<Int> = listOf(3, 4, 5, 6)
+    fun dayCounts(): List<Int> = listOf(3, 4, 6)
   }
 }

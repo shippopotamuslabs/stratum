@@ -27,6 +27,7 @@ import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 
 /**
@@ -560,7 +561,12 @@ class ProgramSynthesisAcceptanceTest {
         )
     }
 
+    /**
+     * Optuna / weight-tuning surface (~56 diverse scenarios). Not a PR gate —
+     * enable with `-PincludeBenchmark=true` (and usually a longer deadline).
+     */
     @Test
+    @Tag("benchmark")
     fun benchmarkTuningSuite() = runBlocking {
         val weightsProp = System.getProperty("stratum.solver.weights")
         if (!weightsProp.isNullOrBlank()) {
