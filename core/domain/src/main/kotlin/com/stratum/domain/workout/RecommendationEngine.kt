@@ -22,8 +22,14 @@ import javax.inject.Inject
  * 2. **Too easy** — top-set ceiling exceeded by ≥ 2 reps considering RIR. Bump +5 lb and
  *    round to the lift's increment tier. (The e1RM-based bump round-trips back to the
  *    current weight when the user exceeded the target, so a flat increment is used.)
- * 3. **Hold vs Reduce** — if projected reps at the current weight ≥ target reps, HOLD.
+ * 3. **Hold vs Reduce** — if projected reps at the working weight ≥ target reps, HOLD.
  *    Otherwise REDUCE to the last-set-targeted weight (same formula as too-hard).
+ *
+ * **Working weight (re-anchor):** When the lifter logged heavier than the completed set's
+ * prescribed baseline ([completedSetPrescribedWeight]), remaining slots re-anchor to
+ * [LoggedSetValue.weight] instead of clinging to a lighter snapshot prescription. Intentional
+ * backoff drops are preserved when the lifter did *not* exceed the completed set's
+ * prescription (performed ≤ completed baseline → next slot keeps its prescribed weight).
  *
  * The reduce weight targets the **last** remaining set (most-fatigued) so every set stays
  * in range: `weightForReps(e1rm, targetReps + rirGoal + fatigueForLastSet)` where
@@ -54,6 +60,9 @@ class RecommendationEngine @Inject constructor() {
         incrementTiers: List<IncrementTier> = emptyList(),
         perLiftSlope: Double? = null,
         loadType: LoadType = LoadType.Weighted,
+        // Snapshot baseline for the just-logged set (not the performed load — that is
+        // lastPerformed.weight). Detects "went heavier than prescribed" re-anchor.
+        completedSetPrescribedWeight: Weight? = null,
     ): RecommendationOutcome? {
         // Bodyweight: no load lever — rep-only progression (rep projection upstream).
         if (loadType == LoadType.Bodyweight) return null
@@ -64,12 +73,11 @@ class RecommendationEngine @Inject constructor() {
         if (loadType == LoadType.Assisted) return null
         if (lastPerformed == null || lastPerformed.weight.amount <= 0.0) return null
 
-        // If next set is blank (currentWeight <= 0.0), use current set's weight as fallback
-        val effectiveWeight = if (currentWeight.amount <= 0.0) {
-            lastPerformed.weight
-        } else {
-            currentWeight
-        }
+        val effectiveWeight = resolveWorkingWeight(
+            performed = lastPerformed.weight,
+            targetPrescribed = currentWeight,
+            completedPrescribed = completedSetPrescribedWeight,
+        )
 
         val effectiveRir = lastPerformed.rir ?: 0
         val reps = lastPerformed.reps + effectiveRir
@@ -124,7 +132,7 @@ class RecommendationEngine @Inject constructor() {
         } else {
             val projectedReps = EstimatedOneRm.repsForWeight(e1rm, effectiveWeight.amount) - targetSlot.rirGoal
             if (projectedReps >= targetReps) {
-                // currentWeight is already tier-aligned from the snapshot — no rounding needed.
+                // Working weight is already tier-aligned (snapshot or performed load) — no rounding.
                 RecommendationOutcome.Hold(effectiveWeight)
             } else {
                 val reduced = EstimatedOneRm.weightForReps(e1rm, targetReps + targetSlot.rirGoal + fatigueForLastSet)
@@ -132,6 +140,28 @@ class RecommendationEngine @Inject constructor() {
                     incrementTiers.roundToIncrement(Weight(reduced, effectiveWeight.unit), loadType),
                 )
             }
+        }
+    }
+
+    /**
+     * Working weight for Hold / too-easy bump on the next slot.
+     *
+     * - Blank next-slot prescription → performed load.
+     * - Performed heavier than both the completed set's baseline and the next-slot
+     *   prescription → re-anchor to performed (do not hold a lighter snapshot weight).
+     * - Otherwise keep the next slot's prescribed weight (intentional backoff drops).
+     */
+    internal fun resolveWorkingWeight(
+        performed: Weight,
+        targetPrescribed: Weight,
+        completedPrescribed: Weight?,
+    ): Weight {
+        if (targetPrescribed.amount <= 0.0) return performed
+        val baselineAmount = completedPrescribed?.amount ?: return targetPrescribed
+        return if (performed.amount > maxOf(baselineAmount, targetPrescribed.amount)) {
+            performed
+        } else {
+            targetPrescribed
         }
     }
 }
