@@ -5,6 +5,9 @@
     <string name="sign_in_preparing_session">Loading your training data</string>
     <string name="sign_in_retry">Try again</string>
     <string name="sign_in_sign_out">Sign out</string>
+    <!-- Session hydrate / cloud sync failure after auth (never show raw backend text). -->
+    <string name="sign_in_session_failed">Couldn\'t load your training data. Check your connection and try again.</string>
+    <string name="sign_in_sign_out_failed">Couldn\'t sign out. Try again.</string>
     <!-- %1$s = Terms of Use, %2$s = Privacy Policy (linked spans in SignInScreen). -->
     <string name="sign_in_legal_agreement">By continuing, you agree to Stratum\'s %1$s and %2$s.</string>
     <string name="sign_in_legal_terms">Terms of Use</string>

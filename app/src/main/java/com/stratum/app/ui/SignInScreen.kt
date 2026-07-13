@@ -86,7 +86,9 @@ fun SignInScreen(
                     SignInLegalFooter(modifier = Modifier.padding(top = 20.dp))
                 }
                 is ShellUiState.SignInError -> {
-                    StratumText(
+                    // [shellState.message] is already mapped to user-facing copy in MainViewModel
+                    // (see toGoogleSignInMessage); never pass raw throwables into ShellUiState.
+                    SignInErrorText(
                         text = shellState.message,
                         modifier = Modifier.padding(bottom = 16.dp),
                     )
@@ -97,8 +99,9 @@ fun SignInScreen(
                     SignInLegalFooter(modifier = Modifier.padding(top = 20.dp))
                 }
                 is ShellUiState.SessionFailed -> {
-                    StratumText(
-                        text = shellState.message,
+                    // Technical session.message stays in logs / state for support; UI is fixed copy.
+                    SignInErrorText(
+                        text = stringResource(R.string.sign_in_session_failed),
                         modifier = Modifier.padding(bottom = 16.dp),
                     )
                     StratumButton(
@@ -178,6 +181,19 @@ private fun SignInLegalFooter(modifier: Modifier = Modifier) {
                 color = StratumThemeAccessor.colors.textMuted,
                 textAlign = TextAlign.Center,
             ),
+        textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun SignInErrorText(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    StratumText(
+        text = text,
+        modifier = modifier,
+        color = StratumThemeAccessor.colors.error,
         textAlign = TextAlign.Center,
     )
 }

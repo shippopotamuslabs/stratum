@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Resource shrinking (optimization.enable) strips unreferenced resources.
+  google-services injects default_web_client_id; keep it even if only used
+  via getIdentifier or other non-static paths in dependencies.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/default_web_client_id" />
