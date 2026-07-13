@@ -2,6 +2,7 @@ package com.stratum.domain.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
@@ -27,6 +28,13 @@ interface TrainingLogRepository {
     suspend fun getImportSessions(): List<TrainingSession>
     suspend fun getImportSets(): List<LoggedSet>
     suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet>
+
+    /**
+     * All-time logged sets for lifts that credit [muscle] as primary or secondary in the catalog
+     * (SQL join on lifts primary/secondary muscle bitmasks — not load-all-then-filter).
+     */
+    suspend fun getSetsCreditingMuscle(muscle: MuscleGroup): List<LoggedSet>
+
     suspend fun getSession(id: TrainingSessionId): TrainingSession?
     suspend fun getSetsForSession(sessionId: TrainingSessionId): List<LoggedSet>
     suspend fun getCompletedSessionsForCycle(programId: ProgramId, cycleNumber: Int): List<TrainingSession>

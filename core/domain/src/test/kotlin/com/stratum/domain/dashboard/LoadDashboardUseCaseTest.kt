@@ -11,12 +11,17 @@ import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import com.stratum.domain.response.TrainingSignalQualityFlag
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.training.LoggedLiftContext
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.test.runTest
@@ -78,6 +83,61 @@ class LoadDashboardUseCaseTest {
         assertNotNull(summary)
         assertEquals(1, summary!!.muscles.size)
         assertEquals(MuscleGroup.Chest, summary.muscles.first().muscle)
+    }
+
+    @Test
+    fun `Loaded when only recent hard sets exist without weekly tables`() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        val log = FakeTrainingLogRepository()
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1")
+        log.seedSession(session)
+        log.seedSet(hardSet(benchId, "a", session.id, NOW, rir = 2))
+        val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log, programLiftIds = setOf(benchId))
+
+        val summary = useCase(now = NOW)
+        assertNotNull(summary, "7-Day data alone should yield Loaded, not Empty")
+        assertTrue(summary!!.muscles.isEmpty())
+        assertTrue(summary.runningDailyVolume.isNotEmpty())
+    }
+
+    @Test
+    fun `running daily volume zero-fills 7 days and sums hard sets`() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        val recentWeek = NOW.minus(7, ChronoUnit.DAYS)
+        stimulusRepo.seed(listOf(stimulus(MuscleGroup.Chest, recentWeek, 10.0)))
+        performanceRepo.seed(listOf(performance(benchId, recentWeek, 100.0)))
+
+        val log = FakeTrainingLogRepository()
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1")
+        log.seedSession(session)
+        // Two hard sets today, one two days ago; warmup excluded.
+        log.seedSet(hardSet(benchId, "w", session.id, NOW, rir = 5))
+        log.seedSet(hardSet(benchId, "a", session.id, NOW, rir = 2))
+        log.seedSet(hardSet(benchId, "b", session.id, NOW, rir = 1))
+        log.seedSet(hardSet(benchId, "c", session.id, NOW.minus(2, ChronoUnit.DAYS), rir = 2))
+
+        val useCase = buildUseCase(
+            stimulusRepo = stimulusRepo,
+            performanceRepo = performanceRepo,
+            liftRepo = liftRepo,
+            trainingLog = log,
+            programLiftIds = setOf(benchId),
+        )
+
+        val summary = useCase(now = NOW)!!
+        val daily = summary.runningDailyVolume.single { it.muscle == MuscleGroup.Chest }
+        assertEquals(7, daily.dailyVolume.size, "always 7 zero-filled days")
+        assertEquals(3.0, daily.totalHardSets, 0.01, "warmup excluded")
+        assertEquals(1, daily.contributingLiftCount)
+        // Two calendar days with volume (today + two days ago); rest days zero-filled.
+        assertEquals(2, daily.dailyVolume.count { it.value > 0.0 })
+        assertTrue(daily.dailyVolume.any { it.value == 0.0 })
     }
 
     @Test
@@ -370,8 +430,28 @@ class LoadDashboardUseCaseTest {
             liftRepository = liftRepo,
             trainingLogRepository = trainingLog,
             programRepository = FakeProgramRepository(program),
-         FakeLoggingPort())
+            loggingPort = FakeLoggingPort(),
+        )
     }
+
+    private fun hardSet(
+        liftId: LiftId,
+        id: String,
+        sessionId: TrainingSessionId,
+        completedAt: Instant,
+        rir: Int,
+    ): LoggedSet = LoggedSet(
+        id = LoggedSetId(id),
+        sessionId = sessionId,
+        exerciseNameRaw = "Bench",
+        liftId = liftId,
+        setIndex = 0,
+        weight = Weight(100.0, Weight.WeightUnit.Kg),
+        reps = 8,
+        rir = rir,
+        completedAt = completedAt,
+        liftContext = LoggedLiftContext(liftId.value),
+    )
 
     private fun lift(
         id: LiftId,

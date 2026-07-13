@@ -7,11 +7,16 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
 import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
 import com.stratum.domain.response.MuscleWeeklyStimulusRepository
+import com.stratum.domain.response.ResponseExtractionInput
+import com.stratum.domain.response.TrainingSignalCleaner
+import com.stratum.domain.response.modeling.MuscleDailyVolumeBuilder
+import com.stratum.domain.training.TrainingLogRepository
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
 /**
- * Loads full weekly history for one lift or muscle for the fullscreen graph detail.
+ * Loads full history for one lift, weekly muscle series, or daily muscle volume for the fullscreen
+ * graph detail.
  *
  * Unlike [LoadDashboardUseCase] (board window ~13 weeks), this reads **all** rows for the subject
  * so time-range chips (1Y / All) reflect real history. Returns null when the subject has no
@@ -22,6 +27,7 @@ class LoadGraphDetailUseCase @Inject constructor(
     private val muscleWeeklyStimulusRepository: MuscleWeeklyStimulusRepository,
     private val muscleWeeklyOutcomeIndexRepository: MuscleWeeklyOutcomeIndexRepository,
     private val liftRepository: LiftRepository,
+    private val trainingLogRepository: TrainingLogRepository,
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(subject: GraphDetailSubject): GraphDetailSeries? =
@@ -29,6 +35,7 @@ class LoadGraphDetailUseCase @Inject constructor(
             when (subject) {
                 is GraphDetailSubject.Lift -> loadLift(subject.liftId)
                 is GraphDetailSubject.Muscle -> loadMuscle(subject.muscle)
+                is GraphDetailSubject.MuscleDailyVolume -> loadMuscleDailyVolume(subject.muscle)
             }
         }.onFailure { error ->
             loggingPort.error(TAG, "Failed to load graph detail: ${error.message}", error)
@@ -74,6 +81,45 @@ class LoadGraphDetailUseCase @Inject constructor(
             kind = GraphDetailKind.Muscle,
             primary = progress,
             secondary = volume,
+        )
+    }
+
+    private suspend fun loadMuscleDailyVolume(muscle: MuscleGroup): GraphDetailSeries? {
+        // SQL join lifts ↔ logged_sets filtered by primary/secondary muscle bitmasks (all-time).
+        // Not: load every set then filter by muscle in Kotlin.
+        val sets = trainingLogRepository.getSetsCreditingMuscle(muscle)
+        val liftIds = sets.mapNotNullTo(mutableSetOf()) { it.liftId }
+        if (sets.isEmpty() || liftIds.isEmpty()) return null
+
+        // Only catalog rows for lifts that appeared in those sets.
+        val lifts = liftRepository.getLiftsByIds(liftIds)
+        if (lifts.isEmpty()) return null
+
+        val windowStart = sets.minOf { it.completedAt }
+        val windowEnd = sets.maxOf { it.completedAt }
+        val input = ResponseExtractionInput(
+            sessions = emptyList(),
+            sets = sets,
+            lifts = lifts,
+            provenLiftIds = emptySet(),
+            specializeMuscles = emptySet(),
+            liftInsights = emptyList(),
+            volumeBaselines = emptyList(),
+            analysisWindowStart = windowStart,
+            analysisWindowEnd = windowEnd,
+            activeExperiments = emptyList(),
+        )
+        val cleanSets = TrainingSignalCleaner.clean(input)
+        val series = MuscleDailyVolumeBuilder.build(cleanSets, lifts)
+            .firstOrNull { it.muscle == muscle }
+            ?.takeIf { it.points.isNotEmpty() }
+            ?: return null
+
+        return GraphDetailSeries(
+            title = muscle.displayLabel,
+            kind = GraphDetailKind.MuscleDailyVolume,
+            primary = series.points.map { TrendPoint(weekStart = it.dayStart, value = it.hardSets) },
+            secondary = emptyList(),
         )
     }
 }

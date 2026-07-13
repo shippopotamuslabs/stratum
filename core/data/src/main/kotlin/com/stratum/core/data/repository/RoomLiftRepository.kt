@@ -55,6 +55,15 @@ class RoomLiftRepository @Inject constructor(
             rows.map { it.toDomain(equipmentById) }
         }
 
+    override suspend fun getLiftsByIds(ids: Collection<LiftId>): List<Lift> {
+        if (ids.isEmpty()) return emptyList()
+        val distinctIds = ids.distinct()
+        val rows = liftDao.getLiftsWithTiersByIds(distinctIds)
+        if (rows.isEmpty()) return emptyList()
+        val equipmentById = equipmentSnapshotById()
+        return rows.map { it.toDomain(equipmentById) }
+    }
+
     override fun observeEnabledLifts(): Flow<List<Lift>> =
         combine(
             liftDao.observeEnabledLiftsWithTiers(),
@@ -323,6 +332,15 @@ class RoomLiftRepository @Inject constructor(
                 row.id to row.toDomain(tiersByEquipment[row.id].orEmpty())
             }
         }
+
+    /** One-shot equipment map for suspend reads (same resolution as [observeEquipmentById]). */
+    private suspend fun equipmentSnapshotById(): Map<EquipmentId, Equipment> {
+        val equipmentRows = equipmentDao.getAll()
+        val tiersByEquipment = incrementTierDao.getAllEquipmentTiers().groupBy { it.equipmentId }
+        return equipmentRows.associate { row ->
+            row.id to row.toDomain(tiersByEquipment[row.id].orEmpty())
+        }
+    }
 
     private fun singleOpenTier(increment: Weight): IncrementTier =
         IncrementTier(Weight(0.0, increment.unit), null, increment)
