@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -57,8 +58,10 @@ import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.program.LiftSwapViewModel
+import com.stratum.feature.program.navigation.LiftSwapCommitMode
 
 /**
  * Route-level entry point for the Lift Swap screen (ARCHITECTURE.md v1.0).
@@ -73,10 +76,17 @@ fun LiftSwapRoute(
     onBackClick: () -> Unit,
     onCreateNewLift: () -> Unit,
     modifier: Modifier = Modifier,
+    commitMode: LiftSwapCommitMode = LiftSwapCommitMode.EditSession,
     viewModel: LiftSwapViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(workoutId, workoutLiftId, liftId, liftName) {
-        viewModel.initialize(workoutId, workoutLiftId, liftId, liftName)
+    LaunchedEffect(workoutId, workoutLiftId, liftId, liftName, commitMode) {
+        viewModel.initialize(
+            workoutId = workoutId,
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            liftName = liftName,
+            commitMode = commitMode,
+        )
     }
 
     // Clear selection if the user leaves without confirming (retained ViewModel).
@@ -85,6 +95,14 @@ fun LiftSwapRoute(
     }
 
     val state by viewModel.liftSwapState.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    UserMessageEffect(
+        userMessage = userMessage,
+        snackbarHostState = snackbarHostState,
+        onUserMessageShown = viewModel::userMessageShown,
+    )
 
     state?.let { activeState ->
         LiftSwapScreen(
@@ -101,6 +119,7 @@ fun LiftSwapRoute(
             onBackClick = onBackClick,
             onFilterIntent = viewModel::onFilterIntent,
             onSearchQueryChanged = viewModel::onSearchQueryChanged,
+            snackbarHostState = snackbarHostState,
             modifier = modifier,
         )
     }
@@ -122,6 +141,7 @@ fun LiftSwapScreen(
     onFilterIntent: (LiftSwapFilterIntent) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState? = null,
 ) {
     var allLiftsExpanded by remember { mutableStateOf(false) }
     var showMuscleSheet by remember { mutableStateOf(false) }
@@ -143,6 +163,7 @@ fun LiftSwapScreen(
 
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHostState = snackbarHostState,
         topBar = {
             StratumTopBar(
                 titleContent = {

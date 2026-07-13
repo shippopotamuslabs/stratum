@@ -28,6 +28,7 @@ import com.stratum.feature.program.navigation.CreateProgramKey
 import com.stratum.feature.program.navigation.createProgramEntry
 import com.stratum.feature.program.navigation.EditWorkoutKey
 import com.stratum.feature.program.navigation.editWorkoutEntry
+import com.stratum.feature.program.navigation.LiftSwapCommitMode
 import com.stratum.feature.program.navigation.LiftSwapKey
 import com.stratum.feature.program.navigation.liftSwapEntry
 import com.stratum.feature.program.navigation.ProgramLibraryKey
@@ -149,7 +150,15 @@ fun StratumNavHost(
                                 backStack.add(MainTabKey(isPreviewMode = false))
                             },
                             onNavigateToSwap = { workoutId, workoutLiftId, id, name ->
-                                backStack.add(LiftSwapKey(workoutId, workoutLiftId, id, name))
+                                backStack.add(
+                                    LiftSwapKey(
+                                        workoutId = workoutId,
+                                        workoutLiftId = workoutLiftId,
+                                        liftId = id,
+                                        liftName = name,
+                                        commitMode = LiftSwapCommitMode.PersistToProgram,
+                                    ),
+                                )
                             },
                             onNavigateToEditWorkout = { workoutId ->
                                 backStack.add(EditWorkoutKey(workoutId))

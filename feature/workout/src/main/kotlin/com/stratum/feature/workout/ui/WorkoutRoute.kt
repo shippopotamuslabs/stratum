@@ -106,6 +106,7 @@ fun WorkoutRoute(
         viewModel.events.collect { event ->
             when (event) {
                 is WorkoutUiEvent.NavigateToFinalize -> onNavigateToFinalize(event.sessionId)
+                WorkoutUiEvent.NavigateBackAfterAbandon -> onNavigateBack()
                 is WorkoutUiEvent.SetLogged -> pendingSetLoggedSlotKey = event.slotKey
                 is WorkoutUiEvent.SetAmended -> {
                     // Durable state is updating; seed will clear pending when labels match.

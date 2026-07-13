@@ -13,6 +13,7 @@ data class LiftSwapKey(
     val workoutLiftId: String? = null,
     val liftId: String? = null,
     val liftName: String? = null,
+    val commitMode: LiftSwapCommitMode = LiftSwapCommitMode.EditSession,
 ) : NavKey
 
 /**
@@ -29,6 +30,7 @@ fun EntryProviderScope<NavKey>.liftSwapEntry(
             workoutLiftId = key.workoutLiftId,
             liftId = key.liftId,
             liftName = key.liftName,
+            commitMode = key.commitMode,
             onBackClick = onBackClick,
             onCreateNewLift = onCreateNewLift,
             modifier = modifier,

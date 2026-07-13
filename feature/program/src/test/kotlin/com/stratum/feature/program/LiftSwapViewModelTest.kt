@@ -3,18 +3,32 @@ package com.stratum.feature.program
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.Program
+import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SwapWorkoutLiftUseCase
+import com.stratum.domain.program.Workout
+import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.feature.program.navigation.LiftSwapCommitMode
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
+import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -29,6 +43,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class LiftSwapViewModelTest {
     private lateinit var liftRepository: FakeLiftRepository
     private lateinit var workoutEditSession: WorkoutEditSession
+    private lateinit var programRepository: FakeProgramRepository
     private lateinit var viewModel: LiftSwapViewModel
 
     @BeforeEach
@@ -43,10 +58,15 @@ class LiftSwapViewModelTest {
                     ),
             )
         workoutEditSession = WorkoutEditSession()
+        programRepository = FakeProgramRepository(sampleProgram())
         viewModel =
             LiftSwapViewModel(
                 rankSwapCandidates = RankSwapCandidatesUseCase(liftRepository),
                 workoutEditSession = workoutEditSession,
+                swapWorkoutLift = SwapWorkoutLiftUseCase(
+                    programRepository,
+                    NoOpProgramChangeEventRepository(),
+                ),
             )
     }
 
@@ -245,6 +265,43 @@ class LiftSwapViewModelTest {
         }
     }
 
+    @Test
+    @DisplayName("Given PersistToProgram when swap tapped then program is updated and no edit session event")
+    fun persistToProgramSwapsWithoutEditSession() = runTest {
+        viewModel.initialize(
+            workoutId = WORKOUT_ID,
+            workoutLiftId = "wl-1",
+            liftId = "bench-press",
+            liftName = "Barbell Bench Press",
+            commitMode = LiftSwapCommitMode.PersistToProgram,
+        )
+
+        val events = mutableListOf<EditSessionEvent>()
+        val job =
+            launch(UnconfinedTestDispatcher(testScheduler)) {
+                workoutEditSession.events.collect { events.add(it) }
+            }
+
+        viewModel.liftSwapState.test {
+            val state = awaitNonNullState()
+            val incline = state.options.first { it.id == "incline-press" }
+            var completed = false
+            viewModel.onLiftClicked(incline) { completed = true }
+            advanceUntilIdle()
+            assertTrue(completed)
+            assertTrue(events.isEmpty())
+            val updated =
+                programRepository.getProgram()
+                    ?.workouts
+                    ?.first()
+                    ?.workoutLifts
+                    ?.first()
+            assertEquals(LiftId("incline-press"), updated?.liftId)
+            cancelAndIgnoreRemainingEvents()
+        }
+        job.cancel()
+    }
+
     private suspend fun app.cash.turbine.ReceiveTurbine<LiftSwapSheetState?>.awaitNonNullState(): LiftSwapSheetState {
         var item = awaitItem()
         while (item == null) {
@@ -263,6 +320,36 @@ class LiftSwapViewModelTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
+        )
+
+    private fun sampleProgram(): Program =
+        Program(
+            id = ProgramId("p-1"),
+            name = "Push Program",
+            createdAt = Instant.now(),
+            cycleLength = 1,
+            trainingWeekdays = setOf(Weekday.Monday),
+            workouts =
+                listOf(
+                    Workout(
+                        id = WorkoutId(WORKOUT_ID),
+                        programId = ProgramId("p-1"),
+                        name = "Push Day",
+                        weekday = Weekday.Monday,
+                        position = 0,
+                        workoutLifts =
+                            listOf(
+                                WorkoutLift(
+                                    id = WorkoutLiftId("wl-1"),
+                                    workoutId = WorkoutId(WORKOUT_ID),
+                                    liftId = LiftId("bench-press"),
+                                    progressionScheme = ProgressionScheme.Linear,
+                                    position = 0,
+                                    sets = emptyList(),
+                                ),
+                            ),
+                    ),
+                ),
         )
 
     private companion object {
