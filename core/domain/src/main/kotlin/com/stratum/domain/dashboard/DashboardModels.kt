@@ -25,8 +25,25 @@ data class DashboardSummary(
     val asOf: Instant,
     val muscles: List<MuscleSeries>,
     val lifts: List<LiftSeries>,
+    /**
+     * Per-muscle hard-set volume for the running 7-day window (UTC days), zero-filled. Empty when
+     * no hard sets were logged in that window.
+     */
+    val runningDailyVolume: List<MuscleDailyVolumeSeries> = emptyList(),
     /** High-confidence progressing / regressing highlights — empty when nothing is clear. */
     val callouts: List<DashboardCallout> = emptyList(),
+)
+
+/**
+ * Board series for the 7-Day volume tab. [dailyVolume] is always 7 points (oldest → newest), with
+ * rest days at `0`. [TrendPoint.weekStart] holds the **UTC day start** (not a Monday week start).
+ */
+data class MuscleDailyVolumeSeries(
+    val muscle: MuscleGroup,
+    val displayName: String,
+    val dailyVolume: List<TrendPoint>,
+    val totalHardSets: Double,
+    val contributingLiftCount: Int,
 )
 
 /**

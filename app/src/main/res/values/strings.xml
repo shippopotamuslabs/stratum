@@ -20,8 +20,10 @@
     <string name="dashboard_empty_subtitle">Log a workout or import history to see your progress here.</string>
     <string name="dashboard_loading">Loading progress…</string>
     <string name="dashboard_tab_muscles">Muscles</string>
+    <string name="dashboard_tab_seven_day">7-Day</string>
     <string name="dashboard_tab_lifts">Lifts</string>
     <string name="dashboard_empty_muscles_window">No muscle data in the last 3 months.</string>
+    <string name="dashboard_empty_seven_day_window">No hard sets in the last 7 days.</string>
     <string name="dashboard_empty_lifts_program">Add lifts to your active program to see trends.</string>
     <string name="dashboard_trend_up">Up</string>
     <string name="dashboard_trend_flat">Flat</string>
@@ -31,6 +33,7 @@
     <string name="dashboard_legend_strength">Strength</string>
     <string name="dashboard_legend_volume">Volume</string>
     <string name="dashboard_legend_baseline_caption">Bars are progress vs early baseline (0)</string>
+    <string name="dashboard_legend_seven_day_caption">Hard sets per muscle, last 7 days</string>
     <string name="dashboard_legend_lifts_window_caption">Session counts · last %1$d weeks</string>
     <string name="dashboard_legend_progressing">Progressing</string>
     <string name="dashboard_legend_regressing">Regressing</string>
@@ -53,6 +56,7 @@
     <string name="dashboard_graph_peak_volume">Peak volume</string>
     <string name="dashboard_graph_avg_progress">Avg progress</string>
     <string name="dashboard_graph_best_progress">Best progress</string>
+    <string name="dashboard_graph_range_1w">1W</string>
     <string name="dashboard_graph_range_1m">1M</string>
     <string name="dashboard_graph_range_3m">3M</string>
     <string name="dashboard_graph_range_6m">6M</string>

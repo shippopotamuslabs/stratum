@@ -5,15 +5,22 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
+import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.training.LoggedLiftContext
+import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.test.runTest
@@ -102,6 +109,93 @@ class LoadGraphDetailUseCaseTest {
     }
 
     @Test
+    @DisplayName("loads daily hard-set history for MuscleDailyVolume subject")
+    fun muscleDailyVolumeHistory() = runTest {
+        val benchId = LiftId("bench")
+        val bench = lift(benchId, "Bench Press", MuscleGroup.Chest)
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(bench))
+        val log = FakeTrainingLogRepository()
+        log.seedLiftForMuscleFilter(bench)
+        val day0 = NOW.minus(3, ChronoUnit.DAYS)
+        val day1 = NOW.minus(1, ChronoUnit.DAYS)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1")
+        log.seedSession(session)
+        log.seedSet(hardSet(benchId, "a", session.id, day0))
+        log.seedSet(hardSet(benchId, "b", session.id, day1))
+        log.seedSet(hardSet(benchId, "c", session.id, day1))
+        val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log)
+
+        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest))
+        assertNotNull(detail)
+        assertEquals(GraphDetailKind.MuscleDailyVolume, detail!!.kind)
+        assertEquals("Chest", detail.title)
+        assertEquals(2, detail.primary.size, "two distinct UTC days")
+        assertEquals(1.0, detail.primary.first().value, 0.01)
+        assertEquals(2.0, detail.primary.last().value, 0.01)
+        assertTrue(detail.secondary.isEmpty())
+    }
+
+    @Test
+    @DisplayName("MuscleDailyVolume includes press sets for Tricep via policy pattern SQL branch")
+    fun muscleDailyVolumePolicyTricep() = runTest {
+        val benchId = LiftId("bench")
+        val bench = Lift(
+            id = benchId,
+            name = "Bench Press",
+            movementPatterns = setOf(MovementPattern.HorizontalPress),
+            primaryMuscles = setOf(MuscleGroup.Chest),
+            secondaryMuscles = emptySet(),
+            incrementTiers = emptyList(),
+            presetTags = emptySet(),
+            enabled = true,
+            kinematicProfile = KinematicProfile.AxialCompound,
+        )
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(bench))
+        val log = FakeTrainingLogRepository()
+        log.seedLiftForMuscleFilter(bench)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1")
+        log.seedSession(session)
+        log.seedSet(hardSet(benchId, "a", session.id, NOW.minus(1, ChronoUnit.DAYS)))
+        val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log)
+
+        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Tricep))
+        assertNotNull(detail, "press pattern should load sets for Tricep even without stored secondary")
+        assertEquals(0.5, detail!!.primary.single().value, 0.01)
+    }
+
+    @Test
+    @DisplayName("returns null for MuscleDailyVolume with no hard sets")
+    fun muscleDailyVolumeEmpty() = runTest {
+        val useCase = buildUseCase()
+        assertNull(useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest)))
+    }
+
+    @Test
+    @DisplayName("OneWeek windowStart is about 7 days before now")
+    fun oneWeekWindow() {
+        val start = GraphDetailTimeRange.OneWeek.windowStart(NOW)
+        assertNotNull(start)
+        val days = ChronoUnit.DAYS.between(start, NOW)
+        assertEquals(7, days)
+    }
+
+    @Test
+    @DisplayName("zeroFillDailyTrendPoints pads rest days")
+    fun zeroFillDaily() {
+        val day = utcDayStart(NOW.minus(1, ChronoUnit.DAYS))
+        val filled = zeroFillDailyTrendPoints(
+            points = listOf(TrendPoint(day, 4.0)),
+            now = NOW,
+            dayCount = 7,
+        )
+        assertEquals(7, filled.size)
+        assertEquals(4.0, filled.single { it.weekStart == day }.value)
+        assertEquals(6, filled.count { it.value == 0.0 })
+    }
+
+    @Test
     @DisplayName("filterTrendPointsByRange keeps points on or after the lower bound")
     fun filterRange() {
         val w0 = NOW.minus(40, ChronoUnit.DAYS)
@@ -147,12 +241,33 @@ class LoadGraphDetailUseCaseTest {
         stimulusRepo: FakeMuscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
         outcomeRepo: FakeMuscleWeeklyOutcomeIndexRepository = FakeMuscleWeeklyOutcomeIndexRepository(),
         liftRepo: FakeLiftRepository = FakeLiftRepository(),
+        trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
     ): LoadGraphDetailUseCase = LoadGraphDetailUseCase(
         liftWeeklyPerformanceRepository = performanceRepo,
         muscleWeeklyStimulusRepository = stimulusRepo,
         muscleWeeklyOutcomeIndexRepository = outcomeRepo,
         liftRepository = liftRepo,
-     FakeLoggingPort())
+        trainingLogRepository = trainingLog,
+        loggingPort = FakeLoggingPort(),
+    )
+
+    private fun hardSet(
+        liftId: LiftId,
+        id: String,
+        sessionId: TrainingSessionId,
+        completedAt: Instant,
+    ): LoggedSet = LoggedSet(
+        id = LoggedSetId(id),
+        sessionId = sessionId,
+        exerciseNameRaw = "Bench",
+        liftId = liftId,
+        setIndex = 0,
+        weight = Weight(100.0, Weight.WeightUnit.Kg),
+        reps = 8,
+        rir = 2,
+        completedAt = completedAt,
+        liftContext = LoggedLiftContext(liftId.value),
+    )
 
     private fun lift(id: LiftId, name: String, muscle: MuscleGroup): Lift = Lift(
         id = id,
