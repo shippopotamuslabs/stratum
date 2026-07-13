@@ -618,9 +618,20 @@ class EditWorkoutViewModel @Inject constructor(
         return copy(saveBlockedReason = blocked)
     }
 
+    /**
+     * Full reset of the edit session. Call from route [androidx.compose.runtime.DisposableEffect]
+     * onDispose so leave/discard/save can navigate first and keep a coherent Loaded frame for
+     * the nav exit fade (no premature Loading / title flash).
+     */
     fun clearSession() {
+        loadJob?.cancel()
+        loadJob = null
         hasSnapshot.value = false
         targetWorkoutId.value = null
+        scopedProgramId = null
+        programSnapshot = null
+        baselineWorkout = null
+        catalogLifts = emptyList()
         _uiState.value = EditWorkoutUiState.Loading
     }
 

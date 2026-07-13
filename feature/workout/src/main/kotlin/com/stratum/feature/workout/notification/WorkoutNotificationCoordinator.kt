@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
  * - Rest running (and not user-dismissed) → start [RestTimerForegroundService].
  * - App backgrounded + active session + rest idle (or rest notif dismissed) → active-workout notif.
  * - Session cleared → cancel all workout notifications and stop rest FGS.
+ * - Domain active session becomes null (Programs discard, complete, etc.) → [DomainActiveSessionSurfaceSync].
  */
 @Singleton
 class WorkoutNotificationCoordinator @Inject constructor(
@@ -27,6 +28,7 @@ class WorkoutNotificationCoordinator @Inject constructor(
     private val restTimer: RestTimerController,
     private val activeWorkout: ActiveWorkoutTracker,
     private val notificationHelper: WorkoutNotificationHelper,
+    private val domainActiveSessionSurfaceSync: DomainActiveSessionSurfaceSync,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var started = false
@@ -81,6 +83,8 @@ class WorkoutNotificationCoordinator @Inject constructor(
                 applyNotificationPolicy(rest, session)
             }
         }
+
+        domainActiveSessionSurfaceSync.start(scope)
     }
 
     /**

@@ -105,8 +105,8 @@ internal fun WorkoutSessionOverlays(
             onDismiss = { sheets.onShowDiscardDialogChange(false) },
             onConfirm = {
                 sheets.onShowDiscardDialogChange(false)
+                // Navigate only after domain abandon succeeds (WorkoutUiEvent.NavigateBackAfterAbandon).
                 actions.onAbandon()
-                actions.onNavigateBack()
             },
         )
     }
