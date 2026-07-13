@@ -82,6 +82,12 @@ fun EditWorkoutRoute(
         viewModel.initialize(workoutId, programId)
     }
 
+    // Clear after the nav exit transition ends so the fading frame stays a coherent Loaded
+    // state (no title flash). ViewModel store is entry-scoped; this still resets if retained.
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.clearSession() }
+    }
+
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -99,17 +105,13 @@ fun EditWorkoutRoute(
         onDismissDiscardDialog = { showDiscardDialog = false },
         onConfirmDiscard = {
             showDiscardDialog = false
-            viewModel.clearSession()
             onBackClick()
         },
         // Fresh read after dock commit so back sees newly dirtied state.
         isWorkoutDirty = {
             (viewModel.uiState.value as? EditWorkoutUiState.Loaded)?.isDirty == true
         },
-        onLeave = {
-            viewModel.clearSession()
-            onBackClick()
-        },
+        onLeave = onBackClick,
         onRequestDiscardDialog = { showDiscardDialog = true },
         callbacks =
             EditWorkoutScreenCallbacks(
@@ -131,12 +133,7 @@ fun EditWorkoutRoute(
                 onSetUseRestTimerBetweenLifts = viewModel::setUseRestTimerBetweenLifts,
                 onSetProgressionScheme = viewModel::setProgressionScheme,
                 onSaveWorkout = {
-                    viewModel.saveWorkout(
-                        onComplete = {
-                            viewModel.clearSession()
-                            onBackClick()
-                        },
-                    )
+                    viewModel.saveWorkout(onComplete = onBackClick)
                 },
                 onSwapLiftClick = onSwapLiftClick,
                 onReorderLiftsClick = {

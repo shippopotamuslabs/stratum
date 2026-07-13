@@ -7,10 +7,14 @@ import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.domain.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.SwapWorkoutLiftUseCase
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.feature.program.navigation.LiftSwapCommitMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,25 +23,39 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Handles presentation logic and filtering for the Lift Swap screen (ARCHITECTURE.md v1.0).
  * State is computed by combining ranked candidates from [RankSwapCandidatesUseCase] with
  * locally held [LiftSwapFilters] and selection overlay, mapped via [buildLiftSwapSheetState].
+ *
+ * Commit mode is nav-owned ([LiftSwapCommitMode]): Programs uses [LiftSwapCommitMode.PersistToProgram];
+ * Edit / Create / live Workout use [LiftSwapCommitMode.EditSession].
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LiftSwapViewModel @Inject constructor(
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
     private val workoutEditSession: WorkoutEditSession,
+    private val swapWorkoutLift: SwapWorkoutLiftUseCase,
 ) : ViewModel() {
     private val targetWorkoutId = MutableStateFlow<String?>(null)
     private val targetWorkoutLiftId = MutableStateFlow<String?>(null)
     private val targetLiftId = MutableStateFlow<String?>(null)
     private val targetLiftName = MutableStateFlow<String?>(null)
+    private var commitMode: LiftSwapCommitMode = LiftSwapCommitMode.EditSession
     private val swapFilters = MutableStateFlow(LiftSwapFilters())
     private val selectedOptions = MutableStateFlow<List<LiftSwapOptionState>>(emptyList())
     private val addAsSuperset = MutableStateFlow(false)
+    private var persistSwapJob: Job? = null
+
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
 
     val liftSwapState: StateFlow<LiftSwapSheetState?> =
         combine(targetLiftId.asStateFlow(), targetLiftName.asStateFlow()) { id, name ->
@@ -72,16 +90,24 @@ class LiftSwapViewModel @Inject constructor(
             initialValue = null,
         )
 
-    fun initialize(workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) {
+    fun initialize(
+        workoutId: String,
+        workoutLiftId: String?,
+        liftId: String?,
+        liftName: String?,
+        commitMode: LiftSwapCommitMode = LiftSwapCommitMode.EditSession,
+    ) {
         val sameTarget =
             targetWorkoutId.value == workoutId &&
                 targetWorkoutLiftId.value == workoutLiftId &&
-                targetLiftId.value == liftId
+                targetLiftId.value == liftId &&
+                this.commitMode == commitMode
         if (!sameTarget) {
             targetWorkoutId.value = workoutId
             targetWorkoutLiftId.value = workoutLiftId
             targetLiftId.value = liftId
             targetLiftName.value = liftName ?: com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
+            this.commitMode = commitMode
             swapFilters.value = LiftSwapFilters()
         }
         // Always drop ephemeral selection when the route binds — covers re-entry with a
@@ -136,6 +162,8 @@ class LiftSwapViewModel @Inject constructor(
 
     fun toggleLiftSelection(option: LiftSwapOptionState) {
         if (!isAddMode()) return
+        // PersistToProgram is one-tap swap only; multi-add always uses the edit session.
+        if (commitMode == LiftSwapCommitMode.PersistToProgram) return
 
         val current = selectedOptions.value
         val existingIndex = current.indexOfFirst { selected -> selected.id == option.id }
@@ -166,11 +194,12 @@ class LiftSwapViewModel @Inject constructor(
     }
 
     /**
-     * Commits multi-select add via [WorkoutEditSession]. No-op when nothing is selected or
-     * when not in add mode (swap uses one-tap [onLiftClicked]).
+     * Commits multi-select add via [WorkoutEditSession]. No-op when nothing is selected,
+     * not in add mode, or [LiftSwapCommitMode.PersistToProgram] (add is edit-session only).
      */
     fun confirmSelections(onComplete: () -> Unit) {
         if (!isAddMode()) return
+        if (commitMode == LiftSwapCommitMode.PersistToProgram) return
         val workoutId = targetWorkoutId.value ?: return
         val selected = selectedOptions.value
         if (selected.isEmpty()) return
@@ -188,8 +217,22 @@ class LiftSwapViewModel @Inject constructor(
     fun selectLift(newLiftId: String, onComplete: () -> Unit) {
         val workoutId = targetWorkoutId.value ?: return
         val workoutLiftId = targetWorkoutLiftId.value
-        workoutEditSession.selectLift(workoutId, workoutLiftId, newLiftId)
-        onComplete()
+        when (commitMode) {
+            LiftSwapCommitMode.PersistToProgram -> {
+                if (workoutLiftId.isNullOrBlank()) return
+                if (persistSwapJob?.isActive == true) return
+                persistSwapJob =
+                    viewModelScope.launch {
+                        swapWorkoutLift(WorkoutLiftId(workoutLiftId), LiftId(newLiftId))
+                            .onSuccess { onComplete() }
+                            .onFailure { _userMessage.value = MSG_SWAP_FAILED }
+                    }
+            }
+            LiftSwapCommitMode.EditSession -> {
+                workoutEditSession.selectLift(workoutId, workoutLiftId, newLiftId)
+                onComplete()
+            }
+        }
     }
 
     private fun isAddMode(): Boolean =
@@ -197,4 +240,8 @@ class LiftSwapViewModel @Inject constructor(
 
     private fun <T> Set<T>.toggle(value: T): Set<T> =
         if (value in this) this - value else this + value
+
+    private companion object {
+        const val MSG_SWAP_FAILED = "Couldn't swap that lift. Try again."
+    }
 }

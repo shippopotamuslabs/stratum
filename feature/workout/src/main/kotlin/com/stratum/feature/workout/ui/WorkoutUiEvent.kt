@@ -11,6 +11,12 @@ sealed interface WorkoutUiEvent {
     data class NavigateToFinalize(val sessionId: String) : WorkoutUiEvent
 
     /**
+     * Domain abandon succeeded (or there was nothing to abandon). Pop the workout route only
+     * after this so navigation cannot cancel the delete job mid-flight.
+     */
+    data object NavigateBackAfterAbandon : WorkoutUiEvent
+
+    /**
      * Emitted only after a set is successfully persisted for the **first** time and the UI
      * state has been re-rendered. Drive rest timer + autoscroll + complete-sheet from this
      * event so failed logs do not advance the session chrome optimistically.
