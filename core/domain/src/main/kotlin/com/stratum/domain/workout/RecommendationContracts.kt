@@ -12,8 +12,12 @@ import com.stratum.domain.lift.Weight
 const val BACKOFF_REP_FLOOR: Int = 5
 
 /**
- * Overlay-only recommendation outcome (D4). Hold-vs-reduce decision for the next
- * upcoming set, computed from the most recent performed set.
+ * Overlay-only weight decision (D4). Production consumers typically only need the [Weight];
+ * the branch is retained for tests and telemetry.
+ *
+ * - [Hold]: use this load (prescribed, re-anchored, or a successful too-easy bump).
+ * - [Reduce]: use this lighter load so the last remaining set clears [BACKOFF_REP_FLOOR].
+ * - Engine `null`: keep snapshot (on-track top set, bodyweight/assisted, or no e1RM).
  */
 sealed interface RecommendationOutcome {
     data class Hold(val weight: Weight) : RecommendationOutcome
@@ -21,10 +25,11 @@ sealed interface RecommendationOutcome {
 }
 
 /**
- * Overlay-only live recommendation for an upcoming unlogged set (D4). Carries both the
- * recommended weight (from [RecommendationEngine]) and the recommended reps (projected
- * one set-index forward from the most recent performed set via the [FatigueModel]). Stored
- * in `WorkoutOverlay.recommendations`; never written back into the snapshot.
+ * Overlay-only live recommendation for an upcoming unlogged set (D4). Weight and reps are
+ * derived from one [com.stratum.domain.workout.fatigue.FatigueModel] capacity story
+ * ([RecommendationEngine] + [RecomputeRecommendationsUseCase]). Stored in
+ * `WorkoutOverlay.recommendations`; never written back into the snapshot. Absent when the
+ * lifter is on-track on a top set (snapshot prescriptions stay put).
  */
 data class LiveSetRecommendation(
     val weight: Weight,

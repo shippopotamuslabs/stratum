@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.workout.fatigue.PopulationFatigueModel
 import com.stratum.core.testing.workout.FakeFatigueModel
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.lift.IncrementTier
@@ -37,7 +38,7 @@ class RecomputeRecommendationsUseCaseTest {
     private val workoutId = WorkoutId("w-1")
 
     private val useCase = RecomputeRecommendationsUseCase(
-        recommendationEngine = RecommendationEngine(),
+        recommendationEngine = RecommendationEngine(PopulationFatigueModel()),
         fatigueModel = FakeFatigueModel(),
     )
 
@@ -69,6 +70,11 @@ class RecomputeRecommendationsUseCaseTest {
      * performed weight). [completedSetPrescribedWeight] is the logged slot's baseline
      * prescription (merge keeps baseline when a set is logged).
      */
+    /**
+     * @param completedIsTopSet when true and the lifter hits goal weight in range, the engine
+     *   returns null (on-track — no live overlay). Pass false to exercise the live Hold/Reduce
+     *   path with an otherwise in-range performance.
+     */
     private fun twoTopSets(
         performedWeight: Double,
         performedReps: Int,
@@ -78,6 +84,7 @@ class RecomputeRecommendationsUseCaseTest {
         rirGoal: Int,
         upcomingWeight: Double = performedWeight,
         completedSetPrescribedWeight: Double = performedWeight,
+        completedIsTopSet: Boolean = true,
     ): RenderedWorkout {
         val performed = LoggedSetValue(
             slotId = SetSlotId.Template(liftSetId),
@@ -91,7 +98,7 @@ class RecomputeRecommendationsUseCaseTest {
             liftId = liftId,
             position = 0,
             setType = SetType.Standard,
-            isTopSet = true,
+            isTopSet = completedIsTopSet,
             repMin = repMin,
             repMax = repMax,
             rirGoal = rirGoal,
@@ -131,19 +138,32 @@ class RecomputeRecommendationsUseCaseTest {
     }
 
     @Test
-    @DisplayName("RIR-1: 75x4@2 RIR top set (4-12 range) -> Reduce so next set hits global floor of 5")
-    fun `75x4 at 2 RIR reduces weight so next set hits rep floor of 5`() {
-        // e1RM from 75x6 = 89.53. At 75 lb, repsForWeight = 6 @ 0 RIR → 4 @ 2 RIR.
-        // Global floor: targetReps = max(repMin=4, BACKOFF_REP_FLOOR=5) = 5.
-        // projectedReps (4) < 5 → Reduce weight targeting 5@2 RIR.
-        // Live rep projection is floored at BACKOFF_REP_FLOOR (never surfaces 4).
+    @DisplayName("On-track top set at goal weight in range -> no live overlay (snapshot stays put)")
+    fun `on track top set produces no live recommendations`() {
         val rendered = twoTopSets(
             performedWeight = 75.0,
-            performedReps = 4,
+            performedReps = 8,
             performedRir = 2,
             repMin = 4,
             repMax = 12,
             rirGoal = 2,
+            completedIsTopSet = true,
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        assertTrue(recommendations.isEmpty(), "on-track top set must not rewrite snapshot recs")
+    }
+
+    @Test
+    @DisplayName("RIR-1: 75x2@2 (missed range) -> Reduce so next set hits global floor of 5")
+    fun `75x2 at 2 RIR reduces weight so next set hits rep floor of 5`() {
+        val rendered = twoTopSets(
+            performedWeight = 75.0,
+            performedReps = 2,
+            performedRir = 2,
+            repMin = 4,
+            repMax = 12,
+            rirGoal = 2,
+            completedIsTopSet = true,
         )
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
@@ -153,10 +173,10 @@ class RecomputeRecommendationsUseCaseTest {
     }
 
     @Test
-    @DisplayName("Backoff live rep projection never goes below BACKOFF_REP_FLOOR")
+    @DisplayName("Backoff live projection: weight drops so last-set capacity can clear floor")
     fun `backoff live projection floors at 5 even when capacity is lower`() {
-        // Top set logged poorly; backoff has no rep range (repMin=repMax=0). Fatigue can
-        // project 3–4 raw at-RIR reps — the display pipeline must still floor at 5.
+        // Weak top set → reduce weight; last remaining set should land at/above floor capacity
+        // (honest reps — no invent-up without a matching load).
         val performed = LoggedSetValue(
             slotId = SetSlotId.Template(liftSetId),
             weight = lb(100.0),
@@ -213,12 +233,10 @@ class RecomputeRecommendationsUseCaseTest {
     }
 
     @Test
-    @DisplayName("RIR-2: 75x8@2 RIR top set (4-12 range) -> next top set Hold 75, 7 reps")
-    fun `75x8 at 2 RIR holds weight and projects 7 reps`() {
-        // e1RM from 75x10 = 102.81. At 75 lb, repsForWeight = 10 @ 0 RIR → 8 @ 2 RIR.
-        // targetReps (top, repMin=4) = 4. 8 >= 4 → Hold 75.
-        // Fatigue projection: raw set2 = 10 - 2 = 8 @ 0 RIR → 8 - 2 = 6 @ 2 RIR.
-        // Clamped to 4..12 → 6 reps.
+    @DisplayName("RIR-2: 75x8@2 off-track (not top-set) -> Hold 75 with FatigueModel reps")
+    fun `75x8 at 2 RIR holds weight and projects fatigue model reps`() {
+        // completedIsTopSet=false so on-track short-circuit does not fire; live Hold path runs.
+        // Fatigue: capacity 10, set2 raw 8 @0 → 6 @ 2 RIR. No coerce-up to repMin.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -226,6 +244,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMin = 4,
             repMax = 12,
             rirGoal = 2,
+            completedIsTopSet = false,
         )
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
@@ -237,33 +256,28 @@ class RecomputeRecommendationsUseCaseTest {
     @Test
     @DisplayName("Re-anchor: logged heavier than snapshot prescription reanchors upcoming weight")
     fun `heavier than prescription reanchors upcoming recommendation weight`() {
-        // Performed 400 on a set prescribed 200; upcoming snapshot still 200.
-        // Must re-anchor to 400 rather than Hold(200) with inflated projected reps.
         val rendered = twoTopSets(
             performedWeight = 400.0,
-            performedReps = 5,
+            performedReps = 12,
             performedRir = 2,
             repMin = 4,
-            repMax = 8,
+            repMax = 15,
             rirGoal = 2,
             upcomingWeight = 200.0,
             completedSetPrescribedWeight = 200.0,
+            completedIsTopSet = true,
         )
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null, "upcoming set must receive a live recommendation")
         assertEquals(400.0, rec!!.weight.amount, 0.01)
-        // At the re-anchored load, projected reps stay in the prescribed band (not 30+).
-        assertTrue(rec.reps in 4..8, "reps must stay in range at re-anchored load, was ${rec.reps}")
+        assertTrue(rec.reps >= BACKOFF_REP_FLOOR, "reps must clear floor at re-anchored load, was ${rec.reps}")
     }
 
     @Test
-    @DisplayName("Reduce weight rounds to lift's increment tier")
+    @DisplayName("Reduce weight steps down the increment lattice until last-set floor clears")
     fun `reduce weight rounds to increment tier`() {
-        // 100x3@1 RIR top set (5-8 range, rirGoal=1).
-        // e1RM from 100x4 = 112.13. At 100 lb, repsForWeight = 4 @ 0 RIR → 3 @ 1 RIR.
-        // targetReps (top, repMin=5) = 5. 3 < 5 → Reduce.
-        // weightForReps(112.13, 5+1=6) = 93.93 → rounded to 95 in the 40-100 band (5 lb).
+        // rem=1 → continuous best ≈89.4 → nearest 90 fails oracle → 85.
         val rendered = twoTopSets(
             performedWeight = 100.0,
             performedReps = 3,
@@ -275,7 +289,8 @@ class RecomputeRecommendationsUseCaseTest {
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift(tiers = defaultTiers)))
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
-        assertEquals(95.0, rec!!.weight.amount, 0.01)
+        assertEquals(85.0, rec!!.weight.amount, 0.01)
+        assertTrue(rec.reps >= BACKOFF_REP_FLOOR)
     }
 
     @Test
@@ -364,10 +379,11 @@ class RecomputeRecommendationsUseCaseTest {
     @DisplayName("Recommendation is produced for every upcoming set, keyed by slot id")
     fun `recommendations keyed by upcoming slot id`() {
         // Two upcoming sets after one logged set — both should get recommendations.
+        // Strong enough to Hold shared weight so rep steps are pure fatigue (not Reduce).
         val performed = LoggedSetValue(
             slotId = SetSlotId.Template(liftSetId),
             weight = lb(75.0),
-            reps = 8,
+            reps = 12,
             rir = 2,
         )
         val sets = listOf(
@@ -377,7 +393,7 @@ class RecomputeRecommendationsUseCaseTest {
                 liftId = liftId,
                 position = 0,
                 setType = SetType.Standard,
-                isTopSet = true,
+                isTopSet = false, // not on-track top set — exercise live multi-slot recs
                 repMin = 4,
                 repMax = 12,
                 rirGoal = 2,
@@ -434,21 +450,75 @@ class RecomputeRecommendationsUseCaseTest {
         assertEquals(2, recommendations.size)
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-2"))))
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-3"))))
-        // Fatigue steps per slot: set2 index=2 → 6 reps; set3 index=3 would be 4 raw but is
-        // floored at BACKOFF_REP_FLOOR (5).
-        assertEquals(6, recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!.reps)
-        assertEquals(5, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
+        // Capacity 14: set2 index=2 → 12@0 → 10@2; set3 index=3 → 10@0 → 8@2.
+        assertEquals(10, recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!.reps)
+        assertEquals(8, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
     }
 
     @Test
-    @DisplayName("Multi-set cascade: remaining slots get stepped fatigue, not a flat next-set copy")
+    @DisplayName("On-track top set cascade: no live overlay for remaining slots")
+    fun `on track top set cascade leaves snapshot recs`() {
+        val performed = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(165.0),
+            reps = 14,
+            rir = 2,
+        )
+        fun backoff(setId: String, position: Int) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(setId)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = false,
+            repMin = 8,
+            repMax = 20,
+            rirGoal = 1,
+            restSeconds = 90,
+            recommendedWeight = lb(165.0),
+            recommendedReps = 8,
+            loggedValue = null,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Machine Leg Extension",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        RenderedSet(
+                            slotId = SetSlotId.Template(liftSetId),
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            position = 0,
+                            setType = SetType.Standard,
+                            isTopSet = true,
+                            repMin = 8,
+                            repMax = 20,
+                            rirGoal = 2,
+                            restSeconds = 120,
+                            recommendedWeight = lb(165.0),
+                            recommendedReps = 8,
+                            loggedValue = performed,
+                        ),
+                        backoff("ls-2", 1),
+                        backoff("ls-3", 2),
+                        backoff("ls-4", 3),
+                    ),
+                ),
+            ),
+        )
+        assertTrue(useCase(rendered, mapOf(liftId to catalogLift())).isEmpty())
+    }
+
+    @Test
+    @DisplayName("Multi-set cascade: remaining slots get stepped fatigue when live path runs")
     fun `multi set cascade steps fatigue for each upcoming slot`() {
-        // Screenshot repro: top set 165×14@2 logged; three backoff slots @ RIR 1, same load.
-        // Population slope −2.0 capacity reps / set index, baseline capacity = 14+2 = 16:
-        //   set2 index=2 → raw 14 @0 → 13 @1 RIR
-        //   set3 index=3 → raw 12 @0 → 11 @1 RIR
-        //   set4 index=4 → raw 10 @0 →  9 @1 RIR
-        // (Not a flat 13/13/13 — each slot is one more decay step from the performed anchor.)
+        // Off-track completed (not top set) so live recs fire. Same load 165×14@2:
+        //   set2 index=2 → 13 @1 RIR; set3 → 11; set4 → 9
         val performed = LoggedSetValue(
             slotId = SetSlotId.Template(liftSetId),
             weight = lb(165.0),
@@ -477,7 +547,7 @@ class RecomputeRecommendationsUseCaseTest {
                 liftId = liftId,
                 position = 0,
                 setType = SetType.Standard,
-                isTopSet = true,
+                isTopSet = false,
                 repMin = 8,
                 repMax = 20,
                 rirGoal = 2,
@@ -600,7 +670,7 @@ class RecomputeRecommendationsUseCaseTest {
             liftId = liftId,
             position = position,
             setType = SetType.Standard,
-            isTopSet = position == 0,
+            isTopSet = false, // live path (on-track top set would leave snapshot alone)
             repMin = 1,
             repMax = 30,
             rirGoal = if (position == 0) 2 else 1,
@@ -645,6 +715,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMin = 4,
             repMax = 12,
             rirGoal = 2,
+            completedIsTopSet = false,
         )
         val fatigueByLiftId = mapOf(liftId to FatigueDecay(slope = -3.0, intercept = 0.0))
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
@@ -656,8 +727,6 @@ class RecomputeRecommendationsUseCaseTest {
     @Test
     @DisplayName("per-lift intercept shifts projected reps by a flat offset")
     fun `per lift intercept shifts projected reps`() {
-        // Baseline (population slope -2.0, intercept 0.0): 75x8@2 → raw set2 = 8 @ 0 RIR → 6 @ 2 RIR.
-        // With intercept -1.0 (one fewer rep across the board): raw set2 = 7 @ 0 RIR → 5 @ 2 RIR.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -665,6 +734,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMin = 4,
             repMax = 12,
             rirGoal = 2,
+            completedIsTopSet = false,
         )
         val fatigueByLiftId = mapOf(liftId to FatigueDecay(slope = -2.0, intercept = -1.0))
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
@@ -676,8 +746,6 @@ class RecomputeRecommendationsUseCaseTest {
     @Test
     @DisplayName("shallower per-lift slope yields more projected reps than population")
     fun `shallower slope yields more projected reps`() {
-        // Population slope -2.0 → 6 reps (see `75x8 at 2 RIR holds weight and projects 7 reps`).
-        // Shallower -1.0 slope: raw set2 = 9 @ 0 RIR → 7 @ 2 RIR.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -685,6 +753,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMin = 4,
             repMax = 12,
             rirGoal = 2,
+            completedIsTopSet = false,
         )
         val fatigueByLiftId = mapOf(liftId to FatigueDecay(slope = -1.0, intercept = 0.0))
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
@@ -696,8 +765,6 @@ class RecomputeRecommendationsUseCaseTest {
     @Test
     @DisplayName("lift absent from fatigueByLiftId falls back to population slope")
     fun `lift absent from fatigue map falls back to population`() {
-        // Same setup as the 6-rep population case, but fatigueByLiftId is empty (lift not in map).
-        // Must match the population-slope result (6 reps), not error or produce a different value.
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -705,6 +772,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMin = 4,
             repMax = 12,
             rirGoal = 2,
+            completedIsTopSet = false,
         )
         val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
@@ -729,7 +797,7 @@ class RecomputeRecommendationsUseCaseTest {
             liftId = liftId,
             position = 0,
             setType = SetType.Standard,
-            isTopSet = true,
+            isTopSet = false,
             repMin = 4,
             repMax = 12,
             rirGoal = 2,
@@ -758,8 +826,6 @@ class RecomputeRecommendationsUseCaseTest {
         )
         val rec = useCase(rendered, mapOf(liftId to catalogLift()))[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
-        // Null RIR is treated as 0 capacity-wise, but recommended reps still respect the
-        // global floor of BACKOFF_REP_FLOOR (5).
         assertTrue(rec!!.reps >= 5)
     }
 
@@ -803,7 +869,8 @@ class RecomputeRecommendationsUseCaseTest {
             liftId = lid,
             position = position,
             setType = SetType.Standard,
-            isTopSet = position == 0,
+            // Not top set so live recs fire for lift A (on-track would skip).
+            isTopSet = false,
             repMin = 4,
             repMax = 12,
             rirGoal = 2,
@@ -848,6 +915,338 @@ class RecomputeRecommendationsUseCaseTest {
         assertTrue(recommendations.containsKey(SetSlotId.Template(backoffSetId)))
         assertNull(recommendations[SetSlotId.Template(setB1)])
         assertNull(recommendations[SetSlotId.Template(setB2)])
+    }
+
+    @Test
+    @DisplayName("Honest reps: never raise projected capacity up to top-set repMin")
+    fun `honest reps never coerce up to repMin`() {
+        // Logged light vs prescription (off-track). Capacity at 100×8@2 → next set ~6 @ RIR 2,
+        // below repMin 10 — display must show ~6, not invent 10.
+        val performed = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(100.0),
+            reps = 8,
+            rir = 2,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Row",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        RenderedSet(
+                            slotId = SetSlotId.Template(liftSetId),
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            position = 0,
+                            setType = SetType.Standard,
+                            isTopSet = true,
+                            repMin = 10,
+                            repMax = 15,
+                            rirGoal = 2,
+                            restSeconds = 90,
+                            recommendedWeight = lb(240.0),
+                            recommendedReps = 10,
+                            loggedValue = performed,
+                        ),
+                        RenderedSet(
+                            slotId = SetSlotId.Template(backoffSetId),
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            position = 1,
+                            setType = SetType.Standard,
+                            isTopSet = true,
+                            repMin = 10,
+                            repMax = 15,
+                            rirGoal = 2,
+                            restSeconds = 90,
+                            recommendedWeight = lb(240.0),
+                            recommendedReps = 10,
+                            loggedValue = null,
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val rec = useCase(rendered, mapOf(liftId to catalogLift()))[SetSlotId.Template(backoffSetId)]
+        assertTrue(rec != null)
+        assertEquals(100.0, rec!!.weight.amount, 0.01)
+        assertTrue(rec.reps < 10, "must not invent repMin=10 when capacity is lower; got ${rec.reps}")
+        assertTrue(rec.reps >= 1)
+    }
+
+    @Test
+    @DisplayName("Mixed rirGoal remaining slots share one weight (straight sets)")
+    fun `mixed rir remaining slots share weight`() {
+        // Live path: completed not top-set. Remaining slots rir 1 then 2 — same load, different reps OK.
+        val performed = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(165.0),
+            reps = 12,
+            rir = 2,
+        )
+        fun slot(id: String, pos: Int, rir: Int, logged: LoggedSetValue?) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = pos,
+            setType = SetType.Standard,
+            isTopSet = false,
+            repMin = 0,
+            repMax = 0,
+            rirGoal = rir,
+            restSeconds = 90,
+            recommendedWeight = lb(165.0),
+            recommendedReps = 8,
+            loggedValue = logged,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Extension",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        slot("ls-1", 0, 2, performed),
+                        slot("ls-2", 1, 1, null),
+                        slot("ls-3", 2, 2, null),
+                    ),
+                ),
+            ),
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val r2 = recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!
+        val r3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!
+        assertEquals(r2.weight.amount, r3.weight.amount, 0.01, "straight-set shared weight")
+        // Higher RIR goal → fewer working reps at same capacity.
+        assertTrue(r3.reps <= r2.reps, "rir 2 slot should not recommend more reps than rir 1 at same load")
+    }
+
+    @Test
+    @DisplayName("Mixed rirGoal under Reduce still shares one weight (last-slot floor)")
+    fun `mixed rir under reduce shares one weight`() {
+        // Weak set forces Reduce; diverging RIR must not produce two different loads.
+        val performed = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(100.0),
+            reps = 3,
+            rir = 0,
+        )
+        fun slot(id: String, pos: Int, rir: Int, logged: LoggedSetValue?) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = pos,
+            setType = SetType.Standard,
+            isTopSet = false,
+            repMin = 0,
+            repMax = 0,
+            rirGoal = rir,
+            restSeconds = 90,
+            recommendedWeight = lb(100.0),
+            recommendedReps = 5,
+            loggedValue = logged,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Extension",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        slot("ls-1", 0, 2, performed),
+                        slot("ls-2", 1, 1, null),
+                        slot("ls-3", 2, 2, null),
+                    ),
+                ),
+            ),
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        assertEquals(2, recommendations.size)
+        val r2 = recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!
+        val r3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!
+        assertEquals(r2.weight.amount, r3.weight.amount, 0.01)
+        assertTrue(r2.weight.amount < 100.0, "weak set must reduce shared load")
+        assertTrue(r2.weight.amount > 0.0, "must never emit 0 lb")
+    }
+
+    @Test
+    @DisplayName("Unlogged sets before last performed do not get live recs (post-anchor only)")
+    fun `pre anchor unlogged sets get no live recommendation`() {
+        val midLogged = LoggedSetValue(
+            slotId = SetSlotId.Template(LiftSetId("ls-2")),
+            weight = lb(100.0),
+            reps = 8,
+            rir = 2,
+        )
+        fun slot(id: String, pos: Int, logged: LoggedSetValue?) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = pos,
+            setType = SetType.Standard,
+            isTopSet = pos == 0,
+            repMin = 4,
+            repMax = 12,
+            rirGoal = 2,
+            restSeconds = 90,
+            recommendedWeight = lb(100.0),
+            recommendedReps = 8,
+            loggedValue = logged,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Squat",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        slot("ls-1", 0, null), // before anchor
+                        slot("ls-2", 1, midLogged),
+                        slot("ls-3", 2, null), // after anchor
+                    ),
+                ),
+            ),
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        assertNull(recommendations[SetSlotId.Template(LiftSetId("ls-1"))])
+        assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-3"))))
+    }
+
+    @Test
+    @DisplayName("Too-easy bump does not ratchet when prior live weight is re-fed as prescription")
+    fun `too easy bump does not ratchet when live weight re fed`() {
+        // 100×12@1 is too easy for 3–6@1. First pass bumps from performed 100.
+        // Second pass feeds first live weight as upcoming Rx — must still bump from 100, not climb.
+        val performed = LoggedSetValue(
+            slotId = SetSlotId.Template(liftSetId),
+            weight = lb(100.0),
+            reps = 12,
+            rir = 1,
+        )
+        fun render(upcomingWeight: Double) = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Squat",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        RenderedSet(
+                            slotId = SetSlotId.Template(liftSetId),
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            position = 0,
+                            setType = SetType.Standard,
+                            isTopSet = true,
+                            repMin = 3,
+                            repMax = 6,
+                            rirGoal = 1,
+                            restSeconds = 120,
+                            recommendedWeight = lb(100.0),
+                            recommendedReps = 5,
+                            loggedValue = performed,
+                        ),
+                        RenderedSet(
+                            slotId = SetSlotId.Template(backoffSetId),
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            position = 1,
+                            setType = SetType.Standard,
+                            isTopSet = true,
+                            repMin = 3,
+                            repMax = 6,
+                            rirGoal = 1,
+                            restSeconds = 120,
+                            recommendedWeight = lb(upcomingWeight),
+                            recommendedReps = 5,
+                            loggedValue = null,
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val first = useCase(render(100.0), mapOf(liftId to catalogLift(tiers = defaultTiers)))
+        val w1 = first[SetSlotId.Template(backoffSetId)]!!.weight.amount
+        val second = useCase(render(w1), mapOf(liftId to catalogLift(tiers = defaultTiers)))
+        val w2 = second[SetSlotId.Template(backoffSetId)]!!.weight.amount
+        assertEquals(w1, w2, 0.01, "re-feeding live weight must not stack another bump")
+        assertTrue(w1 > 100.0, "too-easy should bump once above performed")
+        assertTrue(w1 <= 115.0, "single step bump from 100, was $w1")
+    }
+
+    @Test
+    @DisplayName("Lighter mid-session load re-anchors remaining weights and steps real rep projections")
+    fun `lighter mid session load reanchors weight and projects reps without floor clamp`() {
+        // Screenshot repro: set1 prescribed/logged 165; set2 prescribed 165 but logged 120×11@1.
+        // Remaining sets must hold 120 (not partially reduce to ~140) and show stepped reps
+        // above BACKOFF_REP_FLOOR — not a flat 5/5 clamp.
+        val set1 = LoggedSetValue(SetSlotId.Template(liftSetId), lb(165.0), 12, 2)
+        val set2 = LoggedSetValue(SetSlotId.Template(LiftSetId("ls-2")), lb(120.0), 11, 1)
+        fun set(
+            setId: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            prescribed: Double,
+            isTop: Boolean,
+            rirGoal: Int,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(setId)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = isTop,
+            repMin = if (isTop) 8 else 0,
+            repMax = if (isTop) 12 else 0,
+            rirGoal = rirGoal,
+            restSeconds = 90,
+            recommendedWeight = lb(prescribed),
+            recommendedReps = 8,
+            loggedValue = logged,
+        )
+        val rendered = RenderedWorkout(
+            workoutId = workoutId,
+            workoutName = "Workout 1",
+            lifts = listOf(
+                RenderedWorkoutLift(
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    liftName = "Machine Leg Extension",
+                    progressionScheme = ProgressionScheme.Double,
+                    sets = listOf(
+                        set("ls-1", 0, set1, 165.0, isTop = true, rirGoal = 2),
+                        set("ls-2", 1, set2, 165.0, isTop = false, rirGoal = 1),
+                        set("ls-3", 2, null, 165.0, isTop = false, rirGoal = 1),
+                        set("ls-4", 3, null, 165.0, isTop = false, rirGoal = 1),
+                    ),
+                ),
+            ),
+        )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        assertEquals(2, recommendations.size)
+        val r3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!
+        val r4 = recommendations[SetSlotId.Template(LiftSetId("ls-4"))]!!
+        assertEquals(120.0, r3.weight.amount, 0.01)
+        assertEquals(120.0, r4.weight.amount, 0.01)
+        assertTrue(r3.reps > BACKOFF_REP_FLOOR, "set3 reps must not be floor-clamped; got ${r3.reps}")
+        assertTrue(r4.reps >= BACKOFF_REP_FLOOR, "set4 reps must stay at/above floor; got ${r4.reps}")
+        assertTrue(r3.reps > r4.reps, "reps must step down with fatigue: ${r3.reps} then ${r4.reps}")
     }
 
     @Test
