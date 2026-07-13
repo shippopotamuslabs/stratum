@@ -15,9 +15,10 @@ import com.stratum.domain.workout.SlotHistoryEntry
  *   capacity-descending recent block (so recommendations are monotonically
  *   non-increasing across slots, correcting misreported-RIR "reps going up" history).
  * - [ProjectFromPrior] — the most-recent session logged fewer sets than the current
- *   program (e.g. 5→3→5), so this slot has no recent entry. Project from the prior
- *   slot recommendation via the fatigue model instead of falling back to stale
- *   positional history.
+ *   program (e.g. 5→3→5), so this slot has no recent entry. The orchestrator projects
+ *   from the **immediately previous** slot recommendation via the fatigue model (one
+ *   step), never from stale older-session positional history and never by re-anchoring
+ *   every missing slot to the top set.
  *
  * `SlotProgressionRequest.progressionBaseline = null` is the genuine cold-start case
  * (no history for this lift at all).
