@@ -12,15 +12,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
@@ -48,12 +43,12 @@ import com.stratum.core.ui.component.LiftSwapOptionRow
 import com.stratum.core.ui.component.LiftSwapOptionState
 import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.core.ui.component.MuscleFilterBottomSheet
+import com.stratum.core.ui.component.LiftPickerSearchBottomBar
+import com.stratum.core.ui.component.SelectedLiftsListPanel
 import com.stratum.core.ui.component.SelectedLiftsTray
 import com.stratum.core.ui.component.SelectedMusclesRow
-import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumScaffold
-import com.stratum.core.ui.component.StratumSearchField
 import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -215,11 +210,11 @@ fun LiftSwapScreen(
         },
         bottomBar = {
             if (!showSelectedPanel) {
-                LiftSwapBottomBar(
+                LiftPickerSearchBottomBar(
                     searchQuery = state.searchQuery,
                     onSearchQueryChanged = onSearchQueryChanged,
                     showDone = state.isAddMode,
-                    hasSelection = state.hasSelection,
+                    doneEnabled = state.hasSelection,
                     onDoneClick = onConfirmSelections,
                 )
             }
@@ -279,41 +274,6 @@ fun LiftSwapScreen(
             onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
             onClearAll = { onFilterIntent(LiftSwapFilterIntent.ResetMuscles) },
         )
-    }
-}
-
-@Composable
-private fun LiftSwapBottomBar(
-    searchQuery: String,
-    onSearchQueryChanged: (String) -> Unit,
-    showDone: Boolean,
-    hasSelection: Boolean,
-    onDoneClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                // Keep search above nav bar when idle and above IME when typing (union avoids
-                // double-padding once the keyboard covers the nav bar).
-                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        StratumSearchField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChanged,
-            modifier = Modifier.weight(1f),
-        )
-        if (showDone) {
-            StratumButton(
-                text = stringResource(R.string.lift_swap_done),
-                enabled = hasSelection,
-                onClick = onDoneClick,
-            )
-        }
     }
 }
 
@@ -445,72 +405,38 @@ private fun SelectedLiftsPanel(
     onAddAsSupersetChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    SelectedLiftsListPanel(
+        selectedOptions = state.selectedOptions,
+        onDeselectLift = onDeselectLift,
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        if (state.isAddMode && state.selectedOptions.size >= 2) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StratumText(
-                    text =
-                        if (state.selectedOptions.size > 2) {
-                            stringResource(R.string.lift_swap_add_as_giant_set)
-                        } else {
-                            stringResource(R.string.lift_swap_add_as_superset)
-                        },
-                    style = StratumThemeAccessor.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                StratumSwitch(
-                    checked = state.addAsSuperset,
-                    onCheckedChange = onAddAsSupersetChanged,
-                )
-            }
-        }
-
-        StratumText(
-            text = stringResource(R.string.lift_swap_selected_lifts_title),
-            style = StratumThemeAccessor.typography.sectionLabel,
-            muted = true,
-            modifier = Modifier.padding(vertical = 4.dp),
-        )
-
-        LazyColumn(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(state.selectedOptions, key = { option -> option.id }) { option ->
-                LiftSwapOptionRow(
-                    option = option,
-                    selected = true,
-                    onClick = { onDeselectLift(option.id) },
-                    trailingContent = {
-                        StratumIconButton(
-                            onClick = { onDeselectLift(option.id) },
-                            containerColor = Color.Transparent,
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_delete),
-                                contentDescription =
-                                    stringResource(
-                                        R.string.lift_swap_remove_selected_content_description,
-                                        option.name,
-                                    ),
-                                tint = StratumThemeAccessor.colors.textMuted,
-                            )
-                        }
-                    },
-                )
-            }
-        }
-    }
+        header =
+            if (state.isAddMode && state.selectedOptions.size >= 2) {
+                {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        StratumText(
+                            text =
+                                if (state.selectedOptions.size > 2) {
+                                    stringResource(R.string.lift_swap_add_as_giant_set)
+                                } else {
+                                    stringResource(R.string.lift_swap_add_as_superset)
+                                },
+                            style = StratumThemeAccessor.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        StratumSwitch(
+                            checked = state.addAsSuperset,
+                            onCheckedChange = onAddAsSupersetChanged,
+                        )
+                    }
+                }
+            } else {
+                null
+            },
+    )
 }
 
 private const val SIMILARITY_THRESHOLD = 0.4f

@@ -22,6 +22,12 @@ interface ProgramRepository {
 
     suspend fun getProgramById(programId: ProgramId): Program?
 
+    /**
+     * All user programs (active + library), excluding the import-history sentinel.
+     * Used when re-pointing template lift ids before catalog delete (merge lifts).
+     */
+    suspend fun getAllUserPrograms(): List<Program>
+
     /** Upserts the full hierarchy for [program]. When [Program.isActive] is true, demotes others. */
     suspend fun saveProgram(program: Program)
 

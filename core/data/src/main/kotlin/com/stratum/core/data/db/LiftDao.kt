@@ -91,6 +91,22 @@ interface LiftDao {
     )
     suspend fun setEnabled(id: LiftId, enabled: Boolean, updatedAtEpochMillis: Long)
 
+    /** Batch disable/enable for merge-hide (and similar bulk availability changes). */
+    @Query(
+        """
+        UPDATE lifts
+        SET enabled = :enabled,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id IN (:ids)
+        """,
+    )
+    suspend fun setEnabledForIds(
+        ids: List<LiftId>,
+        enabled: Boolean,
+        updatedAtEpochMillis: Long,
+    ): Int
+
     /**
      * Update primary/secondary muscle bitmasks for a **custom** lift only. Catalog rows are
      * left untouched (`isCustom = 1` predicate).

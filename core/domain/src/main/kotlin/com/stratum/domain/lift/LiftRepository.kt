@@ -114,4 +114,11 @@ interface LiftRepository {
      * defaults. Does not rewrite existing workout set rest values.
      */
     suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?)
+
+    /**
+     * Permanently removes catalog rows for [ids] (increment tiers cascade). Caller must re-point
+     * or remove any `workout_lifts` that reference these ids first (FK RESTRICT). Empty [ids]
+     * is a no-op. Cloud tombstones are enqueued for each deleted id.
+     */
+    suspend fun deleteLifts(ids: Collection<LiftId>)
 }

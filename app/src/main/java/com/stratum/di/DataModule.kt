@@ -13,6 +13,7 @@ import com.stratum.domain.onboarding.UserTrainingProfileRepository
 import com.stratum.core.data.db.UserProfileDao
 import com.stratum.core.data.repository.RoomEquipmentRepository
 import com.stratum.core.data.repository.RoomLiftRepository
+import com.stratum.core.data.repository.RoomMergeLiftsPort
 import com.stratum.core.data.repository.RoomOnboardingRepository
 import com.stratum.core.data.repository.RoomSpecializationPreferenceRepository
 import com.stratum.core.data.repository.RoomUserTrainingProfileRepository
@@ -22,6 +23,7 @@ import com.stratum.core.data.seed.EquipmentCatalogSeeder
 import com.stratum.core.data.seed.LiftCatalogSeeder
 import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.LiftRepository
+import com.stratum.domain.lift.MergeLiftsPort
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.SpecializationPreferenceRepository
 import com.stratum.core.data.db.ImportAnalysisMetadataDao
@@ -362,6 +364,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLiftRepository(impl: RoomLiftRepository): LiftRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMergeLiftsPort(impl: RoomMergeLiftsPort): MergeLiftsPort
 
     @Binds
     @Singleton
