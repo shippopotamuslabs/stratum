@@ -59,6 +59,7 @@ import com.stratum.domain.workout.SlotHistoryRequest
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionDefaults
 import com.stratum.domain.workout.progression.LinearProgressionEngine
+import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import java.io.File
 import java.time.Instant
@@ -312,6 +313,22 @@ class WorkoutViewModelTest {
         )
     }
 
+    private fun processScopedAbandon(
+        trainingLog: FakeTrainingLogRepository = trainingLogRepository,
+    ): ProcessScopedAbandonTrainingSession =
+        ProcessScopedAbandonTrainingSession(
+            abandonTrainingSession =
+                com.stratum.domain.training.AbandonTrainingSessionUseCase(
+                    trainingLog,
+                    FakeLoggingPort(),
+                ),
+            liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
+            applicationScope =
+                kotlinx.coroutines.CoroutineScope(
+                    kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Unconfined,
+                ),
+        )
+
     private fun buildViewModel(): WorkoutViewModel {
         // Uses the seeded [programRepository] / [progressionHistory] from [setUp].
         val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift(), catalogLift2()))
@@ -341,7 +358,7 @@ class WorkoutViewModelTest {
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
-            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository, FakeLoggingPort()),
+            processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
@@ -392,7 +409,7 @@ class WorkoutViewModelTest {
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
-            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository, FakeLoggingPort()),
+            processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
@@ -444,7 +461,7 @@ class WorkoutViewModelTest {
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
-            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository, FakeLoggingPort()),
+            processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
@@ -1081,7 +1098,7 @@ class WorkoutViewModelTest {
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
-            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository, FakeLoggingPort()),
+            processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
@@ -1144,7 +1161,7 @@ class WorkoutViewModelTest {
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             getLoggedSetsForSession = GetLoggedSetsForSessionUseCase(trainingLogRepository),
             deleteLoggedSet = DeleteLoggedSetUseCase(trainingLogRepository, FakeLoggingPort()),
-            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLogRepository, FakeLoggingPort()),
+            processScopedAbandon = processScopedAbandon(trainingLogRepository),
             finalizeTrainingSession = finalizeTrainingSession(liftRepo = liftRepository),
             applyOverlayToWorkout = com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase(),
             saveWorkoutUseCase = com.stratum.domain.program.SaveWorkoutUseCase(programRepository, NoOpProgramChangeEventRepository(), FakeLoggingPort()),
@@ -1205,13 +1222,18 @@ class WorkoutViewModelTest {
             val loaded = awaitLoaded()
             assertNotNull(loaded)
 
-            // Abandon the session
+            // Abandon the session (process-scoped delete; navigate event after success)
             viewModel.abandonSession()
+            advanceUntilIdle()
 
             // Should transition to NoActiveSession and reset states
             val noSession = awaitItem()
             assertTrue(noSession is WorkoutUiState.NoActiveSession)
 
+            cancelAndIgnoreRemainingEvents()
+        }
+        viewModel.events.test {
+            assertEquals(WorkoutUiEvent.NavigateBackAfterAbandon, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }

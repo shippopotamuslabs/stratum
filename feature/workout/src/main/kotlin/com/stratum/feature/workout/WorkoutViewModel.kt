@@ -24,7 +24,6 @@ import com.stratum.domain.training.FinalizeTrainingSessionUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
 import com.stratum.domain.training.LogSetCommand
 import com.stratum.domain.training.LogSetUseCase
-import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.UpdateLoggedSetUseCase
@@ -93,7 +92,7 @@ class WorkoutViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val getLoggedSetsForSession: GetLoggedSetsForSessionUseCase,
     private val deleteLoggedSet: DeleteLoggedSetUseCase,
-    private val abandonTrainingSession: AbandonTrainingSessionUseCase,
+    private val processScopedAbandon: ProcessScopedAbandonTrainingSession,
     private val finalizeTrainingSession: FinalizeTrainingSessionUseCase,
     private val applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
     private val saveWorkoutUseCase: SaveWorkoutUseCase,
@@ -762,42 +761,62 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Abandons via [ProcessScopedAbandonTrainingSession] so a concurrent nav pop cannot cancel
+     * the domain delete. Surfaces clear eagerly for instant notif UX;
+     * [com.stratum.feature.workout.notification.DomainActiveSessionSurfaceSync] re-derives set/clear
+     * from domain when the write lands. Navigation is via [WorkoutUiEvent.NavigateBackAfterAbandon]
+     * only after success.
+     */
     fun abandonSession() {
         val session = cachedSessionId
-        if (session != null) {
+        if (session == null) {
+            liveWorkoutSurfaces.clearSession()
+            resetLocalSessionState()
             viewModelScope.launch {
-                val result = abandonTrainingSession(session)
+                manageWorkoutOverlay.clear()
+                _events.send(WorkoutUiEvent.NavigateBackAfterAbandon)
+            }
+            return
+        }
+        val restoreWorkoutId = activeWorkoutId
+        val restoreName =
+            (_uiState.value as? WorkoutUiState.Loaded)?.workoutName
+        val restoreStartedMs = sessionStartedAt?.toEpochMilli()
+        processScopedAbandon.abandon(session) { result ->
+            viewModelScope.launch {
                 if (result.isFailure) {
                     _userMessage.value = MSG_ABANDON_FAILED
+                    // Eager clear left surfaces empty while domain session remains — re-publish.
+                    if (restoreWorkoutId != null && restoreName != null && restoreStartedMs != null) {
+                        liveWorkoutSurfaces.activeWorkout.setActive(
+                            workoutId = restoreWorkoutId.value,
+                            workoutName = restoreName,
+                            startedAtEpochMs = restoreStartedMs,
+                        )
+                    }
                     return@launch
                 }
-                sessionObservationJob?.cancel()
-                sessionObservationJob = null
-                activeWorkoutId = null
-                snapshotLoaded = false
-                structure = null
-                snapshotBySlot = emptyMap()
-                fatigueByLiftId = emptyMap()
-                overlay = WorkoutOverlay()
+                resetLocalSessionState()
                 manageWorkoutOverlay.clear()
-                liveWorkoutSurfaces.clearSession()
-                _uiState.value = WorkoutUiState.NoActiveSession
+                _events.send(WorkoutUiEvent.NavigateBackAfterAbandon)
             }
-        } else {
-            sessionObservationJob?.cancel()
-            sessionObservationJob = null
-            activeWorkoutId = null
-            snapshotLoaded = false
-            structure = null
-            snapshotBySlot = emptyMap()
-            fatigueByLiftId = emptyMap()
-            overlay = WorkoutOverlay()
-            viewModelScope.launch {
-                manageWorkoutOverlay.clear()
-            }
-            liveWorkoutSurfaces.clearSession()
-            _uiState.value = WorkoutUiState.NoActiveSession
         }
+    }
+
+    private fun resetLocalSessionState() {
+        sessionObservationJob?.cancel()
+        sessionObservationJob = null
+        activeWorkoutId = null
+        snapshotLoaded = false
+        structure = null
+        snapshotBySlot = emptyMap()
+        fatigueByLiftId = emptyMap()
+        overlay = WorkoutOverlay()
+        cachedSessionId = null
+        sessionStartedAt = null
+        baselineWorkout = null
+        _uiState.value = WorkoutUiState.NoActiveSession
     }
 
 
@@ -872,12 +891,9 @@ class WorkoutViewModel @Inject constructor(
             hasDirtyEdits = hasDirtyEdits,
             imageUrlByLiftId = imageUrlByLiftId,
         )
+        // Active-workout notification snapshot is derived from domain session by
+        // DomainActiveSessionSurfaceSync — do not dual-publish from render().
         _uiState.value = mapped
-        liveWorkoutSurfaces.activeWorkout.setActive(
-            workoutId = mapped.workoutId,
-            workoutName = mapped.workoutName,
-            startedAtEpochMs = mapped.sessionStartedAtEpochMilli,
-        )
     }
 
     private fun resolveSlot(slotId: SetSlotId): SetSlot? =

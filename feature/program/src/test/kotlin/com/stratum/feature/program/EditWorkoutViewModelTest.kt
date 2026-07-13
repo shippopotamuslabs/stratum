@@ -724,7 +724,7 @@ class EditWorkoutViewModelTest {
             val updated = awaitItem() as EditWorkoutUiState.Loaded
             assertEquals("incline-press", updated.lifts.first().liftId)
 
-            // Clear session
+            // Dispose-owned clear fully resets including Loading.
             viewModel.clearSession()
             val loading = awaitItem()
             assertTrue(loading is EditWorkoutUiState.Loading)

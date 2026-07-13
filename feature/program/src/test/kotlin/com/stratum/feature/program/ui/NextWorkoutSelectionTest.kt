@@ -18,7 +18,7 @@ class NextWorkoutSelectionTest {
                             name = "Done Day",
                             weekdayLabel = "Monday",
                             position = 0,
-                            lifts = emptyList(),
+                            lifts = listOf(sampleLift("wl-done")),
                             isCompleted = true,
                         ),
                 ),
@@ -30,12 +30,43 @@ class NextWorkoutSelectionTest {
                             name = "Next Day",
                             weekdayLabel = "Wednesday",
                             position = 1,
-                            lifts = emptyList(),
+                            lifts = listOf(sampleLift("wl-next")),
                         ),
                 ),
             )
 
         assertEquals("w-next", findNextWorkoutId(schedule))
+    }
+
+    @Test
+    @DisplayName("findNextWorkoutId skips incomplete empty-lift workouts")
+    fun findNextWorkoutId_skipsEmptyLiftWorkouts() {
+        val schedule =
+            listOf(
+                ScheduleItemState.RestDay(weekdayLabel = "Monday"),
+                ScheduleItemState.Workout(
+                    workout =
+                        WorkoutViewState(
+                            workoutId = "w-empty",
+                            name = "Empty Day",
+                            weekdayLabel = "Tuesday",
+                            position = 0,
+                            lifts = emptyList(),
+                        ),
+                ),
+                ScheduleItemState.Workout(
+                    workout =
+                        WorkoutViewState(
+                            workoutId = "w-lifts",
+                            name = "Training Day",
+                            weekdayLabel = "Wednesday",
+                            position = 1,
+                            lifts = listOf(sampleLift("wl-1")),
+                        ),
+                ),
+            )
+
+        assertEquals("w-lifts", findNextWorkoutId(schedule))
     }
 
     @Test
@@ -50,7 +81,7 @@ class NextWorkoutSelectionTest {
                             name = "Day A",
                             weekdayLabel = "Monday",
                             position = 0,
-                            lifts = emptyList(),
+                            lifts = listOf(sampleLift("wl-1")),
                             isCompleted = true,
                         ),
                 ),
@@ -58,4 +89,36 @@ class NextWorkoutSelectionTest {
 
         assertNull(findNextWorkoutId(schedule))
     }
+
+    @Test
+    @DisplayName("findNextWorkoutId returns null when only empty incomplete workouts remain")
+    fun findNextWorkoutId_returnsNullWhenOnlyEmptyRemain() {
+        val schedule =
+            listOf(
+                ScheduleItemState.RestDay(weekdayLabel = "Monday"),
+                ScheduleItemState.Workout(
+                    workout =
+                        WorkoutViewState(
+                            workoutId = "w-empty",
+                            name = "Empty",
+                            weekdayLabel = "Tuesday",
+                            position = 0,
+                            lifts = emptyList(),
+                        ),
+                ),
+            )
+
+        assertNull(findNextWorkoutId(schedule))
+    }
+
+    private fun sampleLift(workoutLiftId: String): WorkoutLiftLineState =
+        WorkoutLiftLineState(
+            workoutLiftId = workoutLiftId,
+            liftId = "lift-$workoutLiftId",
+            name = "Lift $workoutLiftId",
+            setCount = 3,
+            repRange = "8–10",
+            topSetRpe = "",
+            position = 0,
+        )
 }
