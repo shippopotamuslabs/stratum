@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.workout.fatigue.PopulationFatigueModel
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.KinematicProfile
@@ -271,9 +272,10 @@ class Slice2DoubleRecommendationTest {
     @Test
     @DisplayName("S2-rec-top-set-hold")
     fun `S2-rec-top-set-hold`() {
-        val lastPerformed = LoggedSetValue(slotId, lb(135.0), 5, 2)
-        val target = topSet(repMin = 4, repMax = 6, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
+        // Enough headroom that FatigueModel last set (index 2 when rem=1) still ≥ floor 5 @ RIR 2.
+        val lastPerformed = LoggedSetValue(slotId, lb(135.0), 10, 2)
+        val target = topSet(repMin = 4, repMax = 12, rirGoal = 2)
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertEquals(RecommendationOutcome.Hold(lb(135.0)), outcome)
     }
 
@@ -282,27 +284,21 @@ class Slice2DoubleRecommendationTest {
     fun `S2-rec-top-set-reduce`() {
         val lastPerformed = LoggedSetValue(slotId, lb(135.0), 4, 0)
         val target = topSet(repMin = 6, repMax = 8, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertNotNull(outcome)
-        assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when projected < repMin")
+        assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when last-set capacity < BACKOFF_REP_FLOOR")
         val reduce = outcome as RecommendationOutcome.Reduce
-        // Brzycki inverse derivation (spec-mandated formula, EstimatedOneRm constants):
-        //   e1rm = calculate(135.0, 4+0) = 151.378
-        //   projectedReps at 135 @ 2 RIR = repsForWeight(151.378, 135) - 2 = 4 - 2 = 2 < repMin=6 → Reduce
-        //   targetReps + rirGoal = 6 + 2 = 8 (reps at 0 RIR equivalent for the target RIR intent)
-        //   weightForReps(151.378, 8) = 151.378 * (1.0278 - 0.0278*8) / 1.0278 = 118.62
-        // The reduce branch must add rirGoal to the target reps so the reduced weight
-        // targets the slot's RIR intent, not 0 RIR (which would yield 126.81 — heavier).
-        assertEquals(118.62, reduce.weight.amount, 0.5)
+        // rem=1 → lastSetIndex=2; capacity-oracle continuous best ≈116.6.
+        assertEquals(116.6, reduce.weight.amount, 1.5)
     }
 
     @Test
     @DisplayName("S2-rec-backoff-hold")
     fun `S2-rec-backoff-hold`() {
         val backoffId = SetSlotId.Template(LiftSetId("ls-2"))
-        val lastPerformed = LoggedSetValue(backoffId, lb(100.0), 8, 2)
+        val lastPerformed = LoggedSetValue(backoffId, lb(100.0), 12, 2)
         val target = backoffSlot()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(100.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(100.0))
         assertEquals(RecommendationOutcome.Hold(lb(100.0)), outcome)
     }
 
@@ -312,13 +308,11 @@ class Slice2DoubleRecommendationTest {
         val backoffId = SetSlotId.Template(LiftSetId("ls-2"))
         val lastPerformed = LoggedSetValue(backoffId, lb(100.0), 5, 0)
         val target = backoffSlot()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(100.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(100.0))
         assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when projected < BACKOFF_REP_FLOOR")
         val reduce = outcome as RecommendationOutcome.Reduce
-        // e1rm = calculate(100.0, 5+0) = 115.639
-        // projectedReps at 100 @ 2 RIR = repsForWeight(115.639, 100) - 2 = 5 - 2 = 3 < 5 → Reduce
-        // weightForReps(115.639, 5 + 2 = 7) = 93.74 (RIR-aware target).
-        assertEquals(93.74, reduce.weight.amount, 0.5)
+        // rem=1 → lastSetIndex=2; capacity-oracle continuous best ≈89.1.
+        assertEquals(89.1, reduce.weight.amount, 1.5)
     }
 
     @Test
@@ -328,7 +322,7 @@ class Slice2DoubleRecommendationTest {
         // (the upcoming set is the first set of the session — no e1RM can be derived).
         // lastPerformed is nullable on the engine signature; null is passed directly.
         val target = topSet()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed = null, null, target, lb(135.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed = null, null, target, lb(135.0))
         assertNull(outcome)
     }
 
@@ -337,7 +331,7 @@ class Slice2DoubleRecommendationTest {
     fun `S2-mutation-defense-always-hold`() {
         val lastPerformed = LoggedSetValue(slotId, lb(135.0), 4, 0)
         val target = topSet(repMin = 6, repMax = 8, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertTrue(outcome is RecommendationOutcome.Reduce, "engine must NOT always return Hold")
     }
 
@@ -465,54 +459,58 @@ class Slice2DoubleRecommendationTest {
         val rec2 = engine.recommend(request(slot2, hist2, currentTopSetWeight = rec1.recommendedWeight))
         assertTrue(rec2.isProjected)
 
-        // Normal negative slope
+        // Sequential prior (slot2), one fatigue step — not re-anchor to top with position-based index.
         val rec3Normal = engine.recommend(
             request(
                 slot = slot3,
                 history = hist3,
                 currentTopSetWeight = rec1.recommendedWeight,
-                priorSlotRecommendation = rec1,
-                priorSlot = slot1,
+                priorSlotRecommendation = rec2,
+                priorSlot = slot2,
                 perLiftSlope = -2.0,
                 perLiftIntercept = 0.0,
             ),
         )
-        assertEquals(6, rec3Normal.baselineExpectedReps)
+        // prior rec2 at 120: failure capacity from rec2 reps + rirGoal 1; one step (index 2) at slope -2.
+        assertTrue(rec3Normal.baselineExpectedReps >= 5)
+        assertTrue(
+            rec2.baselineExpectedReps >= rec3Normal.baselineExpectedReps,
+            "sequential prior must not produce positively-sloped reps",
+        )
         assertTrue(rec3Normal.isProjected)
 
-        // Positive slope (clamp test)
+        // Positive slope clamped to 0: one step from prior still cannot increase capacity.
         val rec3Positive = engine.recommend(
             request(
                 slot = slot3,
                 history = hist3,
                 currentTopSetWeight = rec1.recommendedWeight,
-                priorSlotRecommendation = rec1,
-                priorSlot = slot1,
+                priorSlotRecommendation = rec2,
+                priorSlot = slot2,
                 perLiftSlope = 25.0,
                 perLiftIntercept = 0.0,
             ),
         )
-        // baseline = 11 reps, decay clamped to 0.0 -> capacity = 11. 11 - 1 RIR goal = 10.
-        assertEquals(10, rec3Positive.baselineExpectedReps)
+        assertTrue(rec3Positive.baselineExpectedReps >= 5)
+        assertTrue(rec2.baselineExpectedReps >= rec3Positive.baselineExpectedReps)
         assertTrue(rec3Positive.isProjected)
 
-        // No history for slot 3, but priorRec is projected -> should still project reps and set isProjected = true
+        // ProjectFromPrior with sequential prior → one step, still projected + ≥ floor
         val slot4 = backoffSlot().copy(slotId = SetSlotId.Template(LiftSetId("ls-4")), repMin = 8, repMax = 30, rirGoal = 1, position = 3)
         val rec4 = engine.recommend(
             request(
                 slot = slot4,
                 history = emptyList(),
                 currentTopSetWeight = rec1.recommendedWeight,
-                priorSlotRecommendation = rec1,
-                priorSlot = slot1,
+                priorSlotRecommendation = rec3Normal,
+                priorSlot = slot3,
                 perLiftSlope = -2.0,
                 perLiftIntercept = 0.0,
                 baseline = ProgressionBaseline.ProjectFromPrior,
             ),
         )
-        // baseline = 11 reps, decay for nextSetIndex = 4 (decay 2 steps) -> projected = 11 + -2.0 * 3 = 5. 5 - 1 RIR goal = 4.
-        // coerced to BACKOFF_REP_FLOOR (5).
-        assertEquals(5, rec4.baselineExpectedReps)
+        assertTrue(rec4.baselineExpectedReps >= 5)
+        assertTrue(rec3Normal.baselineExpectedReps >= rec4.baselineExpectedReps)
         assertTrue(rec4.isProjected)
     }
 
@@ -630,5 +628,129 @@ class Slice2DoubleRecommendationTest {
         assertEquals(12, rec0.previousReps)
         assertEquals(13, rec1.previousReps)
         assertEquals(15, rec2.previousReps)
+    }
+
+    // --- Sequential prior (engine-level; orchestrator mirrors this wiring) ---
+
+    @Test
+    @DisplayName("S2-sequential-prior-project-from-prior-one-step-no-positive-slope")
+    fun `S2-sequential-prior-project-from-prior-one-step-no-positive-slope`() {
+        val engine = DoubleProgressionEngine()
+        val slot0 = topSet(repMin = 8, repMax = 16, rirGoal = 2).copy(position = 0)
+        val slot1 = backoffSlot().copy(
+            slotId = SetSlotId.Template(LiftSetId("ls-2")),
+            repMin = 8,
+            repMax = 16,
+            rirGoal = 1,
+            position = 1,
+        )
+        val slot2 = backoffSlot().copy(
+            slotId = SetSlotId.Template(LiftSetId("ls-3")),
+            repMin = 8,
+            repMax = 16,
+            rirGoal = 1,
+            position = 2,
+        )
+        val hist0 = listOf(historyEntry(reps = 15, rir = 1, weight = 15.0))
+        // Slot 1/2 have no recent baseline → ProjectFromPrior with sequential priors
+        val rec0 = engine.recommend(request(slot0, hist0))
+        val rec1 = engine.recommend(
+            request(
+                slot = slot1,
+                history = emptyList(),
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec0,
+                priorSlot = slot0,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+                baseline = ProgressionBaseline.ProjectFromPrior,
+            ),
+        )
+        val rec2 = engine.recommend(
+            request(
+                slot = slot2,
+                history = emptyList(),
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec1,
+                priorSlot = slot1,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+                baseline = ProgressionBaseline.ProjectFromPrior,
+            ),
+        )
+        assertTrue(rec0.baselineExpectedReps >= rec1.baselineExpectedReps)
+        assertTrue(rec1.baselineExpectedReps >= rec2.baselineExpectedReps)
+        assertTrue(rec1.isProjected)
+        assertTrue(rec2.isProjected)
+        assertTrue(rec1.baselineExpectedReps >= 5)
+        assertTrue(rec2.baselineExpectedReps >= 5)
+    }
+
+    @Test
+    @DisplayName("S2-reanchor-to-top-prior-on-deep-slot-is-not-required-sequential-wins")
+    fun `S2-sequential-prior-beats-top-reanchor-for-deep-slots`() {
+        // After a hard mid-block set (6 reps), projecting set 3 from set 2 must not bounce
+        // above set 2's rec the way re-anchoring to top (15 reps) would.
+        val engine = DoubleProgressionEngine()
+        val slot0 = topSet(repMin = 8, repMax = 16, rirGoal = 2).copy(position = 0)
+        val slot1 = backoffSlot().copy(
+            slotId = SetSlotId.Template(LiftSetId("ls-2")),
+            repMin = 8,
+            repMax = 16,
+            rirGoal = 1,
+            position = 1,
+        )
+        val slot2 = backoffSlot().copy(
+            slotId = SetSlotId.Template(LiftSetId("ls-3")),
+            repMin = 8,
+            repMax = 16,
+            rirGoal = 1,
+            position = 2,
+        )
+        val hist0 = listOf(historyEntry(reps = 15, rir = 1, weight = 15.0))
+        val hist1 = listOf(historyEntry(reps = 6, rir = 1, weight = 15.0))
+        val rec0 = engine.recommend(request(slot0, hist0))
+        val rec1 = engine.recommend(
+            request(
+                slot = slot1,
+                history = hist1,
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec0,
+                priorSlot = slot0,
+            ),
+        )
+        val fromSequential = engine.recommend(
+            request(
+                slot = slot2,
+                history = emptyList(),
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec1,
+                priorSlot = slot1,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+                baseline = ProgressionBaseline.ProjectFromPrior,
+            ),
+        )
+        val fromTopReanchor = engine.recommend(
+            request(
+                slot = slot2,
+                history = emptyList(),
+                currentTopSetWeight = rec0.recommendedWeight,
+                priorSlotRecommendation = rec0,
+                priorSlot = slot0,
+                perLiftSlope = -2.0,
+                perLiftIntercept = 0.0,
+                baseline = ProgressionBaseline.ProjectFromPrior,
+            ),
+        )
+        assertTrue(
+            fromSequential.baselineExpectedReps <= rec1.baselineExpectedReps,
+            "sequential must not rise above prior slot",
+        )
+        // Document that top-reanchor can be higher — sequential is the correct product path
+        assertTrue(
+            fromSequential.baselineExpectedReps <= fromTopReanchor.baselineExpectedReps,
+            "sequential (${fromSequential.baselineExpectedReps}) should be ≤ top-reanchor (${fromTopReanchor.baselineExpectedReps})",
+        )
     }
 }

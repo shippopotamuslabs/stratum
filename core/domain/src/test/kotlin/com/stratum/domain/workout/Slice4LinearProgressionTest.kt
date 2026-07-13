@@ -27,6 +27,7 @@ import com.stratum.domain.workout.progression.ProgressionBaseline
 import com.stratum.domain.workout.progression.SlotProgressionRequest
 import com.stratum.domain.workout.progression.SchemeTransitionReason
 import com.stratum.domain.workout.progression.StallStrictness
+import com.stratum.domain.workout.progression.projectBaselineAtTargetWeight
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -610,14 +611,17 @@ class Slice4LinearProgressionTest {
         // Verify backoff set inherits 205 lb (straight sets) instead of 190 lb
         assertEquals(lb(205.0), boRec.recommendedWeight)
 
-        // Verify reps projected using top set's recommended X weight (205), Y reps (5) at Z RIR (2):
-        // priorSetE1rm = calculate(205.0, 5 + 2) = calculate(205.0, 7) = 252.87
-        // targetWeight = 205.0
-        // repsForWeight(252.87, 205.0) -> 7 reps at 0 RIR.
-        // projected capacity reps for next set (index 2 relative to index 1) = 7 + (-2.0 * 1) + 0 = 5.
-        // minus boSlot.rirGoal (2) = 3.
-        // coerced to at least BACKOFF_REP_FLOOR (5) = 5 reps.
-        assertEquals(5, boRec.baselineExpectedReps)
+        // FromRecent at a different shared load: reproject **this** slot's baseline (190×8@2)
+        // to 205 — not FatigueModel chain from the top rec (thermos: prefer real data).
+        val expected = projectBaselineAtTargetWeight(
+            baselineEntry = boHistory.first(),
+            targetWeight = lb(205.0),
+            slot = boSlot,
+            incrementTiers = emptyList(),
+            loadType = com.stratum.domain.lift.LoadType.Weighted,
+        ).second
+        assertEquals(expected, boRec.baselineExpectedReps)
+        assertTrue(boRec.baselineExpectedReps >= 5)
     }
 
     // --- Reps going up across sets (capacity-ordered recent block) ---

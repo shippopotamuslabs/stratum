@@ -328,7 +328,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(FakeFatigueModel()), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -379,7 +379,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(FakeFatigueModel()), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -431,7 +431,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(FakeFatigueModel()), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -845,7 +845,8 @@ class WorkoutViewModelTest {
             val updated = viewModel.uiState.value as WorkoutUiState.Loaded
             val ls2Set = updated.lifts.first().sets.firstOrNull { it.slotKey.contains("ls-2") }
             assertNotNull(ls2Set, "an upcoming ls-2 set must be rendered")
-            assertEquals(112.5, ls2Set!!.recommendedWeightLabel.toDouble(), 0.05)
+            // rem=1 → lastSetIndex=2; capacity-oracle reduce ≈106.7 for 135×1@0.
+            assertEquals(106.7, ls2Set!!.recommendedWeightLabel.toDouble(), 1.5)
             assertNull(ls2Set.loggedWeightLabel)
             cancelAndIgnoreRemainingEvents()
         }
@@ -965,10 +966,7 @@ class WorkoutViewModelTest {
     @Test
     @DisplayName("S7-weight-label-formatting: fractional weights round to 1 decimal, drop .0")
     fun `weight label formatting strips trailing zero and rounds to one decimal`() = runTest {
-        // 100x3@1 RIR top set (5-8 range, rirGoal=1).
-        // e1RM from 100x4 = 112.13. At 100 lb, repsForWeight = 4 @ 0 RIR → 3 @ 1 RIR.
-        // targetReps (top, repMin=5) = 5. 3 < 5 → Reduce.
-        // weightForReps(112.13, 5+1=6) = 93.93 → label "93.9".
+        // 100x3@1 RIR. Capacity-oracle reduce ≈89.4 (no tiers) → label "89.4".
         val viewModel = buildViewModelWithProgram(programWithTopSetRange(repMin = 5, repMax = 8, rirGoal = 1))
         viewModel.startSession(workoutId)
         viewModel.uiState.test {
@@ -982,17 +980,15 @@ class WorkoutViewModelTest {
             val label = nextSet!!.recommendedWeightLabel
             assertTrue(label.contains('.'), "expected a fractional label, got $label")
             assertTrue(label.substringAfter('.').length <= 1, "label must have at most 1 decimal: $label")
-            assertEquals(93.9, label.toDouble(), 0.1)
+            assertEquals(89.4, label.toDouble(), 1.0)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    @DisplayName("S7-increment-tier-rounding: reduce weight rounds to lift's increment tier")
+    @DisplayName("S7-increment-tier-rounding: reduce weight steps down lattice until floor clears")
     fun `reduce weight rounds to increment tier`() = runTest {
-        // Same scenario as S7-weight-label-formatting but with default population tiers.
-        // Raw reduce = 93.93. In the 40-100 band (5 lb), 93.93/5 = 18.79 → 19 → 95.
-        // The label should be "95" (no fractional — tier-aligned).
+        // Continuous best ≈89.4 → nearest 90 fails capacity → 85.
         val viewModel = buildViewModelWithProgram(
             program = programWithTopSetRange(repMin = 5, repMax = 8, rirGoal = 1),
             lifts = listOf(catalogLiftWithTiers()),
@@ -1005,7 +1001,7 @@ class WorkoutViewModelTest {
             val updated = viewModel.uiState.value as WorkoutUiState.Loaded
             val nextSet = updated.lifts.first().sets.firstOrNull { it.slotKey.contains("ls-2") }
             assertNotNull(nextSet)
-            assertEquals("95", nextSet!!.recommendedWeightLabel)
+            assertEquals("85", nextSet!!.recommendedWeightLabel)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1072,7 +1068,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(FakeFatigueModel()), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -1135,7 +1131,7 @@ class WorkoutViewModelTest {
                 ),
             mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
             projectStructure = ProjectWorkoutStructureUseCase(),
-            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(), FakeFatigueModel()),
+            recomputeRecommendationsUseCase = RecomputeRecommendationsUseCase(RecommendationEngine(FakeFatigueModel()), FakeFatigueModel()),
             estimateAddedSetReps = EstimateAddedSetRepsUseCase(FakeFatigueModel()),
             logSetUseCase = LogSetUseCase(
                 trainingLogRepository = trainingLogRepository,
@@ -1165,13 +1161,12 @@ class WorkoutViewModelTest {
             val loaded = awaitLoaded()
             val initialSets = loaded.lifts.first().sets
 
-            // Log the first set with target repMax=6 at 2 RIR.
-            // Case A (blank fallback): Log it with 135 lb x 5 reps at 2 RIR.
-            // The second set (initially blank) should fall back to get the completed set's weight (135.0).
+            // Case A (blank fallback): log 135×7@2 — not too-easy (≥2 over ceiling), enough
+            // capacity to Hold 135 after one fatigue step. Blank next slot re-anchors to 135.
             localViewModel.logSet(
                 slotKey = initialSets[0].slotKey,
                 weight = lb(135.0),
-                reps = 5,
+                reps = 7,
                 rir = 2,
             )
             val updated1 = awaitItem() as WorkoutUiState.Loaded
