@@ -4,53 +4,37 @@ import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.incrementForAmount
 import com.stratum.domain.lift.roundToIncrement
-import com.stratum.domain.response.POPULATION_FATIGUE_DECAY_SLOPE
+import com.stratum.domain.workout.fatigue.FatigueModel
 import javax.inject.Inject
+import kotlin.math.max
 
 /**
- * Overlay-only recommendation engine (D4). Hold-vs-reduce decision for the next upcoming
- * set, computed from the most recent performed set.
- *
- * - Top set (has rep range): targets `slot.repMin`.
- * - Backoff set (RIR-only): targets [BACKOFF_REP_FLOOR].
+ * Overlay-only recommendation engine (D4). Hold-vs-reduce decision for remaining sets,
+ * computed from the most recent performed set. **Weight selection uses the same
+ * [FatigueModel] oracle as rep projection** in [RecomputeRecommendationsUseCase].
  *
  * Decision tree (in order):
- * 1. **Too hard** — the lifter missed the rep-range floor (or backoff floor) by ≥ 2 reps
- *    considering RIR. REDUCE to a weight where the **last** remaining set hits the target
- *    reps at the target RIR, accounting for fatigue decay across remaining sets.
- * 2. **Too easy** — top-set ceiling exceeded by ≥ 2 reps considering RIR. Bump +5 lb and
- *    round to the lift's increment tier. (The e1RM-based bump round-trips back to the
- *    current weight when the user exceeded the target, so a flat increment is used.)
- * 3. **Hold vs Reduce** — if projected reps at the working weight ≥ target reps, HOLD.
- *    Otherwise REDUCE to the last-set-targeted weight (same formula as too-hard).
+ * 1. **On-track top set** — goal weight in RIR-adjusted range → `null` (snapshot stays put).
+ * 2. **Working weight** — re-anchor heavier/lighter vs intentional backoff
+ *    ([resolveWorkingWeight]). Callers must pass **snapshot / program** prescriptions as
+ *    [currentWeight] / [completedSetPrescribedWeight], never prior live overlay weights
+ *    (avoids too-easy bump ratcheting on every recompute).
+ * 3. **Too easy** — ceiling exceeded by ≥ 2 RIR-adjusted reps → try one increment step
+ *    (tier step, or 5 lb / 2.5 kg default). If bump fails last-set floor → keep current.
+ *    Only reduce when even current fails the floor.
+ * 4. **Hold vs Reduce** — last remaining set capacity ≥ [BACKOFF_REP_FLOOR] → Hold;
+ *    else Reduce via oracle search.
  *
- * **Working weight (re-anchor):** When the lifter logged heavier than the completed set's
- * prescribed baseline ([completedSetPrescribedWeight]), remaining slots re-anchor to
- * [LoggedSetValue.weight] instead of clinging to a lighter snapshot prescription. Intentional
- * backoff drops are preserved when the lifter did *not* exceed the completed set's
- * prescription (performed ≤ completed baseline → next slot keeps its prescribed weight).
+ * Last-set index: performed = 1; with [remainingCount] upcoming slots after the anchor,
+ * last index = `remainingCount + 1`.
  *
- * The reduce weight targets the **last** remaining set (most-fatigued) so every set stays
- * in range: `weightForReps(e1rm, targetReps + rirGoal + fatigueForLastSet)` where
- * `fatigueForLastSet = |POPULATION_FATIGUE_DECAY_SLOPE| × (remainingCount − 1)`.
- *
- * Output weights are rounded to the lift's [incrementTiers] so suggestions land on
- * realistic load jumps. `lastPerformed` is nullable: returns null when no performed set
- * exists yet for the lift (the upcoming set is the first set — no e1RM can be derived).
- * Never writes back into the snapshot.
- *
- * [loadType] (default [LoadType.Weighted]) shapes the math:
- * - **Bodyweight** ([LoadType.Bodyweight]): there is no load lever — returns `null` so the
- *   UI keeps the 0-weight placeholder. Rep projection is handled by [RecomputeRecommendationsUseCase].
- * - **Assisted** ([LoadType.Assisted]): the e1RM formula assumes weight = positive load, but
- *   assisted weights are negative, so the e1RM goes negative and trips the `> 0` guard. For
- *   v1 the live engine defers to the snapshot baseline (returns `null`); the snapshot engine
- *   already handles assisted progression correctly (increment toward 0, cap at 0). A future
- *   abs-based e1RM reformulation could enable intra-session assisted recommendations.
- * - **Weighted** ([LoadType.Weighted]): unchanged (current behavior).
+ * [loadType]: Bodyweight / Assisted → `null`.
  */
-class RecommendationEngine @Inject constructor() {
+class RecommendationEngine @Inject constructor(
+    private val fatigueModel: FatigueModel,
+) {
     fun recommendNextSet(
         lastPerformed: LoggedSetValue?,
         completedSlot: SetSlot?,
@@ -59,98 +43,186 @@ class RecommendationEngine @Inject constructor() {
         remainingCount: Int = 1,
         incrementTiers: List<IncrementTier> = emptyList(),
         perLiftSlope: Double? = null,
+        perLiftIntercept: Double? = null,
         loadType: LoadType = LoadType.Weighted,
-        // Snapshot baseline for the just-logged set (not the performed load — that is
-        // lastPerformed.weight). Detects "went heavier than prescribed" re-anchor.
         completedSetPrescribedWeight: Weight? = null,
     ): RecommendationOutcome? {
-        // Bodyweight: no load lever — rep-only progression (rep projection upstream).
-        if (loadType == LoadType.Bodyweight) return null
-        // Assisted: the e1RM formula assumes positive load, but assisted weights are
-        // negative, so the e1RM goes negative and trips the > 0 guard. For v1 the live
-        // engine defers to the snapshot baseline (which handles assisted progression
-        // correctly); a future abs-based e1RM reformulation could enable this path.
-        if (loadType == LoadType.Assisted) return null
+        if (loadType == LoadType.Bodyweight || loadType == LoadType.Assisted) return null
         if (lastPerformed == null || lastPerformed.weight.amount <= 0.0) return null
+
+        return recommendForPerformed(
+            lastPerformed = lastPerformed,
+            completedSlot = completedSlot,
+            targetSlot = targetSlot,
+            currentWeight = currentWeight,
+            remainingCount = remainingCount,
+            incrementTiers = incrementTiers,
+            perLiftSlope = perLiftSlope,
+            perLiftIntercept = perLiftIntercept,
+            loadType = loadType,
+            completedSetPrescribedWeight = completedSetPrescribedWeight,
+        )
+    }
+
+    private fun recommendForPerformed(
+        lastPerformed: LoggedSetValue,
+        completedSlot: SetSlot?,
+        targetSlot: SetSlot,
+        currentWeight: Weight,
+        remainingCount: Int,
+        incrementTiers: List<IncrementTier>,
+        perLiftSlope: Double?,
+        perLiftIntercept: Double?,
+        loadType: LoadType,
+        completedSetPrescribedWeight: Weight?,
+    ): RecommendationOutcome? {
+        if (isOnTrackTopSet(lastPerformed, completedSlot, completedSetPrescribedWeight)) return null
+
+        val effectiveRir = lastPerformed.rir ?: 0
+        val reps = lastPerformed.reps + effectiveRir
+        val e1rm = if (reps > 0) EstimatedOneRm.calculate(lastPerformed.weight.amount, reps) else 0.0
+        if (e1rm <= 0.0) return null
 
         val effectiveWeight = resolveWorkingWeight(
             performed = lastPerformed.weight,
             targetPrescribed = currentWeight,
             completedPrescribed = completedSetPrescribedWeight,
         )
+        val lastSetIndex = lastRemainingSetIndex(remainingCount)
+        val tooEasyHold = tryTooEasyHold(
+            lastPerformed = lastPerformed,
+            completedSlot = completedSlot,
+            e1rm = e1rm,
+            lastSetIndex = lastSetIndex,
+            targetRirGoal = targetSlot.rirGoal,
+            perLiftSlope = perLiftSlope,
+            perLiftIntercept = perLiftIntercept,
+            incrementTiers = incrementTiers,
+            loadType = loadType,
+        )
+        return tooEasyHold ?: holdOrReduce(
+            e1rm = e1rm,
+            effectiveWeight = effectiveWeight,
+            lastSetIndex = lastSetIndex,
+            targetRirGoal = targetSlot.rirGoal,
+            perLiftSlope = perLiftSlope,
+            perLiftIntercept = perLiftIntercept,
+            incrementTiers = incrementTiers,
+            loadType = loadType,
+        )
+    }
 
+    /**
+     * When the completed top set was too easy, try one increment above the performed load.
+     * Returns Hold(bumped) if the last set still clears the floor; otherwise null so the
+     * caller falls through to current-load Hold/Reduce (never force a cut for a failed bump).
+     */
+    private fun tryTooEasyHold(
+        lastPerformed: LoggedSetValue,
+        completedSlot: SetSlot?,
+        e1rm: Double,
+        lastSetIndex: Int,
+        targetRirGoal: Int,
+        perLiftSlope: Double?,
+        perLiftIntercept: Double?,
+        incrementTiers: List<IncrementTier>,
+        loadType: LoadType,
+    ): RecommendationOutcome.Hold? {
         val effectiveRir = lastPerformed.rir ?: 0
-        val reps = lastPerformed.reps + effectiveRir
-        val e1rm = if (reps > 0) EstimatedOneRm.calculate(lastPerformed.weight.amount, reps) else 0.0
-        // Global recommended-rep floor (BACKOFF_REP_FLOOR): top sets use max(repMin, floor);
-        // backoff/RIR-only slots target the floor. Prefer Reduce over sub-floor Hold.
-        val targetReps = if (targetSlot.isTopSet) {
-            maxOf(targetSlot.repMin, BACKOFF_REP_FLOOR)
-        } else {
-            BACKOFF_REP_FLOOR
-        }
-
-        if (e1rm <= 0.0 || targetReps <= 0) return null
-
-        // Fatigue decay (0-RIR reps) from the next set to the last remaining set. With
-        // remainingCount = 1, fatigueForLastSet = 0 (last set == next set). Per-lift slope
-        // overrides the population default when present, so the weight-reduction math stays
-        // consistent with the rep-projection math (both use the same slope).
-        val fatigueSlope = perLiftSlope ?: POPULATION_FATIGUE_DECAY_SLOPE
-        val fatigueForLastSet = (fatigueSlope * (remainingCount - 1)).toInt().unaryMinus()
-
-        // achievedRepsAtTargetRir normalizes the performed reps to the completed slot's RIR
-        // intent so the floor/ceiling comparisons are apples-to-apples.
-        val achievedRepsAtTargetRir = lastPerformed.reps + effectiveRir - (completedSlot?.rirGoal ?: 0)
-        val targetFloor = if (completedSlot?.isTopSet == true) {
-            maxOf(completedSlot.repMin, BACKOFF_REP_FLOOR)
-        } else {
-            BACKOFF_REP_FLOOR
-        }
-
-        // Too hard: missed the floor by ≥ 2 reps considering RIR. The e1RM round-trip can
-        // mask this (e.g. 75×2@2 projects 4 @ 2 RIR), so an explicit trigger is needed.
-        val isTooHard = completedSlot != null && (targetFloor - achievedRepsAtTargetRir) >= 2
-
-        // Too easy: exceeded the top-set ceiling by ≥ 2 reps considering RIR.
+        val achieved = lastPerformed.reps + effectiveRir - (completedSlot?.rirGoal ?: 0)
         val isTooEasy = completedSlot != null && completedSlot.isTopSet &&
-            (achievedRepsAtTargetRir - completedSlot.repMax >= 2)
+            completedSlot.repMax > 0 &&
+            (achieved - completedSlot.repMax >= 2)
+        if (!isTooEasy) return null
 
-        return if (isTooHard) {
-            // Reduce to the weight at which the last remaining set hits targetReps at the
-            // slot's RIR goal. `weightForReps` is defined at 0 RIR, so the target reps are
-            // shifted by `rirGoal` plus `fatigueForLastSet` (0-RIR rep decay to the last set).
-            val reduced = EstimatedOneRm.weightForReps(e1rm, targetReps + targetSlot.rirGoal + fatigueForLastSet)
-            RecommendationOutcome.Reduce(
-                incrementTiers.roundToIncrement(Weight(reduced, effectiveWeight.unit), loadType),
-            )
-        } else if (isTooEasy) {
-            // Bump up weight by a flat 5 lb (the e1RM-based bump round-trips back when the
-            // user exceeded the target, so a fixed increment is the reliable signal).
-            val bumpedWeight = Weight(effectiveWeight.amount + 5.0, effectiveWeight.unit)
-            RecommendationOutcome.Hold(incrementTiers.roundToIncrement(bumpedWeight, loadType))
+        val bumped = tooEasyBump(lastPerformed.weight, incrementTiers, loadType)
+        val bumpedCapacity = capacityAtRir(
+            e1rm = e1rm,
+            weight = bumped,
+            setIndex = lastSetIndex,
+            rirGoal = targetRirGoal,
+            perLiftSlope = perLiftSlope,
+            perLiftIntercept = perLiftIntercept,
+        )
+        return if (bumpedCapacity >= BACKOFF_REP_FLOOR) {
+            RecommendationOutcome.Hold(bumped)
         } else {
-            val projectedReps = EstimatedOneRm.repsForWeight(e1rm, effectiveWeight.amount) - targetSlot.rirGoal
-            if (projectedReps >= targetReps) {
-                // Working weight is already tier-aligned (snapshot or performed load) — no rounding.
-                RecommendationOutcome.Hold(effectiveWeight)
-            } else {
-                val reduced = EstimatedOneRm.weightForReps(e1rm, targetReps + targetSlot.rirGoal + fatigueForLastSet)
-                RecommendationOutcome.Reduce(
-                    incrementTiers.roundToIncrement(Weight(reduced, effectiveWeight.unit), loadType),
-                )
-            }
+            null
+        }
+    }
+
+    private fun holdOrReduce(
+        e1rm: Double,
+        effectiveWeight: Weight,
+        lastSetIndex: Int,
+        targetRirGoal: Int,
+        perLiftSlope: Double?,
+        perLiftIntercept: Double?,
+        incrementTiers: List<IncrementTier>,
+        loadType: LoadType,
+    ): RecommendationOutcome {
+        val lastSetCapacityAtRir = capacityAtRir(
+            e1rm = e1rm,
+            weight = effectiveWeight,
+            setIndex = lastSetIndex,
+            rirGoal = targetRirGoal,
+            perLiftSlope = perLiftSlope,
+            perLiftIntercept = perLiftIntercept,
+        )
+        return if (lastSetCapacityAtRir >= BACKOFF_REP_FLOOR) {
+            RecommendationOutcome.Hold(effectiveWeight)
+        } else {
+            RecommendationOutcome.Reduce(
+                reduceWeightForLastSetFloor(
+                    e1rm = e1rm,
+                    startFrom = effectiveWeight,
+                    lastSetIndex = lastSetIndex,
+                    rirGoal = targetRirGoal,
+                    perLiftSlope = perLiftSlope,
+                    perLiftIntercept = perLiftIntercept,
+                    incrementTiers = incrementTiers,
+                    loadType = loadType,
+                ),
+            )
         }
     }
 
     /**
-     * Working weight for Hold / too-easy bump on the next slot.
-     *
-     * - Blank next-slot prescription → performed load.
-     * - Performed heavier than both the completed set's baseline and the next-slot
-     *   prescription → re-anchor to performed (do not hold a lighter snapshot weight).
-     * - Otherwise keep the next slot's prescribed weight (intentional backoff drops).
+     * One product increment above [weight]: the lift's band step when tiers exist, else
+     * 5 lb / 2.5 kg. Then tier-round so the suggestion lands on plates.
      */
+    internal fun tooEasyBump(
+        weight: Weight,
+        incrementTiers: List<IncrementTier>,
+        loadType: LoadType,
+    ): Weight {
+        val step = when {
+            incrementTiers.isNotEmpty() -> {
+                val band = incrementTiers.incrementForAmount(weight.amount)
+                if (band > 0.0) band else defaultBumpAmount(weight.unit)
+            }
+            else -> defaultBumpAmount(weight.unit)
+        }
+        val raw = Weight(weight.amount + step, weight.unit)
+        return incrementTiers.roundToIncrement(raw, loadType)
+    }
+
+    internal fun isOnTrackTopSet(
+        lastPerformed: LoggedSetValue,
+        completedSlot: SetSlot?,
+        completedPrescribed: Weight?,
+    ): Boolean {
+        if (completedSlot == null || !completedSlot.isTopSet) return false
+        if (completedPrescribed == null || completedPrescribed.amount <= 0.0) return false
+        if (lastPerformed.weight.amount != completedPrescribed.amount) return false
+        if (completedSlot.repMin <= 0 && completedSlot.repMax <= 0) return false
+        val effectiveRir = lastPerformed.rir ?: 0
+        val achieved = lastPerformed.reps + effectiveRir - completedSlot.rirGoal
+        val lo = completedSlot.repMin
+        val hi = if (completedSlot.repMax > 0) completedSlot.repMax else Int.MAX_VALUE
+        return achieved in lo..hi
+    }
+
     internal fun resolveWorkingWeight(
         performed: Weight,
         targetPrescribed: Weight,
@@ -158,10 +230,186 @@ class RecommendationEngine @Inject constructor() {
     ): Weight {
         if (targetPrescribed.amount <= 0.0) return performed
         val baselineAmount = completedPrescribed?.amount ?: return targetPrescribed
-        return if (performed.amount > maxOf(baselineAmount, targetPrescribed.amount)) {
-            performed
+        return when {
+            performed.amount > maxOf(baselineAmount, targetPrescribed.amount) -> performed
+            performed.amount < baselineAmount -> {
+                if (targetPrescribed.amount < performed.amount) targetPrescribed else performed
+            }
+            else -> targetPrescribed
+        }
+    }
+
+    /** Performed anchor = 1; last of [remainingCount] post-anchor upcoming = remainingCount + 1. */
+    internal fun lastRemainingSetIndex(remainingCount: Int): Int =
+        (remainingCount + 1).coerceAtLeast(1)
+
+    /**
+     * Capacity at slot RIR. Non-positive loads are treated as failing the floor
+     * (never “infinite capacity”), so reduce never treats 0 lb as a successful lattice stop.
+     */
+    internal fun capacityAtRir(
+        e1rm: Double,
+        weight: Weight,
+        setIndex: Int,
+        rirGoal: Int,
+        perLiftSlope: Double?,
+        perLiftIntercept: Double?,
+    ): Int {
+        if (weight.amount <= 0.0) return Int.MIN_VALUE / 4
+        val raw0Rir = fatigueModel.expectedRepsForAddedSet(
+            baselineOneRm = e1rm,
+            targetWeight = weight,
+            nextSetIndex = setIndex,
+            perLiftSlope = perLiftSlope,
+            perLiftIntercept = perLiftIntercept,
+        )
+        return raw0Rir - rirGoal
+    }
+
+    /**
+     * Heaviest load ≤ [startFrom] with last-set capacity ≥ [BACKOFF_REP_FLOOR].
+     * Never returns a non-positive weight when a positive continuous solution exists.
+     */
+    private fun reduceWeightForLastSetFloor(
+        e1rm: Double,
+        startFrom: Weight,
+        lastSetIndex: Int,
+        rirGoal: Int,
+        perLiftSlope: Double?,
+        perLiftIntercept: Double?,
+        incrementTiers: List<IncrementTier>,
+        loadType: LoadType,
+    ): Weight {
+        val unit = startFrom.unit
+        val ceiling = startFrom.amount.coerceAtLeast(0.0)
+        if (ceiling <= 0.0) {
+            // No positive start — return a minimal positive probe still evaluated by caller path.
+            return Weight(defaultBumpAmount(unit), unit)
+        }
+
+        fun cap(amount: Double): Int = capacityAtRir(
+            e1rm = e1rm,
+            weight = Weight(amount, unit),
+            setIndex = lastSetIndex,
+            rirGoal = rirGoal,
+            perLiftSlope = perLiftSlope,
+            perLiftIntercept = perLiftIntercept,
+        )
+
+        var lo = 0.0
+        var hi = ceiling
+        var bestContinuous = 0.0
+        repeat(BINARY_SEARCH_ITERS) {
+            val mid = (lo + hi) / 2.0
+            if (mid > 0.0 && cap(mid) >= BACKOFF_REP_FLOOR) {
+                bestContinuous = mid
+                lo = mid
+            } else {
+                hi = mid
+            }
+        }
+
+        // Unsatisfiable floor: still return a positive continuous best-effort (may be tiny).
+        if (bestContinuous <= 0.0) {
+            return Weight(minPositiveStep(ceiling, incrementTiers, unit), unit)
+        }
+
+        if (incrementTiers.isEmpty() || loadType == LoadType.Bodyweight) {
+            return Weight(bestContinuous, unit)
+        }
+
+        var candidate = incrementTiers.roundToIncrement(Weight(bestContinuous, unit), loadType)
+        if (candidate.amount > ceiling) {
+            candidate = stepDownAligned(candidate, incrementTiers, loadType)
+        }
+
+        var guard = 0
+        while (
+            guard < MAX_TIER_STEPS &&
+            candidate.amount > 0.0 &&
+            capacityAtRir(
+                e1rm = e1rm,
+                weight = candidate,
+                setIndex = lastSetIndex,
+                rirGoal = rirGoal,
+                perLiftSlope = perLiftSlope,
+                perLiftIntercept = perLiftIntercept,
+            ) < BACKOFF_REP_FLOOR
+        ) {
+            val next = stepDownAligned(candidate, incrementTiers, loadType)
+            if (next.amount <= 0.0 || next.amount >= candidate.amount - AMOUNT_EPS) {
+                break
+            }
+            candidate = next
+            guard++
+        }
+
+        val candidateOk = candidate.amount > 0.0 &&
+            capacityAtRir(
+                e1rm = e1rm,
+                weight = candidate,
+                setIndex = lastSetIndex,
+                rirGoal = rirGoal,
+                perLiftSlope = perLiftSlope,
+                perLiftIntercept = perLiftIntercept,
+            ) >= BACKOFF_REP_FLOOR
+
+        return if (candidateOk) {
+            candidate
         } else {
-            targetPrescribed
+            // Tier lattice failed (or hit bottom) — continuous positive solution.
+            Weight(bestContinuous, unit)
+        }
+    }
+
+    private fun stepDownAligned(
+        weight: Weight,
+        incrementTiers: List<IncrementTier>,
+        loadType: LoadType,
+    ): Weight {
+        val step = incrementTiers.incrementForAmount(weight.amount).let { s ->
+            if (s > 0.0) s else defaultBumpAmount(weight.unit)
+        }
+        val lowerAmount = max(0.0, weight.amount - step)
+        if (lowerAmount <= 0.0) {
+            return Weight(0.0, weight.unit) // signal bottom; caller falls back to continuous
+        }
+        val rounded = incrementTiers.roundToIncrement(Weight(lowerAmount, weight.unit), loadType)
+        return if (rounded.amount <= lowerAmount + AMOUNT_EPS) {
+            rounded
+        } else {
+            val forced = max(0.0, rounded.amount - step)
+            if (forced <= 0.0) Weight(0.0, weight.unit)
+            else Weight(forced, weight.unit)
+        }
+    }
+
+    private fun minPositiveStep(
+        ceiling: Double,
+        incrementTiers: List<IncrementTier>,
+        unit: Weight.WeightUnit,
+    ): Double {
+        if (incrementTiers.isEmpty()) {
+            return defaultBumpAmount(unit).coerceAtMost(ceiling.coerceAtLeast(defaultBumpAmount(unit)))
+        }
+        val step = incrementTiers.incrementForAmount(ceiling.coerceAtLeast(1.0)).let { s ->
+            if (s > 0.0) s else defaultBumpAmount(unit)
+        }
+        return step
+    }
+
+    companion object {
+        private const val BINARY_SEARCH_ITERS: Int = 48
+        private const val MAX_TIER_STEPS: Int = 256
+        private const val AMOUNT_EPS: Double = 1e-9
+
+        private const val DEFAULT_BUMP_LB: Double = 5.0
+        private const val DEFAULT_BUMP_KG: Double = 2.5
+
+        /** Default too-easy / step size when no tier band applies. */
+        fun defaultBumpAmount(unit: Weight.WeightUnit): Double = when (unit) {
+            Weight.WeightUnit.Lb -> DEFAULT_BUMP_LB
+            Weight.WeightUnit.Kg -> DEFAULT_BUMP_KG
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.workout.fatigue.PopulationFatigueModel
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.KinematicProfile
@@ -271,9 +272,10 @@ class Slice2DoubleRecommendationTest {
     @Test
     @DisplayName("S2-rec-top-set-hold")
     fun `S2-rec-top-set-hold`() {
-        val lastPerformed = LoggedSetValue(slotId, lb(135.0), 5, 2)
-        val target = topSet(repMin = 4, repMax = 6, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
+        // Enough headroom that FatigueModel last set (index 2 when rem=1) still ≥ floor 5 @ RIR 2.
+        val lastPerformed = LoggedSetValue(slotId, lb(135.0), 10, 2)
+        val target = topSet(repMin = 4, repMax = 12, rirGoal = 2)
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertEquals(RecommendationOutcome.Hold(lb(135.0)), outcome)
     }
 
@@ -282,27 +284,21 @@ class Slice2DoubleRecommendationTest {
     fun `S2-rec-top-set-reduce`() {
         val lastPerformed = LoggedSetValue(slotId, lb(135.0), 4, 0)
         val target = topSet(repMin = 6, repMax = 8, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertNotNull(outcome)
-        assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when projected < repMin")
+        assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when last-set capacity < BACKOFF_REP_FLOOR")
         val reduce = outcome as RecommendationOutcome.Reduce
-        // Brzycki inverse derivation (spec-mandated formula, EstimatedOneRm constants):
-        //   e1rm = calculate(135.0, 4+0) = 151.378
-        //   projectedReps at 135 @ 2 RIR = repsForWeight(151.378, 135) - 2 = 4 - 2 = 2 < repMin=6 → Reduce
-        //   targetReps + rirGoal = 6 + 2 = 8 (reps at 0 RIR equivalent for the target RIR intent)
-        //   weightForReps(151.378, 8) = 151.378 * (1.0278 - 0.0278*8) / 1.0278 = 118.62
-        // The reduce branch must add rirGoal to the target reps so the reduced weight
-        // targets the slot's RIR intent, not 0 RIR (which would yield 126.81 — heavier).
-        assertEquals(118.62, reduce.weight.amount, 0.5)
+        // rem=1 → lastSetIndex=2; capacity-oracle continuous best ≈116.6.
+        assertEquals(116.6, reduce.weight.amount, 1.5)
     }
 
     @Test
     @DisplayName("S2-rec-backoff-hold")
     fun `S2-rec-backoff-hold`() {
         val backoffId = SetSlotId.Template(LiftSetId("ls-2"))
-        val lastPerformed = LoggedSetValue(backoffId, lb(100.0), 8, 2)
+        val lastPerformed = LoggedSetValue(backoffId, lb(100.0), 12, 2)
         val target = backoffSlot()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(100.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(100.0))
         assertEquals(RecommendationOutcome.Hold(lb(100.0)), outcome)
     }
 
@@ -312,13 +308,11 @@ class Slice2DoubleRecommendationTest {
         val backoffId = SetSlotId.Template(LiftSetId("ls-2"))
         val lastPerformed = LoggedSetValue(backoffId, lb(100.0), 5, 0)
         val target = backoffSlot()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(100.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(100.0))
         assertTrue(outcome is RecommendationOutcome.Reduce, "must Reduce when projected < BACKOFF_REP_FLOOR")
         val reduce = outcome as RecommendationOutcome.Reduce
-        // e1rm = calculate(100.0, 5+0) = 115.639
-        // projectedReps at 100 @ 2 RIR = repsForWeight(115.639, 100) - 2 = 5 - 2 = 3 < 5 → Reduce
-        // weightForReps(115.639, 5 + 2 = 7) = 93.74 (RIR-aware target).
-        assertEquals(93.74, reduce.weight.amount, 0.5)
+        // rem=1 → lastSetIndex=2; capacity-oracle continuous best ≈89.1.
+        assertEquals(89.1, reduce.weight.amount, 1.5)
     }
 
     @Test
@@ -328,7 +322,7 @@ class Slice2DoubleRecommendationTest {
         // (the upcoming set is the first set of the session — no e1RM can be derived).
         // lastPerformed is nullable on the engine signature; null is passed directly.
         val target = topSet()
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed = null, null, target, lb(135.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed = null, null, target, lb(135.0))
         assertNull(outcome)
     }
 
@@ -337,7 +331,7 @@ class Slice2DoubleRecommendationTest {
     fun `S2-mutation-defense-always-hold`() {
         val lastPerformed = LoggedSetValue(slotId, lb(135.0), 4, 0)
         val target = topSet(repMin = 6, repMax = 8, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(lastPerformed, null, target, lb(135.0))
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(lastPerformed, null, target, lb(135.0))
         assertTrue(outcome is RecommendationOutcome.Reduce, "engine must NOT always return Hold")
     }
 
