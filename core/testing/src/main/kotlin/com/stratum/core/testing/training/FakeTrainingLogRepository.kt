@@ -205,6 +205,12 @@ class FakeTrainingLogRepository(
             .filter { it.liftId == liftId }
             .sortedByDescending { it.completedAt }
 
+    override suspend fun getSetsForLifts(liftIds: Collection<LiftId>): List<LoggedSet> {
+        if (liftIds.isEmpty()) return emptyList()
+        val wanted = liftIds.toSet()
+        return getAllSets().filter { set -> set.liftId != null && set.liftId in wanted }
+    }
+
     override suspend fun updateSets(sets: List<LoggedSet>) {
         sets.forEach { updateSet(it) }
     }
