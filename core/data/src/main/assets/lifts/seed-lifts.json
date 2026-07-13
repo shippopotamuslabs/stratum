@@ -730,8 +730,8 @@
     "kinematicProfile": "AxialCompound"
   },
   {
-    "id": "barbell-upright-row",
-    "name": "Barbell Upright Row",
+    "id": "upright-barbell-row",
+    "name": "Upright Barbell Row",
     "primaryMuscles": [
       "Trap",
       "LateralDeltoid"
@@ -744,9 +744,12 @@
       "CommercialGym",
       "GarageGym"
     ],
-    "imageSlug": "Barbell_Upright_Row",
-    "description": "Stand up straight while holding a barbell using a pronated (palms facing your thighs) grip that is slightly less than shoulder width. The bar should rest on top of your thighs. Your arms should be extended with a slight bend at the elbows and your back should be straight. This will be your starting position. Use your side shoulders to lift the bar as you exhale. Keep the bar close to your body as you move it up. Continue to lift it until it nearly touches your chin. Tip: Your elbows should drive the motion and stay higher than your forearms. Keep your torso stationary and pause briefly at the top. Lower the bar back down slowly to the starting position as you inhale. Repeat for the recommended amount of repetitions. Tip: Fixed preloaded bars work well for this movement when available.",
-    "imageUris": [],
+    "imageSlug": "Upright_Barbell_Row",
+    "description": "Grasp a barbell with an overhand grip that is slightly less than shoulder width. The bar should be resting on the top of your thighs with your arms extended and a slight bend in your elbows. Your back should also be straight. This will be your starting position. Now exhale and use the sides of your shoulders to lift the bar, raising your elbows up and to the side. Keep the bar close to your body as you raise it. Continue to lift the bar until it nearly touches your chin. Tip: Your elbows should drive the motion, and should always be higher than your forearms. Remember to keep your torso stationary and pause for a second at the top of the movement. Lower the bar back down slowly to the starting position. Inhale as you perform this portion of the movement. Repeat for the recommended amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Upright_Barbell_Row/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Upright_Barbell_Row/1.jpg"
+    ],
     "muscleLengthBias": "MidRange",
     "movementPatterns": [
       "ScapularElevation",
@@ -3761,14 +3764,14 @@
       "CommercialGym"
     ],
     "imageSlug": "Machine_Glute_Kickback",
-    "description": "Adjust the machine's chest pad and footplate to your height. Stand facing the machine, placing one foot onto the footplate and securing your chest/hips against the pad. Keeping your core tight, press the footplate backward and upward using your glutes. Extend your leg fully without arching your lower back. Hold the contraction for a second, then slowly return to the starting position.",
+    "description": "Adjust the machine pad so it sits behind your working knee or foot (depending on machine design). Brace against the support pads and drive the working leg back by extending the hip until the glute is fully contracted. Control the return without letting the weight stack slam, then repeat. Keep the torso stable and avoid hyperextending the lower back.",
     "imageUris": [],
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "kinematicProfile": "Isolation"
   },
   {
     "id": "machine-leg-extension",
@@ -3817,8 +3820,8 @@
     "kinematicProfile": "Isolation"
   },
   {
-    "id": "machine-seated-leg-curl",
-    "name": "Machine Seated Leg Curl",
+    "id": "seated-leg-curl",
+    "name": "Seated Leg Curl",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -3826,9 +3829,12 @@
     "presetTags": [
       "CommercialGym"
     ],
-    "imageSlug": "Machine_Seated_Leg_Curl",
-    "description": "Sit on the machine with your back flat against the back support. Place the back of your lower legs on top of the padded lever (just below the calves) and secure the lap pad against your thighs. Grasp the handles. Curl your legs downward and backward towards your body by flexing the knees, holding the peak contraction briefly. Slowly return to the starting position.",
-    "imageUris": [],
+    "imageSlug": "Seated_Leg_Curl",
+    "description": "Adjust the machine lever to fit your height and sit on the machine with your back against the back support pad. Place the back of lower leg on top of padded lever (just a few inches under the calves) and secure the lap pad against your thighs, just above the knees. Then grasp the side handles on the machine as you point your toes straight (or you can also use any of the other two stances) and ensure that the legs are fully straight right in front of you. This will be your starting position. As you exhale, pull the machine lever as far as possible to the back of your thighs by flexing at the knees. Keep your torso stationary at all times. Hold the contracted position for a second. Slowly return to the starting position as you breathe in. Repeat for the recommended amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Leg_Curl/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Leg_Curl/1.jpg"
+    ],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "KneeFlexion"
@@ -3860,8 +3866,8 @@
     "kinematicProfile": "NonAxialCompound"
   },
   {
-    "id": "machine-standing-leg-curl",
-    "name": "Machine Standing Leg Curl",
+    "id": "standing-leg-curl",
+    "name": "Standing Leg Curl",
     "primaryMuscles": [
       "Hamstring"
     ],
@@ -3869,9 +3875,12 @@
     "presetTags": [
       "CommercialGym"
     ],
-    "imageSlug": "Machine_Standing_Leg_Curl",
-    "description": "Adjust the lever pad to rest just below your calf on the working leg. Stand facing the machine and place your other knee/shin on the support pad. Grasp the handles and lean forward slightly. Flex at the knee of the working leg to curl the pad upward towards your glutes. Hold the contraction, then slowly lower the leg back to the starting position.",
-    "imageUris": [],
+    "imageSlug": "Standing_Leg_Curl",
+    "description": "Adjust the machine lever to fit your height and lie with your torso bent at the waist facing forward around 30-45 degrees (since an angled position is more favorable for hamstrings recruitment) with the pad of the lever on the back of your right leg (just a few inches under the calves) and the front of the right leg on top of the machine pad. Keeping the torso bent forward, ensure your leg is fully stretched and grab the side handles of the machine. Position your toes straight. This will be your starting position. As you exhale, curl your right leg up as far as possible without lifting the upper leg from the pad. Once you hit the fully contracted position, hold it for a second. As you inhale, bring the legs back to the initial position. Repeat for the recommended amount of repetitions. Perform the same exercise now for the left leg.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Leg_Curl/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Leg_Curl/1.jpg"
+    ],
     "muscleLengthBias": "Shortened",
     "movementPatterns": [
       "KneeFlexion"
@@ -4973,7 +4982,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Smith_Machine_Calf_Raise",
-    "description": "Smith Machine Calf Raise \u2014 plantar flexion for calf development.",
+    "description": "Smith Machine Calf Raise — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Calf_Raise/1.jpg"
@@ -4996,7 +5005,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Calf_Press_On_The_Leg_Press_Machine",
-    "description": "Calf Raise on Leg Press \u2014 plantar flexion for calf development.",
+    "description": "Calf Raise on Leg Press — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/1.jpg"
@@ -5019,7 +5028,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Standing_Calf_Raises",
-    "description": "Standing Calf Raise Machine \u2014 plantar flexion for calf development.",
+    "description": "Standing Calf Raise Machine — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/1.jpg"
@@ -5043,7 +5052,7 @@
       "GarageGym"
     ],
     "imageSlug": "Standing_Dumbbell_Calf_Raise",
-    "description": "Single Leg Dumbbell Calf Raise \u2014 plantar flexion for calf development.",
+    "description": "Single Leg Dumbbell Calf Raise — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Calf_Raise/1.jpg"
@@ -5067,7 +5076,7 @@
       "GarageGym"
     ],
     "imageSlug": "Dumbbell_Seated_One-Leg_Calf_Raise",
-    "description": "Dumbbell Seated One-Leg Calf Raise \u2014 plantar flexion for calf development.",
+    "description": "Dumbbell Seated One-Leg Calf Raise — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Seated_One-Leg_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Seated_One-Leg_Calf_Raise/1.jpg"
@@ -5091,7 +5100,7 @@
       "GarageGym"
     ],
     "imageSlug": "Standing_Barbell_Calf_Raise",
-    "description": "Standing Barbell Calf Raise \u2014 plantar flexion for calf development.",
+    "description": "Standing Barbell Calf Raise — plantar flexion for calf development.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/1.jpg"
@@ -5114,7 +5123,7 @@
       "CommercialGym"
     ],
     "imageSlug": "Calf_Press_On_The_Leg_Press_Machine",
-    "description": "Stand on the hack squat foot plate with shoulders under pads (or use the hack squat calf block position). Perform calf raises through a lengthened range \u2014 same plantar flexion pattern as leg-press calf raises.",
+    "description": "Stand on the hack squat foot plate with shoulders under pads (or use the hack squat calf block position). Perform calf raises through a lengthened range — same plantar flexion pattern as leg-press calf raises.",
     "imageUris": [
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/0.jpg",
       "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Press_On_The_Leg_Press_Machine/1.jpg"
@@ -5388,8 +5397,8 @@
     "kinematicProfile": "NonAxialCompound"
   },
   {
-    "id": "smith-machine-back-squat",
-    "name": "Smith Machine Back Squat",
+    "id": "smith-machine-squat",
+    "name": "Smith Machine Squat",
     "primaryMuscles": [
       "Quad"
     ],
@@ -5401,9 +5410,12 @@
     "presetTags": [
       "CommercialGym"
     ],
-    "imageSlug": "Smith_Machine_Back_Squat",
-    "description": "Set the bar in the Smith machine at shoulder height. Step under the bar, placing it across your upper back/shoulder muscles. Take a medium, pronated grip and unlock the bar. Position your feet shoulder-width apart, slightly in front of the bar. Lower your body by bending the knees and hips under control, keeping your back straight. Descend until your thighs are parallel to the floor, then press back up to the starting position.",
-    "imageUris": [],
+    "imageSlug": "Smith_Machine_Squat",
+    "description": "To begin, first set the bar on the height that best matches your height. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it. Hold on to the bar using both arms at each side (palms facing forward), unlock it and lift it off the rack by first pushing with your legs and at the same time straightening your torso. Position your legs using a shoulder width medium stance with the toes slightly pointed out. Keep your head up at all times and also maintain a straight back. This will be your starting position. (Note: For the purposes of this discussion we will use the medium stance which targets overall development; however you can choose any of the three stances discussed in the foot stances section). Begin to slowly lower the bar by bending the knees as you maintain a straight posture with the head up. Continue down until the angle between the upper leg and the calves becomes slightly less than 90-degrees (which is the point in which the upper legs are below parallel to the floor). Inhale as you perform this portion of the movement. Tip: If you performed the exercise correctly, the front of the knees should make an imaginary straight line with the toes that is perpendicular to the front. If your knees are past that imaginary line (if they are past your toes) then you are placing undue stress on the knee and the exercise has been performed incorrectly. Begin to raise the bar as you exhale by pushing the floor with the heel of your foot as you straighten the legs again and go back to the starting position. Repeat for the recommended amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Squat/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Machine_Squat/1.jpg"
+    ],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "SquatPattern"
@@ -5435,8 +5447,8 @@
     "kinematicProfile": "Isolation"
   },
   {
-    "id": "smith-machine-front-foot-elevated-split-squat",
-    "name": "Smith Machine Front Foot Elevated Split Squat",
+    "id": "smith-single-leg-split-squat",
+    "name": "Smith Single-Leg Split Squat",
     "primaryMuscles": [
       "Quad"
     ],
@@ -5446,9 +5458,12 @@
     "presetTags": [
       "CommercialGym"
     ],
-    "imageSlug": "Smith_Machine_Front_Foot_Elevated_Split_Squat",
-    "description": "Place a low block or plate under the Smith machine bar. Step one foot forward onto the elevated platform, and place the other foot back on the floor. Step under the bar, placing it across your upper back, and unlock it. Keeping your chest up and core tight, bend both knees to lower your hips under control until your back knee is just above the floor. Drive back up through the front heel.",
-    "imageUris": [],
+    "imageSlug": "Smith_Single-Leg_Split_Squat",
+    "description": "To begin, place a flat bench 2-3 feet behind the smith machine. Then, set the bar on the height that best matches your height. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it. Hold on to the bar using both arms at each side (palms facing forward), unlock it and lift it off the rack by first pushing with your legs and at the same time straightening your torso. Position your legs by placing one foot slightly forward under the bar and extending your other leg back and place the top of your foot on the bench. This will be your starting position Begin to slowly lower the bar by bending the knee as you maintain a straight posture with the head up. Continue down until the angle between the upper leg and the calf becomes slightly less than 90-degrees (which is the point in which the upper legs are below parallel to the floor). Inhale as you perform this portion of the movement. Tip: If you performed the exercise correctly, the front of the knee should make an imaginary straight line with the toes that is perpendicular to the front. If your knee is past that imaginary line (if it is past your toes) then you are placing undue stress on the knee and the exercise has been performed incorrectly. Begin to raise the bar as you exhale by pushing the floor with the heel of your foot mainly as you straighten your leg again and go back to the starting position. Repeat for the recommended amount of repetitions. Switch legs and repeat the movement.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Single-Leg_Split_Squat/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Smith_Single-Leg_Split_Squat/1.jpg"
+    ],
     "muscleLengthBias": "Lengthened",
     "movementPatterns": [
       "SquatPattern"
@@ -6584,5 +6599,408 @@
     "mainstream": false,
     "kinematicProfile": "Isolation",
     "loadType": "Assisted"
+  },
+  {
+    "id": "bayesian-curl",
+    "name": "Bayesian Curl",
+    "primaryMuscles": [
+      "Bicep"
+    ],
+    "secondaryMuscles": [
+      "Forearm"
+    ],
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Bayesian_Curl",
+    "description": "Attach a single handle to a low cable. Face away from the stack, grab the handle, and step forward so the working arm is pulled slightly behind the torso. With the upper arm fixed and the elbow trailing the body, curl the handle forward by flexing the elbow until the biceps are fully contracted. Lower slowly into a deep stretch behind the body and repeat. This cable setup biases the long head in a lengthened position.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowFlexion"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "cable-cuffed-behind-the-back-lateral-raise",
+    "name": "Cable Cuffed Behind-the-Back Lateral Raise",
+    "primaryMuscles": [
+      "LateralDeltoid"
+    ],
+    "secondaryMuscles": [
+      "Trap"
+    ],
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Cable_Cuffed_Behind_the_Back_Lateral_Raise",
+    "description": "Attach a cuff to a low cable and secure it on the working wrist. Stand so the cable travels behind the body, starting with the working arm slightly behind the torso. Raise the arm out to the side against the cable line until about shoulder height, then lower under control into the behind-the-body stretch. This setup biases the lateral deltoid in a lengthened starting position.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ShoulderAbduction"
+    ],
+    "mainstream": false,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "cable-cuffed-lateral-raise",
+    "name": "Cable Cuffed Lateral Raise",
+    "primaryMuscles": [
+      "LateralDeltoid"
+    ],
+    "secondaryMuscles": [
+      "Trap"
+    ],
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Cable_Cuffed_Lateral_Raise",
+    "description": "Attach a cuff to a low cable and secure it around the working wrist or ankle attachment as designed for lateral raises. Stand side-on to the stack with the working arm slightly in front of the body. Raise the arm out to the side until it reaches about shoulder height, leading with the elbow, then lower under control. The cuff removes grip demand and keeps tension through the range.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ShoulderAbduction"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "chest-supported-machine-row",
+    "name": "Chest-Supported Machine Row",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep",
+      "PosteriorDeltoid"
+    ],
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Chest_Supported_Machine_Row",
+    "description": "Adjust the chest pad of a chest-supported row machine so the torso is supported and the arms can reach full extension. Grip the handles and row them toward the torso by driving the elbows back, squeezing the mid-back at the peak contraction. Extend the arms fully on each rep without losing contact with the pad.",
+    "imageUris": [],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
+  },
+  {
+    "id": "close-grip-landmine-row",
+    "name": "Close-Grip Landmine Row",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep",
+      "PosteriorDeltoid"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Close_Grip_Landmine_Row",
+    "description": "Load one end of a barbell in a landmine sleeve or corner. Straddle the bar facing the loaded end and grip a close-grip or V-handle attachment (or the sleeve) with both hands. Hinge the torso forward slightly, then row the bar toward the lower chest by driving the elbows back. Lower under control and repeat.",
+    "imageUris": [],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
+  },
+  {
+    "id": "deficit-straight-legged-deadlift",
+    "name": "Deficit Straight-Legged Deadlift",
+    "primaryMuscles": [
+      "Hamstring"
+    ],
+    "secondaryMuscles": [
+      "Glute",
+      "LowerBack"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Deficit_Straight_Legged_Deadlift",
+    "description": "Stand on a low platform or plates (about 1–3 inches) holding a barbell. With soft but nearly straight knees and a neutral spine, hinge at the hips to lower the bar below the level of a floor-based stiff-leg deadlift, increasing the hamstring stretch. Drive the hips forward to stand tall and repeat. Use a controlled range that preserves spinal position.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "HipHinge",
+      "HipExtension"
+    ],
+    "mainstream": false,
+    "kinematicProfile": "AxialCompound"
+  },
+  {
+    "id": "dumbbell-overhead-triceps-extension",
+    "name": "Dumbbell Overhead Triceps Extension",
+    "primaryMuscles": [
+      "Tricep"
+    ],
+    "secondaryMuscles": [],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Standing_Dumbbell_Triceps_Extension",
+    "description": "To begin, stand up with a dumbbell held by both hands. Your feet should be about shoulder width apart from each other. Slowly use both hands to grab the dumbbell and lift it over your head until both arms are fully extended. The resistance should be resting in the palms of your hands with your thumbs around it. The palm of the hands should be facing up towards the ceiling. This will be your starting position. Keeping your upper arms close to your head with elbows in and perpendicular to the floor, lower the resistance in a semicircular motion behind your head until your forearms touch your biceps. Tip: The upper arms should remain stationary and only the forearms should move. Breathe in as you perform this step. Go back to the starting position by using the triceps to raise the dumbbell. Breathe out as you perform this step. Repeat for the recommended amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Triceps_Extension/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Dumbbell_Triceps_Extension/1.jpg"
+    ],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "high-to-low-cable-flye",
+    "name": "High-to-Low Cable Flye",
+    "primaryMuscles": [
+      "Chest"
+    ],
+    "secondaryMuscles": [
+      "AnteriorDeltoid"
+    ],
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "High_to_Low_Cable_Flye",
+    "description": "Set both cable handles to a high position on a dual cable station. Stand centered between the stacks, take the opposite handles, and step forward with a soft elbow bend. Sweep the handles downward and inward in a wide arc until they meet in front of the lower chest or hips, emphasizing the lower chest. Control the return to the stretch position.",
+    "imageUris": [],
+    "muscleLengthBias": "Shortened",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "incline-dumbbell-fly",
+    "name": "Incline Dumbbell Fly",
+    "primaryMuscles": [
+      "Chest"
+    ],
+    "secondaryMuscles": [
+      "AnteriorDeltoid"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Incline_Dumbbell_Flyes",
+    "description": "Hold a dumbbell on each hand and lie on an incline bench that is set to an incline angle of no more than 30 degrees. Extend your arms above you with a slight bend at the elbows. Now rotate the wrists so that the palms of your hands are facing you. Tip: The pinky fingers should be next to each other. This will be your starting position. As you breathe in, start to slowly lower the arms to the side while keeping the arms extended and while rotating the wrists until the palms of the hand are facing each other. Tip: At the end of the movement the arms will be by your side with the palms facing the ceiling. As you exhale start to bring the dumbbells back up to the starting position by reversing the motion and rotating the hands so that the pinky fingers are next to each other again. Tip: Keep in mind that the movement will only happen at the shoulder joint and at the wrist. There is no motion that happens at the elbow joint. Repeat for the recommended amount of repetitions.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Flyes/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Flyes/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderAdduction"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "incline-dumbbell-skullcrusher",
+    "name": "Incline Dumbbell Skullcrusher",
+    "primaryMuscles": [
+      "Tricep"
+    ],
+    "secondaryMuscles": [
+      "Forearm"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Incline_Dumbbell_Skullcrusher",
+    "description": "Lie on an incline bench holding a dumbbell in each hand with arms extended above the shoulders and palms facing each other. Keeping the upper arms fixed, bend the elbows to lower the dumbbells toward the forehead or just behind the head until the triceps are stretched. Extend the elbows to return to the start and repeat.",
+    "imageUris": [],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ElbowExtension"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "landmine-chest-press",
+    "name": "Landmine Chest Press",
+    "primaryMuscles": [
+      "Chest"
+    ],
+    "secondaryMuscles": [
+      "AnteriorDeltoid",
+      "Tricep"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Landmine_Chest_Press",
+    "description": "Secure a barbell in a landmine base. Hold the free end with both hands at chest height, elbows tucked. Press the bar up and slightly forward until the arms are extended, then lower under control to the chest and repeat. A staggered stance helps maintain balance.",
+    "imageUris": [],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
+  },
+  {
+    "id": "machine-lat-pulldown",
+    "name": "Machine Lat Pulldown",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep"
+    ],
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Machine_Lat_Pulldown",
+    "description": "Sit at a lat pulldown or selectorized pulldown machine and secure the thigh pads. Grasp the bar or handles with an overhand grip and start with the arms fully extended overhead. Pull the attachment down toward the upper chest by driving the elbows down and back, squeezing the lats at the bottom. Control the return to a full stretch and repeat.",
+    "imageUris": [],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "VerticalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
+  },
+  {
+    "id": "pec-deck-rear-delt-fly",
+    "name": "Pec Deck Rear Delt Fly",
+    "primaryMuscles": [
+      "PosteriorDeltoid"
+    ],
+    "secondaryMuscles": [
+      "Back"
+    ],
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Reverse_Machine_Flyes",
+    "description": "Adjust the handles so that they are fully to the rear. Make an appropriate weight selection and adjust the seat height so the handles are at shoulder level. Grasp the handles with your hands facing inwards. This will be your starting position. In a semicircular motion, pull your hands out to your side and back, contracting your rear delts. Keep your arms slightly bent throughout the movement, with all of the motion occurring at the shoulder joint. Pause at the rear of the movement, and slowly return the weight to the starting position.",
+    "imageUris": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Machine_Flyes/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Machine_Flyes/1.jpg"
+    ],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "ShoulderHorizontalAbduction"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "pendlay-row",
+    "name": "Pendlay Row",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep",
+      "PosteriorDeltoid"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Pendlay_Row",
+    "description": "Set a barbell on the floor and hinge forward until the torso is roughly parallel to the ground, gripping the bar slightly wider than shoulder width. From a dead stop on the floor each rep, explosively row the bar to the lower chest or upper abdomen while keeping the torso angle fixed. Lower the bar fully to the floor and reset before the next rep. Unlike a conventional bent-over row, each rep starts from a complete stop.",
+    "imageUris": [],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
+  },
+  {
+    "id": "single-arm-landmine-chest-press",
+    "name": "Single-Arm Landmine Chest Press",
+    "primaryMuscles": [
+      "Chest"
+    ],
+    "secondaryMuscles": [
+      "AnteriorDeltoid",
+      "Tricep"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "Single_Arm_Landmine_Chest_Press",
+    "description": "Secure a barbell in a landmine base. Stand or half-kneel facing away from the base with the free end held at one shoulder. Press the bar up and slightly forward in an arc until the arm is extended, then lower under control to the shoulder and repeat. Complete all reps on one side before switching.",
+    "imageUris": [],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPress"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
+  },
+  {
+    "id": "standing-high-pulley-triceps-extension",
+    "name": "Standing High-Pulley Triceps Extension",
+    "primaryMuscles": [
+      "Tricep"
+    ],
+    "secondaryMuscles": [
+      "Forearm"
+    ],
+    "presetTags": [
+      "CommercialGym"
+    ],
+    "imageSlug": "Standing_High_Pulley_Triceps_Extension",
+    "description": "Attach a rope or straight bar to a high cable pulley. Face away from the stack or stand slightly forward of it, raise the upper arms beside the head, and start with the elbows flexed so the attachment is behind the head. Extend the elbows until the arms are straight overhead, keeping the upper arms stationary. Lower under control to a full triceps stretch and repeat.",
+    "imageUris": [],
+    "muscleLengthBias": "Lengthened",
+    "movementPatterns": [
+      "ElbowExtension"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "Isolation"
+  },
+  {
+    "id": "t-bar-landmine-row",
+    "name": "T-Bar Landmine Row",
+    "primaryMuscles": [
+      "Back"
+    ],
+    "secondaryMuscles": [
+      "Bicep",
+      "PosteriorDeltoid"
+    ],
+    "presetTags": [
+      "CommercialGym",
+      "GarageGym"
+    ],
+    "imageSlug": "T_Bar_Landmine_Row",
+    "description": "Secure a barbell in a landmine base and load the free end. Straddle the bar and attach a T-bar or landmine row handle. Hinge forward with a flat back, then row the load toward the torso by driving the elbows back and squeezing the mid-back at the top. Lower under control and repeat.",
+    "imageUris": [],
+    "muscleLengthBias": "MidRange",
+    "movementPatterns": [
+      "HorizontalPull",
+      "ElbowFlexion"
+    ],
+    "mainstream": true,
+    "kinematicProfile": "NonAxialCompound"
   }
 ]
