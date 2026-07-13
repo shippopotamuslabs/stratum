@@ -12,6 +12,7 @@ import com.stratum.domain.dashboard.LiftSeries
 import com.stratum.domain.dashboard.LoadDashboardUseCase
 import com.stratum.domain.dashboard.LoadGraphDetailUseCase
 import com.stratum.domain.dashboard.MUSCLE_PROGRESS_SLOPE_THRESHOLD
+import com.stratum.domain.dashboard.MuscleDailyVolumeSeries
 import com.stratum.domain.dashboard.MuscleSeries
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsSlope
@@ -22,6 +23,9 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.domain.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.ZoneOffset
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,6 +101,11 @@ class DashboardViewModel @Inject constructor(
         openGraphDetail(GraphDetailSubject.Muscle(muscle))
     }
 
+    fun openMuscleDailyVolumeGraph(muscleKey: String) {
+        val muscle = runCatching { MuscleGroup.valueOf(muscleKey) }.getOrNull() ?: return
+        openGraphDetail(GraphDetailSubject.MuscleDailyVolume(muscle))
+    }
+
     fun dismissGraphDetail() {
         detailJob?.cancel()
         detailSession = null
@@ -105,14 +114,14 @@ class DashboardViewModel @Inject constructor(
 
     fun selectGraphMode(mode: GraphViewMode) {
         val session = detailSession ?: return
-        if (mode !in modesFor()) return
+        if (mode !in modesFor(session.kind)) return
         detailSession = session.copy(selectedMode = mode)
         publishReady()
     }
 
     fun selectGraphTimeRange(range: GraphTimeRangeUi) {
         val session = detailSession ?: return
-        if (range !in GraphTimeRangeUi.entries) return
+        if (range !in rangesFor(session.kind)) return
         detailSession = session.copy(selectedRange = range)
         publishReady()
     }
@@ -146,6 +155,8 @@ sealed interface DashboardUiState {
         val windowWeeks: Int,
         val muscles: List<MuscleSeriesUi>,
         val liftSections: List<LiftSectionUi>,
+        /** 7-Day tab: per-muscle daily hard-set volume (zero-filled last 7 UTC days). */
+        val runningDailyVolume: List<MuscleDailyVolumeUi> = emptyList(),
     ) : DashboardUiState
 }
 
@@ -165,6 +176,23 @@ data class MuscleSeriesUi(
     val volumePoints: List<TrendPointUi>,
     val contributingLifts: Int,
     val highlight: CalloutDirectionUi? = null,
+)
+
+/** Presentation model for one muscle on the 7-Day volume tab. */
+data class MuscleDailyVolumeUi(
+    val name: String,
+    /** Stable [MuscleGroup.name] for opening daily volume graph detail. */
+    val muscleKey: String,
+    /** e.g. "12 sets" — total hard sets over the 7-day window. */
+    val headlineSets: String,
+    /** Seven points (oldest → newest); [TrendPointUi.weekIndex] is day offset 0..6. */
+    val volumePoints: List<TrendPointUi>,
+    /**
+     * Short weekday labels aligned with [volumePoints] (rolling lookback, e.g. `M`…`Su`).
+     * Built from each day start in UTC to match volume bucketing.
+     */
+    val dayLabels: List<String>,
+    val contributingLifts: Int,
 )
 
 data class LiftSectionUi(
@@ -198,7 +226,60 @@ private fun DashboardSummary.toUiState(): DashboardUiState.Loaded {
         windowWeeks = windowWeeks,
         muscles = muscles.map { it.toUi(highlight = muscleHighlights[it.displayName]) },
         liftSections = lifts.toLiftSections(highlights = liftHighlights),
+        runningDailyVolume = runningDailyVolume.map { it.toUi() },
     )
+}
+
+private fun MuscleDailyVolumeSeries.toUi(): MuscleDailyVolumeUi =
+    MuscleDailyVolumeUi(
+        name = displayName,
+        muscleKey = muscle.name,
+        headlineSets = formatHardSetHeadline(totalHardSets),
+        volumePoints = dailyVolume.mapIndexed { index, point ->
+            TrendPointUi(weekIndex = index, value = point.value.toFloat())
+        },
+        dayLabels = dailyVolume.map { shortWeekdayLabel(it.weekStart) },
+        contributingLifts = contributingLiftCount,
+    )
+
+/**
+ * Displays hard-set totals with half-set precision when needed (secondary credit = 0.5).
+ * Examples: `1 set`, `12 sets`, `0.5 sets`, `12.5 sets`.
+ */
+internal fun formatHardSetHeadline(hardSets: Double): String {
+    val amount = formatHardSetAmount(hardSets)
+    val unit = if (kotlin.math.abs(hardSets - 1.0) < HARD_SET_EPS) "set" else "sets"
+    return "$amount $unit"
+}
+
+internal fun formatHardSetAmount(hardSets: Double): String {
+    val nearestInt = hardSets.toLong().toDouble()
+    return if (kotlin.math.abs(hardSets - nearestInt) < HARD_SET_EPS) {
+        nearestInt.toLong().toString()
+    } else {
+        // One decimal is enough for primary 1.0 / secondary 0.5 sums.
+        val raw = String.format(java.util.Locale.US, "%.1f", hardSets)
+        raw.trimEnd('0').trimEnd('.')
+    }
+}
+
+private const val HARD_SET_EPS = 1e-9
+
+/**
+ * Compact weekday for mini-card X-axis. Thursday = R (avoids clashing with Tuesday T);
+ * weekend = Sa / Su. [dayStart] is UTC midnight of the bucket day.
+ */
+internal fun shortWeekdayLabel(dayStart: Instant): String {
+    val day = dayStart.atZone(ZoneOffset.UTC).dayOfWeek
+    return when (day) {
+        DayOfWeek.MONDAY -> "M"
+        DayOfWeek.TUESDAY -> "T"
+        DayOfWeek.WEDNESDAY -> "W"
+        DayOfWeek.THURSDAY -> "R"
+        DayOfWeek.FRIDAY -> "F"
+        DayOfWeek.SATURDAY -> "Sa"
+        DayOfWeek.SUNDAY -> "Su"
+    }
 }
 
 private fun CalloutDirection.toUi(): CalloutDirectionUi = when (this) {

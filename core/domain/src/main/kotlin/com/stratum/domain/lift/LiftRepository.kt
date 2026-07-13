@@ -23,6 +23,13 @@ interface LiftRepository {
     fun observeLifts(): Flow<List<Lift>>
 
     /**
+     * Snapshot of lifts whose ids are in [ids] — SQL `WHERE id IN (...)`, not a full-catalog
+     * load then filter (DATA_LAYER_RULES.md §5). Empty [ids] returns empty without a query.
+     * Order is not guaranteed; callers that need a stable order should sort.
+     */
+    suspend fun getLiftsByIds(ids: Collection<LiftId>): List<Lift>
+
+    /**
      * Hot stream of only enabled lifts — the SQL-predicate equivalent of
      * `observeLifts().map { it.filter(Lift::enabled) }`. Prefer this over re-filtering in
      * Kotlin so the catalog isn't loaded whole just to drop its disabled rows

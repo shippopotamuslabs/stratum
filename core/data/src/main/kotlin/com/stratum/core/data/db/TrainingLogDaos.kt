@@ -110,6 +110,10 @@ interface TrainingLoggedSetDao {
     @Query("DELETE FROM logged_sets")
     suspend fun deleteAll()
 
+    /**
+     * Sets with [LoggedSetEntity.completedAtEpochMillis] in the inclusive window.
+     * Uses index `logged_sets_completedAtEpochMillis` (see [LoggedSetEntity] indices).
+     */
     @Query(
         """
         SELECT * FROM logged_sets
@@ -120,6 +124,37 @@ interface TrainingLoggedSetDao {
     suspend fun getInWindow(
         windowStartEpochMillis: Long,
         windowEndEpochMillis: Long,
+    ): List<LoggedSetEntity>
+
+    /**
+     * All-time sets for lifts that can credit [muscleBit] under the same rules as volume credit:
+     * - stored primary/secondary muscle tags on the lift, **or**
+     * - press patterns when [pressPatternBits] is non-zero (policy Tricep secondary), **or**
+     * - pull patterns when [pullPatternBits] is non-zero (policy Bicep secondary).
+     *
+     * Pass zero for press/pull bits when those OR branches should not apply.
+     * [muscleBit] / pattern bits use `1 shl enum.ordinal` (same as [LiftEntity] columns).
+     */
+    @Query(
+        """
+        SELECT DISTINCT ls.* FROM logged_sets ls
+        INNER JOIN lifts l ON ls.liftId = l.id
+        WHERE (l.primaryMusclesBitmask & :muscleBit) != 0
+           OR (l.secondaryMusclesBitmask & :muscleBit) != 0
+           OR (
+                :pressPatternBits != 0
+                AND (l.movementPatternsBitmask & :pressPatternBits) != 0
+           )
+           OR (
+                :pullPatternBits != 0
+                AND (l.movementPatternsBitmask & :pullPatternBits) != 0
+           )
+        """,
+    )
+    suspend fun getForMuscleCredit(
+        muscleBit: Int,
+        pressPatternBits: Int,
+        pullPatternBits: Int,
     ): List<LoggedSetEntity>
 
     @Query(

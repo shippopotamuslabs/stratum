@@ -2,27 +2,33 @@ package com.stratum.domain.dashboard
 
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.response.DayBucketSupport
 import java.time.Instant
 import java.time.Period
 
 /**
- * Subject for a fullscreen graph detail load — one lift or one muscle, full weekly history.
+ * Subject for a fullscreen graph detail load — one lift, one muscle (weekly), or daily muscle volume.
  */
 sealed interface GraphDetailSubject {
     data class Lift(val liftId: LiftId) : GraphDetailSubject
     data class Muscle(val muscle: MuscleGroup) : GraphDetailSubject
+    /** Full daily hard-set history for one muscle (7-Day tab detail). */
+    data class MuscleDailyVolume(val muscle: MuscleGroup) : GraphDetailSubject
 }
 
-/** Whether the detail graph is for a program lift or a muscle group. */
+/** Whether the detail graph is for a program lift, weekly muscle series, or daily muscle volume. */
 enum class GraphDetailKind {
     Lift,
     Muscle,
+    /** Daily hard-set volume only; [GraphDetailSeries.primary] is volume, [secondary] empty. */
+    MuscleDailyVolume,
 }
 
 /**
- * Full-history dual series for one subject. [primary] is e1RM (lift) or progress index (muscle);
- * [secondary] is weekly hard-set volume. Values use the same units as the dashboard board tables
- * (e1RM is kg-normalized in the response pipeline).
+ * Full-history dual series for one subject.
+ * - Lift: [primary] e1RM, [secondary] weekly volume
+ * - Muscle: [primary] progress index, [secondary] weekly volume
+ * - MuscleDailyVolume: [primary] daily hard sets (UTC day start on [TrendPoint.weekStart]), [secondary] empty
  */
 data class GraphDetailSeries(
     val title: String,
@@ -34,13 +40,15 @@ data class GraphDetailSeries(
 /**
  * Time window applied client-side after a full-history [GraphDetailSeries] load.
  *
- * Windows are week-oriented (data is one point per Monday UTC week start). There is no 1-week chip:
- * a 7-day window can include at most one bucket and is useless for trends.
+ * Weekly series (lift / muscle) use week-oriented windows. [OneWeek] is offered for **daily**
+ * volume series only (a single weekly bucket is useless at 7 days).
  */
 enum class GraphDetailTimeRange(
     val period: Period?,
 ) {
-    /** ~4 week buckets — shortest useful line window. */
+    /** Last 7 calendar days — daily volume detail only. */
+    OneWeek(Period.ofDays(7)),
+    /** ~4 week buckets — shortest useful line window for weekly series. */
     OneMonth(Period.ofWeeks(4)),
     /** Matches [DASHBOARD_PERFORMANCE_WINDOW_WEEKS] board lookback. */
     ThreeMonths(Period.ofWeeks(DASHBOARD_PERFORMANCE_WINDOW_WEEKS)),
@@ -74,6 +82,33 @@ fun filterTrendPointsByRange(
 /** Lower bound instant for [range] relative to [now], or null for [GraphDetailTimeRange.All]. */
 fun GraphDetailTimeRange.windowStart(now: Instant): Instant? =
     period?.let { now.minus(it) }
+
+/** UTC calendar day at 00:00 for [instant]. Delegates to [DayBucketSupport]. */
+fun utcDayStart(instant: Instant): Instant = DayBucketSupport.dayStartFor(instant)
+
+/**
+ * Ensures [dayCount] consecutive UTC days ending on [now]'s day (oldest first). Missing days get
+ * value `0`. Used so 1W daily volume charts match the 7-Day board cards.
+ */
+fun zeroFillDailyTrendPoints(
+    points: List<TrendPoint>,
+    now: Instant,
+    dayCount: Int,
+): List<TrendPoint> =
+    DayBucketSupport.zeroFillDaily(
+        points = points.map { it.weekStart to it.value },
+        asOf = now,
+        dayCount = dayCount,
+    ).map { (day, value) -> TrendPoint(weekStart = day, value = value) }
+
+/**
+ * Stats for daily volume charts: average/peak over **training days only** (value &gt; 0) so 1W
+ * (zero-filled) and longer sparse ranges share the same metric. Empty / all-zero → empty stats.
+ */
+fun graphDetailStatsNonZeroDays(points: List<TrendPoint>): GraphDetailStats {
+    val active = points.filter { it.value > 0.0 }
+    return graphDetailStats(active)
+}
 
 /**
  * Computes average, max (best/peak), and date span for a series. Empty input → zero counts and

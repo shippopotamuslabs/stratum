@@ -2,8 +2,11 @@ package com.stratum.core.testing.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.ProgramRepository
+import com.stratum.domain.response.MuscleSetQueryBits
 import com.stratum.domain.training.CyclePointerUpdate
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.ProgramChangeEvent
@@ -13,11 +16,15 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.training.toMovementPatternsBitmask
+import com.stratum.domain.training.toMusclesBitmask
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/** Fake for [TrainingLogRepository] — large surface mirrors the port (+ seed helpers for tests). */
+@Suppress("TooManyFunctions")
 class FakeTrainingLogRepository(
     initialSessions: List<TrainingSession> = emptyList(),
     initialSets: List<LoggedSet> = emptyList(),
@@ -80,6 +87,56 @@ class FakeTrainingLogRepository(
 
     override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
         getAllSets().filter { it.completedAt in windowStart..windowEnd }
+
+    /**
+     * Mirrors Room `getForMuscleCredit`: catalog tags + press/pull policy pattern bits.
+     * Seed catalog rows via [seedLiftForMuscleFilter] (same bits as [com.stratum.domain.lift.Lift]).
+     * Sets whose lift has no seed entry are excluded (no keep-all fallback).
+     */
+    override suspend fun getSetsCreditingMuscle(muscle: MuscleGroup): List<LoggedSet> =
+        getAllSets().filter { set ->
+            val liftId = set.liftId ?: return@filter false
+            val tags = liftFilterCatalog[liftId] ?: return@filter false
+            MuscleSetQueryBits.liftCreditsMuscleInSql(
+                muscle = muscle,
+                primaryMusclesBitmask = tags.primaryBitmask,
+                secondaryMusclesBitmask = tags.secondaryBitmask,
+                movementPatternsBitmask = tags.patternsBitmask,
+            )
+        }
+
+    /**
+     * Registers catalog muscle/pattern bits for [getSetsCreditingMuscle] (Room-parity).
+     * Prefer [seedLiftForMuscleFilter] with a [Lift] so bits match production encoding.
+     */
+    fun seedLiftForMuscleFilter(lift: Lift) {
+        liftFilterCatalog[lift.id] = LiftFilterTags(
+            primaryBitmask = lift.primaryMuscles.toMusclesBitmask(),
+            secondaryBitmask = lift.secondaryMuscles.toMusclesBitmask(),
+            patternsBitmask = lift.movementPatterns.toMovementPatternsBitmask(),
+        )
+    }
+
+    fun seedLiftForMuscleFilter(
+        liftId: LiftId,
+        primaryMusclesBitmask: Int,
+        secondaryMusclesBitmask: Int = 0,
+        movementPatternsBitmask: Int = 0,
+    ) {
+        liftFilterCatalog[liftId] = LiftFilterTags(
+            primaryBitmask = primaryMusclesBitmask,
+            secondaryBitmask = secondaryMusclesBitmask,
+            patternsBitmask = movementPatternsBitmask,
+        )
+    }
+
+    private data class LiftFilterTags(
+        val primaryBitmask: Int,
+        val secondaryBitmask: Int,
+        val patternsBitmask: Int,
+    )
+
+    private val liftFilterCatalog = mutableMapOf<LiftId, LiftFilterTags>()
 
     override suspend fun getSession(id: TrainingSessionId): TrainingSession? = sessions[id]
 

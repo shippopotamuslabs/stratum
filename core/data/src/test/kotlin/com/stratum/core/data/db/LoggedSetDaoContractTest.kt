@@ -4,6 +4,7 @@ import androidx.room.Room
 import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -220,6 +221,93 @@ class LoggedSetDaoContractTest {
     }
 
     @Test
+    @DisplayName("getForMuscleCredit returns sets by stored tags or policy press/pull patterns")
+    fun getForMuscleCreditFiltersByLiftMusclesAndPolicyPatterns() = runTest {
+        val sessionId = TrainingSessionId("session-1")
+        sessionDao.upsert(
+            TrainingSessionEntity(
+                id = sessionId,
+                programId = ProgramId("prog-1"),
+                workoutId = null,
+                status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.IMPORT,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 1_000L,
+                endedAtEpochMillis = 9_000L,
+                sourceApp = null,
+            ),
+        )
+        // Bench: Chest primary, empty secondary, HorizontalPress → policy Tricep.
+        // Curl: Bicep primary only.
+        // Row: Back primary, empty secondary, HorizontalPull → policy Bicep.
+        database.liftDao().upsertAll(
+            listOf(
+                liftEntity(
+                    id = "bench",
+                    primary = setOf(MuscleGroup.Chest),
+                    secondary = emptySet(),
+                    patterns = setOf(com.stratum.domain.lift.MovementPattern.HorizontalPress),
+                ),
+                liftEntity(
+                    id = "curl",
+                    primary = setOf(MuscleGroup.Bicep),
+                    secondary = emptySet(),
+                    patterns = setOf(com.stratum.domain.lift.MovementPattern.ElbowFlexion),
+                ),
+                liftEntity(
+                    id = "row",
+                    primary = setOf(MuscleGroup.Back),
+                    secondary = emptySet(),
+                    patterns = setOf(com.stratum.domain.lift.MovementPattern.HorizontalPull),
+                ),
+            ),
+        )
+        setDao.upsertAll(
+            listOf(
+                loggedSet("bench-set", sessionId, completedAtEpochMillis = 2_000L)
+                    .copy(liftId = LiftId("bench")),
+                loggedSet("curl-set", sessionId, completedAtEpochMillis = 3_000L)
+                    .copy(liftId = LiftId("curl")),
+                loggedSet("row-set", sessionId, completedAtEpochMillis = 4_000L)
+                    .copy(liftId = LiftId("row")),
+            ),
+        )
+
+        val chestBit = 1 shl MuscleGroup.Chest.ordinal
+        val tricepBit = 1 shl MuscleGroup.Tricep.ordinal
+        val bicepBit = 1 shl MuscleGroup.Bicep.ordinal
+        val pressBits = com.stratum.domain.response.MuscleSetQueryBits.pressPatternBits
+        val pullBits = com.stratum.domain.response.MuscleSetQueryBits.pullPatternBits
+
+        val chestSets = setDao.getForMuscleCredit(chestBit, pressPatternBits = 0, pullPatternBits = 0)
+        assertEquals(setOf(LoggedSetId("bench-set")), chestSets.map { it.id }.toSet())
+
+        val tricepSets = setDao.getForMuscleCredit(
+            tricepBit,
+            pressPatternBits = pressBits,
+            pullPatternBits = 0,
+        )
+        assertEquals(
+            setOf(LoggedSetId("bench-set")),
+            tricepSets.map { it.id }.toSet(),
+            "press pattern credits Tricep via policy OR branch",
+        )
+
+        val bicepSets = setDao.getForMuscleCredit(
+            bicepBit,
+            pressPatternBits = 0,
+            pullPatternBits = pullBits,
+        )
+        assertEquals(
+            setOf(LoggedSetId("curl-set"), LoggedSetId("row-set")),
+            bicepSets.map { it.id }.toSet(),
+            "curl via primary tag; row via pull policy OR",
+        )
+    }
+
+    @Test
     @DisplayName("getHistoryForSlot prefers same-workout rows over imports of equal age")
     fun getHistoryForSlotPrefersSameWorkout() = runTest {
         val liveProgram = ProgramId("live-prog")
@@ -296,5 +384,21 @@ class LoggedSetDaoContractTest {
         reps = 5,
         rir = 2,
         completedAtEpochMillis = completedAtEpochMillis,
+    )
+
+    private fun liftEntity(
+        id: String,
+        primary: Set<MuscleGroup>,
+        secondary: Set<MuscleGroup>,
+        patterns: Set<com.stratum.domain.lift.MovementPattern> = emptySet(),
+    ): LiftEntity = LiftEntity(
+        id = LiftId(id),
+        name = id,
+        movementPatternsBitmask = patterns.fold(0) { mask, p -> mask or (1 shl p.ordinal) },
+        primaryMusclesBitmask = primary.fold(0) { mask, m -> mask or (1 shl m.ordinal) },
+        secondaryMusclesBitmask = secondary.fold(0) { mask, m -> mask or (1 shl m.ordinal) },
+        presetTags = ",",
+        isCustom = false,
+        enabled = true,
     )
 }

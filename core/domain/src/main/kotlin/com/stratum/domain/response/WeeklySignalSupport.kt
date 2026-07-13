@@ -16,6 +16,9 @@ internal object WeeklySignalSupport {
         return monday.atStartOfDay().toInstant(ZoneOffset.UTC)
     }
 
+    /** UTC calendar day at 00:00 — used for running 7-day / daily volume bars. */
+    fun dayStartFor(instant: Instant): Instant = DayBucketSupport.dayStartFor(instant)
+
     fun workingSetsInEpoch(
         epoch: Epoch,
         cleanSets: List<CleanTrainingSet>,
@@ -32,4 +35,9 @@ internal object WeeklySignalSupport {
         sets: List<CleanTrainingSet>,
     ): Map<Instant, List<CleanTrainingSet>> =
         sets.groupBy { weekStartFor(it.sourceSet.completedAt) }
+
+    fun groupByDay(
+        sets: List<CleanTrainingSet>,
+    ): Map<Instant, List<CleanTrainingSet>> =
+        sets.groupBy { dayStartFor(it.sourceSet.completedAt) }
 }

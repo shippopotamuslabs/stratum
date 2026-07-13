@@ -54,6 +54,15 @@ interface LiftDao {
     suspend fun getLiftsWithTiers(): List<LiftWithTiers>
 
     /**
+     * Snapshot of lifts with tiers for the given ids only — backs
+     * [com.stratum.domain.lift.LiftRepository.getLiftsByIds]. Room expands empty [ids] poorly;
+     * the repository short-circuits empty collections.
+     */
+    @Transaction
+    @Query("SELECT * FROM lifts WHERE id IN (:ids)")
+    suspend fun getLiftsWithTiersByIds(ids: List<LiftId>): List<LiftWithTiers>
+
+    /**
      * Ids of lifts tagged for a preset, for bulk enable. The column is a delimiter-bounded CSV
      * (`,CommercialGym,GarageGym,`). The caller must supply the SQL `LIKE` wildcards in
      * [tagPattern] — i.e. `%,CommercialGym,%` — so the match is a substring search that works
