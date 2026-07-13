@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.stratum.core.data.sync.SyncFlags
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
@@ -201,6 +202,9 @@ interface WorkoutLiftDao {
     @Query("SELECT * FROM workout_lifts ORDER BY position")
     fun observeAll(): Flow<List<WorkoutLiftEntity>>
 
+    @Query("SELECT * FROM workout_lifts")
+    suspend fun getAll(): List<WorkoutLiftEntity>
+
     @Query("SELECT * FROM workout_lifts WHERE pending_sync != ${SyncFlags.CLEAN} LIMIT :limit")
     suspend fun getPending(limit: Int = 500): List<WorkoutLiftEntity>
 
@@ -212,6 +216,25 @@ interface WorkoutLiftDao {
         """,
     )
     suspend fun markSyncedIfUnchanged(id: String, updatedAt: Long)
+
+    /**
+     * Re-points template slots from source catalog ids onto [targetLiftId] without rewriting the
+     * full program hierarchy (merge-lifts path).
+     */
+    @Query(
+        """
+        UPDATE workout_lifts
+        SET lift_id = :targetLiftId,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE lift_id IN (:sourceLiftIds)
+        """,
+    )
+    suspend fun repointLiftIds(
+        sourceLiftIds: List<LiftId>,
+        targetLiftId: LiftId,
+        updatedAtEpochMillis: Long,
+    ): Int
 }
 
 @Dao
@@ -227,6 +250,9 @@ interface LiftSetDao {
 
     @Query("SELECT * FROM sets WHERE workout_lift_id = :workoutLiftId ORDER BY position")
     suspend fun getForWorkoutLift(workoutLiftId: String): List<LiftSetEntity>
+
+    @Query("SELECT id FROM sets WHERE workout_lift_id = :workoutLiftId")
+    suspend fun idsForWorkoutLift(workoutLiftId: String): List<String>
 
     @Query(
         """

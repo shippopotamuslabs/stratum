@@ -14,6 +14,8 @@ import androidx.compose.material.icons.outlined.ListAlt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -66,6 +68,7 @@ fun MainTabShell(
     callbacks: MainTabShellCallbacks = MainTabShellCallbacks(),
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
+    var hideBottomBar by remember { mutableStateOf(false) }
     val items =
         listOf(
             StratumNavigationBarItem(
@@ -88,7 +91,7 @@ fun MainTabShell(
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
         bottomBar = {
-            if (!isPreviewMode) {
+            if (!isPreviewMode && !hideBottomBar) {
                 StratumNavigationBar(
                     items = items,
                     selectedIndex = selectedTabIndex,
@@ -127,6 +130,7 @@ fun MainTabShell(
                         onManageEquipment = callbacks.onManageEquipment,
                         onNavigateToIncrements = callbacks.onNavigateToLiftIncrements,
                         onNavigateToInformation = callbacks.onNavigateToLiftInformation,
+                        onMergeModeChange = { active -> hideBottomBar = active },
                     )
             }
         }

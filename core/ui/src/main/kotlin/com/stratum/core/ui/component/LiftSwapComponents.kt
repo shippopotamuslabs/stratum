@@ -10,13 +10,19 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -604,6 +610,105 @@ fun SelectedLiftsTray(
                     .size(20.dp)
                     .rotate(rotation),
         )
+    }
+}
+
+/**
+ * Bottom search chrome shared by lift multi-select flows (add-lift swap, gym merge).
+ * Optional trailing [doneLabel] button when [showDone] is true.
+ */
+@Composable
+fun LiftPickerSearchBottomBar(
+    searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    showDone: Boolean = false,
+    doneEnabled: Boolean = false,
+    doneLabel: String? = null,
+    onDoneClick: () -> Unit = {},
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StratumSearchField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChanged,
+            modifier = Modifier.weight(1f),
+            placeholder = stringResource(R.string.lift_swap_search_placeholder),
+        )
+        if (showDone) {
+            StratumButton(
+                text = doneLabel ?: stringResource(R.string.lift_swap_done),
+                enabled = doneEnabled,
+                onClick = onDoneClick,
+            )
+        }
+    }
+}
+
+/**
+ * Expandable multi-select panel: optional [header] (e.g. superset toggle) + selected lift rows
+ * with remove affordance. Shared by Lift Swap add-mode and Gym merge mode.
+ */
+@Composable
+fun SelectedLiftsListPanel(
+    selectedOptions: List<LiftSwapOptionState>,
+    onDeselectLift: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    header: @Composable (() -> Unit)? = null,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        header?.invoke()
+
+        StratumText(
+            text = stringResource(R.string.lift_swap_selected_lifts_title),
+            style = StratumThemeAccessor.typography.sectionLabel,
+            muted = true,
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
+
+        LazyColumn(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .then(Modifier),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
+        ) {
+            items(selectedOptions, key = { option -> option.id }) { option ->
+                LiftSwapOptionRow(
+                    option = option,
+                    selected = true,
+                    onClick = { onDeselectLift(option.id) },
+                    trailingContent = {
+                        StratumIconButton(
+                            onClick = { onDeselectLift(option.id) },
+                            containerColor = Color.Transparent,
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_delete),
+                                contentDescription =
+                                    stringResource(
+                                        R.string.lift_swap_remove_selected_content_description,
+                                        option.name,
+                                    ),
+                                tint = StratumThemeAccessor.colors.textMuted,
+                            )
+                        }
+                    },
+                )
+            }
+        }
     }
 }
 

@@ -142,7 +142,17 @@
     <string name="lift_config_increments_sub">Configure weight increments for this lift</string>
     <string name="lift_config_information">Information</string>
     <string name="lift_config_information_sub">Instructions, details, and history</string>
+    <string name="lift_config_merge_lifts">Merge lifts</string>
+    <string name="lift_config_merge_lifts_sub">Combine history from other lifts into one lift</string>
     <string name="lift_config_navigate_back">Back</string>
+    <string name="gym_merge_cancel">Cancel merge</string>
+    <string name="gym_merge_confirm_selection">Confirm merge selection</string>
+    <string name="gym_merge_target_title">Merge into</string>
+    <string name="gym_merge_target_subtitle">All logged sets from the other lifts move onto the one you choose (it keeps its name, muscles, equipment, and other details). Custom lifts you merge away are removed; built-in Stratum lifts are turned off instead of deleted so you can re-enable them later.</string>
+    <string name="gym_merge_confirm">Confirm merge</string>
+    <string name="gym_merge_success">Lifts merged</string>
+    <string name="gym_merge_failed">Couldn\'t merge those lifts. Try again.</string>
+    <string name="gym_merge_need_two">Select at least two lifts to merge</string>
     <string name="lift_increments_title">Increments</string>
     <string name="lift_increments_help">Bands must tile without gaps. The last band is open-ended (and above). Example: 0–100 at +5, then 100+ at +10.</string>
     <string name="lift_increments_tier_label">Tier %1$d</string>

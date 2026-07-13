@@ -41,6 +41,9 @@ class FakeProgramRepository(
     override suspend fun getProgramById(programId: ProgramId): Program? =
         programs.value[programId.value]
 
+    override suspend fun getAllUserPrograms(): List<Program> =
+        programs.value.values.filterNot { it.id.isImportHistory }
+
     override suspend fun saveProgram(program: Program) {
         check(!failOnSave) { "FakeProgramRepository configured to fail on save" }
         saveProgramCalls.add(program)
