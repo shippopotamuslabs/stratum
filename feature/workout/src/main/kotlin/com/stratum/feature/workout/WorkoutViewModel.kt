@@ -806,11 +806,23 @@ class WorkoutViewModel @Inject constructor(
      * Recomputes overlay-only recommendations for upcoming unlogged sets from the most
      * recent performed set per lift (D4). Delegates the pipeline to
      * [RecomputeRecommendationsUseCase]; never writes back into the snapshot.
+     *
+     * Merges with **empty** live recommendations so engine inputs are snapshot/program
+     * prescriptions only — never prior overlay weights (avoids too-easy bump ratcheting).
      */
     private fun recomputeRecommendations() {
         // Best-effort: keep the last good recommendations if recompute throws.
         runCatching {
-            recomputeRecommendationsUseCase(merge(), liftsById, fatigueByLiftId)
+            val snapshotOnlyOverlay = overlay.copy(recommendations = emptyMap())
+            val renderedForRecs = LiveWorkoutOverlayOps.merge(
+                structure = structure,
+                overlay = snapshotOnlyOverlay,
+                snapshotBySlot = snapshotBySlot,
+                liftsById = liftsById,
+                liftNamesById = liftNamesById,
+                mergeRenderedWorkout = mergeRenderedWorkout,
+            )
+            recomputeRecommendationsUseCase(renderedForRecs, liftsById, fatigueByLiftId)
         }.onSuccess { recommendations ->
             overlay = overlay.copy(recommendations = recommendations)
         }

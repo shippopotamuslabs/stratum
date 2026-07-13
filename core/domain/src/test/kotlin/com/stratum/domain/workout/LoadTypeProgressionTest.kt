@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.workout.fatigue.PopulationFatigueModel
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.KinematicProfile
@@ -258,7 +259,7 @@ class LoadTypeProgressionTest {
     fun `LT-rec-bodyweight-returns-null`() {
         val lastPerformed = LoggedSetValue(slotId, lb(0.0), 8, 2)
         val target = topSet(repMin = 5, repMax = 10, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(
             lastPerformed = lastPerformed,
             completedSlot = null,
             targetSlot = target,
@@ -276,7 +277,7 @@ class LoadTypeProgressionTest {
         // correctly). A future abs-based e1RM reformulation could enable this path.
         val lastPerformed = LoggedSetValue(slotId, lb(-50.0), 8, 2)
         val target = topSet(repMin = 4, repMax = 6, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(
             lastPerformed = lastPerformed,
             completedSlot = null,
             targetSlot = target,
@@ -292,7 +293,7 @@ class LoadTypeProgressionTest {
         // Parity check: Weighted behavior is unchanged by the loadType branch.
         val lastPerformed = LoggedSetValue(slotId, lb(135.0), 5, 2)
         val target = topSet(repMin = 4, repMax = 6, rirGoal = 2)
-        val outcome = RecommendationEngine().recommendNextSet(
+        val outcome = RecommendationEngine(PopulationFatigueModel()).recommendNextSet(
             lastPerformed = lastPerformed,
             completedSlot = null,
             targetSlot = target,

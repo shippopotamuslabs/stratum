@@ -22,6 +22,7 @@ import com.stratum.domain.workout.progression.ProgressionEngine
 import com.stratum.domain.workout.progression.SchemeTransitionEvent
 import com.stratum.domain.workout.progression.SlotProgressionRequest
 import com.stratum.domain.workout.progression.buildRecentSessionBlock
+import com.stratum.domain.workout.progression.resolveStraightSetSharedWeight
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -54,9 +55,18 @@ data class SnapshotRequest(
  * histories and assigns each slot a [ProgressionBaseline]. This corrects the
  * "reps going up across sets at the same weight" pattern (misreported earlier-set RIR)
  * by feeding the engines a descending-capacity baseline so recommendations come out
- * monotonically non-increasing, and lets slots beyond the most-recent session's set
- * count (e.g. 5→3→5) project from the top-set rec instead of falling back to stale
- * positional history.
+ * monotonically non-increasing.
+ *
+ * Slots beyond the most-recent session's set count (e.g. 5→3→5) use
+ * [ProgressionBaseline.ProjectFromPrior] and project **sequentially** from the prior
+ * slot rec — never from stale older-session positional history, and never by re-anchoring
+ * every missing slot to the top set (which produced positively-sloped rep curves).
+ *
+ * After the scheme gate picks a candidate top weight, [resolveStraightSetSharedWeight]
+ * may lower it once for the whole lift (straight sets stay uniform) when the last
+ * program set cannot clear the rep floor — preferring real last-set data when the recent
+ * session covered every slot. All slots are then re-emitted at that shared weight with
+ * honest rep projections.
  *
  * When Linear exhausts ([LinearProgressionEngine.diagnose] emits a transition), the
  * snapshot flips that lift to Double for this compute, appends [SCHEME_CHANGED], and
@@ -128,7 +138,8 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
             // (no history for this lift at all); every slot gets a null baseline.
             val recentBlock = buildRecentSessionBlock(perSlotHistories)
 
-            // Compute top set recommended weight first to derive the target weight for all slots
+            // Scheme gate on the top set → candidate shared weight, then look-ahead may
+            // drop once for the whole straight set (real data preferred when fully covered).
             val topIndex = slots.indexOfFirst { it.isTopSet }.takeIf { it >= 0 } ?: 0
             val topSlot = slots[topIndex]
             val topBaseline = baselineForSlot(recentBlock, topIndex)
@@ -142,29 +153,49 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
                     incrementTiers = liftTiers,
                 ),
             )
-            val currentTopSetWeight = topRec.recommendedWeight
+            val sharedWeight = resolveStraightSetSharedWeight(
+                candidateWeight = topRec.recommendedWeight,
+                slots = slots,
+                recentBlock = recentBlock,
+                perLiftSlope = fatigueSlope,
+                perLiftIntercept = fatigueIntercept,
+                incrementTiers = liftTiers,
+                loadType = liftLoadType,
+            )
 
-            for ((index, liftSet) in sortedSets.withIndex()) {
+            // Emit every slot at the finalized shared weight with sequential priors so
+            // ProjectFromPrior continues the decay curve instead of re-anchoring to top.
+            // FromRecent slots reproject their own baseline at the shared load; only
+            // ProjectFromPrior uses prior-slot fatigue.
+            var previousSlot: SetSlot? = null
+            var previousRec: SlotRecommendation? = null
+            val orderedRecs = ArrayList<SlotRecommendation>(sortedSets.size)
+            for (index in sortedSets.indices) {
                 val slot = slots[index]
                 val history = perSlotHistories[index] ?: emptyList()
-                val priorSlot = if (index != topIndex) topSlot else null
-                val priorRec = if (index != topIndex) topRec else null
-
-                bySlot[slot.slotId] = engine.recommend(
+                val rec = engine.recommend(
                     SlotProgressionRequest(
                         slot = slot,
                         history = history,
                         fallbackOneRm = null,
                         loadType = liftLoadType,
-                        currentTopSetWeight = currentTopSetWeight,
-                        priorSlotRecommendation = priorRec,
-                        priorSlot = priorSlot,
+                        currentTopSetWeight = sharedWeight,
+                        priorSlotRecommendation = previousRec,
+                        priorSlot = previousSlot,
                         perLiftSlope = fatigueSlope,
                         perLiftIntercept = fatigueIntercept,
                         progressionBaseline = baselineForSlot(recentBlock, index),
                         incrementTiers = liftTiers,
                     ),
                 )
+                orderedRecs.add(rec)
+                previousSlot = slot
+                previousRec = rec
+            }
+            // Guard against at-RIR asymmetry (e.g. top rirGoal 2 vs backoff 1 on tied
+            // failure capacity) producing a positively-sloped rep curve.
+            for (rec in clampRepsMonotonicNonIncreasing(orderedRecs)) {
+                bySlot[rec.slotId] = rec
             }
         }
         return Result.success(ProgressionSnapshot(request.workoutId, bySlot))
@@ -174,7 +205,8 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
      * Maps a slot (by position order) to its progression math baseline from the
      * capacity-descending recent block. Slot `i` receives `performances[i]`; slots
      * beyond the block's size (most-recent session logged fewer sets than the current
-     * program) project from the prior slot rec.
+     * program) use [ProgressionBaseline.ProjectFromPrior] and the orchestrator chains
+     * fatigue from the previous slot rec.
      */
     private fun baselineForSlot(
         recentBlock: com.stratum.domain.workout.progression.RecentSessionBlock?,
@@ -258,6 +290,29 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
         }
         if (changed) {
             programRepository.saveProgram(program.copy(workouts = updatedWorkouts))
+        }
+    }
+}
+
+/**
+ * Forces recommended reps to be monotonically non-increasing across slots at the same
+ * shared load. Pure; preserves weight / previous* / isProjected.
+ *
+ * Guards at-RIR asymmetry when failure capacities are tied but slot `rirGoal` falls
+ * (e.g. top RIR 2 → backoff RIR 1 would otherwise recommend +1 rep).
+ */
+fun clampRepsMonotonicNonIncreasing(
+    recs: List<SlotRecommendation>,
+): List<SlotRecommendation> {
+    if (recs.size <= 1) return recs
+    var prevReps = Int.MAX_VALUE
+    return recs.map { rec ->
+        val clamped = minOf(rec.baselineExpectedReps, prevReps)
+        prevReps = clamped
+        if (clamped == rec.baselineExpectedReps) {
+            rec
+        } else {
+            rec.copy(baselineExpectedReps = clamped)
         }
     }
 }
