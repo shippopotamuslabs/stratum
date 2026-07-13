@@ -201,7 +201,7 @@ class SeedLiftCatalogQualityTest {
                 "Low Pulley Row To Neck",
             )
 
-        val REAR_DELT_FLY_IDS = setOf("cable-rear-delt-fly", "reverse-flyes")
+        val REAR_DELT_FLY_IDS = setOf("cable-rear-delt-fly", "reverse-flyes", "pec-deck-rear-delt-fly")
         val REAR_DELT_ROW_IDS = setOf("barbell-rear-delt-row", "cable-rope-rear-delt-rows")
 
         /** Audit-deferred borderline: row-to-neck targets rear delts but was left anterior-primary. */

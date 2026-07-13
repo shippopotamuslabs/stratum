@@ -165,15 +165,15 @@
     ]
   },
   {
-    "id": "barbell-upright-row",
-    "equipment": [
-      "FixedBarbell"
-    ]
-  },
-  {
     "id": "barbell-walking-lunge",
     "equipment": [
       "Barbell"
+    ]
+  },
+  {
+    "id": "bayesian-curl",
+    "equipment": [
+      "CableStation"
     ]
   },
   {
@@ -261,6 +261,18 @@
     "id": "cable-crossover",
     "equipment": [
       "CableCrossover",
+      "CableStation"
+    ]
+  },
+  {
+    "id": "cable-cuffed-behind-the-back-lateral-raise",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "cable-cuffed-lateral-raise",
+    "equipment": [
       "CableStation"
     ]
   },
@@ -427,6 +439,13 @@
     ]
   },
   {
+    "id": "close-grip-landmine-row",
+    "equipment": [
+      "Barbell",
+      "TBarRowStation"
+    ]
+  },
+  {
     "id": "close-grip-standing-barbell-curl",
     "equipment": [
       "Barbell"
@@ -479,6 +498,12 @@
   },
   {
     "id": "deficit-deadlift",
+    "equipment": [
+      "Barbell"
+    ]
+  },
+  {
+    "id": "deficit-straight-legged-deadlift",
     "equipment": [
       "Barbell"
     ]
@@ -571,6 +596,12 @@
   },
   {
     "id": "dumbbell-one-arm-upright-row",
+    "equipment": [
+      "Dumbbell"
+    ]
+  },
+  {
+    "id": "dumbbell-overhead-triceps-extension",
     "equipment": [
       "Dumbbell"
     ]
@@ -707,6 +738,13 @@
     ]
   },
   {
+    "id": "high-to-low-cable-flye",
+    "equipment": [
+      "CableStation",
+      "CableCrossover"
+    ]
+  },
+  {
     "id": "incline-bench-pull",
     "equipment": [
       "Bodyweight"
@@ -726,9 +764,23 @@
     ]
   },
   {
+    "id": "incline-dumbbell-fly",
+    "equipment": [
+      "Dumbbell",
+      "FlatBench"
+    ]
+  },
+  {
     "id": "incline-dumbbell-press",
     "equipment": [
       "Dumbbell"
+    ]
+  },
+  {
+    "id": "incline-dumbbell-skullcrusher",
+    "equipment": [
+      "Dumbbell",
+      "FlatBench"
     ]
   },
   {
@@ -793,6 +845,12 @@
     "equipment": [
       "Barbell",
       "PowerRack"
+    ]
+  },
+  {
+    "id": "landmine-chest-press",
+    "equipment": [
+      "Barbell"
     ]
   },
   {
@@ -886,6 +944,13 @@
   {
     "id": "machine-bicep-curl",
     "equipment": [
+      "CableStation"
+    ]
+  },
+  {
+    "id": "machine-lat-pulldown",
+    "equipment": [
+      "LatPulldownMachine",
       "CableStation"
     ]
   },
@@ -1021,6 +1086,18 @@
     ]
   },
   {
+    "id": "pec-deck-rear-delt-fly",
+    "equipment": [
+      "PecDeck"
+    ]
+  },
+  {
+    "id": "pendlay-row",
+    "equipment": [
+      "Barbell"
+    ]
+  },
+  {
     "id": "pin-presses",
     "equipment": [
       "Barbell",
@@ -1147,6 +1224,12 @@
     ]
   },
   {
+    "id": "seated-leg-curl",
+    "equipment": [
+      "LegCurl"
+    ]
+  },
+  {
     "id": "seated-one-arm-cable-pulley-rows",
     "equipment": [
       "CableStation",
@@ -1170,6 +1253,12 @@
     "equipment": [
       "CableCrossover",
       "CableStation"
+    ]
+  },
+  {
+    "id": "single-arm-landmine-chest-press",
+    "equipment": [
+      "Barbell"
     ]
   },
   {
@@ -1213,6 +1302,18 @@
   },
   {
     "id": "smith-machine-overhead-shoulder-press",
+    "equipment": [
+      "SmithMachine"
+    ]
+  },
+  {
+    "id": "smith-machine-squat",
+    "equipment": [
+      "SmithMachine"
+    ]
+  },
+  {
+    "id": "smith-single-leg-split-squat",
     "equipment": [
       "SmithMachine"
     ]
@@ -1281,9 +1382,21 @@
     ]
   },
   {
+    "id": "standing-high-pulley-triceps-extension",
+    "equipment": [
+      "CableStation"
+    ]
+  },
+  {
     "id": "standing-inner-biceps-curl",
     "equipment": [
       "Bodyweight"
+    ]
+  },
+  {
+    "id": "standing-leg-curl",
+    "equipment": [
+      "LegCurl"
     ]
   },
   {
@@ -1348,6 +1461,13 @@
     ]
   },
   {
+    "id": "t-bar-landmine-row",
+    "equipment": [
+      "Barbell",
+      "TBarRowStation"
+    ]
+  },
+  {
     "id": "t-bar-row-with-handle",
     "equipment": [
       "TBarRowStation"
@@ -1388,6 +1508,12 @@
     "equipment": [
       "CableStation",
       "LatPulldownMachine"
+    ]
+  },
+  {
+    "id": "upright-barbell-row",
+    "equipment": [
+      "Barbell"
     ]
   },
   {
