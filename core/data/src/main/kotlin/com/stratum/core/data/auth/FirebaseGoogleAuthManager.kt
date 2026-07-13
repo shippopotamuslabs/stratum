@@ -1,6 +1,5 @@
 package com.stratum.core.data.auth
 
-import android.content.Context
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -14,7 +13,6 @@ import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.UserProfile
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.logging.LoggingPort
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -26,12 +24,12 @@ import kotlinx.coroutines.tasks.await
 
 @Singleton
 class FirebaseGoogleAuthManager @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val firebaseAuth: FirebaseAuth,
     private val credentialManager: CredentialManager,
     private val signInHostContext: SignInHostContext,
     private val loggingPort: LoggingPort,
     @ApplicationScope private val externalScope: CoroutineScope,
+    @GoogleServerClientId private val googleServerClientId: String,
 ) : AuthManager {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     override val authState: StateFlow<AuthState> = _authState.asStateFlow()
@@ -57,17 +55,11 @@ class FirebaseGoogleAuthManager @Inject constructor(
     }
 
     override suspend fun signInWithGoogle(): Result<UserProfile> = runCatching {
-        val resourceId = context.resources.getIdentifier(
-            "default_web_client_id",
-            "string",
-            context.packageName,
-        )
-        require(resourceId != 0) {
-            "Google Sign-In configuration missing: default_web_client_id not found."
+        require(googleServerClientId.isNotBlank()) {
+            "Google Sign-In configuration missing: default_web_client_id is blank."
         }
-        val webClientId = context.getString(resourceId)
         val signInWithGoogleOption =
-            GetSignInWithGoogleOption.Builder(serverClientId = webClientId).build()
+            GetSignInWithGoogleOption.Builder(serverClientId = googleServerClientId).build()
         val request =
             GetCredentialRequest.Builder()
                 .addCredentialOption(signInWithGoogleOption)
