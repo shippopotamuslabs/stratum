@@ -110,8 +110,9 @@ class MainViewModel @Inject constructor(
     fun onSignOutFromShell() {
         viewModelScope.launch {
             signInError.value = null
-            logout().onFailure { error ->
-                signInError.value = error.message ?: "Couldn't sign out. Try again."
+            logout().onFailure {
+                // Keep shell copy non-technical; detail is logged by the auth layer.
+                signInError.value = "Couldn't sign out. Try again."
             }
         }
     }
@@ -128,7 +129,8 @@ class MainViewModel @Inject constructor(
         return when (auth) {
             AuthState.Loading -> ShellUiState.CheckingAuth
             AuthState.Unauthenticated -> ShellUiState.SignedOut
-            is AuthState.Error -> ShellUiState.SignInError(auth.message)
+            is AuthState.Error ->
+                ShellUiState.SignInError(RuntimeException(auth.message).toGoogleSignInMessage())
             is AuthState.Authenticated -> {
                 if (hasEntered) {
                     ShellUiState.Ready

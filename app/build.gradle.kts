@@ -30,8 +30,8 @@ android {
         applicationId = "com.aether.stratum"
         minSdk = 34
         targetSdk = 37
-        versionCode = 13
-        versionName = "1.12"
+        versionCode = 14
+        versionName = "1.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -49,8 +49,10 @@ android {
 
     buildTypes {
         release {
+            // AGP 9: enables R8 code shrinking + optimization + resource shrinking.
+            // Keep rules live in src/main/keepRules/*.keep (includes -dontobfuscate).
             optimization {
-                enable = false
+                enable = true
             }
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
