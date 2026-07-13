@@ -49,8 +49,10 @@ android {
 
     buildTypes {
         release {
+            // AGP 9: enables R8 code shrinking + optimization + resource shrinking.
+            // Keep rules live in src/main/keepRules/*.keep (includes -dontobfuscate).
             optimization {
-                enable = false
+                enable = true
             }
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")

@@ -1,12 +1,37 @@
-# Add project specific R8 rules here.
-# AGP will combine all keep rule files in src/main/keepRules to pass to R8
+# Stratum R8 keep rules (AGP 9 keepRules source set — all *.keep files are merged).
+# https://d.android.com/r/tools/r8/keep-rules
 #
-# For more details, see
-#   https://d.android.com/r/tools/r8/keep-rules
+# Goals for release:
+# - Shrink unused code and resources (optimization.enable = true)
+# - Allow R8 bytecode optimization (default proguard-android-optimize.txt)
+# - Do NOT obfuscate / rename symbols (serialization, stacktraces, less keep churn)
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Shrink + optimize, but keep original class/method/field names.
+-dontobfuscate
+
+# Crashlytics / stacktraces: line numbers and source file names stay useful
+# even without name obfuscation. Default AGP optimize rules already keep
+# LineNumberTable/SourceFile on modern AGP; leave explicit only if needed.
+# -keepattributes SourceFile,LineNumberTable
+
+# ---------------------------------------------------------------------------
+# Reflection / framework entry points that libraries may not fully cover.
+# Prefer narrow rules; Room, Hilt, WorkManager, kotlinx.serialization,
+# Firebase, and Compose ship their own consumer rules.
+# ---------------------------------------------------------------------------
+
+# WorkManager workers are constructed reflectively by WorkerFactory.
+# Hilt generates factories for @HiltWorker; keep worker types reachable.
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context,androidx.work.WorkerParameters);
+}
+
+# kotlinx.serialization: library consumer rules cover most cases. With
+# -dontobfuscate, field names are already stable. Keep companion serializers
+# if full-mode tree-shaking would drop them when only used via reflection.
+-keepclassmembers @kotlinx.serialization.Serializable class ** {
+    *** Companion;
+}
+-keepclasseswithmembers class ** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
