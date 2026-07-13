@@ -7,8 +7,9 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.incrementForAmount
 import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.workout.fatigue.FatigueModel
+import com.stratum.domain.workout.fatigue.defaultLoadBumpAmount
+import com.stratum.domain.workout.fatigue.reduceWeightForLastSetFloor as sharedReduceWeightForLastSetFloor
 import javax.inject.Inject
-import kotlin.math.max
 
 /**
  * Overlay-only recommendation engine (D4). Hold-vs-reduce decision for remaining sets,
@@ -268,7 +269,7 @@ class RecommendationEngine @Inject constructor(
 
     /**
      * Heaviest load ≤ [startFrom] with last-set capacity ≥ [BACKOFF_REP_FLOOR].
-     * Never returns a non-positive weight when a positive continuous solution exists.
+     * Delegates to shared [reduceWeightForLastSetFloor] with [FatigueModel]-backed capacity.
      */
     private fun reduceWeightForLastSetFloor(
         e1rm: Double,
@@ -279,137 +280,25 @@ class RecommendationEngine @Inject constructor(
         perLiftIntercept: Double?,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
-    ): Weight {
-        val unit = startFrom.unit
-        val ceiling = startFrom.amount.coerceAtLeast(0.0)
-        if (ceiling <= 0.0) {
-            // No positive start — return a minimal positive probe still evaluated by caller path.
-            return Weight(defaultBumpAmount(unit), unit)
-        }
-
-        fun cap(amount: Double): Int = capacityAtRir(
-            e1rm = e1rm,
-            weight = Weight(amount, unit),
-            setIndex = lastSetIndex,
-            rirGoal = rirGoal,
-            perLiftSlope = perLiftSlope,
-            perLiftIntercept = perLiftIntercept,
-        )
-
-        var lo = 0.0
-        var hi = ceiling
-        var bestContinuous = 0.0
-        repeat(BINARY_SEARCH_ITERS) {
-            val mid = (lo + hi) / 2.0
-            if (mid > 0.0 && cap(mid) >= BACKOFF_REP_FLOOR) {
-                bestContinuous = mid
-                lo = mid
-            } else {
-                hi = mid
-            }
-        }
-
-        // Unsatisfiable floor: still return a positive continuous best-effort (may be tiny).
-        if (bestContinuous <= 0.0) {
-            return Weight(minPositiveStep(ceiling, incrementTiers, unit), unit)
-        }
-
-        if (incrementTiers.isEmpty() || loadType == LoadType.Bodyweight) {
-            return Weight(bestContinuous, unit)
-        }
-
-        var candidate = incrementTiers.roundToIncrement(Weight(bestContinuous, unit), loadType)
-        if (candidate.amount > ceiling) {
-            candidate = stepDownAligned(candidate, incrementTiers, loadType)
-        }
-
-        var guard = 0
-        while (
-            guard < MAX_TIER_STEPS &&
-            candidate.amount > 0.0 &&
+    ): Weight = sharedReduceWeightForLastSetFloor(
+        startFrom = startFrom,
+        incrementTiers = incrementTiers,
+        loadType = loadType,
+        capacityAtRir = { amount ->
             capacityAtRir(
                 e1rm = e1rm,
-                weight = candidate,
+                weight = Weight(amount, startFrom.unit),
                 setIndex = lastSetIndex,
                 rirGoal = rirGoal,
                 perLiftSlope = perLiftSlope,
                 perLiftIntercept = perLiftIntercept,
-            ) < BACKOFF_REP_FLOOR
-        ) {
-            val next = stepDownAligned(candidate, incrementTiers, loadType)
-            if (next.amount <= 0.0 || next.amount >= candidate.amount - AMOUNT_EPS) {
-                break
-            }
-            candidate = next
-            guard++
-        }
-
-        val candidateOk = candidate.amount > 0.0 &&
-            capacityAtRir(
-                e1rm = e1rm,
-                weight = candidate,
-                setIndex = lastSetIndex,
-                rirGoal = rirGoal,
-                perLiftSlope = perLiftSlope,
-                perLiftIntercept = perLiftIntercept,
-            ) >= BACKOFF_REP_FLOOR
-
-        return if (candidateOk) {
-            candidate
-        } else {
-            // Tier lattice failed (or hit bottom) — continuous positive solution.
-            Weight(bestContinuous, unit)
-        }
-    }
-
-    private fun stepDownAligned(
-        weight: Weight,
-        incrementTiers: List<IncrementTier>,
-        loadType: LoadType,
-    ): Weight {
-        val step = incrementTiers.incrementForAmount(weight.amount).let { s ->
-            if (s > 0.0) s else defaultBumpAmount(weight.unit)
-        }
-        val lowerAmount = max(0.0, weight.amount - step)
-        if (lowerAmount <= 0.0) {
-            return Weight(0.0, weight.unit) // signal bottom; caller falls back to continuous
-        }
-        val rounded = incrementTiers.roundToIncrement(Weight(lowerAmount, weight.unit), loadType)
-        return if (rounded.amount <= lowerAmount + AMOUNT_EPS) {
-            rounded
-        } else {
-            val forced = max(0.0, rounded.amount - step)
-            if (forced <= 0.0) Weight(0.0, weight.unit)
-            else Weight(forced, weight.unit)
-        }
-    }
-
-    private fun minPositiveStep(
-        ceiling: Double,
-        incrementTiers: List<IncrementTier>,
-        unit: Weight.WeightUnit,
-    ): Double {
-        if (incrementTiers.isEmpty()) {
-            return defaultBumpAmount(unit).coerceAtMost(ceiling.coerceAtLeast(defaultBumpAmount(unit)))
-        }
-        val step = incrementTiers.incrementForAmount(ceiling.coerceAtLeast(1.0)).let { s ->
-            if (s > 0.0) s else defaultBumpAmount(unit)
-        }
-        return step
-    }
+            )
+        },
+        defaultBumpAmount = ::defaultBumpAmount,
+    )
 
     companion object {
-        private const val BINARY_SEARCH_ITERS: Int = 48
-        private const val MAX_TIER_STEPS: Int = 256
-        private const val AMOUNT_EPS: Double = 1e-9
-
-        private const val DEFAULT_BUMP_LB: Double = 5.0
-        private const val DEFAULT_BUMP_KG: Double = 2.5
-
         /** Default too-easy / step size when no tier band applies. */
-        fun defaultBumpAmount(unit: Weight.WeightUnit): Double = when (unit) {
-            Weight.WeightUnit.Lb -> DEFAULT_BUMP_LB
-            Weight.WeightUnit.Kg -> DEFAULT_BUMP_KG
-        }
+        fun defaultBumpAmount(unit: Weight.WeightUnit): Double = defaultLoadBumpAmount(unit)
     }
 }
