@@ -73,64 +73,66 @@ object CheckInDecisionEngine {
         val severeRecovery =
             input.recoverySignal == RecoverySignal.SevereUnderRecovery ||
                 input.recoverySignal == RecoverySignal.JointPain
-
-        if (severeRecovery) {
-            val remove = setsToRemove(input.currentSetCount)
-            return if (remove == 0) {
+        return when {
+            severeRecovery -> decideSevereRecoveryCut(input)
+            input.performanceTrend == PerformanceTrend.Climbing ->
                 CheckInCoreDecision(
-                    kind = CheckInActionKind.CutVolume,
-                    removeSets = 0,
-                    rationale = CheckInRationale.AlreadyAtFloorSets,
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.ClimbingMaintain,
                 )
-            } else {
-                val rationale =
-                    if (input.recoverySignal == RecoverySignal.JointPain) {
-                        CheckInRationale.JointPainCut(remove)
-                    } else {
-                        CheckInRationale.SevereUnderRecoveryCut(remove)
-                    }
+            input.performanceTrend == PerformanceTrend.Insufficient ->
                 CheckInCoreDecision(
-                    kind = CheckInActionKind.CutVolume,
-                    removeSets = remove,
-                    rationale = rationale,
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.NoClearChange,
                 )
-            }
+            input.performanceTrend == PerformanceTrend.Dropping &&
+                input.recoverySignal == RecoverySignal.MildSoreness ->
+                CheckInCoreDecision(
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.DroppingMildRecoveryHold,
+                )
+            isSoftPerformanceWithOkRecovery(input) -> decideSoftLever(input)
+            else ->
+                CheckInCoreDecision(
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.NoClearChange,
+                )
         }
+    }
 
-        if (input.performanceTrend == PerformanceTrend.Climbing) {
+    private fun decideSevereRecoveryCut(input: LiftCheckInInput): CheckInCoreDecision {
+        val remove = setsToRemove(input.currentSetCount)
+        if (remove == 0) {
             return CheckInCoreDecision(
-                kind = CheckInActionKind.Maintain,
-                rationale = CheckInRationale.ClimbingMaintain,
+                kind = CheckInActionKind.CutVolume,
+                removeSets = 0,
+                rationale = CheckInRationale.AlreadyAtFloorSets,
             )
         }
+        val rationale =
+            if (input.recoverySignal == RecoverySignal.JointPain) {
+                CheckInRationale.JointPainCut(remove)
+            } else {
+                CheckInRationale.SevereUnderRecoveryCut(remove)
+            }
+        return CheckInCoreDecision(
+            kind = CheckInActionKind.CutVolume,
+            removeSets = remove,
+            rationale = rationale,
+        )
+    }
 
-        if (input.performanceTrend == PerformanceTrend.Insufficient) {
+    private fun decideSoftLever(input: LiftCheckInInput): CheckInCoreDecision {
+        // Soft levers need primary-muscle identity for ceiling + one-lever batching.
+        if (input.primaryMuscles.isEmpty()) {
             return CheckInCoreDecision(
                 kind = CheckInActionKind.Maintain,
                 rationale = CheckInRationale.NoClearChange,
             )
         }
-
-        if (
-            input.performanceTrend == PerformanceTrend.Dropping &&
-            input.recoverySignal == RecoverySignal.MildSoreness
-        ) {
-            return CheckInCoreDecision(
-                kind = CheckInActionKind.Maintain,
-                rationale = CheckInRationale.DroppingMildRecoveryHold,
-            )
-        }
-
-        if (isSoftPerformanceWithOkRecovery(input)) {
-            // Soft levers need primary-muscle identity for ceiling + one-lever batching.
-            if (input.primaryMuscles.isEmpty()) {
-                return CheckInCoreDecision(
-                    kind = CheckInActionKind.Maintain,
-                    rationale = CheckInRationale.NoClearChange,
-                )
-            }
-            val soft = input.performanceTrend.toSoftTrend()
-            return if (input.rotationTenureWeeks >= STALE_LIFT_TENURE_WEEKS) {
+        val soft = input.performanceTrend.toSoftTrend()
+        return when {
+            input.rotationTenureWeeks >= STALE_LIFT_TENURE_WEEKS ->
                 CheckInCoreDecision(
                     kind = CheckInActionKind.SwapLift,
                     rationale =
@@ -139,12 +141,12 @@ object CheckInDecisionEngine {
                             tenureWeeks = input.rotationTenureWeeks,
                         ),
                 )
-            } else if (input.atVolumeCeiling) {
+            input.atVolumeCeiling ->
                 CheckInCoreDecision(
                     kind = CheckInActionKind.Maintain,
                     rationale = CheckInRationale.SoftFreshAtVolumeCeiling,
                 )
-            } else {
+            else ->
                 CheckInCoreDecision(
                     kind = CheckInActionKind.IncreaseVolume,
                     addSets = CHECKIN_VOLUME_STEP,
@@ -154,13 +156,7 @@ object CheckInDecisionEngine {
                             tenureWeeks = input.rotationTenureWeeks,
                         ),
                 )
-            }
         }
-
-        return CheckInCoreDecision(
-            kind = CheckInActionKind.Maintain,
-            rationale = CheckInRationale.NoClearChange,
-        )
     }
 
     fun setsToRemove(currentSetCount: Int): Int {

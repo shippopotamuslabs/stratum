@@ -58,13 +58,23 @@ class CheckInVolumeCeilingTest {
     }
 
     @Test
-    @DisplayName("A4: Saturated posture → at ceiling even with low volume")
-    fun saturatedPosture() {
+    @DisplayName("A4: Saturated posture + volume ≥ 50% ceiling → at ceiling")
+    fun saturatedPostureWithEnoughVolume() {
         val snapshot = snapshot(pv = 12.0, rc = 18.0, posture = VolumePosture.Saturated)
+        val ceiling = CheckInVolumeCeiling.resolveCeiling(snapshot)
+        // Below 50% of ceiling: Saturated alone does not freeze +1
+        assertFalse(
+            CheckInVolumeCeiling.isAtCeiling(
+                primaryMuscles = setOf(MuscleGroup.Chest),
+                programVolumeByMuscle = mapOf(MuscleGroup.Chest to ceiling * 0.4),
+                snapshotsByMuscle = mapOf(MuscleGroup.Chest to snapshot),
+            ),
+        )
+        // At 50%+: Saturated forces ceiling
         assertTrue(
             CheckInVolumeCeiling.isAtCeiling(
                 primaryMuscles = setOf(MuscleGroup.Chest),
-                programVolumeByMuscle = mapOf(MuscleGroup.Chest to 4.0),
+                programVolumeByMuscle = mapOf(MuscleGroup.Chest to ceiling * 0.5),
                 snapshotsByMuscle = mapOf(MuscleGroup.Chest to snapshot),
             ),
         )

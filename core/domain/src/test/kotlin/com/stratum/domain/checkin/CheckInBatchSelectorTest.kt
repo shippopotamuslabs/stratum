@@ -99,8 +99,8 @@ class CheckInBatchSelectorTest {
     }
 
     @Test
-    @DisplayName("C5: multi-primary Swap claims Tricep → tricep Increase demoted")
-    fun multiPrimaryClaims() {
+    @DisplayName("C5: multi-primary Swap claims first primary only — isolation peer stays open")
+    fun multiPrimaryClaimsFirstPrimaryOnly() {
         val bench =
             provisional(
                 name = "Bench",
@@ -117,7 +117,8 @@ class CheckInBatchSelectorTest {
         val result = CheckInBatchSelector.select(listOf(bench, pushdown))
         val byName = result.associateBy { it.input.liftName }
         assertTrue(byName.getValue("Bench").action is CheckInAction.SwapLift)
-        assertTrue(byName.getValue("Pushdown").action is CheckInAction.Maintain)
+        // First primary of Bench is Chest (name-sorted); Tricep stays free for pushdown +1.
+        assertTrue(byName.getValue("Pushdown").action is CheckInAction.IncreaseVolume)
     }
 
     @Test

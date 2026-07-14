@@ -1,6 +1,5 @@
 package com.stratum.domain.checkin
 
-import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.onboarding.MuscleGroup
 
 /**
@@ -24,6 +23,8 @@ data class CheckInProvisionalRecommendation(
  * accepted in priority order; losers become [Maintain] with [CheckInRationale.MuscleLeverAlreadyTaken].
  *
  * Empty [LiftCheckInInput.primaryMuscles] never accept a non-cut lever (no muscle identity).
+ * Compound multi-primary levers claim only the first primary (name-sorted) so secondaries stay
+ * open for isolation peers.
  */
 object CheckInBatchSelector {
 
@@ -46,14 +47,15 @@ object CheckInBatchSelector {
 
         for (slot in contenders) {
             val muscles = slot.input.primaryMuscles
+            val claimTarget = muscles.minByOrNull { it.name }
             when {
-                muscles.isEmpty() ->
+                muscles.isEmpty() || claimTarget == null ->
                     demoted +=
                         slot.copy(
                             action = CheckInAction.Maintain,
                             rationale = CheckInRationale.NoClearChange,
                         )
-                muscles.any { it in claimed } ->
+                claimTarget in claimed ->
                     demoted +=
                         slot.copy(
                             action = CheckInAction.Maintain,
@@ -61,7 +63,7 @@ object CheckInBatchSelector {
                         )
                 else -> {
                     accepted += slot
-                    claimed += muscles
+                    claimed += claimTarget
                 }
             }
         }
@@ -72,28 +74,14 @@ object CheckInBatchSelector {
 
     /**
      * Greedy claim order: Swap before Increase; among increases apply volume-target rank keys
-     * (Dropping, lower sets, isolation, higher tenure, name).
+     * (Dropping, lower sets, isolation, higher tenure, name). Shared with swap enrich.
      */
     fun contenderComparator(): Comparator<CheckInProvisionalRecommendation> =
-        compareBy<CheckInProvisionalRecommendation> { it.kind.sortPriority() }
-            .thenByDescending { it.input.performanceTrend == PerformanceTrend.Dropping }
-            .thenBy { it.input.currentSetCount }
-            .thenBy { it.input.kinematicProfile.isolationRank }
-            .thenByDescending { it.input.rotationTenureWeeks }
-            .thenBy { it.input.liftName.lowercase() }
+        CheckInRanking.contenderComparator()
 
     /** Public display / output order (kind, dropping, name) — shared with engine comparator keys. */
     fun displayComparator(): Comparator<CheckInProvisionalRecommendation> =
         compareBy<CheckInProvisionalRecommendation> { it.kind.sortPriority() }
             .thenByDescending { it.input.performanceTrend == PerformanceTrend.Dropping }
             .thenBy { it.input.liftName.lowercase() }
-
-    /** Isolation first (0), unknown next, compounds last. */
-    private val KinematicProfile?.isolationRank: Int
-        get() =
-            when (this) {
-                KinematicProfile.Isolation -> 0
-                null -> 1
-                else -> 2
-            }
 }

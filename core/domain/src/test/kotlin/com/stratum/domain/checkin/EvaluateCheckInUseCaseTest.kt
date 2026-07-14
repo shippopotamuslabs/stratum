@@ -166,7 +166,8 @@ class EvaluateCheckInUseCaseTest {
             id = programId,
             name = "Split",
             createdAt = now.minus(10 * 7, ChronoUnit.DAYS),
-            cycleLength = 1,
+            cycleLength = 7,
+            restSlotIndices = setOf(1, 2, 3, 4, 5, 6),
             trainingWeekdays = setOf(Weekday.Monday),
             workouts = listOf(
                 Workout(
@@ -243,11 +244,17 @@ class EvaluateCheckInUseCaseTest {
     }
 
     @Test
-    @DisplayName("D3: Saturated snapshot → Maintain even with moderate sets")
+    @DisplayName("D3: Saturated snapshot + enough volume (≥50% ceiling) → Maintain")
     fun saturatedSnapshotHolds() = runTest {
         val lifts = FakeLiftRepository()
         lifts.seedLifts(listOf(BENCH, INCLINE))
-        val program = singleLiftProgram(BENCH.id, setCount = 4, createdAt = now.minus(2 * 7, ChronoUnit.DAYS))
+        // Saturated only freezes +1 when weekly volume is at least half the maintenance ceiling.
+        val program =
+            singleLiftProgram(
+                BENCH.id,
+                setCount = 10,
+                createdAt = now.minus(2 * 7, ChronoUnit.DAYS),
+            )
         val perf = FakeLiftWeeklyPerformanceRepository()
         perf.seed(flatSeries(BENCH.id, peak = 100.0))
         val snapshots = FakeMuscleVolumeResponseSnapshotRepository()
@@ -255,7 +262,7 @@ class EvaluateCheckInUseCaseTest {
         val rec =
             evaluateUseCase(program, lifts, perf, snapshots = snapshots)(CheckInSubjectiveFeedback(), now)!!
                 .recommendations.single()
-        assertTrue(rec.action is CheckInAction.Maintain)
+        assertTrue(rec.action is CheckInAction.Maintain, "got ${rec.action} / ${rec.rationale}")
         assertEquals(CheckInRationale.SoftFreshAtVolumeCeiling, rec.rationale)
     }
 
@@ -271,7 +278,8 @@ class EvaluateCheckInUseCaseTest {
                 id = programId,
                 name = "Split",
                 createdAt = now.minus(2 * 7, ChronoUnit.DAYS),
-                cycleLength = 1,
+                cycleLength = 7,
+                restSlotIndices = setOf(1, 2, 3, 4, 5, 6),
                 trainingWeekdays = setOf(Weekday.Monday),
                 workouts =
                     listOf(
@@ -343,7 +351,8 @@ class EvaluateCheckInUseCaseTest {
                 id = programId,
                 name = "Split",
                 createdAt = now.minus(8 * 7, ChronoUnit.DAYS),
-                cycleLength = 1,
+                cycleLength = 7,
+                restSlotIndices = setOf(1, 2, 3, 4, 5, 6),
                 trainingWeekdays = setOf(Weekday.Monday),
                 workouts =
                     listOf(
@@ -429,7 +438,8 @@ class EvaluateCheckInUseCaseTest {
             id = programId,
             name = "Split",
             createdAt = createdAt,
-            cycleLength = 1,
+            cycleLength = 7,
+            restSlotIndices = setOf(1, 2, 3, 4, 5, 6),
             trainingWeekdays = setOf(Weekday.Monday),
             workouts = listOf(
                 Workout(
