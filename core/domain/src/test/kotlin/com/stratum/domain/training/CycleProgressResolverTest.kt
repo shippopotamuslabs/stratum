@@ -89,12 +89,14 @@ class CycleProgressResolverTest {
     }
 
     @Test
-    @DisplayName("WL-019 New workout added mid-cycle appears as next pending")
+    @DisplayName("WL-019 New workout added mid-cycle is scheduled after remaining incomplete trainings")
     fun wl019_midCycleAddWorkout() {
         val sessions = listOf(
             WorkoutLoggingFixtures.completedProgramWorkoutSession("ts-a", WorkoutLoggingFixtures.workoutAId),
         )
         val extended = program.copy(
+            cycleLength = 3,
+            restSlotIndices = emptySet(),
             workouts = program.workouts + Workout(
                 id = WorkoutLoggingFixtures.workoutCId,
                 programId = WorkoutLoggingFixtures.programId,
@@ -106,7 +108,16 @@ class CycleProgressResolverTest {
         )
 
         val next = CycleProgressResolver.resolveNextWorkout(extended, sessions)
+        // A done → next incomplete training is still B; C is available later in the cycle.
+        assertEquals(WorkoutLoggingFixtures.workoutBId, next?.id)
 
-        assertEquals(WorkoutLoggingFixtures.workoutCId, next?.id)
+        val afterB =
+            sessions +
+                WorkoutLoggingFixtures.completedProgramWorkoutSession(
+                    "ts-b",
+                    WorkoutLoggingFixtures.workoutBId,
+                )
+        val nextAfterB = CycleProgressResolver.resolveNextWorkout(extended, afterB)
+        assertEquals(WorkoutLoggingFixtures.workoutCId, nextAfterB?.id)
     }
 }

@@ -19,13 +19,20 @@ class RecordRestDaySkipUseCaseTest {
         val repo = FakeTrainingLogRepository()
         val useCase = RecordRestDaySkipUseCase(repo, FakeProgramRepository(program()))
 
-        val session = useCase(Weekday.Monday).getOrThrow()
+        // Prefer slot-index API (schedule identity); rest@1 on a Mon/Wed train week.
+        val session = useCase(slotIndex = 1).getOrThrow()
 
         assertEquals(TrainingSessionKind.REST_DAY, session.kind)
         assertNull(session.workoutId)
-        assertEquals(Weekday.Monday, session.weekdaySnapshot)
+        assertEquals(1, session.cycleSlotIndexSnapshot)
         assertTrue(repo.getSetsForSession(session.id).isEmpty())
     }
 
-    private fun program() = WorkoutLoggingFixtures.twoWorkoutProgram()
+    private fun program() =
+        WorkoutLoggingFixtures.twoWorkoutProgram().copy(
+            cycleLength = 7,
+            // Mon + Wed train → rest slots Tue,Thu,Fri,Sat,Sun
+            restSlotIndices = setOf(1, 3, 4, 5, 6),
+            cycleStartEpochDay = 0L,
+        )
 }

@@ -73,5 +73,31 @@ interface TrainingLogRepository {
         session: TrainingSession,
         cyclePointerUpdate: CyclePointerUpdate?,
         cycleCompletedEvent: ProgramChangeEvent?,
+    ) =
+        persistSessionsWithCycleEffects(
+            sessions = listOf(session),
+            cyclePointerUpdate = cyclePointerUpdate,
+            cycleCompletedEvent = cycleCompletedEvent,
+        )
+
+    /**
+     * Atomically persists one or more sessions (e.g. program workout + auto-materialised mid-cycle
+     * REST_DAY rows) and optional cycle-pointer / change-event side effects.
+     */
+    suspend fun persistSessionsWithCycleEffects(
+        sessions: List<TrainingSession>,
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
+    )
+
+    /**
+     * Atomically deletes sessions and applies optional cycle-pointer / change-event side effects.
+     * Used when unskipping so ledger and pointer stay consistent (mirror of
+     * [persistSessionWithCycleEffects]).
+     */
+    suspend fun deleteSessionsWithCycleEffects(
+        sessionIds: Collection<TrainingSessionId>,
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
     )
 }
