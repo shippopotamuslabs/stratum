@@ -724,7 +724,7 @@ class EditWorkoutViewModelTest {
             val updated = awaitItem() as EditWorkoutUiState.Loaded
             assertEquals("incline-press", updated.lifts.first().liftId)
 
-            // Dispose-owned clear fully resets including Loading.
+            // Explicit hard reset (tests / not composition dispose on child nav).
             viewModel.clearSession()
             val loading = awaitItem()
             assertTrue(loading is EditWorkoutUiState.Loading)
@@ -734,6 +734,75 @@ class EditWorkoutViewModelTest {
             val reloaded = awaitLoaded()
             assertEquals("bench-press", reloaded.lifts.first().liftId)
             assertFalse(reloaded.isDirty)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName(
+        "Given clearSession then swap/reorder events for the old workout id are ignored until re-init",
+    )
+    fun clearSessionDropsEditSessionEventsUntilReinitialize() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            val workoutLiftId = initial.lifts.first().workoutLiftId
+
+            viewModel.clearSession()
+            assertTrue(awaitItem() is EditWorkoutUiState.Loading)
+
+            // Same failure mode as dispose-on-cover: targetWorkoutId is null, events ignored.
+            workoutEditSession.selectLift(
+                workoutId = WORKOUT_ID,
+                workoutLiftId = workoutLiftId,
+                liftId = "incline-press",
+            )
+            workoutEditSession.confirmReorder(WORKOUT_ID, listOf("wl-2", "wl-1"))
+            expectNoEvents()
+
+            viewModel.initialize(WORKOUT_ID)
+            val reloaded = awaitLoaded()
+            assertEquals("bench-press", reloaded.lifts.first().liftId)
+            assertEquals("incline-press", reloaded.lifts[1].liftId)
+            assertFalse(reloaded.isDirty)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName(
+        "Given covered-child path (session kept) when swap and reorder emit then both apply in memory",
+    )
+    fun editSessionEventsApplyWithoutClearSession() = runTest {
+        // Regression for Nav3 child screens: EditWorkout VM must stay initialized while
+        // LiftSwap / ReorderLifts are on top so WorkoutEditSession events apply.
+        val viewModel = buildViewModel()
+        viewModel.initialize(WORKOUT_ID)
+        viewModel.uiState.test {
+            val initial = awaitLoaded()
+            val firstLiftId = initial.lifts.first().workoutLiftId
+
+            workoutEditSession.selectLift(
+                workoutId = WORKOUT_ID,
+                workoutLiftId = firstLiftId,
+                liftId = "incline-press",
+            )
+            val afterSwap = awaitItem() as EditWorkoutUiState.Loaded
+            assertEquals("incline-press", afterSwap.lifts.first().liftId)
+            assertTrue(afterSwap.isDirty)
+
+            viewModel.startReorderLifts()
+            workoutEditSession.confirmReorder(
+                WORKOUT_ID,
+                listOf(afterSwap.lifts[1].workoutLiftId, afterSwap.lifts[0].workoutLiftId),
+            )
+            val afterReorder = awaitItem() as EditWorkoutUiState.Loaded
+            assertEquals("incline-press", afterReorder.lifts[1].liftId)
+            assertEquals(afterSwap.lifts[1].liftId, afterReorder.lifts[0].liftId)
+            assertTrue(afterReorder.isDirty)
 
             cancelAndIgnoreRemainingEvents()
         }
