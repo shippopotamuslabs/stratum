@@ -12,14 +12,14 @@ import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
 import com.stratum.domain.program.generation.reference.sessionAimHardSetsForLength
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.slots.SlotRole
-import com.stratum.domain.program.generation.split.trainingWeekdayIndices
+import com.stratum.domain.program.generation.context.resolveTrainingTimeline
 import com.stratum.domain.program.generation.structure.SessionRegionFilter
-import com.stratum.domain.program.generation.structure.isRestSandwichedTrainingDay
 import com.stratum.domain.program.generation.structure.isSlotCompatibleWithRegionFilter
 import com.stratum.domain.program.generation.structure.regionFiltersBySessionPosition
 import com.stratum.domain.program.generation.synthesis.parseSessionSlotId
 import com.stratum.domain.program.generation.universe.SynthesisSlot
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
+import com.stratum.domain.program.schedule.TrainingTimeline
 import kotlin.math.max
 import kotlin.math.min
 
@@ -105,16 +105,17 @@ object ConstructiveSynthesisSeed {
     ): SynthesisSeedAssignment {
         val sortedPlans = plans.sortedBy { it.position }
         val sessionCount = sortedPlans.size
-        val regionFilters = proposeRegionFilters(sessionCount, context.weekdays)
-        val weekdays = trainingWeekdayIndices(context.weekdays)
-        require(weekdays.size == sessionCount) {
-            "Seed weekday count ${weekdays.size} != session count $sessionCount"
+        val timeline = context.resolveTrainingTimeline()
+        val regionFilters = proposeRegionFilters(sessionCount, timeline)
+        val trainingSlots = timeline.trainingSlotIndices
+        require(trainingSlots.size == sessionCount) {
+            "Seed training slot count ${trainingSlots.size} != session count $sessionCount " +
+                "(cycleLength=${timeline.cycleLength})"
         }
         val weekdayBySession =
-            sortedPlans.mapIndexed { index, plan -> plan.position to weekdays[index] }.toMap()
+            sortedPlans.mapIndexed { index, plan -> plan.position to trainingSlots[index] }.toMap()
         val regionFilterBySession =
             sortedPlans.mapIndexed { index, plan -> plan.position to regionFilters[index] }.toMap()
-        val trainingSet = weekdays.toSet()
 
         // Soft fill toward band aim; never seed above band max hard ceiling.
         val sessionAim =
@@ -137,7 +138,7 @@ object ConstructiveSynthesisSeed {
                 proposeSeedFamily(
                     regionFilter = regionFilter,
                     dayIndex = day,
-                    trainingDays = trainingSet,
+                    timeline = timeline,
                     unrestrictedFamilyIndex = unrestrictedFamilyIndex,
                 )
             if (regionFilter == SessionRegionFilter.Unrestricted && family != SeedFamily.Full) {
@@ -164,12 +165,12 @@ object ConstructiveSynthesisSeed {
         )
     }
 
-    fun proposeRegionFilters(sessionCount: Int, weekdays: List<String>): List<SessionRegionFilter> {
+    fun proposeRegionFilters(sessionCount: Int, timeline: TrainingTimeline): List<SessionRegionFilter> {
         if (sessionCount <= 0) return emptyList()
-        val perSession = regionFiltersBySessionPosition(weekdays)
+        val perSession = regionFiltersBySessionPosition(timeline)
         require(perSession.size == sessionCount) {
             "regionFiltersBySessionPosition size ${perSession.size} != sessionCount $sessionCount " +
-                "(weekdays=$weekdays)"
+                "(timeline=$timeline)"
         }
         var upperLowerIndex = 0
         return perSession.map { allowed ->
@@ -190,19 +191,29 @@ object ConstructiveSynthesisSeed {
         }
     }
 
+    /** Classic weekday list entry — resolves a 7-day timeline from named weekdays. */
+    fun proposeRegionFilters(sessionCount: Int, weekdays: List<String>): List<SessionRegionFilter> {
+        val trainingSlots =
+            com.stratum.domain.program.generation.split.trainingWeekdayIndices(weekdays)
+        return proposeRegionFilters(
+            sessionCount,
+            TrainingTimeline(cycleLength = 7, trainingSlotIndices = trainingSlots),
+        )
+    }
+
     /**
      * Rest-sandwich → Full; pure U/L filter → RegionGated; else alternate PressHinge / PullSquat.
      */
     fun proposeSeedFamily(
         regionFilter: SessionRegionFilter,
         dayIndex: Int,
-        trainingDays: Set<Int>,
+        timeline: TrainingTimeline,
         unrestrictedFamilyIndex: Int,
     ): SeedFamily =
         when (regionFilter) {
             SessionRegionFilter.UpperOnly, SessionRegionFilter.LowerOnly -> SeedFamily.RegionGated
             SessionRegionFilter.Unrestricted ->
-                if (isRestSandwichedTrainingDay(dayIndex, trainingDays)) {
+                if (timeline.isRestSandwiched(dayIndex)) {
                     SeedFamily.Full
                 } else if (unrestrictedFamilyIndex % 2 == 0) {
                     SeedFamily.PressHinge
@@ -210,6 +221,24 @@ object ConstructiveSynthesisSeed {
                     SeedFamily.PullSquat
                 }
         }
+
+    fun proposeSeedFamily(
+        regionFilter: SessionRegionFilter,
+        dayIndex: Int,
+        trainingDays: Set<Int>,
+        unrestrictedFamilyIndex: Int,
+        cycleLength: Int = 7,
+    ): SeedFamily =
+        proposeSeedFamily(
+            regionFilter = regionFilter,
+            dayIndex = dayIndex,
+            timeline =
+                TrainingTimeline(
+                    cycleLength = cycleLength,
+                    trainingSlotIndices = trainingDays.sorted(),
+                ),
+            unrestrictedFamilyIndex = unrestrictedFamilyIndex,
+        )
 
     private fun allocateSession(
         plan: SessionSlotPlan,

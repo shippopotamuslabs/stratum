@@ -84,7 +84,8 @@ class ResolveProgramTemplateLiftsUseCaseTest {
         val program = useCase.invoke(template)
 
         assertEquals("Test", program.name)
-        assertEquals(2, program.cycleLength)
+        // Template cycleLength is provider meta only — slot space is train+rest (train-only → 1).
+        assertEquals(1, program.cycleLength)
         assertEquals(1, program.workouts.size)
         val workout = program.workouts[0]
         assertEquals("Day 1", workout.name)

@@ -74,13 +74,23 @@ fun minimumRecoveryGapBetweenSessions(
     )
 }
 
-/** Wrap-around calendar gap between weekday indices (Mon=0 … Sun=6). */
-fun calendarGapBetweenDays(earlierDay: Int, laterDay: Int): Int =
-    (laterDay - earlierDay + 7) % 7
+/**
+ * Wrap-around gap between slot indices on a cycle ring.
+ * Prefer [com.stratum.domain.program.schedule.TrainingTimeline.gap] when available.
+ *
+ * @param cycleLength full ring length (default 7 for classic Mon–Sun layouts)
+ */
+fun calendarGapBetweenDays(earlierDay: Int, laterDay: Int, cycleLength: Int = 7): Int {
+    require(cycleLength > 0) { "cycleLength must be positive, was $cycleLength" }
+    return (laterDay - earlierDay + cycleLength) % cycleLength
+}
 
 /** @see [calendarGapBetweenDays] */
-fun calendarDayIndexGap(earlierDayIndex: Int, laterDayIndex: Int): Int =
-    calendarGapBetweenDays(earlierDayIndex, laterDayIndex)
+fun calendarDayIndexGap(
+    earlierDayIndex: Int,
+    laterDayIndex: Int,
+    cycleLength: Int = 7,
+): Int = calendarGapBetweenDays(earlierDayIndex, laterDayIndex, cycleLength)
 
 /**
  * True when both sessions meaningfully expose the muscle and [calendarGap] is shorter than the
@@ -103,43 +113,35 @@ fun muscleRecoveryGapViolated(
 }
 
 /**
- * Ordered (earlier, later) training-day index pairs to evaluate recovery spacing, including the
- * Sun→Mon wrap when the user's layout trains on consecutive week-boundary days.
+ * Ordered (earlier, later) training-slot pairs to evaluate recovery spacing, including cycle wrap
+ * last → first when wrap gap is in `1 until cycleLength`.
+ *
+ * Prefer [com.stratum.domain.program.schedule.TrainingTimeline.pairsForRecoveryCheck].
  */
-fun trainingDayPairsForRecoveryCheck(trainingDayIndices: List<Int>): List<Pair<Int, Int>> {
-    val sorted = trainingDayIndices.sorted()
-    if (sorted.size < 2) return emptyList()
-    val pairs = mutableListOf<Pair<Int, Int>>()
-    for (earlierIndex in sorted.indices) {
-        for (laterIndex in earlierIndex + 1 until sorted.size) {
-            pairs += sorted[earlierIndex] to sorted[laterIndex]
-        }
-    }
-    val wrapEarlier = sorted.last()
-    val wrapLater = sorted.first()
-    val wrapGap = calendarGapBetweenDays(wrapEarlier, wrapLater)
-    if (wrapGap in 1 until 7) {
-        pairs += wrapEarlier to wrapLater
-    }
-    return pairs
-}
+fun trainingDayPairsForRecoveryCheck(
+    trainingDayIndices: List<Int>,
+    cycleLength: Int = 7,
+): List<Pair<Int, Int>> =
+    com.stratum.domain.program.schedule.TrainingTimeline(
+        cycleLength = cycleLength,
+        trainingSlotIndices = trainingDayIndices.sorted(),
+    ).pairsForRecoveryCheck()
 
 /**
- * Ordered training-day pairs with calendar gap in `1..maxGap` (inclusive), including week wrap.
+ * Ordered training-slot pairs with gap in `1..maxGap` (inclusive), including cycle wrap.
  * Used for gap-1 adjacent forbids. Gap-2 heavy-axial hard spacing applies to primary movers only.
+ *
+ * Prefer [com.stratum.domain.program.schedule.TrainingTimeline.pairsWithMaxGap].
  */
-fun calendarDayPairsWithMaxGap(trainingDayIndices: List<Int>, maxGap: Int): List<Pair<Int, Int>> {
-    val sorted = trainingDayIndices.sorted()
-    val pairs = mutableListOf<Pair<Int, Int>>()
-    for (earlier in sorted) {
-        for (later in sorted) {
-            if (earlier == later) continue
-            val gap = calendarGapBetweenDays(earlier, later)
-            if (gap in 1..maxGap) pairs += earlier to later
-        }
-    }
-    return pairs
-}
+fun calendarDayPairsWithMaxGap(
+    trainingDayIndices: List<Int>,
+    maxGap: Int,
+    cycleLength: Int = 7,
+): List<Pair<Int, Int>> =
+    com.stratum.domain.program.schedule.TrainingTimeline(
+        cycleLength = cycleLength,
+        trainingSlotIndices = trainingDayIndices.sorted(),
+    ).pairsWithMaxGap(maxGap)
 
 private fun contributorsForMuscle(
     setCount: Int,

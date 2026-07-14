@@ -18,6 +18,7 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.program.schedule.restSlotIndicesForSevenDayWeek
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -33,6 +34,16 @@ import kotlinx.coroutines.flow.first
  *     then embeddings best-match via [com.stratum.domain.importing.HybridLiftNameResolver]).
  *  3. Unmatched names become new custom lifts via [LiftRepository.addCustomLift] (deterministic
  *     stub metadata from [ImportStubLiftGuesser]).
+ *
+ * Cycle space materialization (independent of provider meso / "Cycles: N"):
+ *  - Walk template workouts in order. [NormalizedProgramTemplateWorkout.restDay] rows become
+ *    [Program.restSlotIndices] (no domain [Workout]); training rows become workouts at positions
+ *    0..T-1.
+ *  - [Program.cycleLength] = train count + rest count (actual slot space). Provider
+ *    [NormalizedProgramTemplate.cycleLength] is ignored for slot space (MacroFactor mesocycles,
+ *    Alpha Progression week counts).
+ *  - When the template has no rest markers but training rows carry weekdays that fit a classic
+ *    7-day week, rests are derived via [restSlotIndicesForSevenDayWeek].
  *
  * The resulting [Program] uses [ProgressionScheme.Linear] as a safe default for every lift (the
  * imported template carries no training-age signal to assign [ProgressionScheme.Double]), and maps
@@ -69,20 +80,28 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
         }
 
         val programId = ProgramId(UUID.randomUUID().toString())
-        // Build domain workouts, skipping rest days but consuming weekday slots for them so the
-        // rendered schedule matches the source cycle (e.g. MT-Rest-TRF-Rest rather than MTWTF).
+        // Walk template rows in order: rest days become rest slot indices; training days become
+        // domain workouts at positions 0..T-1 (slot space, not provider meso length).
         val workouts = mutableListOf<Workout>()
+        val restSlotIndices = mutableSetOf<Int>()
+        val explicitTrainingWeekdays = mutableSetOf<Weekday>()
         var workoutPosition = 0
-        template.workouts.forEachIndexed { cycleIndex, templateWorkout ->
-            val weekday = templateWorkout.weekday?.let { mapWeekday(it) }
-                ?: Weekday.entries.getOrNull(cycleIndex)
+        template.workouts.forEachIndexed { slotIndex, templateWorkout ->
             if (templateWorkout.restDay) {
-                return@forEachIndexed // rest day consumes a weekday slot, no domain Workout created
+                restSlotIndices += slotIndex
+                return@forEachIndexed
             }
+            val explicitWeekday = templateWorkout.weekday?.let { mapWeekday(it) }
+            if (explicitWeekday != null) {
+                explicitTrainingWeekdays += explicitWeekday
+            }
+            // Prefer source weekday; fall back to Mon-start slot index for projection cache when
+            // the template interleaves rests without labels (MacroFactor day rows).
+            val weekday = explicitWeekday ?: Weekday.entries.getOrNull(slotIndex)
             val workoutId = WorkoutId(UUID.randomUUID().toString())
             // Group superset keys are scoped per-workout: equal keys within a workout share an id.
             val supersetIdByKey = mutableMapOf<String, WorkoutSupersetGroupId>()
-            val workoutLifts = templateWorkout.lifts.mapIndexed { liftIndex, templateLift ->
+            val workoutLifts = templateWorkout.lifts.map { templateLift ->
                 val workoutLiftId = WorkoutLiftId(UUID.randomUUID().toString())
                 val liftId = resolutionByLiftName.getValue(templateLift.name)
                 val supersetGroupId = templateLift.supersetGroupKey?.let { key ->
@@ -123,18 +142,61 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
             workoutPosition += 1
         }
 
-        val resolvedCycleLength = template.cycleLength?.takeIf { it > 0 } ?: template.workouts.size
+        val trainCount = workouts.size
+        val (cycleLength, resolvedRestSlots) =
+            resolveImportCycleSpace(
+                trainCount = trainCount,
+                restSlotIndicesFromTemplate = restSlotIndices,
+                explicitTrainingWeekdays = explicitTrainingWeekdays,
+            )
         // trainingWeekdays is a denormalized cache of the per-workout weekday bindings above; derive
-        // it here so the imported Program is consistent at construction (rest-day slots consume a
-        // weekday index but emit no Workout, so the derived set correctly excludes them).
+        // it here so the imported Program is consistent at construction (rest slots have no Workout).
         return Program(
             id = programId,
             name = template.programName ?: DEFAULT_PROGRAM_NAME,
             createdAt = Instant.now(),
-            cycleLength = resolvedCycleLength,
-            trainingWeekdays = workouts.mapNotNull { it.weekday }.toSet(),
+            cycleLength = cycleLength,
+
             workouts = workouts,
+            restSlotIndices = resolvedRestSlots,
         )
+    }
+
+    /**
+     * Slot-space identity for imports. Never uses provider meso / "Cycles: N" as [cycleLength].
+     *
+     * Precedence:
+     * 1. Explicit rest-day rows in the template → rests + train+rest length.
+     * 2. No rest markers but source weekdays fit a classic 7-day week → weekday complement.
+     * 3. Train-only fallback: cycleLength = trainCount, empty rests.
+     */
+    private fun resolveImportCycleSpace(
+        trainCount: Int,
+        restSlotIndicesFromTemplate: Set<Int>,
+        explicitTrainingWeekdays: Set<Weekday>,
+    ): Pair<Int, Set<Int>> {
+        if (trainCount <= 0) {
+            // Server validation requires ≥1 training day; keep a positive length if reached.
+            val restCount = restSlotIndicesFromTemplate.size
+            return (restCount.coerceAtLeast(1)) to restSlotIndicesFromTemplate
+        }
+        if (restSlotIndicesFromTemplate.isNotEmpty()) {
+            val cycleLength = trainCount + restSlotIndicesFromTemplate.size
+            val restsInRange =
+                restSlotIndicesFromTemplate.all { index -> index in 0 until cycleLength }
+            if (restsInRange) {
+                return cycleLength to restSlotIndicesFromTemplate
+            }
+            // Malformed rest indices — fall through rather than fail open with meso length.
+        }
+        if (explicitTrainingWeekdays.isNotEmpty()) {
+            val rests = restSlotIndicesForSevenDayWeek(explicitTrainingWeekdays)
+            val trainingFromWeekdays = 7 - rests.size
+            if (trainingFromWeekdays == trainCount) {
+                return 7 to rests
+            }
+        }
+        return trainCount to emptySet()
     }
 
     private fun mapSetType(label: String?): SetType {

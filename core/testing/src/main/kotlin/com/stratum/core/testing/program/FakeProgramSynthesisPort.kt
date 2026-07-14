@@ -3,9 +3,9 @@ package com.stratum.core.testing.program
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.context.resolveTrainingTimeline
 import com.stratum.domain.program.generation.selection.candidatesForSlot
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
-import com.stratum.domain.program.generation.split.trainingWeekdayIndicesInUserOrder
 import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.structure.isSlotCompatibleWithRegionFilter
 import com.stratum.domain.program.generation.structure.regionFiltersBySessionPosition
@@ -44,17 +44,14 @@ class FakeProgramSynthesisPort(
             "No selectable slots for fake synthesis (catalog has no pattern matches)."
         }
 
-        val sessionCount = context.trainingDaysPerWeek.coerceAtLeast(1)
-        val weekdayIndices = weekdayIndicesForSessions(context.weekdays, sessionCount)
-        val regionFilters = regionFiltersForSessions(context.weekdays, sessionCount)
+        val timeline = context.resolveTrainingTimeline()
+        val sessionCount = timeline.trainingSlotIndices.size.coerceAtLeast(1)
+        val cycleSlotIndices = timeline.trainingSlotIndices
+        val regionFilters = regionFiltersForSessions(timeline.let { regionFiltersBySessionPosition(it) }, sessionCount)
 
         val activeBySession = List(sessionCount) { linkedSetOf<String>() }
         val setCounts = linkedMapOf<Pair<Int, String>, Int>()
 
-        // Round-robin fill so each session gets distinct work when the universe allows it.
-        // Only activate slots compatible with the session's region filter (structure fidelity).
-        // Enforce at most one active slot per (pattern, primaryMuscle) per session — matches
-        // CP-SAT uniqueness groups so sparse catalogs are not asked for two rear-delt lifts, etc.
         var cursor = 0
         for (sessionIndex in 0 until sessionCount) {
             val regionFilter = regionFilters[sessionIndex]
@@ -80,7 +77,6 @@ class FakeProgramSynthesisPort(
                     filled++
                 }
             }
-            // Guarantee at least one slot so workouts are never empty.
             if (activeBySession[sessionIndex].isEmpty()) {
                 val slot = pool[sessionIndex % pool.size]
                 activeBySession[sessionIndex].add(slot.id)
@@ -92,17 +88,16 @@ class FakeProgramSynthesisPort(
             UnifiedSynthesisSolution(
                 activeSlotIdsBySession = activeBySession.map { ids -> ids.toSet() },
                 setCountBySessionSlot = setCounts,
-                weekdayIndexByPosition = weekdayIndices,
+                cycleSlotIndexByPosition = cycleSlotIndices,
                 regionFilterBySession = regionFilters,
             )
         return materializeSynthesisResult(universe, solution)
     }
 
     private fun regionFiltersForSessions(
-        weekdays: List<String>,
+        perSession: List<Set<SessionRegionFilter>>,
         sessionCount: Int,
     ): List<SessionRegionFilter> {
-        val perSession = regionFiltersBySessionPosition(weekdays)
         if (perSession.isEmpty()) {
             return List(sessionCount) { SessionRegionFilter.Unrestricted }
         }
@@ -115,22 +110,6 @@ class FakeProgramSynthesisPort(
                 SessionRegionFilter.UpperOnly in allowed -> SessionRegionFilter.UpperOnly
                 else -> allowed.first()
             }
-        }
-    }
-
-    private fun weekdayIndicesForSessions(
-        weekdays: List<String>,
-        sessionCount: Int,
-    ): List<Int> {
-        val fromContext = trainingWeekdayIndicesInUserOrder(weekdays)
-        if (fromContext.size >= sessionCount) {
-            return fromContext.take(sessionCount)
-        }
-        if (fromContext.isEmpty()) {
-            return List(sessionCount) { index -> index % 7 }
-        }
-        return List(sessionCount) { index ->
-            fromContext.getOrElse(index) { fromContext[index % fromContext.size] }
         }
     }
 

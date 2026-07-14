@@ -9,7 +9,6 @@ data class ProgramNamingIntentPayload(
     val cycleLength: Int,
     val specialization: Map<String, String>,
     val specializedMuscles: List<String>,
-    val trainingWeekdays: List<String>,
 )
 
 data class ProgramNamingLiftPayload(

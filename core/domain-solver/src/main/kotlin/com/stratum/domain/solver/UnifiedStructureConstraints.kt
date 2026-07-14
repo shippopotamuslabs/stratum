@@ -12,6 +12,7 @@ import com.stratum.domain.program.generation.universe.SynthesisSlot
 import com.stratum.domain.program.generation.structure.isSlotCompatibleWithRegionFilter
 import com.stratum.domain.program.generation.synthesis.parseSessionSlotId
 import com.stratum.domain.program.generation.structure.regionFiltersBySessionPosition
+import com.stratum.domain.program.schedule.TrainingTimeline
 
 internal fun addUnifiedStructureConstraints(
     model: CpModel,
@@ -19,16 +20,16 @@ internal fun addUnifiedStructureConstraints(
     universe: List<SynthesisSlot>,
     slotVars: List<ProgramSynthesisModel.SlotVar>,
     state: UnifiedStructureState,
-    weekdays: List<String>,
+    timeline: TrainingTimeline,
 ) {
     val universeById = universe.associateBy { it.id }
-    val filtersByPosition = regionFiltersBySessionPosition(weekdays)
+    val filtersByPosition = regionFiltersBySessionPosition(timeline)
     require(filtersByPosition.isNotEmpty()) {
-        "regionFiltersBySessionPosition is empty for weekdays=$weekdays"
+        "regionFiltersBySessionPosition is empty for timeline=$timeline"
     }
     require(filtersByPosition.size == plans.size) {
         "region filter positions ${filtersByPosition.size} != session count ${plans.size} " +
-            "(weekdays=$weekdays)"
+            "(timeline=$timeline)"
     }
     plans.forEach { plan ->
         val allowed = filtersByPosition[plan.position]

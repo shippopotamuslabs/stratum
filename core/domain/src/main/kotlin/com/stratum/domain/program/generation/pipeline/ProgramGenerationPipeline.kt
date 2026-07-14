@@ -8,6 +8,7 @@ import com.stratum.domain.program.generation.IntegrateAndValidateOptions
 import com.stratum.domain.program.generation.IntegrateAndValidateProgramUseCase
 import com.stratum.domain.program.generation.PlanWeeklyVolumeUseCase
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.context.withResolvedCycleSpace
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.schema.NormalizedProgram
 import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
@@ -48,6 +49,8 @@ class ProgramGenerationPipeline @Inject constructor(
         normalizationRequest: ProgramNormalizationRequest,
         options: PipelineOptions = PipelineOptions(),
     ): NormalizedProgram {
+        // Shared cycle-space ring for volume planning, synthesis, validation, and post-passes.
+        val context = context.withResolvedCycleSpace()
         options.progress(PipelineProgress(PipelinePhase.PlanningVolume))
         val weeklyTargets = planWeeklyVolume(context)
 
@@ -69,6 +72,7 @@ class ProgramGenerationPipeline @Inject constructor(
             ProgramDraft(
                 name = buildResult.program.name,
                 cycleLength = buildResult.program.cycleLength,
+                restSlotIndices = buildResult.program.restSlotIndices,
                 workouts = buildResult.program.workouts,
             )
         return integrateAndValidate(

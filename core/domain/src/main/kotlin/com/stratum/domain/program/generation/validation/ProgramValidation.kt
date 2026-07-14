@@ -11,6 +11,7 @@ import com.stratum.domain.program.generation.context.SECONDARY_SET_CREDIT
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.isPullPattern
 import com.stratum.domain.program.generation.context.isPushPattern
+import com.stratum.domain.program.generation.context.resolveTrainingTimeline
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.draft.ProgramLiftDraft
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
@@ -425,25 +426,46 @@ fun validateCalendarAdjacentMuscleExposure(
     program: ProgramDraft,
     context: ProgramGenerationContext,
 ): List<ValidationIssue> {
+    val timeline = context.resolveTrainingTimeline()
     val stressByWorkoutName =
         program.workouts.associate { workout ->
             workout.name.orEmpty() to computeWorkoutMuscleSessionStress(workout, context)
         }
-    val workoutByDayIndex =
-        program.workouts
-            .mapNotNull { workout ->
-                val weekday = workout.weekday ?: return@mapNotNull null
-                val dayIndex = trainingWeekdayIndices(listOf(weekday)).singleOrNull() ?: return@mapNotNull null
-                dayIndex to workout
-            }.toMap()
-    val recoveryPairs = trainingDayPairsForRecoveryCheck(trainingWeekdayIndices(context.weekdays))
+    // Prefer draft cycle-space when present; else resolved timeline from context.
+    // When draft sets cycleLength but omits rests, treat as train-only (N slots) so recovery
+    // pairs stay on the draft ring — do not mix with context's materialised 7-day layout.
+    val draftCycleLength = program.cycleLength?.takeIf { it > 0 }
+    val draftRests = program.restSlotIndices
+    val (cycleLength, trainingSlots) =
+        when {
+            draftCycleLength != null && draftRests != null ->
+                draftCycleLength to
+                    (0 until draftCycleLength)
+                        .filterNot { index -> index in draftRests }
+                        .sorted()
+            draftCycleLength != null ->
+                draftCycleLength to (0 until draftCycleLength).toList()
+            else ->
+                timeline.cycleLength to timeline.trainingSlotIndices
+        }
+    // Map training slots → workouts by cycle order (position), not weekday labels.
+    val workoutsInOrder = program.workouts.sortedBy { workout -> workout.position }
+    val workoutBySlotIndex =
+        trainingSlots
+            .mapIndexedNotNull { trainOrder, slotIndex ->
+                workoutsInOrder.getOrNull(trainOrder)?.let { workout -> slotIndex to workout }
+            }
+            .toMap()
+    val recoveryPairs =
+        trainingDayPairsForRecoveryCheck(trainingSlots, cycleLength = cycleLength)
     val issues = mutableListOf<ValidationIssue>()
     for ((earlierDayIndex, laterDayIndex) in recoveryPairs) {
-        val earlierWorkout = workoutByDayIndex[earlierDayIndex] ?: continue
-        val laterWorkout = workoutByDayIndex[laterDayIndex] ?: continue
+        val earlierWorkout = workoutBySlotIndex[earlierDayIndex] ?: continue
+        val laterWorkout = workoutBySlotIndex[laterDayIndex] ?: continue
         val earlierStressByMuscle = stressByWorkoutName[earlierWorkout.name.orEmpty()].orEmpty()
         val laterStressByMuscle = stressByWorkoutName[laterWorkout.name.orEmpty()].orEmpty()
-        val calendarGap = calendarDayIndexGap(earlierDayIndex, laterDayIndex)
+        val calendarGap =
+            calendarDayIndexGap(earlierDayIndex, laterDayIndex, cycleLength = cycleLength)
         for (muscle in earlierStressByMuscle.keys + laterStressByMuscle.keys) {
             val earlierStress = earlierStressByMuscle[muscle] ?: continue
             val laterDose = laterStressByMuscle[muscle]?.fractionalSets ?: 0.0

@@ -11,7 +11,7 @@ import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 data class ProgramSynthesisResult(
     val sessions: List<ResolvedSessionPlan>,
     val plans: List<SessionSlotPlan>,
-    val weekdayIndexByPosition: List<Int>,
+    val cycleSlotIndexByPosition: List<Int>,
     val objective: SynthesisObjectiveBreakdown,
     val activeSlotIdsBySession: List<Set<String>>,
     /**

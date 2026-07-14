@@ -9,6 +9,8 @@ import com.google.ortools.sat.CpSolverStatus
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.context.resolveTrainingTimeline
+import com.stratum.domain.program.generation.context.withResolvedCycleSpace
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisException
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
@@ -55,6 +57,8 @@ class CpSatProgramSynthesizer(
         context: ProgramGenerationContext,
     ): ProgramSynthesisResult {
         ensureNativeLibrariesLoaded()
+        // Resolve cycle-space before any recovery geometry (defaults apply here, not only post-build).
+        val context = context.withResolvedCycleSpace()
         checkFeasibleConfiguration(weeklyTargets, context)
         val universe = buildSlotUniverse(context, weeklyTargets)
         require(universe.isNotEmpty()) { "Slot universe is empty for program synthesis." }
@@ -62,7 +66,14 @@ class CpSatProgramSynthesizer(
         val plans = buildUnifiedSessionPlans(universe, sessionCount)
         plans.forEach { plan -> plan.filledSlots.forEach { it.setCount = 0 } }
 
-        val modelBuilder = ProgramSynthesisModel(weeklyTargets, context, unifiedUniverse = universe)
+        val timeline = context.resolveTrainingTimeline()
+        val modelBuilder =
+            ProgramSynthesisModel(
+                weeklyTargets = weeklyTargets,
+                context = context,
+                unifiedUniverse = universe,
+                timeline = timeline,
+            )
         val model = modelBuilder.buildModel(plans)
 
         if (useWarmStart) {
@@ -84,9 +95,10 @@ class CpSatProgramSynthesizer(
             )
         }
 
-        val regionFilters = regionFiltersBySessionPosition(context.weekdays)
+        val regionFilters = regionFiltersBySessionPosition(timeline)
         logInfo(
-            "start days=$sessionCount universe=${universe.size} " +
+            "start days=$sessionCount cycleLength=${timeline.cycleLength} " +
+                "trainSlots=${timeline.trainingSlotIndices} universe=${universe.size} " +
                 "regionFiltersBySession=" +
                 regionFilters.joinToString(";") { allowed ->
                     allowed.joinToString(",") { it.name }
@@ -136,14 +148,9 @@ class CpSatProgramSynthesizer(
         weeklyTargets: WeeklyVolumeTargets,
         context: ProgramGenerationContext,
     ) {
-        val distinctWeekdays = context.weekdays.distinct()
-        require(distinctWeekdays.size == context.weekdays.size) {
-            "Training weekdays contain duplicates: ${context.weekdays}. Each day must be distinct."
-        }
         val sessionCount = context.trainingDaysPerWeek
-        require(distinctWeekdays.size >= sessionCount) {
-            "Need $sessionCount distinct training days but only ${distinctWeekdays.size} provided " +
-                "(${distinctWeekdays}). Add training days or reduce frequency."
+        require(sessionCount >= 1) {
+            "trainingDaysPerWeek must be at least 1 (was $sessionCount)"
         }
         // A LargeCompound muscle specialized at a high MEV needs enough non-adjacent slots to fit it.
         // With the adjacent-day hard forbid (addLargeCompoundAdjacentForbids), a muscle trained on
@@ -155,9 +162,9 @@ class CpSatProgramSynthesizer(
                 ?.let { context.specialization[it] }
                 ?: SpecializationLevel.Maintenance
             if (level != SpecializationLevel.Specialize || target.min <= 0.0) return@forEach
-            if (distinctWeekdays.size <= 1) {
+            if (sessionCount <= 1) {
                 throw ProgramSynthesisException(
-                    "Cannot specialize $muscle (MEV ${target.min}) with only one distinct training day " +
+                    "Cannot specialize $muscle (MEV ${target.min}) with only one training day " +
                         "— adjacent-day recovery forbids training it twice. Add training days.",
                 )
             }

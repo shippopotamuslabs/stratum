@@ -82,6 +82,7 @@ class FakeProgramRepository(
         programId: ProgramId,
         currentCycleNumber: Int,
         cyclePosition: Int,
+        cycleStartEpochDay: Long?,
     ) {
         val existing = programs.value[programId.value] ?: return
         programs.value =
@@ -89,6 +90,7 @@ class FakeProgramRepository(
                 programId.value to existing.copy(
                     currentCycleNumber = currentCycleNumber,
                     cyclePosition = cyclePosition,
+                    cycleStartEpochDay = cycleStartEpochDay ?: existing.cycleStartEpochDay,
                 )
             )
     }

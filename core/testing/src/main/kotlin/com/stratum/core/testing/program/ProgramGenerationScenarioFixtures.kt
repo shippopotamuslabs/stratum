@@ -6,6 +6,7 @@ import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
+import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.MuscleLengthBias
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
@@ -177,18 +178,7 @@ fun scenarioPayload(
     sessionLengthMinutes: Int = 75,
     weekdayLayout: String = "sequential",
 ): String {
-    val layoutDays = WEEKDAY_LAYOUTS[weekdayLayout] ?: WEEKDAY_LAYOUTS.getValue("sequential")
-    val weekdays =
-        if (layoutDays.size >= days) {
-            layoutDays.take(days)
-        } else {
-            val padded = layoutDays.toMutableList()
-            val sequential = WEEKDAY_LAYOUTS.getValue("sequential")
-            while (padded.size < days) {
-                padded += sequential[padded.size]
-            }
-            padded.take(days)
-        }.joinToString(",")
+    val (cycleLength, restSlotIndices) = cycleSpaceForWeekdayLayout(days, weekdayLayout)
     return Json.encodeToString(
         JsonObject.serializer(),
         JsonObject(
@@ -196,8 +186,13 @@ fun scenarioPayload(
                 "profile" to jsonObj(
                     "trainingAge" to JsonPrimitive("Advanced"),
                     "sessionLengthMinutes" to JsonPrimitive(sessionLengthMinutes),
-                    "weekdays" to JsonPrimitive(weekdays),
                     "trainingDaysPerWeek" to JsonPrimitive(days),
+                    // Gen schedule identity (not weekday labels): N + rests + length.
+                    "cycleLength" to JsonPrimitive(cycleLength),
+                    "restSlotIndices" to JsonArray(
+                        restSlotIndices.sorted().map { index -> JsonPrimitive(index) },
+                    ),
+                    "weekdayLayout" to JsonPrimitive(weekdayLayout),
                 ),
                 "specialization" to JsonObject(
                     specialization.mapValues { JsonPrimitive(it.value) },
@@ -210,19 +205,37 @@ fun scenarioPayload(
     )
 }
 
+/**
+ * Maps a named [WEEKDAY_LAYOUTS] key + train-day count N onto a classic 7-slot cycle
+ * (Mon=0…Sun=6). Takes the first N labels from the layout (or all if shorter) as training
+ * ordinals; rests are the complement.
+ */
+fun cycleSpaceForWeekdayLayout(days: Int, weekdayLayout: String): Pair<Int, Set<Int>> {
+    val layout =
+        WEEKDAY_LAYOUTS[weekdayLayout]
+            ?: WEEKDAY_LAYOUTS.getValue("sequential")
+    val trainOrdinals =
+        layout
+            .take(days.coerceAtLeast(1))
+            .mapNotNull { name -> runCatching { Weekday.valueOf(name).ordinal }.getOrNull() }
+            .toSet()
+            .ifEmpty { (0 until days.coerceIn(1, 7)).toSet() }
+    val restSlotIndices = (0 until 7).filterNot { index -> index in trainOrdinals }.toSet()
+    return 7 to restSlotIndices
+}
+
 fun parseScenarioContext(payload: String): ProgramGenerationContext {
     val root = Json.parseToJsonElement(payload).jsonObject
     val profile = root["profile"]?.jsonObject ?: JsonObject(emptyMap())
     val trainingAge = profile.string("trainingAge").orEmpty()
     val sessionLengthMinutes = profile["sessionLengthMinutes"]?.jsonPrimitive?.intOrNull
-    val trainingDaysPerWeek = profile["trainingDaysPerWeek"]?.jsonPrimitive?.intOrNull
-        ?: profile.string("weekdays")?.split(",")?.count { it.isNotBlank() }
-        ?: 0
-    val weekdays = profile.string("weekdays")
-        ?.split(",")
-        ?.map { it.trim() }
-        ?.filter { it.isNotEmpty() }
-        .orEmpty()
+    val trainingDaysPerWeek = profile["trainingDaysPerWeek"]?.jsonPrimitive?.intOrNull ?: 0
+    val cycleLength = profile["cycleLength"]?.jsonPrimitive?.intOrNull
+    val restSlotIndices =
+        profile["restSlotIndices"]
+            ?.jsonArray
+            ?.mapNotNull { element -> element.jsonPrimitive.intOrNull }
+            ?.toSet()
     val specialization = root["specialization"]?.jsonObject
         ?.mapNotNull { (muscle, value) ->
             val mg = runCatching { MuscleGroup.valueOf(muscle) }.getOrNull() ?: return@mapNotNull null
@@ -256,7 +269,6 @@ fun parseScenarioContext(payload: String): ProgramGenerationContext {
         lastTrained = null,
         sessionLengthMinutes = sessionLengthMinutes,
         trainingDaysPerWeek = trainingDaysPerWeek,
-        weekdays = weekdays,
         specialization = specialization,
         liftsById = liftsById,
         muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,
@@ -264,6 +276,8 @@ fun parseScenarioContext(payload: String): ProgramGenerationContext {
         enabledLiftIds = enabledLiftIds,
         movementPatternByLiftId = movementPatternByLiftId,
         liftEffectivenessByLiftId = emptyMap(),
+        restSlotIndices = restSlotIndices,
+        cycleLength = cycleLength,
     )
 }
 

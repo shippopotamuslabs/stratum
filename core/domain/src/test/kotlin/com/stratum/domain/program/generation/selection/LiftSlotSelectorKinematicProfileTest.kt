@@ -120,7 +120,6 @@ class LiftSlotSelectorKinematicProfileTest {
             lastTrained = null,
             sessionLengthMinutes = 75,
             trainingDaysPerWeek = 5,
-            weekdays = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"),
             specialization = mapOf(MuscleGroup.Quad to SpecializationLevel.Specialize),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = emptyMap(),

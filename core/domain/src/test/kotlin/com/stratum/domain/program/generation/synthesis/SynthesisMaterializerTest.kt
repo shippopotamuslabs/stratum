@@ -43,7 +43,7 @@ class SynthesisMaterializerTest {
             UnifiedSynthesisSolution(
                 activeSlotIdsBySession = listOf(setOf(upperSlot.id)),
                 setCountBySessionSlot = mapOf((0 to upperSlot.id) to 3),
-                weekdayIndexByPosition = listOf(0),
+                cycleSlotIndexByPosition = listOf(0),
                 regionFilterBySession = listOf(SessionRegionFilter.LowerOnly),
             )
 
@@ -82,7 +82,7 @@ class SynthesisMaterializerTest {
                         (2 to upper.id) to 2,
                         (2 to lower.id) to 2,
                     ),
-                weekdayIndexByPosition = listOf(0, 2, 4),
+                cycleSlotIndexByPosition = listOf(0, 2, 4),
                 regionFilterBySession =
                     listOf(
                         SessionRegionFilter.UpperOnly,
@@ -118,7 +118,7 @@ class SynthesisMaterializerTest {
             UnifiedSynthesisSolution(
                 activeSlotIdsBySession = listOf(setOf(lower.id)),
                 setCountBySessionSlot = mapOf((0 to lower.id) to 4),
-                weekdayIndexByPosition = listOf(1),
+                cycleSlotIndexByPosition = listOf(1),
                 regionFilterBySession = emptyList(),
             )
 
