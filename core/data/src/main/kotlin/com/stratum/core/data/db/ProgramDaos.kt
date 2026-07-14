@@ -108,6 +108,10 @@ interface ProgramDao {
         UPDATE programs
         SET current_cycle_number = :currentCycleNumber,
             cycle_position = :cyclePosition,
+            cycle_start_epoch_day = CASE
+                WHEN :cycleStartEpochDay IS NOT NULL THEN :cycleStartEpochDay
+                ELSE cycle_start_epoch_day
+            END,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
             updated_at_epoch_millis = :updatedAtEpochMillis
         WHERE id = :programId
@@ -117,6 +121,7 @@ interface ProgramDao {
         programId: ProgramId,
         currentCycleNumber: Int,
         cyclePosition: Int,
+        cycleStartEpochDay: Long?,
         updatedAtEpochMillis: Long,
     )
 

@@ -32,6 +32,9 @@ class SyncEntityEncoders @Inject constructor() {
             "last_trained" to e.lastTrained?.name,
             "weekdays" to e.weekdays.map { it.name },
             "session_length_minutes" to e.sessionLengthMinutes,
+            "generation_training_day_count" to e.generationTrainingDayCount,
+            "generation_cycle_length" to e.generationCycleLength,
+            "generation_rest_slot_indices" to e.generationRestSlotIndices.sorted(),
         )
 
     fun onboarding(e: OnboardingProgressEntity): Map<String, Any?> =
@@ -39,6 +42,7 @@ class SyncEntityEncoders @Inject constructor() {
             "current_step" to e.currentStep.name,
             "started_at" to e.startedAt,
             "completed_at" to e.completedAt,
+            "selected_path" to e.selectedPath?.name,
         )
 
     fun gymPreference(e: GymPreferenceEntity): Map<String, Any?> =
@@ -96,6 +100,8 @@ class SyncEntityEncoders @Inject constructor() {
             "current_cycle_number" to e.currentCycleNumber,
             "cycle_position" to e.cyclePosition,
             "is_active" to e.isActive,
+            "rest_slot_indices" to e.restSlotIndices.sorted(),
+            "cycle_start_epoch_day" to e.cycleStartEpochDay,
         )
 
     fun workout(e: WorkoutEntity): Map<String, Any?> =
@@ -137,6 +143,7 @@ class SyncEntityEncoders @Inject constructor() {
             "origin" to e.origin.name,
             "cycle_number_snapshot" to e.cycleNumberSnapshot,
             "weekday_snapshot" to e.weekdaySnapshot?.name,
+            "cycle_slot_index_snapshot" to e.cycleSlotIndexSnapshot,
             "started_at_epoch_millis" to e.startedAtEpochMillis,
             "ended_at_epoch_millis" to e.endedAtEpochMillis,
             "source_app" to e.sourceApp,
