@@ -242,7 +242,7 @@ class ProgramCandidateAuditTest {
         val workoutByDayIndex = draft.workouts
             .filter { it.weekday != null }
             .associate { Weekday.entries.indexOf(Weekday.valueOf(it.weekday!!)) to it }
-        val orderedDays = trainingWeekdayIndices(context.weekdays).sorted()
+        val orderedDays = trainingWeekdayIndices(emptyList() /* cycle slots, not weekdays */).sorted()
         for (i in 0 until orderedDays.size - 1) {
             val d1 = workoutByDayIndex[orderedDays[i]] ?: continue
             val d2 = workoutByDayIndex[orderedDays[i + 1]] ?: continue

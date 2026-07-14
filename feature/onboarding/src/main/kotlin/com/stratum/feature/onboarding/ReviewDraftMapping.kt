@@ -15,7 +15,7 @@ internal fun UserTrainingProfile.toReviewProfileSection(
 ): ReviewDraftUi = ReviewDraftUi(
     trainingAge = trainingAge?.toDisplayLabel(),
     lastTrained = lastTrained?.toDisplayLabel(),
-    weekdays = weekdays.sortedBy { it.ordinal }.map { it.toShortLabel() },
+
     specialization = specialization.specializedMuscles
         .sortedBy { it.ordinal }
         .map { it.displayLabel },

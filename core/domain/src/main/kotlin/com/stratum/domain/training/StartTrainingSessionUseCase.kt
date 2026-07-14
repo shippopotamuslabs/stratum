@@ -3,6 +3,8 @@ package com.stratum.domain.training
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.schedule.CycleSlot
+import com.stratum.domain.program.schedule.resolvedCycleSlots
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.util.UUID
@@ -30,6 +32,11 @@ class StartTrainingSessionUseCase @Inject constructor(
                     val workout =
                         program.workouts.firstOrNull { it.id == request.workoutId }
                             ?: throw IllegalArgumentException("Workout ${request.workoutId.value} not found in program")
+                    val slotIndex =
+                        program.resolvedCycleSlots()
+                            .filterIsInstance<CycleSlot.Training>()
+                            .firstOrNull { it.workout.id == request.workoutId }
+                            ?.slotIndex
                     TrainingSession(
                         id = TrainingSessionId(UUID.randomUUID().toString()),
                         programId = program.id,
@@ -39,6 +46,7 @@ class StartTrainingSessionUseCase @Inject constructor(
                         origin = TrainingSessionOrigin.LIVE,
                         cycleNumberSnapshot = program.currentCycleNumber,
                         weekdaySnapshot = workout.weekday,
+                        cycleSlotIndexSnapshot = slotIndex,
                         startedAt = now,
                         endedAt = null,
                         sourceApp = null,

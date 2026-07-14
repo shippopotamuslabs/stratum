@@ -16,11 +16,14 @@ import com.stratum.domain.json.JsonReader
  * ```
  * { "programName": "..." | null, "cycleLength": N | null,
  *   "workouts": [{ "name": "...", "weekday": "..." | null, "position": N,
+ *     "restDay": bool | optional,
  *     "lifts": [{ "name": "...", "position": N, "supersetGroupKey": "..." | null,
  *       "sets": [{ "position": N, "setTypeLabel": "..." | null,
  *                  "repMin": N | null, "repMax": N | null, "rirGoal": N | null,
  *                  "restSeconds": N | null, "isTopSet": bool }] }] }] }
  * ```
+ * Provider `cycleLength` (meso / plan weeks) is parsed for fidelity but ignored for domain
+ * slot space — see [ResolveProgramTemplateLiftsUseCase].
  */
 internal object NormalizedProgramTemplateJson {
     fun parse(json: String): NormalizedProgramTemplate {

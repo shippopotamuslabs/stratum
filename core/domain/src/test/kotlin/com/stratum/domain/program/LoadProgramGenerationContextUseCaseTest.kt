@@ -186,7 +186,7 @@ class LoadProgramGenerationContextUseCaseTest {
         val liftRepo = FakeLiftRepository(initialLifts = listOf(lift))
         val insightsRepo = FakeLiftInsightsRepository(insights)
         val useCase = LoadProgramGenerationContextUseCase(
-            userTrainingProfileRepository = FakeUserTrainingProfileRepository(),
+            userTrainingProfileRepository = profileRepoWithSchedule(),
             observeSpecialization = ObserveSpecializationUseCase(FakeSpecializationPreferenceRepository()),
             liftRepository = liftRepo,
             liftTrainingInsightsRepository = insightsRepo,
@@ -218,7 +218,7 @@ class LoadProgramGenerationContextUseCaseTest {
             FakeMuscleVolumeResponseSnapshotRepository(),
     ): LoadProgramGenerationContextUseCase =
         LoadProgramGenerationContextUseCase(
-            userTrainingProfileRepository = FakeUserTrainingProfileRepository(),
+            userTrainingProfileRepository = profileRepoWithSchedule(),
             observeSpecialization = ObserveSpecializationUseCase(FakeSpecializationPreferenceRepository()),
             liftRepository = FakeLiftRepository(),
             liftTrainingInsightsRepository = FakeLiftInsightsRepository(),
@@ -229,6 +229,19 @@ class LoadProgramGenerationContextUseCaseTest {
             muscleVolumeResponseSnapshotRepository = muscleVolumeResponseSnapshotRepository,
             muscleVolumeBaselineRepository = muscleVolumeBaselineRepository,
         )
+
+    private fun profileRepoWithSchedule(): FakeUserTrainingProfileRepository {
+        val repo = FakeUserTrainingProfileRepository()
+        repo.seed(
+            com.stratum.domain.onboarding.UserTrainingProfile(
+                generationTrainingDayCount = 4,
+                generationCycleLength = 7,
+                generationRestSlotIndices = setOf(1, 3, 5),
+                sessionLengthMinutes = 60,
+            ),
+        )
+        return repo
+    }
 
     private fun sampleSnapshot(muscle: MuscleGroup): MuscleVolumeResponseSnapshot =
         MuscleVolumeResponseSnapshot(

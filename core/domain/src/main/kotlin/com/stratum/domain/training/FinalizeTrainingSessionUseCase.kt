@@ -65,6 +65,7 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
             }
             trainingLogRepository.updateSets(computation.updatedIncomingSets)
 
+            val sessionsToPersist = mutableListOf(completed)
             val cycleEffects =
                 if (completed.kind == TrainingSessionKind.PROGRAM_WORKOUT) {
                     val program = programRepository.getProgram()
@@ -77,17 +78,24 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
                     ) {
                         null
                     } else {
-                        val sessions =
+                        val baseSessions =
                             trainingLogRepository.getAllSessions()
                                 .filter { it.id != session.id } + completed
-                        computeCycleAdvancement(program, sessions)
+                        val (ledger, autoRests) =
+                            sessionsWithMaterializedAutoRests(
+                                program = program,
+                                sessions = baseSessions,
+                                now = completed.endedAt ?: Instant.now(),
+                            )
+                        sessionsToPersist += autoRests
+                        computeCycleAdvancement(program, ledger)
                     }
                 } else {
                     null
                 }
 
-            trainingLogRepository.persistSessionWithCycleEffects(
-                session = completed,
+            trainingLogRepository.persistSessionsWithCycleEffects(
+                sessions = sessionsToPersist,
                 cyclePointerUpdate = cycleEffects?.pointerUpdate,
                 cycleCompletedEvent = cycleEffects?.cycleCompletedEvent,
             )

@@ -15,6 +15,7 @@ fun OnboardingProgressEntity.toDomain(): OnboardingProgress =
         currentStep = currentStep,
         startedAt = startedAt,
         completedAt = completedAt,
+        selectedPath = selectedPath,
     )
 
 fun OnboardingProgress.toEntity(
@@ -25,6 +26,7 @@ fun OnboardingProgress.toEntity(
         currentStep = currentStep,
         startedAt = startedAt,
         completedAt = completedAt,
+        selectedPath = selectedPath,
         updatedAtEpochMillis = nowMillis,
         pendingSync = SyncFlags.PENDING_UPSERT,
     )

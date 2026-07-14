@@ -34,12 +34,17 @@ data class ProgramEntity(
     @PrimaryKey @ColumnInfo(name = "id") val id: ProgramId,
     val name: String,
     @ColumnInfo(name = "created_at") val createdAt: String,
+    /** Full cycle slot count (train + rest). Schema v1 reinstall — AGENTS.md §4.5. */
     @ColumnInfo(name = "cycle_length") val cycleLength: Int,
     @ColumnInfo(name = "training_weekdays") val trainingWeekdays: Set<Weekday> = emptySet(),
     @ColumnInfo(name = "current_cycle_number") val currentCycleNumber: Int = 1,
     @ColumnInfo(name = "cycle_position") val cyclePosition: Int = 0,
     /** At most one user program is active; import-history and library rows stay false. */
     @ColumnInfo(name = "is_active") val isActive: Boolean = false,
+    /** Rest slot indices in [0, cycle_length); CSV via [IntSetConverter]. */
+    @ColumnInfo(name = "rest_slot_indices") val restSlotIndices: Set<Int> = emptySet(),
+    /** Epoch day of slot 0 for the current cycle; null until set on activate. */
+    @ColumnInfo(name = "cycle_start_epoch_day") val cycleStartEpochDay: Long? = null,
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")

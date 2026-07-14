@@ -11,8 +11,19 @@ package com.stratum.domain.onboarding
 data class UserTrainingProfile(
     val trainingAge: TrainingAge? = null,
     val lastTrained: LastTrainedBucket? = null,
+    /**
+     * Legacy weekday set — **not** generate schedule identity. Cleared on Generate schedule flush.
+     * May still appear on old rows; path resolution prefers [generationCycleLength] / train count.
+     */
     val weekdays: Set<Weekday> = emptySet(),
     val sessionLengthMinutes: Int? = null,
+    /**
+     * Persisted generate cycle-space (N + length + rests). Written when advancing past Schedule on
+     * the Generate path so process death does not lose rest placement before Review / generate.
+     */
+    val generationTrainingDayCount: Int? = null,
+    val generationCycleLength: Int? = null,
+    val generationRestSlotIndices: Set<Int> = emptySet(),
 ) {
     companion object {
         val Empty = UserTrainingProfile()

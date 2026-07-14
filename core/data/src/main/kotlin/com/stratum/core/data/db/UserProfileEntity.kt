@@ -25,6 +25,13 @@ data class UserProfileEntity(
     val lastTrained: LastTrainedBucket?,
     val weekdays: Set<Weekday>,
     val sessionLengthMinutes: Int?,
+    /** Persisted generate train-day count N (schedule identity). */
+    @ColumnInfo(name = "generation_training_day_count")
+    val generationTrainingDayCount: Int? = null,
+    @ColumnInfo(name = "generation_cycle_length")
+    val generationCycleLength: Int? = null,
+    @ColumnInfo(name = "generation_rest_slot_indices")
+    val generationRestSlotIndices: Set<Int> = emptySet(),
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")

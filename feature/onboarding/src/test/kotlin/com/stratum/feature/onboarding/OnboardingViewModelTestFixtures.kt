@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.importing.FakeHistoricalImportRunnerPort
@@ -195,9 +196,10 @@ internal object OnboardingViewModelTestFixtures {
             updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),
             updateSpecialization = UpdateSpecializationUseCase(fakeSpecializationRepository),
             generateProgram = com.stratum.domain.program.GenerateProgramUseCase(
-                loadContext = com.stratum.domain.program.ProgramGenerationContextLoader {
-                    scenarioContext(days = 3, specialization = emptyMap())
-                },
+                loadContext =
+                    FixedProgramGenerationContextLoader(
+                        context = scenarioContext(days = 3, specialization = emptyMap()),
+                    ),
                 pipeline = testProgramGenerationPipeline(),
                 liftRepository = fakeLiftRepository,
             ),

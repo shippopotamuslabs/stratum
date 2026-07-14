@@ -118,12 +118,14 @@ class RoomProgramRepository @Inject constructor(
         programId: ProgramId,
         currentCycleNumber: Int,
         cyclePosition: Int,
+        cycleStartEpochDay: Long?,
     ) {
         syncTouch.withWriteLock {
             programDao.updateCyclePointer(
                 programId = programId,
                 currentCycleNumber = currentCycleNumber,
                 cyclePosition = cyclePosition,
+                cycleStartEpochDay = cycleStartEpochDay,
                 updatedAtEpochMillis = System.currentTimeMillis(),
             )
             syncTouch.markDirty()

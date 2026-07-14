@@ -1,5 +1,6 @@
 package com.stratum.core.testing.onboarding
 
+import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.OnboardingStep
@@ -21,8 +22,14 @@ class FakeOnboardingRepository(
 
     override fun observeProgress(): Flow<OnboardingProgress?> = progress
 
-    override suspend fun saveStep(step: OnboardingStep) {
-        progress.value = progress.value.copy(currentStep = step, completedAt = null)
+    override suspend fun saveStep(step: OnboardingStep, selectedPath: OnboardingPath?) {
+        val current = progress.value
+        progress.value =
+            current.copy(
+                currentStep = step,
+                completedAt = null,
+                selectedPath = selectedPath ?: current.selectedPath,
+            )
     }
 
     override suspend fun markComplete() {
@@ -34,6 +41,7 @@ class FakeOnboardingRepository(
             progress.value.copy(
                 currentStep = OnboardingStep.ChoosePath,
                 completedAt = null,
+                selectedPath = null,
             )
     }
 

@@ -31,11 +31,11 @@ import { parseInteger } from "../../import/deterministic/values";
  * Rest (numeric seconds). Supersets are encoded inline in the exercise name as ` ∈ SSn`.
  *
  * Only the first program in the sheet is imported (Stratum holds a single active program); the rest
- * are ignored. `Rest` days are dropped (Stratum derives rest from the absence of a training day).
+ * are ignored. `Rest` days are preserved as restDay markers. `cycleLength` is the day-row count
+ * (train + rest), not meta `Cycles: N` mesocycles.
  */
 
 const PROGRAM_PREFIX = "Program:";
-const CYCLES_PREFIX = "Cycles:";
 const SET_GROUP_HEADER_RE = /^Set\s+(\d+)\s+Type$/i;
 const SUPERSET_SUFFIX_RE = /\s*∈\s*(?:SS|GS|TS|CS)(\d+)\s*$/;
 
@@ -198,13 +198,8 @@ export function parseMacroFactorProgramXlsx(bytes: Buffer): NormalizedProgramTem
   const programNameRaw = typeof metaRow[0] === "string" ? metaRow[0].trim() : "";
   const programName = programNameRaw.slice(PROGRAM_PREFIX.length).trim() || null;
 
-  // Cycles from the B-column `Cycles: N` (seeds cycleLength).
-  let cycleLength: number | null = null;
-  const cyclesCell = typeof metaRow[1] === "string" ? metaRow[1].trim() : "";
-  if (cyclesCell.startsWith(CYCLES_PREFIX)) {
-    const n = parseInteger(cyclesCell.slice(CYCLES_PREFIX.length).trim());
-    cycleLength = n !== null && n > 0 ? n : null;
-  }
+  // Note: B-column `Cycles: N` is a mesocycle count (e.g. 9), NOT cycle slot space.
+  // Domain Program.cycleLength is train+rest slot count — derived from day rows below.
 
   // Header row is the first row after meta that carries "Set N Type" in column E.
   let headerRowIndex = -1;
@@ -319,7 +314,8 @@ export function parseMacroFactorProgramXlsx(bytes: Buffer): NormalizedProgramTem
   if (workouts.length === 0) {
     return null;
   }
-  return { programName, cycleLength, workouts };
+  // Slot space = ordered day rows (training + rest markers). Do not emit meso "Cycles: N".
+  return { programName, cycleLength: workouts.length, workouts };
 }
 
 export const macroFactorProgramFormat: ProgramTemplateFormat = "macrofactor";

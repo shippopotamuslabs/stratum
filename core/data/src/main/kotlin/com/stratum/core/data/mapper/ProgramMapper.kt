@@ -27,6 +27,8 @@ internal fun ProgramEntity.toDomain(workouts: List<Workout>): Program = Program(
     currentCycleNumber = currentCycleNumber,
     cyclePosition = cyclePosition,
     isActive = isActive,
+    restSlotIndices = restSlotIndices,
+    cycleStartEpochDay = cycleStartEpochDay,
 )
 
 internal fun WorkoutEntity.toDomain(workoutLifts: List<WorkoutLift>): Workout = Workout(
@@ -72,6 +74,8 @@ internal fun Program.toEntity(
     currentCycleNumber = currentCycleNumber,
     cyclePosition = cyclePosition,
     isActive = isActive,
+    restSlotIndices = restSlotIndices,
+    cycleStartEpochDay = cycleStartEpochDay,
     updatedAtEpochMillis = nowMillis,
     pendingSync = SyncFlags.PENDING_UPSERT,
 )

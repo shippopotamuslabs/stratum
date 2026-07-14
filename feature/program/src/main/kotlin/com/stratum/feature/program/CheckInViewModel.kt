@@ -232,7 +232,7 @@ class CheckInViewModel @Inject constructor(
                             rec.copy(
                                 suggestedLiftId = liftId,
                                 suggestedLiftName = name,
-                                title = "Swap ${rec.liftName} → $name",
+                                titleArgs = listOf(rec.liftName, name),
                             )
                         } else {
                             rec

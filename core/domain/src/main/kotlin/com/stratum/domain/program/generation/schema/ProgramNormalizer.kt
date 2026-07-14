@@ -41,10 +41,14 @@ fun parseAndNormalizeProgram(
     if (workouts.isEmpty()) {
         error("No valid workouts after normalization")
     }
-    val cycleLength = program.cycleLength?.takeIf { it >= 1 } ?: workouts.size
+    val restSlotIndices = program.restSlotIndices.orEmpty()
+    val cycleLength =
+        program.cycleLength?.takeIf { it >= 1 }
+            ?: (workouts.size + restSlotIndices.size).coerceAtLeast(1)
     return NormalizedProgram(
         name = program.name ?: "Program",
         cycleLength = cycleLength,
+        restSlotIndices = restSlotIndices,
         workouts = workouts,
     )
 }

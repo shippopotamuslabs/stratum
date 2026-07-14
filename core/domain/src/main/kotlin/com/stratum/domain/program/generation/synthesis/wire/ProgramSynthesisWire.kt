@@ -36,7 +36,8 @@ data class ProgramSynthesisWireRequest(
  *     "lastTrained": null,
  *     "sessionLengthMinutes": 60,
  *     "trainingDaysPerWeek": 4,
- *     "weekdays": ["Monday", ...],
+ *     "restSlotIndices": [3, 6],
+ *     "cycleLength": 7,
  *     "specialization": { "Chest": "Specialize", ... },
  *     "liftsById": { "lift-id": { ...LiftContext fields... }, ... },
  *     "muscleVolumeSnapshotsByMuscle": { ... },
@@ -52,7 +53,7 @@ data class ProgramSynthesisWireRequest(
  * Fully reconstructs [ProgramSynthesisResult]:
  * - `sessions`: [ResolvedSessionPlan] list
  * - `plans`: [SessionSlotPlan] list (`filledSlots` as arrays; `setCount` as number)
- * - `weekdayIndexByPosition`: int array
+ * - `cycleSlotIndexByPosition`: int array
  * - `objective`: [SynthesisObjectiveBreakdown] (all Long fields)
  * - `activeSlotIdsBySession`: array of string arrays
  * - `regionFilterBySession`: array of [SessionRegionFilter] enum name strings
@@ -84,7 +85,7 @@ object ProgramSynthesisWire {
         jsonObject(
             "sessions" to jsonArray(result.sessions.map { encodeResolvedSession(it) }),
             "plans" to jsonArray(result.plans.map { encodeSessionSlotPlan(it) }),
-            "weekdayIndexByPosition" to jsonArray(result.weekdayIndexByPosition.map { jsonNumber(it) }),
+            "cycleSlotIndexByPosition" to jsonArray(result.cycleSlotIndexByPosition.map { jsonNumber(it) }),
             "objective" to encodeObjective(result.objective),
             "activeSlotIdsBySession" to
                 jsonArray(
@@ -108,9 +109,9 @@ object ProgramSynthesisWire {
                 plans = root.requireArray("plans").values.map {
                     decodeSessionSlotPlan(it.requireAsObject("plans[]"))
                 },
-                weekdayIndexByPosition =
-                    root.requireArray("weekdayIndexByPosition").values.map {
-                        it.asIntOrNull() ?: error("Expected int in weekdayIndexByPosition")
+                cycleSlotIndexByPosition =
+                    root.requireArray("cycleSlotIndexByPosition").values.map {
+                        it.asIntOrNull() ?: error("Expected int in cycleSlotIndexByPosition")
                     },
                 objective = decodeObjective(root.requireObject("objective")),
                 activeSlotIdsBySession =

@@ -19,20 +19,20 @@ import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSess
 
 internal fun recoveryGapViolationsFromPlans(
     plans: List<SessionSlotPlan>,
-    weekdayIndexByPosition: List<Int>,
+    cycleSlotIndexByPosition: List<Int>,
     context: ProgramGenerationContext,
     muscleFilter: (String) -> Boolean = { true },
     calendarGapFilter: Int? = null,
 ): List<String> {
-    val ordered = plans.sortedBy { plan -> weekdayIndexByPosition[plan.position] }
+    val ordered = plans.sortedBy { plan -> cycleSlotIndexByPosition[plan.position] }
     val stressByPlan = ordered.associateWith { plan -> planMuscleSessionStress(plan, context) }
     val issues = mutableListOf<String>()
     for (index in 1 until ordered.size) {
         issues += recoveryGapIssuesBetween(
             earlierPlan = ordered[index - 1],
             laterPlan = ordered[index],
-            earlierDayIndex = weekdayIndexByPosition[ordered[index - 1].position],
-            laterDayIndex = weekdayIndexByPosition[ordered[index].position],
+            earlierDayIndex = cycleSlotIndexByPosition[ordered[index - 1].position],
+            laterDayIndex = cycleSlotIndexByPosition[ordered[index].position],
             earlierStress = stressByPlan.getValue(ordered[index - 1]),
             laterStress = stressByPlan.getValue(ordered[index]),
             muscleFilter = muscleFilter,
@@ -40,8 +40,8 @@ internal fun recoveryGapViolationsFromPlans(
         )
     }
     if (ordered.size >= 2) {
-        val firstDayIndex = weekdayIndexByPosition[ordered.first().position]
-        val lastDayIndex = weekdayIndexByPosition[ordered.last().position]
+        val firstDayIndex = cycleSlotIndexByPosition[ordered.first().position]
+        val lastDayIndex = cycleSlotIndexByPosition[ordered.last().position]
         if (firstDayIndex == Weekday.Monday.ordinal && lastDayIndex == Weekday.Sunday.ordinal) {
             issues += recoveryGapIssuesBetween(
                 earlierPlan = ordered.last(),

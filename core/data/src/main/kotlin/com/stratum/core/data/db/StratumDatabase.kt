@@ -41,7 +41,7 @@ import androidx.room.TypeConverters
     version = 1,
     exportSchema = true,
 )
-@TypeConverters(WeekdaySetConverter::class, EnumConverters::class)
+@TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)
 @Suppress("TooManyFunctions")
 abstract class StratumDatabase : RoomDatabase() {
     abstract fun onboardingProgressDao(): OnboardingProgressDao

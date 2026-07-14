@@ -3,11 +3,17 @@ package com.stratum.domain.program
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.schedule.resolveInitialCycleStartEpochDay
 import javax.inject.Inject
 
 /**
  * Promotes an already-persisted library (or inactive) program to the sole active training program
  * without re-saving the full hierarchy. Prior active becomes library inventory.
+ *
+ * Sets [Program.cycleStartEpochDay] only when missing (first activate). Existing anchors are kept
+ * so mid-cycle deactivate/reactivate does not rewrite projection / rest weekday matching.
+ * First-time 7-day anchors still use Monday of the week containing today
+ * ([resolveInitialCycleStartEpochDay]).
  */
 class ActivateStoredProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
@@ -25,7 +31,18 @@ class ActivateStoredProgramUseCase @Inject constructor(
             require(existing.workouts.any { workout -> workout.workoutLifts.isNotEmpty() }) {
                 "Program must have at least one exercise"
             }
-            programRepository.activateProgram(programId)
+            val resolvedStart =
+                existing.cycleStartEpochDay ?: resolveInitialCycleStartEpochDay(existing)
+            if (existing.cycleStartEpochDay != resolvedStart || !existing.isActive) {
+                programRepository.saveProgram(
+                    existing.copy(
+                        isActive = true,
+                        cycleStartEpochDay = resolvedStart,
+                    ),
+                )
+            } else {
+                programRepository.activateProgram(programId)
+            }
         }
 
     private companion object {

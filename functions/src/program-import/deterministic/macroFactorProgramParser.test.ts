@@ -19,9 +19,10 @@ describe("macroFactorProgramParser", () => {
     const template = parseMacroFactorProgramXlsx(bytes);
     assert.ok(template, "fixture should parse");
 
-    // First program is "5 Day Upper/Lower"; the fixture declares 9 cycles.
+    // First program is "5 Day Upper/Lower". Meso "Cycles: 9" is NOT cycleLength —
+    // slot space is train+rest day rows (7).
     assert.equal(template!.programName, "5 Day Upper/Lower");
-    assert.equal(template!.cycleLength, 9);
+    assert.equal(template!.cycleLength, 7);
 
     // 5 training days + 2 rest days in the first program's 7-day cycle, preserved in order.
     assert.equal(template!.workouts.length, 7);

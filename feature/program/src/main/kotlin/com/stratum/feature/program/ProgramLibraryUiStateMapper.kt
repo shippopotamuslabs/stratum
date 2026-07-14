@@ -6,13 +6,17 @@ import com.stratum.core.ui.component.toDisplayName
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.Program
-import com.stratum.domain.program.ScheduleDayItem
 import com.stratum.domain.program.Workout
-import com.stratum.domain.program.buildWeeklyScheduleOrFallback
+import com.stratum.domain.program.schedule.CycleSlot
+import com.stratum.domain.program.schedule.resolvedCycleSlots
 
 /**
- * Domain → presentation mapping for Program Library cards. Uses [buildWeeklyScheduleOrFallback] so
- * rest days match Programs screen schedule rows without crashing on unbound weekdays.
+ * Domain → presentation mapping for Program Library cards.
+ *
+ * Day list is the **cycle window** via [resolvedCycleSlots] (same identity as Programs strip),
+ * not a Mon–Sun weekday expansion. Rest rows use [restDayName]; train rows keep workout names.
+ * Library inventory often has null [Program.cycleStartEpochDay], so cards show slot order
+ * (including 8+ day rotating rests) without calendar projection.
  */
 internal fun List<Program>.toProgramLibraryCards(
     liftsById: Map<LiftId, Lift>,
@@ -25,16 +29,16 @@ internal fun Program.toProgramLibraryCard(
     restDayName: String,
 ): ProgramLibraryCardState {
     val days =
-        buildWeeklyScheduleOrFallback(this).map { item ->
-            when (item) {
-                is ScheduleDayItem.RestDay ->
+        resolvedCycleSlots().map { slot ->
+            when (slot) {
+                is CycleSlot.Rest ->
                     ProgramLibraryDayState(
-                        id = "rest-${id.value}-${item.weekday.name}",
+                        id = "rest-${id.value}-${slot.slotIndex}",
                         name = restDayName,
                         isRest = true,
                     )
-                is ScheduleDayItem.WorkoutDay ->
-                    item.workout.toLibraryDayState(liftsById)
+                is CycleSlot.Training ->
+                    slot.workout.toLibraryDayState(liftsById)
             }
         }
     return ProgramLibraryCardState(

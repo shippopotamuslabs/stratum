@@ -20,6 +20,12 @@ object ProgramGenerationContextMapper {
         provenLifts: List<LiftWithInsights>,
         availableLifts: List<LiftWithInsights>,
         responseProfile: ResponseProfilePayload?,
+        /**
+         * Optional raw UX cycle-space hints (PR7). Nullable — six-day defaults are applied only in
+         * [com.stratum.domain.program.schedule.materializeGeneratedCycleSpace], not here.
+         */
+        restSlotIndices: Set<Int>? = null,
+        cycleLength: Int? = null,
     ): ProgramGenerationContext {
         val liftsById = linkedMapOf<String, LiftContext>()
         val enabledLiftIds = mutableSetOf<String>()
@@ -36,12 +42,17 @@ object ProgramGenerationContextMapper {
         val volumeCorrelationsByMuscle = mergeVolumeCorrelations(responseProfile)
         val liftEffectivenessByLiftId = mergeLiftEffectiveness(responseProfile)
 
+        val trainCount =
+            resolveTrainingDayCount(
+                restSlotIndices = restSlotIndices,
+                cycleLength = cycleLength,
+                profile = profile,
+            )
         return ProgramGenerationContext(
             trainingAge = trainingAge?.name.orEmpty(),
             lastTrained = profile.lastTrained?.name,
             sessionLengthMinutes = profile.sessionLengthMinutes,
-            trainingDaysPerWeek = profile.weekdays.size,
-            weekdays = profile.weekdays.map { it.name },
+            trainingDaysPerWeek = trainCount,
             specialization = specialization.levels,
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,
@@ -49,6 +60,28 @@ object ProgramGenerationContextMapper {
             enabledLiftIds = enabledLiftIds,
             movementPatternByLiftId = movementPatternByLiftId,
             liftEffectivenessByLiftId = liftEffectivenessByLiftId,
+            restSlotIndices = restSlotIndices,
+            cycleLength = cycleLength,
+        )
+    }
+
+    /**
+     * Prefer cycle-space math (length − rests), then persisted generate train count, then legacy
+     * weekday count. Fails loud when none are present — never invents a silent 1-day program.
+     */
+    internal fun resolveTrainingDayCount(
+        restSlotIndices: Set<Int>?,
+        cycleLength: Int?,
+        profile: UserTrainingProfile,
+    ): Int {
+        if (cycleLength != null && restSlotIndices != null && cycleLength > restSlotIndices.size) {
+            return cycleLength - restSlotIndices.size
+        }
+        profile.generationTrainingDayCount?.takeIf { count -> count > 0 }?.let { return it }
+        if (profile.weekdays.isNotEmpty()) return profile.weekdays.size
+        error(
+            "ProgramGenerationContext requires cycleLength+restSlotIndices, " +
+                "generationTrainingDayCount, or legacy weekdays — got none",
         )
     }
 

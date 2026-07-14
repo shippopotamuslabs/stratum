@@ -33,21 +33,26 @@ fun Program.withReconciledTrainingWeekdays(): Program {
 }
 
 /**
- * Binds workouts using CP-SAT weekday indices (Mon=0 … Sun=6) and renumbers session letters.
+ * Binds workouts using CP-SAT cycle slot indices and renumbers session letters.
+ *
+ * Slot indices are on the generation ring (classic Mon=0…Sun=6, or 6-in-8 train slots such as
+ * 0,1,2,4,5,6). [Weekday] labels are projection labels when the index is in 0…6.
  */
 fun assignProgramScheduleFromWeekdayIndices(
     program: Program,
-    weekdayIndexByPosition: List<Int>,
+    cycleSlotIndexByPosition: List<Int>,
 ): Program {
     val sortedWorkouts = program.workouts.sortedBy { workout -> workout.position }
-    require(sortedWorkouts.size == weekdayIndexByPosition.size) {
-        "Weekday index count ${weekdayIndexByPosition.size} must match workout count ${sortedWorkouts.size}."
+    require(sortedWorkouts.size == cycleSlotIndexByPosition.size) {
+        "Cycle slot index count ${cycleSlotIndexByPosition.size} must match workout count ${sortedWorkouts.size}."
     }
     val boundWorkouts =
         sortedWorkouts.mapIndexed { index, workout ->
-            workout.copy(weekday = Weekday.entries[weekdayIndexByPosition[index]])
+            val slot = cycleSlotIndexByPosition[index]
+            workout.copy(weekday = Weekday.entries.getOrNull(slot))
         }
-    val trainingWeekdays = weekdayIndexByPosition.map { index -> Weekday.entries[index] }.toSet()
+    val trainingWeekdays =
+        cycleSlotIndexByPosition.mapNotNull { index -> Weekday.entries.getOrNull(index) }.toSet()
     return program.copy(
         trainingWeekdays = trainingWeekdays,
         workouts = relabelWorkoutNamesByWeekday(boundWorkouts),
@@ -157,7 +162,14 @@ fun buildScheduleMuscleExposures(
     return out
 }
 
-/** Builds a Mon–Sun schedule list with explicit rest-day rows and workout rows. */
+/**
+ * Builds a Mon–Sun schedule list with explicit rest-day rows and workout rows.
+ *
+ * **Deprecated for runtime UI** — prefer cycle-window projection via
+ * [com.stratum.domain.program.schedule.CycleProjection.projectCycleWindow] and
+ * [com.stratum.domain.program.schedule.resolvedCycleSlots]. Kept for domain tests and
+ * weekday-bound generation checks that still model calendar templates.
+ */
 fun buildWeeklySchedule(program: Program): List<ScheduleDayItem> {
     val training = program.effectiveTrainingWeekdays()
     val workoutByWeekday =
@@ -181,12 +193,14 @@ fun buildWeeklySchedule(program: Program): List<ScheduleDayItem> {
  * falls back to workouts ordered by [Workout.position] (using each workout's weekday when present,
  * otherwise [Weekday.Monday] as a non-calendar placeholder).
  *
- * Prefer this for library/editor presentation that must stay resilient; use [buildWeeklySchedule]
- * when an invariant violation should surface (e.g. Programs active overview after generation).
+ * Prefer cycle-slot projection
+ * ([com.stratum.domain.program.schedule.resolvedCycleSlots]) for presentation. Use this only for
+ * weekday-bound test helpers; use [buildWeeklySchedule] when an invariant violation should
+ * surface (e.g. generation assertions).
  *
  * Note: [buildWeeklySchedule] succeeds with seven rest days when workouts exist but none are
  * weekday-bound (empty [Program.effectiveTrainingWeekdays]). That silent all-rest result is
- * treated as incomplete binding and falls back so library/editor still show the workouts.
+ * treated as incomplete binding and falls back so callers still see the workouts.
  */
 fun buildWeeklyScheduleOrFallback(program: Program): List<ScheduleDayItem> {
     val training = program.effectiveTrainingWeekdays()

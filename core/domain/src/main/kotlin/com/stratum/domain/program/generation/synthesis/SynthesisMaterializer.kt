@@ -156,7 +156,7 @@ fun materializeSynthesisResult(
     return ProgramSynthesisResult(
         sessions = sessions,
         plans = plans,
-        weekdayIndexByPosition = solution.weekdayIndexByPosition,
+        cycleSlotIndexByPosition = solution.cycleSlotIndexByPosition,
         objective = com.stratum.domain.program.generation.prescription.SynthesisObjectiveBreakdown.ZERO,
         activeSlotIdsBySession = solution.activeSlotIdsBySession.map { ids -> ids.toSet() },
         // Pass through solver region filters — source of truth (do not drop).

@@ -70,7 +70,6 @@ import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.feature.program.R
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -539,13 +538,10 @@ private fun LoadedProgramContent(
     state.scheduleItems.forEach { item ->
         when (item) {
             is ScheduleItemState.RestDay -> {
-                val weekday = Weekday.entries.firstOrNull { it.name.equals(item.weekdayLabel, ignoreCase = true) }
                 RestDayRow(
                     isCompleted = item.isCompleted,
                     onCheckedChange = { checked ->
-                        if (weekday != null) {
-                            callbacks.onSkipRestDayCheckedChange(weekday, checked)
-                        }
+                        callbacks.onSkipRestDayCheckedChange(item.slotIndex, checked)
                     },
                 )
             }
@@ -662,7 +658,7 @@ internal fun WorkoutCard(
                         vertical = 16.dp,
                     ),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Entire header (except checkbox) toggles expand — not only the chevron.
             Row(
@@ -676,29 +672,23 @@ internal fun WorkoutCard(
                         )
                         .semantics { contentDescription = expandCollapseLabel },
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
                     painter = painterResource(CoreUiR.drawable.ic_chevron_down),
                     contentDescription = null,
                     modifier =
                         Modifier
-                            .padding(top = 2.dp)
                             .size(WorkoutChevronSize)
                             .rotate(chevronRotation),
                     tint = StratumThemeAccessor.colors.textMuted,
                 )
-                Column(
+                StratumText(
+                    text = workout.name,
+                    style = StratumThemeAccessor.typography.titleLarge,
+                    muted = muted,
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    StratumText(
-                        text = workout.name,
-                        style = StratumThemeAccessor.typography.titleLarge,
-                        muted = muted,
-                    )
-                    StratumText(text = workout.weekdayLabel, muted = true)
-                }
+                )
             }
             StratumCheckbox(
                 checked = workout.isCompleted,

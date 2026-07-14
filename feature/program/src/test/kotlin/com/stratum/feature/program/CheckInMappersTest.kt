@@ -37,6 +37,9 @@ class CheckInMappersTest {
                     tenureWeeks = 5,
                 ),
             ).toUi() as CheckInRecommendationUi.Swap
+        assertEquals(R.string.checkin_rec_title_swap, ui.titleRes)
+        assertEquals(listOf("Bench", "Incline"), ui.titleArgs)
+        assertEquals(R.string.checkin_rationale_soft_stale_swap_flat, ui.rationaleRes)
         val cmd = ui.toApplyCommand() as CheckInApplyCommand.Swap
         assertEquals(LiftId("incline"), cmd.newLiftId)
     }
@@ -53,6 +56,7 @@ class CheckInMappersTest {
                 ),
                 setCount = 3,
             ).toUi() as CheckInRecommendationUi.IncreaseVolume
+        assertEquals(R.string.checkin_rec_title_increase, ui.titleRes)
         val cmd = ui.toApplyCommand() as CheckInApplyCommand.SetWorkingSets
         assertEquals(4, cmd.targetSetCount)
     }
@@ -67,6 +71,7 @@ class CheckInMappersTest {
                 setCount = 1,
             ).toUi() as CheckInRecommendationUi.CutVolume
         assertTrue(ui.isFloorOnly)
+        assertEquals(R.string.checkin_rec_title_cut_floor, ui.titleRes)
         assertNull(ui.toApplyCommand())
     }
 
@@ -80,6 +85,22 @@ class CheckInMappersTest {
                 setCount = 2,
             ).toUi(accepted = false) as CheckInRecommendationUi.IncreaseVolume
         assertNull(ui.toApplyCommand())
+    }
+
+    @Test
+    @DisplayName("New coaching rationales map to non-zero string resources")
+    fun newRationalesHaveResources() {
+        val specs =
+            listOf(
+                CheckInRationale.DroppingMildRecoveryHold,
+                CheckInRationale.SoftFreshAtVolumeCeiling,
+                CheckInRationale.SoftStaleNoCandidateAtCeiling,
+                CheckInRationale.MuscleLeverAlreadyTaken,
+            )
+        specs.forEach { rationale ->
+            val (res, _) = rationale.toDisplaySpec("Bench")
+            assertTrue(res != 0, "missing res for $rationale")
+        }
     }
 
     private fun sampleRec(

@@ -72,8 +72,8 @@ fun ProgramsRoute(
                     onSkipWorkoutCheckedChange = { workoutId, checked ->
                         if (checked) viewModel.skipWorkout(workoutId) else viewModel.unskipWorkout(workoutId)
                     },
-                    onSkipRestDayCheckedChange = { weekday, checked ->
-                        if (checked) viewModel.skipRestDay(weekday) else viewModel.unskipRestDay(weekday)
+                    onSkipRestDayCheckedChange = { slotIndex, checked ->
+                        if (checked) viewModel.skipRestDay(slotIndex) else viewModel.unskipRestDay(slotIndex)
                     },
                     onConfirmDiscardAndStart = viewModel::confirmDiscardAndStart,
                 ),

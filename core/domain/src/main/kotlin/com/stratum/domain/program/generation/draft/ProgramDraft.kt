@@ -6,7 +6,10 @@ import com.stratum.domain.program.SetType
 
 data class ProgramDraft(
     var name: String? = null,
+    /** Full cycle slots (training + rest). */
     var cycleLength: Int? = null,
+    /** Rest slot indices in `[0, cycleLength)`. Null means unset (normalize treats as empty). */
+    var restSlotIndices: Set<Int>? = null,
     val workouts: List<ProgramWorkoutDraft>,
 )
 

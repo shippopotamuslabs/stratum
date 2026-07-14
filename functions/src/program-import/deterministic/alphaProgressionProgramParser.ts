@@ -24,20 +24,19 @@ import { parseInteger } from "../../import/deterministic/values";
  *
  * Structure:
  *   - Line 1: plan metadata `"<Plan name> · <N> weeks";<ISO date>`. The first segment before the
- *     first ` · ` is the program name; the week count seeds `cycleLength`.
+ *     first ` · ` is the program name. Week counts are mesocycle duration — not cycleLength.
  *   - Day header: `"Day <n> · <label>"`. The segment after the last ` · ` is the day's display name.
  *   - Lift row: `"<pos>. <name> · <equipment>";"<N> sets";"<M> reps"`. The first ` · `-segment after
  *     the position prefix is the lift name; `N` drives set count; `M` is the rep target (repMin =
  *     repMax = M).
  *
  * Semicolon-delimited (Alpha Progression is a European app). Rep ranges are not exported, so each
- * set inherits the single rep target. RIR/rest are unknown and left null.
+ * set inherits the single rep target. RIR/rest are unknown and left null. cycleLength = day count.
  */
 
 const PLAN_HEADER_RE = /^"([^"]+)"\s*;\s*(\d{4}-\d{2}-\d{2})/i;
 const DAY_HEADER_RE = /^"Day\s+\d+\s*·\s*([^"]+)"$/i;
 const LIFT_ROW_RE = /^"(\d+)\.\s*(.+)"\s*;\s*"(\d+)\s*sets?"\s*;\s*"(\d+)\s*reps?"$/i;
-const WEEKS_RE = /(\d+)\s*weeks?/i;
 const DELIMITER = ";";
 
 /** Sniff whether a document looks like an Alpha Progression plan export. */
@@ -67,7 +66,6 @@ export function parseAlphaProgressionPlan(text: string): NormalizedProgramTempla
   const lines = normalized.split("\n");
 
   let programName: string | null = null;
-  let cycleLength: number | null = null;
   const workouts: NormalizedProgramTemplateWorkout[] = [];
   let currentWorkout: NormalizedProgramTemplateWorkout | null = null;
 
@@ -77,16 +75,12 @@ export function parseAlphaProgressionPlan(text: string): NormalizedProgramTempla
       continue;
     }
 
-    // Plan header carries the program name + week count.
+    // Plan header carries the program name. Week counts (e.g. "4 weeks") are mesocycle
+    // duration, not cycle slot space — domain cycleLength is derived from day rows.
     const planMatch = line.match(PLAN_HEADER_RE);
     if (planMatch) {
       const planLabel = firstSegment(planMatch[1]);
       programName = planLabel.length > 0 ? planLabel : null;
-      const weeksMatch = planMatch[1].match(WEEKS_RE);
-      if (weeksMatch) {
-        const weeks = parseInteger(weeksMatch[1]);
-        cycleLength = weeks !== null && weeks > 0 ? weeks : null;
-      }
       continue;
     }
 
@@ -141,7 +135,11 @@ export function parseAlphaProgressionPlan(text: string): NormalizedProgramTempla
     currentWorkout.lifts.push(lift);
   }
 
-  return { programName, cycleLength, workouts };
+  if (workouts.length === 0) {
+    return { programName, cycleLength: null, workouts };
+  }
+  // Slot space = number of day headers (each day is one cycle slot when no rest markers).
+  return { programName, cycleLength: workouts.length, workouts };
 }
 
 export const alphaProgressionProgramFormat: ProgramTemplateFormat = "alpha_progression";

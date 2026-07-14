@@ -54,46 +54,67 @@ internal fun decodeWeeklyTargets(obj: JsonObject): WeeklyVolumeTargets =
 
 internal fun encodeContext(context: ProgramGenerationContext): String =
     jsonObject(
-        "trainingAge" to jsonString(context.trainingAge),
-        "lastTrained" to jsonStringOrNull(context.lastTrained),
-        "sessionLengthMinutes" to jsonNumberOrNull(context.sessionLengthMinutes),
-        "trainingDaysPerWeek" to jsonNumber(context.trainingDaysPerWeek),
-        "weekdays" to jsonArray(context.weekdays.map { jsonString(it) }),
-        "specialization" to
-            jsonObject(
-                context.specialization.map { (muscle, level) ->
-                    muscle.name to jsonString(level.name)
-                },
-            ),
-        "liftsById" to
-            jsonObject(
-                context.liftsById.map { (id, lift) -> id to encodeLiftContext(lift) },
-            ),
-        "muscleVolumeSnapshotsByMuscle" to
-            jsonObject(
-                context.muscleVolumeSnapshotsByMuscle.map { (muscle, snap) ->
-                    muscle to encodeMuscleVolumeSnapshot(snap)
-                },
-            ),
-        "volumeCorrelationsByMuscle" to
-            jsonObject(
-                context.volumeCorrelationsByMuscle.map { (muscle, corr) ->
-                    muscle to encodeVolumeCorrelation(corr)
-                },
-            ),
-        "enabledLiftIds" to jsonArray(context.enabledLiftIds.map { jsonString(it) }),
-        "movementPatternByLiftId" to
-            jsonObject(
-                context.movementPatternByLiftId.map { (id, pattern) ->
-                    id to jsonStringOrNull(pattern?.name)
-                },
-            ),
-        "liftEffectivenessByLiftId" to
-            jsonObject(
-                context.liftEffectivenessByLiftId.map { (id, entry) ->
-                    id to encodeLiftEffectiveness(entry)
-                },
-            ),
+        buildList {
+            add("trainingAge" to jsonString(context.trainingAge))
+            add("lastTrained" to jsonStringOrNull(context.lastTrained))
+            add("sessionLengthMinutes" to jsonNumberOrNull(context.sessionLengthMinutes))
+            add("trainingDaysPerWeek" to jsonNumber(context.trainingDaysPerWeek))
+            add(
+                "specialization" to
+                    jsonObject(
+                        context.specialization.map { (muscle, level) ->
+                            muscle.name to jsonString(level.name)
+                        },
+                    ),
+            )
+            add(
+                "liftsById" to
+                    jsonObject(
+                        context.liftsById.map { (id, lift) -> id to encodeLiftContext(lift) },
+                    ),
+            )
+            add(
+                "muscleVolumeSnapshotsByMuscle" to
+                    jsonObject(
+                        context.muscleVolumeSnapshotsByMuscle.map { (muscle, snap) ->
+                            muscle to encodeMuscleVolumeSnapshot(snap)
+                        },
+                    ),
+            )
+            add(
+                "volumeCorrelationsByMuscle" to
+                    jsonObject(
+                        context.volumeCorrelationsByMuscle.map { (muscle, corr) ->
+                            muscle to encodeVolumeCorrelation(corr)
+                        },
+                    ),
+            )
+            add("enabledLiftIds" to jsonArray(context.enabledLiftIds.map { jsonString(it) }))
+            add(
+                "movementPatternByLiftId" to
+                    jsonObject(
+                        context.movementPatternByLiftId.map { (id, pattern) ->
+                            id to jsonStringOrNull(pattern?.name)
+                        },
+                    ),
+            )
+            add(
+                "liftEffectivenessByLiftId" to
+                    jsonObject(
+                        context.liftEffectivenessByLiftId.map { (id, entry) ->
+                            id to encodeLiftEffectiveness(entry)
+                        },
+                    ),
+            )
+            // Optional cycle-space rest pattern (6-day 7/8 slot, PR6+). Omitted when unset so
+            // older clients stay compatible.
+            context.restSlotIndices?.let { rests ->
+                add("restSlotIndices" to jsonArray(rests.sorted().map { jsonNumber(it) }))
+            }
+            context.cycleLength?.let { length ->
+                add("cycleLength" to jsonNumber(length))
+            }
+        },
     )
 
 internal fun decodeContext(obj: JsonObject): ProgramGenerationContext =
@@ -102,10 +123,6 @@ internal fun decodeContext(obj: JsonObject): ProgramGenerationContext =
         lastTrained = obj.optionalString("lastTrained"),
         sessionLengthMinutes = obj.optionalInt("sessionLengthMinutes"),
         trainingDaysPerWeek = obj.requireInt("trainingDaysPerWeek"),
-        weekdays =
-            obj.requireArray("weekdays").values.map {
-                it.asStringOrNull() ?: error("Expected string weekday")
-            },
         specialization =
             obj.requireObject("specialization").entries.mapKeys { (k, _) ->
                 enumValueOf<MuscleGroup>(k)
@@ -144,6 +161,11 @@ internal fun decodeContext(obj: JsonObject): ProgramGenerationContext =
             obj.requireObject("liftEffectivenessByLiftId").entries.mapValues { (_, v) ->
                 decodeLiftEffectiveness(v.requireAsObject("effectiveness"))
             },
+        restSlotIndices =
+            obj["restSlotIndices"]?.asArrayOrNull()?.values?.map {
+                it.asIntOrNull() ?: error("Expected int in restSlotIndices")
+            }?.toSet(),
+        cycleLength = obj.optionalInt("cycleLength"),
     )
 
 private fun encodeLiftContext(lift: LiftContext): String =

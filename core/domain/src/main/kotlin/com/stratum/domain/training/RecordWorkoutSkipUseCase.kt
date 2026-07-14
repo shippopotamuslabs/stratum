@@ -2,6 +2,7 @@ package com.stratum.domain.training
 
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.schedule.resolvedCycleSlots
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import java.util.UUID
@@ -20,6 +21,11 @@ class RecordWorkoutSkipUseCase @Inject constructor(
                 ?: throw IllegalArgumentException("Workout ${workoutId.value} not found in program")
         val now = Instant.now()
 
+        val slotIndex =
+            program.resolvedCycleSlots()
+                .filterIsInstance<com.stratum.domain.program.schedule.CycleSlot.Training>()
+                .firstOrNull { it.workout.id == workoutId }
+                ?.slotIndex
         val session =
             TrainingSession(
                 id = TrainingSessionId(UUID.randomUUID().toString()),
@@ -30,6 +36,7 @@ class RecordWorkoutSkipUseCase @Inject constructor(
                 origin = TrainingSessionOrigin.LIVE,
                 cycleNumberSnapshot = program.currentCycleNumber,
                 weekdaySnapshot = workout.weekday,
+                cycleSlotIndexSnapshot = slotIndex,
                 startedAt = now,
                 endedAt = now,
                 sourceApp = null,
@@ -37,14 +44,17 @@ class RecordWorkoutSkipUseCase @Inject constructor(
                 workoutNameSnapshot = workout.name,
             )
 
-        val effects =
-            computeCycleAdvancement(
+        val baseSessions = trainingLogRepository.getAllSessions() + session
+        val (ledger, autoRests) =
+            sessionsWithMaterializedAutoRests(
                 program = program,
-                sessions = trainingLogRepository.getAllSessions() + session,
+                sessions = baseSessions,
+                now = now,
             )
+        val effects = computeCycleAdvancement(program = program, sessions = ledger)
 
-        trainingLogRepository.persistSessionWithCycleEffects(
-            session = session,
+        trainingLogRepository.persistSessionsWithCycleEffects(
+            sessions = listOf(session) + autoRests,
             cyclePointerUpdate = effects.pointerUpdate,
             cycleCompletedEvent = effects.cycleCompletedEvent,
         )

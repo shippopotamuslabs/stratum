@@ -15,17 +15,22 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.generation.validation.validateActiveSlotSelections
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
 import com.stratum.domain.program.generation.volume.planWeeklyVolume
+import com.stratum.domain.program.schedule.materializeGeneratedCycleSpace
 
 data class BuiltProgram(
     val name: String,
+    /**
+     * Full cycle slots (training + rest). Equals `workouts.size + restSlotIndices.size`.
+     */
     val cycleLength: Int,
+    val restSlotIndices: Set<Int> = emptySet(),
     val workouts: List<ProgramWorkoutDraft>,
 )
 
 data class BuildProgramResult(
     val program: BuiltProgram,
     val selectionsBySession: List<List<SelectedSlotLift>>,
-    val weekdayIndexByPosition: List<Int>,
+    val cycleSlotIndexByPosition: List<Int>,
     val synthesisObjective: SynthesisObjectiveBreakdown,
 )
 
@@ -80,23 +85,30 @@ suspend fun buildProgramWithSelections(
             sessionPlans,
             selectionsBySession,
             context,
-            synthesis.weekdayIndexByPosition,
+            synthesis.cycleSlotIndexByPosition,
         )
-    val cycleLength = synthesis.sessions.size
-
-    check(workouts.size == cycleLength) {
-        "cycleLength $cycleLength != workouts ${workouts.size}"
+    check(workouts.isNotEmpty()) { "synthesis produced no workouts" }
+    check(workouts.size == synthesis.sessions.size) {
+        "session count ${synthesis.sessions.size} != workouts ${workouts.size}"
     }
+
+    val cycleSpace =
+        materializeGeneratedCycleSpace(
+            trainingSlotCount = workouts.size,
+            restSlotIndicesHint = context.restSlotIndices,
+            cycleLengthHint = context.cycleLength,
+        )
 
     return BuildProgramResult(
         program =
             BuiltProgram(
                 name = PLACEHOLDER_PROGRAM_NAME,
-                cycleLength = cycleLength,
+                cycleLength = cycleSpace.cycleLength,
+                restSlotIndices = cycleSpace.restSlotIndices,
                 workouts = workouts,
             ),
         selectionsBySession = selectionsBySession,
-        weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
+        cycleSlotIndexByPosition = synthesis.cycleSlotIndexByPosition,
         synthesisObjective = synthesis.objective,
     )
 }
