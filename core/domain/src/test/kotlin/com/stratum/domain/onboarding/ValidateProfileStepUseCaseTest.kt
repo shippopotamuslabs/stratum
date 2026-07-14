@@ -73,7 +73,6 @@ class ValidateProfileStepUseCaseTest {
         UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
             lastTrained = LastTrainedBucket.WithinLastThreeMonths,
-            weekdays = emptySet(),
             sessionLengthMinutes = 60,
         )
 
