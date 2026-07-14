@@ -114,7 +114,21 @@ data class MuscleSessionStress(
      *  lengthened-state surcharge on `KneeFlexion` (seated curl vs lying curl). `null` when the
      *  contributor's length bias is unknown; treated as no surcharge. */
     val muscleLengthBias: String? = null,
-)
+    /**
+     * Credits from lifts where this muscle is a **primary** mover. Defaults to [fractionalSets]
+     * (legacy call sites treat the whole dose as primary).
+     *
+     * When primary credits are below [MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE], the session is
+     * **secondary-only** for this muscle (e.g. Glute from squat/RDL). Secondary hitchhiking does
+     * not receive the large-muscle Isolation mass surcharge and does not hard-forbid adjacent
+     * repeats — primary isolation on large muscles (Leg Extension → Quad) still does.
+     */
+    val primaryFractionalSets: Double = fractionalSets,
+) {
+    /** True when total dose may be meaningful but primary stimulus is not. */
+    val isSecondaryOnly: Boolean
+        get() = primaryFractionalSets < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
+}
 
 private enum class RecoveryVolumeTier {
     Low,
@@ -155,9 +169,10 @@ fun recoveryHours(
     minRealizedRir: Int? = null,
     muscle: String? = null,
     muscleLengthBias: String? = null,
+    secondaryOnly: Boolean = false,
 ): Int {
     val tier = volumeTier(earlierDose) ?: return 0
-    val base = calibratedRecoveryHours(stressClass, tier, muscle, muscleLengthBias)
+    val base = calibratedRecoveryHours(stressClass, tier, muscle, muscleLengthBias, secondaryOnly)
     val failure = if (minRealizedRir == 0) RECOVERY_FAILURE_HOURS else 0
     return base + failure
 }
@@ -170,6 +185,7 @@ fun minimumRecoveryCalendarGap(earlier: MuscleSessionStress, minRealizedRir: Int
         minRealizedRir = minRealizedRir,
         muscle = earlier.muscle,
         muscleLengthBias = earlier.muscleLengthBias,
+        secondaryOnly = earlier.isSecondaryOnly,
     )
     if (hours <= 0) return 0
     return ceil(hours / 24.0).toInt()
@@ -187,11 +203,12 @@ private fun volumeTier(dose: Double): RecoveryVolumeTier? {
 /** Literature matrix contract — table wins over additive constant sums when they diverge.
  *
  *  Two muscle-aware surcharges are layered on the isolation tier:
- *  - **Muscle-mass penalty** ([MUSCLE_MASS_PENALTY_HOURS]): added at the Low tier when an
- *    isolation lift trains a [LARGE_COMPOUND_MUSCLES] (e.g. Leg Extension on Quad). Lifts the
- *    Low window from 24h to 36h so the calendar gap becomes 2 (adjacent-day forbid). Moderate
- *    and High isolation tiers already meet ≥48h, so the surcharge is skipped there to match the
- *    recovery spec table (Leg Extension Moderate = 48h, unchanged).
+ *  - **Muscle-mass penalty** ([MUSCLE_MASS_PENALTY_HOURS]): added at the Low tier when a
+ *    **primary** isolation lift trains a [LARGE_COMPOUND_MUSCLES] (e.g. Leg Extension on Quad).
+ *    Lifts the Low window from 24h to 36h so the calendar gap becomes 2 (adjacent-day forbid).
+ *    **Secondary-only** hitchhiking (Glute from squat/RDL) does **not** get this surcharge —
+ *    incidental compound secondaries stay on the 24h Isolation Low lane. Moderate/High isolation
+ *    tiers already meet ≥48h, so the surcharge is skipped there either way.
  *  - **Lengthened-state penalty** ([LENGTHENED_STATE_PENALTY_HOURS]): added at every tier for
  *    `KneeFlexion` lifts whose [muscleLengthBias] is `Lengthened` (seated curl position),
  *    reflecting the greater muscle damage from training the hamstrings at longer lengths. Lying
@@ -201,6 +218,7 @@ private fun calibratedRecoveryHours(
     tier: RecoveryVolumeTier,
     muscle: String? = null,
     muscleLengthBias: String? = null,
+    secondaryOnly: Boolean = false,
 ): Int {
     val base = when (stressClass) {
         LiftStressClass.Isolation ->
@@ -224,8 +242,10 @@ private fun calibratedRecoveryHours(
     }
     if (stressClass != LiftStressClass.Isolation) return base
     var adjusted = base
-    // Muscle-mass penalty: only at Low tier (Moderate/High already meet ≥48h per spec table).
-    if (tier == RecoveryVolumeTier.Low && muscle != null && muscle in LARGE_COMPOUND_MUSCLES) {
+    val lowRecoveryPrimary = (tier == RecoveryVolumeTier.Low && !secondaryOnly)
+    val largeCompoundMuscle = (muscle != null && muscle in LARGE_COMPOUND_MUSCLES)
+    // Muscle-mass penalty: primary isolation Low on large compounds only (not secondary hitchhiking).
+    if (lowRecoveryPrimary && largeCompoundMuscle) {
         adjusted += MUSCLE_MASS_PENALTY_HOURS
     }
     // Hamstring curl length-bias adjustments (KneeFlexion):

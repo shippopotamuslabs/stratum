@@ -11,8 +11,10 @@ import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.program.generation.context.ALWAYS_AIM_MUSCLES
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.reference.MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
 import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.MIN_TOUCH_DIRECT_SETS
@@ -285,6 +287,47 @@ class ProgramSynthesisAcceptanceTest {
                 "$muscle max direct sets in one session $maxDirectInOneSession < $MIN_SPECIALIZED_DIRECT_SETS",
             )
         }
+    }
+
+    /**
+     * #5c Major-muscle frequency floor: on a 4-day maintenance program, every non-de-emphasized
+     * [ALWAYS_AIM_MUSCLES] member should receive ≥2 meaningful sessions (≥ scheduling dose).
+     * Locks the soft [FREQUENCY_SHORTFALL] term against push-upper / pull-upper U/L collapse.
+     */
+    @Test
+    fun majorMusclesHitTwiceOnFourDayWeek() = runBlocking {
+        val base = parseScenarioContext(
+            scenarioPayload(
+                days = 4,
+                specialization = emptyMap(),
+                sessionLengthMinutes = 75,
+                weekdayLayout = "spread5",
+            ),
+        )
+        val context = withRichExtraLifts(base)
+        val draft = generateDraft(context)
+        val targets = planWeeklyVolume(context)
+        val underFrequency = mutableListOf<String>()
+        for (muscle in ALWAYS_AIM_MUSCLES) {
+            val level = context.specialization[muscle] ?: SpecializationLevel.Maintenance
+            if (level == SpecializationLevel.Omit || level == SpecializationLevel.MinimumVolume) {
+                continue
+            }
+            val aim = targets[muscle.name]?.aim ?: 0.0
+            if (aim <= 0.0) continue
+            var hits = 0
+            for (workout in draft.workouts) {
+                val dose = computeWorkoutMuscleVolume(workout, context)[muscle] ?: 0.0
+                if (dose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) hits += 1
+            }
+            if (hits < 2) {
+                underFrequency += "$muscle=${hits}×"
+            }
+        }
+        assertTrue(
+            underFrequency.isEmpty(),
+            "Major muscles under 2×/week on 4-day program: $underFrequency",
+        )
     }
 
     /**
@@ -584,6 +627,17 @@ class ProgramSynthesisAcceptanceTest {
 
         var totalLoss = 0.0
         val details = mutableMapOf<String, Double>()
+        // Aggregate component sums (for Optuna watch / post-hoc diagnosis).
+        var sumRecovery = 0.0
+        var sumVolume = 0.0
+        var sumFill = 0.0
+        var sumFrequency = 0.0
+        var sumOneSet = 0.0
+        var sumAntagonist = 0.0
+        var sumSetBalance = 0.0
+        var sumLiftCount = 0.0
+        var nFailed = 0
+        var nOk = 0
 
         // The benchmark suite is the anti-overfitting surface tune_solver.py optimizes
         // against. The first 8 entries (Benchmark_A..H) reproduce the original hand-tuned
@@ -591,29 +645,38 @@ class ProgramSynthesisAcceptanceTest {
         // the Stage 4 farthest-first diversity pipeline (cosine similarity on the 11-dim
         // weekly muscle volume vector + Jaccard on movement-pattern sets). See
         // scripts/harvest_programs.py, ProgramCandidateAuditTest, scripts/clean_and_diversify.py.
+        //
+        // Loss layers (aligned with production coach rules + current recovery nuance):
+        //  1) Session-fill gate (dominant structural)
+        //  2) Primary-aware gap-1 recovery (secondary hitchhiking no longer false-positive)
+        //  3) Volume floor (MV/MEV) + aim tracking
+        //  4) Major-muscle frequency ≥2× when cycle has ≥3 days (non-de-emphasized)
+        //  5) No 1-set lifts, antagonist pair balance, set balance, excess lift count
         val cases = BENCHMARK_SPECS.map { it.label to it.toContext() }
 
         for ((name, context) in cases) {
             try {
                 val draft = generateDraft(context)
-                
+
+                // Gap-1 recovery: uses metadata stress with primaryFractionalSets so secondary-only
+                // Glute from squat/RDL is not treated like primary isolation (post-2026-07 nuance).
                 val adjacentViolations = recoveryGapViolationsFromDraftWorkouts(
                     workouts = draft.workouts,
                     context = context,
-                    calendarGapFilter = 1
+                    calendarGapFilter = 1,
                 )
-                val recoveryLoss = adjacentViolations.size * 10000.0
+                val recoveryLoss = adjacentViolations.size * 10_000.0
                 totalLoss += recoveryLoss
+                sumRecovery += recoveryLoss
                 details["${name}_recovery"] = recoveryLoss
+                if (adjacentViolations.isNotEmpty()) {
+                    details["${name}_recovery_n"] = adjacentViolations.size.toDouble()
+                }
 
                 var volumeLoss = 0.0
                 val actualVolumes = weeklyMuscleVolume(draft, context)
-                val weeklyVolumeTargets = com.stratum.domain.program.generation.volume.planWeeklyVolume(context)
-                // Floor-anchored volume penalty: iterate ALL tracked muscles with a target (not just
-                // specialized ones). Below target.min (MV/MEV) → heavy quadratic penalty (the failure
-                // mode the loss must dominate). At/above min → small linear nudge toward PV aim.
-                // This blocks the exploit where the solver drops isolation slots: the quadratic floor
-                // penalty (e.g. (6-4)²×300 = 1,200) far exceeds the activation/lift-count savings.
+                val weeklyVolumeTargets = planWeeklyVolume(context)
+                // Floor-anchored volume: below min → quadratic; else linear toward aim.
                 for (muscle in weeklyVolumeTargets.keys) {
                     val target = weeklyVolumeTargets.getValue(muscle)
                     val actual = actualVolumes[muscle] ?: 0.0
@@ -625,6 +688,7 @@ class ProgramSynthesisAcceptanceTest {
                     }
                 }
 
+                // Leg antagonist / calf runaway (maintenance-style balance).
                 val quad = actualVolumes["Quad"] ?: 0.0
                 val ham = actualVolumes["Hamstring"] ?: 0.0
                 val calf = actualVolumes["Calf"] ?: 0.0
@@ -635,7 +699,24 @@ class ProgramSynthesisAcceptanceTest {
                     if (quad > calf * 1.25) volumeLoss += (quad - calf * 1.25) * 500.0
                 }
                 totalLoss += volumeLoss
+                sumVolume += volumeLoss
                 details["${name}_volume"] = volumeLoss
+
+                // Upper antagonist / arm pairs when both present (mirrors solver soft balance).
+                var antagonistLoss = 0.0
+                fun pairImbalance(a: String, b: String, weight: Double) {
+                    val va = actualVolumes[a] ?: 0.0
+                    val vb = actualVolumes[b] ?: 0.0
+                    if (va <= 0.0 || vb <= 0.0) return
+                    val hi = maxOf(va, vb)
+                    val lo = minOf(va, vb)
+                    if (hi > lo * 1.25) antagonistLoss += (hi - lo * 1.25) * weight
+                }
+                pairImbalance("Chest", "Back", 400.0)
+                pairImbalance("Bicep", "Tricep", 200.0)
+                totalLoss += antagonistLoss
+                sumAntagonist += antagonistLoss
+                details["${name}_antagonist"] = antagonistLoss
 
                 val workoutSets = draft.workouts.map { w ->
                     w.workoutLifts.orEmpty().sumOf { it.workoutLiftSets.orEmpty().size }
@@ -648,20 +729,10 @@ class ProgramSynthesisAcceptanceTest {
                     0.0
                 }
                 totalLoss += setBalanceLoss
+                sumSetBalance += setBalanceLoss
                 details["${name}_set_balance"] = setBalanceLoss
 
-                // ── Layer 1: Session-fill gate (structural prerequisite) ──
-                // Sessions MUST be filled to ~60% of the hard-set cap. This is not a tradeable
-                // preference — underfilled sessions are structurally broken regardless of volume
-                // distribution. The two-layer model mirrors the solver's own structure: fill is a
-                // prerequisite (Layer 1), volume distribution is the quality layer that operates
-                // WITHIN the constraint that sessions are full (Layer 2, computed above).
-                //
-                // The fill penalty is dominant (2000/set²) so the optimizer cannot profit by
-                // slashing SESSION_FILL_SHORTFALL: a single 9-set 75-min session (floor 15) costs
-                // (15-9)²×2000 = 72,000 — far exceeding any volume-deviation savings (~21k). The
-                // catastrophic gate (any session below 50% of cap → flat 100k) catches the extreme
-                // "3 lifts / 9 sets" collapse, making it strictly worse than any filled alternative.
+                // Session-fill gate (structural prerequisite) — dominant vs volume trading.
                 val sessionCap = checkNotNull(sessionHardSetCapForLength(context.sessionLengthMinutes))
                 val healthyFloor = (sessionCap * 0.6).toInt()
                 val catastrophicThreshold = sessionCap / 2
@@ -672,34 +743,108 @@ class ProgramSynthesisAcceptanceTest {
                     if (shortfall > 0) fillLoss += shortfall.toDouble() * shortfall * 2000.0
                 }
                 totalLoss += fillLoss
+                sumFill += fillLoss
                 details["${name}_fill"] = fillLoss
 
-                // Lift-count: only penalize EXCESS above a healthy session average (5 lifts/session).
-                // Penalizing all lifts unconditionally rewards underfilling — the prior bug.
+                // Excess lifts only (do not reward underfill).
                 val totalLifts = draft.workouts.sumOf { it.workoutLifts.orEmpty().size }
                 val expectedLifts = draft.workouts.size * 5
                 val liftCountLoss = maxOf(0, totalLifts - expectedLifts) * 10.0
                 totalLoss += liftCountLoss
+                sumLiftCount += liftCountLoss
                 details["${name}_lift_count"] = liftCountLoss
 
+                // No 1-set lifts (coach G1/G2) — Optuna must not trade these for fill/volume.
+                var oneSetLoss = 0.0
+                for (workout in draft.workouts) {
+                    for (lift in workout.workoutLifts.orEmpty()) {
+                        val sets = lift.workoutLiftSets?.size ?: 0
+                        if (sets == 1) oneSetLoss += 5_000.0
+                    }
+                }
+                totalLoss += oneSetLoss
+                sumOneSet += oneSetLoss
+                details["${name}_one_set"] = oneSetLoss
+
+                // Major-muscle frequency: ≥2 meaningful hits when cycle has ≥3 days.
+                // Matches ProgramSynthesisModel.preferredWeeklyFrequencyHits + ALWAYS_AIM scope.
+                // Omit / MinimumVolume (de-emphasize) are excluded.
+                val sessionCount = draft.workouts.size
+                val targetHits = if (sessionCount >= 3) 2 else 1
+                var frequencyLoss = 0.0
+                var frequencyShortfallHits = 0
+                if (targetHits > 1) {
+                    for (muscle in ALWAYS_AIM_MUSCLES) {
+                        val level = context.specialization[muscle] ?: SpecializationLevel.Maintenance
+                        if (level == SpecializationLevel.Omit ||
+                            level == SpecializationLevel.MinimumVolume
+                        ) {
+                            continue
+                        }
+                        val aim = weeklyVolumeTargets[muscle.name]?.aim ?: 0.0
+                        if (aim <= 0.0) continue
+                        var hits = 0
+                        for (workout in draft.workouts) {
+                            val dose = computeWorkoutMuscleVolume(workout, context)[muscle] ?: 0.0
+                            if (dose >= MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE) hits += 1
+                        }
+                        val shortfall = targetHits - hits
+                        if (shortfall > 0) {
+                            frequencyShortfallHits += shortfall
+                            // Quadratic: 0× week (shortfall 2) >> 1× week (shortfall 1).
+                            frequencyLoss += shortfall.toDouble() * shortfall * 4_000.0
+                        }
+                    }
+                }
+                totalLoss += frequencyLoss
+                sumFrequency += frequencyLoss
+                details["${name}_frequency"] = frequencyLoss
+                if (frequencyShortfallHits > 0) {
+                    details["${name}_freq_shortfall_hits"] = frequencyShortfallHits.toDouble()
+                }
+                nOk += 1
             } catch (e: Exception) {
-                val failLoss = 100000.0
+                val failLoss = 100_000.0
                 totalLoss += failLoss
+                nFailed += 1
                 details["${name}_infeasible"] = failLoss
                 println("Benchmark: $name failed to solve: ${e.message}")
             }
         }
 
-        println("Benchmark Complete. Total Loss: $totalLoss")
+        println("Benchmark Complete. Total Loss: $totalLoss  ok=$nOk failed=$nFailed")
+        println(
+            "Components: recovery=$sumRecovery volume=$sumVolume fill=$sumFill " +
+                "frequency=$sumFrequency oneSet=$sumOneSet antagonist=$sumAntagonist " +
+                "setBalance=$sumSetBalance liftCount=$sumLiftCount",
+        )
         println("Details: $details")
 
-        // Reset overrides to avoid side-effects on other tests in the suite
         SynthesisObjectiveWeights.setOverrides(null)
 
         val buildDir = java.io.File("build")
         if (!buildDir.exists()) buildDir.mkdirs()
         val lossFile = java.io.File(buildDir, "tuning_loss.json")
-        lossFile.writeText("{\"loss\": $totalLoss}")
+        // JSON for Optuna + watch script (keep flat keys parseable without a full schema).
+        val json = buildString {
+            append("{\n")
+            append("  \"loss\": $totalLoss,\n")
+            append("  \"n_scenarios\": ${cases.size},\n")
+            append("  \"n_ok\": $nOk,\n")
+            append("  \"n_failed\": $nFailed,\n")
+            append("  \"components\": {\n")
+            append("    \"recovery\": $sumRecovery,\n")
+            append("    \"volume\": $sumVolume,\n")
+            append("    \"fill\": $sumFill,\n")
+            append("    \"frequency\": $sumFrequency,\n")
+            append("    \"one_set\": $sumOneSet,\n")
+            append("    \"antagonist\": $sumAntagonist,\n")
+            append("    \"set_balance\": $sumSetBalance,\n")
+            append("    \"lift_count\": $sumLiftCount\n")
+            append("  }\n")
+            append("}\n")
+        }
+        lossFile.writeText(json)
         println("Loss saved to ${lossFile.absolutePath}")
     }
 
@@ -738,12 +883,20 @@ class ProgramSynthesisAcceptanceTest {
     }
 
     /**
-     * The benchmark suite. Entries 0–7 reproduce Benchmark_A–H verbatim (same weekdays,
-     * days/week, specialization, session length as the original hand-tuned anchors);
-     * entries 8+ extend coverage to the diverse splits selected by the Stage 4 pipeline.
-     * Layouts map to [WEEKDAY_LAYOUTS] keys in ProgramGenerationScenarioFixtures.
+     * Optuna / coach-quality surface, reweighted for **serious recreational / bodybuilding**
+     * use (product prior — not a published dataset):
+     *
+     * | Days | Target share | Role |
+     * |------|--------------|------|
+     * | 4–5  | ~2/3         | Primary: U/L, PPL-ish, bro-ish, dense calendars |
+     * | 6    | ~1/6         | Common among dedicated lifters (PPL 2×) |
+     * | 3    | ~1/7         | Tail: sparse mwf / full-body style |
+     *
+     * Within 4–5–6, **maintenance** is stocked deliberately (not only specialize cells).
+     * Entries 0–7 keep the original Benchmark_A–H anchors. Layouts map to [WEEKDAY_LAYOUTS].
      */
     private val BENCHMARK_SPECS: List<BenchmarkSpec> = listOf(
+        // ── Original anchors A–H ─────────────────────────────────────────────
         BenchmarkSpec("Benchmark_A_ArmCalf5Day", 5, "mtwfs", 75,
             specVararg(MuscleGroup.Calf, MuscleGroup.Bicep, MuscleGroup.Tricep)),
         BenchmarkSpec("Benchmark_B_FullBody4Day", 4, "spread5", 75, emptyMap()),
@@ -758,59 +911,92 @@ class ProgramSynthesisAcceptanceTest {
             specVararg(MuscleGroup.LateralDeltoid, MuscleGroup.PosteriorDeltoid)),
         BenchmarkSpec("Benchmark_H_ChestTricepSpec6Day75Min", 6, "sequential", 75,
             specVararg(MuscleGroup.Chest, MuscleGroup.Tricep)),
-        // ↓ Diversity-selected benchmarks (Stage 4 farthest-first: cosine on 11-dim weekly
-        //   volume vector + Jaccard on movement-pattern sets). 48 entries extend the 8 anchors
-        //   to 56 total — covering 3/4/5/6-day splits, every specialization preset, and the
-        //   6 weekday layouts. Ordered by selection (highest diversity first).
-        BenchmarkSpec("Synth_3d_mwf_legs_75min", 3, "mwf", 75, specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
-        BenchmarkSpec("Synth_3d_mwf_arms_60min", 3, "mwf", 60, specVararg(MuscleGroup.Bicep, MuscleGroup.Tricep)),
-        BenchmarkSpec("Synth_3d_mwf_shoulders_75min", 3, "mwf", 75, specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid)),
-        BenchmarkSpec("Synth_3d_mwf_hamstrings_75min", 3, "mwf", 75, specVararg(MuscleGroup.Hamstring)),
-        BenchmarkSpec("Synth_3d_mwf_maintenance_60min", 3, "mwf", 60, emptyMap()),
-        BenchmarkSpec("Synth_3d_mwf_arms_75min", 3, "mwf", 75, specVararg(MuscleGroup.Bicep, MuscleGroup.Tricep)),
-        BenchmarkSpec("Synth_4d_sean5_glutes_75min", 4, "sean5", 75, specVararg(MuscleGroup.Glute)),
-        BenchmarkSpec("Synth_3d_sequential_legs_75min", 3, "sequential", 75, specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
-        BenchmarkSpec("Synth_3d_mwf_posterior_75min", 3, "mwf", 75, specVararg(MuscleGroup.PosteriorDeltoid)),
-        BenchmarkSpec("Synth_3d_sequential_shoulders_75min", 3, "sequential", 75, specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid)),
-        BenchmarkSpec("Synth_3d_mwf_back_75min", 3, "mwf", 75, specVararg(MuscleGroup.Back)),
-        BenchmarkSpec("Synth_Shoulder_Head_Triplex_4d_spread5", 4, "spread5", 75, specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid, MuscleGroup.PosteriorDeltoid)),
-        BenchmarkSpec("Synth_3d_mwf_biceps_75min", 3, "mwf", 75, specVararg(MuscleGroup.Bicep)),
-        BenchmarkSpec("Synth_Pull_Emphasis_4d_spread5", 4, "spread5", 75, specVararg(MuscleGroup.Back, MuscleGroup.Bicep, MuscleGroup.PosteriorDeltoid)),
-        BenchmarkSpec("Synth_6d_sequential_legs_75min", 6, "sequential", 75, specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
+
+        // ── 3-day (tail) — sparse full-body / PPL-ish, not a mwf single-muscle farm ──
         BenchmarkSpec("PPL_3day", 3, "mwf", 75, emptyMap()),
-        BenchmarkSpec("Synth_FullLower_4d_spread5", 4, "spread5", 75, specVararg(MuscleGroup.Calf, MuscleGroup.Glute, MuscleGroup.Hamstring, MuscleGroup.Quad)),
-        BenchmarkSpec("Synth_3d_mwf_glutes_75min", 3, "mwf", 75, specVararg(MuscleGroup.Glute)),
-        BenchmarkSpec("Synth_3d_sequential_maintenance_60min", 3, "sequential", 60, emptyMap()),
-        BenchmarkSpec("Synth_Push_Emphasis_5d_mtwfs", 5, "mtwfs", 75, specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.Chest, MuscleGroup.Tricep)),
-        BenchmarkSpec("Synth_3d_mwf_chest_75min", 3, "mwf", 75, specVararg(MuscleGroup.Chest)),
-        BenchmarkSpec("Synth_FullUpper_4d_spread5", 4, "spread5", 75, specVararg(MuscleGroup.Back, MuscleGroup.Bicep, MuscleGroup.Chest, MuscleGroup.Tricep)),
-        BenchmarkSpec("Synth_4d_sean5_calves_75min", 4, "sean5", 75, specVararg(MuscleGroup.Calf)),
-        BenchmarkSpec("Synth_Shoulder_Head_Triplex_5d_mtwfs", 5, "mtwfs", 75, specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid, MuscleGroup.PosteriorDeltoid)),
-        BenchmarkSpec("Smolov_Base_4day", 4, "sequential", 75, specVararg(MuscleGroup.Glute, MuscleGroup.Hamstring, MuscleGroup.Quad)),
-        BenchmarkSpec("Synth_Push_Emphasis_4d_spread5", 4, "spread5", 75, specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.Chest, MuscleGroup.Tricep)),
-        BenchmarkSpec("Synth_3d_mwf_lateral_75min", 3, "mwf", 75, specVararg(MuscleGroup.LateralDeltoid)),
-        BenchmarkSpec("Synth_5d_mtwfs_calves_75min", 5, "mtwfs", 75, specVararg(MuscleGroup.Calf)),
-        BenchmarkSpec("Synth_3d_sequential_maintenance_90min", 3, "sequential", 90, emptyMap()),
-        BenchmarkSpec("Synth_4d_sean5_biceps_75min", 4, "sean5", 75, specVararg(MuscleGroup.Bicep)),
-        BenchmarkSpec("Synth_5d_sequential_shoulders_75min", 5, "sequential", 75, specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid)),
-        BenchmarkSpec("Synth_3d_mwf_triceps_75min", 3, "mwf", 75, specVararg(MuscleGroup.Tricep)),
-        BenchmarkSpec("Synth_3d_sequential_biceps_75min", 3, "sequential", 75, specVararg(MuscleGroup.Bicep)),
+        BenchmarkSpec("Synth_3d_mwf_maintenance_75min", 3, "mwf", 75, emptyMap()),
+        BenchmarkSpec("Synth_3d_sequential_maintenance_75min", 3, "sequential", 75, emptyMap()),
+        BenchmarkSpec("Synth_3d_mwf_legs_75min", 3, "mwf", 75, specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_3d_mwf_arms_75min", 3, "mwf", 75, specVararg(MuscleGroup.Bicep, MuscleGroup.Tricep)),
+        BenchmarkSpec("Synth_3d_mwf_back_75min", 3, "mwf", 75, specVararg(MuscleGroup.Back)),
+        BenchmarkSpec("Synth_3d_mwf_shoulders_75min", 3, "mwf", 75,
+            specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid)),
+
+        // ── 4-day (core) — U/L-friendly layouts + maintenance density ─────────
+        BenchmarkSpec("Synth_4d_spread5_maintenance_75min", 4, "spread5", 75, emptyMap()),
+        BenchmarkSpec("Synth_4d_sequential_maintenance_75min", 4, "sequential", 75, emptyMap()),
+        BenchmarkSpec("Synth_4d_sean5_maintenance_75min", 4, "sean5", 75, emptyMap()),
         BenchmarkSpec("Synth_4d_sean5_maintenance_60min", 4, "sean5", 60, emptyMap()),
-        BenchmarkSpec("Synth_5d_mtwfs_legs_75min", 5, "mtwfs", 75, specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
-        BenchmarkSpec("Synth_4d_sean5_posterior_75min", 4, "sean5", 75, specVararg(MuscleGroup.PosteriorDeltoid)),
-        BenchmarkSpec("Synth_4d_spread5_legs_75min", 4, "spread5", 75, specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
-        BenchmarkSpec("Synth_4d_sean5_hamstrings_75min", 4, "sean5", 75, specVararg(MuscleGroup.Hamstring)),
+        BenchmarkSpec("Synth_FullUpper_4d_spread5", 4, "spread5", 75,
+            specVararg(MuscleGroup.Back, MuscleGroup.Bicep, MuscleGroup.Chest, MuscleGroup.Tricep)),
+        BenchmarkSpec("Synth_FullLower_4d_spread5", 4, "spread5", 75,
+            specVararg(MuscleGroup.Calf, MuscleGroup.Glute, MuscleGroup.Hamstring, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_Push_Emphasis_4d_spread5", 4, "spread5", 75,
+            specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.Chest, MuscleGroup.Tricep)),
+        BenchmarkSpec("Synth_Pull_Emphasis_4d_spread5", 4, "spread5", 75,
+            specVararg(MuscleGroup.Back, MuscleGroup.Bicep, MuscleGroup.PosteriorDeltoid)),
+        BenchmarkSpec("Synth_Shoulder_Head_Triplex_4d_spread5", 4, "spread5", 75,
+            specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid, MuscleGroup.PosteriorDeltoid)),
+        BenchmarkSpec("Smolov_Base_4day", 4, "sequential", 75,
+            specVararg(MuscleGroup.Glute, MuscleGroup.Hamstring, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_4d_spread5_legs_75min", 4, "spread5", 75,
+            specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_4d_sequential_arms_75min", 4, "sequential", 75,
+            specVararg(MuscleGroup.Bicep, MuscleGroup.Tricep)),
+        BenchmarkSpec("Synth_4d_sean5_glutes_75min", 4, "sean5", 75, specVararg(MuscleGroup.Glute)),
         BenchmarkSpec("Synth_4d_sean5_back_75min", 4, "sean5", 75, specVararg(MuscleGroup.Back)),
-        BenchmarkSpec("Synth_ChestArms_Bro_5d_mtwfs", 5, "mtwfs", 75, specVararg(MuscleGroup.Bicep, MuscleGroup.Chest, MuscleGroup.Tricep)),
-        BenchmarkSpec("Synth_Pull_Emphasis_5d_mtwfs", 5, "mtwfs", 75, specVararg(MuscleGroup.Back, MuscleGroup.Bicep, MuscleGroup.PosteriorDeltoid)),
+        BenchmarkSpec("Synth_4d_sean5_hamstrings_75min", 4, "sean5", 75, specVararg(MuscleGroup.Hamstring)),
+        BenchmarkSpec("Synth_4d_sean5_calves_75min", 4, "sean5", 75, specVararg(MuscleGroup.Calf)),
+        BenchmarkSpec("Synth_4d_sean5_biceps_75min", 4, "sean5", 75, specVararg(MuscleGroup.Bicep)),
         BenchmarkSpec("Synth_4d_sean5_lateral_75min", 4, "sean5", 75, specVararg(MuscleGroup.LateralDeltoid)),
+
+        // ── 5-day (core) — dense mid-week styles + maintenance ────────────────
+        BenchmarkSpec("Synth_5d_mtwfs_maintenance_75min", 5, "mtwfs", 75, emptyMap()),
+        BenchmarkSpec("Synth_5d_mtwfs_maintenance_60min", 5, "mtwfs", 60, emptyMap()),
+        BenchmarkSpec("Synth_5d_spread5_maintenance_75min", 5, "spread5", 75, emptyMap()),
+        BenchmarkSpec("Synth_5d_sequential_maintenance_75min", 5, "sequential", 75, emptyMap()),
+        BenchmarkSpec("Synth_5d_sean5_maintenance_75min", 5, "sean5", 75, emptyMap()),
+        BenchmarkSpec("Synth_Push_Emphasis_5d_mtwfs", 5, "mtwfs", 75,
+            specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.Chest, MuscleGroup.Tricep)),
+        BenchmarkSpec("Synth_Pull_Emphasis_5d_mtwfs", 5, "mtwfs", 75,
+            specVararg(MuscleGroup.Back, MuscleGroup.Bicep, MuscleGroup.PosteriorDeltoid)),
+        BenchmarkSpec("Synth_ChestArms_Bro_5d_mtwfs", 5, "mtwfs", 75,
+            specVararg(MuscleGroup.Bicep, MuscleGroup.Chest, MuscleGroup.Tricep)),
+        BenchmarkSpec("Synth_FullLower_5d_mtwfs", 5, "mtwfs", 75,
+            specVararg(MuscleGroup.Calf, MuscleGroup.Glute, MuscleGroup.Hamstring, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_Shoulder_Head_Triplex_5d_mtwfs", 5, "mtwfs", 75,
+            specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid, MuscleGroup.PosteriorDeltoid)),
+        BenchmarkSpec("Synth_5d_mtwfs_legs_75min", 5, "mtwfs", 75,
+            specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_5d_mtwfs_shoulders_75min", 5, "mtwfs", 75,
+            specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid)),
+        BenchmarkSpec("Synth_5d_mtwfs_calves_75min", 5, "mtwfs", 75, specVararg(MuscleGroup.Calf)),
         BenchmarkSpec("Synth_5d_mtwfs_biceps_75min", 5, "mtwfs", 75, specVararg(MuscleGroup.Bicep)),
         BenchmarkSpec("Synth_5d_mtwfs_lateral_75min", 5, "mtwfs", 75, specVararg(MuscleGroup.LateralDeltoid)),
-        BenchmarkSpec("Synth_FullLower_5d_mtwfs", 5, "mtwfs", 75, specVararg(MuscleGroup.Calf, MuscleGroup.Glute, MuscleGroup.Hamstring, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_5d_sequential_shoulders_75min", 5, "sequential", 75,
+            specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid)),
         BenchmarkSpec("Synth_5d_sean5_back_75min", 5, "sean5", 75, specVararg(MuscleGroup.Back)),
-        BenchmarkSpec("Synth_6d_sequential_arms_75min", 6, "sequential", 75, specVararg(MuscleGroup.Bicep, MuscleGroup.Tricep)),
-        BenchmarkSpec("Synth_5d_mtwfs_shoulders_75min", 5, "mtwfs", 75, specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid)),
+        BenchmarkSpec("Synth_5d_mtwfs_arms_75min", 5, "mtwfs", 75,
+            specVararg(MuscleGroup.Bicep, MuscleGroup.Tricep)),
+
+        // ── 6-day (dedicated) — PPL 2× sequential is the default skeleton ─────
         BenchmarkSpec("PPL_6day", 6, "sequential", 75, emptyMap()),
+        BenchmarkSpec("Synth_6d_sequential_maintenance_75min", 6, "sequential", 75, emptyMap()),
+        BenchmarkSpec("Synth_6d_sequential_maintenance_60min", 6, "sequential", 60, emptyMap()),
+        BenchmarkSpec("Synth_6d_sequential_legs_75min", 6, "sequential", 75,
+            specVararg(MuscleGroup.Glute, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_6d_sequential_arms_75min", 6, "sequential", 75,
+            specVararg(MuscleGroup.Bicep, MuscleGroup.Tricep)),
+        BenchmarkSpec("Synth_6d_sequential_push_75min", 6, "sequential", 75,
+            specVararg(MuscleGroup.Chest, MuscleGroup.Tricep, MuscleGroup.AnteriorDeltoid)),
+        BenchmarkSpec("Synth_6d_sequential_pull_75min", 6, "sequential", 75,
+            specVararg(MuscleGroup.Back, MuscleGroup.Bicep, MuscleGroup.PosteriorDeltoid)),
+        BenchmarkSpec("Synth_6d_sequential_shoulders_75min", 6, "sequential", 75,
+            specVararg(MuscleGroup.AnteriorDeltoid, MuscleGroup.LateralDeltoid, MuscleGroup.PosteriorDeltoid)),
+        BenchmarkSpec("Synth_6d_sequential_full_lower_75min", 6, "sequential", 75,
+            specVararg(MuscleGroup.Calf, MuscleGroup.Glute, MuscleGroup.Hamstring, MuscleGroup.Quad)),
+        BenchmarkSpec("Synth_6d_sequential_legs_60min", 6, "sequential", 60,
+            specVararg(MuscleGroup.Glute, MuscleGroup.Hamstring, MuscleGroup.Quad)),
     )
 
     private companion object {

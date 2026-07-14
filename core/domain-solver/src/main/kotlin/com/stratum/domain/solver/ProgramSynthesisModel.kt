@@ -11,6 +11,7 @@ import com.google.ortools.util.Domain
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
+import com.stratum.domain.program.generation.context.ALWAYS_AIM_MUSCLES
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.context.isPullPattern
 import com.stratum.domain.program.generation.context.isPushPattern
@@ -435,6 +436,7 @@ internal class ProgramSynthesisModel(
         addUpperBodyMaintenanceParity(model, weightedTerms)
         addLowerBodyMaintenanceParity(model, weightedTerms)
         addCoSpecializationBalance(model, weightedTerms)
+        addMajorMuscleFrequencyPenalties(model, plans, weightedTerms)
         val objective =
             LinearExpr.weightedSum(
                 weightedTerms.map { it.first }.toTypedArray(),
@@ -872,7 +874,9 @@ internal class ProgramSynthesisModel(
 
     /**
      * True when this session's resolved (class × dose tier) for [muscle] needs ≥ 48h before repeat
-     * (calendar gap ≥ 2). Isolation low-dose stays false so the 24h adjacent lane remains open.
+     * (calendar gap ≥ 2). Isolation low-dose on small muscles stays false (24h lane). Isolation
+     * on large compounds only forces gap-2 when the muscle is a **primary** mover that session —
+     * secondary hitchhiking (Glute from squat/RDL) stays on soft penalties / 24h Low isolation.
      */
     private fun requiresTwoDayRecoveryLiteral(
         model: CpModel,
@@ -884,19 +888,59 @@ internal class ProgramSynthesisModel(
             val isolationClass = isolationExposureLiteral(model, plan, muscle)
             val upperCompoundClass = upperCompoundExposureLiteral(model, plan, muscle)
             val heavyAxialClass = heavyAxialExposureLiteral(model, plan, muscle)
+            val hasPrimary = primaryMeaningfulExposureLiteral(model, plan, muscle)
             val lowTier = lowDoseTierLiteral(model, credit, muscle, plan.position)
             val moderateTier = moderateDoseTierLiteral(model, credit, muscle, plan.position)
             val highTier = highDoseLiteral(model, credit, muscle, plan.position)
             val gates =
                 buildList {
-                    // Muscle-mass penalty: Isolation Low on a large compound muscle (Quad/Hamstring/
-                    // Glute/Chest/Back) recovers in 36h → calendar gap 2 → adjacent-day forbid.
-                    // Small-muscle isolation Low (bicep curl, calf raise) stays at 24h / gap 1.
                     if (isLargeCompoundMuscle(muscle)) {
-                        add(reifyAndLiteral(model, lowTier, isolationClass, "adj2d_isoLo_${muscle}_${plan.position}"))
+                        // Primary isolation Low on large muscles (Leg Extension → Quad): 36h → gap 2.
+                        // Secondary-only Isolation (any tier) does not hard-forbid adjacent repeats.
+                        add(
+                            reifyAndLiteral(
+                                model,
+                                reifyAndLiteral(
+                                    model,
+                                    lowTier,
+                                    isolationClass,
+                                    "adj2d_isoLoRaw_${muscle}_${plan.position}",
+                                ),
+                                hasPrimary,
+                                "adj2d_isoLo_${muscle}_${plan.position}",
+                            ),
+                        )
+                        add(
+                            reifyAndLiteral(
+                                model,
+                                reifyAndLiteral(
+                                    model,
+                                    moderateTier,
+                                    isolationClass,
+                                    "adj2d_isoModRaw_${muscle}_${plan.position}",
+                                ),
+                                hasPrimary,
+                                "adj2d_isoMod_${muscle}_${plan.position}",
+                            ),
+                        )
+                        add(
+                            reifyAndLiteral(
+                                model,
+                                reifyAndLiteral(
+                                    model,
+                                    highTier,
+                                    isolationClass,
+                                    "adj2d_isoHiRaw_${muscle}_${plan.position}",
+                                ),
+                                hasPrimary,
+                                "adj2d_isoHi_${muscle}_${plan.position}",
+                            ),
+                        )
+                    } else {
+                        // Small-muscle isolation Low stays 24h; mod/high still hard-forbid gap-1.
+                        add(reifyAndLiteral(model, moderateTier, isolationClass, "adj2d_isoMod_${muscle}_${plan.position}"))
+                        add(reifyAndLiteral(model, highTier, isolationClass, "adj2d_isoHi_${muscle}_${plan.position}"))
                     }
-                    add(reifyAndLiteral(model, moderateTier, isolationClass, "adj2d_isoMod_${muscle}_${plan.position}"))
-                    add(reifyAndLiteral(model, highTier, isolationClass, "adj2d_isoHi_${muscle}_${plan.position}"))
                     add(reifyAndLiteral(model, lowTier, upperCompoundClass, "adj2d_ucLo_${muscle}_${plan.position}"))
                     add(reifyAndLiteral(model, moderateTier, upperCompoundClass, "adj2d_ucMod_${muscle}_${plan.position}"))
                     add(reifyAndLiteral(model, highTier, upperCompoundClass, "adj2d_ucHi_${muscle}_${plan.position}"))
@@ -912,6 +956,43 @@ internal class ProgramSynthesisModel(
                 reifyOrLiteral(model, gates, "reqTwoDay_${muscle}_${plan.position}")
             }
         }
+
+    /**
+     * True when [muscle] receives ≥ [MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE] primary-mover credits
+     * this session (not secondary hitchhiking).
+     */
+    private fun primaryMeaningfulExposureLiteral(
+        model: CpModel,
+        plan: SessionSlotPlan,
+        muscle: String,
+    ): Literal {
+        val primarySlots =
+            _slots.filter { it.plan == plan && it.slot.primaryMuscle.name == muscle }
+        if (primarySlots.isEmpty()) {
+            val absent = model.newBoolVar("priMeaningful_${muscle}_${plan.position}")
+            model.addEquality(absent, 0)
+            return absent
+        }
+        // Primary credit per set is always 1.0 → scale.
+        val maxPrimary =
+            primarySlots
+                .sumOf { perSlotCap(it.slot).toLong() * coefficients.scale }
+                .coerceAtLeast(1L)
+        val primaryCredit =
+            model.newIntVar(0L, maxPrimary, "priCredit_${muscle}_${plan.position}")
+        model.addEquality(
+            primaryCredit,
+            LinearExpr.weightedSum(
+                primarySlots.map { it.x }.toTypedArray(),
+                LongArray(primarySlots.size) { coefficients.scale },
+            ),
+        )
+        val minScaled = (MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE * coefficients.scale).toLong()
+        val lit = model.newBoolVar("priMeaningful_${muscle}_${plan.position}")
+        model.addGreaterOrEqual(primaryCredit, minScaled).onlyEnforceIf(lit)
+        model.addLessOrEqual(primaryCredit, minScaled - 1).onlyEnforceIf(lit.not())
+        return lit
+    }
 
     /** Reify `result <=> left AND right` (CP-SAT half-reified encoding). */
     private fun reifyAndLiteral(
@@ -953,6 +1034,7 @@ internal class ProgramSynthesisModel(
         val isolationClass = isolationExposureLiteral(model, planI, muscle)
         val upperCompoundClass = upperCompoundExposureLiteral(model, planI, muscle)
         val heavyAxialClass = heavyAxialExposureLiteral(model, planI, muscle)
+        val hasPrimaryI = primaryMeaningfulExposureLiteral(model, planI, muscle)
         val lowTier = lowDoseTierLiteral(model, creditI, muscle, planI.position)
         val moderateTier = moderateDoseTierLiteral(model, creditI, muscle, planI.position)
         val highTier = highDoseLiteral(model, creditI, muscle, planI.position)
@@ -971,18 +1053,18 @@ internal class ProgramSynthesisModel(
             )
 
         for ((index, spec) in penaltySpecs.withIndex()) {
+            // Isolation soft debt on large compounds only when primary (Leg Extension → Quad).
+            // Secondary hitchhiking (Glute from squat) is not soft-penalized as Isolation.
+            val isolationNeedsPrimary =
+                isLargeCompoundMuscle(muscle) && spec.stressClass == LiftStressClass.Isolation
             val required =
                 minimumRecoveryCalendarGap(
                     MuscleSessionStress(
                         fractionalSets = spec.representativeDose,
                         stressClass = spec.stressClass,
-                        // Muscle-aware soft penalty: applies the +12h Low-tier surcharge for
-                        // isolation lifts on large compound muscles (Quad/Hamstring/Glute/Chest/Back)
-                        // so e.g. Leg Extension at 2 sets prices at 36h, not 24h. The lengthened-state
-                        // surcharge is not priced here because this layer prices representative
-                        // dose-tier × stress-class combos without lift metadata; the hard-forbid and
-                        // post-solver repair paths carry the length bias directly.
+                        // Primary-isolation path: +12h Low mass surcharge for large compounds.
                         muscle = muscle,
+                        primaryFractionalSets = spec.representativeDose,
                     ),
                 )
             if (required <= 0 || calendarGap >= required) continue
@@ -1003,6 +1085,9 @@ internal class ProgramSynthesisModel(
             penalty.onlyEnforceIf(meaningfulJ)
             penalty.onlyEnforceIf(spec.tierGate)
             penalty.onlyEnforceIf(spec.classGate)
+            if (isolationNeedsPrimary) {
+                penalty.onlyEnforceIf(hasPrimaryI)
+            }
             weightedTerms.add(slack to weight)
         }
     }
@@ -1174,6 +1259,58 @@ internal class ProgramSynthesisModel(
             .getOrNull()
             ?.let { context.specialization[it] }
             ?: SpecializationLevel.Maintenance
+
+    /**
+     * Soft weekly frequency target for [ALWAYS_AIM_MUSCLES] that are not de-emphasized
+     * ([SpecializationLevel.MinimumVolume] / [SpecializationLevel.Omit]).
+     *
+     * Preferred band is ~1.5–2×/week. With discrete sessions that means **2 meaningful hits**
+     * when the cycle has ≥3 training days (shortfall of 1 on a 3-day week is tolerated if
+     * recovery/fill force it). On 1–2 day weeks the target is 1 (no extra term).
+     *
+     * A "hit" reuses [meaningfulExposureLiteral] (~2 fractional credits including secondaries)
+     * so incidental secondaries can count and the gate matches recovery scheduling.
+     *
+     * Without this term, pure U/L often settles into push-upper / pull-upper (Chest/Tris one day,
+     * Back/Bis the other) with full weekly volume packed into a single session per muscle.
+     */
+    private fun addMajorMuscleFrequencyPenalties(
+        model: CpModel,
+        plans: List<SessionSlotPlan>,
+        weightedTerms: MutableList<Pair<IntVar, Long>>,
+    ) {
+        val sessionCount = plans.size
+        val targetHits = preferredWeeklyFrequencyHits(sessionCount)
+        if (targetHits <= 1) return
+
+        val weight = SynthesisObjectiveWeights.FREQUENCY_SHORTFALL * coefficients.scale
+        for (group in ALWAYS_AIM_MUSCLES) {
+            val muscle = group.name
+            val level = specializationLevelForMuscle(muscle)
+            if (level == SpecializationLevel.Omit || level == SpecializationLevel.MinimumVolume) {
+                continue
+            }
+            val target = weeklyTargets[muscle] ?: continue
+            if (target.aim <= 0.0) continue
+
+            val hitLiterals = mutableListOf<Literal>()
+            for (plan in plans) {
+                val credit = sessionMuscleCreditVar(model, plan, muscle) ?: continue
+                hitLiterals.add(meaningfulExposureLiteral(model, credit, muscle, plan.position))
+            }
+            if (hitLiterals.isEmpty()) continue
+
+            val hits = model.newIntVar(0L, hitLiterals.size.toLong(), "freqHits_$muscle")
+            model.addEquality(hits, LinearExpr.sum(hitLiterals.toTypedArray()))
+            val shortfall = trackSlack(model, "freqUnder_$muscle", targetHits.toLong())
+            // hits + shortfall >= targetHits
+            model.addGreaterOrEqual(
+                LinearExpr.weightedSum(arrayOf(hits, shortfall), longArrayOf(1L, 1L)),
+                targetHits.toLong(),
+            )
+            weightedTerms.add(shortfall to weight)
+        }
+    }
 
     private fun addAntagonistMaintenanceBalance(
         model: CpModel,
@@ -1525,6 +1662,15 @@ internal class ProgramSynthesisModel(
         const val OMITTED_MUSCLE_INCIDENTAL_CEILING = 6.0
         /** Minimum hard sets on any active slot — every active exposure ≥ 2 sets (G2). */
         const val MIN_SETS_PER_ACTIVE_SLOT = 2
+        /**
+         * Preferred meaningful sessions/week for non-de-emphasized major muscles when the cycle
+         * is long enough to support splitting volume without forcing adjacent-day recovery fights.
+         */
+        fun preferredWeeklyFrequencyHits(sessionCount: Int): Int =
+            when {
+                sessionCount >= 3 -> 2
+                else -> 1
+            }
         val LOWER_LEG_ANCHOR_PATTERNS = setOf(MovementPattern.SquatPattern, MovementPattern.HipHinge)
         val ANTAGONIST_MAINTENANCE_PAIRS =
             listOf(
