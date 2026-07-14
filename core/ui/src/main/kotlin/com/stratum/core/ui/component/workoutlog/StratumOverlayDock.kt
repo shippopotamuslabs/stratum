@@ -1,5 +1,6 @@
 package com.stratum.core.ui.component.workoutlog
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -45,7 +47,6 @@ import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 
 /**
  * Scrolls a focused cell so it sits above the keyboard/dock overlay. Implemented by the list
@@ -238,7 +239,11 @@ fun rememberOverlayDockListBinding(
                 if (!dockTop.isFinite()) return@StratumOverlayDockRevealScroller
                 val overflow = cellBounds.bottom + revealMarginPx - dockTop
                 if (overflow > 1f) {
-                    listState.animateScrollBy(overflow)
+                    // Short tween — default spring feels sluggish for ~⅓-screen keyboard jumps.
+                    listState.animateScrollBy(
+                        overflow,
+                        animationSpec = tween(durationMillis = OVERLAY_DOCK_REVEAL_SCROLL_MS),
+                    )
                 }
                 anchorIndex = listState.firstVisibleItemIndex
                 anchorOffset = listState.firstVisibleItemScrollOffset
@@ -252,6 +257,11 @@ fun rememberOverlayDockListBinding(
 /**
  * Coordinate-based reveal: when [isActive], wait until the dock is open and laid out, then
  * ask the list scroller to place [cellBoundsInWindow] fully above the dock.
+ *
+ * **Do not** key the effect on [cellBoundsInWindow]. Bounds update every frame while the list
+ * scrolls (`onGloballyPositioned`); keying on them cancels [LazyListState.animateScrollBy]
+ * mid-flight and restarts with the remaining delta — the scroll crawls instead of finishing.
+ * Latest bounds are read once via [rememberUpdatedState] when the dock is ready.
  */
 @Composable
 fun DockCellRevealEffect(
@@ -259,7 +269,9 @@ fun DockCellRevealEffect(
     cellBoundsInWindow: Rect,
 ) {
     val overlayDock = LocalStratumOverlayDock.current
-    LaunchedEffect(isActive, overlayDock?.revealEpoch, cellBoundsInWindow) {
+    val latestBounds by rememberUpdatedState(cellBoundsInWindow)
+    // Only re-run when focus / field-tab / open-session changes — not on every layout pass.
+    LaunchedEffect(isActive, overlayDock?.revealEpoch) {
         if (!isActive || overlayDock == null) return@LaunchedEffect
         snapshotFlow { overlayDock.isOpen }
             .distinctUntilChanged()
@@ -268,17 +280,26 @@ fun DockCellRevealEffect(
         snapshotFlow { overlayDock.dockTopInWindow }
             .filter { it.isFinite() }
             .first()
-        snapshotFlow { cellBoundsInWindow }
-            .filter { it != Rect.Zero && it.height > 0f }
+        // Wait until dock height is reported so list contentPadding includes scroll room.
+        snapshotFlow { overlayDock.dockHeightDp }
+            .filter { it > 0.dp }
             .first()
+        // One frame after padding applies so LazyColumn max scroll range is up to date.
+        awaitFrame()
+        val bounds =
+            snapshotFlow { latestBounds }
+                .filter { it != Rect.Zero && it.height > 0f }
+                .first()
         val scroller =
             snapshotFlow { overlayDock.revealScroller }
-                .map { it }
                 .filter { it != null }
                 .first()
-        scroller?.ensureCellAboveDock(cellBoundsInWindow)
+        scroller?.ensureCellAboveDock(bounds)
     }
 }
 
 /** Default gap kept between focused cell bottom and dock top when revealing. */
 val OverlayDockDefaultRevealMargin = 8.dp
+
+/** Duration for list reveal scroll when a focused cell is covered by the dock. */
+private const val OVERLAY_DOCK_REVEAL_SCROLL_MS = 220
