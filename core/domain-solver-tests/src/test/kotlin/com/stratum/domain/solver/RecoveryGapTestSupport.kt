@@ -147,7 +147,21 @@ internal fun planMuscleSessionStress(
         accumulateSlotStressContributors(slot, coefficients, classContributors)
     }
     return doses.mapValues { (muscle, dose) ->
-        MuscleSessionStress(dose, dominantStressClass(classContributors[muscle].orEmpty()))
+        val primaryOnly =
+            plan.filledSlots.sumOf { slot ->
+                if (slot.setCount <= 0) return@sumOf 0.0
+                if (slot.primaryMuscle.name == muscle) {
+                    slot.setCount * PRIMARY_SET_CREDIT
+                } else {
+                    0.0
+                }
+            }
+        MuscleSessionStress(
+            fractionalSets = dose,
+            stressClass = dominantStressClass(classContributors[muscle].orEmpty()),
+            muscle = muscle,
+            primaryFractionalSets = primaryOnly,
+        )
     }
 }
 
