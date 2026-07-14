@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,15 +17,20 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumFilterChip
+import com.stratum.core.ui.component.StratumIconButton
+import com.stratum.core.ui.component.StratumPillToggle
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -334,41 +338,54 @@ private fun RecommendationCard(
                     color = if (selected) colors.surfaceRaised else colors.surfaceSunken,
                     shape = shapes.panel,
                 )
-                .then(
-                    if (isSwap) {
-                        Modifier.clickable(onClick = onOpenSwapPicker)
-                    } else {
-                        Modifier
-                    },
-                )
                 .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        StratumText(
-            text = formatStringResource(recommendation.titleRes, recommendation.titleArgs),
-            style = StratumThemeAccessor.typography.titleMedium,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StratumText(
+                text = formatStringResource(recommendation.titleRes, recommendation.titleArgs),
+                style = StratumThemeAccessor.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            if (isSwap) {
+                StratumIconButton(
+                    onClick = onOpenSwapPicker,
+                    containerColor = colors.surfaceRaised,
+                    contentColor = colors.textMuted,
+                ) {
+                    Icon(
+                        painter = painterResource(CoreUiR.drawable.ic_swap_horiz),
+                        contentDescription =
+                            stringResource(R.string.programs_swap_lift_content_description),
+                        tint = colors.textMuted,
+                    )
+                }
+            }
+        }
         StratumText(
             text = formatStringResource(recommendation.rationaleRes, recommendation.rationaleArgs),
             muted = true,
             style = StratumThemeAccessor.typography.sectionLabel,
         )
-        if (isSwap) {
-            StratumText(
-                text = stringResource(R.string.checkin_tap_to_change_swap),
-                style = StratumThemeAccessor.typography.sectionLabel,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            StratumPillToggle(
+                segments =
+                    listOf(
+                        stringResource(R.string.checkin_accepted),
+                        stringResource(R.string.checkin_rejected),
+                    ),
+                selectedIndex = if (selected) 0 else 1,
+                onSelectedIndexChange = { index -> onToggleAccepted(index == 0) },
+                selectedColor = colors.surfaceInset,
             )
         }
-        StratumFilterChip(
-            label =
-                if (selected) {
-                    stringResource(R.string.checkin_include_selected)
-                } else {
-                    stringResource(R.string.checkin_include)
-                },
-            selected = selected,
-            onSelectedChange = { onToggleAccepted(!selected) },
-        )
     }
 }
 
