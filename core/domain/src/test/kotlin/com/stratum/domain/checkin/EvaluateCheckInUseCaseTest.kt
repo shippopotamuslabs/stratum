@@ -3,8 +3,12 @@ package com.stratum.domain.checkin
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeLiftWeeklyPerformanceRepository
+import com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.domain.dashboard.CALLOUT_MIN_POINTS
+import com.stratum.domain.importing.GlobalVolumePriors
+import com.stratum.domain.importing.LandmarkConfidenceInterval
+import com.stratum.domain.importing.LandmarkConfidenceTier
 import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -12,6 +16,7 @@ import com.stratum.domain.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.ComputeProgramMuscleVolumeUseCase
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgressionScheme
@@ -24,6 +29,13 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.response.TrainingSignalQualityFlag
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
+import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
+import com.stratum.domain.response.modeling.OutcomeModelType
+import com.stratum.domain.response.modeling.VolumePosture
+import com.stratum.domain.training.ProgramChangeEvent
+import com.stratum.domain.training.ProgramChangeEventPayload
+import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.test.runTest
@@ -34,13 +46,14 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 /**
- * Integration tests for [EvaluateCheckInUseCase]: trend classification → decide → swap
- * enrichment / no-candidate fallback, with fakes only (UNIT_TESTING.md).
+ * Integration tests for [EvaluateCheckInUseCase]: trend classification → decide → batch
+ * selection → swap enrichment / no-candidate fallback, with fakes only (UNIT_TESTING.md).
  */
 class EvaluateCheckInUseCaseTest {
 
     private val programId = ProgramId("p-1")
     private val now = Instant.parse("2026-07-01T12:00:00Z")
+    private val literatureCeiling = GlobalVolumePriors.maintenanceCeiling()
 
     @Test
     @DisplayName("no active program → null evaluation")
@@ -137,8 +150,14 @@ class EvaluateCheckInUseCaseTest {
         val cutLift = BENCH.copy(id = LiftId("cut-lift"), name = "Cut Lift")
         val swapA = LEG_CURL.copy(id = LiftId("swap-a"), name = "Swap A Curl")
         val swapB = LEG_CURL.copy(id = LiftId("swap-b"), name = "Swap B Curl")
-        // Single hamstring candidate — second swap falls back to volume after reservation.
-        val candidate = LEG_CURL.copy(id = LiftId("only-candidate"), name = "Only Candidate Curl")
+        // Similar hamstring option in band (not a near-clone — max similarity excludes ~1.0 twins).
+        val candidate =
+            LEG_CURL.copy(
+                id = LiftId("only-candidate"),
+                name = "Only Candidate Curl",
+                movementPatterns = setOf(MovementPattern.KneeFlexion, MovementPattern.HipExtension),
+                muscleLengthBias = com.stratum.domain.lift.MuscleLengthBias.Lengthened,
+            )
 
         val lifts = FakeLiftRepository()
         lifts.seedLifts(listOf(cutLift, swapA, swapB, candidate))
@@ -147,7 +166,8 @@ class EvaluateCheckInUseCaseTest {
             id = programId,
             name = "Split",
             createdAt = now.minus(10 * 7, ChronoUnit.DAYS),
-            cycleLength = 1,
+            cycleLength = 7,
+            restSlotIndices = setOf(1, 2, 3, 4, 5, 6),
             trainingWeekdays = setOf(Weekday.Monday),
             workouts = listOf(
                 Workout(
@@ -187,11 +207,209 @@ class EvaluateCheckInUseCaseTest {
         )
 
         val swapActions = evaluation.recommendations.map { it.action }.filterIsInstance<CheckInAction.SwapLift>()
-        val increaseActions = evaluation.recommendations.map { it.action }.filterIsInstance<CheckInAction.IncreaseVolume>()
-        // One swap claims the only candidate; the other soft-stale lift falls back to +volume.
+        // G2: both soft lifts share Hamstring — only one non-cut lever; loser demoted before reserve.
         assertEquals(1, swapActions.size, "actions=${evaluation.recommendations.map { it.liftName to it.action }}")
         assertEquals(candidate.id, swapActions.single().suggestedLiftId)
-        assertTrue(increaseActions.isNotEmpty(), "second stale lift must fall back after reservation")
+        assertTrue(
+            evaluation.recommendations.any { it.rationale is CheckInRationale.MuscleLeverAlreadyTaken },
+            "second hamstring soft lift demoted by one-lever rule",
+        )
+    }
+
+    @Test
+    @DisplayName("D1: flat fresh low volume → +1")
+    fun flatFreshLowVolumeIncreases() = runTest {
+        val lifts = FakeLiftRepository()
+        lifts.seedLifts(listOf(BENCH, INCLINE))
+        val program = singleLiftProgram(BENCH.id, setCount = 3, createdAt = now.minus(2 * 7, ChronoUnit.DAYS))
+        val perf = FakeLiftWeeklyPerformanceRepository()
+        perf.seed(flatSeries(BENCH.id, peak = 100.0))
+        val rec = evaluateUseCase(program, lifts, perf)(CheckInSubjectiveFeedback(), now)!!.recommendations.single()
+        assertTrue(rec.action is CheckInAction.IncreaseVolume)
+        assertTrue(rec.rationale is CheckInRationale.SoftFreshIncrease)
+    }
+
+    @Test
+    @DisplayName("D2: flat fresh high program volume → Maintain at ceiling")
+    fun flatFreshHighVolumeHolds() = runTest {
+        val lifts = FakeLiftRepository()
+        lifts.seedLifts(listOf(BENCH, INCLINE))
+        val sets = (literatureCeiling + 1).toInt().coerceAtLeast(17)
+        val program = singleLiftProgram(BENCH.id, setCount = sets, createdAt = now.minus(2 * 7, ChronoUnit.DAYS))
+        val perf = FakeLiftWeeklyPerformanceRepository()
+        perf.seed(flatSeries(BENCH.id, peak = 100.0))
+        val rec = evaluateUseCase(program, lifts, perf)(CheckInSubjectiveFeedback(), now)!!.recommendations.single()
+        assertTrue(rec.action is CheckInAction.Maintain, "got ${rec.action}")
+        assertEquals(CheckInRationale.SoftFreshAtVolumeCeiling, rec.rationale)
+    }
+
+    @Test
+    @DisplayName("D3: Saturated snapshot + enough volume (≥50% ceiling) → Maintain")
+    fun saturatedSnapshotHolds() = runTest {
+        val lifts = FakeLiftRepository()
+        lifts.seedLifts(listOf(BENCH, INCLINE))
+        // Saturated only freezes +1 when weekly volume is at least half the maintenance ceiling.
+        val program =
+            singleLiftProgram(
+                BENCH.id,
+                setCount = 10,
+                createdAt = now.minus(2 * 7, ChronoUnit.DAYS),
+            )
+        val perf = FakeLiftWeeklyPerformanceRepository()
+        perf.seed(flatSeries(BENCH.id, peak = 100.0))
+        val snapshots = FakeMuscleVolumeResponseSnapshotRepository()
+        snapshots.seed(listOf(chestSnapshot(posture = VolumePosture.Saturated)))
+        val rec =
+            evaluateUseCase(program, lifts, perf, snapshots = snapshots)(CheckInSubjectiveFeedback(), now)!!
+                .recommendations.single()
+        assertTrue(rec.action is CheckInAction.Maintain, "got ${rec.action} / ${rec.rationale}")
+        assertEquals(CheckInRationale.SoftFreshAtVolumeCeiling, rec.rationale)
+    }
+
+    @Test
+    @DisplayName("D4: two soft-fresh same muscle → single +1 on lighter slot")
+    fun twoSoftFreshOneIncrease() = runTest {
+        val heavy = BENCH.copy(id = LiftId("heavy-bench"), name = "Heavy Bench")
+        val light = BENCH.copy(id = LiftId("light-fly"), name = "Light Fly", kinematicProfile = KinematicProfile.Isolation)
+        val lifts = FakeLiftRepository()
+        lifts.seedLifts(listOf(heavy, light, INCLINE))
+        val program =
+            Program(
+                id = programId,
+                name = "Split",
+                createdAt = now.minus(2 * 7, ChronoUnit.DAYS),
+                cycleLength = 7,
+                restSlotIndices = setOf(1, 2, 3, 4, 5, 6),
+                trainingWeekdays = setOf(Weekday.Monday),
+                workouts =
+                    listOf(
+                        Workout(
+                            id = WorkoutId("w-1"),
+                            programId = programId,
+                            name = "Push",
+                            weekday = Weekday.Monday,
+                            position = 0,
+                            workoutLifts =
+                                listOf(
+                                    workoutLift(WorkoutLiftId("wl-h"), heavy.id, setCount = 5),
+                                    workoutLift(WorkoutLiftId("wl-l"), light.id, setCount = 2),
+                                ),
+                        ),
+                    ),
+            )
+        val perf = FakeLiftWeeklyPerformanceRepository()
+        perf.seed(flatSeries(heavy.id, 100.0) + flatSeries(light.id, 50.0))
+        val evaluation = evaluateUseCase(program, lifts, perf)(CheckInSubjectiveFeedback(), now)!!
+        val increases = evaluation.recommendations.filter { it.action is CheckInAction.IncreaseVolume }
+        assertEquals(1, increases.size)
+        assertEquals("Light Fly", increases.single().liftName)
+        assertTrue(evaluation.recommendations.any { it.rationale is CheckInRationale.MuscleLeverAlreadyTaken })
+    }
+
+    @Test
+    @DisplayName("D10: dropping + mild soreness end-to-end → hold")
+    fun droppingMildHoldsThroughEvaluate() = runTest {
+        val lifts = FakeLiftRepository()
+        lifts.seedLifts(listOf(BENCH, INCLINE))
+        val program = singleLiftProgram(BENCH.id, setCount = 3, createdAt = now.minus(2 * 7, ChronoUnit.DAYS))
+        val perf = FakeLiftWeeklyPerformanceRepository()
+        perf.seed(droppingSeries(BENCH.id))
+        val rec =
+            evaluateUseCase(program, lifts, perf)(
+                CheckInSubjectiveFeedback(overallRecovery = RecoverySignal.MildSoreness),
+                now,
+            )!!.recommendations.single()
+        assertTrue(rec.action is CheckInAction.Maintain)
+        assertEquals(CheckInRationale.DroppingMildRecoveryHold, rec.rationale)
+    }
+
+    @Test
+    @DisplayName("P0: failed multi-primary swap re-opens muscle — peer isolation gets +1")
+    fun failedSwapReopensMuscleForPeerIncrease() = runTest {
+        // Heavy stale compound wants swap but catalog has no in-band peer → becomes +1.
+        // Light fresh isolation also wants +1. After enrich-then-batch, isolation wins G4.
+        val heavy =
+            BENCH.copy(
+                id = LiftId("heavy-bench"),
+                name = "Heavy Bench",
+                primaryMuscles = setOf(MuscleGroup.Chest, MuscleGroup.Tricep),
+                kinematicProfile = KinematicProfile.NonAxialCompound,
+            )
+        val light =
+            BENCH.copy(
+                id = LiftId("light-fly"),
+                name = "Light Fly",
+                primaryMuscles = setOf(MuscleGroup.Chest),
+                secondaryMuscles = emptySet(),
+                kinematicProfile = KinematicProfile.Isolation,
+                movementPatterns = setOf(MovementPattern.HorizontalPress),
+            )
+        val lifts = FakeLiftRepository()
+        lifts.seedLifts(listOf(heavy, light))
+        val program =
+            Program(
+                id = programId,
+                name = "Split",
+                createdAt = now.minus(8 * 7, ChronoUnit.DAYS),
+                cycleLength = 7,
+                restSlotIndices = setOf(1, 2, 3, 4, 5, 6),
+                trainingWeekdays = setOf(Weekday.Monday),
+                workouts =
+                    listOf(
+                        Workout(
+                            id = WorkoutId("w-1"),
+                            programId = programId,
+                            name = "Push",
+                            weekday = Weekday.Monday,
+                            position = 0,
+                            workoutLifts =
+                                listOf(
+                                    workoutLift(WorkoutLiftId("wl-h"), heavy.id, setCount = 4),
+                                    // Light is "fresh": program-wide tenure from createdAt is long;
+                                    // inject a recent swap onto light so tenure < 4.
+                                    workoutLift(WorkoutLiftId("wl-l"), light.id, setCount = 2),
+                                ),
+                        ),
+                    ),
+            )
+        val perf = FakeLiftWeeklyPerformanceRepository()
+        perf.seed(flatSeries(heavy.id, 100.0) + flatSeries(light.id, 50.0))
+        val events = FakeProgramChangeEventRepository()
+        // Make light slot fresh via recent LIFT_SWAPPED onto current lift id.
+        events.seed(
+            recentSwapOnto(
+                workoutLiftId = WorkoutLiftId("wl-l"),
+                newLiftId = light.id,
+                weeksAgo = 1,
+            ),
+        )
+        val evaluation =
+            evaluateUseCase(program, lifts, perf, events = events)(CheckInSubjectiveFeedback(), now)!!
+        val increases =
+            evaluation.recommendations.filter { it.action is CheckInAction.IncreaseVolume }
+        assertEquals(
+            1,
+            increases.size,
+            "actions=${evaluation.recommendations.map { it.liftName to it.action to it.rationale }}",
+        )
+        assertEquals("Light Fly", increases.single().liftName)
+        val heavyRec = evaluation.recommendations.single { it.liftName == "Heavy Bench" }
+        assertTrue(heavyRec.action is CheckInAction.Maintain)
+        assertEquals(CheckInRationale.MuscleLeverAlreadyTaken, heavyRec.rationale)
+    }
+
+    @Test
+    @DisplayName("D15: stale + no candidate + high volume → Maintain at ceiling (not +1)")
+    fun staleNoCandidateAtCeiling() = runTest {
+        val lifts = FakeLiftRepository()
+        lifts.seedLifts(listOf(BENCH))
+        val sets = (literatureCeiling + 1).toInt().coerceAtLeast(17)
+        val program = singleLiftProgram(BENCH.id, setCount = sets, createdAt = now.minus(8 * 7, ChronoUnit.DAYS))
+        val perf = FakeLiftWeeklyPerformanceRepository()
+        perf.seed(flatSeries(BENCH.id, peak = 100.0))
+        val rec = evaluateUseCase(program, lifts, perf)(CheckInSubjectiveFeedback(), now)!!.recommendations.single()
+        assertTrue(rec.action is CheckInAction.Maintain, "got ${rec.action}")
+        assertEquals(CheckInRationale.SoftStaleNoCandidateAtCeiling, rec.rationale)
     }
 
     private fun evaluateUseCase(
@@ -199,6 +417,7 @@ class EvaluateCheckInUseCaseTest {
         lifts: FakeLiftRepository = FakeLiftRepository(),
         perf: FakeLiftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
         events: FakeProgramChangeEventRepository = FakeProgramChangeEventRepository(),
+        snapshots: FakeMuscleVolumeResponseSnapshotRepository = FakeMuscleVolumeResponseSnapshotRepository(),
     ): EvaluateCheckInUseCase =
         EvaluateCheckInUseCase(
             programRepository = FakeProgramRepository(program),
@@ -206,6 +425,8 @@ class EvaluateCheckInUseCaseTest {
             liftWeeklyPerformanceRepository = perf,
             programChangeEventRepository = events,
             rankSwapCandidates = RankSwapCandidatesUseCase(lifts),
+            computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
+            muscleVolumeResponseSnapshotRepository = snapshots,
         )
 
     private fun singleLiftProgram(
@@ -217,7 +438,8 @@ class EvaluateCheckInUseCaseTest {
             id = programId,
             name = "Split",
             createdAt = createdAt,
-            cycleLength = 1,
+            cycleLength = 7,
+            restSlotIndices = setOf(1, 2, 3, 4, 5, 6),
             trainingWeekdays = setOf(Weekday.Monday),
             workouts = listOf(
                 Workout(
@@ -274,6 +496,53 @@ class EvaluateCheckInUseCaseTest {
                 sessions = 2,
             )
         }
+
+    private fun droppingSeries(liftId: LiftId): List<LiftWeeklyPerformance> =
+        (0 until CALLOUT_MIN_POINTS).map { i ->
+            weekly(
+                liftId = liftId,
+                weekOffset = i,
+                peakE1rm = 120.0 - i * 2.0,
+                sessions = 2,
+            )
+        }
+
+    private fun chestSnapshot(posture: VolumePosture): MuscleVolumeResponseSnapshot =
+        MuscleVolumeResponseSnapshot(
+            muscle = MuscleGroup.Chest,
+            retentionFloorMv = 4.0,
+            paretoVolumePv = 12.0,
+            recoverabilityCeilingRc = 18.0,
+            growthEntryFloor = 6.0,
+            observedDoseMin = 4.0,
+            observedDoseMax = 16.0,
+            observedDoseMedian = 10.0,
+            productiveBandMin = 8.0,
+            productiveBandMax = 14.0,
+            posture = posture,
+            pvInterval = LandmarkConfidenceInterval.Unavailable,
+            confidenceTier = LandmarkConfidenceTier.Medium,
+            outcomeModelType = OutcomeModelType.MuscleIndex,
+            diagnosticAnchorLiftId = LiftId("anchor"),
+        )
+
+    private fun recentSwapOnto(
+        workoutLiftId: WorkoutLiftId,
+        newLiftId: LiftId,
+        weeksAgo: Long,
+    ): ProgramChangeEvent =
+        ProgramChangeEvent(
+            id = ProgramChangeEventId("swap-$weeksAgo"),
+            programId = programId,
+            eventType = ProgramChangeEventType.LIFT_SWAPPED,
+            occurredAt = now.minus(weeksAgo * 7, ChronoUnit.DAYS),
+            payload =
+                ProgramChangeEventPayload.LiftSwapped(
+                    workoutLiftId = workoutLiftId,
+                    previousLiftId = LiftId("previous"),
+                    newLiftId = newLiftId,
+                ),
+        )
 
     private fun weekly(
         liftId: LiftId,

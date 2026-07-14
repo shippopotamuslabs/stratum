@@ -30,24 +30,25 @@ import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.reference.computePatternSecondaryCredits
 import com.stratum.domain.program.generation.reference.SESSION_MUSCLE_SET_CAP
 import com.stratum.domain.program.generation.reference.SETS_PER_LIFT_CAP
-import com.stratum.domain.program.generation.reference.calendarDayPairsWithMaxGap
-import com.stratum.domain.program.generation.reference.calendarGapBetweenDays
+import com.stratum.domain.program.generation.context.resolveTrainingTimeline
 import com.stratum.domain.program.generation.reference.isLargeCompoundMuscle
 import com.stratum.domain.program.generation.reference.minimumRecoveryCalendarGap
 import com.stratum.domain.program.generation.reference.sessionAimHardSetsForLength
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.slots.SlotRole
-import com.stratum.domain.program.generation.split.calendarAdjacentTrainingDayPairs
-import com.stratum.domain.program.generation.split.trainingWeekdayIndices
 import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.universe.SynthesisSlot
 import com.stratum.domain.program.generation.synthesis.UnifiedSynthesisSolution
 import com.stratum.domain.program.generation.synthesis.parseSessionSlotId
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTargets
+import com.stratum.domain.program.schedule.TrainingTimeline
 
 /**
- * Joint CP-SAT model: per-slot set counts, session-to-weekday assignment, and a
+ * Joint CP-SAT model: per-slot set counts, session-to-cycle-slot assignment, and a
  * tiered least-bad objective covering recovery, specialization, and session quality.
+ *
+ * Recovery geometry comes from [TrainingTimeline] (cycleLength + training slots), not a
+ * hardcoded Mon–Sun ring.
  */
 internal class ProgramSynthesisModel(
     private val weeklyTargets: WeeklyVolumeTargets,
@@ -55,6 +56,7 @@ internal class ProgramSynthesisModel(
     private val unifiedUniverse: List<SynthesisSlot>,
     private val coefficients: VolumeAllocationCoefficients =
         VolumeAllocationCoefficients(computePatternSecondaryCredits(context)),
+    private val timeline: TrainingTimeline = context.resolveTrainingTimeline(),
 ) {
     data class SlotVar(
         val plan: SessionSlotPlan,
@@ -144,7 +146,7 @@ internal class ProgramSynthesisModel(
             universe = unifiedUniverse,
             slotVars = _slots,
             state = unifiedStructureState,
-            weekdays = context.weekdays,
+            timeline = timeline,
         )
         addPerSessionMuscleCaps(model)
         addSessionTimeCaps(model)
@@ -199,7 +201,7 @@ internal class ProgramSynthesisModel(
                 activeBySession.getOrPut(sessionIndex) { mutableSetOf() }.add(universeId)
             }
         }
-        val weekdayIndexByPosition =
+        val cycleSlotIndexByPosition =
             plans.sortedBy { it.position }.map { plan ->
                 solver.value(dayVarByPosition.getValue(plan.position)).toInt()
             }
@@ -217,7 +219,7 @@ internal class ProgramSynthesisModel(
                     activeBySession[plan.position].orEmpty()
                 },
             setCountBySessionSlot = setCounts,
-            weekdayIndexByPosition = weekdayIndexByPosition,
+            cycleSlotIndexByPosition = cycleSlotIndexByPosition,
             regionFilterBySession = regionFilterBySession,
         )
     }
@@ -258,19 +260,16 @@ internal class ProgramSynthesisModel(
         }
 
     private fun addCalendarAssignment(model: CpModel, plans: List<SessionSlotPlan>) {
-        val rawWeekdayCount = context.weekdays.distinct().size
-        require(context.weekdays.size == rawWeekdayCount) {
-            "Training weekdays contain duplicates: ${context.weekdays}. Each day must be distinct."
-        }
-        val trainingDays = trainingWeekdayIndices(context.weekdays)
-        require(trainingDays.size == plans.size) {
-            "Training day count ${trainingDays.size} must match session count ${plans.size} " +
-                "(weekdays=${context.weekdays})."
+        val trainingSlots = timeline.trainingSlotIndices
+        require(trainingSlots.size == plans.size) {
+            "Training slot count ${trainingSlots.size} must match session count ${plans.size} " +
+                "(cycleLength=${timeline.cycleLength}, rests=${timeline.restSlotIndices}, " +
+                "trainingDays=${context.trainingDaysPerWeek})."
         }
         plans.sortedBy { it.position }.forEach { plan ->
             val day =
                 model.newIntVarFromDomain(
-                    Domain.fromValues(trainingDays.map { it.toLong() }.toLongArray()),
+                    Domain.fromValues(trainingSlots.map { it.toLong() }.toLongArray()),
                     "day_${plan.position}",
                 )
             _dayVars.add(day)
@@ -278,10 +277,10 @@ internal class ProgramSynthesisModel(
         }
         model.addAllDifferent(_dayVars.toTypedArray())
         // Symmetry breaking: in unified mode every session is structurally identical (same slot
-        // universe; only the assigned weekday differs). Without this, every solution has up to P!
+        // universe; only the assigned cycle slot differs). Without this, every solution has up to P!
         // symmetric day-permutations, so the solver wastes the deadline exploring copies.
         // Constraining day vars to strictly increase by session position canonicalizes the
-        // assignment; downstream re-sorts sessions by weekday anyway, so output is stable.
+        // assignment; downstream re-sorts sessions by cycle slot anyway, so output is stable.
         for (i in 1 until _dayVars.size) {
             model.addLessThan(_dayVars[i - 1], _dayVars[i])
         }
@@ -451,7 +450,7 @@ internal class ProgramSynthesisModel(
         priorityMuscles: Set<String>,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
-        val trainingDays = trainingWeekdayIndices(context.weekdays)
+        val trainingSlots = timeline.trainingSlotIndices
 
         for (muscle in _muscles) {
             val sessionsWithMuscle =
@@ -472,7 +471,7 @@ internal class ProgramSynthesisModel(
                         planJ = sessionsWithMuscle[j],
                         muscle = muscle,
                         weight = weight,
-                        trainingDays = trainingDays,
+                        trainingSlots = trainingSlots,
                         weightedTerms = weightedTerms,
                     )
                 }
@@ -486,21 +485,17 @@ internal class ProgramSynthesisModel(
         planJ: SessionSlotPlan,
         muscle: String,
         weight: Long,
-        trainingDays: List<Int>,
+        trainingSlots: List<Int>,
         weightedTerms: MutableList<Pair<IntVar, Long>>,
     ) {
-        // Iterate every ordered (earlier, later) day pair — including non-adjacent ones (gap ≥ 2) —
-        // so the 48–72h tier in `minimumRecoveryCalendarGap` is actually enforceable. Previously only
-        // gap-1 pairs were generated, so Mon→Wed (gap 2, required 3 for a large compound at moderate
-        // dose) was never penalized while the Sat→Mon wrap (also gap 2) was — an asymmetry.
-        // Each ordered pair is added once; channelDayPair covers both sessions' day assignments.
-        val sortedDays = trainingDays.sorted()
-        for (earlier in sortedDays.indices) {
-            for (later in sortedDays.indices) {
-                if (earlier == later) continue
-                val earlierDay = sortedDays[earlier]
-                val laterDay = sortedDays[later]
-                val calendarGap = if (laterDay > earlierDay) laterDay - earlierDay else 7 - earlierDay + laterDay
+        // Iterate every ordered (earlier, later) slot pair — including non-adjacent ones (gap ≥ 2)
+        // and cycle wrap — so longer recovery tiers are enforceable on the same geometry as hard
+        // forbids. Gap uses [TrainingTimeline] ring length (not a hardcoded 7-day week).
+        for (earlierSlot in trainingSlots) {
+            for (laterSlot in trainingSlots) {
+                if (earlierSlot == laterSlot) continue
+                val calendarGap = timeline.gap(earlierSlot, laterSlot)
+                if (calendarGap <= 0) continue
                 addGapPenalty(
                     model = model,
                     planI = planI,
@@ -508,8 +503,8 @@ internal class ProgramSynthesisModel(
                     muscle = muscle,
                     weight = weight,
                     weightedTerms = weightedTerms,
-                    earlierDay = earlierDay,
-                    laterDay = laterDay,
+                    earlierDay = earlierSlot,
+                    laterDay = laterSlot,
                     calendarGap = calendarGap,
                     sessionPosI = planI.position,
                     sessionPosJ = planJ.position,
@@ -533,8 +528,7 @@ internal class ProgramSynthesisModel(
         muscles: Set<String>,
     ) {
         if (muscles.isEmpty()) return
-        val trainingDays = trainingWeekdayIndices(context.weekdays).sorted()
-        val adjacentPairs = calendarAdjacentTrainingDayPairs(trainingDays)
+        val adjacentPairs = timeline.adjacentTrainingPairs()
         for (muscle in muscles) {
             val sessions = plans.filter { plan -> maxSessionCreditScaled(plan, muscle) > 0L }
             for (i in sessions.indices) {
@@ -586,10 +580,9 @@ internal class ProgramSynthesisModel(
         model: CpModel,
         plans: List<SessionSlotPlan>,
     ) {
-        val trainingDays = trainingWeekdayIndices(context.weekdays).sorted()
         val gapTwoPairs =
-            calendarDayPairsWithMaxGap(trainingDays, maxGap = 2)
-                .filter { (earlier, later) -> calendarGapBetweenDays(earlier, later) == 2 }
+            timeline.pairsWithMaxGap(maxGap = 2)
+                .filter { (earlier, later) -> timeline.gap(earlier, later) == 2 }
         if (gapTwoPairs.isEmpty()) return
         val heavyAxialSlots =
             _slots.filter { sv ->

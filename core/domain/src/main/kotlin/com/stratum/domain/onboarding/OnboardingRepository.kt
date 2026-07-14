@@ -18,8 +18,11 @@ interface OnboardingRepository {
     /**
      * Persist the current step. Called as the user advances through the wizard
      * so a kill mid-flow resumes on the same step.
+     *
+     * @param selectedPath when non-null, updates [OnboardingProgress.selectedPath]; when null,
+     * preserves the existing durable path (if any).
      */
-    suspend fun saveStep(step: OnboardingStep)
+    suspend fun saveStep(step: OnboardingStep, selectedPath: OnboardingPath? = null)
 
     /**
      * Mark onboarding complete. After this, [observeProgress] emits a progress

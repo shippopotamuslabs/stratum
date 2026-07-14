@@ -47,7 +47,6 @@ object GenerationContextTestFixtures {
             lastTrained = profile["lastTrained"] as String?,
             sessionLengthMinutes = profile["sessionLengthMinutes"] as Int?,
             trainingDaysPerWeek = profile["trainingDaysPerWeek"] as Int,
-            weekdays = (profile["weekdays"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             specialization = specialization.toSpecializationMap(),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = muscleVolumeSnapshotsByMuscle,

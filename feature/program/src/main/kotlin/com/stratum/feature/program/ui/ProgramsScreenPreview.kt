@@ -82,13 +82,12 @@ private fun LoadedProgramsScreen(isPreviewMode: Boolean = false) {
                     ),
                 scheduleItems =
                     listOf(
-                        RestDay(weekdayLabel = "Tuesday"),
+                        RestDay(slotIndex = 1),
                         Workout(
                             workout =
                                 WorkoutViewState(
                                     workoutId = "w-preview-1",
                                     name = "Minimal Lower A",
-                                    weekdayLabel = "Monday",
                                     position = 0,
                                     lifts =
                                         listOf(
@@ -181,7 +180,6 @@ private fun WorkoutCardPreviewContent(initiallyExpanded: Boolean = false) {
                 WorkoutViewState(
                     workoutId = "w-preview-2",
                     name = "Push Day",
-                    weekdayLabel = "Monday",
                     position = 0,
                     lifts =
                         listOf(

@@ -29,6 +29,17 @@ internal data class OnboardingEphemeralState(
     val navigationError: String? = null,
     /** True after import-based MV suggestions were auto-applied once this wizard run. */
     val minimumVolumeImportPrefillApplied: Boolean = false,
+    /**
+     * Live schedule train-day count. Null means fall back to
+     * [com.stratum.domain.onboarding.UserTrainingProfile.generationTrainingDayCount] or UI default.
+     */
+    val scheduleTrainingDayCount: Int? = null,
+    /**
+     * Live gen cycle-space (N+R). Null falls back to persisted profile generation fields.
+     * Room also persists these on Generate schedule flush (process-death safe).
+     */
+    val generationCycleLength: Int? = null,
+    val generationRestSlotIndices: Set<Int>? = null,
 ) {
     companion object {
         val Initial = OnboardingEphemeralState()

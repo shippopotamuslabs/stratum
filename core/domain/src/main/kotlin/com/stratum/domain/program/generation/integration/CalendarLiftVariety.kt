@@ -5,7 +5,6 @@ package com.stratum.domain.program.generation.integration
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.generation.context.LiftContext
@@ -16,11 +15,16 @@ import com.stratum.domain.program.generation.prescription.classifyLiftStressClas
 import com.stratum.domain.program.generation.prescription.dominantStressClass
 import com.stratum.domain.program.generation.reference.LiftStressClass
 import com.stratum.domain.program.generation.reference.MuscleSessionStress
-import com.stratum.domain.program.generation.reference.calendarDayIndexGap
+import com.stratum.domain.program.generation.context.resolveTrainingTimeline
 import com.stratum.domain.program.generation.reference.muscleRecoveryGapViolated
 import com.stratum.domain.program.generation.swap.alternativesForLift
 import com.stratum.domain.program.generation.volume.TrainingDomain
 import com.stratum.domain.program.generation.volume.muscleTrainingDomain
+import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.program.schedule.CycleSlot
+import com.stratum.domain.program.schedule.MaterializedCycleSpace
+import com.stratum.domain.program.schedule.TrainingTimeline
+import com.stratum.domain.program.schedule.resolvedCycleSlots
 
 private val LOWER_FORBIDDEN_PRIMARY_PATTERNS = setOf(
     MovementPattern.VerticalPull,
@@ -31,49 +35,87 @@ private val LOWER_FORBIDDEN_PRIMARY_PATTERNS = setOf(
 )
 
 /**
- * Lift selection runs in generation cycle order, but the CP-SAT solver assigns weekdays afterward.
- * onto weekdays afterward. Reconcile adjacent calendar sessions so the same exercise does not
- * appear on back-to-back training days (e.g. lat pulldown on Upper Pull then Lower).
+ * Lift selection runs in generation cycle order; recovery adjacency uses **cycle slot indices**
+ * from [Program.resolvedCycleSlots] (not weekday ordinals). Reconcile adjacent training sessions
+ * so the same exercise does not appear on back-to-back training slots.
  *
  * Also repairs **metadata-meaningful adjacent same-muscle exposure** (G7b): a selected lift can
  * carry a recovery-relevant secondary muscle (e.g. Hip Thrust → Hamstring) that the solver's
- * pattern-credit accounting never saw, so two adjacent workouts can both meaningfully stress the
- * same muscle in the UI's eyes ([computeWorkoutMuscleVolume] truth) even when no liftId repeats.
- * This pass swaps one offending lift in the later workout for an alternative whose metadata does
- * not meaningfully stress the shared muscle. Set counts are preserved (liftId swap only).
+ * pattern-credit accounting never saw. This pass swaps one offending lift in the later workout
+ * for an alternative whose metadata does not meaningfully stress the shared muscle.
  */
 fun resolveAdjacentCalendarLiftCollisions(
     program: Program,
     context: ProgramGenerationContext,
 ): Program {
-    val calendarOrder =
-        program.workouts
-            .filter { workout -> workout.weekday != null }
-            .sortedBy { workout -> Weekday.entries.indexOf(workout.weekday) }
-    if (calendarOrder.size < 2) return program
+    val slots = program.resolvedCycleSlots()
+    val timeline =
+        if (slots.isNotEmpty()) {
+            TrainingTimeline.fromCycleSpace(
+                MaterializedCycleSpace(
+                    cycleLength = program.cycleLength,
+                    restSlotIndices = program.restSlotIndices,
+                ),
+            )
+        } else {
+            context.resolveTrainingTimeline()
+        }
+    val trainingSlots =
+        if (slots.isNotEmpty()) {
+            slots.filterIsInstance<CycleSlot.Training>()
+        } else {
+            // Fallback: position-order when cycle-space is unavailable.
+            program.workouts
+                .sortedBy { workout -> workout.position }
+                .mapIndexed { index, workout ->
+                    CycleSlot.Training(slotIndex = index, workout = workout)
+                }
+        }
+    if (trainingSlots.size < 2) return program
+
+    val slotIndexByWorkoutId: Map<WorkoutId, Int> =
+        trainingSlots.associate { training -> training.workout.id to training.slotIndex }
 
     val updatedById = program.workouts.associateBy { it.id }.toMutableMap()
     var previousLiftIds = emptySet<String>()
     var previousWorkout: Workout? = null
     var previousMuscleStress: Map<MuscleGroup, MuscleSessionStress> = emptyMap()
 
-    for (workout in calendarOrder) {
+    fun repairAgainstPrevious(workout: Workout): Workout {
         val current = updatedById.getValue(workout.id)
-        val afterIdPass = resolveWorkoutCollisions(
-            workout = current,
-            previousLiftIds = previousLiftIds,
-            context = context,
-        )
-        val afterMetadataPass = resolveMetadataMuscleExposure(
+        val afterIdPass =
+            resolveWorkoutCollisions(
+                workout = current,
+                previousLiftIds = previousLiftIds,
+                context = context,
+            )
+        return resolveMetadataMuscleExposure(
             workout = afterIdPass,
             previousWorkout = previousWorkout,
             previousMuscleStress = previousMuscleStress,
             context = context,
+            timeline = timeline,
+            slotIndexByWorkoutId = slotIndexByWorkoutId,
         )
-        updatedById[workout.id] = afterMetadataPass
+    }
+
+    for (training in trainingSlots) {
+        val afterMetadataPass = repairAgainstPrevious(training.workout)
+        updatedById[training.workout.id] = afterMetadataPass
         previousLiftIds = afterMetadataPass.workoutLifts.map { lift -> lift.liftId.value }.toSet()
         previousWorkout = afterMetadataPass
         previousMuscleStress = workoutMetadataMuscleSessionStress(afterMetadataPass, context)
+    }
+
+    // Cycle wrap: last training slot → first (same recovery geometry as mid-cycle pairs).
+    if (trainingSlots.size >= 2) {
+        val first = trainingSlots.first().workout
+        val lastId = trainingSlots.last().workout.id
+        val last = updatedById.getValue(lastId)
+        previousLiftIds = last.workoutLifts.map { lift -> lift.liftId.value }.toSet()
+        previousWorkout = last
+        previousMuscleStress = workoutMetadataMuscleSessionStress(last, context)
+        updatedById[first.id] = repairAgainstPrevious(first)
     }
 
     return program.copy(workouts = program.workouts.map { workout -> updatedById.getValue(workout.id) })
@@ -124,17 +166,22 @@ private fun resolveMetadataMuscleExposure(
     previousWorkout: Workout?,
     previousMuscleStress: Map<MuscleGroup, MuscleSessionStress>,
     context: ProgramGenerationContext,
+    timeline: TrainingTimeline,
+    slotIndexByWorkoutId: Map<WorkoutId, Int>,
 ): Workout {
-    if (previousWorkout == null || previousMuscleStress.isEmpty()) return workout
-    val previousDayIndex = previousWorkout.weekday?.ordinal ?: return workout
-    val currentDayIndex = workout.weekday?.ordinal ?: return workout
-    val calendarGap = calendarDayIndexGap(previousDayIndex, currentDayIndex)
+    val slotPair = recoverySlotPair(previousWorkout, workout, slotIndexByWorkoutId) ?: return workout
+    if (previousMuscleStress.isEmpty()) return workout
+    val calendarGap = timeline.gap(slotPair.first, slotPair.second)
     val currentStress = workoutMetadataMuscleSessionStress(workout, context)
-    val conflictMuscles = previousMuscleStress.keys
-        .filter { muscle ->
-            val earlierStress = previousMuscleStress[muscle] ?: return@filter false
-            val laterDose = currentStress[muscle]?.fractionalSets ?: 0.0
-            muscleRecoveryGapViolated(earlierStress, laterDose, calendarGap)
+    val conflictMuscles =
+        if (calendarGap <= 0) {
+            emptyList()
+        } else {
+            previousMuscleStress.keys.filter { muscle ->
+                val earlierStress = previousMuscleStress[muscle] ?: return@filter false
+                val laterDose = currentStress[muscle]?.fractionalSets ?: 0.0
+                muscleRecoveryGapViolated(earlierStress, laterDose, calendarGap)
+            }
         }
     if (conflictMuscles.isEmpty()) return workout
 
@@ -169,6 +216,17 @@ private fun resolveMetadataMuscleExposure(
     }
 
     return workout.copy(workoutLifts = lifts)
+}
+
+/** Earlier/later cycle slot indices for adjacent training workouts on the cycle ring. */
+private fun recoverySlotPair(
+    previous: Workout?,
+    current: Workout,
+    slotIndexByWorkoutId: Map<WorkoutId, Int>,
+): Pair<Int, Int>? {
+    val earlier = previous?.let { workout -> slotIndexByWorkoutId[workout.id] } ?: return null
+    val later = slotIndexByWorkoutId[current.id] ?: return null
+    return earlier to later
 }
 
 private fun replacementStressesMuscle(lift: LiftContext?, muscle: MuscleGroup): Boolean {

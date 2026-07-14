@@ -142,9 +142,11 @@ fun OnboardingRoute(
         profileSchedule = ProfileScheduleHandlers(
             onTrainingAgeSelected = viewModel::onTrainingAgeSelected,
             onLastTrainedSelected = viewModel::onLastTrainedSelected,
-            onWeekdayToggled = viewModel::onWeekdayToggled,
+            onTrainingDayCountChanged = viewModel::onTrainingDayCountChanged,
             onSessionPresetSelected = viewModel::onSessionPresetSelected,
             onCustomSessionMinutesChange = viewModel::onCustomSessionMinutesChange,
+            onSixDayCycleLengthSelected = viewModel::onSixDayCycleLengthSelected,
+            onTrainingSlotToggled = viewModel::onTrainingSlotToggled,
         ),
         onMuscleToggled = viewModel::onMuscleToggled,
         minimumVolume = MinimumVolumeHandlers(
@@ -214,9 +216,11 @@ private fun OnboardingWizard(
                     )
                     WIZARD_STEP_SCHEDULE -> ScheduleScreen(
                         draft = state.scheduleDraft,
-                        onWeekdayToggled = profileSchedule.onWeekdayToggled,
+                        onTrainingDayCountChanged = profileSchedule.onTrainingDayCountChanged,
                         onSessionPresetSelected = profileSchedule.onSessionPresetSelected,
                         onCustomSessionMinutesChange = profileSchedule.onCustomSessionMinutesChange,
+                        onSixDayCycleLengthSelected = profileSchedule.onSixDayCycleLengthSelected,
+                        onTrainingSlotToggled = profileSchedule.onTrainingSlotToggled,
                     )
                     WIZARD_STEP_SPECIALIZATION -> SpecializationScreen(
                         draft = state.specializationDraft,

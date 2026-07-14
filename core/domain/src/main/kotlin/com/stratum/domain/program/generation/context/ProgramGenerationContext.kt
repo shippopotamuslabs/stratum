@@ -93,8 +93,11 @@ data class ProgramGenerationContext(
     val trainingAge: String,
     val lastTrained: String?,
     val sessionLengthMinutes: Int?,
+    /**
+     * Training session count for this gen (N). Source of truth with [restSlotIndices] /
+     * [cycleLength].
+     */
     val trainingDaysPerWeek: Int,
-    val weekdays: List<String>,
     val specialization: Map<MuscleGroup, SpecializationLevel>,
     val liftsById: Map<String, LiftContext>,
     val muscleVolumeSnapshotsByMuscle: Map<String, MuscleVolumeSnapshotContext>,
@@ -103,6 +106,18 @@ data class ProgramGenerationContext(
     val movementPatternByLiftId: Map<String, MovementPattern?>,
     /** Per-lift effectiveness rank/evidence from responseProfile.liftEffectiveness, keyed by liftId. */
     val liftEffectivenessByLiftId: Map<String, LiftEffectivenessEntry>,
+    /**
+     * Optional raw UX rest-slot pattern. With [cycleLength], this is schedule identity for gen.
+     * Nullable — defaults apply only in [materializeGeneratedCycleSpace].
+     * Indices are in `[0, cycleLength)`.
+     */
+    val restSlotIndices: Set<Int>? = null,
+    /**
+     * Optional raw UX full cycle length (train + rest) paired with [restSlotIndices]. For 6-day
+     * gen, UX may send 8 (rotating) or 7 (fixed week). When both this and [restSlotIndices] are
+     * null, defaults apply only in [materializeGeneratedCycleSpace].
+     */
+    val cycleLength: Int? = null,
 )
 
 private val PUSH_PATTERNS = setOf(MovementPattern.HorizontalPress, MovementPattern.VerticalPress, MovementPattern.InclinePress)

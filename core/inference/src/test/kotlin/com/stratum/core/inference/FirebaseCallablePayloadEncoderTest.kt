@@ -18,7 +18,6 @@ class FirebaseCallablePayloadEncoderTest {
                             cycleLength = 5,
                             specialization = mapOf("Bicep" to "Specialize"),
                             specializedMuscles = listOf("Bicep"),
-                            trainingWeekdays = listOf("Monday", "Tuesday", "Wednesday", "Friday", "Saturday"),
                         ),
                     program =
                         com.stratum.domain.program.generation.naming.ProgramNamingProgramPayload(

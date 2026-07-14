@@ -24,12 +24,22 @@ class ValidateCurrentOnboardingStepUseCase @Inject constructor(
         lifts: List<Lift>,
         selectedPreset: GymPreset? = null,
         usedHistoricalImport: Boolean = false,
+        /** Optional gen cycle-space; not persisted on profile. */
+        cycleLength: Int? = null,
+        restSlotIndices: Set<Int>? = null,
+        /** Explicit train-day count N when weekdays are not schedule identity. */
+        trainingDayCount: Int? = null,
     ): OnboardingStepValidationResult {
         val valid = when (step) {
             OnboardingStep.Profile ->
                 validateProfileStep(profile) is ProfileValidationResult.Valid
             OnboardingStep.Schedule ->
-                validateScheduleStep(profile) is ScheduleValidationResult.Valid
+                validateScheduleStep(
+                    profile = profile,
+                    cycleLength = cycleLength,
+                    restSlotIndices = restSlotIndices,
+                    trainingDayCount = trainingDayCount,
+                ) is ScheduleValidationResult.Valid
             OnboardingStep.Specialization ->
                 validateSpecializationStep(specialization) is SpecializationValidationResult.Valid
             OnboardingStep.MinimumVolume ->

@@ -15,6 +15,9 @@ const val STALE_LIFT_TENURE_WEEKS = 4
 /** Working-set cut fraction for severe under-recovery / joint pain (~25%). */
 const val VOLUME_CUT_FRACTION = 0.25
 
+/** Sets added on a soft-fresh (or failed-swap) volume bump. */
+const val CHECKIN_VOLUME_STEP = 1
+
 /**
  * Pure deterministic coach: hard performance is primary; subjective recovery is secondary.
  *
@@ -22,12 +25,16 @@ const val VOLUME_CUT_FRACTION = 0.25
  * count, session count) so check-in does not fire on short noisy windows.
  *
  * Rule 1: Climbing → Maintain (even with mild soreness).
- * Rule 2: Flat **or** Dropping with good/mild recovery → swap if stale (≥4 weeks), else +1 set.
- * Rule 3: Severe under-recovery **or** joint pain → cut volume ~25% (recovery-gated only).
- * Insufficient trend evidence → Maintain (prefer silence over speculative edits).
+ * Rule 2a: Dropping + mild soreness → Maintain (do not add stress).
+ * Rule 2b: Flat with good/mild recovery, or Dropping with good recovery:
+ *   - stale (≥4 weeks) → swap kind
+ *   - fresh + at volume ceiling → Maintain
+ *   - fresh + under ceiling → +1 set
+ * Rule 3: Severe under-recovery **or** joint pain → cut volume ~25% (strongly recommended;
+ * user still accept/rejects). Insufficient trend evidence → Maintain.
  *
- * Swap **catalog** enrichment is owned by [EvaluateCheckInUseCase]; this engine only emits
- * [CheckInActionKind.SwapLift] without lift ids.
+ * Multi-lift one-lever selection is [CheckInBatchSelector]. Swap catalog enrichment is
+ * [EvaluateCheckInUseCase]; this engine only emits [CheckInActionKind.SwapLift] without lift ids.
  */
 object CheckInDecisionEngine {
 
@@ -66,47 +73,66 @@ object CheckInDecisionEngine {
         val severeRecovery =
             input.recoverySignal == RecoverySignal.SevereUnderRecovery ||
                 input.recoverySignal == RecoverySignal.JointPain
-
-        if (severeRecovery) {
-            val remove = setsToRemove(input.currentSetCount)
-            return if (remove == 0) {
+        return when {
+            severeRecovery -> decideSevereRecoveryCut(input)
+            input.performanceTrend == PerformanceTrend.Climbing ->
                 CheckInCoreDecision(
-                    kind = CheckInActionKind.CutVolume,
-                    removeSets = 0,
-                    rationale = CheckInRationale.AlreadyAtFloorSets,
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.ClimbingMaintain,
                 )
-            } else {
-                val rationale =
-                    if (input.recoverySignal == RecoverySignal.JointPain) {
-                        CheckInRationale.JointPainCut(remove)
-                    } else {
-                        CheckInRationale.SevereUnderRecoveryCut(remove)
-                    }
+            input.performanceTrend == PerformanceTrend.Insufficient ->
                 CheckInCoreDecision(
-                    kind = CheckInActionKind.CutVolume,
-                    removeSets = remove,
-                    rationale = rationale,
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.NoClearChange,
                 )
-            }
+            input.performanceTrend == PerformanceTrend.Dropping &&
+                input.recoverySignal == RecoverySignal.MildSoreness ->
+                CheckInCoreDecision(
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.DroppingMildRecoveryHold,
+                )
+            isSoftPerformanceWithOkRecovery(input) -> decideSoftLever(input)
+            else ->
+                CheckInCoreDecision(
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.NoClearChange,
+                )
         }
+    }
 
-        if (input.performanceTrend == PerformanceTrend.Climbing) {
+    private fun decideSevereRecoveryCut(input: LiftCheckInInput): CheckInCoreDecision {
+        val remove = setsToRemove(input.currentSetCount)
+        if (remove == 0) {
             return CheckInCoreDecision(
-                kind = CheckInActionKind.Maintain,
-                rationale = CheckInRationale.ClimbingMaintain,
+                kind = CheckInActionKind.CutVolume,
+                removeSets = 0,
+                rationale = CheckInRationale.AlreadyAtFloorSets,
             )
         }
+        val rationale =
+            if (input.recoverySignal == RecoverySignal.JointPain) {
+                CheckInRationale.JointPainCut(remove)
+            } else {
+                CheckInRationale.SevereUnderRecoveryCut(remove)
+            }
+        return CheckInCoreDecision(
+            kind = CheckInActionKind.CutVolume,
+            removeSets = remove,
+            rationale = rationale,
+        )
+    }
 
-        if (input.performanceTrend == PerformanceTrend.Insufficient) {
+    private fun decideSoftLever(input: LiftCheckInInput): CheckInCoreDecision {
+        // Soft levers need primary-muscle identity for ceiling + one-lever batching.
+        if (input.primaryMuscles.isEmpty()) {
             return CheckInCoreDecision(
                 kind = CheckInActionKind.Maintain,
                 rationale = CheckInRationale.NoClearChange,
             )
         }
-
-        if (isSoftPerformanceWithOkRecovery(input)) {
-            val soft = input.performanceTrend.toSoftTrend()
-            return if (input.rotationTenureWeeks >= STALE_LIFT_TENURE_WEEKS) {
+        val soft = input.performanceTrend.toSoftTrend()
+        return when {
+            input.rotationTenureWeeks >= STALE_LIFT_TENURE_WEEKS ->
                 CheckInCoreDecision(
                     kind = CheckInActionKind.SwapLift,
                     rationale =
@@ -115,23 +141,22 @@ object CheckInDecisionEngine {
                             tenureWeeks = input.rotationTenureWeeks,
                         ),
                 )
-            } else {
+            input.atVolumeCeiling ->
+                CheckInCoreDecision(
+                    kind = CheckInActionKind.Maintain,
+                    rationale = CheckInRationale.SoftFreshAtVolumeCeiling,
+                )
+            else ->
                 CheckInCoreDecision(
                     kind = CheckInActionKind.IncreaseVolume,
-                    addSets = 1,
+                    addSets = CHECKIN_VOLUME_STEP,
                     rationale =
                         CheckInRationale.SoftFreshIncrease(
                             softTrend = soft,
                             tenureWeeks = input.rotationTenureWeeks,
                         ),
                 )
-            }
         }
-
-        return CheckInCoreDecision(
-            kind = CheckInActionKind.Maintain,
-            rationale = CheckInRationale.NoClearChange,
-        )
     }
 
     fun setsToRemove(currentSetCount: Int): Int {
@@ -140,44 +165,34 @@ object CheckInDecisionEngine {
         return raw.coerceAtMost(currentSetCount - 1)
     }
 
+    /**
+     * Soft path eligible for swap / +1: Flat with good or mild recovery, or Dropping with good
+     * recovery only (dropping + mild is held separately).
+     */
     fun isSoftPerformanceWithOkRecovery(input: LiftCheckInInput): Boolean {
-        val soft =
-            input.performanceTrend == PerformanceTrend.Flat ||
-                input.performanceTrend == PerformanceTrend.Dropping
         val recoveryOk =
             input.recoverySignal == RecoverySignal.Good ||
                 input.recoverySignal == RecoverySignal.MildSoreness
-        return soft && recoveryOk
+        return when (input.performanceTrend) {
+            PerformanceTrend.Flat -> recoveryOk
+            PerformanceTrend.Dropping -> input.recoverySignal == RecoverySignal.Good
+            else -> false
+        }
     }
 
     fun recommendationComparator(): Comparator<CheckInRecommendation> =
-        compareBy<CheckInRecommendation> { it.action.priority }
+        compareBy<CheckInRecommendation> { it.action.sortPriority() }
             .thenByDescending { it.performanceTrend == PerformanceTrend.Dropping }
             .thenBy { it.liftName.lowercase() }
 
     private fun PerformanceTrend.toSoftTrend(): SoftPerformanceTrend =
         when (this) {
             PerformanceTrend.Dropping -> SoftPerformanceTrend.Dropping
-            else -> SoftPerformanceTrend.Flat
+            PerformanceTrend.Flat -> SoftPerformanceTrend.Flat
+            PerformanceTrend.Climbing,
+            PerformanceTrend.Insufficient,
+            -> error("toSoftTrend only for Flat/Dropping, got $this")
         }
-
-    private val CheckInAction.priority: Int
-        get() =
-            when (this) {
-                is CheckInAction.CutVolume -> 0
-                is CheckInAction.SwapLift -> 1
-                is CheckInAction.IncreaseVolume -> 2
-                is CheckInAction.Maintain -> 3
-            }
-
-    private val CheckInActionKind.priority: Int
-        get() =
-            when (this) {
-                CheckInActionKind.CutVolume -> 0
-                CheckInActionKind.SwapLift -> 1
-                CheckInActionKind.IncreaseVolume -> 2
-                CheckInActionKind.Maintain -> 3
-            }
 
     private val RecoverySignal.severity: Int
         get() =

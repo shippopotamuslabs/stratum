@@ -35,7 +35,7 @@ class ProgramGenerationTelemetryLoggerTest {
                 BuildProgramResult(
                     program = BuiltProgram(name = "Test", cycleLength = 4, workouts = emptyList()),
                     selectionsBySession = emptyList(),
-                    weekdayIndexByPosition = listOf(0, 1, 3, 4),
+                    cycleSlotIndexByPosition = listOf(0, 1, 3, 4),
                     synthesisObjective = objective,
                 ),
         )

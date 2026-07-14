@@ -1,5 +1,6 @@
 package com.stratum.domain.checkin
 
+import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -32,7 +33,8 @@ enum class PerformanceTrend {
 
 /**
  * Subjective recovery signal for a muscle (or overall). Joint pain and severe under-recovery
- * force a volume cut regardless of mild performance noise.
+ * produce a strongly recommended volume cut (user still accept/rejects) regardless of mild
+ * performance noise.
  */
 enum class RecoverySignal {
     Good,
@@ -89,6 +91,20 @@ sealed interface CheckInRationale {
         val tenureWeeks: Int,
     ) : CheckInRationale
 
+    /** Dropping e1RM with mild soreness — hold; do not add stress. */
+    data object DroppingMildRecoveryHold : CheckInRationale
+
+    /** Soft + fresh but primary muscle(s) already at volume ceiling — no +1. */
+    data object SoftFreshAtVolumeCeiling : CheckInRationale
+
+    /** Stale soft lift, no band-valid swap, and at volume ceiling — hold. */
+    data object SoftStaleNoCandidateAtCeiling : CheckInRationale
+
+    /**
+     * Another non-cut lever already claims a primary muscle this check-in (one lever per muscle).
+     */
+    data object MuscleLeverAlreadyTaken : CheckInRationale
+
     data class JointPainCut(val removeSets: Int) : CheckInRationale
 
     data class SevereUnderRecoveryCut(val removeSets: Int) : CheckInRationale
@@ -135,6 +151,8 @@ data class CheckInRecommendation(
     val currentSetCount: Int,
     val action: CheckInAction,
     val rationale: CheckInRationale,
+    val kinematicProfile: KinematicProfile? = null,
+    val atVolumeCeiling: Boolean = false,
 )
 
 /** Full evaluation result for a check-in session. */
@@ -158,6 +176,10 @@ data class LiftCheckInInput(
     val recoverySignal: RecoverySignal,
     val rotationTenureWeeks: Int,
     val currentSetCount: Int,
+    /** True when any primary muscle is at/above recoverable volume ceiling. */
+    val atVolumeCeiling: Boolean = false,
+    /** For batch ranking (+1 prefers isolation). */
+    val kinematicProfile: KinematicProfile? = null,
 )
 
 /**

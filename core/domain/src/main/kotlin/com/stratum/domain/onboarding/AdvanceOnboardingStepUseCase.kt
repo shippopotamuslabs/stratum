@@ -24,7 +24,7 @@ sealed interface AdvanceOnboardingStepResult {
 
 /**
  * Encapsulates the triple-write on step navigation: validate (forward only), persist profile,
- * persist specialization, save new step.
+ * persist specialization, save new step (+ durable [OnboardingPath]).
  *
  * Navigation is path-aware: after the [OnboardingStep.ChoosePath] fork, the [path] determines
  * whether the user walks the Generate-only steps or jumps straight to Review. When the user commits
@@ -47,8 +47,23 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
         selectedPreset: GymPreset?,
         usedHistoricalImport: Boolean = false,
         path: OnboardingPath? = null,
+        /** Generate cycle-space; persisted onto the profile on Generate schedule flush. */
+        cycleLength: Int? = null,
+        restSlotIndices: Set<Int>? = null,
+        trainingDayCount: Int? = null,
+        /** Durable path from [OnboardingProgress.selectedPath] when not re-passed by the caller. */
+        persistedSelectedPath: OnboardingPath? = null,
     ): AdvanceOnboardingStepResult {
-        val resolvedPath = path ?: resolvePath(currentStep, profile)
+        val resolvedPath =
+            path
+                ?: OnboardingPathResolver.resolve(
+                    step = currentStep,
+                    selectedPath = persistedSelectedPath,
+                    profile = profile,
+                    trainingDayCount = trainingDayCount,
+                    restSlotIndices = restSlotIndices,
+                    cycleLength = cycleLength,
+                )
         val targetStep = when (direction) {
             OnboardingStepDirection.Forward -> currentStep.next(resolvedPath)
             OnboardingStepDirection.Backward -> currentStep.previous(resolvedPath)
@@ -62,33 +77,64 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
                 lifts = lifts,
                 selectedPreset = selectedPreset,
                 usedHistoricalImport = usedHistoricalImport,
+                cycleLength = cycleLength,
+                restSlotIndices = restSlotIndices,
+                trainingDayCount = trainingDayCount,
             )
             if (!validation.isValid) {
                 return AdvanceOnboardingStepResult.ValidationFailed
             }
         }
 
-        // Clearing the Generate-path inputs when committing to Import keeps the persisted profile
-        // and specialization clean — the Review summary hides those cards, and completion won't
-        // carry stale schedule/specialization data forward.
         val isCommittingToImport =
             currentStep == OnboardingStep.ChoosePath && resolvedPath == OnboardingPath.Import
-        val profileToSave = if (isCommittingToImport) {
-            profile.copy(weekdays = emptySet(), sessionLengthMinutes = null)
-        } else {
-            profile
+        // Persist cycle-space when leaving Generate schedule steps; clear synthetic weekdays.
+        val isGenerateScheduleFlush =
+            resolvedPath == OnboardingPath.Generate &&
+                currentStep in
+                setOf(
+                    OnboardingStep.Schedule,
+                    OnboardingStep.Specialization,
+                    OnboardingStep.MinimumVolume,
+                )
+        val profileToSave = when {
+            isCommittingToImport ->
+                profile.copy(
+                    weekdays = emptySet(),
+                    sessionLengthMinutes = null,
+                    generationTrainingDayCount = null,
+                    generationCycleLength = null,
+                    generationRestSlotIndices = emptySet(),
+                )
+            isGenerateScheduleFlush ->
+                profile.copy(
+                    weekdays = emptySet(),
+                    generationTrainingDayCount = trainingDayCount,
+                    generationCycleLength = cycleLength,
+                    generationRestSlotIndices = restSlotIndices.orEmpty(),
+                )
+            else -> profile
         }
         val specializationToSave = if (isCommittingToImport) {
             SpecializationPreference.Empty
         } else {
             specialization
         }
+        // Write path when known (ChoosePath commit or any Generate step); preserve when null.
+        val pathToPersist =
+            when {
+                currentStep == OnboardingStep.ChoosePath &&
+                    direction == OnboardingStepDirection.Forward &&
+                    resolvedPath != null -> resolvedPath
+                resolvedPath != null -> resolvedPath
+                else -> null
+            }
 
         val persistResult =
             runCatchingLogged(loggingPort, TAG, "Failed to advance onboarding step") {
                 updateUserTrainingProfile(profileToSave)
                 updateSpecialization(specializationToSave)
-                saveOnboardingProgress(targetStep)
+                saveOnboardingProgress(targetStep, selectedPath = pathToPersist)
             }
         return if (persistResult.isSuccess) {
             AdvanceOnboardingStepResult.Success(targetStep)
@@ -96,25 +142,6 @@ class AdvanceOnboardingStepUseCase @Inject constructor(
             AdvanceOnboardingStepResult.PersistenceFailed
         }
     }
-
-    /**
-     * Best-effort path resolution when the caller doesn't pass one explicitly. Mirrors
-     * [OnboardingWizardState.onboardingPath] using the current step and profile. Returns `null`
-     * (common prefix) when the step is at or before ChoosePath.
-     */
-    private fun resolvePath(currentStep: OnboardingStep, profile: UserTrainingProfile): OnboardingPath? =
-        when (currentStep) {
-            OnboardingStep.Profile,
-            OnboardingStep.GymAndLifts,
-            OnboardingStep.ChoosePath,
-            -> null
-            OnboardingStep.Schedule,
-            OnboardingStep.Specialization,
-            OnboardingStep.MinimumVolume,
-            -> OnboardingPath.Generate
-            OnboardingStep.Review ->
-                if (profile.weekdays.isEmpty()) OnboardingPath.Import else OnboardingPath.Generate
-        }
 
     private companion object {
         const val TAG = "AdvanceOnboardingStep"

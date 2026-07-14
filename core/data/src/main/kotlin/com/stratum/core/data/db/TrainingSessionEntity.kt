@@ -40,6 +40,7 @@ data class TrainingSessionEntity(
     val origin: TrainingSessionOrigin,
     @ColumnInfo(name = "cycle_number_snapshot") val cycleNumberSnapshot: Int,
     @ColumnInfo(name = "weekday_snapshot") val weekdaySnapshot: Weekday?,
+    @ColumnInfo(name = "cycle_slot_index_snapshot") val cycleSlotIndexSnapshot: Int? = null,
     @ColumnInfo(name = "started_at_epoch_millis") val startedAtEpochMillis: Long,
     @ColumnInfo(name = "ended_at_epoch_millis") val endedAtEpochMillis: Long?,
     @ColumnInfo(name = "source_app") val sourceApp: String?,

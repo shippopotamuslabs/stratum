@@ -1,5 +1,7 @@
 package com.stratum.feature.program.ui
 
+import androidx.annotation.StringRes
+
 /** Presentation state for the coach check-in wizard (no domain types). */
 data class CheckInUiState(
     val isOpen: Boolean = false,
@@ -77,8 +79,10 @@ data class CheckInMuscleSignalUi(
 /** Sealed presentation recommendations — only Swap is tappable for re-pick. */
 sealed interface CheckInRecommendationUi {
     val id: String
-    val title: String
-    val rationale: String
+    @get:StringRes val titleRes: Int
+    val titleArgs: List<Any>
+    @get:StringRes val rationaleRes: Int
+    val rationaleArgs: List<Any>
     val accepted: Boolean
     val liftName: String
     val currentLiftId: String
@@ -88,8 +92,10 @@ sealed interface CheckInRecommendationUi {
 
     data class Swap(
         override val id: String,
-        override val title: String,
-        override val rationale: String,
+        @StringRes override val titleRes: Int,
+        override val titleArgs: List<Any>,
+        @StringRes override val rationaleRes: Int,
+        override val rationaleArgs: List<Any>,
         override val accepted: Boolean,
         override val liftName: String,
         override val currentLiftId: String,
@@ -102,8 +108,10 @@ sealed interface CheckInRecommendationUi {
 
     data class IncreaseVolume(
         override val id: String,
-        override val title: String,
-        override val rationale: String,
+        @StringRes override val titleRes: Int,
+        override val titleArgs: List<Any>,
+        @StringRes override val rationaleRes: Int,
+        override val rationaleArgs: List<Any>,
         override val accepted: Boolean,
         override val liftName: String,
         override val currentLiftId: String,
@@ -115,8 +123,10 @@ sealed interface CheckInRecommendationUi {
 
     data class CutVolume(
         override val id: String,
-        override val title: String,
-        override val rationale: String,
+        @StringRes override val titleRes: Int,
+        override val titleArgs: List<Any>,
+        @StringRes override val rationaleRes: Int,
+        override val rationaleArgs: List<Any>,
         override val accepted: Boolean,
         override val liftName: String,
         override val currentLiftId: String,

@@ -1,5 +1,7 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.ui.trainingsetup.isReadyForGeneration
+import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.OnboardingStepCapabilities
 import com.stratum.domain.onboarding.OnboardingWizardState
 import com.stratum.domain.onboarding.SpecializationPreference
@@ -26,7 +28,19 @@ internal fun buildOnboardingUiState(
         progress.phase != ImportProgressPhaseUi.Complete &&
             progress.phase != ImportProgressPhaseUi.Failed
     } == true
-    val canAdvance = !ephemeral.applyingPreset && !importing && capabilities.stepValid
+    val scheduleDraft =
+        profile
+            .toScheduleDraft(
+                sessionLengthEdit = sessionLengthEdit,
+                generationCycleLength = ephemeral.generationCycleLength,
+                generationRestSlotIndices = ephemeral.generationRestSlotIndices,
+                trainingDayCount = ephemeral.scheduleTrainingDayCount,
+            )
+            .copy(showErrors = ephemeral.showErrors)
+    val scheduleReady =
+        current.currentStep != OnboardingStep.Schedule || scheduleDraft.isReadyForGeneration()
+    val canAdvance =
+        !ephemeral.applyingPreset && !importing && capabilities.stepValid && scheduleReady
 
     return OnboardingUiState(
         step = step,
@@ -36,7 +50,7 @@ internal fun buildOnboardingUiState(
         canAdvance = canAdvance,
         canGoBack = capabilities.canGoBack,
         profileDraft = profile.toProfileDraft().copy(showErrors = ephemeral.showErrors),
-        scheduleDraft = profile.toScheduleDraft(sessionLengthEdit).copy(showErrors = ephemeral.showErrors),
+        scheduleDraft = scheduleDraft,
         specializationDraft = specialization.toSpecializationDraft(ephemeral.importInsightsSummary)
             .copy(showErrors = ephemeral.showErrors),
         minimumVolumeDraft = specialization.toMinimumVolumeDraft(ephemeral.importInsightsSummary)

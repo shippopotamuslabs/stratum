@@ -1,38 +1,37 @@
 package com.stratum.feature.program
 
-import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.MuscleVolumeSummary
 import com.stratum.domain.program.Program
-import com.stratum.domain.program.ScheduleDayItem
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.WorkoutLiftId
-import com.stratum.domain.program.buildWeeklySchedule
+import com.stratum.domain.program.schedule.CycleSlot
+import com.stratum.domain.program.schedule.resolvedCycleSlots
 import com.stratum.feature.program.ui.ProgramViewState
 import com.stratum.feature.program.ui.ProgramsUiState
 import com.stratum.feature.program.ui.ScheduleItemState
 import com.stratum.feature.program.ui.WorkoutLiftLineState
 import com.stratum.feature.program.ui.WorkoutViewState
-import java.util.Locale
 
 /**
  * Domain → presentation mapping for the Programs screen. `null` (no program) maps to
  * [ProgramsUiState.Empty]; a non-null [Program] maps to [ProgramsUiState.Loaded].
  *
- * [completedWorkoutIds] and [activeWorkoutId] come from [com.stratum.domain.training.CycleProgress]
- * so that workout cards render the correct checkbox state and de-emphasis.
+ * Schedule strip is the **current cycle window** in slot order ([resolvedCycleSlots]) —
+ * workout names and rest rows only. Dates/weekdays are not shown (order-only product model).
+ * [completedWorkoutIds] and [completedRestSlotIndices] come from
+ * [com.stratum.domain.training.CycleProgress]; [activeWorkoutId] drives de-emphasis on the live card.
  */
 internal fun Program?.toProgramsUiState(
     liftNamesById: Map<String, String> = emptyMap(),
     volumeSummaries: List<MuscleVolumeSummary> = emptyList(),
     completedWorkoutIds: Set<String> = emptySet(),
     activeWorkoutId: String? = null,
-    completedRestDayWeekdays: Set<Weekday> = emptySet(),
+    completedRestSlotIndices: Set<Int> = emptySet(),
 ): ProgramsUiState =
     if (this == null) {
         ProgramsUiState.Empty
@@ -41,9 +40,35 @@ internal fun Program?.toProgramsUiState(
             program = ProgramViewState(programId = id.value, name = name),
             upperVolumeByMuscle = volumeSummaries.toUpperVolumeCards(),
             lowerVolumeByMuscle = volumeSummaries.toLowerVolumeCards(),
-            scheduleItems = buildWeeklySchedule(this).map { item ->
-                item.toScheduleItemState(liftNamesById, completedWorkoutIds, activeWorkoutId, completedRestDayWeekdays)
-            },
+            scheduleItems =
+                buildCycleScheduleItems(
+                    program = this,
+                    liftNamesById = liftNamesById,
+                    completedWorkoutIds = completedWorkoutIds,
+                    activeWorkoutId = activeWorkoutId,
+                    completedRestSlotIndices = completedRestSlotIndices,
+                ),
+        )
+    }
+
+/**
+ * Builds the Programs strip from cycle slots in order. Labels are order-only: training rows use
+ * the workout name (secondary label empty); rest rows leave secondary empty so the UI shows only
+ * the Rest Day primary string.
+ */
+internal fun buildCycleScheduleItems(
+    program: Program,
+    liftNamesById: Map<String, String> = emptyMap(),
+    completedWorkoutIds: Set<String> = emptySet(),
+    activeWorkoutId: String? = null,
+    completedRestSlotIndices: Set<Int> = emptySet(),
+): List<ScheduleItemState> =
+    program.resolvedCycleSlots().map { slot ->
+        slot.toScheduleItemState(
+            liftNamesById = liftNamesById,
+            completedWorkoutIds = completedWorkoutIds,
+            activeWorkoutId = activeWorkoutId,
+            completedRestSlotIndices = completedRestSlotIndices,
         )
     }
 
@@ -103,34 +128,37 @@ internal fun buildLiftLineState(
         position = position,
     )
 
-private fun ScheduleDayItem.toScheduleItemState(
+private fun CycleSlot.toScheduleItemState(
     liftNamesById: Map<String, String>,
     completedWorkoutIds: Set<String>,
     activeWorkoutId: String?,
-    completedRestDayWeekdays: Set<Weekday>,
+    completedRestSlotIndices: Set<Int>,
 ): ScheduleItemState =
     when (this) {
-        is ScheduleDayItem.RestDay ->
+        is CycleSlot.Rest ->
             ScheduleItemState.RestDay(
-                weekdayLabel = weekday.toDisplayLabel(),
-                isCompleted = weekday in completedRestDayWeekdays,
+                slotIndex = slotIndex,
+                isCompleted = slotIndex in completedRestSlotIndices,
             )
-        is ScheduleDayItem.WorkoutDay ->
+        is CycleSlot.Training ->
             ScheduleItemState.Workout(
-                workout = workout.toViewState(liftNamesById, weekday, completedWorkoutIds, activeWorkoutId),
+                workout =
+                    workout.toViewState(
+                        liftNamesById = liftNamesById,
+                        completedWorkoutIds = completedWorkoutIds,
+                        activeWorkoutId = activeWorkoutId,
+                    ),
             )
     }
 
 private fun Workout.toViewState(
     liftNamesById: Map<String, String>,
-    weekday: Weekday,
     completedWorkoutIds: Set<String>,
     activeWorkoutId: String?,
 ): WorkoutViewState =
     WorkoutViewState(
         workoutId = id.value,
         name = name,
-        weekdayLabel = weekday.toDisplayLabel(),
         position = position,
         lifts =
             workoutLifts.sortedBy { lift -> lift.position }.map { lift ->
@@ -148,9 +176,6 @@ private fun WorkoutLift.toViewState(liftNamesById: Map<String, String>): Workout
         liftNamesById = liftNamesById,
         position = position,
     )
-
-private fun Weekday.toDisplayLabel(): String =
-    name.replaceFirstChar { char -> char.titlecase(Locale.US) }
 
 private const val UUID_LENGTH = 36
 private const val UUID_HYPHEN_COUNT = 4

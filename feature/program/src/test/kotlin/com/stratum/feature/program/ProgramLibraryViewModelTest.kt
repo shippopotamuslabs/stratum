@@ -265,14 +265,17 @@ class ProgramLibraryViewModelTest {
                         ),
                 )
             }
+        val trainingOrdinals = weekdays.map { weekday -> weekday.ordinal }.toSet()
+        val restSlotIndices = (0 until 7).filterNot { index -> index in trainingOrdinals }.toSet()
         return Program(
             id = programId,
             name = name,
             createdAt = Instant.parse("2026-01-01T00:00:00Z"),
-            cycleLength = workouts.size,
+            cycleLength = 7,
             trainingWeekdays = weekdays,
             workouts = workouts,
             isActive = isActive,
+            restSlotIndices = restSlotIndices,
         )
     }
 }

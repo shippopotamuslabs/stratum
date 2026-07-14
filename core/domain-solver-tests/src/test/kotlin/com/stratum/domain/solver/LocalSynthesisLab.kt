@@ -60,11 +60,11 @@ class LocalSynthesisLab {
             )
         val weeklyTargets = planWeeklyVolume(context)
         val universe = buildSlotUniverse(context, weeklyTargets)
-        val filtersBySession = regionFiltersBySessionPosition(context.weekdays)
+        val filtersBySession = regionFiltersBySessionPosition(emptyList() /* cycle slots, not weekdays */)
 
         println("=== LocalSynthesisLab ===")
         println("days=$days layout=$layout sessionMinutes=$sessionMinutes deadlineMs=$deadlineMs")
-        println("weekdays=${context.weekdays}")
+        println("weekdays=${emptyList() /* cycle slots, not weekdays */}")
         println("specialization=$specialization")
         println(
             "regionFiltersBySession=" +

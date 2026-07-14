@@ -30,7 +30,6 @@ fun buildProgramNamingRequest(
                             .mapKeys { it.key.name }
                             .mapValues { it.value.name },
                         specializedMuscles = specializedMuscles(context),
-                        trainingWeekdays = context.weekdays,
                     ),
                 program =
                     ProgramNamingProgramPayload(

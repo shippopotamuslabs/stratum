@@ -50,9 +50,14 @@ interface ProgramRepository {
     /** Inactive user programs (excludes active and import-history). */
     fun observeLibraryPrograms(): Flow<List<Program>>
 
+    /**
+     * @param cycleStartEpochDay when non-null, updates the cycle projection anchor (typically on
+     * cycle rollover). When null, leaves the stored anchor unchanged.
+     */
     suspend fun updateCyclePointer(
         programId: ProgramId,
         currentCycleNumber: Int,
         cyclePosition: Int,
+        cycleStartEpochDay: Long? = null,
     )
 }

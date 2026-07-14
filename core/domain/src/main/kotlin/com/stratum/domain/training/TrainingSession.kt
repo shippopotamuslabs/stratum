@@ -41,6 +41,8 @@ data class TrainingSession(
     val origin: TrainingSessionOrigin,
     val cycleNumberSnapshot: Int,
     val weekdaySnapshot: Weekday?,
+    /** Cycle space slot index at log time (train or rest). Null for legacy/ad-hoc rows. */
+    val cycleSlotIndexSnapshot: Int? = null,
     val startedAt: Instant,
     val endedAt: Instant?,
     val sourceApp: String?,

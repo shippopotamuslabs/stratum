@@ -67,7 +67,6 @@ class OnboardingReviewStepViewModelTest {
             val draft = awaitItem().reviewDraft
             assertEquals("4–7 years", draft.trainingAge)
             assertEquals("Within the last 3 months", draft.lastTrained)
-            assertEquals(listOf("Mon", "Wed", "Fri"), draft.weekdays)
             assertEquals(60, draft.sessionMinutes)
             assertEquals(listOf("Chest", "Quads"), draft.specialization)
             assertEquals("Commercial gym", draft.presetLabel)
@@ -93,7 +92,7 @@ class OnboardingReviewStepViewModelTest {
             val draft = awaitItem().reviewDraft
             assertTrue(draft.specialization.isEmpty())
             assertEquals("0–2 years", draft.trainingAge)
-            assertEquals(listOf("Tue"), draft.weekdays)
+            assertEquals(45, draft.sessionMinutes)
             cancelAndIgnoreRemainingEvents()
         }
     }

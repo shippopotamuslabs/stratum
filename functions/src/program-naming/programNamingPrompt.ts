@@ -11,7 +11,7 @@ Your ONLY job is to suggest:
 2. A short workout name (2–5 words) for each session.
 
 Rules:
-- Use the specialization intent, training weekdays, and exercise list provided.
+- Use the specialization intent, training frequency (days per week / cycle length), and exercise list provided.
 - Names should sound like what a coach would label a program in a training app — not robotic internal codes.
 - Do NOT include set counts, rep ranges, or RIR in names.
 - Do NOT invent exercises not present in the payload.
@@ -26,7 +26,6 @@ export interface NameProgramIntentPayload {
   cycleLength: number;
   specialization: Record<string, string>;
   specializedMuscles: string[];
-  trainingWeekdays: string[];
 }
 
 export interface NameProgramLiftPayload {

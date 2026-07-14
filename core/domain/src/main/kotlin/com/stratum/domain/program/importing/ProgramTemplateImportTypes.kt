@@ -19,9 +19,10 @@ value class ProgramTemplateImportJobId(val value: String)
  * deterministic generation output and is already lift-id-resolved).
  *
  * @param programName Display name; null if the source had none (caller assigns a default).
- * @param cycleLength Sessions per full cycle before repeating; null when unknown (defaults to the
- *  workout count on the client). MacroFactor exposes this as "Cycles"; Alpha Progression as the
- *  plan duration in weeks.
+ * @param cycleLength Provider-reported mesocycle / plan-week count when present (MacroFactor
+ *  "Cycles: N", Alpha Progression plan duration in weeks). **Not** domain slot space —
+ *  [ResolveProgramTemplateLiftsUseCase] computes [com.stratum.domain.program.Program.cycleLength]
+ *  from training + rest template rows and ignores this field for schedule / check-in scaling.
  */
 data class NormalizedProgramTemplate(
     val programName: String?,
@@ -37,8 +38,8 @@ data class NormalizedProgramTemplateWorkout(
     val lifts: List<NormalizedProgramTemplateLift>,
     /**
      * True for explicit rest days in the cycle (e.g. MacroFactor interleaves Rest rows between
-     * training days). A rest day carries no lifts; the resolver uses it to consume a weekday slot
-     * when assigning the schedule but does not create a domain `Workout` for it.
+     * training days). A rest day carries no lifts; the resolver records its walk index in
+     * [com.stratum.domain.program.Program.restSlotIndices] and does not create a domain `Workout`.
      */
     val restDay: Boolean = false,
 )

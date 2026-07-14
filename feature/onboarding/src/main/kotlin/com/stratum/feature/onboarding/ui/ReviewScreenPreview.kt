@@ -65,7 +65,6 @@ private fun ReviewScreenPreviewGrid(family: StratumThemeId) {
 private fun completedReviewDraft(): ReviewDraftUi = ReviewDraftUi(
     trainingAge = "4–7 years",
     lastTrained = "Within the last month",
-    weekdays = listOf("Mon", "Wed", "Fri"),
     sessionMinutes = 60,
     specialization = listOf("Quads", "Chest"),
     presetLabel = "Commercial gym",

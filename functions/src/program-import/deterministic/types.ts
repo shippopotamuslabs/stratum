@@ -8,7 +8,10 @@
  */
 export interface NormalizedProgramTemplate {
   programName: string | null;
-  /** Sessions per full cycle; null when unknown (client defaults to the workout count). */
+  /**
+   * Ordered day-row count for one cycle (training + restDay rows). NOT mesocycle / week-block
+   * duration. Null when unknown; client derives train+rest slot space from workouts.
+   */
   cycleLength: number | null;
   workouts: NormalizedProgramTemplateWorkout[];
 }

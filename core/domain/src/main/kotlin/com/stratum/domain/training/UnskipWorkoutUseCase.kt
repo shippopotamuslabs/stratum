@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.onboarding.Weekday
+import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.WorkoutId
 import javax.inject.Inject
@@ -11,8 +12,14 @@ import javax.inject.Inject
  * already advanced (the workout belongs to a previous cycle), this is a no-op — the
  * cycle reset already happened and the workout is uncompleted in the new cycle.
  *
- * Also supports un-skipping rest days via the [invoke] overload that accepts a [Weekday].
- * Rest-day sessions do not advance the cycle pointer, so un-skipping one is just a delete.
+ * Also supports un-skipping rest days (by [Weekday] or slot index). Rest consumption
+ * counts toward cycle completion; unskip recomputes the pointer from the remaining ledger.
+ *
+ * When unskipping a workout, mid-cycle auto-consumed REST_DAY rows that pure math no longer
+ * justifies are deleted in the same atomic batch (write-time auto-rests remain reversible).
+ *
+ * Deletes and cycle-pointer updates are applied atomically via
+ * [TrainingLogRepository.deleteSessionsWithCycleEffects].
  */
 class UnskipWorkoutUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
@@ -23,31 +30,27 @@ class UnskipWorkoutUseCase @Inject constructor(
             programRepository.getProgram()
                 ?: error("No active program found to unskip workout")
         val sessions = trainingLogRepository.getAllSessions()
-        val toDelete = sessions.filter { session ->
+        val workoutSessions = sessions.filter { session ->
             session.programId == program.id &&
                 session.workoutId == workoutId &&
                 session.cycleNumberSnapshot == program.currentCycleNumber &&
                 session.status == TrainingSessionStatus.COMPLETED &&
                 session.kind == TrainingSessionKind.PROGRAM_WORKOUT
         }
-        if (toDelete.isEmpty()) return@runCatching
-
-        toDelete.forEach { session ->
-            trainingLogRepository.deleteSession(session.id)
-        }
-
-        val remaining = sessions.filterNot { it.id in toDelete.map(TrainingSession::id) }
-        val effects = computeCycleAdvancement(program, remaining)
-        programRepository.updateCyclePointer(
-            programId = effects.pointerUpdate.programId,
-            currentCycleNumber = effects.pointerUpdate.currentCycleNumber,
-            cyclePosition = effects.pointerUpdate.cyclePosition,
-        )
+        if (workoutSessions.isEmpty()) return@runCatching
+        val remainingAfterWorkout = sessions.filterNot { session -> session.id in workoutSessions.map { it.id }.toSet() }
+        val orphanedAutoRests =
+            autoRestSessionsNoLongerJustified(
+                program = program,
+                remainingSessions = remainingAfterWorkout,
+                deletedWorkoutIds = setOf(workoutId),
+            )
+        applyUnskip(program, sessions, workoutSessions + orphanedAutoRests)
     }
 
     /**
      * Un-skip a rest day by deleting the matching COMPLETED REST_DAY session for the current
-     * cycle. Rest-day sessions don't affect the cycle pointer, so no recompute is needed.
+     * cycle and recomputing the cycle pointer (rests count toward cycle completion).
      */
     suspend operator fun invoke(weekday: Weekday): Result<Unit> = runCatching {
         val program =
@@ -61,8 +64,38 @@ class UnskipWorkoutUseCase @Inject constructor(
                 session.kind == TrainingSessionKind.REST_DAY &&
                 session.weekdaySnapshot == weekday
         }
-        toDelete.forEach { session ->
-            trainingLogRepository.deleteSession(session.id)
+        applyUnskip(program, sessions, toDelete)
+    }
+
+    /** Un-skip rest by cycle slot index. */
+    suspend fun unskipRestSlot(slotIndex: Int): Result<Unit> = runCatching {
+        val program =
+            programRepository.getProgram()
+                ?: error("No active program found to unskip rest day")
+        val sessions = trainingLogRepository.getAllSessions()
+        val toDelete = sessions.filter { session ->
+            session.programId == program.id &&
+                session.cycleNumberSnapshot == program.currentCycleNumber &&
+                session.status == TrainingSessionStatus.COMPLETED &&
+                session.kind == TrainingSessionKind.REST_DAY &&
+                session.cycleSlotIndexSnapshot == slotIndex
         }
+        applyUnskip(program, sessions, toDelete)
+    }
+
+    private suspend fun applyUnskip(
+        program: Program,
+        sessions: List<TrainingSession>,
+        toDelete: List<TrainingSession>,
+    ) {
+        if (toDelete.isEmpty()) return
+        val deleteIds = toDelete.map(TrainingSession::id).toSet()
+        val remaining = sessions.filterNot { it.id in deleteIds }
+        val effects = computeCycleAdvancement(program, remaining)
+        trainingLogRepository.deleteSessionsWithCycleEffects(
+            sessionIds = deleteIds,
+            cyclePointerUpdate = effects.pointerUpdate,
+            cycleCompletedEvent = effects.cycleCompletedEvent,
+        )
     }
 }

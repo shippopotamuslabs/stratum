@@ -28,20 +28,21 @@ enum class CreateProgramGenerateState {
 }
 
 /**
- * Maximum day tabs in the create/edit program editor.
+ * A single cycle slot in the create/edit program editor.
  *
- * Day tabs map onto a single Mon–Sun calendar week. Multi-week / rotating splits longer than
- * 7 slots are not implemented yet — the editor blocks adding past this cap.
+ * Tabs are ordered cycle slots (train or rest) — not Mon–Sun weekday identity.
+ * Slot order on save becomes [Program.cycleLength] + [Program.restSlotIndices].
  */
-const val MAX_CREATE_PROGRAM_DAYS = 7
-
 data class CreateProgramDayUi(
     val id: String,
     val name: String,
     val position: Int,
     val isRest: Boolean,
     val editState: EditWorkoutUiState.Loaded?,
-    /** Bound calendar weekday when loaded from a scheduled program; null for unbound drafts. */
+    /**
+     * Optional projection cache when loaded from a weekday-bound program.
+     * Not schedule identity — save ignores this and writes cycle slots.
+     */
     val weekday: com.stratum.domain.onboarding.Weekday? = null,
 )
 
@@ -84,9 +85,12 @@ data class CreateProgramUiState(
                     day.editState.lifts.none { lift -> lift.name == PLACEHOLDER_LIFT_NAME }
             }
 
-    /** False when the Mon–Sun week is full ([MAX_CREATE_PROGRAM_DAYS] day tabs). */
+    /**
+     * Always true — create/edit cycle slots are uncapped (not a fixed Mon–Sun week).
+     * Rest and train tabs are first-class slots; length is free-form.
+     */
     val canAddDay: Boolean
-        get() = days.size < MAX_CREATE_PROGRAM_DAYS
+        get() = true
 
     /** Secondary library save is only for new drafts or inactive library edits. */
     val showSaveToLibraryAction: Boolean

@@ -1,5 +1,7 @@
 package com.stratum.domain.program.generation.split
 
+import com.stratum.domain.program.schedule.TrainingTimeline
+
 private val WEEKDAY_ORDER =
     listOf(
         "Monday",
@@ -20,28 +22,19 @@ fun trainingWeekdayIndices(weekdays: List<String>): List<Int> =
         .sorted()
 
 /**
- * Calendar-adjacent training day index pairs (gap of one day), including week wrap
- * (e.g. Sun=6 → Mon=0) when the user's layout trains on consecutive week-boundary days.
+ * Adjacent training slot pairs (gap of one day), including cycle wrap.
+ *
+ * Prefer [TrainingTimeline.adjacentTrainingPairs] when cycle-space is known.
+ * This overload assumes a classic 7-day ring when [cycleLength] is omitted.
  */
-fun calendarAdjacentTrainingDayPairs(trainingDayIndices: List<Int>): List<Pair<Int, Int>> {
-    val sorted = trainingDayIndices.sorted()
-    val pairs = mutableListOf<Pair<Int, Int>>()
-    for (index in 0 until sorted.lastIndex) {
-        val d1 = sorted[index]
-        val d2 = sorted[index + 1]
-        if (d2 - d1 == 1) {
-            pairs += d1 to d2
-        }
-    }
-    if (sorted.size >= 2) {
-        val wrapEarlier = sorted.last()
-        val wrapLater = sorted.first()
-        if (7 - wrapEarlier + wrapLater == 1) {
-            pairs += wrapEarlier to wrapLater
-        }
-    }
-    return pairs
-}
+fun calendarAdjacentTrainingDayPairs(
+    trainingDayIndices: List<Int>,
+    cycleLength: Int = 7,
+): List<Pair<Int, Int>> =
+    TrainingTimeline(
+        cycleLength = cycleLength,
+        trainingSlotIndices = trainingDayIndices.sorted(),
+    ).adjacentTrainingPairs()
 
 /** Preserves the user's declared training-day sequence (e.g. Sun → Mon → Wed with Tue rest). */
 fun trainingWeekdayIndicesInUserOrder(weekdays: List<String>): List<Int> =

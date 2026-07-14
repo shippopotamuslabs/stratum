@@ -70,7 +70,7 @@ class CalendarAdjacentLiftMetadataRecoveryTest {
                 program.workouts
                     .filter { it.weekday != null }
                     .associate { Weekday.entries.indexOf(it.weekday!!) to it }
-            val orderedDays = trainingWeekdayIndices(context.weekdays).sorted()
+            val orderedDays = trainingWeekdayIndices(emptyList() /* cycle slots, not weekdays */).sorted()
             for (index in 1 until orderedDays.size) {
                 val d1 = orderedDays[index - 1]
                 val d2 = orderedDays[index]

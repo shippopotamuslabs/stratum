@@ -46,7 +46,7 @@ class UpperCompoundSpacingSynthesisTest {
         assertTrue(
             gapTwoChest.isNotEmpty(),
             "Upper-compound chest should be schedulable on gap-2 days (not heavy-axial forbidden): " +
-                "weekdays=${synthesis.weekdayIndexByPosition}",
+                "weekdays=${synthesis.cycleSlotIndexByPosition}",
         )
         val heavyAxialOnly =
             gapTwoChest.all { (earlier, _) ->
@@ -66,15 +66,15 @@ class UpperCompoundSpacingSynthesisTest {
     ): List<Pair<SessionSlotPlan, SessionSlotPlan>> {
         val coefficients = VolumeAllocationCoefficients(computePatternSecondaryCredits(context))
         val ordered =
-            synthesis.plans.sortedBy { plan -> synthesis.weekdayIndexByPosition[plan.position] }
+            synthesis.plans.sortedBy { plan -> synthesis.cycleSlotIndexByPosition[plan.position] }
         val pairs = mutableListOf<Pair<SessionSlotPlan, SessionSlotPlan>>()
         for (earlier in ordered) {
             for (later in ordered) {
                 if (earlier.position == later.position) continue
                 val gap =
                     calendarGapBetweenDays(
-                        synthesis.weekdayIndexByPosition[earlier.position],
-                        synthesis.weekdayIndexByPosition[later.position],
+                        synthesis.cycleSlotIndexByPosition[earlier.position],
+                        synthesis.cycleSlotIndexByPosition[later.position],
                     )
                 if (gap != 2) continue
                 val earlierDose = planMuscleCredits(earlier, muscle, coefficients)

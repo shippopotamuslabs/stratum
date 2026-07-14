@@ -15,7 +15,9 @@ data class ProgramNormalizationRequest(
 
 data class NormalizedProgram(
     val name: String,
+    /** Full cycle slots (training + rest). Equals `workouts.size + restSlotIndices.size`. */
     val cycleLength: Int,
+    val restSlotIndices: Set<Int> = emptySet(),
     val workouts: List<NormalizedWorkout>,
 )
 

@@ -5,6 +5,7 @@ import com.stratum.core.data.mapper.toDomain
 import com.stratum.core.data.mapper.toEntity
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
+import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingProgress
 import com.stratum.domain.onboarding.OnboardingRepository
 import com.stratum.domain.onboarding.OnboardingStep
@@ -20,14 +21,17 @@ class RoomOnboardingRepository @Inject constructor(
     override fun observeProgress(): Flow<OnboardingProgress?> =
         dao.observe().map { it?.toDomain() }
 
-    override suspend fun saveStep(step: OnboardingStep) {
+    override suspend fun saveStep(step: OnboardingStep, selectedPath: OnboardingPath?) {
         syncTouch.mutate {
-            val startedAt = dao.getOrNull()?.startedAt ?: System.currentTimeMillis()
+            val existing = dao.getOrNull()?.toDomain()
+            val startedAt = existing?.startedAt ?: System.currentTimeMillis()
+            val path = selectedPath ?: existing?.selectedPath
             dao.upsert(
                 OnboardingProgress(
                     currentStep = step,
                     startedAt = startedAt,
                     completedAt = null,
+                    selectedPath = path,
                 ).toEntity(),
             )
             syncTouch.cancelDelete(
@@ -39,7 +43,7 @@ class RoomOnboardingRepository @Inject constructor(
 
     override suspend fun markComplete() {
         syncTouch.mutate {
-            val current = dao.getOrNull()
+            val current = dao.getOrNull()?.toDomain()
             val startedAt = current?.startedAt ?: System.currentTimeMillis()
             val step = current?.currentStep ?: OnboardingStep.Review
             dao.upsert(
@@ -47,6 +51,7 @@ class RoomOnboardingRepository @Inject constructor(
                     currentStep = step,
                     startedAt = startedAt,
                     completedAt = System.currentTimeMillis(),
+                    selectedPath = current?.selectedPath,
                 ).toEntity(),
             )
             syncTouch.cancelDelete(
@@ -58,15 +63,15 @@ class RoomOnboardingRepository @Inject constructor(
 
     override suspend fun reopenWizard() {
         syncTouch.mutate {
-            val current = dao.getOrNull()
+            val current = dao.getOrNull()?.toDomain()
             val startedAt = current?.startedAt ?: System.currentTimeMillis()
-            // Return to Choose Path (Generate / Build From Scratch / Import) rather than Review.
-            // Review + empty weekdays (scratch never sets schedule) incorrectly surfaces Import.
+            // Return to Choose Path; clear durable path so Review cannot mis-route.
             dao.upsert(
                 OnboardingProgress(
                     currentStep = OnboardingStep.ChoosePath,
                     startedAt = startedAt,
                     completedAt = null,
+                    selectedPath = null,
                 ).toEntity(),
             )
             syncTouch.cancelDelete(

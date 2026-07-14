@@ -21,7 +21,7 @@ import com.stratum.domain.program.generation.reference.MIN_TOUCH_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.sessionHardSetCapForLength
 import com.stratum.domain.program.generation.schema.toDraft
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
-import com.stratum.domain.program.generation.split.trainingWeekdayIndices
+import com.stratum.domain.program.generation.context.resolveTrainingTimeline
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleVolume
 import com.stratum.domain.program.generation.validation.computeWorkoutMuscleSessionStress
 import com.stratum.domain.program.generation.reference.calendarDayIndexGap
@@ -147,7 +147,7 @@ class ProgramSynthesisAcceptanceTest {
         val stressByWorkoutName =
             draft.workouts.associate { it.name.orEmpty() to computeWorkoutMuscleSessionStress(it, context) }
         val threeDayStacks = mutableListOf<String>()
-        val orderedDays = trainingWeekdayIndices(context.weekdays).sorted()
+        val orderedDays = context.resolveTrainingTimeline().trainingSlotIndices
         for (i in 0..orderedDays.size - 3) {
             val d1 = workoutByDayIndex[orderedDays[i]] ?: continue
             val d2 = workoutByDayIndex[orderedDays[i + 1]] ?: continue
@@ -389,7 +389,7 @@ class ProgramSynthesisAcceptanceTest {
                 "6-day $preset synth returned no plans within 10s budget",
             )
             assertTrue(
-                result.weekdayIndexByPosition.size == 6,
+                result.cycleSlotIndexByPosition.size == 6,
                 "6-day $preset synth weekday assignment incomplete",
             )
         }

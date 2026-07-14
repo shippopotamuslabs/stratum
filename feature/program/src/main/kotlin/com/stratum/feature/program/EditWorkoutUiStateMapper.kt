@@ -5,7 +5,6 @@ import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutLiftId
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.feature.program.ui.DEFAULT_REP_MAX
 import com.stratum.feature.program.ui.DEFAULT_REP_MIN
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
@@ -13,7 +12,6 @@ import com.stratum.feature.program.ui.DEFAULT_RIR_GOAL
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
-import java.util.Locale
 import java.util.UUID
 
 internal fun Workout.toEditWorkoutUiState(
@@ -23,7 +21,6 @@ internal fun Workout.toEditWorkoutUiState(
     EditWorkoutUiState.Loaded(
         workoutId = id.value,
         workoutName = name,
-        weekdayLabel = weekday?.toDisplayLabel().orEmpty(),
         lifts =
             workoutLifts
                 .sortedBy { lift -> lift.position }
@@ -87,6 +84,3 @@ internal fun defaultEditSetState(
         rirGoal = DEFAULT_RIR_GOAL,
         isTopSet = setNumber == 1,
     )
-
-private fun Weekday.toDisplayLabel(): String =
-    name.replaceFirstChar { char -> char.titlecase(Locale.US) }

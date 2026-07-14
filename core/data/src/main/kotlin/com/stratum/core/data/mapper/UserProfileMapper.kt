@@ -7,8 +7,9 @@ import com.stratum.domain.onboarding.identity.UserProfileId
 
 /**
  * Maps [UserProfileEntity] ⇄ domain [UserTrainingProfile]. Enum columns are decoded by
- * [com.stratum.core.data.db.EnumConverters] and `Set<Weekday>` by
- * [com.stratum.core.data.db.WeekdaySetConverter], so this is now a plain field copy.
+ * [com.stratum.core.data.db.EnumConverters], `Set<Weekday>` by
+ * [com.stratum.core.data.db.WeekdaySetConverter], and rest indices by
+ * [com.stratum.core.data.db.IntSetConverter].
  */
 fun UserProfileEntity.toDomain(): UserTrainingProfile =
     UserTrainingProfile(
@@ -16,6 +17,9 @@ fun UserProfileEntity.toDomain(): UserTrainingProfile =
         lastTrained = lastTrained,
         weekdays = weekdays,
         sessionLengthMinutes = sessionLengthMinutes,
+        generationTrainingDayCount = generationTrainingDayCount,
+        generationCycleLength = generationCycleLength,
+        generationRestSlotIndices = generationRestSlotIndices,
     )
 
 /** Local write path — marks the singleton dirty for cloud upload. */
@@ -28,6 +32,9 @@ fun UserTrainingProfile.toEntity(
         lastTrained = lastTrained,
         weekdays = weekdays,
         sessionLengthMinutes = sessionLengthMinutes,
+        generationTrainingDayCount = generationTrainingDayCount,
+        generationCycleLength = generationCycleLength,
+        generationRestSlotIndices = generationRestSlotIndices,
         updatedAtEpochMillis = nowMillis,
         pendingSync = SyncFlags.PENDING_UPSERT,
     )

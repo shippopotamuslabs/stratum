@@ -44,7 +44,7 @@ class FiveDaySessionQualitySynthesisTest {
         val solverAdjacentRepeats =
             recoveryGapViolationsFromPlans(
                 plans = synthesis.plans,
-                weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
+                cycleSlotIndexByPosition = synthesis.cycleSlotIndexByPosition,
                 context = context,
                 muscleFilter = { muscle -> muscle in specializedMuscles },
                 calendarGapFilter = 1,
@@ -52,7 +52,7 @@ class FiveDaySessionQualitySynthesisTest {
         assertTrue(
             solverAdjacentRepeats.isEmpty(),
             "Solver must forbid adjacent specialized muscle exposure: $solverAdjacentRepeats\n" +
-                "weekdays=${synthesis.weekdayIndexByPosition}\n" +
+                "weekdays=${synthesis.cycleSlotIndexByPosition}\n" +
                 scheduleDebug(synthesis, context),
         )
 
@@ -112,9 +112,9 @@ class FiveDaySessionQualitySynthesisTest {
         context: ProgramGenerationContext,
     ): String =
         synthesis.plans
-            .sortedBy { plan -> synthesis.weekdayIndexByPosition[plan.position] }
+            .sortedBy { plan -> synthesis.cycleSlotIndexByPosition[plan.position] }
             .joinToString(" | ") { plan ->
-                val day = Weekday.entries[synthesis.weekdayIndexByPosition[plan.position]]
+                val day = Weekday.entries[synthesis.cycleSlotIndexByPosition[plan.position]]
                 val stress = planMuscleSessionStress(plan, context)
                 val calf = stress["Calf"]?.fractionalSets ?: 0.0
                 val bicep = stress["Bicep"]?.fractionalSets ?: 0.0

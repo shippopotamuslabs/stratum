@@ -98,7 +98,6 @@ class SessionDurationTrimTest {
             lastTrained = null,
             sessionLengthMinutes = sessionMinutes,
             trainingDaysPerWeek = 4,
-            weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday"),
             specialization = emptyMap(),
             liftsById =
                 mapOf(

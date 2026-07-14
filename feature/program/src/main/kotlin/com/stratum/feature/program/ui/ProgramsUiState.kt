@@ -31,7 +31,14 @@ data class ProgramViewState(
 )
 
 sealed interface ScheduleItemState {
-    data class RestDay(val weekdayLabel: String, val isCompleted: Boolean = false) : ScheduleItemState
+    /**
+     * @param slotIndex Cycle-space index for rest skip/unskip (not a weekday ordinal).
+     * Rest rows show the Rest Day primary string only (order-only strip — no date/weekday line).
+     */
+    data class RestDay(
+        val slotIndex: Int,
+        val isCompleted: Boolean = false,
+    ) : ScheduleItemState
 
     data class Workout(val workout: WorkoutViewState) : ScheduleItemState
 }
@@ -39,7 +46,6 @@ sealed interface ScheduleItemState {
 data class WorkoutViewState(
     val workoutId: String,
     val name: String,
-    val weekdayLabel: String,
     val position: Int,
     val lifts: List<WorkoutLiftLineState>,
     val isCompleted: Boolean = false,

@@ -53,7 +53,7 @@ export const PROGRAM_TEMPLATE_SYSTEM_PROMPT = `You convert workout program sprea
 11. Non-numeric intensity labels (Myo-Match, AMRAP, Myo-reps, Long-length Partials) → setTypeLabel; repMin/repMax null when not numeric.
 12. Weekday in parentheses e.g. "Upper A (Sunday)" → weekday "Sunday" and a clear workout name.
 13. Explicit rest day lines → workout with restDay=true and empty lifts.
-14. cycleLength: use 7 when the week has named weekdays or rest days; otherwise null or the training-day count.
+14. cycleLength: MUST be the number of ordered day rows in the cycle (training days + restDay rows). Use 7 when the week has named weekdays or rest days and forms a full week; otherwise the day-row count. NEVER use mesocycle/week-block counts (e.g. MacroFactor "Cycles: 9" or "4 weeks") as cycleLength.
 15. programName: from filename/title if present, else a short descriptive name.
 16. Every non-rest workout needs ≥1 lift; every lift needs ≥1 set; lift names non-empty; if both repMin and repMax present then repMax ≥ repMin and both > 0.
 

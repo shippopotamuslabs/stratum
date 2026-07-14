@@ -16,7 +16,6 @@ import com.stratum.domain.training.StartTrainingSessionRequest
 import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.UnskipWorkoutUseCase
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.feature.program.ui.MinimizedWorkoutState
 import com.stratum.feature.program.ui.ProgramsStartAction
 import com.stratum.feature.program.ui.ProgramsUiEvent
@@ -80,7 +79,7 @@ class ProgramsViewModel @Inject constructor(
                     .map { it.value }
                     .toSet(),
                 activeWorkoutId = progress.activeSession?.workoutId?.value,
-                completedRestDayWeekdays = progress.completedRestDayWeekdaysThisCycle,
+                completedRestSlotIndices = progress.completedRestSlotIndicesThisCycle,
             )
         }.stateIn(
             viewModelScope,
@@ -214,16 +213,16 @@ class ProgramsViewModel @Inject constructor(
         }
     }
 
-    fun skipRestDay(weekday: Weekday) {
+    fun skipRestDay(slotIndex: Int) {
         viewModelScope.launch {
-            recordRestDaySkip(weekday)
+            recordRestDaySkip(slotIndex)
                 .onFailure { showUserMessage(MSG_SKIP_FAILED) }
         }
     }
 
-    fun unskipRestDay(weekday: Weekday) {
+    fun unskipRestDay(slotIndex: Int) {
         viewModelScope.launch {
-            unskipWorkout(weekday)
+            unskipWorkout.unskipRestSlot(slotIndex)
                 .onFailure { showUserMessage(MSG_UNSKIP_FAILED) }
         }
     }

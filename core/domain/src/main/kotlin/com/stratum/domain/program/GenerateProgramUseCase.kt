@@ -8,8 +8,11 @@ import com.stratum.domain.program.generation.pipeline.PipelineOptions
 import com.stratum.domain.program.generation.pipeline.PipelinePhase
 import com.stratum.domain.program.generation.pipeline.PipelineProgress
 import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.schema.toDomainProgram
 import com.stratum.domain.program.generation.schema.toProgramNormalizationRequest
+import com.stratum.domain.program.schedule.resolveInitialCycleStartEpochDay
+import com.stratum.domain.program.schedule.withMaterializedCycleSpace
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +29,10 @@ import kotlinx.coroutines.withContext
  *
  * Progress phases are emitted from a background thread as each pipeline step runs. Callers should
  * hop to [Dispatchers.Main] when updating UI from [onProgress].
+ *
+ * Optional [restSlotIndices] / [cycleLength] are raw UX cycle-space hints (PR7) — not a schedule-mode
+ * enum. Six-day defaults (8-slot, rests 3+7) and classic weekday complement apply only in
+ * [com.stratum.domain.program.schedule.materializeGeneratedCycleSpace].
  */
 class GenerateProgramUseCase @Inject constructor(
     private val loadContext: ProgramGenerationContextLoader,
@@ -34,12 +41,23 @@ class GenerateProgramUseCase @Inject constructor(
     @DefaultDispatcher private val generationDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     suspend operator fun invoke(
+        restSlotIndices: Set<Int>? = null,
+        cycleLength: Int? = null,
         onProgress: ProgramGenerationProgressCallback = {},
     ): Result<Program> =
         withContext(generationDispatcher) {
             try {
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.PreparingPayload))
-                val context = loadContext.load()
+                val context =
+                    loadContext
+                        .load(
+                            restSlotIndices = restSlotIndices,
+                            cycleLength = cycleLength,
+                        )
+                        .withUxCycleSpaceHints(
+                            restSlotIndices = restSlotIndices,
+                            cycleLength = cycleLength,
+                        )
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.ReviewingProfile))
 
                 val knownLiftIds =
@@ -60,17 +78,31 @@ class GenerateProgramUseCase @Inject constructor(
                     normalized.toDomainProgram()
                         .retainOnlyKnownLifts(knownLiftIds)
                         .withReconciledTrainingWeekdays()
-                        .copy(isActive = false)
+                        // Re-materialize after sanitization so dropped workouts cannot leave
+                        // cycleLength/restSlotIndices mismatched to survivors.
+                        .withMaterializedCycleSpace(
+                            restSlotIndicesHint = context.restSlotIndices,
+                            cycleLengthHint = context.cycleLength,
+                        )
+                // 7-day Mon-start weeks must not anchor slot 0 to "today" (Tue→ first day Tuesday).
+                program =
+                    program.copy(
+                        isActive = false,
+                        cycleStartEpochDay = resolveInitialCycleStartEpochDay(program),
+                    )
                 require(program.workouts.isNotEmpty()) {
                     "Generated program has no workouts with known lift references"
                 }
-                require(program.effectiveTrainingWeekdays().isNotEmpty()) {
-                    "Generated program has no bound training weekdays"
-                }
-                program = resolveAdjacentCalendarLiftCollisions(
-                    program = program,
-                    context = context,
-                ).copy(isActive = false)
+                program =
+                    resolveAdjacentCalendarLiftCollisions(
+                        program = program,
+                        context = context,
+                    ).copy(
+                        isActive = false,
+                        cycleStartEpochDay =
+                            program.cycleStartEpochDay
+                                ?: resolveInitialCycleStartEpochDay(program),
+                    )
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete))
                 Result.success(program)
             } catch (error: kotlinx.coroutines.CancellationException) {
@@ -94,3 +126,30 @@ private fun PipelineProgress.toDomainProgress(): ProgramGenerationProgress =
             },
         detail = detail,
     )
+
+/**
+ * Merges raw UX cycle-space overrides onto context. Does **not** resolve 6-day defaults —
+ * that is sole responsibility of [com.stratum.domain.program.schedule.materializeGeneratedCycleSpace].
+ *
+ * When both rest pattern and cycle length are present, [ProgramGenerationContext.trainingDaysPerWeek]
+ * is set from `cycleLength - rests`.
+ */
+internal fun ProgramGenerationContext.withUxCycleSpaceHints(
+    restSlotIndices: Set<Int>? = null,
+    cycleLength: Int? = null,
+): ProgramGenerationContext {
+    if (restSlotIndices == null && cycleLength == null) return this
+    val rests = restSlotIndices ?: this.restSlotIndices
+    val length = cycleLength ?: this.cycleLength
+    val trainCount =
+        if (rests != null && length != null && length > rests.size) {
+            length - rests.size
+        } else {
+            trainingDaysPerWeek
+        }
+    return copy(
+        restSlotIndices = rests,
+        cycleLength = length,
+        trainingDaysPerWeek = trainCount.coerceAtLeast(1),
+    )
+}
