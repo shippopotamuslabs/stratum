@@ -371,9 +371,11 @@ private fun MergeModeTopBar(
             }
         },
         actions = {
+            // Keep enabled so disabledContainerColor does not fill the chrome (matches X).
             StratumIconButton(
-                onClick = onConfirmSelection,
-                enabled = canConfirm,
+                onClick = {
+                    if (canConfirm) onConfirmSelection()
+                },
                 containerColor = Color.Transparent,
             ) {
                 Icon(
