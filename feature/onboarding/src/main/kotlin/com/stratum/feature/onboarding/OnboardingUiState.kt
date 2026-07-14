@@ -123,9 +123,11 @@ data class LiftSummaryUi(
 data class ProfileScheduleHandlers(
     val onTrainingAgeSelected: (String?) -> Unit,
     val onLastTrainedSelected: (String?) -> Unit,
-    val onWeekdayToggled: (String) -> Unit,
+    val onTrainingDayCountChanged: (Int) -> Unit = {},
     val onSessionPresetSelected: (String?) -> Unit,
     val onCustomSessionMinutesChange: (Int) -> Unit,
+    val onSixDayCycleLengthSelected: (Int) -> Unit = {},
+    val onTrainingSlotToggled: (Int) -> Unit = {},
 )
 
 /**
@@ -214,7 +216,6 @@ data class GymLiftsDraftUi(
 data class ReviewDraftUi(
     val trainingAge: String? = null,
     val lastTrained: String? = null,
-    val weekdays: List<String> = emptyList(),
     val sessionMinutes: Int? = null,
     val specialization: List<String> = emptyList(),
     val minimumVolume: List<String> = emptyList(),

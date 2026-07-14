@@ -42,7 +42,7 @@ internal data class UiCombineInputs(
 internal fun UserTrainingProfile.applyEdit(edit: ProfileEdit): UserTrainingProfile = copy(
     trainingAge = edit.trainingAge ?: trainingAge,
     lastTrained = edit.lastTrained ?: lastTrained,
-    weekdays = weekdays.applyAdditiveSetEdit(edit.weekdaysEdit),
+
     sessionLengthMinutes = when (val sessionLength = edit.sessionLength) {
         SessionLengthEdit.Unchanged -> sessionLengthMinutes
         is SessionLengthEdit.Active -> sessionLength.minutes

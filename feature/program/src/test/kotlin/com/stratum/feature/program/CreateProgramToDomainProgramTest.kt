@@ -17,13 +17,13 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 /**
- * Day tabs map onto a Mon–Sun calendar by list order, including rest slots as gaps.
- * Tab order is the sole binding source of truth on save (stored day.weekday is ignored).
+ * Day tabs map onto cycle slots (train + rest). Slot index + restSlotIndices are schedule
+ * identity; weekday projection stays null / empty on save.
  */
 class CreateProgramToDomainProgramTest {
     @Test
-    @DisplayName("Workout Rest Workout maps to Monday and Wednesday (rest slot is calendar gap)")
-    fun scratchDraftRestSlotsCreateCalendarGaps() {
+    @DisplayName("Workout Rest Workout → rest at slot 1, trainings at positions 0 and 1")
+    fun scratchDraftRestSlotsCreateCycleGaps() {
         val state =
             CreateProgramUiState(
                 programId = "prog-scratch",
@@ -35,7 +35,6 @@ class CreateProgramToDomainProgramTest {
                             name = "Workout 1",
                             position = 0,
                             isRest = false,
-                            weekday = null,
                             lifts = listOf(editLift("wl-1", "bench-press", "Bench Press")),
                         ),
                         dayUi(
@@ -43,7 +42,6 @@ class CreateProgramToDomainProgramTest {
                             name = "Rest",
                             position = 1,
                             isRest = true,
-                            weekday = null,
                             lifts = emptyList(),
                         ),
                         dayUi(
@@ -51,7 +49,6 @@ class CreateProgramToDomainProgramTest {
                             name = "Workout 2",
                             position = 2,
                             isRest = false,
-                            weekday = null,
                             lifts = listOf(editLift("wl-2", "squat", "Squat")),
                         ),
                     ),
@@ -60,9 +57,11 @@ class CreateProgramToDomainProgramTest {
         val program = state.toDomainProgram(meta = null)
 
         assertEquals(2, program.workouts.size)
-        assertEquals(setOf(Weekday.Monday, Weekday.Wednesday), program.trainingWeekdays)
-        assertEquals(Weekday.Monday, program.workouts[0].weekday)
-        assertEquals(Weekday.Wednesday, program.workouts[1].weekday)
+        assertEquals(3, program.cycleLength)
+        assertEquals(setOf(1), program.restSlotIndices)
+        assertTrue(program.trainingWeekdays.isEmpty())
+        assertNull(program.workouts[0].weekday)
+        assertNull(program.workouts[1].weekday)
         assertEquals(0, program.workouts[0].position)
         assertEquals(1, program.workouts[1].position)
         assertEquals("Workout 1", program.workouts[0].name)
@@ -71,12 +70,12 @@ class CreateProgramToDomainProgramTest {
     }
 
     @Test
-    @DisplayName("leading rest slot shifts first workout off Monday")
-    fun leadingRestMapsFirstWorkoutToTuesday() {
+    @DisplayName("leading rest slot is restSlotIndices 0")
+    fun leadingRestMapsToRestSlotZero() {
         val state =
             CreateProgramUiState(
                 programId = "prog-scratch-2",
-                programName = "Tue Start",
+                programName = "Rest Start",
                 days =
                     listOf(
                         dayUi(
@@ -84,7 +83,6 @@ class CreateProgramToDomainProgramTest {
                             name = "Rest",
                             position = 0,
                             isRest = true,
-                            weekday = null,
                             lifts = emptyList(),
                         ),
                         dayUi(
@@ -92,7 +90,6 @@ class CreateProgramToDomainProgramTest {
                             name = "Workout 1",
                             position = 1,
                             isRest = false,
-                            weekday = null,
                             lifts = listOf(editLift("wl-1", "bench-press", "Bench Press")),
                         ),
                     ),
@@ -101,14 +98,15 @@ class CreateProgramToDomainProgramTest {
         val program = state.toDomainProgram(meta = null)
 
         assertEquals(1, program.workouts.size)
-        assertEquals(setOf(Weekday.Tuesday), program.trainingWeekdays)
-        assertEquals(Weekday.Tuesday, program.workouts.single().weekday)
+        assertEquals(2, program.cycleLength)
+        assertEquals(setOf(0), program.restSlotIndices)
+        assertTrue(program.trainingWeekdays.isEmpty())
+        assertNull(program.workouts.single().weekday)
     }
 
     @Test
-    @DisplayName("tab index always wins over stale day.weekday (reorder / sticky labels)")
-    fun tabIndexOverridesStoredWeekday() {
-        // Simulate post-load sticky weekdays that no longer match tab order after reorder.
+    @DisplayName("stale day.weekday is ignored — tab order + rests only")
+    fun tabIndexIgnoresStoredWeekday() {
         val state =
             CreateProgramUiState(
                 programId = "prog-reordered",
@@ -120,7 +118,7 @@ class CreateProgramToDomainProgramTest {
                             name = "Legs",
                             position = 0,
                             isRest = false,
-                            weekday = Weekday.Friday, // stale after drag to front
+                            weekday = Weekday.Friday,
                             lifts = listOf(editLift("wl-3", "squat", "Squat")),
                         ),
                         dayUi(
@@ -136,7 +134,7 @@ class CreateProgramToDomainProgramTest {
                             name = "Push",
                             position = 2,
                             isRest = false,
-                            weekday = Weekday.Monday, // stale
+                            weekday = Weekday.Monday,
                             lifts = listOf(editLift("wl-1", "bench-press", "Bench Press")),
                         ),
                     ),
@@ -144,10 +142,11 @@ class CreateProgramToDomainProgramTest {
 
         val program = state.toDomainProgram(meta = null)
 
-        assertEquals(setOf(Weekday.Monday, Weekday.Wednesday), program.trainingWeekdays)
-        assertEquals(Weekday.Monday, program.workouts[0].weekday)
+        assertTrue(program.trainingWeekdays.isEmpty())
+        assertEquals(setOf(1), program.restSlotIndices)
+        assertNull(program.workouts[0].weekday)
         assertEquals("Legs", program.workouts[0].name)
-        assertEquals(Weekday.Wednesday, program.workouts[1].weekday)
+        assertNull(program.workouts[1].weekday)
         assertEquals("Push", program.workouts[1].name)
     }
 
@@ -165,7 +164,6 @@ class CreateProgramToDomainProgramTest {
                             name = "Push",
                             position = 0,
                             isRest = false,
-                            weekday = Weekday.Monday,
                             lifts = listOf(editLift("wl-1", "bench-press", "Bench Press")),
                         ),
                         dayUi(
@@ -173,7 +171,6 @@ class CreateProgramToDomainProgramTest {
                             name = "Pull",
                             position = 1,
                             isRest = false,
-                            weekday = Weekday.Wednesday,
                             lifts = listOf(editLift("wl-2", "row", "Row")),
                         ),
                         dayUi(
@@ -181,7 +178,6 @@ class CreateProgramToDomainProgramTest {
                             name = "Legs",
                             position = 2,
                             isRest = false,
-                            weekday = Weekday.Friday,
                             lifts = listOf(editLift("wl-3", "squat", "Squat")),
                         ),
                     ),
@@ -197,8 +193,9 @@ class CreateProgramToDomainProgramTest {
 
         val program = state.toDomainProgram(meta)
 
-        // Positions 0,1,2 with no rest → Mon, Tue, Wed (tab index, not stored Fri/Wed/Mon).
-        assertEquals(setOf(Weekday.Monday, Weekday.Tuesday, Weekday.Wednesday), program.trainingWeekdays)
+        assertEquals(3, program.cycleLength)
+        assertTrue(program.restSlotIndices.isEmpty())
+        assertTrue(program.trainingWeekdays.isEmpty())
         assertEquals(Instant.parse("2026-01-15T12:00:00Z"), program.createdAt)
         assertTrue(program.isActive)
         assertEquals(2, program.currentCycleNumber)
@@ -243,7 +240,6 @@ class CreateProgramToDomainProgramTest {
         assertNull(days[0].weekday)
         assertNull(days[1].weekday)
 
-        // Round-trip: unbound load → save assigns Mon/Tue by tab order (no Monday collapse).
         val state =
             CreateProgramUiState(
                 programId = program.id.value,
@@ -255,16 +251,17 @@ class CreateProgramToDomainProgramTest {
                                 EditWorkoutUiState.Loaded(
                                     workoutId = day.id,
                                     workoutName = day.name,
-                                    weekdayLabel = "",
                                     lifts = listOf(editLift("wl-$index", "lift-$index", "Lift $index")),
                                 ),
                         )
                     },
             )
         val saved = state.toDomainProgram(meta = null)
-        assertEquals(setOf(Weekday.Monday, Weekday.Tuesday), saved.trainingWeekdays)
-        assertEquals(Weekday.Monday, saved.workouts[0].weekday)
-        assertEquals(Weekday.Tuesday, saved.workouts[1].weekday)
+        assertTrue(saved.trainingWeekdays.isEmpty())
+        assertNull(saved.workouts[0].weekday)
+        assertNull(saved.workouts[1].weekday)
+        assertEquals(2, saved.cycleLength)
+        assertTrue(saved.restSlotIndices.isEmpty())
     }
 
     private fun dayUi(
@@ -272,7 +269,7 @@ class CreateProgramToDomainProgramTest {
         name: String,
         position: Int,
         isRest: Boolean,
-        weekday: Weekday?,
+        weekday: Weekday? = null,
         lifts: List<EditLiftState>,
     ): CreateProgramDayUi =
         CreateProgramDayUi(
@@ -287,7 +284,6 @@ class CreateProgramToDomainProgramTest {
                     EditWorkoutUiState.Loaded(
                         workoutId = id,
                         workoutName = name,
-                        weekdayLabel = weekday?.name.orEmpty(),
                         lifts = lifts,
                     )
                 },

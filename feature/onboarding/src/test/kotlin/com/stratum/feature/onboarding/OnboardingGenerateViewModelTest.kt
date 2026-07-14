@@ -17,6 +17,7 @@ import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
 import com.stratum.domain.program.GenerateProgramUseCase
+import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.domain.program.ProgramGenerationContextLoader
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -144,9 +145,9 @@ class OnboardingGenerateViewModelTest {
         val programRepo = FakeProgramRepository()
         val contextLoader: ProgramGenerationContextLoader =
             if (fail) {
-                ProgramGenerationContextLoader { error("generation failed") }
+                FixedProgramGenerationContextLoader(error = { error("generation failed") })
             } else {
-                ProgramGenerationContextLoader { scenarioContext(days = 3, specialization = emptyMap()) }
+                FixedProgramGenerationContextLoader(context = scenarioContext(days = 3, specialization = emptyMap()))
             }
         val validateCurrentStep = com.stratum.domain.onboarding.ValidateCurrentOnboardingStepUseCase(
             validateProfileStep = com.stratum.domain.onboarding.ValidateProfileStepUseCase(),

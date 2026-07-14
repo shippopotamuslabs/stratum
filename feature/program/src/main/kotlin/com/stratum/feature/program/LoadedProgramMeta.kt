@@ -1,19 +1,18 @@
 package com.stratum.feature.program
 
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Program
-import com.stratum.domain.program.ScheduleDayItem
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
-import com.stratum.domain.program.buildWeeklyScheduleOrFallback
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.program.schedule.CycleSlot
+import com.stratum.domain.program.schedule.resolvedCycleSlots
 import java.time.Instant
 import java.util.UUID
 
@@ -24,6 +23,7 @@ data class LoadedProgramMeta(
     val currentCycleNumber: Int,
     val cyclePosition: Int,
     val cycleLength: Int,
+    val cycleStartEpochDay: Long? = null,
 )
 
 internal fun Program.toLoadedProgramMeta(): LoadedProgramMeta =
@@ -33,58 +33,72 @@ internal fun Program.toLoadedProgramMeta(): LoadedProgramMeta =
         currentCycleNumber = currentCycleNumber,
         cyclePosition = cyclePosition,
         cycleLength = cycleLength,
+        cycleStartEpochDay = cycleStartEpochDay,
     )
 
+/**
+ * Expands a [Program] into editor cycle-slot tabs (train or rest).
+ *
+ * Always projects from [resolvedCycleSlots] — slot index + [Program.restSlotIndices] are
+ * schedule identity. Weekday-bound templates with empty rest indices and
+ * `cycleLength == workouts.size` load as train slots in order (no Mon–Sun padding).
+ */
 internal fun Program.toCreateProgramDays(
     liftNamesById: Map<String, String>,
     compoundByLiftId: Map<String, Boolean>,
-): List<CreateProgramDayUi> {
-    val scheduleDays = buildWeeklyScheduleOrFallback(this)
-    return scheduleDays.mapIndexed { index, item ->
-        when (item) {
-            is ScheduleDayItem.RestDay ->
+): List<CreateProgramDayUi> =
+    resolvedCycleSlots().map { slot ->
+        when (slot) {
+            is CycleSlot.Rest ->
                 CreateProgramDayUi(
-                    id = "rest-${item.weekday.name}-$id",
+                    id = "rest-${slot.slotIndex}-$id",
                     name = "Rest",
-                    position = index,
+                    position = slot.slotIndex,
                     isRest = true,
                     editState = null,
-                    // Rest slots keep the calendar weekday for display; save rebinds by index.
-                    weekday = item.weekday,
+                    weekday = null,
                 )
-            is ScheduleDayItem.WorkoutDay ->
+            is CycleSlot.Training ->
                 CreateProgramDayUi(
-                    id = item.workout.id.value,
-                    name = item.workout.name,
-                    position = index,
+                    id = slot.workout.id.value,
+                    name = slot.workout.name,
+                    position = slot.slotIndex,
                     isRest = false,
                     editState =
-                        item.workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId),
-                    // Prefer the workout's true binding. Fallback schedule may invent Monday
-                    // for unbound workouts — do not stamp that placeholder onto editor state.
-                    weekday = item.workout.weekday,
+                        slot.workout.toEditWorkoutUiState(liftNamesById, compoundByLiftId),
+                    // Projection cache only — not schedule identity.
+                    weekday = slot.workout.weekday,
                 )
         }
     }
-}
 
+/**
+ * Maps ordered editor tabs → domain [Program].
+ *
+ * - [Program.cycleLength] = train + rest slot count (all tabs)
+ * - [Program.restSlotIndices] = tab indices marked rest (or missing edit state)
+ * - Workouts are training slots only; [Workout.position] is 0..T-1 among train slots
+ * - Tab index is **not** [Weekday.entries] identity — weekday fields stay null / empty
+ */
 internal fun CreateProgramUiState.toDomainProgram(meta: LoadedProgramMeta?): Program {
     val programId = ProgramId(this.programId.ifBlank { UUID.randomUUID().toString() })
-    // Single source of truth: tab list order maps onto Mon–Sun (rest slots are calendar gaps).
-    // e.g. Workout / Rest / Workout → Monday + Wednesday. Stored day.weekday is display-only.
-    // Editor enforces MAX_CREATE_PROGRAM_DAYS (7); multi-week chains are deferred.
     val orderedDays = days.sortedBy { day -> day.position }
+    val restSlotIndices = linkedSetOf<Int>()
     val workouts = mutableListOf<Workout>()
-    orderedDays.forEachIndexed { calendarIndex, day ->
-        if (day.isRest || day.editState == null) return@forEachIndexed
+
+    orderedDays.forEachIndexed { slotIndex, day ->
+        if (day.isRest || day.editState == null) {
+            restSlotIndices += slotIndex
+            return@forEachIndexed
+        }
         val edit = day.editState
-        val weekday = Weekday.entries.getOrNull(calendarIndex)
         workouts +=
             Workout(
                 id = WorkoutId(edit.workoutId),
                 programId = programId,
                 name = day.name,
-                weekday = weekday,
+                // Weekday is optional projection only — never derived from tab index.
+                weekday = null,
                 position = workouts.size,
                 workoutLifts =
                     edit.lifts.mapIndexed { liftIndex, lift ->
@@ -114,20 +128,23 @@ internal fun CreateProgramUiState.toDomainProgram(meta: LoadedProgramMeta?): Pro
                     },
             )
     }
-    val trainingWeekdays = workouts.mapNotNull { workout -> workout.weekday }.toSet()
-    val workoutCount = workouts.size.coerceAtLeast(1)
+
+    val cycleLength = orderedDays.size.coerceAtLeast(1)
     val cyclePosition =
-        meta?.cyclePosition?.coerceIn(0, (workoutCount - 1).coerceAtLeast(0)) ?: 0
+        meta?.cyclePosition?.coerceIn(0, (cycleLength - 1).coerceAtLeast(0)) ?: 0
     return Program(
         id = programId,
         name = programName.ifBlank { "New Program" },
         createdAt = meta?.createdAt ?: Instant.now(),
-        cycleLength = workoutCount,
-        trainingWeekdays = trainingWeekdays,
+        cycleLength = cycleLength,
+        // Slot index + restSlotIndices are authoritative; clear weekday projection cache.
+        trainingWeekdays = emptySet(),
         workouts = workouts,
         currentCycleNumber = meta?.currentCycleNumber ?: 1,
         cyclePosition = cyclePosition,
         // Preserve active when editing; create drafts default inactive until Activate/Save paths set it.
         isActive = meta?.isActive ?: false,
+        restSlotIndices = restSlotIndices,
+        cycleStartEpochDay = meta?.cycleStartEpochDay,
     )
 }

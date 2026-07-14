@@ -727,7 +727,6 @@ fun EditWorkoutScreenLoadedPreview() {
                 EditWorkoutUiState.Loaded(
                     workoutId = "w-1",
                     workoutName = "Push Day",
-                    weekdayLabel = "Monday",
                     upperVolumeByMuscle =
                         listOf(
                             StratumMuscleVolumeCardState(
