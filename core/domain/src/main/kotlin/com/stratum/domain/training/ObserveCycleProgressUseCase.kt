@@ -1,6 +1,5 @@
 package com.stratum.domain.training
 
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
 import javax.inject.Inject
@@ -38,11 +37,13 @@ class ObserveCycleProgressUseCase @Inject constructor(
                 program = null,
                 activeSession = activeSession,
                 completedWorkoutIdsThisCycle = emptySet(),
-                completedRestDayWeekdaysThisCycle = emptySet(),
+                completedRestSlotIndicesThisCycle = emptySet(),
                 nextWorkout = null,
                 isCycleComplete = false,
+                cyclePosition = 0,
             )
         }
+        val slotProgress = CycleProgressResolver.reconcileSlotProgress(program, sessions)
         val completedWorkoutIds =
             program.workouts
                 .map { it.id }
@@ -50,23 +51,17 @@ class ObserveCycleProgressUseCase @Inject constructor(
                     CycleProgressResolver.isWorkoutCompletedThisCycle(program, sessions, workoutId)
                 }
                 .toSet()
-        val completedRestDayWeekdays = sessions
-            .filter { session ->
-                session.programId == program.id &&
-                    session.cycleNumberSnapshot == program.currentCycleNumber &&
-                    session.status == TrainingSessionStatus.COMPLETED &&
-                    session.kind == TrainingSessionKind.REST_DAY &&
-                    session.weekdaySnapshot != null
-            }
-            .mapNotNull { it.weekdaySnapshot }
-            .toSet()
+        // Ledger-only: auto mid-cycle rests are written as REST_DAY sessions at complete/skip.
+        val completedRestSlots =
+            CycleProgressResolver.completedRestSlotIndicesThisCycle(program, sessions)
         return CycleProgress(
             program = program,
             activeSession = activeSession,
             completedWorkoutIdsThisCycle = completedWorkoutIds,
-            completedRestDayWeekdaysThisCycle = completedRestDayWeekdays,
+            completedRestSlotIndicesThisCycle = completedRestSlots,
             nextWorkout = CycleProgressResolver.resolveNextWorkout(program, sessions),
-            isCycleComplete = CycleProgressResolver.isCycleComplete(program, sessions),
+            isCycleComplete = slotProgress.isComplete,
+            cyclePosition = if (slotProgress.isComplete) 0 else slotProgress.cyclePosition,
         )
     }
 }

@@ -225,21 +225,40 @@ class FakeTrainingLogRepository(
         updates.forEach { updateSet(it) }
     }
 
-    override suspend fun persistSessionWithCycleEffects(
-        session: TrainingSession,
+    override suspend fun persistSessionsWithCycleEffects(
+        sessions: List<TrainingSession>,
         cyclePointerUpdate: CyclePointerUpdate?,
         cycleCompletedEvent: ProgramChangeEvent?,
     ) {
-        if (sessions.containsKey(session.id)) {
-            updateSession(session)
-        } else {
-            insertSession(session)
+        for (session in sessions) {
+            if (this.sessions.containsKey(session.id)) {
+                updateSession(session)
+            } else {
+                insertSession(session)
+            }
         }
+        applyCycleEffects(cyclePointerUpdate, cycleCompletedEvent)
+    }
+
+    override suspend fun deleteSessionsWithCycleEffects(
+        sessionIds: Collection<TrainingSessionId>,
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
+    ) {
+        sessionIds.forEach { deleteSession(it) }
+        applyCycleEffects(cyclePointerUpdate, cycleCompletedEvent)
+    }
+
+    private suspend fun applyCycleEffects(
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
+    ) {
         cyclePointerUpdate?.let { update ->
             programRepository?.updateCyclePointer(
                 programId = update.programId,
                 currentCycleNumber = update.currentCycleNumber,
                 cyclePosition = update.cyclePosition,
+                cycleStartEpochDay = update.cycleStartEpochDay,
             )
         }
         cycleCompletedEvent?.let { event ->
