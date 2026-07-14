@@ -14,7 +14,7 @@ import com.stratum.core.ui.component.StratumSwitch
 import com.stratum.core.ui.component.StratumText
 
 /**
- * Hub sheet for a catalog lift: recommendation toggle, increments, and information.
+ * Hub sheet for a catalog lift: recommendation toggle, increments, information, and merge.
  */
 @Composable
 fun LiftConfigBottomSheet(
@@ -23,6 +23,7 @@ fun LiftConfigBottomSheet(
     onEnabledChange: (Boolean) -> Unit,
     onIncrementsClick: () -> Unit,
     onInformationClick: () -> Unit,
+    onMergeWithLiftsClick: () -> Unit,
     onDismissRequest: () -> Unit,
 ) {
     StratumBottomSheet(onDismissRequest = onDismissRequest) {
@@ -50,6 +51,11 @@ fun LiftConfigBottomSheet(
                 title = stringResource(UiR.string.lift_config_information),
                 subtitle = stringResource(UiR.string.lift_config_information_sub),
                 onClick = onInformationClick,
+            )
+            StratumPreferenceRow(
+                title = stringResource(UiR.string.lift_config_merge_lifts),
+                subtitle = stringResource(UiR.string.lift_config_merge_lifts_sub),
+                onClick = onMergeWithLiftsClick,
             )
         }
     }

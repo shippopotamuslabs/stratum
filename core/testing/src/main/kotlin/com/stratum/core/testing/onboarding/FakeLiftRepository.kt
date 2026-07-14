@@ -226,4 +226,10 @@ class FakeLiftRepository(
             if (lift.id == id) lift.copy(defaultRestSeconds = restSeconds) else lift
         }
     }
+
+    override suspend fun deleteLifts(ids: Collection<LiftId>) {
+        if (ids.isEmpty()) return
+        val remove = ids.toSet()
+        lifts.value = lifts.value.filterNot { it.id in remove }
+    }
 }

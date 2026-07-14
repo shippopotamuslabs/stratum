@@ -1,5 +1,6 @@
 package com.stratum
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +19,8 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,11 +36,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.FilterDropdownRow
+import com.stratum.core.ui.component.LiftPickerSearchBottomBar
 import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.core.ui.component.LiftSwapOptionRow
 import com.stratum.core.ui.component.LiftSwapOptionState
-import com.stratum.core.ui.component.LiftSwapSheetState
 import com.stratum.core.ui.component.MuscleFilterBottomSheet
+import com.stratum.core.ui.component.SelectedLiftsListPanel
+import com.stratum.core.ui.component.SelectedLiftsTray
 import com.stratum.core.ui.component.SelectedMusclesRow
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
@@ -48,6 +53,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.liftconfig.LiftConfigBottomSheet
+import com.stratum.liftconfig.MergeTargetBottomSheet
 
 @Composable
 fun GymScreen(
@@ -55,6 +61,7 @@ fun GymScreen(
     onManageEquipment: () -> Unit = {},
     onNavigateToIncrements: (liftId: String) -> Unit = {},
     onNavigateToInformation: (liftId: String) -> Unit = {},
+    onMergeModeChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: GymViewModel = hiltViewModel(),
 ) {
@@ -67,15 +74,33 @@ fun GymScreen(
         onUserMessageShown = viewModel::userMessageShown,
     )
 
+    LaunchedEffect(state.isMergeMode) {
+        onMergeModeChange(state.isMergeMode)
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            onMergeModeChange(false)
+            viewModel.exitMergeMode()
+        }
+    }
+
     GymScreen(
         state = state,
-        onSearchQueryChanged = viewModel::onSearchQueryChanged,
-        onFilterIntent = viewModel::onFilterIntent,
-        onLiftEnabledChange = viewModel::toggleLiftEnabled,
-        onNavigateToIncrements = onNavigateToIncrements,
-        onNavigateToInformation = onNavigateToInformation,
-        onCreateNewLift = onCreateNewLift,
-        onManageEquipment = onManageEquipment,
+        callbacks =
+            GymScreenCallbacks(
+                onSearchQueryChanged = viewModel::onSearchQueryChanged,
+                onFilterIntent = viewModel::onFilterIntent,
+                onLiftEnabledChange = viewModel::toggleLiftEnabled,
+                onNavigateToIncrements = onNavigateToIncrements,
+                onNavigateToInformation = onNavigateToInformation,
+                onCreateNewLift = onCreateNewLift,
+                onManageEquipment = onManageEquipment,
+                onEnterMergeMode = viewModel::enterMergeMode,
+                onExitMergeMode = viewModel::exitMergeMode,
+                onToggleMergeSelection = viewModel::toggleMergeSelection,
+                onDeselectFromMerge = viewModel::deselectFromMerge,
+                onConfirmMerge = viewModel::confirmMerge,
+            ),
         snackbarHostState = snackbarHostState,
         modifier = modifier,
     )
@@ -83,97 +108,160 @@ fun GymScreen(
 
 @Composable
 fun GymScreen(
-    state: LiftSwapSheetState,
-    onSearchQueryChanged: (String) -> Unit,
-    onFilterIntent: (LiftSwapFilterIntent) -> Unit,
-    onLiftEnabledChange: (String, Boolean) -> Unit,
-    onNavigateToIncrements: (String) -> Unit,
-    onNavigateToInformation: (String) -> Unit,
-    onCreateNewLift: () -> Unit,
-    onManageEquipment: () -> Unit = {},
+    state: GymUiState,
+    callbacks: GymScreenCallbacks,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
 ) {
+    val onSearchQueryChanged = callbacks.onSearchQueryChanged
+    val onFilterIntent = callbacks.onFilterIntent
+    val onLiftEnabledChange = callbacks.onLiftEnabledChange
+    val onNavigateToIncrements = callbacks.onNavigateToIncrements
+    val onNavigateToInformation = callbacks.onNavigateToInformation
+    val onCreateNewLift = callbacks.onCreateNewLift
+    val onManageEquipment = callbacks.onManageEquipment
+    val onEnterMergeMode = callbacks.onEnterMergeMode
+    val onExitMergeMode = callbacks.onExitMergeMode
+    val onToggleMergeSelection = callbacks.onToggleMergeSelection
+    val onDeselectFromMerge = callbacks.onDeselectFromMerge
+    val onConfirmMerge = callbacks.onConfirmMerge
+    val sheet = state.sheet
     var showMuscleSheet by remember { mutableStateOf(false) }
     var showGymActions by remember { mutableStateOf(false) }
     var selectedLift by remember { mutableStateOf<LiftSwapOptionState?>(null) }
+    var showMergeTargetSheet by remember { mutableStateOf(false) }
+    var showSelectedPanel by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.sheet.hasSelection) {
+        if (!state.sheet.hasSelection) {
+            showSelectedPanel = false
+        }
+    }
+
+    BackHandler(enabled = state.isMergeMode) {
+        when {
+            showMergeTargetSheet -> showMergeTargetSheet = false
+            showSelectedPanel -> showSelectedPanel = false
+            else -> onExitMergeMode()
+        }
+    }
 
     StratumTabScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
         verticalArrangement = Arrangement.spacedBy(12.dp),
         topBar = {
-            StratumTopBar(
-                titleContent = {
-                    StratumSearchField(
-                        value = state.searchQuery,
-                        onValueChange = onSearchQueryChanged,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                        placeholder = stringResource(UiR.string.lift_swap_search_placeholder),
-                    )
-                },
-                actions = {
-                    StratumIconButton(
-                        onClick = { showGymActions = true },
-                        containerColor = Color.Transparent,
-                    ) {
-                        Icon(
-                            painter = painterResource(UiR.drawable.ic_more_vert),
-                            contentDescription = stringResource(UiR.string.gym_more_actions),
-                            tint = StratumThemeAccessor.colors.textPrimary,
+            if (state.isMergeMode) {
+                MergeModeTopBar(
+                    selectedOptions = sheet.selectedOptions,
+                    showSelectedPanel = showSelectedPanel,
+                    canConfirm = state.canConfirmMerge,
+                    onExpandToggle = { showSelectedPanel = !showSelectedPanel },
+                    onCancel = onExitMergeMode,
+                    onConfirmSelection = { showMergeTargetSheet = true },
+                )
+            } else {
+                StratumTopBar(
+                    titleContent = {
+                        StratumSearchField(
+                            value = sheet.searchQuery,
+                            onValueChange = onSearchQueryChanged,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                            placeholder = stringResource(UiR.string.lift_swap_search_placeholder),
                         )
-                    }
-                },
-            )
-        },
-    ) {
-        FilterDropdownRow(
-            modifier = Modifier.padding(top = 8.dp),
-            state = state,
-            onFilterIntent = onFilterIntent,
-            onMuscleFilterClick = { showMuscleSheet = true },
-        )
-
-        SelectedMusclesRow(
-            selectedMuscles = state.selectedMuscles,
-            onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
-        )
-
-        val listState = rememberLazyListState()
-
-        LazyColumn(
-            state = listState,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(bottom = 16.dp),
-        ) {
-            items(state.options, key = { option -> option.id }) { option ->
-                LiftSwapOptionRow(
-                    option = option,
-                    onClick = { selectedLift = option },
-                    trailingContent = {
-                        Icon(
-                            painter = painterResource(UiR.drawable.ic_chevron_right),
-                            contentDescription = null,
-                            tint = StratumThemeAccessor.colors.textMuted,
-                        )
+                    },
+                    actions = {
+                        StratumIconButton(
+                            onClick = { showGymActions = true },
+                            containerColor = Color.Transparent,
+                        ) {
+                            Icon(
+                                painter = painterResource(UiR.drawable.ic_more_vert),
+                                contentDescription = stringResource(UiR.string.gym_more_actions),
+                                tint = StratumThemeAccessor.colors.textPrimary,
+                            )
+                        }
                     },
                 )
             }
+        },
+        bottomBar = {
+            if (state.isMergeMode && !showSelectedPanel) {
+                LiftPickerSearchBottomBar(
+                    searchQuery = sheet.searchQuery,
+                    onSearchQueryChanged = onSearchQueryChanged,
+                )
+            }
+        },
+    ) {
+        if (state.isMergeMode && showSelectedPanel) {
+            SelectedLiftsListPanel(
+                selectedOptions = sheet.selectedOptions,
+                onDeselectLift = onDeselectFromMerge,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            FilterDropdownRow(
+                modifier = Modifier.padding(top = 8.dp),
+                state = sheet,
+                onFilterIntent = onFilterIntent,
+                onMuscleFilterClick = { showMuscleSheet = true },
+            )
 
-            if (state.options.isEmpty()) {
-                item(key = "empty-state") {
-                    StratumText(
-                        text = stringResource(UiR.string.lift_swap_empty),
-                        muted = true,
-                        modifier = Modifier.padding(vertical = 24.dp),
+            SelectedMusclesRow(
+                selectedMuscles = sheet.selectedMuscles,
+                onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
+            )
+
+            val listState = rememberLazyListState()
+            val selectedIds = if (state.isMergeMode) sheet.selectedLiftIds else emptySet()
+
+            LazyColumn(
+                state = listState,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 16.dp),
+            ) {
+                items(sheet.options, key = { option -> option.id }) { option ->
+                    LiftSwapOptionRow(
+                        option = option,
+                        selected = option.id in selectedIds,
+                        onClick = {
+                            if (state.isMergeMode) {
+                                onToggleMergeSelection(option)
+                            } else {
+                                selectedLift = option
+                            }
+                        },
+                        trailingContent =
+                            if (state.isMergeMode) {
+                                null
+                            } else {
+                                {
+                                    Icon(
+                                        painter = painterResource(UiR.drawable.ic_chevron_right),
+                                        contentDescription = null,
+                                        tint = StratumThemeAccessor.colors.textMuted,
+                                    )
+                                }
+                            },
                     )
+                }
+
+                if (sheet.options.isEmpty()) {
+                    item(key = "empty-state") {
+                        StratumText(
+                            text = stringResource(UiR.string.lift_swap_empty),
+                            muted = true,
+                            modifier = Modifier.padding(vertical = 24.dp),
+                        )
+                    }
                 }
             }
         }
@@ -196,17 +284,17 @@ fun GymScreen(
     if (showMuscleSheet) {
         MuscleFilterBottomSheet(
             onDismissRequest = { showMuscleSheet = false },
-            selectedMuscles = state.selectedMuscles,
-            muscleGroups = state.muscleGroups,
+            selectedMuscles = sheet.selectedMuscles,
+            muscleGroups = sheet.muscleGroups,
             onMuscleToggled = { muscle -> onFilterIntent(LiftSwapFilterIntent.ToggleMuscle(muscle)) },
             onClearAll = { onFilterIntent(LiftSwapFilterIntent.ResetMuscles) },
         )
     }
 
     val configLift = selectedLift
-    if (configLift != null) {
+    if (configLift != null && !state.isMergeMode) {
         // Keep switch state live as the catalog updates while the sheet is open.
-        val liveOption = state.options.firstOrNull { it.id == configLift.id } ?: configLift
+        val liveOption = sheet.options.firstOrNull { it.id == configLift.id } ?: configLift
         LiftConfigBottomSheet(
             liftName = liveOption.name,
             enabled = liveOption.enabled,
@@ -221,9 +309,86 @@ fun GymScreen(
                 selectedLift = null
                 onNavigateToInformation(id)
             },
+            onMergeWithLiftsClick = {
+                val id = liveOption.id
+                selectedLift = null
+                onEnterMergeMode(id)
+            },
             onDismissRequest = { selectedLift = null },
         )
     }
+
+    if (showMergeTargetSheet && state.isMergeMode && sheet.selectedOptions.size >= 2) {
+        MergeTargetBottomSheet(
+            candidates = sheet.selectedOptions,
+            confirmEnabled = !state.isMerging,
+            onConfirm = { targetId ->
+                onConfirmMerge(targetId)
+                // Keep sheet open while isMerging so double-confirm is blocked; close when done.
+            },
+            onDismissRequest = {
+                if (!state.isMerging) showMergeTargetSheet = false
+            },
+        )
+    }
+
+    LaunchedEffect(state.isMerging, state.isMergeMode) {
+        if (!state.isMerging && !state.isMergeMode) {
+            showMergeTargetSheet = false
+        }
+    }
+}
+
+@Composable
+private fun MergeModeTopBar(
+    selectedOptions: List<LiftSwapOptionState>,
+    showSelectedPanel: Boolean,
+    canConfirm: Boolean,
+    onExpandToggle: () -> Unit,
+    onCancel: () -> Unit,
+    onConfirmSelection: () -> Unit,
+) {
+    StratumTopBar(
+        titleContent = {
+            if (selectedOptions.isNotEmpty()) {
+                SelectedLiftsTray(
+                    selectedOptions = selectedOptions,
+                    expanded = showSelectedPanel,
+                    onExpandToggle = onExpandToggle,
+                )
+            }
+        },
+        navigationIcon = {
+            StratumIconButton(
+                onClick = onCancel,
+                containerColor = Color.Transparent,
+            ) {
+                Icon(
+                    painter = painterResource(UiR.drawable.ic_close),
+                    contentDescription = stringResource(UiR.string.gym_merge_cancel),
+                    tint = StratumThemeAccessor.colors.textPrimary,
+                )
+            }
+        },
+        actions = {
+            StratumIconButton(
+                onClick = onConfirmSelection,
+                enabled = canConfirm,
+                containerColor = Color.Transparent,
+            ) {
+                Icon(
+                    painter = painterResource(UiR.drawable.ic_check),
+                    contentDescription = stringResource(UiR.string.gym_merge_confirm_selection),
+                    tint =
+                        if (canConfirm) {
+                            StratumThemeAccessor.colors.textPrimary
+                        } else {
+                            StratumThemeAccessor.colors.textMuted
+                        },
+                )
+            }
+        },
+    )
 }
 
 @Composable
@@ -294,3 +459,21 @@ private fun GymActionRow(
     }
 }
 
+/**
+ * Callbacks for the pure [GymScreen] composable — keeps the parameter list under Detekt's
+ * threshold (mirrors [com.stratum.navigation.MainTabShellCallbacks]).
+ */
+data class GymScreenCallbacks(
+    val onSearchQueryChanged: (String) -> Unit,
+    val onFilterIntent: (LiftSwapFilterIntent) -> Unit,
+    val onLiftEnabledChange: (String, Boolean) -> Unit,
+    val onNavigateToIncrements: (String) -> Unit,
+    val onNavigateToInformation: (String) -> Unit,
+    val onCreateNewLift: () -> Unit,
+    val onManageEquipment: () -> Unit = {},
+    val onEnterMergeMode: (originLiftId: String) -> Unit = {},
+    val onExitMergeMode: () -> Unit = {},
+    val onToggleMergeSelection: (LiftSwapOptionState) -> Unit = {},
+    val onDeselectFromMerge: (String) -> Unit = {},
+    val onConfirmMerge: (targetLiftId: String) -> Unit = {},
+)

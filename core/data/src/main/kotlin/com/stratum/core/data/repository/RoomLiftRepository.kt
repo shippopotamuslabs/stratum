@@ -322,6 +322,24 @@ class RoomLiftRepository @Inject constructor(
         }
     }
 
+    override suspend fun deleteLifts(ids: Collection<LiftId>) {
+        if (ids.isEmpty()) return
+        val distinct = ids.distinct()
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                for (id in distinct) {
+                    liftDao.deleteById(id)
+                }
+                syncTouch.enqueueDelete(
+                    SyncCollection.Lifts,
+                    distinct.map { it.value },
+                    now,
+                )
+            }
+        }
+    }
+
     private fun observeEquipmentById(): Flow<Map<EquipmentId, Equipment>> =
         combine(
             equipmentDao.observeAll(),

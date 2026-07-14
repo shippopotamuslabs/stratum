@@ -61,6 +61,11 @@ class RoomProgramRepository @Inject constructor(
 
     override suspend fun getProgramById(programId: ProgramId): Program? = readProgram(programId)
 
+    override suspend fun getAllUserPrograms(): List<Program> =
+        programDao.getAll()
+            .filterNot { entity -> entity.id.isImportHistory }
+            .mapNotNull { entity -> readProgram(entity.id) }
+
     override suspend fun saveProgram(program: Program) {
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {

@@ -208,6 +208,13 @@ class RoomTrainingLogRepository @Inject constructor(
     override suspend fun getSetsForLift(liftId: com.stratum.domain.lift.identity.LiftId): List<LoggedSet> =
         setDao.getSetsForLift(liftId).map { it.toTrainingDomain() }
 
+    override suspend fun getSetsForLifts(
+        liftIds: Collection<com.stratum.domain.lift.identity.LiftId>,
+    ): List<LoggedSet> {
+        if (liftIds.isEmpty()) return emptyList()
+        return setDao.getSetsForLifts(liftIds.distinct()).map { it.toTrainingDomain() }
+    }
+
     override suspend fun updateSets(sets: List<LoggedSet>) {
         if (sets.isEmpty()) return
         syncTouch.withWriteLock {

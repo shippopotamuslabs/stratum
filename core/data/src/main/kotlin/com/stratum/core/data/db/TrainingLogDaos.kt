@@ -94,6 +94,7 @@ interface TrainingSessionDao {
 }
 
 @Dao
+@Suppress("TooManyFunctions")
 interface TrainingLoggedSetDao {
     @Upsert
     suspend fun upsert(entity: LoggedSetEntity)
@@ -213,6 +214,52 @@ interface TrainingLoggedSetDao {
         """,
     )
     suspend fun getSetsForLift(liftId: LiftId): List<LoggedSetEntity>
+
+    @Query(
+        """
+        SELECT * FROM logged_sets
+        WHERE liftId IN (:liftIds)
+        """,
+    )
+    suspend fun getSetsForLifts(liftIds: List<LiftId>): List<LoggedSetEntity>
+
+    /**
+     * Reassigns all sets from [sourceLiftIds] onto [targetLiftId], rewrites snapshot names, and
+     * clears personal-record flags (null) so the unique (liftId, isPersonalRecord) index is safe.
+     */
+    @Query(
+        """
+        UPDATE logged_sets
+        SET liftId = :targetLiftId,
+            exerciseNameRaw = :targetName,
+            liftName = :targetName,
+            isPersonalRecord = NULL,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE liftId IN (:sourceLiftIds)
+        """,
+    )
+    suspend fun reassignSetsToLift(
+        sourceLiftIds: List<LiftId>,
+        targetLiftId: LiftId,
+        targetName: String,
+        updatedAtEpochMillis: Long,
+    ): Int
+
+    /** Clears PR flags on [liftId] (pre-collapse demotion for the survivor). */
+    @Query(
+        """
+        UPDATE logged_sets
+        SET isPersonalRecord = NULL,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE liftId = :liftId AND isPersonalRecord = 1
+        """,
+    )
+    suspend fun clearPersonalRecordsForLift(
+        liftId: LiftId,
+        updatedAtEpochMillis: Long,
+    ): Int
 
     /**
      * Earliest logged-set epoch per lift — the "how long have I been running this lift?" tenure
