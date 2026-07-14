@@ -1,5 +1,6 @@
 package com.stratum
 
+import com.stratum.core.testing.dashboard.FakeDashboardPreferencesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.MainDispatcherRule
@@ -11,8 +12,12 @@ import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.domain.dashboard.DashboardBoardTab
+import com.stratum.domain.dashboard.DashboardPreferences
 import com.stratum.domain.dashboard.LoadDashboardUseCase
 import com.stratum.domain.dashboard.LoadGraphDetailUseCase
+import com.stratum.domain.dashboard.ObserveDashboardPreferencesUseCase
+import com.stratum.domain.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -475,6 +480,60 @@ class DashboardViewModelTest {
         assertEquals(7, detail.primaryPoints.size, "1W zero-fills rest days")
     }
 
+    @Test
+    fun `selectedTab defaults to Muscles`() = runTest {
+        val viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals(DashboardBoardTabUi.Muscles, viewModel.selectedTab.value)
+    }
+
+    @Test
+    fun `selectedTab restores persisted tab from preferences`() = runTest {
+        val prefs = FakeDashboardPreferencesRepository(
+            DashboardPreferences(selectedTab = DashboardBoardTab.SevenDay),
+        )
+        val viewModel = buildViewModel(dashboardPreferences = prefs)
+        advanceUntilIdle()
+
+        assertEquals(DashboardBoardTabUi.SevenDay, viewModel.selectedTab.value)
+    }
+
+    @Test
+    fun `selectTab updates state only after prefs emit and persists`() = runTest {
+        val prefs = FakeDashboardPreferencesRepository()
+        val viewModel = buildViewModel(dashboardPreferences = prefs)
+        advanceUntilIdle()
+
+        viewModel.selectTab(DashboardBoardTabUi.Lifts)
+        advanceUntilIdle()
+
+        assertEquals(DashboardBoardTabUi.Lifts, viewModel.selectedTab.value)
+        assertEquals(DashboardBoardTab.Lifts, prefs.current.selectedTab)
+    }
+
+    @Test
+    fun `selectTab is no-op when tab already selected`() = runTest {
+        val prefs = FakeDashboardPreferencesRepository()
+        val viewModel = buildViewModel(dashboardPreferences = prefs)
+        advanceUntilIdle()
+
+        viewModel.selectTab(DashboardBoardTabUi.Muscles)
+        advanceUntilIdle()
+
+        assertEquals(DashboardBoardTabUi.Muscles, viewModel.selectedTab.value)
+        assertEquals(DashboardBoardTab.Muscles, prefs.current.selectedTab)
+    }
+
+    @Test
+    fun `board tab ui index round-trips and unknown falls back to Muscles`() {
+        for (tab in DashboardBoardTabUi.entries) {
+            assertEquals(tab, DashboardBoardTabUi.fromIndex(tab.index))
+            assertEquals(tab, tab.toDomain().toUi())
+        }
+        assertEquals(DashboardBoardTabUi.Muscles, DashboardBoardTabUi.fromIndex(99))
+    }
+
     private fun buildViewModel(
         stimulusRepo: FakeMuscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
         performanceRepo: FakeLiftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
@@ -483,6 +542,7 @@ class DashboardViewModelTest {
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
         programLiftIds: Set<LiftId> = emptySet(),
         cloudSync: FakeCloudSyncPort = FakeCloudSyncPort(),
+        dashboardPreferences: FakeDashboardPreferencesRepository = FakeDashboardPreferencesRepository(),
     ): DashboardViewModel {
         val baseProgram = WorkoutLoggingFixtures.twoWorkoutProgram()
         val program = if (programLiftIds.isEmpty()) {
@@ -524,6 +584,11 @@ class DashboardViewModelTest {
         return DashboardViewModel(
             loadDashboard = useCase,
             loadGraphDetail = detailUseCase,
+            setDashboardBoardTab = SetDashboardBoardTabUseCase(
+                dashboardPreferences,
+                FakeLoggingPort(),
+            ),
+            observeDashboardPreferences = ObserveDashboardPreferencesUseCase(dashboardPreferences),
             observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
         )
     }

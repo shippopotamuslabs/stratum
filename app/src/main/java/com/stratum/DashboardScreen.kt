@@ -24,10 +24,8 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,10 +53,6 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
-private const val TAB_MUSCLES = 0
-private const val TAB_SEVEN_DAY = 1
-private const val TAB_LIFTS = 2
-
 @Composable
 fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
@@ -73,10 +67,13 @@ fun DashboardScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
     val graphDetail by viewModel.graphDetailState.collectAsStateWithLifecycle()
 
     DashboardScreen(
         state = state,
+        selectedTab = selectedTab,
+        onSelectedTabChange = viewModel::selectTab,
         onNavigateToSettings = onNavigateToSettings,
         onOpenLiftGraph = viewModel::openLiftGraph,
         onOpenMuscleGraph = viewModel::openMuscleGraph,
@@ -97,12 +94,12 @@ internal fun DashboardScreen(
     state: DashboardUiState,
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    selectedTab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
+    onSelectedTabChange: (DashboardBoardTabUi) -> Unit = {},
     onOpenLiftGraph: (String) -> Unit = {},
     onOpenMuscleGraph: (String) -> Unit = {},
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(TAB_MUSCLES) }
-
     StratumTabScaffold(
         modifier = modifier,
         topBar = {
@@ -114,8 +111,8 @@ internal fun DashboardScreen(
                             stringResource(R.string.dashboard_tab_seven_day),
                             stringResource(R.string.dashboard_tab_lifts),
                         ),
-                        selectedIndex = tab,
-                        onSelectedIndexChange = { tab = it },
+                        selectedIndex = selectedTab.index,
+                        onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
                     )
                 },
                 actions = {
@@ -135,7 +132,7 @@ internal fun DashboardScreen(
             DashboardUiState.Empty -> EmptyState()
             is DashboardUiState.Loaded -> LoadedContent(
                 state = state,
-                tab = tab,
+                tab = selectedTab,
                 onOpenLiftGraph = onOpenLiftGraph,
                 onOpenMuscleGraph = onOpenMuscleGraph,
                 onOpenMuscleDailyVolumeGraph = onOpenMuscleDailyVolumeGraph,
@@ -181,24 +178,25 @@ private fun EmptyState() {
 @Composable
 private fun ColumnScope.LoadedContent(
     state: DashboardUiState.Loaded,
-    tab: Int,
+    tab: DashboardBoardTabUi,
     onOpenLiftGraph: (String) -> Unit,
     onOpenMuscleGraph: (String) -> Unit,
     onOpenMuscleDailyVolumeGraph: (String) -> Unit,
 ) {
     val hasItems = when (tab) {
-        TAB_MUSCLES -> state.muscles.isNotEmpty()
-        TAB_SEVEN_DAY -> state.runningDailyVolume.isNotEmpty()
-        else -> state.liftSections.any { it.lifts.isNotEmpty() }
+        DashboardBoardTabUi.Muscles -> state.muscles.isNotEmpty()
+        DashboardBoardTabUi.SevenDay -> state.runningDailyVolume.isNotEmpty()
+        DashboardBoardTabUi.Lifts -> state.liftSections.any { it.lifts.isNotEmpty() }
     }
     if (hasItems) {
         val showStatusLegend = when (tab) {
-            TAB_MUSCLES -> state.muscles.any { it.highlight != null }
-            TAB_LIFTS -> state.liftSections.any { section -> section.lifts.any { it.highlight != null } }
-            else -> false
+            DashboardBoardTabUi.Muscles -> state.muscles.any { it.highlight != null }
+            DashboardBoardTabUi.Lifts ->
+                state.liftSections.any { section -> section.lifts.any { it.highlight != null } }
+            DashboardBoardTabUi.SevenDay -> false
         }
         when (tab) {
-            TAB_SEVEN_DAY -> DashboardLegend(
+            DashboardBoardTabUi.SevenDay -> DashboardLegend(
                 primaryLabel = stringResource(R.string.dashboard_legend_volume),
                 primaryColor = StratumThemeAccessor.colors.accent,
                 primaryStyle = LegendSwatchStyle.Bar,
@@ -210,7 +208,7 @@ private fun ColumnScope.LoadedContent(
                     .fillMaxWidth()
                     .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
             )
-            TAB_MUSCLES -> DashboardLegend(
+            DashboardBoardTabUi.Muscles -> DashboardLegend(
                 primaryLabel = stringResource(R.string.dashboard_legend_progress),
                 primaryColor = StratumThemeAccessor.colors.setComplete,
                 primaryStyle = LegendSwatchStyle.Bar,
@@ -222,7 +220,7 @@ private fun ColumnScope.LoadedContent(
                     .fillMaxWidth()
                     .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
             )
-            else -> DashboardLegend(
+            DashboardBoardTabUi.Lifts -> DashboardLegend(
                 primaryLabel = stringResource(R.string.dashboard_legend_strength),
                 primaryColor = StratumThemeAccessor.colors.textData,
                 primaryStyle = LegendSwatchStyle.Line,
@@ -240,7 +238,7 @@ private fun ColumnScope.LoadedContent(
         }
     }
     when (tab) {
-        TAB_MUSCLES -> {
+        DashboardBoardTabUi.Muscles -> {
             if (state.muscles.isEmpty()) {
                 EmptyTabMessage(stringResource(R.string.dashboard_empty_muscles_window))
             } else {
@@ -252,7 +250,7 @@ private fun ColumnScope.LoadedContent(
                 }
             }
         }
-        TAB_SEVEN_DAY -> {
+        DashboardBoardTabUi.SevenDay -> {
             if (state.runningDailyVolume.isEmpty()) {
                 EmptyTabMessage(stringResource(R.string.dashboard_empty_seven_day_window))
             } else {
@@ -267,7 +265,7 @@ private fun ColumnScope.LoadedContent(
                 }
             }
         }
-        TAB_LIFTS -> {
+        DashboardBoardTabUi.Lifts -> {
             if (state.liftSections.isEmpty()) {
                 EmptyTabMessage(stringResource(R.string.dashboard_empty_lifts_program))
             } else {

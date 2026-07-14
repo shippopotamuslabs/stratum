@@ -14,6 +14,8 @@ import com.stratum.domain.dashboard.LoadGraphDetailUseCase
 import com.stratum.domain.dashboard.MUSCLE_PROGRESS_SLOPE_THRESHOLD
 import com.stratum.domain.dashboard.MuscleDailyVolumeSeries
 import com.stratum.domain.dashboard.MuscleSeries
+import com.stratum.domain.dashboard.ObserveDashboardPreferencesUseCase
+import com.stratum.domain.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsSlope
 import com.stratum.domain.dashboard.slopeToDirection
@@ -37,6 +39,8 @@ import kotlinx.coroutines.launch
 class DashboardViewModel @Inject constructor(
     private val loadDashboard: LoadDashboardUseCase,
     private val loadGraphDetail: LoadGraphDetailUseCase,
+    private val setDashboardBoardTab: SetDashboardBoardTabUseCase,
+    observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
     observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
 ) : ViewModel() {
 
@@ -46,11 +50,24 @@ class DashboardViewModel @Inject constructor(
     private val _graphDetailState = MutableStateFlow<GraphDetailUiState>(GraphDetailUiState.Hidden)
     val graphDetailState: StateFlow<GraphDetailUiState> = _graphDetailState.asStateFlow()
 
+    /**
+     * Board tab shown in the title toggle. Source of truth is DataStore via
+     * [observeDashboardPreferences] — local state only mirrors successful emissions (Settings
+     * prefs pattern). Cold start defaults to Muscles until the first prefs read.
+     */
+    private val _selectedTab = MutableStateFlow(DashboardBoardTabUi.Muscles)
+    val selectedTab: StateFlow<DashboardBoardTabUi> = _selectedTab.asStateFlow()
+
     private var loadJob: Job? = null
     private var detailJob: Job? = null
     private var detailSession: GraphDetailSession? = null
 
     init {
+        viewModelScope.launch {
+            observeDashboardPreferences().collect { prefs ->
+                _selectedTab.value = prefs.selectedTab.toUi()
+            }
+        }
         load()
         // Weekly series tables are rebuilt after a successful cloud pull (not synced themselves).
         // Reload when sync returns to Idle so a first-hydrate or multi-device pull fills charts
@@ -72,6 +89,18 @@ class DashboardViewModel @Inject constructor(
                         }
                     }
                 }
+        }
+    }
+
+    /**
+     * Requests a board-tab change. UI updates only when prefs re-emit after a successful write
+     * (single source of truth — no optimistic local patch that can snap back on intermediate
+     * DataStore emissions).
+     */
+    fun selectTab(tab: DashboardBoardTabUi) {
+        if (tab == _selectedTab.value) return
+        viewModelScope.launch {
+            setDashboardBoardTab(tab.toDomain())
         }
     }
 
