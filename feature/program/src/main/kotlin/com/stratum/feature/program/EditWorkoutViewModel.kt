@@ -619,14 +619,11 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     /**
-     * Full reset of the edit session (test / explicit hard reset).
-     *
-     * Do **not** call this when the Edit Workout route leaves composition while still on the
-     * back stack (e.g. navigating to Lift Swap or Reorder Lifts). Nav3 single-pane disposes
-     * covered entries; clearing here drops [targetWorkoutId] so [WorkoutEditSession] events
-     * are ignored. Permanent leave relies on entry-scoped ViewModel destruction.
+     * Explicit hard reset for tests. Production leave relies on entry-scoped ViewModel
+     * destruction — do **not** call from composition dispose (Nav3 covers drop the route while
+     * the VM stays alive for Lift Swap / Reorder Lifts).
      */
-    fun clearSession() {
+    internal fun clearSession() {
         loadJob?.cancel()
         loadJob = null
         hasSnapshot.value = false
