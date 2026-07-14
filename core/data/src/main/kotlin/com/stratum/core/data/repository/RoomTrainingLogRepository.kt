@@ -13,7 +13,9 @@ import com.stratum.core.data.mapper.toTrainingDomain
 import com.stratum.core.data.sync.SyncCollection
 import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.response.MuscleSetQueryBits
 import com.stratum.domain.training.CyclePointerUpdate
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.ProgramChangeEvent
@@ -22,11 +24,10 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 @Singleton
 class RoomTrainingLogRepository @Inject constructor(
@@ -116,6 +117,13 @@ class RoomTrainingLogRepository @Inject constructor(
     override suspend fun getSetsInWindow(windowStart: Instant, windowEnd: Instant): List<LoggedSet> =
         setDao.getInWindow(windowStart.toEpochMilli(), windowEnd.toEpochMilli())
             .map { it.toTrainingDomain() }
+
+    override suspend fun getSetsCreditingMuscle(muscle: MuscleGroup): List<LoggedSet> =
+        setDao.getForMuscleCredit(
+            muscleBit = MuscleSetQueryBits.muscleBit(muscle),
+            pressPatternBits = MuscleSetQueryBits.pressPatternBitsForPolicySecondary(muscle),
+            pullPatternBits = MuscleSetQueryBits.pullPatternBitsForPolicySecondary(muscle),
+        ).map { it.toTrainingDomain() }
 
     override suspend fun getSession(id: TrainingSessionId): TrainingSession? =
         sessionDao.getById(id)?.toDomain()

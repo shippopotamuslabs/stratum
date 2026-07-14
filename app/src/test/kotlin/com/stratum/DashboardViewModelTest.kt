@@ -1,5 +1,6 @@
 package com.stratum
 
+import com.stratum.core.testing.dashboard.FakeDashboardPreferencesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.MainDispatcherRule
@@ -11,11 +12,16 @@ import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.domain.dashboard.DashboardBoardTab
+import com.stratum.domain.dashboard.DashboardPreferences
 import com.stratum.domain.dashboard.LoadDashboardUseCase
 import com.stratum.domain.dashboard.LoadGraphDetailUseCase
+import com.stratum.domain.dashboard.ObserveDashboardPreferencesUseCase
+import com.stratum.domain.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.TrainingSignalQualityFlag
@@ -24,6 +30,9 @@ import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.domain.sync.SyncStatus
+import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.training.LoggedLiftContext
+import com.stratum.domain.training.LoggedSet
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -387,6 +396,144 @@ class DashboardViewModelTest {
         assertEquals(GraphDetailUiState.Hidden, viewModel.graphDetailState.value)
     }
 
+    @Test
+    @DisplayName("formatHardSetHeadline keeps half-sets and pluralizes")
+    fun hardSetHeadlineFormat() {
+        assertEquals("1 set", formatHardSetHeadline(1.0))
+        assertEquals("12 sets", formatHardSetHeadline(12.0))
+        assertEquals("0.5 sets", formatHardSetHeadline(0.5))
+        assertEquals("12.5 sets", formatHardSetHeadline(12.5))
+    }
+
+    @Test
+    @DisplayName("shortWeekdayLabel uses R for Thursday and Sa/Su for weekend")
+    fun shortWeekdayLabels() {
+        // 2025-06-09 is a Monday UTC
+        val monday = Instant.parse("2025-06-09T00:00:00Z")
+        assertEquals("M", shortWeekdayLabel(monday))
+        assertEquals("T", shortWeekdayLabel(monday.plus(1, ChronoUnit.DAYS)))
+        assertEquals("W", shortWeekdayLabel(monday.plus(2, ChronoUnit.DAYS)))
+        assertEquals("R", shortWeekdayLabel(monday.plus(3, ChronoUnit.DAYS)))
+        assertEquals("F", shortWeekdayLabel(monday.plus(4, ChronoUnit.DAYS)))
+        assertEquals("Sa", shortWeekdayLabel(monday.plus(5, ChronoUnit.DAYS)))
+        assertEquals("Su", shortWeekdayLabel(monday.plus(6, ChronoUnit.DAYS)))
+    }
+
+    @Test
+    @DisplayName("openMuscleDailyVolumeGraph defaults to Volume mode and 1W range")
+    fun openDailyVolumeGraph() = runTest {
+        val benchId = LiftId("bench")
+        val bench = lift(benchId, "Bench Press", MuscleGroup.Chest)
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(bench))
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        val now = Instant.now()
+        val recent = now.minus(3, ChronoUnit.DAYS)
+        performanceRepo.seed(listOf(perf(benchId, recent, 100.0)))
+        stimulusRepo.seed(listOf(stimulus(MuscleGroup.Chest, recent, 8.0)))
+
+        val trainingLog = FakeTrainingLogRepository()
+        trainingLog.seedLiftForMuscleFilter(bench)
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1")
+        trainingLog.seedSession(session)
+        trainingLog.seedSet(
+            LoggedSet(
+                id = LoggedSetId("set-1"),
+                sessionId = session.id,
+                exerciseNameRaw = "Bench",
+                liftId = benchId,
+                setIndex = 0,
+                weight = Weight(100.0, Weight.WeightUnit.Kg),
+                reps = 8,
+                rir = 2,
+                completedAt = recent,
+                liftContext = LoggedLiftContext(benchId.value),
+            ),
+        )
+
+        val viewModel = buildViewModel(
+            stimulusRepo = stimulusRepo,
+            performanceRepo = performanceRepo,
+            liftRepo = liftRepo,
+            trainingLog = trainingLog,
+            programLiftIds = setOf(benchId),
+        )
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as DashboardUiState.Loaded
+        val daily = loaded.runningDailyVolume.single { it.name == "Chest" }
+        assertEquals("1 set", daily.headlineSets)
+        assertEquals(7, daily.volumePoints.size)
+        assertEquals(7, daily.dayLabels.size, "rolling weekday labels for each bar")
+        assertTrue(daily.dayLabels.all { it in setOf("M", "T", "W", "R", "F", "Sa", "Su") })
+
+        viewModel.openMuscleDailyVolumeGraph("Chest")
+        advanceUntilIdle()
+
+        val detail = viewModel.graphDetailState.value as GraphDetailUiState.Ready
+        assertEquals(GraphDetailKindUi.MuscleDailyVolume, detail.kind)
+        assertEquals(GraphViewMode.Volume, detail.selectedMode)
+        assertEquals(GraphTimeRangeUi.OneWeek, detail.selectedRange)
+        assertEquals(listOf(GraphViewMode.Volume), detail.modes)
+        assertTrue(GraphTimeRangeUi.OneWeek in detail.ranges)
+        assertEquals(7, detail.primaryPoints.size, "1W zero-fills rest days")
+    }
+
+    @Test
+    fun `selectedTab defaults to Muscles`() = runTest {
+        val viewModel = buildViewModel()
+        advanceUntilIdle()
+
+        assertEquals(DashboardBoardTabUi.Muscles, viewModel.selectedTab.value)
+    }
+
+    @Test
+    fun `selectedTab restores persisted tab from preferences`() = runTest {
+        val prefs = FakeDashboardPreferencesRepository(
+            DashboardPreferences(selectedTab = DashboardBoardTab.SevenDay),
+        )
+        val viewModel = buildViewModel(dashboardPreferences = prefs)
+        advanceUntilIdle()
+
+        assertEquals(DashboardBoardTabUi.SevenDay, viewModel.selectedTab.value)
+    }
+
+    @Test
+    fun `selectTab updates state only after prefs emit and persists`() = runTest {
+        val prefs = FakeDashboardPreferencesRepository()
+        val viewModel = buildViewModel(dashboardPreferences = prefs)
+        advanceUntilIdle()
+
+        viewModel.selectTab(DashboardBoardTabUi.Lifts)
+        advanceUntilIdle()
+
+        assertEquals(DashboardBoardTabUi.Lifts, viewModel.selectedTab.value)
+        assertEquals(DashboardBoardTab.Lifts, prefs.current.selectedTab)
+    }
+
+    @Test
+    fun `selectTab is no-op when tab already selected`() = runTest {
+        val prefs = FakeDashboardPreferencesRepository()
+        val viewModel = buildViewModel(dashboardPreferences = prefs)
+        advanceUntilIdle()
+
+        viewModel.selectTab(DashboardBoardTabUi.Muscles)
+        advanceUntilIdle()
+
+        assertEquals(DashboardBoardTabUi.Muscles, viewModel.selectedTab.value)
+        assertEquals(DashboardBoardTab.Muscles, prefs.current.selectedTab)
+    }
+
+    @Test
+    fun `board tab ui index round-trips and unknown falls back to Muscles`() {
+        for (tab in DashboardBoardTabUi.entries) {
+            assertEquals(tab, DashboardBoardTabUi.fromIndex(tab.index))
+            assertEquals(tab, tab.toDomain().toUi())
+        }
+        assertEquals(DashboardBoardTabUi.Muscles, DashboardBoardTabUi.fromIndex(99))
+    }
+
     private fun buildViewModel(
         stimulusRepo: FakeMuscleWeeklyStimulusRepository = FakeMuscleWeeklyStimulusRepository(),
         performanceRepo: FakeLiftWeeklyPerformanceRepository = FakeLiftWeeklyPerformanceRepository(),
@@ -395,6 +542,7 @@ class DashboardViewModelTest {
         trainingLog: FakeTrainingLogRepository = FakeTrainingLogRepository(),
         programLiftIds: Set<LiftId> = emptySet(),
         cloudSync: FakeCloudSyncPort = FakeCloudSyncPort(),
+        dashboardPreferences: FakeDashboardPreferencesRepository = FakeDashboardPreferencesRepository(),
     ): DashboardViewModel {
         val baseProgram = WorkoutLoggingFixtures.twoWorkoutProgram()
         val program = if (programLiftIds.isEmpty()) {
@@ -430,11 +578,17 @@ class DashboardViewModelTest {
             muscleWeeklyStimulusRepository = stimulusRepo,
             muscleWeeklyOutcomeIndexRepository = outcomeIndexRepo,
             liftRepository = liftRepo,
+            trainingLogRepository = trainingLog,
             loggingPort = FakeLoggingPort(),
         )
         return DashboardViewModel(
             loadDashboard = useCase,
             loadGraphDetail = detailUseCase,
+            setDashboardBoardTab = SetDashboardBoardTabUseCase(
+                dashboardPreferences,
+                FakeLoggingPort(),
+            ),
+            observeDashboardPreferences = ObserveDashboardPreferencesUseCase(dashboardPreferences),
             observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
         )
     }

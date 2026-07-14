@@ -156,13 +156,16 @@ private fun GraphDetailReady(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
         ) {
-            ModeTabRow(
-                modes = state.modes,
-                selected = state.selectedMode,
-                kind = state.kind,
-                onSelect = onSelectMode,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+            // Daily volume has a single Volume mode — hide the mode row to avoid a lone tab.
+            if (state.modes.size > 1) {
+                ModeTabRow(
+                    modes = state.modes,
+                    selected = state.selectedMode,
+                    kind = state.kind,
+                    onSelect = onSelectMode,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             StatsRow(stats = state.stats)
             Spacer(modifier = Modifier.height(12.dp))
             val primaryColor = colorForRole(state.primaryColorRole)
@@ -201,6 +204,7 @@ private fun colorForRole(role: GraphSeriesColorRole) = when (role) {
     GraphSeriesColorRole.Strength -> StratumThemeAccessor.colors.textData
     GraphSeriesColorRole.Progress -> StratumThemeAccessor.colors.setComplete
     GraphSeriesColorRole.Volume -> StratumThemeAccessor.colors.textMuted.copy(alpha = 0.55f)
+    GraphSeriesColorRole.DailyVolume -> StratumThemeAccessor.colors.accent
 }
 
 @Composable
@@ -229,6 +233,7 @@ private fun modeLabel(mode: GraphViewMode, kind: GraphDetailKindUi): String = wh
     GraphViewMode.Primary -> when (kind) {
         GraphDetailKindUi.Lift -> stringResource(R.string.dashboard_graph_metric_e1rm)
         GraphDetailKindUi.Muscle -> stringResource(R.string.dashboard_graph_metric_progress)
+        GraphDetailKindUi.MuscleDailyVolume -> stringResource(R.string.dashboard_graph_metric_volume)
     }
     GraphViewMode.Volume -> stringResource(R.string.dashboard_graph_metric_volume)
     GraphViewMode.Dual -> stringResource(R.string.dashboard_graph_metric_both)
@@ -419,6 +424,7 @@ private fun TimeRangePicker(
 
 @Composable
 private fun rangeLabel(range: GraphTimeRangeUi): String = when (range) {
+    GraphTimeRangeUi.OneWeek -> stringResource(R.string.dashboard_graph_range_1w)
     GraphTimeRangeUi.OneMonth -> stringResource(R.string.dashboard_graph_range_1m)
     GraphTimeRangeUi.ThreeMonths -> stringResource(R.string.dashboard_graph_range_3m)
     GraphTimeRangeUi.SixMonths -> stringResource(R.string.dashboard_graph_range_6m)

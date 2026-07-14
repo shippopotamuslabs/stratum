@@ -12,13 +12,17 @@ import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
 import com.stratum.domain.response.MuscleWeeklyOutcomeIndexRepository
 import com.stratum.domain.response.MuscleWeeklyStimulusRepository
+import com.stratum.domain.response.ResponseExtractionInput
+import com.stratum.domain.response.TrainingSignalCleaner
 import com.stratum.domain.response.modeling.LiftWeeklyPerformance
+import com.stratum.domain.response.modeling.MuscleDailyVolumeBuilder
 import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import com.stratum.domain.training.TrainingLogRepository
 import java.time.Duration
 import java.time.Instant
 import java.time.Period
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
@@ -67,24 +71,90 @@ class LoadDashboardUseCase @Inject constructor(
         val windowStart = now.minus(WINDOW)
         val stimulus = muscleWeeklyStimulusRepository.getSince(windowStart)
         val performance = liftWeeklyPerformanceRepository.getSince(windowStart)
-        if (stimulus.isEmpty() && performance.isEmpty()) return null
+        // 7-Day volume is independent of weekly tables — build it even when stimulus/performance
+        // are empty so recent hard sets still surface before weekly rebuild.
+        val runningDailyVolume = buildRunningDailyVolume(now)
+        if (stimulus.isEmpty() && performance.isEmpty() && runningDailyVolume.isEmpty()) {
+            return null
+        }
 
         val outcomeIndices = muscleWeeklyOutcomeIndexRepository.getSince(windowStart)
-        val liftsById = liftRepository.observeLifts().first().associateBy { it.id }
+        val lifts = liftRepository.observeLifts().first()
+        val liftsById = lifts.associateBy { it.id }
         val firstSetPerLift = trainingLogRepository.getFirstSetDatePerLift()
         val programLiftIds = activeProgramLiftIds()
 
         val muscles = buildMuscleSeries(stimulus, outcomeIndices)
-        val lifts = buildLiftSeries(performance, liftsById, firstSetPerLift, now, programLiftIds)
-        val callouts = selectDashboardCallouts(muscles = muscles, lifts = lifts)
+        val liftSeries = buildLiftSeries(performance, liftsById, firstSetPerLift, now, programLiftIds)
+        val callouts = selectDashboardCallouts(muscles = muscles, lifts = liftSeries)
 
         return DashboardSummary(
             windowWeeks = DASHBOARD_PERFORMANCE_WINDOW_WEEKS,
             asOf = now,
             muscles = muscles,
-            lifts = lifts,
+            lifts = liftSeries,
+            runningDailyVolume = runningDailyVolume,
             callouts = callouts,
         )
+    }
+
+    /**
+     * Hard-set volume per muscle for the last 7 UTC days (zero-filled). Built on-read from logged
+     * sets so no daily Room table is required.
+     *
+     * Sets are loaded via indexed [TrainingLogRepository.getSetsInWindow]; lifts are only those
+     * referenced by those sets ([LiftRepository.getLiftsByIds]) — not the full catalog.
+     */
+    private suspend fun buildRunningDailyVolume(
+        now: Instant,
+    ): List<MuscleDailyVolumeSeries> {
+        val endDay = utcDayStart(now)
+        val startDay = endDay.minus(
+            (MuscleDailyVolumeBuilder.RUNNING_VOLUME_DAY_COUNT - 1).toLong(),
+            ChronoUnit.DAYS,
+        )
+        // Half-open-ish upper bound: exclusive end of today's UTC day (start of tomorrow).
+        val windowEndExclusive = endDay.plus(1, ChronoUnit.DAYS)
+        val sets = trainingLogRepository.getSetsInWindow(startDay, windowEndExclusive.minusMillis(1))
+        if (sets.isEmpty()) return emptyList()
+
+        val liftIds = sets.mapNotNullTo(mutableSetOf()) { it.liftId }
+        if (liftIds.isEmpty()) return emptyList()
+        val lifts = liftRepository.getLiftsByIds(liftIds)
+        if (lifts.isEmpty()) return emptyList()
+
+        val input = ResponseExtractionInput(
+            sessions = emptyList(),
+            sets = sets,
+            lifts = lifts,
+            provenLiftIds = emptySet(),
+            specializeMuscles = emptySet(),
+            liftInsights = emptyList(),
+            volumeBaselines = emptyList(),
+            analysisWindowStart = startDay,
+            analysisWindowEnd = now,
+            activeExperiments = emptyList(),
+        )
+        val cleanSets = TrainingSignalCleaner.clean(input)
+        val built = MuscleDailyVolumeBuilder.build(cleanSets, lifts)
+        if (built.isEmpty()) return emptyList()
+
+        return built.map { series ->
+            val filled = MuscleDailyVolumeBuilder.zeroFillLastDays(series, now)
+            val total = filled.sumOf { it.hardSets }
+            MuscleDailyVolumeSeries(
+                muscle = series.muscle,
+                displayName = series.muscle.displayLabel,
+                dailyVolume = filled.map { TrendPoint(weekStart = it.dayStart, value = it.hardSets) },
+                totalHardSets = total,
+                contributingLiftCount = series.contributingLiftIds.size,
+            )
+        }
+            .filter { it.totalHardSets > 0.0 }
+            .sortedWith(
+                compareByDescending<MuscleDailyVolumeSeries> { it.totalHardSets }
+                    .thenBy { it.displayName },
+            )
     }
 
     private fun buildMuscleSeries(

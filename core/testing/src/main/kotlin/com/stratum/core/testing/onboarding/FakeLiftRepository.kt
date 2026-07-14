@@ -39,6 +39,12 @@ class FakeLiftRepository(
 
     override fun observeLifts(): Flow<List<Lift>> = lifts
 
+    override suspend fun getLiftsByIds(ids: Collection<LiftId>): List<Lift> {
+        if (ids.isEmpty()) return emptyList()
+        val wanted = ids.toSet()
+        return lifts.value.filter { it.id in wanted }
+    }
+
     override fun observeEnabledLifts(): Flow<List<Lift>> = lifts.map { rows -> rows.filter { it.enabled } }
 
     override fun observeLifts(isCustom: Boolean): Flow<List<Lift>> = lifts.map { rows -> rows.filter { it.isCustom == isCustom } }

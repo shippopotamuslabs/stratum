@@ -87,7 +87,11 @@ fun StratumDetailChart(
             secondaryColor
         }
 
+    // Progress is always signed bars; Volume-only primary uses unsigned bars (daily / weekly volume).
+    // Dual mode keeps volume as a secondary line so strength/progress stays readable.
     val progressAsBars = primaryYScale == DetailYScale.Progress
+    val volumeAsBars = primaryYScale == DetailYScale.Volume
+    val primaryAsBars = progressAsBars || volumeAsBars
     // Single weekly point is valid (bars or marked line). Never promote secondary to primary.
     val hasPrimary = primarySeries.isNotEmpty()
     val hasSecondary = secondarySeries != null && secondarySeries.isNotEmpty()
@@ -104,7 +108,8 @@ fun StratumDetailChart(
 
     val structureKey = when {
         progressAsBars && dualMode -> "progress+volume"
-        progressAsBars -> "progress"
+        volumeAsBars && dualMode -> "volume-bars+line"
+        primaryAsBars -> "primary-bars"
         dualMode -> "dual-line"
         else -> "single-line"
     }
@@ -119,6 +124,7 @@ fun StratumDetailChart(
             secondaryYScale = secondaryYScale,
             dualMode = dualMode,
             progressAsBars = progressAsBars,
+            primaryAsBars = primaryAsBars,
             contentDescription = contentDescription,
             modifier = modifier,
         )
@@ -135,6 +141,7 @@ private fun DetailChartContent(
     secondaryYScale: DetailYScale,
     dualMode: Boolean,
     progressAsBars: Boolean,
+    primaryAsBars: Boolean,
     contentDescription: String,
     modifier: Modifier,
 ) {
@@ -145,9 +152,9 @@ private fun DetailChartContent(
     val positiveBarColor = primaryColor
     val negativeBarColor = lerp(primaryColor, colors.textPrimary, INDEX_NEGATIVE_LIGHTEN_FRACTION)
 
-    LaunchedEffect(primarySeries, secondaryValues, dualMode, progressAsBars) {
+    LaunchedEffect(primarySeries, secondaryValues, dualMode, primaryAsBars) {
         modelProducer.runTransaction {
-            if (progressAsBars) {
+            if (primaryAsBars) {
                 columnModel {
                     series(
                         x = primarySeries.map { it.xEpochDay.toDouble() },
@@ -293,6 +300,7 @@ private fun DetailChartContent(
         verticalAxisPosition = Axis.Position.Vertical.End,
     )
 
+    // Zero baseline only for signed progress index; volume bars grow from the chart floor.
     val decorations = remember(progressAsBars, progressZeroLine) {
         if (progressAsBars) {
             listOf(
@@ -334,7 +342,7 @@ private fun DetailChartContent(
     )
 
     val chart = when {
-        progressAsBars && dualMode -> rememberCartesianChart(
+        primaryAsBars && dualMode -> rememberCartesianChart(
             columnLayer,
             secondaryLineLayer,
             startAxis = startAxis,
@@ -342,7 +350,7 @@ private fun DetailChartContent(
             bottomAxis = bottomAxis,
             decorations = decorations,
         )
-        progressAsBars -> rememberCartesianChart(
+        primaryAsBars -> rememberCartesianChart(
             columnLayer,
             startAxis = startAxis,
             bottomAxis = bottomAxis,

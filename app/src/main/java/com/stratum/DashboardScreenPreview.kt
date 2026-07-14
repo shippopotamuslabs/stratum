@@ -188,10 +188,50 @@ private fun DashboardScreenPreviewContent() {
                     ),
                 ),
             ),
+            runningDailyVolume = listOf(
+                MuscleDailyVolumeUi(
+                    name = "Chest",
+                    muscleKey = "Chest",
+                    headlineSets = "8 sets",
+                    volumePoints = sevenDayVolumeSeries(peakDay = 5),
+                    dayLabels = PREVIEW_DAY_LABELS,
+                    contributingLifts = 2,
+                ),
+                MuscleDailyVolumeUi(
+                    name = "Back",
+                    muscleKey = "Back",
+                    headlineSets = "6 sets",
+                    volumePoints = sevenDayVolumeSeries(peakDay = 2),
+                    dayLabels = PREVIEW_DAY_LABELS,
+                    contributingLifts = 1,
+                ),
+                MuscleDailyVolumeUi(
+                    name = "Quad",
+                    muscleKey = "Quad",
+                    headlineSets = "4 sets",
+                    volumePoints = sevenDayVolumeSeries(peakDay = 0),
+                    dayLabels = PREVIEW_DAY_LABELS,
+                    contributingLifts = 1,
+                ),
+            ),
         ),
         onNavigateToSettings = {},
     )
 }
+
+/** Seven daily bars; [peakDay] (0..6) gets the largest volume, others sparse. */
+private fun sevenDayVolumeSeries(peakDay: Int): List<TrendPointUi> =
+    (0..6).map { day ->
+        val value = when {
+            day == peakDay -> 4f
+            day == (peakDay + 3) % 7 -> 2f
+            else -> 0f
+        }
+        TrendPointUi(weekIndex = day, value = value)
+    }
+
+/** Sample rolling week ending Sunday for previews. */
+private val PREVIEW_DAY_LABELS = listOf("M", "T", "W", "R", "F", "Sa", "Su")
 
 /** Lift e1RM-scale series for strength sparklines. */
 private fun ascendingSeries(): List<TrendPointUi> =

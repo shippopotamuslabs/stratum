@@ -24,10 +24,8 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,10 +50,8 @@ import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumThemeAccessor
-
-private const val TAB_MUSCLES = 0
-private const val TAB_LIFTS = 1
 
 @Composable
 fun DashboardScreen(
@@ -71,13 +67,17 @@ fun DashboardScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
     val graphDetail by viewModel.graphDetailState.collectAsStateWithLifecycle()
 
     DashboardScreen(
         state = state,
+        selectedTab = selectedTab,
+        onSelectedTabChange = viewModel::selectTab,
         onNavigateToSettings = onNavigateToSettings,
         onOpenLiftGraph = viewModel::openLiftGraph,
         onOpenMuscleGraph = viewModel::openMuscleGraph,
+        onOpenMuscleDailyVolumeGraph = viewModel::openMuscleDailyVolumeGraph,
         modifier = modifier,
     )
 
@@ -94,11 +94,12 @@ internal fun DashboardScreen(
     state: DashboardUiState,
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    selectedTab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
+    onSelectedTabChange: (DashboardBoardTabUi) -> Unit = {},
     onOpenLiftGraph: (String) -> Unit = {},
     onOpenMuscleGraph: (String) -> Unit = {},
+    onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(TAB_MUSCLES) }
-
     StratumTabScaffold(
         modifier = modifier,
         topBar = {
@@ -107,10 +108,11 @@ internal fun DashboardScreen(
                     DashboardTabToggle(
                         labels = listOf(
                             stringResource(R.string.dashboard_tab_muscles),
+                            stringResource(R.string.dashboard_tab_seven_day),
                             stringResource(R.string.dashboard_tab_lifts),
                         ),
-                        selectedIndex = tab,
-                        onSelectedIndexChange = { tab = it },
+                        selectedIndex = selectedTab.index,
+                        onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
                     )
                 },
                 actions = {
@@ -130,9 +132,10 @@ internal fun DashboardScreen(
             DashboardUiState.Empty -> EmptyState()
             is DashboardUiState.Loaded -> LoadedContent(
                 state = state,
-                tab = tab,
+                tab = selectedTab,
                 onOpenLiftGraph = onOpenLiftGraph,
                 onOpenMuscleGraph = onOpenMuscleGraph,
+                onOpenMuscleDailyVolumeGraph = onOpenMuscleDailyVolumeGraph,
             )
         }
     }
@@ -175,46 +178,67 @@ private fun EmptyState() {
 @Composable
 private fun ColumnScope.LoadedContent(
     state: DashboardUiState.Loaded,
-    tab: Int,
+    tab: DashboardBoardTabUi,
     onOpenLiftGraph: (String) -> Unit,
     onOpenMuscleGraph: (String) -> Unit,
+    onOpenMuscleDailyVolumeGraph: (String) -> Unit,
 ) {
-    val hasItems = if (tab == TAB_MUSCLES) {
-        state.muscles.isNotEmpty()
-    } else {
-        state.liftSections.any { it.lifts.isNotEmpty() }
+    val hasItems = when (tab) {
+        DashboardBoardTabUi.Muscles -> state.muscles.isNotEmpty()
+        DashboardBoardTabUi.SevenDay -> state.runningDailyVolume.isNotEmpty()
+        DashboardBoardTabUi.Lifts -> state.liftSections.any { it.lifts.isNotEmpty() }
     }
     if (hasItems) {
-        val showStatusLegend = if (tab == TAB_MUSCLES) {
-            state.muscles.any { it.highlight != null }
-        } else {
-            state.liftSections.any { section -> section.lifts.any { it.highlight != null } }
+        val showStatusLegend = when (tab) {
+            DashboardBoardTabUi.Muscles -> state.muscles.any { it.highlight != null }
+            DashboardBoardTabUi.Lifts ->
+                state.liftSections.any { section -> section.lifts.any { it.highlight != null } }
+            DashboardBoardTabUi.SevenDay -> false
         }
-        DashboardLegend(
-            primaryLabel = stringResource(
-                if (tab == TAB_MUSCLES) R.string.dashboard_legend_progress else R.string.dashboard_legend_strength,
-            ),
-            primaryColor = if (tab == TAB_MUSCLES) {
-                StratumThemeAccessor.colors.setComplete
-            } else {
-                StratumThemeAccessor.colors.textData
-            },
-            primaryStyle = if (tab == TAB_MUSCLES) LegendSwatchStyle.Bar else LegendSwatchStyle.Line,
-            secondaryLabel = stringResource(R.string.dashboard_legend_volume),
-            secondaryColor = StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA),
-            caption = if (tab == TAB_MUSCLES) {
-                stringResource(R.string.dashboard_legend_baseline_caption)
-            } else {
-                stringResource(R.string.dashboard_legend_lifts_window_caption, state.windowWeeks)
-            },
-            showStatusLegend = showStatusLegend,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
-        )
+        when (tab) {
+            DashboardBoardTabUi.SevenDay -> DashboardLegend(
+                primaryLabel = stringResource(R.string.dashboard_legend_volume),
+                primaryColor = StratumThemeAccessor.colors.accent,
+                primaryStyle = LegendSwatchStyle.Bar,
+                secondaryLabel = null,
+                secondaryColor = Color.Unspecified,
+                caption = stringResource(R.string.dashboard_legend_seven_day_caption),
+                showStatusLegend = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
+            )
+            DashboardBoardTabUi.Muscles -> DashboardLegend(
+                primaryLabel = stringResource(R.string.dashboard_legend_progress),
+                primaryColor = StratumThemeAccessor.colors.setComplete,
+                primaryStyle = LegendSwatchStyle.Bar,
+                secondaryLabel = stringResource(R.string.dashboard_legend_volume),
+                secondaryColor = StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA),
+                caption = stringResource(R.string.dashboard_legend_baseline_caption),
+                showStatusLegend = showStatusLegend,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
+            )
+            DashboardBoardTabUi.Lifts -> DashboardLegend(
+                primaryLabel = stringResource(R.string.dashboard_legend_strength),
+                primaryColor = StratumThemeAccessor.colors.textData,
+                primaryStyle = LegendSwatchStyle.Line,
+                secondaryLabel = stringResource(R.string.dashboard_legend_volume),
+                secondaryColor = StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA),
+                caption = stringResource(
+                    R.string.dashboard_legend_lifts_window_caption,
+                    state.windowWeeks,
+                ),
+                showStatusLegend = showStatusLegend,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
+            )
+        }
     }
     when (tab) {
-        TAB_MUSCLES -> {
+        DashboardBoardTabUi.Muscles -> {
             if (state.muscles.isEmpty()) {
                 EmptyTabMessage(stringResource(R.string.dashboard_empty_muscles_window))
             } else {
@@ -226,7 +250,22 @@ private fun ColumnScope.LoadedContent(
                 }
             }
         }
-        TAB_LIFTS -> {
+        DashboardBoardTabUi.SevenDay -> {
+            if (state.runningDailyVolume.isEmpty()) {
+                EmptyTabMessage(stringResource(R.string.dashboard_empty_seven_day_window))
+            } else {
+                TrendCardGrid(
+                    items = state.runningDailyVolume,
+                    key = { "daily-${it.name}" },
+                ) { muscle ->
+                    SevenDayVolumeCard(
+                        muscle = muscle,
+                        onClick = { onOpenMuscleDailyVolumeGraph(muscle.muscleKey) },
+                    )
+                }
+            }
+        }
+        DashboardBoardTabUi.Lifts -> {
             if (state.liftSections.isEmpty()) {
                 EmptyTabMessage(stringResource(R.string.dashboard_empty_lifts_program))
             } else {
@@ -291,6 +330,28 @@ private fun MuscleTrendCard(
             indexSeries = muscle.progressPoints,
             volumeSeries = muscle.volumePoints,
             contentDescription = "${muscle.name} progress index and volume",
+        )
+    }
+}
+
+@Composable
+private fun SevenDayVolumeCard(
+    muscle: MuscleDailyVolumeUi,
+    onClick: () -> Unit,
+) {
+    TrendCard(
+        name = muscle.name,
+        badge = null,
+        headline = muscle.headlineSets,
+        footer = stringResource(R.string.dashboard_contributing_lifts_format, muscle.contributingLifts),
+        highlight = null,
+        onClick = onClick,
+    ) {
+        StratumVolumeBarChart(
+            series = muscle.volumePoints,
+            dayLabels = muscle.dayLabels,
+            barColor = StratumThemeAccessor.colors.accent,
+            contentDescription = "${muscle.name} daily volume",
         )
     }
 }
@@ -603,15 +664,17 @@ private val LEGEND_DOT_SIZE = 8.dp
 
 /**
  * Global legend for the dashboard trend cards. Tab-aware: Muscles use index bars vs zero + volume
- * line; Lifts use dual sparklines (strength + volume). Optional [caption] for baseline semantics.
- * When [showStatusLegend] is true, a second row explains card border accents (high-confidence
- * progressing / regressing only — not every mild slope).
+ * line; 7-Day is volume bars only; Lifts use dual sparklines (strength + volume). Optional
+ * [caption] for baseline / window semantics. When [showStatusLegend] is true, a second row
+ * explains card border accents (high-confidence progressing / regressing only).
+ *
+ * [secondaryLabel] null omits the secondary swatch (7-Day volume-only legend).
  */
 @Composable
 internal fun DashboardLegend(
     primaryLabel: String,
     primaryColor: Color,
-    secondaryLabel: String,
+    secondaryLabel: String?,
     secondaryColor: Color,
     modifier: Modifier = Modifier,
     primaryStyle: LegendSwatchStyle = LegendSwatchStyle.Line,
@@ -624,7 +687,13 @@ internal fun DashboardLegend(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LegendSwatch(color = primaryColor, label = primaryLabel, style = primaryStyle)
-            LegendSwatch(color = secondaryColor, label = secondaryLabel, style = LegendSwatchStyle.Line)
+            if (secondaryLabel != null) {
+                LegendSwatch(
+                    color = secondaryColor,
+                    label = secondaryLabel,
+                    style = LegendSwatchStyle.Line,
+                )
+            }
         }
         if (showStatusLegend) {
             Row(
