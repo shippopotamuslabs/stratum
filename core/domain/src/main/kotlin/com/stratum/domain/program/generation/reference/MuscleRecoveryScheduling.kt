@@ -56,6 +56,7 @@ fun minimumRecoveryGapBetweenSessions(
     earlierStressClass: LiftStressClass,
     muscle: String? = null,
     earlierMuscleLengthBias: String? = null,
+    earlierPrimaryDose: Double = earlierDose,
 ): Int {
     if (earlierDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE ||
         laterDose < MUSCLE_RECOVERY_MIN_SCHEDULING_DOSE
@@ -63,7 +64,13 @@ fun minimumRecoveryGapBetweenSessions(
         return 0
     }
     return minimumRecoveryCalendarGap(
-        MuscleSessionStress(earlierDose, earlierStressClass, muscle, earlierMuscleLengthBias),
+        MuscleSessionStress(
+            fractionalSets = earlierDose,
+            stressClass = earlierStressClass,
+            muscle = muscle,
+            muscleLengthBias = earlierMuscleLengthBias,
+            primaryFractionalSets = earlierPrimaryDose,
+        ),
     )
 }
 
@@ -90,6 +97,7 @@ fun muscleRecoveryGapViolated(
         earlier.stressClass,
         muscle = earlier.muscle,
         earlierMuscleLengthBias = earlier.muscleLengthBias,
+        earlierPrimaryDose = earlier.primaryFractionalSets,
     )
     return required > 0 && calendarGap < required
 }
