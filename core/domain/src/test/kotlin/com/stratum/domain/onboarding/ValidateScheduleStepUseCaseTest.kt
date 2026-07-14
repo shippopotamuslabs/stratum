@@ -17,27 +17,55 @@ class ValidateScheduleStepUseCaseTest {
     }
 
     @Nested
-    @DisplayName("weekdays")
-    inner class Weekdays {
+    @DisplayName("training day count")
+    inner class TrainingDayCount {
         @Test
-        @DisplayName("Given no weekdays when validated then WeekdaysRequired is returned")
-        fun noWeekdays() {
-            val result = subject.invoke(aProfile().copy(weekdays = emptySet()))
+        @DisplayName("Given no train count when validated then WeekdaysRequired is returned")
+        fun noTrainCount() {
+            val result = subject.invoke(aProfile().copy(generationTrainingDayCount = null))
             assertInvalid(result, ScheduleValidationError.WeekdaysRequired)
         }
 
         @Test
-        @DisplayName("Given at least one weekday when validated then weekdays are accepted")
-        fun atLeastOneWeekdayIsValid() {
-            val result = subject.invoke(aProfile().copy(weekdays = setOf(Weekday.Monday)))
+        @DisplayName("Given generationTrainingDayCount when validated then accepted")
+        fun generationCountValid() {
+            val result = subject.invoke(aProfile())
             assertEquals(ScheduleValidationResult.Valid, result)
         }
 
         @Test
-        @DisplayName("Given all seven weekdays when validated then weekdays are accepted")
-        fun allWeekdaysValid() {
-            val result = subject.invoke(aProfile().copy(weekdays = Weekday.entries.toSet()))
+        @DisplayName("Given explicit trainingDayCount param when validated then accepted")
+        fun explicitTrainCountValid() {
+            val result =
+                subject.invoke(
+                    aProfile().copy(generationTrainingDayCount = null),
+                    trainingDayCount = 3,
+                )
             assertEquals(ScheduleValidationResult.Valid, result)
+        }
+
+        @Test
+        @DisplayName("Given legacy weekdays when validated then accepted")
+        fun legacyWeekdaysValid() {
+            val result =
+                subject.invoke(
+                    aProfile().copy(
+                        generationTrainingDayCount = null,
+                        weekdays = setOf(Weekday.Monday, Weekday.Wednesday),
+                    ),
+                )
+            assertEquals(ScheduleValidationResult.Valid, result)
+        }
+
+        @Test
+        @DisplayName("Given more than max training days when validated then TooManyTrainingDays")
+        fun tooManyTrainingDays() {
+            val result =
+                subject.invoke(
+                    aProfile(),
+                    trainingDayCount = ValidateScheduleStepUseCase.MAX_TRAINING_DAYS + 1,
+                )
+            assertInvalid(result, ScheduleValidationError.TooManyTrainingDays)
         }
     }
 
@@ -110,19 +138,32 @@ class ValidateScheduleStepUseCaseTest {
         assertEquals(ScheduleValidationResult.Valid, result)
     }
 
+    @Test
+    @DisplayName("Given cycle-space hints matching N when validated then valid")
+    fun cycleSpaceHintsValid() {
+        val result =
+            subject.invoke(
+                aProfile().copy(generationTrainingDayCount = null),
+                trainingDayCount = 4,
+                cycleLength = 7,
+                restSlotIndices = setOf(1, 3, 5),
+            )
+        assertEquals(ScheduleValidationResult.Valid, result)
+    }
+
     private fun aProfile(): UserTrainingProfile =
         UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
             lastTrained = LastTrainedBucket.WithinLastThreeMonths,
-            weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
             sessionLengthMinutes = 60,
+            generationTrainingDayCount = 4,
         )
 
     private fun assertInvalid(result: ScheduleValidationResult, expected: ScheduleValidationError) {
-        assertTrue(result is ScheduleValidationResult.Invalid, "Expected Invalid, got $result")
+        assertTrue(result is ScheduleValidationResult.Invalid)
         assertTrue(
-            (result as ScheduleValidationResult.Invalid).errors.contains(expected),
-            "Expected $expected in ${result.errors}",
+            expected in (result as ScheduleValidationResult.Invalid).errors,
+            "Expected $expected in ${(result as ScheduleValidationResult.Invalid).errors}",
         )
     }
 }

@@ -127,8 +127,10 @@ class AdvanceOnboardingStepUseCaseTest {
     fun choosePathImportJumpsToReviewAndClears() = runTest {
         val profileWithSchedule = UserTrainingProfile(
             trainingAge = TrainingAge.Intermediate,
-            weekdays = setOf(Weekday.Monday, Weekday.Wednesday),
             sessionLengthMinutes = 60,
+            generationTrainingDayCount = 4,
+            generationCycleLength = 7,
+            generationRestSlotIndices = setOf(3, 6),
         )
         val specialization = SpecializationPreference.Empty
 
@@ -144,9 +146,13 @@ class AdvanceOnboardingStepUseCaseTest {
 
         assertTrue(result is AdvanceOnboardingStepResult.Success)
         assertEquals(OnboardingStep.Review, (result as AdvanceOnboardingStepResult.Success).newStep)
-        // Schedule and session length cleared; specialization reset.
+        // Schedule, session length, and generate cycle-space cleared; specialization reset.
         assertTrue(fakeProfile.current?.weekdays.isNullOrEmpty())
         assertNull(fakeProfile.current?.sessionLengthMinutes)
+        assertNull(fakeProfile.current?.generationTrainingDayCount)
+        assertNull(fakeProfile.current?.generationCycleLength)
+        assertTrue(fakeProfile.current?.generationRestSlotIndices.isNullOrEmpty())
+        assertEquals(OnboardingPath.Import, fakeOnboarding.current.selectedPath)
         assertEquals(SpecializationPreference.Empty, fakeSpecialization.current)
     }
 
@@ -168,6 +174,68 @@ class AdvanceOnboardingStepUseCaseTest {
         assertTrue(result is AdvanceOnboardingStepResult.Success)
         assertEquals(OnboardingStep.Schedule, (result as AdvanceOnboardingStepResult.Success).newStep)
         assertEquals(profile, fakeProfile.current)
+        assertEquals(OnboardingPath.Generate, fakeOnboarding.current.selectedPath)
+    }
+
+    @Test
+    @DisplayName("Leaving Schedule on Generate persists cycle-space and clears weekdays")
+    fun scheduleFlushPersistsCycleSpace() = runTest {
+        fakeOnboarding.seed(
+            OnboardingProgress(
+                currentStep = OnboardingStep.Schedule,
+                startedAt = 0L,
+                completedAt = null,
+                selectedPath = OnboardingPath.Generate,
+            ),
+        )
+        val profile =
+            UserTrainingProfile(
+                trainingAge = TrainingAge.Intermediate,
+                lastTrained = LastTrainedBucket.WithinLastThreeMonths,
+                weekdays = setOf(Weekday.Monday),
+                sessionLengthMinutes = 60,
+            )
+
+        val result = subject(
+            currentStep = OnboardingStep.Schedule,
+            direction = OnboardingStepDirection.Forward,
+            profile = profile,
+            specialization = SpecializationPreference.Empty,
+            lifts = emptyList(),
+            selectedPreset = null,
+            path = OnboardingPath.Generate,
+            trainingDayCount = 4,
+            cycleLength = 7,
+            restSlotIndices = setOf(1, 3, 5),
+        )
+
+        assertTrue(result is AdvanceOnboardingStepResult.Success)
+        assertEquals(OnboardingStep.Specialization, (result as AdvanceOnboardingStepResult.Success).newStep)
+        assertTrue(fakeProfile.current?.weekdays.isNullOrEmpty())
+        assertEquals(4, fakeProfile.current?.generationTrainingDayCount)
+        assertEquals(7, fakeProfile.current?.generationCycleLength)
+        assertEquals(setOf(1, 3, 5), fakeProfile.current?.generationRestSlotIndices)
+        assertEquals(OnboardingPath.Generate, fakeOnboarding.current.selectedPath)
+    }
+
+    @Test
+    @DisplayName("Review with selectedPath=Generate and empty weekdays still resolves Generate for back")
+    fun reviewGeneratePathWithEmptyWeekdays() {
+        val state =
+            OnboardingWizardState(
+                progress =
+                    OnboardingProgress(
+                        currentStep = OnboardingStep.Review,
+                        startedAt = 0L,
+                        completedAt = null,
+                        selectedPath = OnboardingPath.Generate,
+                    ),
+                profile = UserTrainingProfile(weekdays = emptySet(), sessionLengthMinutes = 60),
+                specialization = SpecializationPreference.Empty,
+                lifts = emptyList(),
+                selectedPreset = null,
+            )
+        assertEquals(OnboardingPath.Generate, state.onboardingPath)
     }
 
     private fun enabledLift(): Lift = Lift(

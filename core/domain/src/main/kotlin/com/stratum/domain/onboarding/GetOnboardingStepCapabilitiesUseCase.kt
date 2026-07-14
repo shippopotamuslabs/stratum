@@ -15,8 +15,21 @@ class GetOnboardingStepCapabilitiesUseCase @Inject constructor(
         selectedPreset: GymPreset? = null,
         usedHistoricalImport: Boolean = false,
         path: OnboardingPath? = null,
+        cycleLength: Int? = null,
+        restSlotIndices: Set<Int>? = null,
+        trainingDayCount: Int? = null,
+        persistedSelectedPath: OnboardingPath? = null,
     ): OnboardingStepCapabilities {
-        val resolvedPath = path ?: resolvePath(step, profile)
+        val resolvedPath =
+            path
+                ?: OnboardingPathResolver.resolve(
+                    step = step,
+                    selectedPath = persistedSelectedPath,
+                    profile = profile,
+                    trainingDayCount = trainingDayCount,
+                    restSlotIndices = restSlotIndices,
+                    cycleLength = cycleLength,
+                )
         val stepValid =
             validateCurrentStep(
                 step = step,
@@ -25,6 +38,9 @@ class GetOnboardingStepCapabilitiesUseCase @Inject constructor(
                 lifts = lifts,
                 selectedPreset = selectedPreset,
                 usedHistoricalImport = usedHistoricalImport,
+                cycleLength = cycleLength,
+                restSlotIndices = restSlotIndices,
+                trainingDayCount = trainingDayCount,
             ).isValid
         val gymLiftsValid =
             validateCurrentStep(
@@ -41,18 +57,4 @@ class GetOnboardingStepCapabilitiesUseCase @Inject constructor(
             canGoBack = step.previous(resolvedPath) != null,
         )
     }
-
-    private fun resolvePath(step: OnboardingStep, profile: UserTrainingProfile): OnboardingPath? =
-        when (step) {
-            OnboardingStep.Profile,
-            OnboardingStep.GymAndLifts,
-            OnboardingStep.ChoosePath,
-            -> null
-            OnboardingStep.Schedule,
-            OnboardingStep.Specialization,
-            OnboardingStep.MinimumVolume,
-            -> OnboardingPath.Generate
-            OnboardingStep.Review ->
-                if (profile.weekdays.isEmpty()) OnboardingPath.Import else OnboardingPath.Generate
-        }
 }

@@ -20,26 +20,20 @@ data class OnboardingWizardState(
     val isComplete: Boolean get() = progress?.isComplete == true
 
     /**
-     * The active onboarding path, resolved from the current step and profile state. `null` while
-     * the user is in the common prefix (before choosing at [OnboardingStep.ChoosePath]).
+     * The active onboarding path, resolved from the current step and durable progress/profile state.
+     * `null` while the user is in the common prefix (before choosing at [OnboardingStep.ChoosePath]).
      *
-     * The Generate-only steps imply Generate; Review is disambiguated by whether the user entered a
-     * schedule (non-empty `weekdays`). The Generate path enforces non-empty weekdays via Schedule
-     * validation, while the Import path skips Schedule entirely — so empty weekdays at Review is a
-     * reliable Import signal.
+     * Generate-only steps imply Generate. Review uses [OnboardingProgress.selectedPath] and
+     * persisted generate cycle-space — **not** empty [UserTrainingProfile.weekdays] (cleared on
+     * Generate schedule flush).
      */
-    val onboardingPath: OnboardingPath? get() = when (currentStep) {
-        OnboardingStep.Profile,
-        OnboardingStep.GymAndLifts,
-        OnboardingStep.ChoosePath,
-        -> null
-        OnboardingStep.Schedule,
-        OnboardingStep.Specialization,
-        OnboardingStep.MinimumVolume,
-        -> OnboardingPath.Generate
-        OnboardingStep.Review ->
-            if (profile?.weekdays.isNullOrEmpty()) OnboardingPath.Import else OnboardingPath.Generate
-    }
+    val onboardingPath: OnboardingPath?
+        get() =
+            OnboardingPathResolver.resolve(
+                step = currentStep,
+                selectedPath = progress?.selectedPath,
+                profile = profile,
+            )
 
     companion object {
         val Initial = OnboardingWizardState(

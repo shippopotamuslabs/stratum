@@ -9,7 +9,11 @@ import javax.inject.Inject
 class SaveOnboardingProgressUseCase @Inject constructor(
     private val repository: OnboardingRepository,
 ) {
-    suspend operator fun invoke(step: OnboardingStep) {
-        repository.saveStep(step)
+    /**
+     * @param selectedPath when non-null, persists as the durable path; when null, the repository
+     * keeps the existing [OnboardingProgress.selectedPath].
+     */
+    suspend operator fun invoke(step: OnboardingStep, selectedPath: OnboardingPath? = null) {
+        repository.saveStep(step, selectedPath = selectedPath)
     }
 }
