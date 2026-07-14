@@ -24,12 +24,22 @@ data class Program(
     val id: ProgramId,
     val name: String,
     val createdAt: Instant,
-    /** Sessions in one full training cycle before repeating (may exceed workouts trained per calendar week). */
+    /**
+     * Number of slots in one full cycle (training workouts **plus** rest slots).
+     * Equals `workouts.size + restSlotIndices.size`. Not “training days only.”
+     */
     val cycleLength: Int,
-    /** Calendar days this program trains on; rest days are [Weekday.entries] minus this set. */
+    /**
+     * Denormalized projection cache of training weekdays when known. **Not** schedule identity —
+     * slot index + [restSlotIndices] are authoritative. Prefer empty for rotating / unbound.
+     */
     val trainingWeekdays: Set<Weekday> = emptySet(),
     val workouts: List<Workout>,
     val currentCycleNumber: Int = 1,
+    /**
+     * Next unconsumed slot index in `[0, cycleLength)`, derived from the session ledger
+     * (cache). Completing a slot advances; full cycle resets to 0 and bumps [currentCycleNumber].
+     */
     val cyclePosition: Int = 0,
     /**
      * Whether this is the user's active training program. At most one user program is active;
@@ -37,13 +47,26 @@ data class Program(
      * authorized for create-program / library (AGENTS.md §4.5 — v1 reinstall, no migration).
      */
     val isActive: Boolean = true,
+    /** Indices in `[0, cycleLength)` that are rest slots (not training). */
+    val restSlotIndices: Set<Int> = emptySet(),
+    /**
+     * Epoch day of slot 0 for the current cycle (optional projection anchor for history /
+     * skip weekday snapshots). Programs strip UI is order-only and does not display dates
+     * derived from this field.
+     */
+    val cycleStartEpochDay: Long? = null,
 )
 
 data class Workout(
     val id: WorkoutId,
     val programId: ProgramId,
     val name: String,
+    /**
+     * Optional projection cache only — **not** schedule identity. Prefer null.
+     * Programs strip is order-only (workout name / Rest Day).
+     */
     val weekday: Weekday?,
+    /** Order among training sessions in the cycle (0..T-1), not calendar slot index. */
     val position: Int,
     val workoutLifts: List<WorkoutLift>,
 )

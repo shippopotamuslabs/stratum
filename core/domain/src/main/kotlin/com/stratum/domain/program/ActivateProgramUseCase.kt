@@ -1,5 +1,6 @@
 package com.stratum.domain.program
 
+import com.stratum.domain.program.schedule.resolveInitialCycleStartEpochDay
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventRepository
@@ -12,6 +13,9 @@ import javax.inject.Inject
 /**
  * Saves [program] (if needed) and makes it the sole active training program. Prior active programs
  * demote to the library — nothing is deleted.
+ *
+ * Sets [Program.cycleStartEpochDay] via [resolveInitialCycleStartEpochDay]: 7-day Mon-start weeks
+ * anchor to Monday so slot 0 stays Monday (not "today", which mis-labels MTRFSa as Tue-first).
  */
 class ActivateProgramUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
@@ -23,7 +27,11 @@ class ActivateProgramUseCase @Inject constructor(
             require(program.workouts.any { it.workoutLifts.isNotEmpty() }) {
                 "Program must have at least one exercise"
             }
-            val toActivate = program.copy(isActive = true)
+            val toActivate =
+                program.copy(
+                    isActive = true,
+                    cycleStartEpochDay = resolveInitialCycleStartEpochDay(program),
+                )
             programRepository.saveProgram(toActivate)
             programChangeEventRepository.append(
                 ProgramChangeEvent(
