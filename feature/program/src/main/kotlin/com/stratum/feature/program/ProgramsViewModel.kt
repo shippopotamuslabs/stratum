@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.program.ComputeProgramMuscleVolumeUseCase
 import com.stratum.domain.program.ObserveProgramUseCase
+import com.stratum.domain.program.ObserveProgramsUiPreferencesUseCase
+import com.stratum.domain.program.SetExpandedWorkoutIdUseCase
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.ActiveTrainingSessionExistsException
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
@@ -33,6 +35,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -61,6 +64,8 @@ class ProgramsViewModel @Inject constructor(
     private val recordWorkoutSkip: RecordWorkoutSkipUseCase,
     private val recordRestDaySkip: RecordRestDaySkipUseCase,
     private val unskipWorkout: UnskipWorkoutUseCase,
+    observeProgramsUiPreferences: ObserveProgramsUiPreferencesUseCase,
+    private val setExpandedWorkoutId: SetExpandedWorkoutIdUseCase,
 ) : ViewModel() {
     val programsUiState: StateFlow<ProgramsUiState> =
         combine(
@@ -86,6 +91,25 @@ class ProgramsViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5_000),
             ProgramsUiState.Empty,
         )
+
+    /**
+     * Last expanded schedule workout card, restored from DataStore. Independent of program load
+     * so editing/swapping lifts does not force a different card open.
+     */
+    val expandedWorkoutId: StateFlow<String?> =
+        observeProgramsUiPreferences()
+            .map { prefs -> prefs.expandedWorkoutId }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                null,
+            )
+
+    fun setExpandedWorkout(workoutId: String?) {
+        viewModelScope.launch {
+            setExpandedWorkoutId(workoutId)
+        }
+    }
 
     private val _events = Channel<ProgramsUiEvent>(Channel.BUFFERED)
     val events: Flow<ProgramsUiEvent> = _events.receiveAsFlow()

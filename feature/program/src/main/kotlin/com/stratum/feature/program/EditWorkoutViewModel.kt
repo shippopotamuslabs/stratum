@@ -619,11 +619,11 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     /**
-     * Full reset of the edit session. Call from route [androidx.compose.runtime.DisposableEffect]
-     * onDispose so leave/discard/save can navigate first and keep a coherent Loaded frame for
-     * the nav exit fade (no premature Loading / title flash).
+     * Explicit hard reset for tests. Production leave relies on entry-scoped ViewModel
+     * destruction — do **not** call from composition dispose (Nav3 covers drop the route while
+     * the VM stays alive for Lift Swap / Reorder Lifts).
      */
-    fun clearSession() {
+    internal fun clearSession() {
         loadJob?.cancel()
         loadJob = null
         hasSnapshot.value = false

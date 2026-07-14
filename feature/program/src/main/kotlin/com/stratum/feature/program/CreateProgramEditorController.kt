@@ -88,9 +88,10 @@ internal class CreateProgramEditorController(
         }
     }
 
-    fun reorderDays(fromIndex: Int, toIndex: Int) {
+    fun reorderDaysByIds(orderedDayIds: List<String>) {
         state.update { current ->
-            CreateProgramDayEditor.reorderDays(current, fromIndex, toIndex)
+            CreateProgramDayEditor.reorderDaysByIds(current, orderedDayIds)
+                .withEditorDerivedMetrics()
         }
     }
 
