@@ -37,7 +37,7 @@ class WeirdCalendarFourDaySynthesisTest {
         val chestPressWeekdays = mutableSetOf<Int>()
         val chestPressPatterns = setOf(MovementPattern.HorizontalPress, MovementPattern.InclinePress)
         for (plan in result.plans) {
-            val weekday = result.weekdayIndexByPosition[plan.position]
+            val weekday = result.cycleSlotIndexByPosition[plan.position]
             val hasChestPress =
                 plan.filledSlots.any { slot ->
                     slot.pattern in chestPressPatterns &&

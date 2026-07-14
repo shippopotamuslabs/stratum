@@ -242,7 +242,6 @@ class LiftSelectionTuningTest {
             lastTrained = null,
             sessionLengthMinutes = 75,
             trainingDaysPerWeek = 3,
-            weekdays = listOf("Monday", "Wednesday", "Friday"),
             specialization = emptyMap(),
             liftsById = liftsById,
             muscleVolumeSnapshotsByMuscle = emptyMap(),

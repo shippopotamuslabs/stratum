@@ -2,6 +2,7 @@ package com.stratum.domain.program
 
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.scenarioContext
 import com.stratum.core.testing.program.testProgramGenerationPipeline
@@ -96,7 +97,7 @@ class GenerateProgramUseCaseTest {
     inner class FailurePath {
         @Test
         fun `invoke does not persist on generation failure`() = runTest {
-            val useCase = buildUseCase(this, contextLoader = ProgramGenerationContextLoader { error("boom") })
+            val useCase = buildUseCase(this, contextLoader = FixedProgramGenerationContextLoader(error = { error("boom") }))
 
             val result = useCase.invoke()
 
@@ -141,9 +142,10 @@ class GenerateProgramUseCaseTest {
 
     private fun buildUseCase(
         testScope: TestScope,
-        contextLoader: ProgramGenerationContextLoader = ProgramGenerationContextLoader {
-            scenarioContext(days = 3, specialization = emptyMap())
-        },
+        contextLoader: ProgramGenerationContextLoader =
+            FixedProgramGenerationContextLoader(
+                context = scenarioContext(days = 3, specialization = emptyMap()),
+            ),
         enabledLiftIds: Set<LiftId> = SCENARIO_LIFT_CATALOG.map { LiftId(it.id) }.toSet(),
     ): GenerateProgramUseCase {
         programRepository = FakeProgramRepository()

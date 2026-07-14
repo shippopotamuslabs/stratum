@@ -21,6 +21,7 @@ fun NormalizedProgram.toDraft(): ProgramDraft =
     ProgramDraft(
         name = name,
         cycleLength = cycleLength,
+        restSlotIndices = restSlotIndices,
         workouts = workouts.map { workout ->
             ProgramWorkoutDraft(
                 name = workout.name,

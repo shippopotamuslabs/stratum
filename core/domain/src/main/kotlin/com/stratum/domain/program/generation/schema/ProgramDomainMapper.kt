@@ -52,16 +52,16 @@ fun NormalizedProgram.toDomainProgram(createdAt: Instant = Instant.now()): Progr
             },
         )
     }
-    // trainingWeekdays is a denormalized cache of Workout.weekday bindings (the single source of
-    // truth). Derive it here so the mapper never emits a half-bound Program — callers that drop
-    // workouts after this point (e.g. retainOnlyKnownLifts) must re-derive via
+    // trainingWeekdays is a denormalized projection cache of Workout.weekday (not gen identity).
+    // Derive it here; callers that drop workouts after this point must re-derive via
     // withReconciledTrainingWeekdays().
     return Program(
         id = programId,
         name = name,
         createdAt = createdAt,
         cycleLength = cycleLength,
-        trainingWeekdays = workouts.mapNotNull { it.weekday }.toSet(),
+        trainingWeekdays = workouts.mapNotNull { workout -> workout.weekday }.toSet(),
         workouts = workouts,
+        restSlotIndices = restSlotIndices,
     )
 }

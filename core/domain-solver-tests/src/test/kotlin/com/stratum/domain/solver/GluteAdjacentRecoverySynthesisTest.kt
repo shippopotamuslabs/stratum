@@ -56,7 +56,7 @@ class GluteAdjacentRecoverySynthesisTest {
         val solverRepeats =
             recoveryGapViolationsFromPlans(
                 plans = synthesis.plans,
-                weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
+                cycleSlotIndexByPosition = synthesis.cycleSlotIndexByPosition,
                 context = context,
                 muscleFilter = { muscle -> muscle == "Glute" },
             )
@@ -102,14 +102,14 @@ class GluteAdjacentRecoverySynthesisTest {
         val repeats =
             recoveryGapViolationsFromPlans(
                 plans = synthesis.plans,
-                weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
+                cycleSlotIndexByPosition = synthesis.cycleSlotIndexByPosition,
                 context = context,
                 muscleFilter = { muscle -> muscle == "Glute" },
             )
         assertTrue(
             repeats.isEmpty(),
             "Sun→Mon wrap-around must forbid adjacent glute exposure: $repeats " +
-                "weekdays=${synthesis.weekdayIndexByPosition}",
+                "weekdays=${synthesis.cycleSlotIndexByPosition}",
         )
     }
 }

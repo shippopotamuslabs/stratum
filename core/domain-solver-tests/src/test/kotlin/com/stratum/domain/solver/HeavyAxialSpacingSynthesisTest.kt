@@ -50,7 +50,7 @@ class HeavyAxialSpacingSynthesisTest {
         assertTrue(
             violations.isEmpty(),
             "Moderate heavy-axial quad work must not repeat on gap-2 days: $violations " +
-                "weekdays=${synthesis.weekdayIndexByPosition}",
+                "weekdays=${synthesis.cycleSlotIndexByPosition}",
         )
     }
 
@@ -70,7 +70,7 @@ class HeavyAxialSpacingSynthesisTest {
         val adjacentViolations =
             recoveryGapViolationsFromPlans(
                 plans = synthesis.plans,
-                weekdayIndexByPosition = synthesis.weekdayIndexByPosition,
+                cycleSlotIndexByPosition = synthesis.cycleSlotIndexByPosition,
                 context = context,
                 muscleFilter = { muscle -> muscle == "Hamstring" },
                 calendarGapFilter = 1,
@@ -104,13 +104,13 @@ class HeavyAxialSpacingSynthesisTest {
     ): List<String> {
         val coefficients = VolumeAllocationCoefficients(computePatternSecondaryCredits(context))
         val ordered =
-            synthesis.plans.sortedBy { plan -> synthesis.weekdayIndexByPosition[plan.position] }
+            synthesis.plans.sortedBy { plan -> synthesis.cycleSlotIndexByPosition[plan.position] }
         val issues = mutableListOf<String>()
         for (earlier in ordered) {
             for (later in ordered) {
                 if (earlier.position == later.position) continue
-                val earlierDay = synthesis.weekdayIndexByPosition[earlier.position]
-                val laterDay = synthesis.weekdayIndexByPosition[later.position]
+                val earlierDay = synthesis.cycleSlotIndexByPosition[earlier.position]
+                val laterDay = synthesis.cycleSlotIndexByPosition[later.position]
                 val gap = calendarGapBetweenDays(earlierDay, laterDay)
                 if (gap != 2) continue
                 val earlierDose = planMuscleCredits(earlier, muscle, coefficients)

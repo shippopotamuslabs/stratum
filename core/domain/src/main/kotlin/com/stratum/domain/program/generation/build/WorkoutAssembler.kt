@@ -206,19 +206,22 @@ fun assembleWorkouts(
     plans: List<SessionSlotPlan>,
     selectionsBySession: List<List<SelectedSlotLift>>,
     context: ProgramGenerationContext,
-    weekdayIndexByPosition: List<Int>? = null,
+    cycleSlotIndexByPosition: List<Int>? = null,
 ): List<ProgramWorkoutDraft> {
     val workouts =
         plans.mapIndexed { idx, plan ->
             val selections = orderSelections(selectionsBySession.getOrElse(idx) { emptyList() }, context)
             ProgramWorkoutDraft(
                 name = plan.name,
-                weekday = weekdayIndexByPosition?.getOrNull(plan.position)?.let { index -> WEEKDAY_BY_INDEX[index].name },
+                weekday =
+                    cycleSlotIndexByPosition
+                        ?.getOrNull(plan.position)
+                        ?.let { index -> WEEKDAY_BY_INDEX.getOrNull(index)?.name },
                 position = plan.position,
                 workoutLifts = buildLiftDrafts(selections, context).toMutableList(),
             )
         }
-    return if (weekdayIndexByPosition != null) {
+    return if (cycleSlotIndexByPosition != null) {
         relabelPlaceholderSessionNamesByWeekday(workouts)
     } else {
         workouts

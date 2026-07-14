@@ -29,9 +29,15 @@ class LoadProgramGenerationContextUseCase @Inject constructor(
     private val muscleVolumeResponseSnapshotRepository: MuscleVolumeResponseSnapshotRepository,
     private val muscleVolumeBaselineRepository: MuscleVolumeBaselineRepository,
 ) : ProgramGenerationContextLoader {
-    override suspend fun load(): ProgramGenerationContext = invoke()
+    override suspend fun load(
+        restSlotIndices: Set<Int>?,
+        cycleLength: Int?,
+    ): ProgramGenerationContext = invoke(restSlotIndices, cycleLength)
 
-    suspend operator fun invoke(): ProgramGenerationContext {
+    suspend operator fun invoke(
+        restSlotIndices: Set<Int>? = null,
+        cycleLength: Int? = null,
+    ): ProgramGenerationContext {
         val profile = userTrainingProfileRepository.observeProfile().first() ?: UserTrainingProfile.Empty
         val specialization = observeSpecialization().first()
         val insightsByLift = liftTrainingInsightsRepository.getAll().associateBy { it.liftId }
@@ -45,12 +51,19 @@ class LoadProgramGenerationContextUseCase @Inject constructor(
                     availableLifts.map { lift -> LiftWithInsights(lift, insightsByLift[lift.id]) }
             }
         val responseProfile = assembleResponseProfilePayload()
+        // Prefer explicit UX hints, then durable profile generation cycle-space.
+        val rests =
+            restSlotIndices
+                ?: profile.generationRestSlotIndices.takeIf { rests -> rests.isNotEmpty() }
+        val length = cycleLength ?: profile.generationCycleLength
         return ProgramGenerationContextMapper.map(
             profile = profile,
             specialization = specialization,
             provenLifts = proven,
             availableLifts = available,
             responseProfile = responseProfile,
+            restSlotIndices = rests,
+            cycleLength = length,
         )
     }
 

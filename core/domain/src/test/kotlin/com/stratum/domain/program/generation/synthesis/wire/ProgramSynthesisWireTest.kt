@@ -65,7 +65,7 @@ class ProgramSynthesisWireTest {
         assertEquals(result.plans[0].position, decoded.plans[0].position)
         assertEquals(result.plans[0].slots, decoded.plans[0].slots)
         assertEquals(result.plans[0].filledSlots, decoded.plans[0].filledSlots)
-        assertEquals(result.weekdayIndexByPosition, decoded.weekdayIndexByPosition)
+        assertEquals(result.cycleSlotIndexByPosition, decoded.cycleSlotIndexByPosition)
         assertEquals(result.objective, decoded.objective)
         assertEquals(result.activeSlotIdsBySession, decoded.activeSlotIdsBySession)
         assertEquals(result.regionFilterBySession, decoded.regionFilterBySession)
@@ -172,7 +172,6 @@ class ProgramSynthesisWireTest {
             lastTrained = null,
             sessionLengthMinutes = 60,
             trainingDaysPerWeek = 4,
-            weekdays = listOf("Monday", "Tuesday", "Thursday", "Friday"),
             specialization =
                 mapOf(
                     MuscleGroup.Chest to SpecializationLevel.Specialize,
@@ -271,7 +270,7 @@ class ProgramSynthesisWireTest {
         return ProgramSynthesisResult(
             sessions = listOf(session),
             plans = listOf(plan),
-            weekdayIndexByPosition = listOf(0),
+            cycleSlotIndexByPosition = listOf(0),
             objective =
                 SynthesisObjectiveBreakdown(
                     total = 1_000L,

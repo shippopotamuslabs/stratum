@@ -19,7 +19,6 @@ internal object FirebaseCallablePayloadEncoder {
                     put("cycleLength", payload.intent.cycleLength)
                     put("specialization", payload.intent.specialization)
                     put("specializedMuscles", payload.intent.specializedMuscles)
-                    put("trainingWeekdays", payload.intent.trainingWeekdays)
                 },
             "program" to
                 mapOf(

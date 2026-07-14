@@ -39,13 +39,12 @@ class ProgramNamingPassTest {
     }
 
     @Test
-    fun `buildProgramNamingRequest includes weekdays and lift metadata`() {
+    fun `buildProgramNamingRequest maps draft workout weekday labels`() {
         val context =
             parseScenarioContext(
                 scenarioPayload(
                     days = 3,
                     specialization = mapOf("Chest" to "Specialize"),
-                    weekdayLayout = "mwf",
                 ),
             )
         val draft =
@@ -64,8 +63,8 @@ class ProgramNamingPassTest {
 
         val request = buildProgramNamingRequest(draft, context)
 
-        assertEquals(context.weekdays, request.namingPayload.intent.trainingWeekdays)
         assertEquals(1, request.namingPayload.program.workouts.size)
         assertEquals("Monday", request.namingPayload.program.workouts.first().weekday)
+        assertEquals(3, request.namingPayload.intent.trainingDaysPerWeek)
     }
 }
