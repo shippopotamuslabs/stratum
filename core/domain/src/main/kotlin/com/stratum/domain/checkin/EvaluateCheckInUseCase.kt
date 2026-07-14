@@ -5,8 +5,11 @@ import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.RankSwapCandidatesUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.program.ComputeProgramMuscleVolumeUseCase
 import com.stratum.domain.program.ProgramRepository
+import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
+import com.stratum.domain.response.MuscleVolumeResponseSnapshotRepository
 import com.stratum.domain.training.ProgramChangeEventRepository
 import java.time.Instant
 import java.time.Period
@@ -14,11 +17,15 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
 /**
- * Builds a full [CheckInEvaluation] from weekly performance tables, the active program, lift
- * rotation tenure, swap ranking, and ephemeral subjective feedback.
+ * Builds a full [CheckInEvaluation] from weekly performance, program volume, tenure, and
+ * subjective feedback.
  *
- * Policy lives in [CheckInDecisionEngine.decide]; this use case only enriches Swap with catalog
- * candidates (failing closed to +volume when none), reserving chosen lifts across the batch.
+ * Pipeline:
+ * 1. Per-lift [CheckInDecisionEngine.decide]
+ * 2. Enrich Swap kinds with catalog candidates (similarity band); fail closed to +vol/Maintain
+ * 3. [CheckInBatchSelector.select] on **final** kinds (one non-cut lever per muscle)
+ *
+ * Step 3 after step 2 ensures a failed swap re-opens the muscle for a peer +1 (G4 rank).
  */
 class EvaluateCheckInUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
@@ -26,22 +33,30 @@ class EvaluateCheckInUseCase @Inject constructor(
     private val liftWeeklyPerformanceRepository: LiftWeeklyPerformanceRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
+    private val computeProgramMuscleVolume: ComputeProgramMuscleVolumeUseCase,
+    private val muscleVolumeResponseSnapshotRepository: MuscleVolumeResponseSnapshotRepository,
 ) {
     suspend operator fun invoke(
         subjective: CheckInSubjectiveFeedback,
         now: Instant = Instant.now(),
     ): CheckInEvaluation? {
         val program = programRepository.getProgram() ?: return null
-        val liftsById = liftRepository.observeLifts().first().associateBy { it.id }
+        val lifts = liftRepository.observeLifts().first()
+        val liftsById = lifts.associateBy { it.id }
         val windowStart = now.minus(Period.ofWeeks(DASHBOARD_PERFORMANCE_WINDOW_WEEKS))
         val performance = liftWeeklyPerformanceRepository.getSince(windowStart)
         val performanceByLift = performance.groupBy { it.liftId }
         val events = programChangeEventRepository.getEventsForProgram(program.id)
 
+        val programVolumeByMuscle =
+            computeProgramMuscleVolume(program, lifts).associate { it.muscle to it.setCount }
+        val snapshotsByMuscle =
+            muscleVolumeResponseSnapshotRepository.getAll().associateBy { it.muscle }
+
         val programLiftIds =
             program.workouts.flatMap { workout -> workout.workoutLifts.map { it.liftId } }.toSet()
 
-        val slots = mutableListOf<Slot>()
+        val decided = mutableListOf<DecidedSlot>()
         for (workout in program.workouts) {
             val liftIdsInWorkout = workout.workoutLifts.map { it.liftId }.toSet()
             for (workoutLift in workout.workoutLifts) {
@@ -70,6 +85,12 @@ class EvaluateCheckInUseCase @Inject constructor(
                         events = events,
                         now = now,
                     )
+                val atCeiling =
+                    CheckInVolumeCeiling.isAtCeiling(
+                        primaryMuscles = primaryMuscles,
+                        programVolumeByMuscle = programVolumeByMuscle,
+                        snapshotsByMuscle = snapshotsByMuscle,
+                    )
                 val input =
                     LiftCheckInInput(
                         workoutLiftId = workoutLift.id,
@@ -80,9 +101,11 @@ class EvaluateCheckInUseCase @Inject constructor(
                         recoverySignal = recovery,
                         rotationTenureWeeks = tenure,
                         currentSetCount = workoutLift.sets.size,
+                        atVolumeCeiling = atCeiling,
+                        kinematicProfile = lift?.kinematicProfile,
                     )
-                slots +=
-                    Slot(
+                decided +=
+                    DecidedSlot(
                         input = input,
                         liftIdsInWorkout = liftIdsInWorkout,
                         decision = CheckInDecisionEngine.decide(input),
@@ -91,33 +114,108 @@ class EvaluateCheckInUseCase @Inject constructor(
         }
 
         val reservedSwapIds = mutableSetOf<LiftId>()
-        val recommendations =
-            slots
+        // Enrich swaps first (reservation order = contender rank among swap-kind slots).
+        val swapEnrichOrder =
+            decided
+                .filter { it.decision.kind == CheckInActionKind.SwapLift }
                 .sortedWith(
-                    compareBy<Slot> { it.decision.kind.ordinalPriority() }
+                    compareBy<DecidedSlot> { it.decision.kind.sortPriority() }
                         .thenByDescending { it.input.performanceTrend == PerformanceTrend.Dropping }
+                        .thenBy { it.input.currentSetCount }
+                        .thenByDescending { it.input.rotationTenureWeeks }
                         .thenBy { it.input.liftName.lowercase() },
                 )
-                .map { slot ->
-                    resolveRecommendation(
-                        slot = slot,
-                        programLiftIds = programLiftIds,
-                        reservedSwapIds = reservedSwapIds,
-                    )
-                }
+        val enrichedByWorkoutLift = mutableMapOf<WorkoutLiftId, CheckInProvisionalRecommendation>()
+        for (slot in swapEnrichOrder) {
+            enrichedByWorkoutLift[slot.input.workoutLiftId] =
+                enrichSwapSlot(slot, programLiftIds, reservedSwapIds)
+        }
+        for (slot in decided) {
+            if (slot.input.workoutLiftId in enrichedByWorkoutLift) continue
+            enrichedByWorkoutLift[slot.input.workoutLiftId] = mapNonSwapSlot(slot)
+        }
+
+        val provisional = decided.map { enrichedByWorkoutLift.getValue(it.input.workoutLiftId) }
+        val selected = CheckInBatchSelector.select(provisional)
+
+        val recommendations =
+            selected.map { row ->
+                CheckInRecommendation(
+                    workoutLiftId = row.input.workoutLiftId,
+                    liftId = row.input.liftId,
+                    liftName = row.input.liftName,
+                    primaryMuscles = row.input.primaryMuscles,
+                    performanceTrend = row.input.performanceTrend,
+                    recoverySignal = row.input.recoverySignal,
+                    rotationTenureWeeks = row.input.rotationTenureWeeks,
+                    currentSetCount = row.input.currentSetCount,
+                    action = row.action,
+                    rationale = row.rationale,
+                    kinematicProfile = row.input.kinematicProfile,
+                    atVolumeCeiling = row.input.atVolumeCeiling,
+                )
+            }
 
         return CheckInEvaluation(
             evaluatedAt = now,
-            recommendations = recommendations,
+            recommendations =
+                recommendations.sortedWith(CheckInDecisionEngine.recommendationComparator()),
             programLiftIds = programLiftIds,
         )
     }
 
-    private suspend fun resolveRecommendation(
-        slot: Slot,
+    private suspend fun enrichSwapSlot(
+        slot: DecidedSlot,
         programLiftIds: Set<LiftId>,
         reservedSwapIds: MutableSet<LiftId>,
-    ): CheckInRecommendation {
+    ): CheckInProvisionalRecommendation {
+        val input = slot.input
+        val decision = slot.decision
+        val exclude = slot.liftIdsInWorkout + programLiftIds + reservedSwapIds - input.liftId
+        val pick = pickSwapCandidate(input.liftId, exclude)
+        return if (pick != null) {
+            reservedSwapIds += pick.first
+            CheckInProvisionalRecommendation(
+                input = input,
+                action =
+                    CheckInAction.SwapLift(
+                        suggestedLiftId = pick.first,
+                        suggestedLiftName = pick.second,
+                    ),
+                rationale = decision.rationale,
+            )
+        } else {
+            failedSwapFallback(input, decision)
+        }
+    }
+
+    private fun failedSwapFallback(
+        input: LiftCheckInInput,
+        decision: CheckInCoreDecision,
+    ): CheckInProvisionalRecommendation {
+        val soft =
+            (decision.rationale as? CheckInRationale.SoftStaleSwap)?.softTrend
+                ?: SoftPerformanceTrend.Flat
+        return if (input.atVolumeCeiling) {
+            CheckInProvisionalRecommendation(
+                input = input,
+                action = CheckInAction.Maintain,
+                rationale = CheckInRationale.SoftStaleNoCandidateAtCeiling,
+            )
+        } else {
+            CheckInProvisionalRecommendation(
+                input = input,
+                action = CheckInAction.IncreaseVolume(addSets = CHECKIN_VOLUME_STEP),
+                rationale =
+                    CheckInRationale.SoftStaleIncreaseNoCandidate(
+                        softTrend = soft,
+                        tenureWeeks = input.rotationTenureWeeks,
+                    ),
+            )
+        }
+    }
+
+    private fun mapNonSwapSlot(slot: DecidedSlot): CheckInProvisionalRecommendation {
         val input = slot.input
         val decision = slot.decision
         val (action, rationale) =
@@ -125,68 +223,31 @@ class EvaluateCheckInUseCase @Inject constructor(
                 CheckInActionKind.Maintain ->
                     CheckInAction.Maintain to decision.rationale
                 CheckInActionKind.IncreaseVolume ->
-                    CheckInAction.IncreaseVolume(addSets = decision.addSets.coerceAtLeast(1)) to
-                        decision.rationale
+                    CheckInAction.IncreaseVolume(
+                        addSets = decision.addSets.coerceAtLeast(CHECKIN_VOLUME_STEP),
+                    ) to decision.rationale
                 CheckInActionKind.CutVolume ->
                     CheckInAction.CutVolume(removeSets = decision.removeSets) to decision.rationale
-                CheckInActionKind.SwapLift -> {
-                    val exclude =
-                        slot.liftIdsInWorkout + programLiftIds + reservedSwapIds - input.liftId
-                    val pick = pickSwapCandidate(input.liftId, exclude)
-                    if (pick != null) {
-                        reservedSwapIds += pick.first
-                        CheckInAction.SwapLift(
-                            suggestedLiftId = pick.first,
-                            suggestedLiftName = pick.second,
-                        ) to decision.rationale
-                    } else {
-                        val soft =
-                            (decision.rationale as? CheckInRationale.SoftStaleSwap)?.softTrend
-                                ?: SoftPerformanceTrend.Flat
-                        CheckInAction.IncreaseVolume(addSets = 1) to
-                            CheckInRationale.SoftStaleIncreaseNoCandidate(
-                                softTrend = soft,
-                                tenureWeeks = input.rotationTenureWeeks,
-                            )
-                    }
-                }
+                CheckInActionKind.SwapLift ->
+                    error("Swap slots must use enrichSwapSlot")
             }
-        return CheckInRecommendation(
-            workoutLiftId = input.workoutLiftId,
-            liftId = input.liftId,
-            liftName = input.liftName,
-            primaryMuscles = input.primaryMuscles,
-            performanceTrend = input.performanceTrend,
-            recoverySignal = input.recoverySignal,
-            rotationTenureWeeks = input.rotationTenureWeeks,
-            currentSetCount = input.currentSetCount,
+        return CheckInProvisionalRecommendation(
+            input = input,
             action = action,
             rationale = rationale,
         )
     }
 
-    /**
-     * Picks the best enabled catalog match not in [excludeLiftIds]. Returns null when none —
-     * never falls back to an excluded lift.
-     */
     private suspend fun pickSwapCandidate(
         targetLiftId: LiftId,
         excludeLiftIds: Set<LiftId>,
     ): Pair<LiftId, String>? {
         val ranked = rankSwapCandidates(targetLiftId).first()
-        val pick = ranked.firstOrNull { scored -> scored.lift.id !in excludeLiftIds }
+        val pick = selectSwapCandidate(ranked, excludeLiftIds)
         return pick?.let { it.lift.id to it.lift.name }
     }
 
-    private fun CheckInActionKind.ordinalPriority(): Int =
-        when (this) {
-            CheckInActionKind.CutVolume -> 0
-            CheckInActionKind.SwapLift -> 1
-            CheckInActionKind.IncreaseVolume -> 2
-            CheckInActionKind.Maintain -> 3
-        }
-
-    private data class Slot(
+    private data class DecidedSlot(
         val input: LiftCheckInInput,
         val liftIdsInWorkout: Set<LiftId>,
         val decision: CheckInCoreDecision,

@@ -344,11 +344,19 @@ private fun RecommendationCard(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         StratumText(
-            text = recommendation.title,
+            text =
+                stringResource(
+                    recommendation.titleRes,
+                    *recommendation.titleArgs.toTypedArray(),
+                ),
             style = StratumThemeAccessor.typography.titleMedium,
         )
         StratumText(
-            text = recommendation.rationale,
+            text =
+                stringResource(
+                    recommendation.rationaleRes,
+                    *recommendation.rationaleArgs.toTypedArray(),
+                ),
             muted = true,
             style = StratumThemeAccessor.typography.sectionLabel,
         )

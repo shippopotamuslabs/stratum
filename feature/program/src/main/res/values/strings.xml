@@ -63,6 +63,31 @@
     <string name="checkin_tap_to_change_swap">Tap to choose a different lift</string>
     <string name="checkin_swap_picker_title">Choose replacement</string>
 
+    <!-- Coach check-in recommendation titles -->
+    <string name="checkin_rec_title_swap">Swap %1$s → %2$s</string>
+    <string name="checkin_rec_title_increase">Add %1$d set to %2$s</string>
+    <string name="checkin_rec_title_cut">Remove %1$d set(s) from %2$s</string>
+    <string name="checkin_rec_title_cut_floor">%1$s already at 1 set — manage load in-session</string>
+
+    <!-- Coach check-in rationales -->
+    <string name="checkin_rationale_climbing">e1RM climbing — keep %1$s as programmed</string>
+    <string name="checkin_rationale_no_clear_change">No clear change needed for %1$s</string>
+    <string name="checkin_rationale_soft_stale_swap_flat">e1RM flat, lift %1$dw on rotation → swap</string>
+    <string name="checkin_rationale_soft_stale_swap_dropping">e1RM soft/dropping, lift %1$dw on rotation → swap</string>
+    <string name="checkin_rationale_soft_fresh_increase_flat">e1RM flat, variation still fresh (%1$dw) → add 1 set</string>
+    <string name="checkin_rationale_soft_fresh_increase_dropping">e1RM soft/dropping, variation still fresh (%1$dw) → add 1 set</string>
+    <string name="checkin_rationale_soft_stale_no_candidate_flat">e1RM flat, stale but no free swap → add 1 set</string>
+    <string name="checkin_rationale_soft_stale_no_candidate_dropping">e1RM soft/dropping, stale but no free swap → add 1 set</string>
+    <string name="checkin_rationale_dropping_mild_hold">e1RM dropping with mild soreness — hold %1$s; prioritize recovery</string>
+    <string name="checkin_rationale_soft_fresh_at_ceiling">e1RM soft but weekly volume already high — no extra set on %1$s</string>
+    <string name="checkin_rationale_soft_stale_no_candidate_ceiling">No good swap for %1$s and volume already high — hold</string>
+    <string name="checkin_rationale_muscle_lever_taken">Another change already targets this muscle — leave %1$s for now</string>
+    <string name="checkin_rationale_joint_cut">Joint pain reported → strongly recommend cutting ~%1$d%% sets</string>
+    <string name="checkin_rationale_joint_floor">Joint pain reported — already at 1 set; manage load in-session</string>
+    <string name="checkin_rationale_severe_cut">Severe under-recovery → strongly recommend cutting ~%1$d%% sets</string>
+    <string name="checkin_rationale_severe_floor">Under-recovered — already at 1 set; manage load in-session</string>
+    <string name="checkin_rationale_already_floor">Already at 1 set — no set cut; manage load in-session</string>
+
     <!-- Create Program wizard -->
     <string name="create_program_title">Create Program</string>
     <string name="create_program_choose_path_title">How do you want to create your program?</string>

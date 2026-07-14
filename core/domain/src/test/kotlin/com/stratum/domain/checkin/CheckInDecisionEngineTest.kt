@@ -255,8 +255,8 @@ class CheckInDecisionEngineTest {
     }
 
     @Test
-    @DisplayName("Rule 2: mild soreness + dropping + stale still swaps")
-    fun mildSorenessDroppingStaleSwaps() {
+    @DisplayName("G3: mild soreness + dropping → hold (not swap, even if stale)")
+    fun mildSorenessDroppingHolds() {
         val decision =
             CheckInDecisionEngine.decide(
                 baseInput(
@@ -266,7 +266,109 @@ class CheckInDecisionEngineTest {
                     setCount = 3,
                 ),
             )
+        assertEquals(CheckInActionKind.Maintain, decision.kind)
+        assertEquals(CheckInRationale.DroppingMildRecoveryHold, decision.rationale)
+    }
+
+    @Test
+    @DisplayName("G1: flat + good + fresh + at ceiling → Maintain")
+    fun flatFreshAtCeilingMaintains() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Flat,
+                    recovery = RecoverySignal.Good,
+                    tenureWeeks = 2,
+                    setCount = 3,
+                    atCeiling = true,
+                ),
+            )
+        assertEquals(CheckInActionKind.Maintain, decision.kind)
+        assertEquals(CheckInRationale.SoftFreshAtVolumeCeiling, decision.rationale)
+    }
+
+    @Test
+    @DisplayName("G1: flat + good + stale + at ceiling still swaps (variation, not volume)")
+    fun flatStaleAtCeilingStillSwaps() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Flat,
+                    recovery = RecoverySignal.Good,
+                    tenureWeeks = 5,
+                    setCount = 3,
+                    atCeiling = true,
+                ),
+            )
         assertEquals(CheckInActionKind.SwapLift, decision.kind)
+    }
+
+    @Test
+    @DisplayName("G3: dropping + good + fresh + under ceiling → +1")
+    fun droppingGoodFreshIncreases() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Dropping,
+                    recovery = RecoverySignal.Good,
+                    tenureWeeks = 2,
+                    setCount = 3,
+                ),
+            )
+        assertEquals(CheckInActionKind.IncreaseVolume, decision.kind)
+    }
+
+    @Test
+    @DisplayName("G3: dropping + good + fresh + at ceiling → Maintain")
+    fun droppingGoodFreshAtCeiling() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Dropping,
+                    recovery = RecoverySignal.Good,
+                    tenureWeeks = 2,
+                    setCount = 3,
+                    atCeiling = true,
+                ),
+            )
+        assertEquals(CheckInActionKind.Maintain, decision.kind)
+        assertEquals(CheckInRationale.SoftFreshAtVolumeCeiling, decision.rationale)
+    }
+
+    @Test
+    @DisplayName("empty primary muscles on soft path → Maintain (no soft lever)")
+    fun emptyPrimaryNoSoftLever() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                LiftCheckInInput(
+                    workoutLiftId = WorkoutLiftId("wl-1"),
+                    liftId = LiftId("mystery"),
+                    liftName = "Mystery",
+                    primaryMuscles = emptySet(),
+                    performanceTrend = PerformanceTrend.Flat,
+                    recoverySignal = RecoverySignal.Good,
+                    rotationTenureWeeks = 2,
+                    currentSetCount = 3,
+                ),
+            )
+        assertEquals(CheckInActionKind.Maintain, decision.kind)
+        assertEquals(CheckInRationale.NoClearChange, decision.rationale)
+    }
+
+    @Test
+    @DisplayName("G3: dropping + mild + fresh → hold")
+    fun droppingMildFreshHolds() {
+        val decision =
+            CheckInDecisionEngine.decide(
+                baseInput(
+                    trend = PerformanceTrend.Dropping,
+                    recovery = RecoverySignal.MildSoreness,
+                    tenureWeeks = 1,
+                    setCount = 3,
+                ),
+            )
+        assertEquals(CheckInActionKind.Maintain, decision.kind)
+        assertEquals(CheckInRationale.DroppingMildRecoveryHold, decision.rationale)
     }
 
     @Test
@@ -343,6 +445,7 @@ class CheckInDecisionEngineTest {
         recovery: RecoverySignal,
         tenureWeeks: Int,
         setCount: Int,
+        atCeiling: Boolean = false,
     ): LiftCheckInInput =
         LiftCheckInInput(
             workoutLiftId = WorkoutLiftId("wl-1"),
@@ -353,6 +456,7 @@ class CheckInDecisionEngineTest {
             recoverySignal = recovery,
             rotationTenureWeeks = tenureWeeks,
             currentSetCount = setCount,
+            atVolumeCeiling = atCeiling,
         )
 
     private var weekCounter = 0L
