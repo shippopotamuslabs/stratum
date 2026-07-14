@@ -152,4 +152,70 @@ class MuscleRecoveryReferenceTest {
         assertEquals(false, isLargeCompoundMuscle("Calf"))
         assertEquals(false, isLargeCompoundMuscle("LateralDeltoid"))
     }
+
+    // Secondary-only hitchhiking on large compounds stays on the 24h Isolation Low lane.
+
+    @Test
+    @DisplayName("secondary-only Glute Low (squat hitchhiking) stays at one calendar day")
+    fun secondaryOnlyGluteLowStaysOneDay() {
+        // 4 sets squat × 0.5 secondary = 2.0 credits, zero primary Glute.
+        assertEquals(
+            1,
+            minimumRecoveryCalendarGap(
+                MuscleSessionStress(
+                    fractionalSets = 2.0,
+                    stressClass = LiftStressClass.Isolation,
+                    muscle = "Glute",
+                    primaryFractionalSets = 0.0,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("secondary-only Glute Moderate still prices 48h Isolation (gap 2) for soft/advisory paths")
+    fun secondaryOnlyGluteModerateStillGapTwoOnHours() {
+        // Hours table for Isolation Moderate is 48h regardless of secondary-only; hard forbids
+        // no longer force gap-2 for secondary-only, but soft/advisory debt still uses the table.
+        assertEquals(
+            2,
+            minimumRecoveryCalendarGap(
+                MuscleSessionStress(
+                    fractionalSets = 4.5,
+                    stressClass = LiftStressClass.Isolation,
+                    muscle = "Glute",
+                    primaryFractionalSets = 0.0,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("primary isolation Low on Glute still requires two calendar days (mass surcharge)")
+    fun primaryIsolationLowOnGluteRequiresTwoDays() {
+        assertEquals(
+            2,
+            minimumRecoveryCalendarGap(
+                MuscleSessionStress(
+                    fractionalSets = 2.0,
+                    stressClass = LiftStressClass.Isolation,
+                    muscle = "Glute",
+                    primaryFractionalSets = 2.0,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("muscleRecoveryGapViolated allows adjacent secondary-only Glute Low")
+    fun secondaryOnlyGluteLowNotViolatedOnAdjacentDay() {
+        val earlier =
+            MuscleSessionStress(
+                fractionalSets = 2.0,
+                stressClass = LiftStressClass.Isolation,
+                muscle = "Glute",
+                primaryFractionalSets = 0.0,
+            )
+        assertEquals(false, muscleRecoveryGapViolated(earlier, laterDose = 4.5, calendarGap = 1))
+    }
 }

@@ -638,11 +638,20 @@ fun computeWorkoutMuscleSessionStress(
         }
     }
     return doses.mapValues { (muscle, dose) ->
+        val contributors = classContributors[muscle].orEmpty()
+        val primaryOnly =
+            workout.workoutLifts.orEmpty().sumOf { lift ->
+                val setCount = lift.workoutLiftSets?.size ?: 0
+                if (setCount == 0) return@sumOf 0.0
+                val meta = context.liftsById[lift.liftId.orEmpty()] ?: return@sumOf 0.0
+                if (muscle in meta.primaryMuscles) setCount * PRIMARY_SET_CREDIT else 0.0
+            }
         MuscleSessionStress(
-            dose,
-            dominantStressClass(classContributors[muscle].orEmpty()),
+            fractionalSets = dose,
+            stressClass = dominantStressClass(contributors),
             muscle = muscle.name,
             muscleLengthBias = lengthBiasByMuscle[muscle],
+            primaryFractionalSets = primaryOnly,
         )
     }
 }
