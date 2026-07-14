@@ -6,12 +6,22 @@ import com.stratum.domain.response.modeling.MuscleVolumeResponseSnapshot
 import com.stratum.domain.response.modeling.VolumePosture
 
 /**
- * Whether program weekly hard-set volume is high enough that opportunistic +1 set is a poor lever.
+ * Whether **weekly-equivalent** planned hard-set volume is high enough that opportunistic +1 set
+ * is a poor lever.
  *
- * Ceiling = [GlobalVolumePriors.maintenanceCeiling] from a personal snapshot's PV/RC when present,
- * else literature defaults (~16.5). [VolumePosture.Saturated] always counts as at ceiling.
+ * Callers must pass [WeeklyHardSetVolume] (or maps produced via
+ * [WeeklyHardSetVolume.fromCycle]), not raw cycle sums. Ceiling =
+ * [GlobalVolumePriors.maintenanceCeiling] from a personal snapshot's PV/RC when present, else
+ * literature defaults (~16.5).
+ *
+ * [VolumePosture.Saturated] only forces the ceiling when planned volume is at least half the
+ * maintenance ceiling — stale Saturated posture alone must not freeze soft +1s on deliberately
+ * low-volume programs.
  */
 object CheckInVolumeCeiling {
+
+    /** Fraction of maintenance ceiling required before Saturated posture forces hold. */
+    const val SATURATED_VOLUME_FRACTION = 0.5
 
     fun resolveCeiling(snapshot: MuscleVolumeResponseSnapshot?): Double =
         if (snapshot != null) {
@@ -24,8 +34,8 @@ object CheckInVolumeCeiling {
         }
 
     /**
-     * True when **any** primary muscle is saturated or at/above its ceiling. Empty primary set →
-     * not at ceiling (no muscle to protect).
+     * True when **any** primary muscle is at/above its ceiling, or Saturated with volume at least
+     * [SATURATED_VOLUME_FRACTION] of ceiling. Empty primary set → not at ceiling.
      */
     fun isAtCeiling(
         primaryMuscles: Set<MuscleGroup>,
@@ -35,12 +45,25 @@ object CheckInVolumeCeiling {
         if (primaryMuscles.isEmpty()) return false
         return primaryMuscles.any { muscle ->
             val snapshot = snapshotsByMuscle[muscle]
-            if (snapshot?.posture == VolumePosture.Saturated) {
-                true
-            } else {
-                val volume = programVolumeByMuscle[muscle] ?: 0.0
-                volume >= resolveCeiling(snapshot)
+            val volume = programVolumeByMuscle[muscle] ?: 0.0
+            val ceiling = resolveCeiling(snapshot)
+            when {
+                volume >= ceiling -> true
+                snapshot?.posture == VolumePosture.Saturated &&
+                    volume >= ceiling * SATURATED_VOLUME_FRACTION -> true
+                else -> false
             }
         }
     }
+
+    fun isAtCeiling(
+        primaryMuscles: Set<MuscleGroup>,
+        weeklyVolume: WeeklyHardSetVolume,
+        snapshotsByMuscle: Map<MuscleGroup, MuscleVolumeResponseSnapshot>,
+    ): Boolean =
+        isAtCeiling(
+            primaryMuscles = primaryMuscles,
+            programVolumeByMuscle = weeklyVolume.byMuscle,
+            snapshotsByMuscle = snapshotsByMuscle,
+        )
 }

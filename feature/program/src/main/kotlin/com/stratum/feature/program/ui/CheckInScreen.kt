@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
@@ -344,19 +345,11 @@ private fun RecommendationCard(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         StratumText(
-            text =
-                stringResource(
-                    recommendation.titleRes,
-                    *recommendation.titleArgs.toTypedArray(),
-                ),
+            text = formatStringResource(recommendation.titleRes, recommendation.titleArgs),
             style = StratumThemeAccessor.typography.titleMedium,
         )
         StratumText(
-            text =
-                stringResource(
-                    recommendation.rationaleRes,
-                    *recommendation.rationaleArgs.toTypedArray(),
-                ),
+            text = formatStringResource(recommendation.rationaleRes, recommendation.rationaleArgs),
             muted = true,
             style = StratumThemeAccessor.typography.sectionLabel,
         )
@@ -451,3 +444,12 @@ private fun muscleIssueOptions(): List<RecoverySignalUi> =
         RecoverySignalUi.SevereUnderRecovery,
         RecoverySignalUi.JointPain,
     )
+
+/** Formats a string resource with args without a Compose [stringResource] spread call site. */
+@Composable
+private fun formatStringResource(id: Int, args: List<Any>): String {
+    if (args.isEmpty()) return stringResource(id)
+    val resources = LocalContext.current.resources
+    @Suppress("SpreadOperator")
+    return resources.getString(id, *args.toTypedArray())
+}

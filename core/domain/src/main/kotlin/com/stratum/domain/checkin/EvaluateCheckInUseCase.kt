@@ -26,6 +26,11 @@ import kotlinx.coroutines.flow.first
  * 3. [CheckInBatchSelector.select] on **final** kinds (one non-cut lever per muscle)
  *
  * Step 3 after step 2 ensures a failed swap re-opens the muscle for a peer +1 (G4 rank).
+ *
+ * **Volume units:** [ComputeProgramMuscleVolumeUseCase] returns **cycle** hard-set credits
+ * ([CycleHardSetVolume]). Check-in ceilings (MV/PV/RC) are **weekly**, so planned volume is
+ * converted to [WeeklyHardSetVolume] before [CheckInVolumeCeiling]. Programs UI volume cards may
+ * still show raw cycle totals.
  */
 class EvaluateCheckInUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
@@ -48,8 +53,13 @@ class EvaluateCheckInUseCase @Inject constructor(
         val performanceByLift = performance.groupBy { it.liftId }
         val events = programChangeEventRepository.getEventsForProgram(program.id)
 
-        val programVolumeByMuscle =
-            computeProgramMuscleVolume(program, lifts).associate { it.muscle to it.setCount }
+        val cycleVolume =
+            CycleHardSetVolume(
+                computeProgramMuscleVolume(program, lifts).associate { it.muscle to it.setCount },
+            )
+        // Ceilings are weekly landmarks; scale cycle totals by 7/cycleLength (identity at 7).
+        val weeklyVolume = WeeklyHardSetVolume.fromCycle(cycleVolume, program.cycleLength)
+        val programVolumeByMuscle = weeklyVolume.byMuscle
         val snapshotsByMuscle =
             muscleVolumeResponseSnapshotRepository.getAll().associateBy { it.muscle }
 
@@ -114,16 +124,15 @@ class EvaluateCheckInUseCase @Inject constructor(
         }
 
         val reservedSwapIds = mutableSetOf<LiftId>()
-        // Enrich swaps first (reservation order = contender rank among swap-kind slots).
+        // Enrich swaps first (reservation order = shared G4 rank with batch contenders).
         val swapEnrichOrder =
             decided
                 .filter { it.decision.kind == CheckInActionKind.SwapLift }
                 .sortedWith(
                     compareBy<DecidedSlot> { it.decision.kind.sortPriority() }
-                        .thenByDescending { it.input.performanceTrend == PerformanceTrend.Dropping }
-                        .thenBy { it.input.currentSetCount }
-                        .thenByDescending { it.input.rotationTenureWeeks }
-                        .thenBy { it.input.liftName.lowercase() },
+                        .then { a, b ->
+                            CheckInRanking.swapEnrichInputComparator().compare(a.input, b.input)
+                        },
                 )
         val enrichedByWorkoutLift = mutableMapOf<WorkoutLiftId, CheckInProvisionalRecommendation>()
         for (slot in swapEnrichOrder) {
