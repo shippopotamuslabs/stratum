@@ -256,30 +256,74 @@ class RoomTrainingLogRepository @Inject constructor(
         }
     }
 
-    override suspend fun persistSessionWithCycleEffects(
-        session: TrainingSession,
+    override suspend fun persistSessionsWithCycleEffects(
+        sessions: List<TrainingSession>,
         cyclePointerUpdate: CyclePointerUpdate?,
         cycleCompletedEvent: ProgramChangeEvent?,
     ) {
+        if (sessions.isEmpty() && cyclePointerUpdate == null && cycleCompletedEvent == null) return
         val now = System.currentTimeMillis()
         syncTouch.withWriteLock {
             database.withTransaction {
-                sessionDao.upsert(session.toEntity(nowMillis = now))
-                syncTouch.cancelDelete(SyncCollection.TrainingSessions, session.id.value)
-                cyclePointerUpdate?.let { update ->
-                    programDao.updateCyclePointer(
-                        programId = update.programId,
-                        currentCycleNumber = update.currentCycleNumber,
-                        cyclePosition = update.cyclePosition,
-                        updatedAtEpochMillis = now,
-                    )
+                for (session in sessions) {
+                    sessionDao.upsert(session.toEntity(nowMillis = now))
+                    syncTouch.cancelDelete(SyncCollection.TrainingSessions, session.id.value)
                 }
-                cycleCompletedEvent?.let { event ->
-                    programChangeEventDao.upsert(event.toEntity(nowMillis = now))
-                    syncTouch.cancelDelete(SyncCollection.ProgramChangeEvents, event.id.value)
-                }
+                applyCycleEffectsInTransaction(
+                    cyclePointerUpdate = cyclePointerUpdate,
+                    cycleCompletedEvent = cycleCompletedEvent,
+                    now = now,
+                )
             }
             syncTouch.markDirty()
+        }
+    }
+
+    override suspend fun deleteSessionsWithCycleEffects(
+        sessionIds: Collection<TrainingSessionId>,
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
+    ) {
+        if (sessionIds.isEmpty() && cyclePointerUpdate == null && cycleCompletedEvent == null) return
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                for (id in sessionIds) {
+                    syncTouch.enqueueDelete(SyncCollection.TrainingSessions, id.value, now)
+                    val setIds = setDao.getForSession(id).map { it.id.value }
+                    if (setIds.isNotEmpty()) {
+                        syncTouch.enqueueDelete(SyncCollection.LoggedSets, setIds, now)
+                    }
+                    sessionDao.deleteById(id)
+                }
+                applyCycleEffectsInTransaction(
+                    cyclePointerUpdate = cyclePointerUpdate,
+                    cycleCompletedEvent = cycleCompletedEvent,
+                    now = now,
+                )
+            }
+            // Parity with persistSessionWithCycleEffects; covers pointer/event-only and set deletes.
+            syncTouch.markDirty()
+        }
+    }
+
+    private suspend fun applyCycleEffectsInTransaction(
+        cyclePointerUpdate: CyclePointerUpdate?,
+        cycleCompletedEvent: ProgramChangeEvent?,
+        now: Long,
+    ) {
+        cyclePointerUpdate?.let { update ->
+            programDao.updateCyclePointer(
+                programId = update.programId,
+                currentCycleNumber = update.currentCycleNumber,
+                cyclePosition = update.cyclePosition,
+                cycleStartEpochDay = update.cycleStartEpochDay,
+                updatedAtEpochMillis = now,
+            )
+        }
+        cycleCompletedEvent?.let { event ->
+            programChangeEventDao.upsert(event.toEntity(nowMillis = now))
+            syncTouch.cancelDelete(SyncCollection.ProgramChangeEvents, event.id.value)
         }
     }
 }

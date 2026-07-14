@@ -23,6 +23,7 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
@@ -76,6 +77,13 @@ class EnumConverters {
 
     @TypeConverter
     fun fromOnboardingStep(step: OnboardingStep?): String? = step?.name
+
+    @TypeConverter
+    fun fromOnboardingPath(path: OnboardingPath?): String? = path?.name
+
+    @TypeConverter
+    fun toOnboardingPath(value: String?): OnboardingPath? =
+        value?.let { raw -> runCatching { OnboardingPath.valueOf(raw) }.getOrNull() }
 
     @TypeConverter
     fun toOnboardingStep(value: String?): OnboardingStep? =

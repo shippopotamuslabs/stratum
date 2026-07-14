@@ -29,6 +29,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.TrainingAge
@@ -68,8 +69,15 @@ class SyncEntityDecoders @Inject constructor() {
                 id = UserProfileId(id),
                 trainingAge = enumOrNull<TrainingAge>(data["training_age"]),
                 lastTrained = enumOrNull<LastTrainedBucket>(data["last_trained"]),
-                weekdays = stringList(data["weekdays"]).mapNotNull { enumOrNull<Weekday>(it) }.toSet(),
+                weekdays =
+                    stringList(data["weekdays"])
+                        .mapNotNull { enumOrNull<Weekday>(it) }
+                        .toSet(),
                 sessionLengthMinutes = (data["session_length_minutes"] as? Number)?.toInt(),
+                generationTrainingDayCount =
+                    (data["generation_training_day_count"] as? Number)?.toInt(),
+                generationCycleLength = (data["generation_cycle_length"] as? Number)?.toInt(),
+                generationRestSlotIndices = intSet(data["generation_rest_slot_indices"]),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )
@@ -82,6 +90,7 @@ class SyncEntityDecoders @Inject constructor() {
                 currentStep = enumOrNull<OnboardingStep>(data["current_step"]) ?: OnboardingStep.Profile,
                 startedAt = (data["started_at"] as? Number)?.toLong() ?: 0L,
                 completedAt = (data["completed_at"] as? Number)?.toLong(),
+                selectedPath = enumOrNull(data["selected_path"]),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )
@@ -196,6 +205,8 @@ class SyncEntityDecoders @Inject constructor() {
                 currentCycleNumber = (data["current_cycle_number"] as? Number)?.toInt() ?: 1,
                 cyclePosition = (data["cycle_position"] as? Number)?.toInt() ?: 0,
                 isActive = data["is_active"] as? Boolean ?: false,
+                restSlotIndices = intSet(data["rest_slot_indices"]),
+                cycleStartEpochDay = (data["cycle_start_epoch_day"] as? Number)?.toLong(),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )
@@ -258,6 +269,7 @@ class SyncEntityDecoders @Inject constructor() {
                 origin = enumOrNull(data["origin"]) ?: TrainingSessionOrigin.LIVE,
                 cycleNumberSnapshot = (data["cycle_number_snapshot"] as? Number)?.toInt() ?: 0,
                 weekdaySnapshot = enumOrNull(data["weekday_snapshot"]),
+                cycleSlotIndexSnapshot = (data["cycle_slot_index_snapshot"] as? Number)?.toInt(),
                 startedAtEpochMillis = (data["started_at_epoch_millis"] as? Number)?.toLong() ?: 0L,
                 endedAtEpochMillis = (data["ended_at_epoch_millis"] as? Number)?.toLong(),
                 sourceApp = data["source_app"] as? String,
@@ -328,5 +340,22 @@ class SyncEntityDecoders @Inject constructor() {
             is List<*> -> raw.mapNotNull { it as? String }
             is String -> raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
             else -> emptyList()
+        }
+
+    private fun intSet(raw: Any?): Set<Int> =
+        when (raw) {
+            is List<*> ->
+                raw.mapNotNull { item ->
+                    when (item) {
+                        is Number -> item.toInt()
+                        is String -> item.trim().toIntOrNull()
+                        else -> null
+                    }
+                }.toSet()
+            is String ->
+                raw.split(",")
+                    .mapNotNull { token -> token.trim().takeIf { it.isNotEmpty() }?.toIntOrNull() }
+                    .toSet()
+            else -> emptySet()
         }
 }
