@@ -11,16 +11,20 @@ import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 @Composable
 fun ScheduleScreen(
     draft: ScheduleDraftUi,
-    onWeekdayToggled: (String) -> Unit,
+    onTrainingDayCountChanged: (Int) -> Unit,
     onSessionPresetSelected: (String?) -> Unit,
     onCustomSessionMinutesChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    onSixDayCycleLengthSelected: (Int) -> Unit = {},
+    onTrainingSlotToggled: (Int) -> Unit = {},
 ) {
     SchedulePreferencesScreen(
         draft = draft,
-        onWeekdayToggled = onWeekdayToggled,
+        onTrainingDayCountChanged = onTrainingDayCountChanged,
         onSessionPresetSelected = onSessionPresetSelected,
         onCustomSessionMinutesChange = onCustomSessionMinutesChange,
+        onSixDayCycleLengthSelected = onSixDayCycleLengthSelected,
+        onTrainingSlotToggled = onTrainingSlotToggled,
         modifier = modifier,
     )
 }

@@ -10,7 +10,6 @@ import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.SpecializationPreference
 import com.stratum.domain.onboarding.TrainingAge
 import com.stratum.domain.onboarding.UserTrainingProfile
-import com.stratum.domain.onboarding.Weekday
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -34,7 +33,6 @@ class ReviewDraftMappingTest {
             val draft = ReviewDraftUi.Empty
             assertNull(draft.trainingAge)
             assertNull(draft.lastTrained)
-            assertTrue(draft.weekdays.isEmpty())
             assertNull(draft.sessionMinutes)
             assertTrue(draft.specialization.isEmpty())
             assertNull(draft.presetLabel)
@@ -52,8 +50,10 @@ class ReviewDraftMappingTest {
             val profile = UserTrainingProfile(
                 trainingAge = TrainingAge.Intermediate,
                 lastTrained = LastTrainedBucket.WithinLastThreeMonths,
-                weekdays = setOf(Weekday.Monday, Weekday.Wednesday, Weekday.Friday),
                 sessionLengthMinutes = 60,
+                generationTrainingDayCount = 4,
+                generationCycleLength = 7,
+                generationRestSlotIndices = setOf(3, 6),
             )
             val specialization = SpecializationPreference(
                 levels = mapOf(
@@ -71,27 +71,10 @@ class ReviewDraftMappingTest {
 
             assertEquals("4–7 years", draft.trainingAge)
             assertEquals("Within the last 3 months", draft.lastTrained)
-            assertEquals(listOf("Mon", "Wed", "Fri"), draft.weekdays)
             assertEquals(60, draft.sessionMinutes)
             assertEquals(listOf("Chest", "Quads"), draft.specialization) // ordinal-sorted labels
             assertEquals("Commercial gym", draft.presetLabel)
             assertEquals(2, draft.enabledLiftCount)
-        }
-
-        @Test
-        @DisplayName("Given weekdays selected out of order when mapped then they render in calendar order")
-        fun weekdaysRenderInCalendarOrder() {
-            val profile = UserTrainingProfile(
-                weekdays = setOf(Weekday.Friday, Weekday.Monday, Weekday.Tuesday),
-            )
-
-            val draft = profile.toReviewProfileSection(
-                SpecializationPreference.Empty,
-                emptyList(),
-                null,
-            )
-
-            assertEquals(listOf("Mon", "Tue", "Fri"), draft.weekdays)
         }
 
         @Test
@@ -130,7 +113,6 @@ class ReviewDraftMappingTest {
 
             assertNull(draft.trainingAge)
             assertNull(draft.lastTrained)
-            assertTrue(draft.weekdays.isEmpty())
             assertNull(draft.sessionMinutes)
             assertNull(draft.presetLabel)
             assertEquals(0, draft.enabledLiftCount)

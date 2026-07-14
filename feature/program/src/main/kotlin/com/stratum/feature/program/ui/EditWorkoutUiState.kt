@@ -16,7 +16,6 @@ sealed interface EditWorkoutUiState {
     data class Loaded(
         val workoutId: String,
         val workoutName: String,
-        val weekdayLabel: String,
         val lifts: List<EditLiftState>,
         val upperVolumeByMuscle: List<StratumMuscleVolumeCardState> = emptyList(),
         val lowerVolumeByMuscle: List<StratumMuscleVolumeCardState> = emptyList(),

@@ -16,19 +16,17 @@ class NextWorkoutSelectionTest {
                         WorkoutViewState(
                             workoutId = "w-done",
                             name = "Done Day",
-                            weekdayLabel = "Monday",
                             position = 0,
                             lifts = listOf(sampleLift("wl-done")),
                             isCompleted = true,
                         ),
                 ),
-                ScheduleItemState.RestDay(weekdayLabel = "Tuesday"),
+                ScheduleItemState.RestDay(slotIndex = 1),
                 ScheduleItemState.Workout(
                     workout =
                         WorkoutViewState(
                             workoutId = "w-next",
                             name = "Next Day",
-                            weekdayLabel = "Wednesday",
                             position = 1,
                             lifts = listOf(sampleLift("wl-next")),
                         ),
@@ -43,13 +41,12 @@ class NextWorkoutSelectionTest {
     fun findNextWorkoutId_skipsEmptyLiftWorkouts() {
         val schedule =
             listOf(
-                ScheduleItemState.RestDay(weekdayLabel = "Monday"),
+                ScheduleItemState.RestDay(slotIndex = 0),
                 ScheduleItemState.Workout(
                     workout =
                         WorkoutViewState(
                             workoutId = "w-empty",
                             name = "Empty Day",
-                            weekdayLabel = "Tuesday",
                             position = 0,
                             lifts = emptyList(),
                         ),
@@ -59,7 +56,6 @@ class NextWorkoutSelectionTest {
                         WorkoutViewState(
                             workoutId = "w-lifts",
                             name = "Training Day",
-                            weekdayLabel = "Wednesday",
                             position = 1,
                             lifts = listOf(sampleLift("wl-1")),
                         ),
@@ -79,7 +75,6 @@ class NextWorkoutSelectionTest {
                         WorkoutViewState(
                             workoutId = "w-1",
                             name = "Day A",
-                            weekdayLabel = "Monday",
                             position = 0,
                             lifts = listOf(sampleLift("wl-1")),
                             isCompleted = true,
@@ -95,13 +90,12 @@ class NextWorkoutSelectionTest {
     fun findNextWorkoutId_returnsNullWhenOnlyEmptyRemain() {
         val schedule =
             listOf(
-                ScheduleItemState.RestDay(weekdayLabel = "Monday"),
+                ScheduleItemState.RestDay(slotIndex = 0),
                 ScheduleItemState.Workout(
                     workout =
                         WorkoutViewState(
                             workoutId = "w-empty",
                             name = "Empty",
-                            weekdayLabel = "Tuesday",
                             position = 0,
                             lifts = emptyList(),
                         ),

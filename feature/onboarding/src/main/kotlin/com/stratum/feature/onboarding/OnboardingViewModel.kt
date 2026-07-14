@@ -27,8 +27,12 @@ import com.stratum.domain.onboarding.SpecializationPreference
 import com.stratum.domain.onboarding.UpdateSpecializationUseCase
 import com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UserTrainingProfile
+import com.stratum.core.ui.trainingsetup.ScheduleDraftUi
+import com.stratum.core.ui.trainingsetup.withTrainingSlotToggled
+import com.stratum.core.ui.trainingsetup.withSixDayCycleLengthSelected
+import com.stratum.core.ui.trainingsetup.withTrainingDayCount
+import com.stratum.domain.onboarding.AdditiveSetEdit
 import com.stratum.domain.onboarding.ValidateMinimumVolumeStepUseCase
-import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.onboarding.toggleInAdditiveSetEdit
 import com.stratum.domain.program.ActivateProgramUseCase
 import com.stratum.domain.program.GenerateProgramUseCase
@@ -36,6 +40,7 @@ import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
 import com.stratum.domain.program.importing.ImportProgramTemplateUseCase
 import com.stratum.domain.program.importing.ProgramTemplateImportPhase
+import com.stratum.domain.program.schedule.GenerationCycleDefaults
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -52,7 +57,7 @@ import kotlinx.coroutines.withContext
 
 @HiltViewModel
 // Wizard exposes many step handlers (profile/import/generate); threshold is a product of surface width.
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LargeClass")
 class OnboardingViewModel @Inject constructor(
     private val getOnboardingWizardState: GetOnboardingWizardStateUseCase,
     private val advanceOnboardingStep: AdvanceOnboardingStepUseCase,
@@ -114,6 +119,38 @@ class OnboardingViewModel @Inject constructor(
         ) { current, profile, edit, spec, ephemeralState ->
             UiCombineInputs(current, profile, edit.sessionLength, spec, ephemeralState)
         }.combine(importResumeState) { inputs, resume ->
+            val path = inputs.current.onboardingPath
+            val onGenerateScheduleSurface =
+                path == OnboardingPath.Generate ||
+                    inputs.current.currentStep in
+                    setOf(
+                        OnboardingStep.Schedule,
+                        OnboardingStep.Specialization,
+                        OnboardingStep.MinimumVolume,
+                    )
+            val trainCount =
+                if (onGenerateScheduleSurface) {
+                    inputs.ephemeral.scheduleTrainingDayCount
+                        ?: inputs.profile.generationTrainingDayCount
+                        ?: ScheduleDraftUi.DEFAULT_TRAINING_DAY_COUNT
+                } else {
+                    null
+                }
+            val cycle =
+                if (onGenerateScheduleSurface && trainCount != null) {
+                    resolveGenerationScheduleDraft(
+                        trainingDayCount = trainCount,
+                        cycleLength =
+                            inputs.ephemeral.generationCycleLength
+                                ?: inputs.profile.generationCycleLength,
+                        restSlotIndices =
+                            inputs.ephemeral.generationRestSlotIndices
+                                ?: inputs.profile.generationRestSlotIndices
+                                    .takeIf { it.isNotEmpty() },
+                    )
+                } else {
+                    null
+                }
             val capabilities = getOnboardingStepCapabilities(
                 step = inputs.current.currentStep,
                 profile = inputs.profile,
@@ -121,6 +158,11 @@ class OnboardingViewModel @Inject constructor(
                 lifts = inputs.current.lifts,
                 selectedPreset = inputs.current.selectedPreset,
                 usedHistoricalImport = inputs.current.usedHistoricalImport,
+                path = path,
+                persistedSelectedPath = inputs.current.progress?.selectedPath,
+                cycleLength = cycle?.cycleLength,
+                restSlotIndices = cycle?.restSlotIndices,
+                trainingDayCount = trainCount,
             )
             buildOnboardingUiState(
                 current = inputs.current,
@@ -149,21 +191,28 @@ class OnboardingViewModel @Inject constructor(
         edits.value = edits.value.copy(lastTrained = label?.let(::lastTrainedFromLabel))
     }
 
-    fun onWeekdayToggled(shortLabel: String) {
-        val day = Weekday.entries.firstOrNull { it.toShortLabel() == shortLabel } ?: return
-        val current = effectiveProfile.value.weekdays
-        val persisted = wizardState.value.profile?.weekdays ?: emptySet()
-        edits.value = edits.value.copy(
-            weekdaysEdit = toggleInAdditiveSetEdit(
-                item = day,
-                currentEffective = current,
-                persistedBase = persisted,
-                currentEdit = edits.value.weekdaysEdit,
-            ),
-        )
+    fun onTrainingDayCountChanged(count: Int) {
+        val draft =
+            effectiveProfile.value
+                .toScheduleDraft(
+                    sessionLengthEdit = edits.value.sessionLength,
+                    generationCycleLength = ephemeral.value.generationCycleLength,
+                    generationRestSlotIndices = ephemeral.value.generationRestSlotIndices,
+                    trainingDayCount = ephemeral.value.scheduleTrainingDayCount,
+                )
+                .withTrainingDayCount(count)
+        // Slot identity only — profile cycle-space is written on schedule flush / generate.
+        ephemeral.update {
+            it.copy(
+                scheduleTrainingDayCount = draft.trainingDayCount,
+                generationCycleLength = draft.cycleLength,
+                generationRestSlotIndices = draft.restSlotIndices,
+            )
+        }
     }
 
     fun onSessionPresetSelected(value: String?) {
+        ensureCycleSpaceSynced()
         edits.value = edits.value.copy(
             sessionLength = when (value) {
                 null -> SessionLengthEdit.Active(minutes = null, customMode = false)
@@ -187,10 +236,84 @@ class OnboardingViewModel @Inject constructor(
         )
     }
 
+    /** Seeds default cycle space (N + rests) when the user has not changed count yet. */
+    private fun ensureCycleSpaceSynced() {
+        val profile = effectiveProfile.value
+        val count =
+            ephemeral.value.scheduleTrainingDayCount
+                ?: profile.generationTrainingDayCount
+                ?: ScheduleDraftUi.DEFAULT_TRAINING_DAY_COUNT
+        if (ephemeral.value.generationCycleLength == null &&
+            profile.generationCycleLength == null
+        ) {
+            val draft =
+                resolveGenerationScheduleDraft(
+                    trainingDayCount = count,
+                    cycleLength = null,
+                    restSlotIndices = null,
+                )
+            ephemeral.update {
+                it.copy(
+                    scheduleTrainingDayCount = count,
+                    generationCycleLength = draft.cycleLength,
+                    generationRestSlotIndices = draft.restSlotIndices,
+                )
+            }
+        }
+    }
+
+    private fun resolvedTrainCount(): Int =
+        ephemeral.value.scheduleTrainingDayCount
+            ?: effectiveProfile.value.generationTrainingDayCount
+            ?: ScheduleDraftUi.DEFAULT_TRAINING_DAY_COUNT
+
+    private fun resolvedCycleHints(): Pair<Int?, Set<Int>?> =
+        (ephemeral.value.generationCycleLength ?: effectiveProfile.value.generationCycleLength) to
+            (
+                ephemeral.value.generationRestSlotIndices
+                    ?: effectiveProfile.value.generationRestSlotIndices.takeIf { it.isNotEmpty() }
+                )
+
     fun onCustomSessionMinutesChange(minutes: Int) {
         edits.value = edits.value.copy(
             sessionLength = SessionLengthEdit.Active(minutes = minutes, customMode = true),
         )
+    }
+
+    /** Toggle between 8-day rotating (default) and 7-day fixed week for 6 train days. */
+    fun onSixDayCycleLengthSelected(cycleLength: Int) {
+        val (lengthHint, restsHint) = resolvedCycleHints()
+        val draft =
+            resolveGenerationScheduleDraft(
+                trainingDayCount = resolvedTrainCount(),
+                cycleLength = lengthHint,
+                restSlotIndices = restsHint,
+            ).withSixDayCycleLengthSelected(cycleLength)
+        ephemeral.update {
+            it.copy(
+                scheduleTrainingDayCount = resolvedTrainCount(),
+                generationCycleLength = draft.cycleLength,
+                generationRestSlotIndices = draft.restSlotIndices,
+            )
+        }
+    }
+
+    /** Toggle a training slot index within the generation cycle space. */
+    fun onTrainingSlotToggled(slotIndex: Int) {
+        val (lengthHint, restsHint) = resolvedCycleHints()
+        val draft =
+            resolveGenerationScheduleDraft(
+                trainingDayCount = resolvedTrainCount(),
+                cycleLength = lengthHint,
+                restSlotIndices = restsHint,
+            ).withTrainingSlotToggled(slotIndex)
+        ephemeral.update {
+            it.copy(
+                scheduleTrainingDayCount = resolvedTrainCount(),
+                generationCycleLength = draft.cycleLength,
+                generationRestSlotIndices = draft.restSlotIndices,
+            )
+        }
     }
 
     fun onMuscleToggled(label: String) {
@@ -414,6 +537,24 @@ class OnboardingViewModel @Inject constructor(
     fun next() {
         val current = wizardState.value
         val path = current.onboardingPath
+        if (current.currentStep == OnboardingStep.Schedule) {
+            ensureCycleSpaceSynced()
+        }
+        val trainCount =
+            ephemeral.value.scheduleTrainingDayCount
+                ?: effectiveProfile.value.generationTrainingDayCount
+                ?: ScheduleDraftUi.DEFAULT_TRAINING_DAY_COUNT
+        val cycle =
+            resolveGenerationScheduleDraft(
+                trainingDayCount = trainCount,
+                cycleLength =
+                    ephemeral.value.generationCycleLength
+                        ?: effectiveProfile.value.generationCycleLength,
+                restSlotIndices =
+                    ephemeral.value.generationRestSlotIndices
+                        ?: effectiveProfile.value.generationRestSlotIndices
+                            .takeIf { it.isNotEmpty() },
+            )
         viewModelScope.launch {
             val result = advanceOnboardingStep(
                 currentStep = current.currentStep,
@@ -424,6 +565,10 @@ class OnboardingViewModel @Inject constructor(
                 selectedPreset = current.selectedPreset,
                 usedHistoricalImport = current.usedHistoricalImport,
                 path = path,
+                persistedSelectedPath = current.progress?.selectedPath,
+                cycleLength = cycle.cycleLength,
+                restSlotIndices = cycle.restSlotIndices,
+                trainingDayCount = trainCount,
             )
             when (result) {
                 AdvanceOnboardingStepResult.ValidationFailed ->
@@ -458,6 +603,7 @@ class OnboardingViewModel @Inject constructor(
                 selectedPreset = current.selectedPreset,
                 usedHistoricalImport = current.usedHistoricalImport,
                 path = path,
+                persistedSelectedPath = current.progress?.selectedPath,
             )
             when (result) {
                 is AdvanceOnboardingStepResult.Success -> {
@@ -529,14 +675,37 @@ class OnboardingViewModel @Inject constructor(
         generateJob =
             viewModelScope.launch {
                 try {
-                    // Flush the Review-step profile/specialization snapshot before generation reads
-                    // persisted onboarding state (LoadProgramGenerationContextUseCase). Without this,
-                    // a user who explored the Import path (which clears weekdays) and then re-walked
-                    // Generate could still have stale empty weekdays in Room.
-                    updateUserTrainingProfile(effectiveProfile.value)
+                    // Flush Review profile/specialization + durable cycle-space before generation
+                    // reads Room (LoadProgramGenerationContextUseCase).
+                    val trainCount =
+                        ephemeral.value.scheduleTrainingDayCount
+                            ?: effectiveProfile.value.generationTrainingDayCount
+                            ?: ScheduleDraftUi.DEFAULT_TRAINING_DAY_COUNT
+                    val cycle =
+                        resolveGenerationScheduleDraft(
+                            trainingDayCount = trainCount,
+                            cycleLength =
+                                ephemeral.value.generationCycleLength
+                                    ?: effectiveProfile.value.generationCycleLength,
+                            restSlotIndices =
+                                ephemeral.value.generationRestSlotIndices
+                                    ?: effectiveProfile.value.generationRestSlotIndices
+                                        .takeIf { it.isNotEmpty() },
+                        )
+                    val profileForGen =
+                        effectiveProfile.value.copy(
+                            weekdays = emptySet(),
+                            generationTrainingDayCount = trainCount,
+                            generationCycleLength = cycle.cycleLength,
+                            generationRestSlotIndices = cycle.restSlotIndices,
+                        )
+                    updateUserTrainingProfile(profileForGen)
                     updateSpecialization(effectiveSpecialization.value)
                     val generateResult =
-                        generateProgram { progress ->
+                        generateProgram(
+                            restSlotIndices = cycle.restSlotIndices,
+                            cycleLength = cycle.cycleLength,
+                        ) { progress ->
                             withContext(Dispatchers.Main.immediate) {
                                 publishGenerateProgress(progress)
                             }
@@ -557,7 +726,7 @@ class OnboardingViewModel @Inject constructor(
                         ephemeral.update(OnboardingProgramFlowOps::generateFailed)
                         return@launch
                     }
-                    completeOnboarding(effectiveProfile.value)
+                    completeOnboarding(profileForGen)
                     withContext(Dispatchers.Main.immediate) {
                         publishGenerateProgress(
                             ProgramGenerationProgress(ProgramGenerationProgressPhase.Complete),

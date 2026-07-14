@@ -193,10 +193,6 @@ private fun ReviewSummary(
         if (showGenerateCards) {
             ReviewCard(order = 2, title = stringResource(R.string.review_section_schedule)) {
                 SummaryRow(
-                    label = stringResource(R.string.review_label_days),
-                    value = draft.weekdays.joinToString(", "),
-                )
-                SummaryRow(
                     label = stringResource(R.string.review_label_session_length),
                     value = draft.sessionMinutes?.let {
                         stringResource(R.string.review_session_minutes, it)

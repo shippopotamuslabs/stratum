@@ -1,5 +1,6 @@
 package com.stratum.feature.onboarding
 
+import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.logging.FakeLoggingPort
 
 import app.cash.turbine.test
@@ -254,7 +255,7 @@ class OnboardingImportProgramViewModelTest {
                 com.stratum.core.testing.onboarding.FakeSpecializationPreferenceRepository(),
             ),
             generateProgram = com.stratum.domain.program.GenerateProgramUseCase(
-                loadContext = com.stratum.domain.program.ProgramGenerationContextLoader { error("not used") },
+                loadContext = FixedProgramGenerationContextLoader(error = { error("not used") }),
                 pipeline = com.stratum.core.testing.program.testProgramGenerationPipeline(),
                 liftRepository = liftRepo,
             ),
