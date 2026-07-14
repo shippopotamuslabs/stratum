@@ -42,17 +42,22 @@ internal object CreateProgramDayEditor {
         )
     }
 
-    fun reorderDays(
+    /**
+     * Reorders cycle days by stable [orderedDayIds] (from local reorder confirm).
+     * Returns [state] unchanged when the id set mismatches or order is already applied
+     * (including dirty flag).
+     */
+    fun reorderDaysByIds(
         state: CreateProgramUiState,
-        fromIndex: Int,
-        toIndex: Int,
+        orderedDayIds: List<String>,
     ): CreateProgramUiState {
-        if (fromIndex !in state.days.indices || toIndex !in state.days.indices) return state
-        val mutable = state.days.toMutableList()
-        val moved = mutable.removeAt(fromIndex)
-        mutable.add(toIndex, moved)
+        if (orderedDayIds.size != state.days.size) return state
+        val byId = state.days.associateBy { day -> day.id }
+        if (orderedDayIds.any { id -> id !in byId }) return state
+        if (orderedDayIds == state.days.map { day -> day.id }) return state
+        val reordered = orderedDayIds.map { id -> byId.getValue(id) }
         return state.copy(
-            days = mutable.mapIndexed { index, day -> day.copy(position = index) },
+            days = reordered.mapIndexed { index, day -> day.copy(position = index) },
             isDirty = true,
         )
     }

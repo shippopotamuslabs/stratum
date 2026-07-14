@@ -213,7 +213,7 @@ class CreateProgramViewModel @Inject constructor(
 
     fun removeSelectedDay() = editor.removeSelectedDay()
 
-    fun reorderDays(fromIndex: Int, toIndex: Int) = editor.reorderDays(fromIndex, toIndex)
+    fun reorderDaysByIds(orderedDayIds: List<String>) = editor.reorderDaysByIds(orderedDayIds)
 
     fun showRenameProgram(show: Boolean) = editor.showRenameProgram(show)
 
