@@ -11,14 +11,16 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.program.ui.CheckInRecommendationUi
 
 internal fun CheckInRecommendation.toUi(accepted: Boolean = true): CheckInRecommendationUi? {
-    val rationaleText = rationale.toDisplayString(liftName)
+    val (rationaleRes, rationaleArgs) = rationale.toDisplaySpec(liftName)
     return when (val actionLocal = action) {
         is CheckInAction.Maintain -> null
         is CheckInAction.SwapLift ->
             CheckInRecommendationUi.Swap(
                 id = workoutLiftId.value,
-                title = "Swap $liftName → ${actionLocal.suggestedLiftName}",
-                rationale = rationaleText,
+                titleRes = R.string.checkin_rec_title_swap,
+                titleArgs = listOf(liftName, actionLocal.suggestedLiftName),
+                rationaleRes = rationaleRes,
+                rationaleArgs = rationaleArgs,
                 accepted = accepted,
                 liftName = liftName,
                 currentLiftId = liftId.value,
@@ -29,8 +31,10 @@ internal fun CheckInRecommendation.toUi(accepted: Boolean = true): CheckInRecomm
         is CheckInAction.IncreaseVolume ->
             CheckInRecommendationUi.IncreaseVolume(
                 id = workoutLiftId.value,
-                title = "Add ${actionLocal.addSets} set to $liftName",
-                rationale = rationaleText,
+                titleRes = R.string.checkin_rec_title_increase,
+                titleArgs = listOf(actionLocal.addSets, liftName),
+                rationaleRes = rationaleRes,
+                rationaleArgs = rationaleArgs,
                 accepted = accepted,
                 liftName = liftName,
                 currentLiftId = liftId.value,
@@ -40,13 +44,20 @@ internal fun CheckInRecommendation.toUi(accepted: Boolean = true): CheckInRecomm
         is CheckInAction.CutVolume ->
             CheckInRecommendationUi.CutVolume(
                 id = workoutLiftId.value,
-                title =
+                titleRes =
                     if (actionLocal.removeSets == 0) {
-                        "$liftName already at 1 set — manage load in-session"
+                        R.string.checkin_rec_title_cut_floor
                     } else {
-                        "Remove ${actionLocal.removeSets} set(s) from $liftName"
+                        R.string.checkin_rec_title_cut
                     },
-                rationale = rationaleText,
+                titleArgs =
+                    if (actionLocal.removeSets == 0) {
+                        listOf(liftName)
+                    } else {
+                        listOf(actionLocal.removeSets, liftName)
+                    },
+                rationaleRes = rationaleRes,
+                rationaleArgs = rationaleArgs,
                 accepted = accepted,
                 liftName = liftName,
                 currentLiftId = liftId.value,
@@ -82,38 +93,59 @@ internal fun CheckInRecommendationUi.toApplyCommand(): CheckInApplyCommand? {
     }
 }
 
-internal fun CheckInRationale.toDisplayString(liftName: String): String {
+/** Resource id + format args for a rationale (resolved in Compose via stringResource). */
+internal fun CheckInRationale.toDisplaySpec(liftName: String): Pair<Int, List<Any>> {
     val cutPct = (VOLUME_CUT_FRACTION * 100).toInt()
     return when (this) {
         is CheckInRationale.ClimbingMaintain ->
-            "e1RM climbing — keep $liftName as programmed"
+            R.string.checkin_rationale_climbing to listOf(liftName)
         is CheckInRationale.NoClearChange ->
-            "No clear change needed for $liftName"
+            R.string.checkin_rationale_no_clear_change to listOf(liftName)
         is CheckInRationale.SoftStaleSwap ->
-            "e1RM ${softTrend.label()}, lift ${tenureWeeks}w on rotation → swap"
+            softStaleSwapRes(softTrend) to listOf(tenureWeeks)
         is CheckInRationale.SoftFreshIncrease ->
-            "e1RM ${softTrend.label()}, variation still fresh (${tenureWeeks}w) → add 1 set"
+            softFreshIncreaseRes(softTrend) to listOf(tenureWeeks)
         is CheckInRationale.SoftStaleIncreaseNoCandidate ->
-            "e1RM ${softTrend.label()}, stale but no free swap → add 1 set"
+            softStaleNoCandidateRes(softTrend) to emptyList()
+        is CheckInRationale.DroppingMildRecoveryHold ->
+            R.string.checkin_rationale_dropping_mild_hold to listOf(liftName)
+        is CheckInRationale.SoftFreshAtVolumeCeiling ->
+            R.string.checkin_rationale_soft_fresh_at_ceiling to listOf(liftName)
+        is CheckInRationale.SoftStaleNoCandidateAtCeiling ->
+            R.string.checkin_rationale_soft_stale_no_candidate_ceiling to listOf(liftName)
+        is CheckInRationale.MuscleLeverAlreadyTaken ->
+            R.string.checkin_rationale_muscle_lever_taken to listOf(liftName)
         is CheckInRationale.JointPainCut ->
             if (removeSets == 0) {
-                "Joint pain reported — already at 1 set; manage load in-session"
+                R.string.checkin_rationale_joint_floor to emptyList()
             } else {
-                "Joint pain reported → cut ~$cutPct% sets"
+                R.string.checkin_rationale_joint_cut to listOf(cutPct)
             }
         is CheckInRationale.SevereUnderRecoveryCut ->
             if (removeSets == 0) {
-                "Under-recovered — already at 1 set; manage load in-session"
+                R.string.checkin_rationale_severe_floor to emptyList()
             } else {
-                "Severe under-recovery → cut ~$cutPct% sets"
+                R.string.checkin_rationale_severe_cut to listOf(cutPct)
             }
         is CheckInRationale.AlreadyAtFloorSets ->
-            "Already at 1 set — no set cut; manage load in-session"
+            R.string.checkin_rationale_already_floor to emptyList()
     }
 }
 
-private fun SoftPerformanceTrend.label(): String =
-    when (this) {
-        SoftPerformanceTrend.Flat -> "flat"
-        SoftPerformanceTrend.Dropping -> "soft/dropping"
+private fun softStaleSwapRes(trend: SoftPerformanceTrend): Int =
+    when (trend) {
+        SoftPerformanceTrend.Flat -> R.string.checkin_rationale_soft_stale_swap_flat
+        SoftPerformanceTrend.Dropping -> R.string.checkin_rationale_soft_stale_swap_dropping
+    }
+
+private fun softFreshIncreaseRes(trend: SoftPerformanceTrend): Int =
+    when (trend) {
+        SoftPerformanceTrend.Flat -> R.string.checkin_rationale_soft_fresh_increase_flat
+        SoftPerformanceTrend.Dropping -> R.string.checkin_rationale_soft_fresh_increase_dropping
+    }
+
+private fun softStaleNoCandidateRes(trend: SoftPerformanceTrend): Int =
+    when (trend) {
+        SoftPerformanceTrend.Flat -> R.string.checkin_rationale_soft_stale_no_candidate_flat
+        SoftPerformanceTrend.Dropping -> R.string.checkin_rationale_soft_stale_no_candidate_dropping
     }
