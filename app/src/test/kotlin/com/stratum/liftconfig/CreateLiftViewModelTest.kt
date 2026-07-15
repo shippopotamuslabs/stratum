@@ -13,6 +13,7 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -36,6 +37,11 @@ class CreateLiftViewModelTest {
         FakeEquipmentRepository(
             listOf(
                 Equipment(
+                    id = EquipmentId("bodyweight"),
+                    name = "Bodyweight",
+                    incrementTiers = emptyList(),
+                ),
+                Equipment(
                     id = EquipmentId("cable"),
                     name = "Cables",
                     incrementTiers =
@@ -55,7 +61,11 @@ class CreateLiftViewModelTest {
     @BeforeEach
     fun setup() {
         fakeLiftRepository.seedLifts(emptyList())
-        fakeLiftRepository.equipmentNamesById = mapOf(EquipmentId("cable") to "Cables")
+        fakeLiftRepository.equipmentNamesById =
+            mapOf(
+                SeedEquipmentIds.Bodyweight to "Bodyweight",
+                EquipmentId("cable") to "Cables",
+            )
         val logging = FakeLoggingPort()
         subject =
             CreateLiftViewModel(
@@ -69,10 +79,30 @@ class CreateLiftViewModelTest {
     @DisplayName("Given empty draft when observed then Confirm is disabled")
     fun confirmDisabledOnEmptyDraft() = runTest {
         subject.uiState.test {
-            val state = awaitItem()
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
             assertFalse(state.canConfirm)
             assertEquals("", state.name)
             assertTrue(state.details.canEdit)
+            assertFalse(state.details.showCategory)
+            assertEquals("Bodyweight", state.details.equipment)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given equipment bodyweight action when selected then draft keeps bodyweight id")
+    fun bodyweightEquipmentAction() = runTest {
+        subject.onBeginChooseEquipment()
+        equipmentPickResult.publish(EquipmentId("cable"))
+        advanceUntilIdle()
+        subject.onClearEquipment()
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertEquals("Bodyweight", state.details.equipment)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -131,6 +161,27 @@ class CreateLiftViewModelTest {
         assertEquals(MuscleLengthBias.Lengthened, lift.muscleLengthBias)
         assertEquals(EquipmentId("cable"), lift.equipmentId)
         assertEquals("Cables", lift.equipmentName)
+    }
+
+    @Test
+    @DisplayName("Given valid draft with default equipment when confirmed then bodyweight id is persisted")
+    fun confirmPersistsDefaultBodyweightEquipment() = runTest {
+        subject.onNameChange("Push-Up")
+        subject.onAddMuscle(MuscleGroup.Chest)
+        subject.onOpenDetailEditor(LiftDetailEditField.MovementPatterns)
+        subject.onToggleDraftMovementPattern(MovementPattern.HorizontalPress.name)
+        subject.onConfirmMovementPatterns()
+        advanceUntilIdle()
+
+        subject.events.test {
+            subject.onConfirm()
+            advanceUntilIdle()
+            assertEquals(CreateLiftEvent.NavigateBack, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val lift = fakeLiftRepository.currentLifts.single()
+        assertEquals(SeedEquipmentIds.Bodyweight, lift.equipmentId)
     }
 
     @Test

@@ -19,8 +19,8 @@ fun MuscleLengthBias.toDetailLabel(): String =
 /** Display label for kinematic profile chips and detail rows. */
 fun KinematicProfile.toDetailLabel(): String =
     when (this) {
-        KinematicProfile.AxialCompound -> "Axial Compound"
-        KinematicProfile.NonAxialCompound -> "Non-Axial Compound"
+        KinematicProfile.AxialCompound -> "Compound -- Spine Loaded"
+        KinematicProfile.NonAxialCompound -> "Compound -- No Spine Loading"
         KinematicProfile.Isolation -> "Isolation"
     }
 
