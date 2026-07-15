@@ -29,6 +29,10 @@
     <string name="program_library_delete_confirm">Delete</string>
     <string name="program_library_delete_blocked_confirm">OK</string>
     <string name="program_library_delete_cancel">Cancel</string>
+    <string name="program_library_activate_discard_title">Discard in-progress workout?</string>
+    <string name="program_library_activate_discard_body">Switching to \"%1$s\" will discard your current workout and any logged sets for this session.</string>
+    <string name="program_library_activate_discard_confirm">Discard and switch</string>
+    <string name="program_library_activate_discard_cancel">Cancel</string>
     <string name="program_library_rest_day">Rest Day</string>
     <plurals name="program_library_workout_count">
         <item quantity="one">%d workout</item>
@@ -117,6 +121,12 @@
     <string name="create_program_discard_message">Your draft will be lost. Saved library programs are not affected.</string>
     <string name="create_program_discard_confirm">Discard</string>
     <string name="create_program_discard_cancel">Keep editing</string>
+    <string name="create_program_active_session_discard_title">Discard in-progress workout?</string>
+    <string name="create_program_active_session_discard_body_remove_day">Removing this day will discard your current workout and any logged sets for this session.</string>
+    <string name="create_program_active_session_discard_body_save">Saving these changes will discard your current workout and any logged sets for this session.</string>
+    <string name="create_program_active_session_discard_body_activate">Activating this program will discard your current workout and any logged sets for this session.</string>
+    <string name="create_program_active_session_discard_confirm">Discard and continue</string>
+    <string name="create_program_active_session_discard_cancel">Cancel</string>
     <string name="create_program_default_name">New Program</string>
     <string name="create_program_default_workout_name">Workout %1$d</string>
     <string name="create_program_zero_lifts">0 Lifts</string>

@@ -32,6 +32,7 @@ import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -102,6 +103,75 @@ class ProgramLibraryViewModelTest {
     }
 
     @Test
+    @DisplayName("Activate with live session requires discard confirmation")
+    fun activateWithLiveSessionShowsConfirm() = runTest {
+        val active = program(id = WorkoutLoggingFixtures.PROGRAM_ID, name = "Active", isActive = true)
+        val library = program(id = "library", name = "Library", isActive = false)
+        val programRepo = FakeProgramRepository(active)
+        programRepo.saveToLibrary(library)
+        val trainingLog = FakeTrainingLogRepository()
+        trainingLog.seedSession(WorkoutLoggingFixtures.inProgressSession())
+        val viewModel = buildViewModel(programRepo, trainingLog)
+
+        viewModel.uiState.test {
+            awaitItemUntil { it.programs.size == 2 }
+            viewModel.activateProgram("library")
+            val pending = awaitItemUntil { it.pendingActivateProgramId == "library" }
+            assertEquals("Library", pending.pendingActivateProgramName)
+            assertTrue(programRepo.getProgram()?.id == active.id)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Confirm activate abandons live session then switches program")
+    fun confirmActivateDiscardsSessionAndSwitches() = runTest {
+        val active = program(id = WorkoutLoggingFixtures.PROGRAM_ID, name = "Active", isActive = true)
+        val library = program(id = "library", name = "Library", isActive = false)
+        val programRepo = FakeProgramRepository(active)
+        programRepo.saveToLibrary(library)
+        val trainingLog = FakeTrainingLogRepository()
+        trainingLog.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live"))
+        val viewModel = buildViewModel(programRepo, trainingLog)
+
+        viewModel.uiState.test {
+            awaitItemUntil { it.programs.size == 2 }
+            viewModel.activateProgram("library")
+            awaitItemUntil { it.pendingActivateProgramId == "library" }
+            viewModel.confirmActivateDiscardingSession()
+            val updated = awaitItemUntil { it.programs.first().programId == "library" }
+            assertTrue(updated.programs.first().isActive)
+            assertEquals(null, updated.pendingActivateProgramId)
+            assertNull(trainingLog.getActiveSession())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Dismiss activate leaves session and active program unchanged")
+    fun dismissActivateKeepsSession() = runTest {
+        val active = program(id = WorkoutLoggingFixtures.PROGRAM_ID, name = "Active", isActive = true)
+        val library = program(id = "library", name = "Library", isActive = false)
+        val programRepo = FakeProgramRepository(active)
+        programRepo.saveToLibrary(library)
+        val trainingLog = FakeTrainingLogRepository()
+        trainingLog.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live"))
+        val viewModel = buildViewModel(programRepo, trainingLog)
+
+        viewModel.uiState.test {
+            awaitItemUntil { it.programs.size == 2 }
+            viewModel.activateProgram("library")
+            awaitItemUntil { it.pendingActivateProgramId == "library" }
+            viewModel.dismissActivate()
+            val after = awaitItemUntil { it.pendingActivateProgramId == null }
+            assertTrue(after.programs.first().isActive)
+            assertEquals(WorkoutLoggingFixtures.PROGRAM_ID, after.programs.first().programId)
+            assertTrue(trainingLog.getActiveSession() != null)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("mergeActiveAndLibraryPrograms drops library row that still matches active id")
     fun mergeDedupesActiveStillPresentInLibrary() {
         val active = program(id = "shared", name = "Shared", isActive = true)
@@ -135,7 +205,11 @@ class ProgramLibraryViewModelTest {
             assertEquals("Library", pending.pendingDeleteProgramName)
             assertFalse(pending.pendingDeleteHasActiveSession)
             viewModel.confirmDelete()
-            val after = awaitItemUntil { it.programs.none { program -> program.programId == "library" } }
+            val after =
+                awaitItemUntil {
+                    it.programs.none { program -> program.programId == "library" } &&
+                        it.pendingDeleteProgramId == null
+                }
             assertEquals(null, after.pendingDeleteProgramId)
             cancelAndIgnoreRemainingEvents()
         }
@@ -216,6 +290,11 @@ class ProgramLibraryViewModelTest {
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepo),
             observeActiveSession = ObserveActiveSessionUseCase(trainingLog),
             activateStoredProgram = ActivateStoredProgramUseCase(programRepo, FakeLoggingPort()),
+            abandonTrainingSession =
+                com.stratum.domain.training.AbandonTrainingSessionUseCase(
+                    trainingLog,
+                    FakeLoggingPort(),
+                ),
             deleteProgram =
                 DeleteProgramUseCase(
                     programRepository = programRepo,

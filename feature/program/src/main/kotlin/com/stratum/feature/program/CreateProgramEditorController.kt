@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 /**
  * Editor path: day strip, lift catalog edits, derived metrics, and save/activate.
  * Separated from generate prefs so schedule/editor changes do not share one god-class body.
+ * Active-session discard confirmations live in [CreateProgramActiveSessionGuard].
  */
 internal class CreateProgramEditorController(
     private val state: MutableStateFlow<CreateProgramUiState>,
@@ -37,6 +38,7 @@ internal class CreateProgramEditorController(
     private val computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
     private val estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
     private val workoutEditSession: WorkoutEditSession,
+    private val activeSessionGuard: CreateProgramActiveSessionGuard,
     private val finishOnboarding: () -> Boolean,
 ) {
     var loadedProgramMeta: LoadedProgramMeta? = null
@@ -83,6 +85,20 @@ internal class CreateProgramEditorController(
     }
 
     fun removeSelectedDay() {
+        scope.launch {
+            val current = state.value
+            val selectedId = current.selectedDayId ?: return@launch
+            if (current.days.size <= 1) return@launch
+            val session = activeSessionGuard.inProgressSessionOrNull()
+            if (activeSessionGuard.isActiveWorkoutDay(selectedId, session)) {
+                activeSessionGuard.stageRemoveDayDiscard()
+                return@launch
+            }
+            applyRemoveSelectedDay()
+        }
+    }
+
+    fun applyRemoveSelectedDay() {
         state.update { current ->
             CreateProgramDayEditor.removeSelectedDay(current).withEditorDerivedMetrics()
         }
@@ -164,16 +180,37 @@ internal class CreateProgramEditorController(
         state.update { it.copy(showDiscardConfirm = false) }
     }
 
-    fun saveToLibrary(onDone: () -> Unit) {
-        persist(mode = PersistMode.SaveToLibrary, onDone = onDone)
-    }
-
-    fun saveChanges(onDone: () -> Unit) {
-        persist(mode = PersistMode.SavePreservingActive, onDone = onDone)
-    }
-
-    fun activate(onDone: () -> Unit) {
-        persist(mode = PersistMode.Activate, onDone = onDone)
+    /**
+     * Saves or activates the draft. When an in-progress session would become unresumable, stages a
+     * confirm dialog via [CreateProgramActiveSessionGuard] instead of persisting immediately.
+     */
+    fun persist(mode: CreateProgramPersistMode, onDone: () -> Unit) {
+        val current = state.value
+        if (!current.canSave || current.isSaving) {
+            state.update {
+                it.copy(
+                    saveErrorMessage =
+                        if (!current.canSave) {
+                            "Add at least one workout with an exercise"
+                        } else {
+                            null
+                        },
+                )
+            }
+            return
+        }
+        scope.launch {
+            val draft = current.toDomainProgram(loadedProgramMeta)
+            val session = activeSessionGuard.inProgressSessionOrNull()
+            if (
+                session != null &&
+                activeSessionGuard.wouldDiscardActiveSession(session, draft, mode, current)
+            ) {
+                activeSessionGuard.stagePersistDiscard(mode = mode, onDone = onDone)
+                return@launch
+            }
+            persistNow(mode = mode, onDone = onDone)
+        }
     }
 
     fun loadProgramIntoEditor(
@@ -344,78 +381,57 @@ internal class CreateProgramEditorController(
         }
     }
 
-    private enum class PersistMode {
-        SaveToLibrary,
-        SavePreservingActive,
-        Activate,
-    }
-
-    private fun persist(mode: PersistMode, onDone: () -> Unit) {
+    private suspend fun persistNow(mode: CreateProgramPersistMode, onDone: () -> Unit) {
         val current = state.value
-        if (!current.canSave || current.isSaving) {
-            state.update {
-                it.copy(
-                    saveErrorMessage =
-                        if (!current.canSave) {
-                            "Add at least one workout with an exercise"
-                        } else {
-                            null
-                        },
-                )
+        state.update { it.copy(isSaving = true, saveErrorMessage = null) }
+        val draft = current.toDomainProgram(loadedProgramMeta)
+        val result =
+            when (mode) {
+                CreateProgramPersistMode.Activate -> activateProgram(draft.copy(isActive = true))
+                CreateProgramPersistMode.SavePreservingActive -> updateExistingProgram(draft)
+                CreateProgramPersistMode.SaveToLibrary ->
+                    if (current.isEditingExisting) {
+                        updateExistingProgram(draft.copy(isActive = false))
+                    } else {
+                        saveProgramToLibrary(draft)
+                    }
             }
-            return
-        }
-        scope.launch {
-            state.update { it.copy(isSaving = true, saveErrorMessage = null) }
-            val draft = current.toDomainProgram(loadedProgramMeta)
-            val result =
-                when (mode) {
-                    PersistMode.Activate -> activateProgram(draft.copy(isActive = true))
-                    PersistMode.SavePreservingActive -> updateExistingProgram(draft)
-                    PersistMode.SaveToLibrary ->
-                        if (current.isEditingExisting) {
-                            updateExistingProgram(draft.copy(isActive = false))
-                        } else {
-                            saveProgramToLibrary(draft)
-                        }
+        result
+            .onSuccess {
+                if (finishOnboarding() && mode == CreateProgramPersistMode.Activate) {
+                    completeOnboarding(getUserTrainingProfile())
                 }
-            result
-                .onSuccess {
-                    if (finishOnboarding() && mode == PersistMode.Activate) {
-                        completeOnboarding(getUserTrainingProfile())
-                    }
-                    if (mode == PersistMode.Activate) {
-                        loadedProgramMeta = draft.copy(isActive = true).toLoadedProgramMeta()
-                    } else if (mode == PersistMode.SavePreservingActive) {
-                        loadedProgramMeta = draft.toLoadedProgramMeta()
-                    } else if (current.isEditingExisting) {
-                        loadedProgramMeta = draft.copy(isActive = false).toLoadedProgramMeta()
-                    }
-                    state.update {
-                        it.copy(
-                            isSaving = false,
-                            isDirty = false,
-                            originalIsActive =
-                                when (mode) {
-                                    PersistMode.Activate -> true
-                                    PersistMode.SaveToLibrary -> false
-                                    PersistMode.SavePreservingActive -> it.originalIsActive
-                                },
-                        )
-                    }
-                    if (!finishOnboarding() || mode == PersistMode.Activate) {
-                        onDone()
-                    }
+                if (mode == CreateProgramPersistMode.Activate) {
+                    loadedProgramMeta = draft.copy(isActive = true).toLoadedProgramMeta()
+                } else if (mode == CreateProgramPersistMode.SavePreservingActive) {
+                    loadedProgramMeta = draft.toLoadedProgramMeta()
+                } else if (current.isEditingExisting) {
+                    loadedProgramMeta = draft.copy(isActive = false).toLoadedProgramMeta()
                 }
-                .onFailure { error ->
-                    state.update {
-                        it.copy(
-                            isSaving = false,
-                            saveErrorMessage = error.message ?: "Couldn't save program. Try again.",
-                        )
-                    }
+                state.update {
+                    it.copy(
+                        isSaving = false,
+                        isDirty = false,
+                        originalIsActive =
+                            when (mode) {
+                                CreateProgramPersistMode.Activate -> true
+                                CreateProgramPersistMode.SaveToLibrary -> false
+                                CreateProgramPersistMode.SavePreservingActive -> it.originalIsActive
+                            },
+                    )
                 }
-        }
+                if (!finishOnboarding() || mode == CreateProgramPersistMode.Activate) {
+                    onDone()
+                }
+            }
+            .onFailure { error ->
+                state.update {
+                    it.copy(
+                        isSaving = false,
+                        saveErrorMessage = error.message ?: "Couldn't save program. Try again.",
+                    )
+                }
+            }
     }
 
     private fun convertSelectedRestToWorkoutIfNeeded() {

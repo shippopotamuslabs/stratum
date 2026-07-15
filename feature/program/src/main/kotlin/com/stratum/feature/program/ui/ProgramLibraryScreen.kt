@@ -38,6 +38,8 @@ fun ProgramLibraryScreen(
     onDeleteRequest: (programId: String) -> Unit,
     onDeleteConfirm: () -> Unit,
     onDeleteDismiss: () -> Unit,
+    onActivateConfirm: () -> Unit,
+    onActivateDismiss: () -> Unit,
     onUserMessageShown: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -163,5 +165,22 @@ fun ProgramLibraryScreen(
                 confirmEnabled = !state.isDeleting,
             )
         }
+    }
+
+    state.pendingActivateProgramId?.let {
+        StratumConfirmDialog(
+            title = stringResource(R.string.program_library_activate_discard_title),
+            body =
+                stringResource(
+                    R.string.program_library_activate_discard_body,
+                    state.pendingActivateProgramName.orEmpty(),
+                ),
+            confirmLabel = stringResource(R.string.program_library_activate_discard_confirm),
+            dismissLabel = stringResource(R.string.program_library_activate_discard_cancel),
+            onConfirm = onActivateConfirm,
+            onDismiss = onActivateDismiss,
+            destructiveConfirm = true,
+            confirmEnabled = true,
+        )
     }
 }

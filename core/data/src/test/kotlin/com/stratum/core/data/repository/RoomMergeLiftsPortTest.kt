@@ -65,7 +65,6 @@ class RoomMergeLiftsPortTest {
                 database = database,
                 loggedSetDao = database.trainingLoggedSetDao(),
                 workoutLiftDao = database.workoutLiftDao(),
-                liftSetDao = database.liftSetDao(),
                 liftDao = database.liftDao(),
                 syncTouch = syncTouch,
             )
@@ -101,10 +100,14 @@ class RoomMergeLiftsPortTest {
         assertFalse(seed.enabled)
         assertNull(database.liftDao().getById(customSourceId))
 
-        val slots = database.workoutLiftDao().getAll()
-        assertEquals(1, slots.size)
-        assertEquals(targetId, slots.single().liftId)
-        assertEquals(WorkoutLiftId("wl-target"), slots.single().id)
+        val slots = database.workoutLiftDao().getAll().sortedBy { it.position }
+        // Source + target both remain; source is re-pointed onto the survivor (no collapse).
+        assertEquals(2, slots.size)
+        assertTrue(slots.all { it.liftId == targetId })
+        assertEquals(
+            setOf(WorkoutLiftId("wl-source"), WorkoutLiftId("wl-target")),
+            slots.map { it.id }.toSet(),
+        )
 
         val pending = database.pendingCloudDeleteDao().peekPending(20)
         assertTrue(
@@ -116,8 +119,8 @@ class RoomMergeLiftsPortTest {
     }
 
     @Test
-    @DisplayName("Given source and target slots in same workout when merged then keeps target slot only")
-    fun collapsesDuplicateSlotsPreferringTarget() = runTest {
+    @DisplayName("Given source and target slots in same workout when merged then both slots keep identity on target")
+    fun repointsSourceKeepsBothSlots() = runTest {
         seedLifts()
         seedProgramWithSourceAndTarget()
 
@@ -128,16 +131,20 @@ class RoomMergeLiftsPortTest {
             sourcesToDelete = emptySet(),
         )
 
-        val slots = database.workoutLiftDao().getAll()
-        assertEquals(1, slots.size)
-        assertEquals(WorkoutLiftId("wl-target"), slots.single().id)
+        val slots = database.workoutLiftDao().getAll().sortedBy { it.position }
+        assertEquals(2, slots.size)
+        assertEquals(
+            listOf(WorkoutLiftId("wl-source"), WorkoutLiftId("wl-target")),
+            slots.map { it.id },
+        )
+        assertTrue(slots.all { it.liftId == targetId })
         assertTrue(database.liftSetDao().getForWorkoutLift("wl-target").isNotEmpty())
-        assertTrue(database.liftSetDao().getForWorkoutLift("wl-source").isEmpty())
+        assertTrue(database.liftSetDao().getForWorkoutLift("wl-source").isNotEmpty())
     }
 
     @Test
-    @DisplayName("Given only source slots when merged then repoints lowest-position keeper")
-    fun repointsWhenNoExistingTargetSlot() = runTest {
+    @DisplayName("Given only source slots when merged then every source slot is re-pointed to target")
+    fun repointsAllSourceSlotsWithoutCollapse() = runTest {
         seedLifts()
         seedProgramSkeleton()
         database.workoutLiftDao().upsertAll(
@@ -166,10 +173,13 @@ class RoomMergeLiftsPortTest {
             sourcesToDelete = setOf(customSourceId),
         )
 
-        val slots = database.workoutLiftDao().getAll()
-        assertEquals(1, slots.size)
-        assertEquals(WorkoutLiftId("wl-a"), slots.single().id)
-        assertEquals(targetId, slots.single().liftId)
+        val slots = database.workoutLiftDao().getAll().sortedBy { it.position }
+        assertEquals(2, slots.size)
+        assertEquals(
+            listOf(WorkoutLiftId("wl-a"), WorkoutLiftId("wl-b")),
+            slots.map { it.id },
+        )
+        assertTrue(slots.all { it.liftId == targetId })
     }
 
     @Test

@@ -188,6 +188,69 @@ class ProgramsViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+        @Test
+        fun `orphan active session is abandoned and bar stays empty`() = runTest {
+            repository = FakeProgramRepository(PROGRAM_PPL)
+            val trainingLog = FakeTrainingLogRepository(programRepository = repository)
+            trainingLog.seedSession(
+                com.stratum.domain.training.TrainingSession(
+                    id = com.stratum.domain.training.identity.TrainingSessionId("ts-orphan"),
+                    programId = ProgramId("p-1"),
+                    workoutId = WorkoutId("deleted-w"),
+                    status = com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+                    kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                    origin = com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = Weekday.Monday,
+                    startedAt = Instant.parse("2026-06-26T12:00:00Z"),
+                    endedAt = null,
+                    sourceApp = null,
+                    programNameSnapshot = "Push/Pull/Legs",
+                    workoutNameSnapshot = "Deleted Day",
+                ),
+            )
+            val liftRepository =
+                FakeLiftRepository(
+                    initialLifts =
+                        listOf(
+                            catalogLift(LiftId("bench-press"), "Barbell Bench Press"),
+                        ),
+                )
+            val logging = FakeLoggingPort()
+            val viewModel =
+                ProgramsViewModel(
+                    observeProgram = com.stratum.domain.program.ObserveProgramUseCase(repository),
+                    observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+                    computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
+                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+                    observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
+                    abandonTrainingSession =
+                        com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+                    getLoggedSetsForSession =
+                        com.stratum.domain.training.GetLoggedSetsForSessionUseCase(trainingLog),
+                    recordWorkoutSkip =
+                        com.stratum.domain.training.RecordWorkoutSkipUseCase(trainingLog, repository),
+                    recordRestDaySkip =
+                        com.stratum.domain.training.RecordRestDaySkipUseCase(trainingLog, repository),
+                    unskipWorkout = com.stratum.domain.training.UnskipWorkoutUseCase(trainingLog, repository),
+                    observeProgramsUiPreferences =
+                        ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
+                    setExpandedWorkoutId =
+                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository(), logging),
+                )
+
+            // Collect bar so WhileSubscribed starts; orphan cleanup runs from init.
+            viewModel.activeWorkoutBarState.test {
+                assertNull(awaitItem())
+                advanceUntilIdle()
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertNull(trainingLog.getActiveSession())
+            // Keep VM referenced so init collector is not GC'd mid-test.
+            assertNull(viewModel.activeWorkoutBarState.value)
+        }
     }
 
     @Nested

@@ -36,4 +36,6 @@ data class CreateProgramScreenCallbacks(
     val onActivate: () -> Unit = {},
     val onConfirmDiscard: () -> Unit = {},
     val onDismissDiscard: () -> Unit = {},
+    val onConfirmActiveSessionDiscard: () -> Unit = {},
+    val onDismissActiveSessionDiscard: () -> Unit = {},
 )

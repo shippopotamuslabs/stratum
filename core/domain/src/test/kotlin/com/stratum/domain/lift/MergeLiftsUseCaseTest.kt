@@ -7,6 +7,7 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -27,6 +28,8 @@ import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.workout.OverlayAddedLift
+import com.stratum.domain.workout.WorkoutOverlay
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -50,6 +53,7 @@ class MergeLiftsUseCaseTest {
     private lateinit var logRepo: FakeTrainingLogRepository
     private lateinit var programRepo: FakeProgramRepository
     private lateinit var mergePort: FakeMergeLiftsPort
+    private lateinit var overlayStore: FakeWorkoutOverlayStore
     private lateinit var subject: MergeLiftsUseCase
 
     private val targetLift =
@@ -87,6 +91,7 @@ class MergeLiftsUseCaseTest {
         logRepo = FakeTrainingLogRepository()
         programRepo = FakeProgramRepository()
         mergePort = FakeMergeLiftsPort(liftRepo, logRepo, programRepo)
+        overlayStore = FakeWorkoutOverlayStore()
         val logging = FakeLoggingPort()
         subject =
             MergeLiftsUseCase(
@@ -105,6 +110,7 @@ class MergeLiftsUseCaseTest {
                         responseModelingScheduler = FakeResponseModelingSchedulerPort(),
                         loggingPort = logging,
                     ),
+                workoutOverlayStore = overlayStore,
                 loggingPort = logging,
             )
     }
@@ -240,15 +246,19 @@ class MergeLiftsUseCaseTest {
 
         assertTrue(result.isSuccess)
         val saved = programRepo.getProgram()!!
-        val liftIds = saved.workouts.single().workoutLifts.map { it.liftId }
-        // Duplicate slots for the same lift collapse to the existing target slot.
-        assertEquals(listOf(targetId), liftIds)
-        assertEquals(WorkoutLiftId("wl-target"), saved.workouts.single().workoutLifts.single().id)
+        val slots = saved.workouts.single().workoutLifts
+        // Both slots remain; source is re-pointed onto the survivor (duplicates allowed).
+        assertEquals(2, slots.size)
+        assertEquals(
+            listOf(WorkoutLiftId("wl-a"), WorkoutLiftId("wl-target")),
+            slots.map { it.id },
+        )
+        assertTrue(slots.all { it.liftId == targetId })
     }
 
     @Test
-    @DisplayName("Given two source slots without target when merged then one slot remains on target")
-    fun collapsesMultipleSourcesInSameWorkout() = runTest {
+    @DisplayName("Given two source slots without target when merged then both slots re-point to target")
+    fun repointsMultipleSourcesInSameWorkout() = runTest {
         val program =
             Program(
                 id = ProgramId("prog-2"),
@@ -296,9 +306,61 @@ class MergeLiftsUseCaseTest {
 
         assertTrue(result.isSuccess)
         val slots = programRepo.getProgram()!!.workouts.single().workoutLifts
-        assertEquals(1, slots.size)
-        assertEquals(targetId, slots.single().liftId)
-        assertEquals(WorkoutLiftId("wl-a"), slots.single().id)
+        assertEquals(2, slots.size)
+        assertEquals(
+            listOf(WorkoutLiftId("wl-a"), WorkoutLiftId("wl-b")),
+            slots.map { it.id },
+        )
+        assertTrue(slots.all { it.liftId == targetId })
+    }
+
+    @Test
+    @DisplayName("Given active session overlay when merged then swapped and added lift ids remap to target")
+    fun remapsActiveSessionOverlay() = runTest {
+        logRepo.seedSession(inProgressSession())
+        overlayStore.seed(
+            sessionId,
+            WorkoutOverlay(
+                swappedLifts = mapOf(WorkoutLiftId("wl-template") to sourceAId),
+                addedLifts =
+                    listOf(
+                        OverlayAddedLift(
+                            workoutLiftId = WorkoutLiftId("wl-added"),
+                            liftId = sourceBId,
+                        ),
+                    ),
+            ),
+        )
+
+        val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId, sourceBId))
+
+        assertTrue(result.isSuccess)
+        val stored = overlayStore.storedOverlay()
+        assertEquals(targetId, stored.swappedLifts[WorkoutLiftId("wl-template")])
+        assertEquals(targetId, stored.addedLifts.single().liftId)
+    }
+
+    @Test
+    @DisplayName("Given no active session when merged then succeeds without writing overlay store")
+    fun noActiveSessionSkipsOverlayWrite() = runTest {
+        // No IN_PROGRESS session seeded.
+        val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
+
+        assertTrue(result.isSuccess)
+        assertEquals(0, overlayStore.saveCallCount)
+        assertNull(overlayStore.storedSessionId())
+    }
+
+    @Test
+    @DisplayName("Given active session with empty overlay store when merged then does not write overlay")
+    fun emptyOverlayStoreSkipsWrite() = runTest {
+        logRepo.seedSession(inProgressSession())
+        // Store has no row for this session — load returns null.
+
+        val result = subject(targetLiftId = targetId, sourceLiftIds = setOf(sourceAId))
+
+        assertTrue(result.isSuccess)
+        assertEquals(0, overlayStore.saveCallCount)
     }
 
     @Test
@@ -389,6 +451,21 @@ class MergeLiftsUseCaseTest {
             weekdaySnapshot = null,
             startedAt = Instant.parse("2026-03-01T10:00:00Z"),
             endedAt = Instant.parse("2026-03-01T11:00:00Z"),
+            sourceApp = null,
+        )
+
+    private fun inProgressSession(): TrainingSession =
+        TrainingSession(
+            id = sessionId,
+            programId = ProgramId("prog-1"),
+            workoutId = WorkoutId("w1"),
+            status = TrainingSessionStatus.IN_PROGRESS,
+            kind = TrainingSessionKind.PROGRAM_WORKOUT,
+            origin = TrainingSessionOrigin.LIVE,
+            cycleNumberSnapshot = 1,
+            weekdaySnapshot = null,
+            startedAt = Instant.parse("2026-03-01T12:00:00Z"),
+            endedAt = null,
             sourceApp = null,
         )
 

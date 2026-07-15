@@ -82,6 +82,35 @@ class RoomProgramRepositoryTest {
     }
 
     @Nested
+    @DisplayName("observeProgram reacts to workout_lift re-point without program row rewrite")
+    inner class ObserveRepoint {
+        @Test
+        @DisplayName("Given active program when workout_lifts re-pointed then observeProgram re-emits survivor id")
+        fun repointLiftIdsTriggersObserveProgram() = runTest {
+            seedReferencedLifts()
+            repository.saveProgram(PROGRAM_P1)
+
+            repository.observeProgram().test {
+                val initial = awaitItem()
+                assertEquals(LiftId("bench-press"), initial!!.workouts[0].workoutLifts[0].liftId)
+
+                // Merge path writes only workout_lifts — program entity is untouched.
+                database.workoutLiftDao().repointLiftIds(
+                    sourceLiftIds = listOf(LiftId("bench-press")),
+                    targetLiftId = LiftId("back-squat"),
+                    updatedAtEpochMillis = System.currentTimeMillis(),
+                )
+
+                val afterRepoint = awaitItem()
+                assertEquals(LiftId("back-squat"), afterRepoint!!.workouts[0].workoutLifts[0].liftId)
+                assertEquals(WorkoutLiftId("wl-1"), afterRepoint.workouts[0].workoutLifts[0].id)
+
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("PROG-GEN-201 full hierarchy round-trips")
     inner class RoundTrip {
         @Test
