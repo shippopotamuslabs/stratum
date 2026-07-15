@@ -58,6 +58,7 @@ data class MainTabShellCallbacks(
     val onNavigateToLiftInformation: (liftId: String) -> Unit = {},
     val onCreateProgramClick: () -> Unit = {},
     val onEditProgramClick: (programId: String) -> Unit = {},
+    val onReorderWorkoutsClick: (programId: String) -> Unit = {},
     val onProgramLibraryClick: () -> Unit = {},
 )
 
@@ -119,6 +120,7 @@ fun MainTabShell(
                             onEditWorkoutClick = callbacks.onNavigateToEditWorkout,
                             onCreateProgramClick = callbacks.onCreateProgramClick,
                             onEditProgramClick = callbacks.onEditProgramClick,
+                            onReorderWorkoutsClick = callbacks.onReorderWorkoutsClick,
                             onProgramLibraryClick = callbacks.onProgramLibraryClick,
                         ),
                     onSwapLiftClick = callbacks.onNavigateToSwap,

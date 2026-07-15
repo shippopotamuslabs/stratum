@@ -82,11 +82,10 @@ fun EditWorkoutRoute(
         viewModel.initialize(workoutId, programId)
     }
 
-    // Clear after the nav exit transition ends so the fading frame stays a coherent Loaded
-    // state (no title flash). ViewModel store is entry-scoped; this still resets if retained.
-    DisposableEffect(viewModel) {
-        onDispose { viewModel.clearSession() }
-    }
+    // Do not clearSession() on composition dispose. Nav3 single-pane only composes the top
+    // entry; covering EditWorkout with LiftSwap/ReorderLifts would dispose this route while
+    // the entry-scoped ViewModel stays alive — wiping targetWorkoutId drops WorkoutEditSession
+    // events. Permanent leave destroys the ViewModel via the entry ViewModelStore.
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()

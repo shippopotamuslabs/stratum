@@ -7,6 +7,7 @@ data class ProgramsScreenCallbacks(
     val onCalendarClick: () -> Unit = {},
     val onCreateProgramClick: () -> Unit = {},
     val onEditProgramClick: (programId: String) -> Unit = {},
+    val onReorderWorkoutsClick: (programId: String) -> Unit = {},
     val onProgramLibraryClick: () -> Unit = {},
     val onStartNextWorkoutClick: () -> Unit = {},
     val onStartEmptyWorkoutClick: () -> Unit = {},
@@ -18,4 +19,6 @@ data class ProgramsScreenCallbacks(
     val onKeepProgramClick: () -> Unit = {},
     val onDiscardProgramClick: () -> Unit = {},
     val onConfirmDiscardAndStart: (ProgramsStartAction) -> Unit = {},
+    /** Persists which workout card is expanded (`null` when collapsed). */
+    val onExpandedWorkoutChange: (workoutId: String?) -> Unit = {},
 )

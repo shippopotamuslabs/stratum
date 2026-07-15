@@ -34,7 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,6 +83,8 @@ internal fun ProgramsScreen(
     onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     modifier: Modifier = Modifier,
     activeWorkoutBar: MinimizedWorkoutState? = null,
+    /** Last expanded workout card id from DataStore; null means all cards collapsed. */
+    expandedWorkoutId: String? = null,
     onCancelWorkoutClick: () -> Unit = {},
     onExpandWorkoutClick: (String) -> Unit = {},
     isPreviewMode: Boolean = false,
@@ -203,6 +204,7 @@ internal fun ProgramsScreen(
                         onSwapLiftClick = onSwapLiftClick,
                         isPreviewMode = isPreviewMode,
                         hasActiveWorkout = activeWorkoutBar != null,
+                        expandedWorkoutId = expandedWorkoutId,
                         onPendingStart = { action -> pendingStartAction = action },
                         onPendingUnskip = { workoutId, workoutName ->
                             pendingUnskipWorkoutId = workoutId
@@ -262,6 +264,13 @@ internal fun ProgramsScreen(
                         {
                             showOptionsSheet = false
                             callbacks.onEditProgramClick(programId)
+                        }
+                    },
+                onReorderWorkouts =
+                    editProgramId?.let { programId ->
+                        {
+                            showOptionsSheet = false
+                            callbacks.onReorderWorkoutsClick(programId)
                         }
                     },
                 onDismiss = { showOptionsSheet = false },
@@ -506,6 +515,7 @@ private fun LoadedProgramContent(
     onSwapLiftClick: (String, WorkoutLiftLineState) -> Unit,
     isPreviewMode: Boolean,
     hasActiveWorkout: Boolean,
+    expandedWorkoutId: String?,
     onPendingStart: (ProgramsStartAction) -> Unit,
     onPendingUnskip: (workoutId: String, workoutName: String) -> Unit,
 ) {
@@ -527,14 +537,6 @@ private fun LoadedProgramContent(
         style = StratumThemeAccessor.typography.titleLarge,
     )
 
-    val nextWorkoutId = remember(state.scheduleItems) { findNextWorkoutId(state.scheduleItems) }
-    var expandedWorkoutId by rememberSaveable(state.scheduleItems) {
-        mutableStateOf(nextWorkoutId)
-    }
-    LaunchedEffect(nextWorkoutId) {
-        expandedWorkoutId = nextWorkoutId
-    }
-
     state.scheduleItems.forEach { item ->
         when (item) {
             is ScheduleItemState.RestDay -> {
@@ -550,7 +552,9 @@ private fun LoadedProgramContent(
                     workout = item.workout,
                     expanded = item.workout.workoutId == expandedWorkoutId,
                     onExpandedChange = { expanded ->
-                        expandedWorkoutId = if (expanded) item.workout.workoutId else null
+                        callbacks.onExpandedWorkoutChange(
+                            if (expanded) item.workout.workoutId else null,
+                        )
                     },
                     onStartWorkoutClick = { workoutId ->
                         if (hasActiveWorkout) {

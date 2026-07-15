@@ -9,6 +9,7 @@
     <string name="programs_start_workout">Start Workout</string>
     <string name="programs_options_title">Program options</string>
     <string name="programs_menu_edit_program">Edit Program</string>
+    <string name="programs_menu_reorder_workouts">Reorder Workouts</string>
     <string name="programs_menu_create_program">New Program</string>
     <string name="programs_menu_program_library">Program Library</string>
     <string name="programs_calendar_content_description">Workout calendar</string>
@@ -102,12 +103,14 @@
     <string name="create_program_generating">Generating your program…</string>
     <string name="create_program_generate_error">Could not generate a program. Try again.</string>
     <string name="create_program_add_day">Add Day</string>
-    <string name="create_program_drag_day">Drag to reorder day</string>
+    <string name="create_program_options_title">Program options</string>
+    <string name="create_program_options_a11y">Program options</string>
+    <string name="create_program_reorder_workouts">Reorder Workouts</string>
+    <string name="create_program_rename_program_menu">Rename Program</string>
     <string name="create_program_rest_day">Rest Day</string>
     <string name="create_program_rest_day_hint">You can convert the rest day into a workout day by adding exercises below</string>
     <string name="create_program_remove_day">Remove Workout</string>
     <string name="create_program_rename_workout">Rename Workout</string>
-    <string name="create_program_edit_name">Edit program name</string>
     <string name="create_program_save_to_library">Save to Library</string>
     <string name="create_program_save_changes">Save Changes</string>
     <string name="create_program_activate">Activate Program</string>
