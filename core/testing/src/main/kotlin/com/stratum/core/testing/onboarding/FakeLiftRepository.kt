@@ -123,6 +123,8 @@ class FakeLiftRepository(
                 equipmentId = equipmentId,
                 equipmentName = equipmentName,
                 usesEquipmentDefaultIncrements = definition.increment == null,
+                // Fake has no equipment catalog tiers; bodyweight/null behave as fallback.
+                inheritsFromEquipmentLattice = false,
                 enabled = true,
                 isCustom = true,
                 muscleLengthBias = definition.muscleLengthBias,
@@ -164,6 +166,7 @@ class FakeLiftRepository(
                 lift.copy(
                     incrementTiers = tiers,
                     usesEquipmentDefaultIncrements = tiers.isEmpty(),
+                    inheritsFromEquipmentLattice = false,
                 )
             } else {
                 lift
@@ -180,6 +183,7 @@ class FakeLiftRepository(
                     // Changing equipment clears lift-scoped overrides so new defaults apply.
                     incrementTiers = emptyList(),
                     usesEquipmentDefaultIncrements = true,
+                    inheritsFromEquipmentLattice = false,
                 )
             } else {
                 lift

@@ -3,6 +3,7 @@ package com.stratum.domain.lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -397,15 +398,42 @@ class LiftCategoryTest {
 
     @Nested
     @DisplayName("displayName")
-    inner class DisplayNames {
+    inner class DisplayNameLabels {
         @Test
         @DisplayName("covers all five buckets")
-        fun displayNames() {
+        fun coversAllFiveBuckets() {
             assertEquals("Compound Upper", LiftCategory.CompoundUpper.displayName)
             assertEquals("Compound Lower", LiftCategory.CompoundLower.displayName)
             assertEquals("Upper Isolation", LiftCategory.IsolationUpper.displayName)
             assertEquals("Lower Isolation", LiftCategory.IsolationLower.displayName)
             assertEquals("Core", LiftCategory.Core.displayName)
+        }
+    }
+
+    @Nested
+    @DisplayName("MAJOR_COMPOUND_PATTERNS")
+    inner class MajorCompound {
+        @Test
+        @DisplayName("canonical set is the seven multi-joint families")
+        fun membership() {
+            assertEquals(
+                setOf(
+                    MovementPattern.SquatPattern,
+                    MovementPattern.HipHinge,
+                    MovementPattern.HorizontalPress,
+                    MovementPattern.InclinePress,
+                    MovementPattern.VerticalPress,
+                    MovementPattern.HorizontalPull,
+                    MovementPattern.VerticalPull,
+                ),
+                MAJOR_COMPOUND_PATTERNS,
+            )
+        }
+
+        @Test
+        @DisplayName("HipExtension is not major compound")
+        fun hipExtensionExcluded() {
+            assertFalse(MovementPattern.HipExtension in MAJOR_COMPOUND_PATTERNS)
         }
     }
 

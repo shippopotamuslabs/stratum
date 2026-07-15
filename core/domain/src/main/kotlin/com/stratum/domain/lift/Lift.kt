@@ -17,6 +17,8 @@ import com.stratum.domain.onboarding.MuscleGroup
  *   lift-scoped overrides against equipment defaults (see [resolveEffectiveIncrementTiers]).
  * - [usesEquipmentDefaultIncrements]: true when no lift-scoped override rows exist (tiers may
  *   still come from equipment or a global fallback).
+ * - [inheritsFromEquipmentLattice]: true when non-empty equipment tiers supplied the effective
+ *   list (false for global fallback, including empty bodyweight lattices).
  * - [presetTags]: which [GymPreset]s bulk-enable this lift (§2.1).
  * - [equipmentId] / [equipmentName]: optional link to shared [Equipment] for default
  *   increments and display. Narrow equipment catalog — not an availability graph.
@@ -42,6 +44,7 @@ data class Lift(
     val equipmentId: EquipmentId? = null,
     val equipmentName: String? = null,
     val usesEquipmentDefaultIncrements: Boolean = true,
+    val inheritsFromEquipmentLattice: Boolean = false,
     val enabled: Boolean,
     val isCustom: Boolean = false,
     val description: String? = null,
@@ -53,13 +56,17 @@ data class Lift(
     val defaultRestSeconds: Int? = null,
 ) {
     /**
-     * Multi-joint / compound loading for rest defaults, category, and programming UI.
+     * Multi-joint loading for **default rest** and programming UI that must match logged rest.
      *
      * True when the lift has **more than one** movement pattern (classic co-pattern compounds
      * such as press + elbow extension) **or** when [kinematicProfile] is
      * [KinematicProfile.AxialCompound] / [KinematicProfile.NonAxialCompound]. Many catalog
      * rows store only a primary pattern (e.g. `SquatPattern` alone on a hack squat) and encode
      * multi-joint status on kinematic profile — pattern count alone is not enough.
+     *
+     * **Not** the Gym / swap "Lift Type" compound bit — that uses [isCompoundForCategory], which
+     * is intentionally broader (also [MAJOR_COMPOUND_PATTERNS]) so a mis-tagged Isolation
+     * kinematic on a press/pull/squat/hinge still filters as compound without changing rest.
      */
     val isCompound: Boolean
         get() =

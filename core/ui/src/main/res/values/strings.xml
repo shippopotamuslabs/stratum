@@ -210,7 +210,8 @@
     <string name="lift_info_equipment">Equipment</string>
     <string name="lift_info_equipment_placeholder">e.g. Cable, Dumbbell</string>
     <string name="lift_info_save_equipment">Save equipment</string>
-    <string name="lift_info_equipment_none">Bodyweight</string>
+    <!-- Equipment implement: no external load hardware (distinct from Load type "Bodyweight"). -->
+    <string name="lift_info_equipment_bodyweight">Bodyweight only</string>
     <string name="lift_info_equipment_choose">Choose Equipment</string>
     <string name="manage_equipment_choose_title">Choose Equipment</string>
     <string name="manage_equipment_use">Use this equipment</string>

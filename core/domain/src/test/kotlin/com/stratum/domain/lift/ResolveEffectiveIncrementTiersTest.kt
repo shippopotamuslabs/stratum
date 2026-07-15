@@ -27,6 +27,7 @@ class ResolveEffectiveIncrementTiersTest {
             )
         assertEquals(overrideTiers, result.tiers)
         assertFalse(result.usesEquipmentDefaultIncrements)
+        assertFalse(result.inheritsFromEquipmentLattice)
     }
 
     @Test
@@ -40,6 +41,7 @@ class ResolveEffectiveIncrementTiersTest {
             )
         assertEquals(equipmentTiers, result.tiers)
         assertTrue(result.usesEquipmentDefaultIncrements)
+        assertTrue(result.inheritsFromEquipmentLattice)
     }
 
     @Test
@@ -53,6 +55,7 @@ class ResolveEffectiveIncrementTiersTest {
             )
         assertEquals(fallbackTiers, result.tiers)
         assertTrue(result.usesEquipmentDefaultIncrements)
+        assertFalse(result.inheritsFromEquipmentLattice)
     }
 
     @Test
@@ -66,5 +69,6 @@ class ResolveEffectiveIncrementTiersTest {
             )
         assertEquals(fallbackTiers, result.tiers)
         assertTrue(result.usesEquipmentDefaultIncrements)
+        assertFalse(result.inheritsFromEquipmentLattice)
     }
 }

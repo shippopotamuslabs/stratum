@@ -216,7 +216,9 @@ class LiftIncrementsViewModel @Inject constructor(
             when {
                 !inheriting && lift != null && !lift.usesEquipmentDefaultIncrements ->
                     null // overridden — banner handled via showReset
-                inheriting && !lift.equipmentName.isNullOrBlank() ->
+                // Only claim "from {equipment}" when non-empty equipment tiers actually applied
+                // (empty lattices e.g. bodyweight fall through to global fallback).
+                inheriting && lift.inheritsFromEquipmentLattice && !lift.equipmentName.isNullOrBlank() ->
                     // Resolved in the composable with string resources when possible; keep text here for VM purity.
                     "Using defaults from ${lift.equipmentName}. Save to override for this lift only."
                 inheriting ->

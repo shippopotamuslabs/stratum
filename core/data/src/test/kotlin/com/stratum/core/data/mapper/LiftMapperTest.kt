@@ -145,6 +145,8 @@ class LiftMapperTest {
         assertEquals(equipmentId, back.equipmentId)
         assertEquals("Pin-Loaded Machine", back.equipmentName)
         assertTrue(back.usesEquipmentDefaultIncrements)
+        // Empty equipment lattice falls through to global fallback — not "from equipment".
+        assertFalse(back.inheritsFromEquipmentLattice)
     }
 
     @Test
