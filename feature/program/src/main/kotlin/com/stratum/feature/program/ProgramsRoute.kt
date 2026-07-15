@@ -26,6 +26,7 @@ fun ProgramsRoute(
 ) {
     val state by viewModel.programsUiState.collectAsStateWithLifecycle()
     val activeWorkoutBar by viewModel.activeWorkoutBarState.collectAsStateWithLifecycle()
+    val expandedWorkoutId by viewModel.expandedWorkoutId.collectAsStateWithLifecycle()
     val showCheckInBanner by checkInViewModel.showBanner.collectAsStateWithLifecycle()
     val checkInUiState by checkInViewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
@@ -64,6 +65,7 @@ fun ProgramsRoute(
         ProgramsScreen(
             state = state,
             activeWorkoutBar = activeWorkoutBar,
+            expandedWorkoutId = expandedWorkoutId,
             callbacks =
                 callbacks.copy(
                     onStartNextWorkoutClick = viewModel::startNextWorkout,
@@ -76,6 +78,7 @@ fun ProgramsRoute(
                         if (checked) viewModel.skipRestDay(slotIndex) else viewModel.unskipRestDay(slotIndex)
                     },
                     onConfirmDiscardAndStart = viewModel::confirmDiscardAndStart,
+                    onExpandedWorkoutChange = viewModel::setExpandedWorkout,
                 ),
             onSwapLiftClick = { workoutId, target ->
                 onSwapLiftClick(workoutId, target.workoutLiftId, target.liftId, target.name)

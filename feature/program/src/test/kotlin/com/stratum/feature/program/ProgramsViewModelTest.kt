@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.program.FakeProgramsUiPreferencesRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
@@ -14,8 +15,11 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.ComputeProgramMuscleVolumeUseCase
 import com.stratum.domain.program.LiftSet
+import com.stratum.domain.program.ObserveProgramsUiPreferencesUseCase
 import com.stratum.domain.program.Program
+import com.stratum.domain.program.ProgramsUiPreferences
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SetExpandedWorkoutIdUseCase
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
@@ -29,8 +33,10 @@ import com.stratum.feature.program.ui.ProgramsUiEvent
 import com.stratum.feature.program.ui.ProgramsUiState
 import com.stratum.feature.program.ui.ScheduleItemState
 import java.time.Instant
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -184,7 +190,76 @@ class ProgramsViewModelTest {
         }
     }
 
-    private fun buildViewModel(initial: Program?): ProgramsViewModel {
+    @Nested
+    @DisplayName("Expanded workout card preference")
+    inner class ExpandedWorkout {
+        @Test
+        fun `seeded expanded workout id is exposed on expandedWorkoutId`() = runTest {
+            val viewModel =
+                buildViewModel(
+                    initial = PROGRAM_PPL,
+                    uiPrefs = FakeProgramsUiPreferencesRepository(
+                        ProgramsUiPreferences(expandedWorkoutId = "w-1"),
+                    ),
+                )
+
+            viewModel.expandedWorkoutId.test {
+                // stateIn starts at null until the preference flow delivers.
+                var id = awaitItem()
+                if (id == null) {
+                    id = awaitItem()
+                }
+                assertEquals("w-1", id)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        fun `setExpandedWorkout persists id and re-emits`() = runTest {
+            val uiPrefs = FakeProgramsUiPreferencesRepository()
+            val viewModel = buildViewModel(initial = PROGRAM_PPL, uiPrefs = uiPrefs)
+
+            viewModel.expandedWorkoutId.test {
+                assertNull(awaitItem())
+
+                viewModel.setExpandedWorkout("w-1")
+                advanceUntilIdle()
+
+                assertEquals("w-1", awaitItem())
+                assertEquals("w-1", uiPrefs.current.expandedWorkoutId)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        fun `setExpandedWorkout null clears the expanded card`() = runTest {
+            val uiPrefs =
+                FakeProgramsUiPreferencesRepository(
+                    ProgramsUiPreferences(expandedWorkoutId = "w-1"),
+                )
+            val viewModel = buildViewModel(initial = PROGRAM_PPL, uiPrefs = uiPrefs)
+
+            viewModel.expandedWorkoutId.test {
+                var id = awaitItem()
+                if (id == null) {
+                    id = awaitItem()
+                }
+                assertEquals("w-1", id)
+
+                viewModel.setExpandedWorkout(null)
+                advanceUntilIdle()
+
+                assertNull(awaitItem())
+                assertNull(uiPrefs.current.expandedWorkoutId)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    private fun buildViewModel(
+        initial: Program?,
+        uiPrefs: FakeProgramsUiPreferencesRepository = FakeProgramsUiPreferencesRepository(),
+    ): ProgramsViewModel {
         repository = FakeProgramRepository(initial)
         val trainingLog = FakeTrainingLogRepository(programRepository = repository)
         val liftRepository =
@@ -194,17 +269,20 @@ class ProgramsViewModelTest {
                         catalogLift(LiftId("bench-press"), "Barbell Bench Press"),
                     ),
             )
+        val logging = FakeLoggingPort()
         return ProgramsViewModel(
             observeProgram = com.stratum.domain.program.ObserveProgramUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
             computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
-            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, FakeLoggingPort()),
+            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
             observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
-            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog, FakeLoggingPort()),
+            abandonTrainingSession = com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog, logging),
             getLoggedSetsForSession = com.stratum.domain.training.GetLoggedSetsForSessionUseCase(trainingLog),
             recordWorkoutSkip = com.stratum.domain.training.RecordWorkoutSkipUseCase(trainingLog, repository),
             recordRestDaySkip = com.stratum.domain.training.RecordRestDaySkipUseCase(trainingLog, repository),
             unskipWorkout = com.stratum.domain.training.UnskipWorkoutUseCase(trainingLog, repository),
+            observeProgramsUiPreferences = ObserveProgramsUiPreferencesUseCase(uiPrefs),
+            setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs, logging),
         )
     }
 
