@@ -31,6 +31,7 @@ import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.ProgramGenerationLoadingContent
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumReorderItem
@@ -46,6 +47,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SpecializationPreferencesScreen
+import com.stratum.feature.program.ActiveSessionDiscardReason
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
@@ -236,6 +238,29 @@ fun CreateProgramScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+
+    state.pendingActiveSessionDiscard?.let { reason ->
+        val bodyRes =
+            when (reason) {
+                ActiveSessionDiscardReason.RemoveSelectedDay ->
+                    R.string.create_program_active_session_discard_body_remove_day
+                ActiveSessionDiscardReason.SaveChanges,
+                ActiveSessionDiscardReason.SaveToLibrary,
+                -> R.string.create_program_active_session_discard_body_save
+                ActiveSessionDiscardReason.Activate ->
+                    R.string.create_program_active_session_discard_body_activate
+            }
+        StratumConfirmDialog(
+            title = stringResource(R.string.create_program_active_session_discard_title),
+            body = stringResource(bodyRes),
+            confirmLabel = stringResource(R.string.create_program_active_session_discard_confirm),
+            dismissLabel = stringResource(R.string.create_program_active_session_discard_cancel),
+            onConfirm = callbacks.onConfirmActiveSessionDiscard,
+            onDismiss = callbacks.onDismissActiveSessionDiscard,
+            destructiveConfirm = true,
+            confirmEnabled = !state.isSaving,
+        )
     }
 
     if (showProgramOptionsSheet) {
