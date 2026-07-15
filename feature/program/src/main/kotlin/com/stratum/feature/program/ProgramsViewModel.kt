@@ -18,6 +18,7 @@ import com.stratum.domain.training.StartTrainingSessionRequest
 import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.UnskipWorkoutUseCase
+import com.stratum.domain.training.isOrphanedAgainstActiveProgram
 import com.stratum.feature.program.ui.MinimizedWorkoutState
 import com.stratum.feature.program.ui.ProgramsStartAction
 import com.stratum.feature.program.ui.ProgramsUiEvent
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -67,6 +69,30 @@ class ProgramsViewModel @Inject constructor(
     observeProgramsUiPreferences: ObserveProgramsUiPreferencesUseCase,
     private val setExpandedWorkoutId: SetExpandedWorkoutIdUseCase,
 ) : ViewModel() {
+
+    init {
+        // Safety net for already-orphaned sessions (mid-session delete / program switch without
+        // confirm). Prefer confirm-before-discard at mutation sites; this only cleans ghosts so the
+        // bottom bar does not offer a non-resumable session.
+        viewModelScope.launch {
+            observeCycleProgress()
+                .map { progress ->
+                    val session = progress.activeSession
+                    if (session != null && session.isOrphanedAgainstActiveProgram(progress.program)) {
+                        session.id
+                    } else {
+                        null
+                    }
+                }
+                .distinctUntilChanged()
+                .collect { orphanSessionId ->
+                    if (orphanSessionId != null) {
+                        abandonTrainingSession(orphanSessionId)
+                    }
+                }
+        }
+    }
+
     val programsUiState: StateFlow<ProgramsUiState> =
         combine(
             observeProgram(),
@@ -184,6 +210,7 @@ class ProgramsViewModel @Inject constructor(
                     val program = progress.program
                     val workout = program?.workouts?.firstOrNull { it.id == workoutId }
                     if (workout == null) {
+                        // Orphan: init collector abandons; hide bar so expand cannot open a dead route.
                         emit(null)
                     } else {
                         // Soft-fail set/catalog load so a bad read never kills the bar or the VM.

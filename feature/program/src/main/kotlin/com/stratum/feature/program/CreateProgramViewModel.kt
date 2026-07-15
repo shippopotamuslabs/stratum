@@ -16,6 +16,8 @@ import com.stratum.domain.program.InferLastTrainedBucketUseCase
 import com.stratum.domain.program.SaveProgramToLibraryUseCase
 import com.stratum.domain.program.UpdateExistingProgramUseCase
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.training.AbandonTrainingSessionUseCase
+import com.stratum.domain.training.ObserveActiveSessionUseCase
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -53,6 +55,8 @@ class CreateProgramViewModel @Inject constructor(
     computeWorkoutMuscleVolume: ComputeWorkoutMuscleVolumeUseCase,
     estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
     private val workoutEditSession: WorkoutEditSession,
+    observeActiveSession: ObserveActiveSessionUseCase,
+    abandonTrainingSession: AbandonTrainingSessionUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -64,6 +68,13 @@ class CreateProgramViewModel @Inject constructor(
     private var entryConfigured: Boolean = false
     private var configuredProgramId: String? = null
     private var configuredStartInScratch: Boolean = false
+
+    private val activeSessionGuard =
+        CreateProgramActiveSessionGuard(
+            state = _uiState,
+            observeActiveSession = observeActiveSession,
+            abandonTrainingSession = abandonTrainingSession,
+        )
 
     private val editor =
         CreateProgramEditorController(
@@ -77,6 +88,7 @@ class CreateProgramViewModel @Inject constructor(
             computeWorkoutMuscleVolume = computeWorkoutMuscleVolume,
             estimateWorkoutDurationMinutes = estimateWorkoutDurationMinutes,
             workoutEditSession = workoutEditSession,
+            activeSessionGuard = activeSessionGuard,
             finishOnboarding = { finishOnboarding },
         )
 
@@ -233,15 +245,39 @@ class CreateProgramViewModel @Inject constructor(
     fun startReorderLifts(onNavigate: (workoutId: String) -> Unit) =
         editor.startReorderLifts(onNavigate)
 
-    fun saveToLibrary(onDone: () -> Unit) = editor.saveToLibrary(onDone)
+    fun saveToLibrary(onDone: () -> Unit) =
+        editor.persist(CreateProgramPersistMode.SaveToLibrary, onDone)
 
-    fun saveChanges(onDone: () -> Unit) = editor.saveChanges(onDone)
+    fun saveChanges(onDone: () -> Unit) =
+        editor.persist(CreateProgramPersistMode.SavePreservingActive, onDone)
 
-    fun activate(onDone: () -> Unit) = editor.activate(onDone)
+    fun activate(onDone: () -> Unit) =
+        editor.persist(CreateProgramPersistMode.Activate, onDone)
 
     fun requestDiscard(): Boolean = editor.requestDiscard()
 
     fun dismissDiscard() = editor.dismissDiscard()
+
+    fun confirmActiveSessionDiscard() {
+        viewModelScope.launch {
+            when (activeSessionGuard.confirmAbandon()) {
+                ActiveSessionDiscardReason.RemoveSelectedDay -> editor.applyRemoveSelectedDay()
+                ActiveSessionDiscardReason.SaveChanges,
+                ActiveSessionDiscardReason.Activate,
+                ActiveSessionDiscardReason.SaveToLibrary,
+                -> {
+                    // Session already abandoned — re-enter persist without another confirm.
+                    val pending = activeSessionGuard.takePendingPersist()
+                    if (pending != null) {
+                        editor.persist(mode = pending.first, onDone = pending.second)
+                    }
+                }
+                null -> Unit
+            }
+        }
+    }
+
+    fun dismissActiveSessionDiscard() = activeSessionGuard.dismiss()
 
     fun back() {
         when (_uiState.value.step) {

@@ -1,9 +1,11 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.ProgramRepository
+import com.stratum.domain.program.ProgressionScheme
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
@@ -27,21 +29,7 @@ class LogSetUseCase @Inject constructor(
             liftRepository.observeLifts().first().firstOrNull { it.id == command.liftId }
                 ?: throw IllegalArgumentException("Lift ${command.liftId.value} not found")
 
-        val liftContext =
-            if (command.workoutLiftId != null) {
-                val program =
-                    programRepository.getProgram()
-                        ?: error("No active program found to resolve workout lift")
-                val workoutLift =
-                    program.workouts
-                        .flatMap { it.workoutLifts }
-                        .firstOrNull { it.id == command.workoutLiftId }
-                        ?: throw IllegalArgumentException("Workout lift ${command.workoutLiftId.value} not found")
-                val templateSet = workoutLift.sets.firstOrNull { it.position == command.setIndex }
-                loggedLiftContextFactory.fromLiveTemplate(lift, workoutLift, templateSet)
-            } else {
-                loggedLiftContextFactory.fromLiftCatalog(lift, lift.name)
-            }
+        val liftContext = resolveLiftContext(command, lift)
 
         val loggedSet =
             LoggedSet(
@@ -61,6 +49,40 @@ class LogSetUseCase @Inject constructor(
         loggedSet
     }.onFailure { error ->
         loggingPort.error(TAG, "Failed to log set: ${error.message}", error)
+    }
+
+    /**
+     * Template lifts resolve progression/set fields from the program.
+     * Mid-session adds and ad-hoc empty sessions use ephemeral workout-lift ids that are
+     * not on the template until the user opts to keep changes at finalize — fall back to a
+     * session-only context that still stamps [LogSetCommand.workoutLiftId] for amend/unlog
+     * matching.
+     */
+    private suspend fun resolveLiftContext(command: LogSetCommand, lift: Lift): LoggedLiftContext {
+        val workoutLiftId = command.workoutLiftId
+            ?: return loggedLiftContextFactory.fromLiftCatalog(lift, lift.name)
+
+        val program = programRepository.getProgram()
+        val workoutLift = program
+            ?.workouts
+            ?.flatMap { it.workoutLifts }
+            ?.firstOrNull { it.id == workoutLiftId }
+
+        return if (workoutLift != null) {
+            val templateSet = workoutLift.sets.firstOrNull { it.position == command.setIndex }
+            loggedLiftContextFactory.fromLiveTemplate(lift, workoutLift, templateSet)
+        } else {
+            // Overlay/ad-hoc lift: default Double matches LiveWorkoutOverlayOps.addLifts.
+            loggedLiftContextFactory.fromLiveSessionLift(
+                lift = lift,
+                workoutLiftId = workoutLiftId,
+                progressionScheme = ProgressionScheme.Double,
+                setType = command.setType,
+                repMin = command.repMin,
+                repMax = command.repMax,
+                rirGoal = command.rirGoal,
+            )
+        }
     }
 
     private companion object {

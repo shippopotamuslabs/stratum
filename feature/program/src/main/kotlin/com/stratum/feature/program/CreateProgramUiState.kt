@@ -28,6 +28,21 @@ enum class CreateProgramGenerateState {
 }
 
 /**
+ * Why the editor is asking to discard the in-progress training session before continuing.
+ * Distinct from [CreateProgramUiState.showDiscardConfirm] (unsaved draft navigation).
+ */
+enum class ActiveSessionDiscardReason {
+    /** Removing the cycle day that is currently being trained. */
+    RemoveSelectedDay,
+    /** Saving template changes that drop or unlink the active workout. */
+    SaveChanges,
+    /** Activating this draft while another session is live. */
+    Activate,
+    /** Demoting/saving in a way that leaves the live session without a template. */
+    SaveToLibrary,
+}
+
+/**
  * A single cycle slot in the create/edit program editor.
  *
  * Tabs are ordered cycle slots (train or rest) — not Mon–Sun weekday identity.
@@ -64,6 +79,11 @@ data class CreateProgramUiState(
     val isSaving: Boolean = false,
     val saveErrorMessage: String? = null,
     val showDiscardConfirm: Boolean = false,
+    /**
+     * When non-null, show confirm-before-discard for the in-progress training session.
+     * Cleared on dismiss or after successful abandon + action.
+     */
+    val pendingActiveSessionDiscard: ActiveSessionDiscardReason? = null,
     val showRenameProgram: Boolean = false,
     val showRenameWorkout: Boolean = false,
     /** True when opened from library with an existing program id. */

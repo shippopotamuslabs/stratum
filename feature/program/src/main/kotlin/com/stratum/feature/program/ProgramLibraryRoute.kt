@@ -32,6 +32,8 @@ fun ProgramLibraryRoute(
         onDeleteRequest = viewModel::requestDelete,
         onDeleteConfirm = viewModel::confirmDelete,
         onDeleteDismiss = viewModel::dismissDelete,
+        onActivateConfirm = viewModel::confirmActivateDiscardingSession,
+        onActivateDismiss = viewModel::dismissActivate,
         onUserMessageShown = viewModel::onUserMessageShown,
         modifier = modifier,
     )
