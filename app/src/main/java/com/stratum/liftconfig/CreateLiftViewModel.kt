@@ -12,8 +12,8 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
-import com.stratum.domain.lift.classifyLiftCategory
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.inferKinematicProfile
@@ -59,7 +59,8 @@ class CreateLiftViewModel @Inject constructor(
         val bias: MuscleLengthBias = MuscleLengthBias.MidRange,
         val kinematic: KinematicProfile = KinematicProfile.Isolation,
         val load: LoadType = LoadType.Weighted,
-        val equipmentId: EquipmentId? = null,
+        /** Default to bodyweight equipment — not null (null is only for legacy/unassigned). */
+        val equipmentId: EquipmentId? = SeedEquipmentIds.Bodyweight,
         val restOverride: Int? = null,
     )
 
@@ -234,8 +235,9 @@ class CreateLiftViewModel @Inject constructor(
         sheets.update { it.copy(editing = null) }
     }
 
+    /** Assign bodyweight equipment (does not change [LoadType]). */
     fun onClearEquipment() {
-        draft.update { it.copy(equipmentId = null) }
+        draft.update { it.copy(equipmentId = SeedEquipmentIds.Bodyweight) }
         sheets.update { it.copy(editing = null) }
     }
 
@@ -315,7 +317,7 @@ class CreateLiftViewModel @Inject constructor(
                     kinematicLabel = d.kinematic.toDetailLabel(),
                     loadTypeLabel = d.load.toDetailLabel(),
                     equipment = snapshot.equipmentName,
-                    categoryLabel = snapshot.classifyLiftCategory().displayName,
+                    showCategory = false,
                     defaultRestLabel = formatRestDisplay(resolvedRest),
                     showAddMuscleSheet = s.showAdd,
                     editingField = s.editing,

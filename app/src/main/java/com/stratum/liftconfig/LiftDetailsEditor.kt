@@ -78,6 +78,8 @@ data class LiftDetailsEditorState(
     val loadTypeLabel: String = "",
     val equipment: String? = null,
     val categoryLabel: String = "",
+    /** Derived category is useful on Lift Info; hide on Create where it is not actionable. */
+    val showCategory: Boolean = true,
     val defaultRestLabel: String = "",
     val showAddMuscleSheet: Boolean = false,
     val editingField: LiftDetailEditField? = null,
@@ -101,7 +103,7 @@ data class LiftDetailsEditorActions(
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
-    /** Clear equipment FK (None). */
+    /** Assign bodyweight equipment (no external load implement). */
     val onClearEquipment: () -> Unit,
     /** Navigate to full Choose Equipment screen. */
     val onChooseEquipment: () -> Unit,
@@ -248,14 +250,16 @@ private fun LiftDetailsEditorContent(
                     editField = LiftDetailEditField.LoadType,
                 ),
             )
-            add(
-                DetailSpec(
-                    label = stringResource(UiR.string.lift_info_category),
-                    value = state.categoryLabel.ifBlank { "—" },
-                    // Derived from patterns + primary muscles — never edited directly.
-                    editField = null,
-                ),
-            )
+            if (state.showCategory) {
+                add(
+                    DetailSpec(
+                        label = stringResource(UiR.string.lift_info_category),
+                        value = state.categoryLabel.ifBlank { "—" },
+                        // Derived from patterns + primary muscles — never edited directly.
+                        editField = null,
+                    ),
+                )
+            }
             add(
                 DetailSpec(
                     label = stringResource(UiR.string.lift_info_equipment),

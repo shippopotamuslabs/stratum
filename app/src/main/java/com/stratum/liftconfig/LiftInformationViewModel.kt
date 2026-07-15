@@ -9,6 +9,7 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.UpdateCustomLiftDetailsUseCase
@@ -345,10 +346,11 @@ class LiftInformationViewModel @Inject constructor(
         editingField.value = null
     }
 
+    /** Assign bodyweight equipment (does not change [LoadType]). */
     fun onClearEquipment() {
         val id = liftId.value ?: return
         viewModelScope.launch {
-            setLiftEquipment(LiftId(id), null)
+            setLiftEquipment(LiftId(id), SeedEquipmentIds.Bodyweight)
                 .onSuccess { editingField.value = null }
                 .onFailure { _userMessage.value = MSG_SAVE_FAILED }
         }
