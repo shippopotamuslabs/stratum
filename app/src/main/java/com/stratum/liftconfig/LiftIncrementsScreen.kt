@@ -169,7 +169,7 @@ fun LiftIncrementsScreen(
                     text = stringResource(UiR.string.lift_increments_save),
                     onClick = onSave,
                     enabled = !state.isSaving && state.validationMessage == null,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth(),
                 )
             }
         }

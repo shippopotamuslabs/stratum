@@ -519,7 +519,7 @@ internal fun EditWorkoutContent(
             StratumOutlinedButton(
                 text = stringResource(R.string.edit_workout_add_lift),
                 onClick = callbacks.onAddLift,
-                modifier = listInset.fillMaxWidth(),
+                modifier = listInset.padding(bottom = 20.dp).fillMaxWidth(),
             )
         }
     }
