@@ -4,6 +4,7 @@ import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -67,6 +68,31 @@ class StartTrainingSessionUseCaseTest {
             TrainingSessionId("ts-active"),
             (error as ActiveTrainingSessionExistsException).activeSessionId,
         )
+    }
+
+    @Test
+    @DisplayName("Orphaned active session (deleted workout) is abandoned so a new start can succeed")
+    fun orphanedActiveSessionIsAbandonedOnStart() = runTest {
+        val programRepo = FakeProgramRepository(program())
+        val trainingLog = FakeTrainingLogRepository()
+        trainingLog.seedSession(
+            WorkoutLoggingFixtures.inProgressSession(
+                id = "ts-orphan",
+                workoutId = WorkoutId("deleted-mid-session"),
+            ),
+        )
+        val useCase = StartTrainingSessionUseCase(
+            trainingLog,
+            programRepo,
+            FakeLoggingPort(),
+        )
+
+        val result =
+            useCase(StartTrainingSessionRequest.ProgramWorkout(WorkoutLoggingFixtures.workoutBId))
+
+        val session = result.getOrThrow()
+        assertEquals(WorkoutLoggingFixtures.workoutBId, session.workoutId)
+        assertNull(trainingLog.getSession(TrainingSessionId("ts-orphan")))
     }
 
     private fun program() = WorkoutLoggingFixtures.twoWorkoutProgram()

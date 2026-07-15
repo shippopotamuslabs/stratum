@@ -184,7 +184,16 @@ class ProgramsViewModel @Inject constructor(
                     val program = progress.program
                     val workout = program?.workouts?.firstOrNull { it.id == workoutId }
                     if (workout == null) {
-                        emit(null)
+                        // Template deleted under an active session — keep the bar so the user can
+                        // cancel. Start also auto-abandons orphans; this is the visible recovery path.
+                        emit(
+                            MinimizedWorkoutState(
+                                workoutId = workoutId.value,
+                                workoutName = session.workoutNameSnapshot ?: "Workout",
+                                nextLiftName = "Workout removed from program",
+                                startedAtEpochMilli = session.startedAt.toEpochMilli(),
+                            ),
+                        )
                     } else {
                         // Soft-fail set/catalog load so a bad read never kills the bar or the VM.
                         val nextLiftName =

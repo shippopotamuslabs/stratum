@@ -16,14 +16,21 @@ class StartTrainingSessionUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(request: StartTrainingSessionRequest): Result<TrainingSession> = runCatching {
-        val activeSession = trainingLogRepository.getActiveSession()
-        if (activeSession != null) {
-            throw ActiveTrainingSessionExistsException(activeSession.id)
-        }
-
         val program =
             programRepository.getProgram()
                 ?: error("No active program found to start training session")
+
+        val activeSession = trainingLogRepository.getActiveSession()
+        if (activeSession != null) {
+            // Template rewrite can leave an IN_PROGRESS row whose workout no longer exists.
+            // Auto-abandon orphans so start is not permanently blocked after a mid-session delete.
+            if (activeSession.isOrphanedAgainstActiveProgram(program)) {
+                trainingLogRepository.deleteSession(activeSession.id)
+            } else {
+                throw ActiveTrainingSessionExistsException(activeSession.id)
+            }
+        }
+
         val now = Instant.now()
 
         val session =
