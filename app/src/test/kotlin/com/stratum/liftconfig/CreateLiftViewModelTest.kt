@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -84,8 +85,9 @@ class CreateLiftViewModelTest {
             assertFalse(state.canConfirm)
             assertEquals("", state.name)
             assertTrue(state.details.canEdit)
-            assertFalse(state.details.showCategory)
-            assertEquals("Bodyweight", state.details.equipment)
+            assertNull(state.details.categoryLabel)
+            assertEquals("Bodyweight only", state.details.equipment)
+            assertEquals("Weighted", state.details.loadTypeLabel)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -96,13 +98,13 @@ class CreateLiftViewModelTest {
         subject.onBeginChooseEquipment()
         equipmentPickResult.publish(EquipmentId("cable"))
         advanceUntilIdle()
-        subject.onClearEquipment()
+        subject.onAssignBodyweightEquipment()
         advanceUntilIdle()
 
         subject.uiState.test {
             advanceUntilIdle()
             val state = expectMostRecentItem()
-            assertEquals("Bodyweight", state.details.equipment)
+            assertEquals("Bodyweight only", state.details.equipment)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -182,6 +184,9 @@ class CreateLiftViewModelTest {
 
         val lift = fakeLiftRepository.currentLifts.single()
         assertEquals(SeedEquipmentIds.Bodyweight, lift.equipmentId)
+        // Empty bodyweight lattice → not inheritsFromEquipmentLattice (global fallback).
+        assertFalse(lift.inheritsFromEquipmentLattice)
+        assertEquals(LoadType.Weighted, lift.loadType)
     }
 
     @Test

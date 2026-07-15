@@ -6,7 +6,7 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
+import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import kotlin.math.log10
 import kotlin.math.min
 

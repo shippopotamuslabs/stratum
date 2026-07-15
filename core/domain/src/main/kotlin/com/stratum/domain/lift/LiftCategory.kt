@@ -77,13 +77,15 @@ val CORE_MUSCLE_GROUPS: Set<MuscleGroup> =
     )
 
 /**
- * Multi-joint movement families treated as compound for **category only**, even when
- * [KinematicProfile] was left at [KinematicProfile.Isolation] (common on custom lifts).
+ * Multi-joint movement families for program generation (stress, RIR clamping, volume coeffs)
+ * **and** for category-only compound hardening ([isCompoundForCategory]).
+ *
+ * Single source of truth — do not duplicate this set elsewhere.
  *
  * Does not include [MovementPattern.HipExtension] alone — glute bridge / reverse hyper can
  * legitimately be isolation. Does not change [Lift.isCompound] / default rest.
  */
-val INHERENTLY_COMPOUND_PATTERNS: Set<MovementPattern> =
+val MAJOR_COMPOUND_PATTERNS: Set<MovementPattern> =
     setOf(
         MovementPattern.SquatPattern,
         MovementPattern.HipHinge,
@@ -132,11 +134,11 @@ enum class LiftCategory {
  * Rules, in order:
  *
  * 1. **Compound?** — [isCompoundForCategory]: multi-pattern, axial/non-axial kinematic, **or**
- *    any [INHERENTLY_COMPOUND_PATTERNS] (category-only hardening).
+ *    any [MAJOR_COMPOUND_PATTERNS] (category-only hardening; does not change rest).
  * 2. **Core** — isolation only: any core-region pattern ([MovementPattern.SpinalFlexion]) **or**
  *    non-empty primaries entirely within [CORE_MUSCLE_GROUPS], and not compound. Compounds with
  *    LowerBack primary (deadlift) never land in Core.
- * 3. **Region** — [resolveCategoryRegion]: primary lower muscles → lower patterns → non-core
+ * 3. **Body region** — [resolveBodyRegion]: primary lower muscles → lower patterns → non-core
  *    primary → upper patterns → secondary lower → default Upper.
  * 4. **Bucket** — compound×region / isolation×region.
  *
@@ -153,7 +155,7 @@ fun Lift.classifyLiftCategory(): LiftCategory {
         return LiftCategory.Core
     }
 
-    val lower = resolveCategoryRegion() == LiftCategoryRegion.Lower
+    val lower = resolveBodyRegion() == LiftBodyRegion.Lower
     return when {
         compound && lower -> LiftCategory.CompoundLower
         compound -> LiftCategory.CompoundUpper
@@ -165,41 +167,51 @@ fun Lift.classifyLiftCategory(): LiftCategory {
 /**
  * Whether this lift should appear under Compound Upper/Lower in the Gym / swap filters.
  *
- * Broader than [Lift.isCompound]: also treats [INHERENTLY_COMPOUND_PATTERNS] as compound so a
- * mis-tagged Isolation kinematic on a press/pull/squat/hinge still filters as compound.
- * Does **not** change default rest ([Lift.resolvedDefaultRestSeconds] still uses [Lift.isCompound]).
+ * **Dual semantics (intentional):**
+ * - [Lift.isCompound] drives default rest and programming UI that must match logged rest.
+ * - [isCompoundForCategory] is broader: also treats [MAJOR_COMPOUND_PATTERNS] as compound so a
+ *   mis-tagged Isolation kinematic on a press/pull/squat/hinge still filters as compound.
+ *
+ * A custom lift can therefore be **filter-compound** (appears under Compound Upper/Lower) while
+ * still resolving **isolation rest** (120s) when kinematic was left at Isolation. Prefer fixing
+ * kinematic on create when patterns are major compounds; the filter remains forgiving.
+ *
+ * Does **not** change [Lift.resolvedDefaultRestSeconds].
  */
 fun Lift.isCompoundForCategory(): Boolean =
     isCompound ||
-        movementPatterns.any { it in INHERENTLY_COMPOUND_PATTERNS }
+        movementPatterns.any { it in MAJOR_COMPOUND_PATTERNS }
 
 /**
- * Lower vs Upper for category. Core is handled before this is consulted for the Core bucket;
- * a [LiftCategoryRegion.Core] pattern on a compound falls through to Upper/Lower via other signals.
+ * Lower vs Upper for category after Core has been short-circuited in [classifyLiftCategory].
+ * Never returns Core — core-only pattern region is handled before this is consulted; a Core
+ * pattern on a compound falls through to Upper/Lower via other signals.
+ */
+enum class LiftBodyRegion {
+    Lower,
+    Upper,
+}
+
+/**
+ * Body region for upper/lower category buckets (not Core).
  *
  * Priority (first match):
  * 1. Primary ∈ [LOWER_BODY_MUSCLE_GROUPS]
  * 2. Any lower [MovementPattern.categoryRegion]
- * 3. Any primary outside [CORE_MUSCLE_GROUPS] → Upper
+ * 3. Any primary outside [CORE_MUSCLE_GROUPS] → Upper (non-core primary forces Upper)
  * 4. Any upper pattern → Upper
  * 5. Secondary ∈ lower set → Lower
  * 6. Default Upper
  */
-internal fun Lift.resolveCategoryRegion(): LiftCategoryRegion {
-    if (primaryMuscles.any { it in LOWER_BODY_MUSCLE_GROUPS }) {
-        return LiftCategoryRegion.Lower
+internal fun Lift.resolveBodyRegion(): LiftBodyRegion =
+    when {
+        primaryMuscles.any { it in LOWER_BODY_MUSCLE_GROUPS } -> LiftBodyRegion.Lower
+        movementPatterns.any { it.categoryRegion == LiftCategoryRegion.Lower } ->
+            LiftBodyRegion.Lower
+        // Non-core primary (chest, back, …) forces Upper before secondary lower signals.
+        primaryMuscles.any { it !in CORE_MUSCLE_GROUPS } -> LiftBodyRegion.Upper
+        movementPatterns.any { it.categoryRegion == LiftCategoryRegion.Upper } ->
+            LiftBodyRegion.Upper
+        secondaryMuscles.any { it in LOWER_BODY_MUSCLE_GROUPS } -> LiftBodyRegion.Lower
+        else -> LiftBodyRegion.Upper
     }
-    if (movementPatterns.any { it.categoryRegion == LiftCategoryRegion.Lower }) {
-        return LiftCategoryRegion.Lower
-    }
-    if (primaryMuscles.any { it !in CORE_MUSCLE_GROUPS }) {
-        return LiftCategoryRegion.Upper
-    }
-    if (movementPatterns.any { it.categoryRegion == LiftCategoryRegion.Upper }) {
-        return LiftCategoryRegion.Upper
-    }
-    if (secondaryMuscles.any { it in LOWER_BODY_MUSCLE_GROUPS }) {
-        return LiftCategoryRegion.Lower
-    }
-    return LiftCategoryRegion.Upper
-}

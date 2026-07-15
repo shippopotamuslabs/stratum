@@ -59,8 +59,8 @@ class CreateLiftViewModel @Inject constructor(
         val bias: MuscleLengthBias = MuscleLengthBias.MidRange,
         val kinematic: KinematicProfile = KinematicProfile.Isolation,
         val load: LoadType = LoadType.Weighted,
-        /** Default to bodyweight equipment — not null (null is only for legacy/unassigned). */
-        val equipmentId: EquipmentId? = SeedEquipmentIds.Bodyweight,
+        /** Default implement: bodyweight-only (catalog null remains for legacy unassigned rows). */
+        val equipmentId: EquipmentId = SeedEquipmentIds.Bodyweight,
         val restOverride: Int? = null,
     )
 
@@ -105,7 +105,9 @@ class CreateLiftViewModel @Inject constructor(
                 if (pick.generation <= lastSeenPickGen) return@collect
                 lastSeenPickGen = pick.generation
                 awaitingEquipmentPick = false
-                draft.update { it.copy(equipmentId = pick.equipmentId) }
+                draft.update {
+                    it.copy(equipmentId = pick.equipmentId ?: SeedEquipmentIds.Bodyweight)
+                }
             }
         }
     }
@@ -235,8 +237,8 @@ class CreateLiftViewModel @Inject constructor(
         sheets.update { it.copy(editing = null) }
     }
 
-    /** Assign bodyweight equipment (does not change [LoadType]). */
-    fun onClearEquipment() {
+    /** Assign bodyweight-only equipment (does not change [LoadType]). */
+    fun onAssignBodyweightEquipment() {
         draft.update { it.copy(equipmentId = SeedEquipmentIds.Bodyweight) }
         sheets.update { it.copy(editing = null) }
     }
@@ -316,8 +318,9 @@ class CreateLiftViewModel @Inject constructor(
                     movementPatternLabels = d.patterns.map { it.displayName }.sorted(),
                     kinematicLabel = d.kinematic.toDetailLabel(),
                     loadTypeLabel = d.load.toDetailLabel(),
-                    equipment = snapshot.equipmentName,
-                    showCategory = false,
+                    equipment = equipmentDetailLabel(d.equipmentId, snapshot.equipmentName),
+                    // Category is derived and non-actionable on create — omit the row.
+                    categoryLabel = null,
                     defaultRestLabel = formatRestDisplay(resolvedRest),
                     showAddMuscleSheet = s.showAdd,
                     editingField = s.editing,
@@ -332,7 +335,7 @@ class CreateLiftViewModel @Inject constructor(
 
     private fun draftLift(d: Draft, equipmentCatalog: List<Equipment> = emptyList()): Lift {
         val equipmentName =
-            d.equipmentId?.let { id -> equipmentCatalog.firstOrNull { it.id == id }?.name }
+            equipmentCatalog.firstOrNull { it.id == d.equipmentId }?.name
         return Lift(
             id = LiftId("draft"),
             name = d.name,

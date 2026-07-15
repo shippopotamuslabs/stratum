@@ -6,7 +6,7 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
 import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.reference.LiftStressClass
-import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
+import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.PatternSecondaryMuscleCredit
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import kotlin.math.round

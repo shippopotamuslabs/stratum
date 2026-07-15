@@ -10,10 +10,15 @@ package com.stratum.domain.lift
  *
  * [usesEquipmentDefaultIncrements] is true only when no lift override rows are present
  * (equipment or fallback may still supply the effective list).
+ *
+ * [inheritsFromEquipmentLattice] is true only when non-empty equipment tiers supplied the
+ * list. Empty lattices (e.g. seed bodyweight) fall through to global fallback and must **not**
+ * be presented as "Using defaults from {equipment name}".
  */
 data class EffectiveIncrementTiers(
     val tiers: List<IncrementTier>,
     val usesEquipmentDefaultIncrements: Boolean,
+    val inheritsFromEquipmentLattice: Boolean = false,
 )
 
 fun resolveEffectiveIncrementTiers(
@@ -25,6 +30,7 @@ fun resolveEffectiveIncrementTiers(
         return EffectiveIncrementTiers(
             tiers = liftOverrideTiers,
             usesEquipmentDefaultIncrements = false,
+            inheritsFromEquipmentLattice = false,
         )
     }
     val fromEquipment = equipmentTiers.orEmpty()
@@ -32,10 +38,12 @@ fun resolveEffectiveIncrementTiers(
         return EffectiveIncrementTiers(
             tiers = fromEquipment,
             usesEquipmentDefaultIncrements = true,
+            inheritsFromEquipmentLattice = true,
         )
     }
     return EffectiveIncrementTiers(
         tiers = fallbackTiers,
         usesEquipmentDefaultIncrements = true,
+        inheritsFromEquipmentLattice = false,
     )
 }

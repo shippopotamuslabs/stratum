@@ -45,6 +45,7 @@ fun LiftWithTiers.toDomain(
         equipmentId = lift.equipmentId,
         equipmentName = equipment?.name,
         usesEquipmentDefaultIncrements = effective.usesEquipmentDefaultIncrements,
+        inheritsFromEquipmentLattice = effective.inheritsFromEquipmentLattice,
         enabled = lift.enabled,
         isCustom = lift.isCustom,
         description = lift.description,

@@ -78,7 +78,7 @@ data class LiftInformationActions(
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
-    val onClearEquipment: () -> Unit,
+    val onAssignBodyweightEquipment: () -> Unit,
     val onChooseEquipment: () -> Unit,
     val onRestDraftChange: (Int) -> Unit,
     val onSaveDefaultRest: () -> Unit,
@@ -346,8 +346,8 @@ class LiftInformationViewModel @Inject constructor(
         editingField.value = null
     }
 
-    /** Assign bodyweight equipment (does not change [LoadType]). */
-    fun onClearEquipment() {
+    /** Assign bodyweight-only equipment (does not change [LoadType]). */
+    fun onAssignBodyweightEquipment() {
         val id = liftId.value ?: return
         viewModelScope.launch {
             setLiftEquipment(LiftId(id), SeedEquipmentIds.Bodyweight)
@@ -493,7 +493,7 @@ class LiftInformationViewModel @Inject constructor(
                         lift.movementPatterns.map { it.displayName }.sorted(),
                     kinematicLabel = lift.kinematicProfile.toDetailLabel(),
                     loadTypeLabel = lift.loadType.toDetailLabel(),
-                    equipment = lift.equipmentName,
+                    equipment = equipmentDetailLabel(lift.equipmentId, lift.equipmentName),
                     categoryLabel = lift.classifyLiftCategory().displayName,
                     defaultRestLabel = formatRestDisplay(lift.resolvedDefaultRestSeconds()),
                     showAddMuscleSheet = controls.sheets.showAdd && lift.isCustom,
