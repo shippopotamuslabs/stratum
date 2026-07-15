@@ -36,10 +36,10 @@
     </plurals>
 
     <!-- Coach check-in -->
-    <string name="checkin_banner_title">Checkin Ready -- tap to review progress</string>
-    <string name="checkin_banner_subtitle">Coach review available</string>
+    <string name="checkin_banner_title">Checkin Ready — tap to review progress</string>
+    <string name="checkin_banner_subtitle">Progress review available</string>
     <string name="checkin_skip">Skip</string>
-    <string name="checkin_sheet_title">Coach check-in</string>
+    <string name="checkin_sheet_title">Check-in</string>
     <string name="checkin_back">Back</string>
     <string name="checkin_next">Next</string>
     <string name="checkin_overall_recovery_label">How is your recovery overall?</string>
@@ -55,13 +55,12 @@
     <string name="checkin_recovery_severe">Under-recovered</string>
     <string name="checkin_recovery_joint">Joint pain</string>
     <string name="checkin_evaluating">Evaluating…</string>
-    <string name="checkin_recommendations_hint">Included changes apply on finish. Tap a swap card to pick a different lift.</string>
+    <string name="checkin_recommendations_hint">Accepted changes apply on finish. Use the swap icon to pick a different lift.</string>
     <string name="checkin_no_changes">Looking good — no program changes recommended.</string>
     <string name="checkin_apply">Apply and finish</string>
     <string name="checkin_applying">Applying…</string>
-    <string name="checkin_include">Include</string>
-    <string name="checkin_include_selected">Included</string>
-    <string name="checkin_tap_to_change_swap">Tap to choose a different lift</string>
+    <string name="checkin_accepted">Accepted</string>
+    <string name="checkin_rejected">Rejected</string>
     <string name="checkin_swap_picker_title">Choose replacement</string>
 
     <!-- Coach check-in recommendation titles -->
