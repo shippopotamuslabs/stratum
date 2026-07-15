@@ -32,6 +32,7 @@ fun ProgramsOptionsBottomSheet(
     onProgramLibrary: () -> Unit,
     onDismiss: () -> Unit,
     onEditProgram: (() -> Unit)? = null,
+    onReorderWorkouts: (() -> Unit)? = null,
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
@@ -42,6 +43,13 @@ fun ProgramsOptionsBottomSheet(
                 text = stringResource(R.string.programs_menu_edit_program),
                 leadingIcon = rememberVectorPainter(Icons.Outlined.Edit),
                 onClick = onEditProgram,
+            )
+        }
+        if (onReorderWorkouts != null) {
+            ProgramsOptionRow(
+                text = stringResource(R.string.programs_menu_reorder_workouts),
+                leadingIconRes = CoreUiR.drawable.ic_swap_vert,
+                onClick = onReorderWorkouts,
             )
         }
         ProgramsOptionRow(

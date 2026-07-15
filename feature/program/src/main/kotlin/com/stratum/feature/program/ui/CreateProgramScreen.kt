@@ -1,66 +1,40 @@
 package com.stratum.feature.program.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.ProgramGenerationLoadingContent
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
+import com.stratum.core.ui.component.StratumReorderItem
+import com.stratum.core.ui.component.StratumReorderListScreen
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumScopedMuscleVolumeRow
 import com.stratum.core.ui.component.StratumText
@@ -68,18 +42,14 @@ import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.progress.ProgramGenerationProgressUi
-import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SpecializationPreferencesScreen
-import com.stratum.feature.program.CreateProgramDayUi
 import com.stratum.feature.program.CreateProgramGenerateState
 import com.stratum.feature.program.CreateProgramStep
 import com.stratum.feature.program.CreateProgramUiState
 import com.stratum.feature.program.R
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 
 @Composable
 fun CreateProgramScreen(
@@ -94,39 +64,47 @@ fun CreateProgramScreen(
             isEditor -> stringResource(R.string.create_program_default_name)
             else -> stringResource(R.string.create_program_title)
         }
+    var showProgramOptionsSheet by remember { mutableStateOf(false) }
+    var programOptionsMode by remember { mutableStateOf(CreateProgramOptionsMode.Menu) }
+    var showReorderWorkouts by remember { mutableStateOf(false) }
+    var reorderItems by remember { mutableStateOf<List<StratumReorderItem>>(emptyList()) }
+
+    if (showReorderWorkouts) {
+        BackHandler { showReorderWorkouts = false }
+        StratumReorderListScreen(
+            title = stringResource(CoreUiR.string.reorder_workouts_title),
+            items = reorderItems,
+            onReorder = { from, to ->
+                if (from !in reorderItems.indices || to !in reorderItems.indices) return@StratumReorderListScreen
+                val mutable = reorderItems.toMutableList()
+                val moved = mutable.removeAt(from)
+                mutable.add(to, moved)
+                reorderItems = mutable
+            },
+            onCancel = { showReorderWorkouts = false },
+            onConfirm = {
+                callbacks.onDaysReordered(reorderItems.map { item -> item.id })
+                showReorderWorkouts = false
+            },
+            emptyMessage = stringResource(CoreUiR.string.reorder_workouts_empty),
+            confirmEnabled = reorderItems.isNotEmpty(),
+            modifier = modifier,
+        )
+        return
+    }
+
     StratumScaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             StratumTopBar(
                 titleContent = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = topBarTitle,
-                            style = StratumThemeAccessor.typography.titleLarge,
-                            color = StratumThemeAccessor.colors.textPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        if (isEditor) {
-                            Icon(
-                                imageVector = Icons.Outlined.Edit,
-                                contentDescription =
-                                    stringResource(R.string.create_program_edit_name),
-                                tint = StratumThemeAccessor.colors.textMuted,
-                                modifier =
-                                    Modifier
-                                        .size(22.dp)
-                                        .clickable(
-                                            onClick = callbacks.onShowRenameProgram,
-                                            role = Role.Button,
-                                        ),
-                            )
-                        }
-                    }
+                    Text(
+                        text = topBarTitle,
+                        style = StratumThemeAccessor.typography.titleLarge,
+                        color = StratumThemeAccessor.colors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 },
                 navigationIcon = {
                     StratumTopBarBackButton(
@@ -134,6 +112,27 @@ fun CreateProgramScreen(
                         contentDescription = stringResource(R.string.create_program_back),
                     )
                 },
+                actions =
+                    if (isEditor) {
+                        {
+                            StratumIconButton(
+                                onClick = {
+                                    programOptionsMode = CreateProgramOptionsMode.Menu
+                                    showProgramOptionsSheet = true
+                                },
+                                modifier = Modifier.padding(end = 8.dp),
+                            ) {
+                                Icon(
+                                    painter = painterResource(CoreUiR.drawable.ic_more_vert),
+                                    contentDescription =
+                                        stringResource(R.string.create_program_options_a11y),
+                                    tint = StratumThemeAccessor.colors.textPrimary,
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    },
             )
         },
         bottomBar = {
@@ -239,12 +238,32 @@ fun CreateProgramScreen(
         }
     }
 
-    if (state.showRenameProgram) {
-        RenameSheet(
-            title = stringResource(R.string.create_program_rename_program_title),
-            initial = state.programName,
-            onConfirm = callbacks.onRenameProgram,
-            onDismiss = callbacks.onDismissRenameProgram,
+    if (showProgramOptionsSheet) {
+        CreateProgramOptionsBottomSheet(
+            mode = programOptionsMode,
+            programName = state.programName,
+            onModeChange = { programOptionsMode = it },
+            onReorderWorkouts = {
+                showProgramOptionsSheet = false
+                reorderItems =
+                    state.days.map { day ->
+                        StratumReorderItem(id = day.id, name = day.name)
+                    }
+                showReorderWorkouts = reorderItems.isNotEmpty()
+            },
+            onReorderLifts = {
+                showProgramOptionsSheet = false
+                callbacks.onReorderLifts()
+            },
+            onRenameProgram = { name ->
+                callbacks.onRenameProgram(name)
+                showProgramOptionsSheet = false
+                programOptionsMode = CreateProgramOptionsMode.Menu
+            },
+            onDismiss = {
+                showProgramOptionsSheet = false
+                programOptionsMode = CreateProgramOptionsMode.Menu
+            },
         )
     }
 
@@ -379,7 +398,6 @@ private fun CreateProgramEditorContent(
             canAddDay = state.canAddDay,
             onSelectDay = callbacks.onSelectDay,
             onAddDay = callbacks.onAddDay,
-            onReorderDays = callbacks.onReorderDays,
         )
         DayActionButtonsRow(
             onRemove = callbacks.onRemoveDay,
