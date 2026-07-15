@@ -1577,6 +1577,46 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("addLift then logSet persists set for session-only workout lift")
+    fun addLiftThenLogSetPersists() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+        val withAdded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(2, withAdded.lifts.size)
+        val addedLift = withAdded.lifts.last()
+        val addedSlotKey = addedLift.sets.single().slotKey
+
+        viewModel.logSet(
+            slotKey = addedSlotKey,
+            weight = lb(95.0),
+            reps = 10,
+            rir = 2,
+        )
+        advanceUntilIdle()
+
+        val afterLog = viewModel.uiState.value as WorkoutUiState.Loaded
+        val logged = afterLog.lifts.last().sets.single()
+        assertTrue(logged.isComplete)
+        assertEquals("95", logged.loggedWeightLabel)
+        assertEquals("10", logged.loggedRepsLabel)
+        assertEquals(1, trainingLogRepository.insertSetCallCount)
+        assertNull(viewModel.userMessage.value)
+
+        val sessionSets =
+            trainingLogRepository.getSetsForSession(TrainingSessionId("ts-active"))
+        assertEquals(1, sessionSets.size)
+        assertEquals(LiftId("L-2"), sessionSets.single().liftId)
+        assertEquals(
+            WorkoutLiftId(addedLift.workoutLiftId),
+            sessionSets.single().liftContext.workoutLiftId,
+        )
+    }
+
+    @Test
     @DisplayName("addLifts as superset shares a group id")
     fun addLiftsAsSupersetSharesGroup() = runTest {
         val viewModel = buildViewModel()
