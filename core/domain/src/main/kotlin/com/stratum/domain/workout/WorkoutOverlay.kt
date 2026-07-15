@@ -125,6 +125,45 @@ data class WorkoutOverlay(
                 copy(addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId }, undoStack = remaining)
         }
     }
+
+    /**
+     * Rewrites in-session catalog identity after a lift merge: any [swappedLifts],
+     * [addedLifts], or [addedSlots] still pointing at a source id move onto [targetLiftId].
+     * Template slots are re-pointed in the program layer — not here.
+     */
+    fun remapCatalogLiftIds(
+        sourceLiftIds: Set<LiftId>,
+        targetLiftId: LiftId,
+    ): WorkoutOverlay {
+        if (sourceLiftIds.isEmpty()) return this
+        fun mapId(id: LiftId): LiftId = if (id in sourceLiftIds) targetLiftId else id
+
+        val nextSwapped =
+            swappedLifts.mapValues { (_, liftId) -> mapId(liftId) }
+        val nextAddedLifts =
+            addedLifts.map { added ->
+                val next = mapId(added.liftId)
+                if (next == added.liftId) added else added.copy(liftId = next)
+            }
+        val nextAddedSlots =
+            addedSlots.map { slot ->
+                val next = mapId(slot.liftId)
+                if (next == slot.liftId) slot else slot.copy(liftId = next)
+            }
+        return if (
+            nextSwapped == swappedLifts &&
+            nextAddedLifts == addedLifts &&
+            nextAddedSlots == addedSlots
+        ) {
+            this
+        } else {
+            copy(
+                swappedLifts = nextSwapped,
+                addedLifts = nextAddedLifts,
+                addedSlots = nextAddedSlots,
+            )
+        }
+    }
 }
 
 /**

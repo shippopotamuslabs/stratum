@@ -9,6 +9,7 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
 import com.stratum.core.ui.component.LiftLibraryFilter
 import com.stratum.core.ui.component.LiftSwapFilterIntent
 import com.stratum.domain.lift.Lift
@@ -107,6 +108,7 @@ class GymViewModelTest {
                                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
                                 loggingPort = logging,
                             ),
+                        workoutOverlayStore = FakeWorkoutOverlayStore(),
                         loggingPort = logging,
                     ),
             )

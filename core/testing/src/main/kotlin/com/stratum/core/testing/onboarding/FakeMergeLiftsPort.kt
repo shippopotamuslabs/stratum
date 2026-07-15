@@ -6,11 +6,11 @@ import com.stratum.domain.lift.MergeLiftsPort
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
-import com.stratum.domain.program.WorkoutLift
 
 /**
  * In-memory [MergeLiftsPort] for domain / ViewModel tests. Mirrors production semantics without
- * Room: reassign sets, collapse/repoint program templates, hide seeds, delete customs.
+ * Room: reassign sets, re-point program templates (allowing the same catalog lift twice in a
+ * workout), hide seeds, delete customs.
  */
 class FakeMergeLiftsPort(
     private val liftRepository: FakeLiftRepository,
@@ -51,7 +51,7 @@ class FakeMergeLiftsPort(
         }
 
         for (program in programRepository.getAllUserPrograms()) {
-            val updated = program.collapseAndRepoint(allSources, targetLiftId)
+            val updated = program.repointSources(allSources, targetLiftId)
             if (updated != program) {
                 programRepository.saveProgram(updated)
             }
@@ -65,44 +65,29 @@ class FakeMergeLiftsPort(
         }
     }
 
-    private fun Program.collapseAndRepoint(
+    private fun Program.repointSources(
         sourceLiftIds: Set<LiftId>,
         targetLiftId: LiftId,
     ): Program {
         val workouts =
             workouts.map { workout ->
-                workout.collapseAndRepoint(sourceLiftIds, targetLiftId)
+                workout.repointSources(sourceLiftIds, targetLiftId)
             }
         return if (workouts == this.workouts) this else copy(workouts = workouts)
     }
 
-    private fun Workout.collapseAndRepoint(
+    private fun Workout.repointSources(
         sourceLiftIds: Set<LiftId>,
         targetLiftId: LiftId,
     ): Workout {
-        val hasTarget = workoutLifts.any { it.liftId == targetLiftId }
-        val sourceSlots = workoutLifts.filter { it.liftId in sourceLiftIds }.sortedBy { it.position }
-        val nonSource = workoutLifts.filter { it.liftId !in sourceLiftIds }
-
-        val keptSources: List<WorkoutLift> =
-            when {
-                sourceSlots.isEmpty() -> emptyList()
-                hasTarget -> emptyList() // drop sources; keep existing target
-                else -> listOf(sourceSlots.first().copy(liftId = targetLiftId))
-            }
-
-        val merged =
-            (nonSource + keptSources)
-                .groupBy { it.liftId }
-                .flatMap { (_, slots) ->
-                    if (slots.size <= 1) {
-                        slots
-                    } else {
-                        listOf(slots.minBy { it.position })
-                    }
+        val repointed =
+            workoutLifts.map { slot ->
+                if (slot.liftId in sourceLiftIds) {
+                    slot.copy(liftId = targetLiftId)
+                } else {
+                    slot
                 }
-                .sortedBy { it.position }
-
-        return if (merged == workoutLifts) this else copy(workoutLifts = merged)
+            }
+        return if (repointed == workoutLifts) this else copy(workoutLifts = repointed)
     }
 }
