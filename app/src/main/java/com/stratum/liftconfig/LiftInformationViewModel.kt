@@ -3,7 +3,7 @@ package com.stratum.liftconfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.CustomLiftDetails
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
@@ -74,7 +74,7 @@ data class LiftInformationActions(
     val onOpenDetailEditor: (LiftDetailEditField) -> Unit,
     val onDismissDetailEditor: () -> Unit,
     val onSelectLengthBias: (String) -> Unit,
-    val onSelectKinematic: (String) -> Unit,
+    val onSelectFatigue: (String) -> Unit,
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
@@ -117,7 +117,7 @@ class LiftInformationViewModel @Inject constructor(
     private val showAddMuscleSheet = MutableStateFlow(false)
     private val editingField = MutableStateFlow<LiftDetailEditField?>(null)
     private val draftMovementPatterns = MutableStateFlow<Set<MovementPattern>>(emptySet())
-    private val restDraftSeconds = MutableStateFlow(DEFAULT_ISOLATION_REST_DISPLAY)
+    private val restDraftSeconds = MutableStateFlow(DEFAULT_STANDARD_REST_DISPLAY)
     /**
      * Local primary/secondary while the add-muscle sheet is open. Flushed once on Done/dismiss
      * so multi-select never races the catalog combine (see thermos High #1).
@@ -205,7 +205,7 @@ class LiftInformationViewModel @Inject constructor(
         muscleDraft.value = null
         editingField.value = null
         draftMovementPatterns.value = emptySet()
-        restDraftSeconds.value = DEFAULT_ISOLATION_REST_DISPLAY
+        restDraftSeconds.value = DEFAULT_STANDARD_REST_DISPLAY
         viewModelScope.launch {
             history.value = getLiftHistory(LiftId(id))
             // getLiftHistory logs failures and returns empty; no UI toast required.
@@ -378,9 +378,9 @@ class LiftInformationViewModel @Inject constructor(
         persistDetails { it.copy(muscleLengthBias = bias) }
     }
 
-    fun onSelectKinematic(key: String) {
-        val profile = KinematicProfile.entries.firstOrNull { it.name == key } ?: return
-        persistDetails { it.copy(kinematicProfile = profile) }
+    fun onSelectFatigue(key: String) {
+        val profile = FatigueProfile.entries.firstOrNull { it.name == key } ?: return
+        persistDetails { it.copy(fatigueProfile = profile) }
     }
 
     fun onSelectLoadType(key: String) {
@@ -491,7 +491,7 @@ class LiftInformationViewModel @Inject constructor(
                     lengthBiasLabel = lift.muscleLengthBias.toDetailLabel(),
                     movementPatternLabels =
                         lift.movementPatterns.map { it.displayName }.sorted(),
-                    kinematicLabel = lift.kinematicProfile.toDetailLabel(),
+                    fatigueLabel = lift.fatigueProfile.toDetailLabel(),
                     loadTypeLabel = lift.loadType.toDetailLabel(),
                     equipment = equipmentDetailLabel(lift.equipmentId, lift.equipmentName),
                     categoryLabel = lift.classifyLiftCategory().displayName,
@@ -506,7 +506,7 @@ class LiftInformationViewModel @Inject constructor(
                             else -> editing.takeIf { lift.isCustom }
                         },
                     lengthBiasOptions = lengthBiasOptions(lift.muscleLengthBias),
-                    kinematicOptions = kinematicOptions(lift.kinematicProfile),
+                    fatigueOptions = fatigueOptions(lift.fatigueProfile),
                     loadTypeOptions = loadTypeOptions(lift.loadType),
                     movementPatternOptions = movementPatternOptions(draftPatterns),
                     restDraftSeconds = controls.sheets.restDraftSeconds,
@@ -518,7 +518,7 @@ class LiftInformationViewModel @Inject constructor(
         CustomLiftDetails(
             movementPatterns = movementPatterns,
             muscleLengthBias = muscleLengthBias,
-            kinematicProfile = kinematicProfile,
+            fatigueProfile = fatigueProfile,
             loadType = loadType,
             equipmentId = equipmentId,
         )
@@ -555,7 +555,7 @@ class LiftInformationViewModel @Inject constructor(
 
     private companion object {
         val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
-        const val DEFAULT_ISOLATION_REST_DISPLAY = 120
+        const val DEFAULT_STANDARD_REST_DISPLAY = 120
         const val MSG_SAVE_FAILED = "Couldn't save lift changes. Try again."
     }
 }

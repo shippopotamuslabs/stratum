@@ -1,31 +1,34 @@
 package com.stratum.domain.lift
 
 /**
- * Deterministic kinematic classification for custom / inferred lifts when the catalog has no
- * explicit profile (import LLM does not return kinematic; [CustomLiftDefinition] must not
- * default everything to [KinematicProfile.Isolation]).
+ * Deterministic fatigue classification for custom / inferred lifts when the catalog has no
+ * explicit profile (import LLM does not return fatigue; [CustomLiftDefinition] must not
+ * default everything to [FatigueProfile.Low]).
  *
  * Seed lifts keep their authored profile; this is for import stubs and custom definitions.
+ *
+ * Rules (D8): empty → Low; isolation patterns → Low; free-weight axial squat/hinge → High;
+ * else non-empty → Medium.
  */
-fun inferKinematicProfile(
+fun inferFatigueProfile(
     patterns: Set<MovementPattern>,
     liftName: String? = null,
-): KinematicProfile {
-    if (patterns.isEmpty()) return KinematicProfile.Isolation
+): FatigueProfile {
+    if (patterns.isEmpty()) return FatigueProfile.Low
     val primary =
         patterns.firstOrNull { it !in SECONDARY_ONLY_HINTS } ?: patterns.first()
-    return inferKinematicProfile(primary, liftName)
+    return inferFatigueProfile(primary, liftName)
 }
 
-fun inferKinematicProfile(
+fun inferFatigueProfile(
     pattern: MovementPattern,
     liftName: String? = null,
-): KinematicProfile {
-    if (pattern in ISOLATION_PATTERNS) return KinematicProfile.Isolation
+): FatigueProfile {
+    if (pattern in ISOLATION_PATTERNS) return FatigueProfile.Low
     if (pattern in AXIAL_CANDIDATE_PATTERNS && isFreeWeightAxialName(liftName)) {
-        return KinematicProfile.AxialCompound
+        return FatigueProfile.High
     }
-    return KinematicProfile.NonAxialCompound
+    return FatigueProfile.Medium
 }
 
 private val ISOLATION_PATTERNS: Set<MovementPattern> =

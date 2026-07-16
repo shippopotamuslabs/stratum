@@ -122,7 +122,7 @@ class FakeProgramSynthesisPort(
             repProfile = repProfile,
             siblingVariant = siblingVariant,
             isCrossDomainTouch = isCrossDomainTouch,
-            allowedKinematicProfiles = allowedKinematicProfiles,
+            allowedFatigueProfiles = allowedFatigueProfiles,
         )
 
     private companion object {

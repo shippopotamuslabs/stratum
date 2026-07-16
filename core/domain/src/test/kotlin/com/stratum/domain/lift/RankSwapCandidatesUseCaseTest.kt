@@ -103,7 +103,7 @@ class RankSwapCandidatesUseCaseTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
         )
         val INCLINE_PRESS = Lift(
             id = LiftId("incline-press"),
@@ -114,7 +114,7 @@ class RankSwapCandidatesUseCaseTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
         )
         val LEG_CURL = Lift(
             id = LiftId("leg-curl"),
@@ -125,7 +125,7 @@ class RankSwapCandidatesUseCaseTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
-            kinematicProfile = KinematicProfile.Isolation,
+            fatigueProfile = FatigueProfile.Low,
         )
     }
 }

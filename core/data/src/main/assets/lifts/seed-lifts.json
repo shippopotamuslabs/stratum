@@ -24,7 +24,7 @@
       "SpinalFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "alternate-incline-dumbbell-curl",
@@ -50,7 +50,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "arnold-dumbbell-press",
@@ -77,7 +77,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "back-extension",
@@ -105,7 +105,7 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-ab-rollout",
@@ -133,7 +133,7 @@
       "SpinalFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "barbell-ab-rollout-on-knees",
@@ -161,7 +161,7 @@
       "SpinalFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "barbell-back-squat",
@@ -189,7 +189,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "barbell-bench-press",
@@ -217,7 +217,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-curl",
@@ -243,7 +243,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "barbell-deadlift",
@@ -276,7 +276,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "barbell-front-squat",
@@ -303,7 +303,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "barbell-glute-bridge",
@@ -330,7 +330,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-guillotine-bench-press",
@@ -358,7 +358,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-hack-squat",
@@ -388,7 +388,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-hip-thrust",
@@ -415,7 +415,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-incline-bench-press",
@@ -443,7 +443,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-lunge",
@@ -470,7 +470,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-rack-pull",
@@ -500,7 +500,7 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "barbell-rear-delt-row",
@@ -527,7 +527,7 @@
       "HorizontalPull"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-rollout-from-bench",
@@ -556,7 +556,7 @@
       "SpinalFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "barbell-romanian-deadlift",
@@ -585,7 +585,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "barbell-shrug",
@@ -611,7 +611,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "barbell-shrug-behind-the-back",
@@ -638,7 +638,7 @@
       "ScapularElevation"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "barbell-side-split-squat",
@@ -666,7 +666,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-stiff-legged-deadlift",
@@ -694,7 +694,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "barbell-sumo-deadlift",
@@ -727,7 +727,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "upright-barbell-row",
@@ -756,7 +756,7 @@
       "ShoulderAbduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "barbell-walking-lunge",
@@ -783,7 +783,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "bench-dips",
@@ -810,7 +810,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Bodyweight"
   },
   {
@@ -839,7 +839,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "bent-over-barbell-row",
@@ -867,7 +867,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "bent-over-dumbbell-rear-delt-raise-with-head-on-bench",
@@ -893,7 +893,7 @@
     "secondaryMuscles": [
       "Back"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "bent-over-two-dumbbell-row",
@@ -921,7 +921,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "bent-over-two-dumbbell-row-with-palms-in",
@@ -949,7 +949,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "bodyweight-flyes",
@@ -977,7 +977,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Bodyweight"
   },
   {
@@ -1004,7 +1004,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -1032,7 +1032,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -1062,7 +1062,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "bulgarian-split-squat",
@@ -1088,7 +1088,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "cable-chest-fly",
@@ -1111,7 +1111,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-chest-press",
@@ -1138,7 +1138,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "cable-crossover",
@@ -1163,7 +1163,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-incline-pushdown",
@@ -1188,7 +1188,7 @@
     "secondaryMuscles": [
       "Tricep"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-incline-triceps-extension",
@@ -1213,7 +1213,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-one-arm-tricep-extension",
@@ -1238,7 +1238,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-rear-delt-fly",
@@ -1263,7 +1263,7 @@
     "secondaryMuscles": [
       "Back"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-rope-hammer-curl",
@@ -1288,7 +1288,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-rope-overhead-triceps-extension",
@@ -1313,7 +1313,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-rope-rear-delt-rows",
@@ -1339,7 +1339,7 @@
       "HorizontalPull"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "cable-rope-triceps-pushdown",
@@ -1364,7 +1364,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-shoulder-press",
@@ -1390,7 +1390,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "cable-shrugs",
@@ -1415,7 +1415,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-triceps-pushdown",
@@ -1440,7 +1440,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-v-bar-triceps-pushdown",
@@ -1465,7 +1465,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-wrist-curl",
@@ -1488,7 +1488,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-y-raise",
@@ -1513,7 +1513,7 @@
       "ShoulderAbduction"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "calf-press",
@@ -1537,7 +1537,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "chain-handle-extension",
@@ -1563,7 +1563,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "chain-press",
@@ -1590,7 +1590,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "chair-squat",
@@ -1617,7 +1617,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "chin-up",
@@ -1645,7 +1645,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -1674,7 +1674,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "close-grip-dumbbell-press",
@@ -1702,7 +1702,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "close-grip-ez-bar-curl",
@@ -1728,7 +1728,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "close-grip-ez-bar-press",
@@ -1756,7 +1756,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "close-grip-front-lat-pulldown",
@@ -1782,7 +1782,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "close-grip-standing-barbell-curl",
@@ -1808,7 +1808,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cross-body-hammer-curl",
@@ -1834,7 +1834,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "decline-barbell-bench-press",
@@ -1862,7 +1862,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "decline-dumbbell-fly",
@@ -1886,7 +1886,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "decline-dumbbell-triceps-extension",
@@ -1912,7 +1912,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "decline-ez-bar-triceps-extension",
@@ -1938,7 +1938,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "decline-push-up",
@@ -1966,7 +1966,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -1994,7 +1994,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "deficit-deadlift",
@@ -2026,7 +2026,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dip-machine",
@@ -2052,7 +2052,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dips-chest-version",
@@ -2079,7 +2079,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Bodyweight"
   },
   {
@@ -2107,7 +2107,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Bodyweight"
   },
   {
@@ -2132,7 +2132,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-bench-press-with-neutral-grip",
@@ -2160,7 +2160,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-concentration-curl",
@@ -2186,7 +2186,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-fly",
@@ -2210,7 +2210,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-hammer-curl",
@@ -2236,7 +2236,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-incline-curl",
@@ -2262,7 +2262,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-incline-row",
@@ -2291,7 +2291,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-lateral-raise",
@@ -2315,7 +2315,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-lying-rear-lateral-raise",
@@ -2339,7 +2339,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-one-arm-shoulder-press",
@@ -2366,7 +2366,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-one-arm-triceps-extension",
@@ -2392,7 +2392,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-one-arm-upright-row",
@@ -2421,7 +2421,7 @@
       "ShoulderAbduction"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-prone-incline-curl",
@@ -2447,7 +2447,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-rear-lunge",
@@ -2474,7 +2474,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-romanian-deadlift",
@@ -2499,7 +2499,7 @@
       "HipHinge"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-spider-curl",
@@ -2525,7 +2525,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-squat",
@@ -2553,7 +2553,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-squat-to-a-bench",
@@ -2581,7 +2581,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-step-ups",
@@ -2608,7 +2608,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "dumbbell-tricep-extension-pronated-grip",
@@ -2634,7 +2634,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "elevated-back-lunge",
@@ -2660,7 +2660,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "ez-bar-curl",
@@ -2686,7 +2686,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "ez-bar-skull-crusher",
@@ -2712,7 +2712,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "face-pull",
@@ -2740,7 +2740,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "flat-bench-lying-leg-raise",
@@ -2764,7 +2764,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "floor-press",
@@ -2792,7 +2792,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "front-plate-raise",
@@ -2816,7 +2816,7 @@
     ],
     "mainstream": false,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "full-range-of-motion-lat-pulldown",
@@ -2842,7 +2842,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "glute-ham-raise",
@@ -2870,7 +2870,7 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "goblet-squat",
@@ -2898,7 +2898,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "good-morning",
@@ -2927,7 +2927,7 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "hanging-leg-raise",
@@ -2951,7 +2951,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "high-cable-curls",
@@ -2976,7 +2976,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "incline-bench-pull",
@@ -3004,7 +3004,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "incline-cable-chest-press",
@@ -3031,7 +3031,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "incline-cable-fly",
@@ -3056,7 +3056,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "incline-dumbbell-press",
@@ -3084,7 +3084,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "incline-hammer-curls",
@@ -3110,7 +3110,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "incline-inner-biceps-curl",
@@ -3134,7 +3134,7 @@
     ],
     "mainstream": false,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "incline-push-up",
@@ -3162,7 +3162,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -3192,7 +3192,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "jm-press",
@@ -3220,7 +3220,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "katana-triceps-extension",
@@ -3244,7 +3244,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "kneeling-cable-triceps-extension",
@@ -3267,7 +3267,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "kneeling-high-pulley-row",
@@ -3294,7 +3294,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "kneeling-single-arm-high-pulley-row",
@@ -3321,7 +3321,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "kneeling-squat",
@@ -3348,7 +3348,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "leg-lift",
@@ -3374,7 +3374,7 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "leg-over-floor-press",
@@ -3402,7 +3402,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "leverage-chest-press",
@@ -3430,7 +3430,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "leverage-decline-chest-press",
@@ -3458,7 +3458,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "leverage-high-row",
@@ -3485,7 +3485,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "leverage-iso-row",
@@ -3512,7 +3512,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "low-cable-crossover",
@@ -3537,7 +3537,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "low-cable-triceps-extension",
@@ -3562,7 +3562,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "low-pulley-row-to-neck",
@@ -3590,7 +3590,7 @@
       "HorizontalPull"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "lunge-pass-through",
@@ -3618,7 +3618,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "lying-close-grip-barbell-triceps-extension-behind-the-head",
@@ -3644,7 +3644,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "lying-close-grip-barbell-triceps-press-to-chin",
@@ -3670,7 +3670,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "lying-dumbbell-tricep-extension",
@@ -3697,7 +3697,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "lying-t-bar-row",
@@ -3724,7 +3724,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "machine-bicep-curl",
@@ -3749,7 +3749,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "machine-glute-kickback",
@@ -3771,7 +3771,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "machine-leg-extension",
@@ -3794,7 +3794,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "machine-lying-leg-curl",
@@ -3817,7 +3817,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "seated-leg-curl",
@@ -3840,7 +3840,7 @@
       "KneeFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "machine-single-leg-press",
@@ -3863,7 +3863,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "standing-leg-curl",
@@ -3886,7 +3886,7 @@
       "KneeFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "machine-shoulder-military-press",
@@ -3912,7 +3912,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "machine-triceps-extension",
@@ -3937,7 +3937,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "narrow-stance-leg-press",
@@ -3963,7 +3963,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "neck-press",
@@ -3991,7 +3991,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "nordic-hamstring-curl",
@@ -4015,7 +4015,7 @@
       "KneeFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "one-arm-chin-up",
@@ -4043,7 +4043,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -4072,7 +4072,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "one-arm-dumbbell-preacher-curl",
@@ -4098,7 +4098,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "one-arm-dumbbell-row",
@@ -4126,7 +4126,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "one-arm-floor-press",
@@ -4154,7 +4154,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "one-arm-lat-pulldown",
@@ -4180,7 +4180,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "one-arm-long-bar-row",
@@ -4207,7 +4207,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "one-arm-side-deadlift",
@@ -4239,7 +4239,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "one-leg-barbell-squat",
@@ -4266,7 +4266,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "one-legged-cable-kickback",
@@ -4291,7 +4291,7 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "overhead-cable-curl",
@@ -4316,7 +4316,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "palms-down-wrist-curl-over-a-bench",
@@ -4340,7 +4340,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "palms-up-barbell-wrist-curl-over-a-bench",
@@ -4364,7 +4364,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "parallel-bar-dip",
@@ -4391,7 +4391,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Bodyweight"
   },
   {
@@ -4415,7 +4415,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "pin-presses",
@@ -4445,7 +4445,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "plank",
@@ -4469,7 +4469,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Bodyweight"
   },
   {
@@ -4498,7 +4498,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "plate-loaded-hip-thrust",
@@ -4521,7 +4521,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "plate-loaded-single-leg-press",
@@ -4544,7 +4544,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "preacher-curl",
@@ -4570,7 +4570,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "preacher-hammer-dumbbell-curl",
@@ -4596,7 +4596,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "pull-through",
@@ -4624,7 +4624,7 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "pull-up",
@@ -4651,7 +4651,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -4680,7 +4680,7 @@
       "SpinalFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Bodyweight"
   },
   {
@@ -4709,7 +4709,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -4736,7 +4736,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "reverse-cable-curl",
@@ -4761,7 +4761,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "reverse-flyes",
@@ -4787,7 +4787,7 @@
     "secondaryMuscles": [
       "Back"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "reverse-grip-bent-over-rows",
@@ -4815,7 +4815,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "reverse-triceps-bench-press",
@@ -4842,7 +4842,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "rope-straight-arm-pulldown",
@@ -4868,7 +4868,7 @@
       "VerticalPull"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "roman-chair-hip-hinge",
@@ -4892,7 +4892,7 @@
       "HipHinge"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "scapular-pull-up",
@@ -4918,7 +4918,7 @@
       "ScapularElevation"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Bodyweight"
   },
   {
@@ -4946,7 +4946,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "seated-calf-raise",
@@ -4970,7 +4970,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "smith-machine-calf-raise",
@@ -4993,7 +4993,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "calf-press-leg-press",
@@ -5016,7 +5016,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "standing-calf-raise-machine",
@@ -5039,7 +5039,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "standing-dumbbell-calf-raise",
@@ -5063,7 +5063,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "dumbbell-seated-one-leg-calf-raise",
@@ -5087,7 +5087,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "standing-barbell-calf-raise",
@@ -5111,7 +5111,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "calf-raise-hack-squat",
@@ -5134,7 +5134,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "seated-close-grip-concentration-barbell-curl",
@@ -5160,7 +5160,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "seated-dumbbell-press",
@@ -5187,7 +5187,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "seated-one-arm-cable-pulley-rows",
@@ -5214,7 +5214,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "seated-triceps-press",
@@ -5240,7 +5240,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "side-to-side-chins",
@@ -5268,7 +5268,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -5292,7 +5292,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "single-leg-glute-bridge",
@@ -5318,7 +5318,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "single-leg-high-box-squat",
@@ -5344,7 +5344,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "single-leg-leg-extension",
@@ -5368,7 +5368,7 @@
     ],
     "mainstream": true,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "sled-leg-press",
@@ -5394,7 +5394,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "smith-machine-squat",
@@ -5421,7 +5421,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "smith-machine-behind-the-back-shrug",
@@ -5444,7 +5444,7 @@
       "ScapularElevation"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "smith-single-leg-split-squat",
@@ -5469,7 +5469,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "smith-machine-overhead-shoulder-press",
@@ -5495,7 +5495,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "speed-box-squat",
@@ -5522,7 +5522,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "speed-squats",
@@ -5550,7 +5550,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "split-squat-with-dumbbells",
@@ -5576,7 +5576,7 @@
       "SquatPattern"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "squat-with-plate-movers",
@@ -5605,7 +5605,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "standing-alternating-dumbbell-press",
@@ -5632,7 +5632,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "standing-barbell-press-behind-neck",
@@ -5659,7 +5659,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "standing-biceps-cable-curl",
@@ -5684,7 +5684,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "standing-inner-biceps-curl",
@@ -5710,7 +5710,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "standing-low-pulley-one-arm-triceps-extension",
@@ -5737,7 +5737,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "standing-military-press",
@@ -5764,7 +5764,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "standing-one-arm-cable-curl",
@@ -5789,7 +5789,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "standing-overhead-barbell-triceps-extension",
@@ -5816,7 +5816,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "standing-palm-in-one-arm-dumbbell-press",
@@ -5843,7 +5843,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "standing-palms-in-dumbbell-press",
@@ -5870,7 +5870,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "step-up-with-knee-raise",
@@ -5896,7 +5896,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "straight-arm-dumbbell-pullover",
@@ -5924,7 +5924,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "straight-arm-pulldown",
@@ -5950,7 +5950,7 @@
       "VerticalPull"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "straight-bar-bench-mid-rows",
@@ -5977,7 +5977,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "t-bar-row-with-handle",
@@ -6004,7 +6004,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "tate-press",
@@ -6031,7 +6031,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "trap-bar-deadlift",
@@ -6059,7 +6059,7 @@
       "HipExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "tricep-dumbbell-kickback",
@@ -6083,7 +6083,7 @@
     ],
     "mainstream": false,
     "secondaryMuscles": [],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "triceps-overhead-extension-with-rope",
@@ -6109,7 +6109,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "two-arm-dumbbell-preacher-curl",
@@ -6135,7 +6135,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "underhand-cable-pulldowns",
@@ -6161,7 +6161,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "upright-cable-row",
@@ -6189,7 +6189,7 @@
       "ShoulderAbduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "v-bar-pulldown",
@@ -6216,7 +6216,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "v-bar-pullup",
@@ -6243,7 +6243,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -6271,7 +6271,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "weighted-pull-ups",
@@ -6298,7 +6298,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "weighted-sissy-squat",
@@ -6325,7 +6325,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "wide-grip-lat-pulldown",
@@ -6351,7 +6351,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "wide-grip-pulldown-behind-the-neck",
@@ -6378,7 +6378,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "wide-grip-rear-pull-up",
@@ -6405,7 +6405,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Bodyweight"
   },
   {
@@ -6432,7 +6432,7 @@
     "secondaryMuscles": [
       "Forearm"
     ],
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "wide-stance-barbell-squat",
@@ -6460,7 +6460,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "wrist-roller",
@@ -6486,7 +6486,7 @@
       "WristFlexionExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "zercher-squats",
@@ -6513,7 +6513,7 @@
       "SquatPattern"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "assisted-pull-up",
@@ -6540,7 +6540,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Assisted"
   },
   {
@@ -6569,7 +6569,7 @@
       "ElbowFlexion"
     ],
     "mainstream": false,
-    "kinematicProfile": "NonAxialCompound",
+    "fatigueProfile": "Medium",
     "loadType": "Assisted"
   },
   {
@@ -6597,7 +6597,7 @@
       "ElbowExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation",
+    "fatigueProfile": "Low",
     "loadType": "Assisted"
   },
   {
@@ -6620,7 +6620,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-cuffed-behind-the-back-lateral-raise",
@@ -6642,7 +6642,7 @@
       "ShoulderAbduction"
     ],
     "mainstream": false,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "cable-cuffed-lateral-raise",
@@ -6664,7 +6664,7 @@
       "ShoulderAbduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "chest-supported-machine-row",
@@ -6688,7 +6688,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "close-grip-landmine-row",
@@ -6713,7 +6713,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "deficit-straight-legged-deadlift",
@@ -6738,7 +6738,7 @@
       "HipExtension"
     ],
     "mainstream": false,
-    "kinematicProfile": "AxialCompound"
+    "fatigueProfile": "High"
   },
   {
     "id": "dumbbell-overhead-triceps-extension",
@@ -6762,7 +6762,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "high-to-low-cable-flye",
@@ -6784,7 +6784,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "incline-dumbbell-fly",
@@ -6810,7 +6810,7 @@
       "ShoulderAdduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "incline-dumbbell-skullcrusher",
@@ -6833,7 +6833,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "landmine-chest-press",
@@ -6857,7 +6857,7 @@
       "HorizontalPress"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "machine-lat-pulldown",
@@ -6880,7 +6880,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "pec-deck-rear-delt-fly",
@@ -6905,7 +6905,7 @@
       "ShoulderHorizontalAbduction"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "pendlay-row",
@@ -6930,7 +6930,7 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "single-arm-landmine-chest-press",
@@ -6954,7 +6954,7 @@
       "HorizontalPress"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   },
   {
     "id": "standing-high-pulley-triceps-extension",
@@ -6976,7 +6976,7 @@
       "ElbowExtension"
     ],
     "mainstream": true,
-    "kinematicProfile": "Isolation"
+    "fatigueProfile": "Low"
   },
   {
     "id": "t-bar-landmine-row",
@@ -7001,6 +7001,6 @@
       "ElbowFlexion"
     ],
     "mainstream": true,
-    "kinematicProfile": "NonAxialCompound"
+    "fatigueProfile": "Medium"
   }
 ]

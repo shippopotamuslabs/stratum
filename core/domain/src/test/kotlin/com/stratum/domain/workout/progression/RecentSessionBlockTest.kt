@@ -1,7 +1,7 @@
 package com.stratum.domain.workout.progression
 
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -72,7 +72,7 @@ class RecentSessionBlockTest {
                     movementPatternsBitmask = 1,
                     primaryMusclesBitmask = 1,
                     secondaryMusclesBitmask = 0,
-                    kinematicProfile = KinematicProfile.Isolation,
+                    fatigueProfile = FatigueProfile.Low,
                     muscleLengthBias = MuscleLengthBias.MidRange,
                 ),
             ),

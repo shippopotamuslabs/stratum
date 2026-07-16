@@ -1,5 +1,7 @@
 package com.stratum.domain.program.generation.build
 
+import com.stratum.domain.lift.FatigueProfile
+
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
@@ -84,8 +86,8 @@ class WorkoutAssemblerTest {
             sel("v-pull", "Back", SlotRole.SecondaryCompound, "chin"),
             sel("h-pull", "Back", SlotRole.SecondaryCompound, "row"),
             sel("incline", "Chest", SlotRole.SecondaryCompound, "inc"),
-            sel("bicep", "Bicep", SlotRole.Isolation, "curl"),
-            sel("tricep", "Tricep", SlotRole.Isolation, "tri"),
+            sel("bicep", "Bicep", SlotRole.Accessory, "curl"),
+            sel("tricep", "Tricep", SlotRole.Accessory, "tri"),
         )
         val workouts = assembleWorkouts(
             listOf(emptyUpperPlan("Upper A", position = 0, siblingIndex = 0)),
@@ -108,8 +110,8 @@ class WorkoutAssemblerTest {
             fly,
             pull,
             row,
-            selWithPattern("bicep", "Bicep", SlotRole.Isolation, "curl", "ElbowFlexion"),
-            selWithPattern("tricep", "Tricep", SlotRole.Isolation, "tri", "ElbowExtension"),
+            selWithPattern("bicep", "Bicep", SlotRole.Accessory, "curl", "ElbowFlexion"),
+            selWithPattern("tricep", "Tricep", SlotRole.Accessory, "tri", "ElbowExtension"),
         )
         val workouts = assembleWorkouts(
             listOf(emptyUpperPlan("Upper B", position = 1, siblingIndex = 1)),
@@ -173,8 +175,8 @@ class WorkoutAssemblerTest {
             selWithPattern("h-press", "Chest", SlotRole.Anchor, "bench", "HorizontalPress"),
             selWithPattern("v-pull", "Back", SlotRole.SecondaryCompound, "pulldown", "VerticalPull"),
             selWithPattern("h-pull", "Back", SlotRole.SecondaryCompound, "row", "HorizontalPull"),
-            selWithPattern("bicep", "Bicep", SlotRole.Isolation, "curl", "ElbowFlexion"),
-            selWithPattern("tricep", "Tricep", SlotRole.Isolation, "tri", "ElbowExtension"),
+            selWithPattern("bicep", "Bicep", SlotRole.Accessory, "curl", "ElbowFlexion"),
+            selWithPattern("tricep", "Tricep", SlotRole.Accessory, "tri", "ElbowExtension"),
         )
         val ordered = orderSelectionsForTest(selections, context)
         val labels = ordered.map { it.lift.id }
@@ -188,7 +190,7 @@ class WorkoutAssemblerTest {
         val context = armSpecContext()
         val workouts = assembleWorkouts(
             listOf(emptyUpperPlan("Upper A", position = 0, siblingIndex = 0)),
-            listOf(listOf(sel("bicep", "Bicep", SlotRole.Isolation, "curl"))),
+            listOf(listOf(sel("bicep", "Bicep", SlotRole.Accessory, "curl"))),
             context,
         )
         val sets = workouts.single().workoutLifts.orEmpty().single().workoutLiftSets.orEmpty()
@@ -241,7 +243,7 @@ class WorkoutAssemblerTest {
                 primaryMuscles = setOf(MuscleGroup.Chest),
                 secondaryMuscles = emptySet(),
                 proven = false,
-                kinematicProfile = com.stratum.domain.lift.KinematicProfile.AxialCompound,
+                fatigueProfile = com.stratum.domain.lift.FatigueProfile.High,
             ),
             candidates = emptyList(),
         )

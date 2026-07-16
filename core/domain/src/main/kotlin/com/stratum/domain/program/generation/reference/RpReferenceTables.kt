@@ -84,9 +84,8 @@ data class RpRepRirBand(
  *    increment shifts intensity relative to the lift's typical load: a heavy barbell where 5 lb
  *    is a small fraction of the load can hold a *narrower* practical range than a dumbbell curl
  *    where one increment jumps intensity a lot. Per-lift increment tiers and typical-load
- *    fields don't exist yet, so the spread is tiered by KinematicProfile (the only per-lift
- *    loading signal available at generation time): AxialCompound = 4, NonAxialCompound = 6,
- *    Isolation = 10. Spread strictly increases along the compound→isolation gradient.
+ *    fields don't exist yet, so the spread is tiered by fatigue band (via rep profile):
+ *    High/axial free-weight = 4, Medium/machine-upper = 6, Low/accessory = 10.
  *
  * RIR fields are unchanged from the source table.
  */

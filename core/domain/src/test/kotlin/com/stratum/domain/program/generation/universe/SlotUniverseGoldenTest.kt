@@ -50,10 +50,10 @@ class SlotUniverseGoldenTest {
         val groups =
             listOf(
                 com.stratum.domain.program.generation.slots.LOWER_ANCHORS,
-                com.stratum.domain.program.generation.slots.LOWER_ISOLATIONS,
+                com.stratum.domain.program.generation.slots.LOWER_ACCESSORIES,
                 com.stratum.domain.program.generation.slots.UPPER_PRESS,
                 com.stratum.domain.program.generation.slots.UPPER_PULL,
-                com.stratum.domain.program.generation.slots.UPPER_ISOLATIONS,
+                com.stratum.domain.program.generation.slots.UPPER_ACCESSORIES,
             )
         for (group in groups) {
             assert(group.isNotEmpty()) { "library group should not be empty" }
@@ -140,11 +140,15 @@ class SlotUniverseGoldenTest {
                 ),
             )
 
-        /** Shared across 3/4/5-day maintenance (same catalog + core aims). */
-        private val MAINTENANCE_KEYS =
+        /**
+         * Shared across 3/4/5-day maintenance (same catalog + core aims).
+         * FPR-S4-002: role segment must become `Accessory` (was Isolation).
+         * Visible for [SlotUniverseAccessoryGoldenContractTest].
+         */
+        internal val MAINTENANCE_KEYS =
             setOf(
-                "ElbowExtension|Tricep|Isolation|false|Any",
-                "ElbowFlexion|Bicep|Isolation|false|Any",
+                "ElbowExtension|Tricep|Accessory|false|Any",
+                "ElbowFlexion|Bicep|Accessory|false|Any",
                 "HipHinge|Hamstring|Anchor|false|Any",
                 "HipHinge|Hamstring|SecondaryCompound|false|Any",
                 "HorizontalPress|Chest|Anchor|false|Any",
@@ -152,9 +156,9 @@ class SlotUniverseGoldenTest {
                 "HorizontalPull|Back|SecondaryCompound|false|Any",
                 "InclinePress|Chest|SecondaryCompound|false|Any",
                 "InclinePress|Chest|SecondaryCompound|false|B",
-                "KneeExtension|Quad|Isolation|false|Any",
-                "KneeFlexion|Hamstring|Isolation|false|Any",
-                "ShoulderAbduction|LateralDeltoid|Isolation|false|Any",
+                "KneeExtension|Quad|Accessory|false|Any",
+                "KneeFlexion|Hamstring|Accessory|false|Any",
+                "ShoulderAbduction|LateralDeltoid|Accessory|false|Any",
                 "SquatPattern|Quad|Anchor|false|Any",
                 "VerticalPull|Back|Anchor|false|Any",
                 "VerticalPull|Back|SecondaryCompound|false|A",
@@ -163,24 +167,24 @@ class SlotUniverseGoldenTest {
         private val ARMS_KEYS =
             MAINTENANCE_KEYS +
                 setOf(
-                    "ElbowExtension|Tricep|Isolation|true|Any",
-                    "ElbowFlexion|Bicep|Isolation|true|Any",
+                    "ElbowExtension|Tricep|Accessory|true|Any",
+                    "ElbowFlexion|Bicep|Accessory|true|Any",
                 )
 
         private val ARM_CALF_5DAY_KEYS =
             MAINTENANCE_KEYS +
                 setOf(
-                    "ElbowExtension|Tricep|Isolation|true|Any",
-                    "ElbowFlexion|Bicep|Isolation|true|Any",
-                    "PlantarFlexion|Calf|Isolation|false|Any",
-                    "PlantarFlexion|Calf|Isolation|false|B",
+                    "ElbowExtension|Tricep|Accessory|true|Any",
+                    "ElbowFlexion|Bicep|Accessory|true|Any",
+                    "PlantarFlexion|Calf|Accessory|false|Any",
+                    "PlantarFlexion|Calf|Accessory|false|B",
                 )
 
         private val SEAN5_GLUTE_KEYS =
             MAINTENANCE_KEYS +
                 setOf(
                     "HipExtension|Glute|Anchor|false|Any",
-                    "HipExtension|Glute|Isolation|true|Any",
+                    "HipExtension|Glute|Accessory|true|Any",
                 )
     }
 }

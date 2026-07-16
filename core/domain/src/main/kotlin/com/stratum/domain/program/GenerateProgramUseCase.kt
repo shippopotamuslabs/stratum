@@ -1,6 +1,7 @@
 package com.stratum.domain.program
 
 import com.stratum.domain.di.DefaultDispatcher
+import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.generation.integration.resolveAdjacentCalendarLiftCollisions
@@ -60,10 +61,9 @@ class GenerateProgramUseCase @Inject constructor(
                         )
                 onProgress(ProgramGenerationProgress(ProgramGenerationProgressPhase.ReviewingProfile))
 
-                val knownLiftIds =
-                    liftRepository.observeEnabledLifts().first()
-                        .map { lift -> lift.id }
-                        .toSet()
+                val enabledLifts = liftRepository.observeEnabledLifts().first()
+                val liftsById = enabledLifts.associateBy { lift -> lift.id }
+                val knownLiftIds = liftsById.keys
 
                 val normalized =
                     pipeline.generate(
@@ -75,7 +75,9 @@ class GenerateProgramUseCase @Inject constructor(
                             ),
                     )
                 var program =
-                    normalized.toDomainProgram()
+                    normalized.toDomainProgram(
+                        restSecondsForLift = { id -> liftsById[id]?.resolvedDefaultRestSeconds() },
+                    )
                         .retainOnlyKnownLifts(knownLiftIds)
                         .withReconciledTrainingWeekdays()
                         // Re-materialize after sanitization so dropped workouts cannot leave

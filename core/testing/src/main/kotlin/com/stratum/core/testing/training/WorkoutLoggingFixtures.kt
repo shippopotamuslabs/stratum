@@ -2,7 +2,7 @@ package com.stratum.core.testing.training
 
 import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -102,7 +102,7 @@ object WorkoutLoggingFixtures {
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,
-        kinematicProfile = KinematicProfile.NonAxialCompound,
+        fatigueProfile = FatigueProfile.Medium,
         muscleLengthBias = MuscleLengthBias.MidRange,
     )
 
@@ -111,7 +111,7 @@ object WorkoutLoggingFixtures {
         movementPatternsBitmask = BENCH_HORIZONTAL_BITMASK,
         primaryMusclesBitmask = CHEST_BITMASK,
         secondaryMusclesBitmask = TRICEPS_BITMASK,
-        kinematicProfile = KinematicProfile.NonAxialCompound,
+        fatigueProfile = FatigueProfile.Medium,
         muscleLengthBias = MuscleLengthBias.MidRange,
     )
 

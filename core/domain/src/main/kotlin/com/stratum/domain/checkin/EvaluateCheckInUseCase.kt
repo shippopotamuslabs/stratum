@@ -112,7 +112,7 @@ class EvaluateCheckInUseCase @Inject constructor(
                         rotationTenureWeeks = tenure,
                         currentSetCount = workoutLift.sets.size,
                         atVolumeCeiling = atCeiling,
-                        kinematicProfile = lift?.kinematicProfile,
+                        fatigueProfile = lift?.fatigueProfile,
                     )
                 decided +=
                     DecidedSlot(
@@ -160,7 +160,7 @@ class EvaluateCheckInUseCase @Inject constructor(
                     currentSetCount = row.input.currentSetCount,
                     action = row.action,
                     rationale = row.rationale,
-                    kinematicProfile = row.input.kinematicProfile,
+                    fatigueProfile = row.input.fatigueProfile,
                     atVolumeCeiling = row.input.atVolumeCeiling,
                 )
             }

@@ -39,6 +39,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.defaultMuscleFilterTiers
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 
@@ -54,7 +55,7 @@ enum class MuscleRoleFilter {
 enum class LiftDetailEditField {
     LengthBias,
     MovementPatterns,
-    Kinematic,
+    Fatigue,
     LoadType,
     Equipment,
     DefaultRest,
@@ -64,6 +65,8 @@ data class LiftDetailOptionUi(
     val key: String,
     val label: String,
     val selected: Boolean,
+    /** Optional supporting line under [label] (e.g. fatigue tier meaning). */
+    val description: String? = null,
 )
 
 /** Presentation model for the shared Details editor (Information + Create Lift). */
@@ -74,7 +77,7 @@ data class LiftDetailsEditorState(
     val secondaryMuscles: List<StratumMuscleFilterCardState> = emptyList(),
     val lengthBiasLabel: String = "",
     val movementPatternLabels: List<String> = emptyList(),
-    val kinematicLabel: String = "",
+    val fatigueLabel: String = "",
     val loadTypeLabel: String = "",
     val equipment: String? = null,
     /**
@@ -86,7 +89,7 @@ data class LiftDetailsEditorState(
     val showAddMuscleSheet: Boolean = false,
     val editingField: LiftDetailEditField? = null,
     val lengthBiasOptions: List<LiftDetailOptionUi> = emptyList(),
-    val kinematicOptions: List<LiftDetailOptionUi> = emptyList(),
+    val fatigueOptions: List<LiftDetailOptionUi> = emptyList(),
     val loadTypeOptions: List<LiftDetailOptionUi> = emptyList(),
     val movementPatternOptions: List<LiftDetailOptionUi> = emptyList(),
     val restDraftSeconds: Int = 120,
@@ -101,7 +104,7 @@ data class LiftDetailsEditorActions(
     val onOpenDetailEditor: (LiftDetailEditField) -> Unit,
     val onDismissDetailEditor: () -> Unit,
     val onSelectLengthBias: (String) -> Unit,
-    val onSelectKinematic: (String) -> Unit,
+    val onSelectFatigue: (String) -> Unit,
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
@@ -164,12 +167,15 @@ fun LiftDetailsEditor(
                 onDismiss = actions.onDismissDetailEditor,
                 onSelect = actions.onSelectLengthBias,
             )
-        LiftDetailEditField.Kinematic ->
+        LiftDetailEditField.Fatigue ->
             SingleSelectDetailSheet(
-                title = stringResource(UiR.string.lift_info_kinematic),
-                options = state.kinematicOptions,
+                title = stringResource(UiR.string.lift_info_fatigue_profile),
+                options =
+                    state.fatigueOptions.map { option ->
+                        option.copy(description = fatigueTierDescription(option.key))
+                    },
                 onDismiss = actions.onDismissDetailEditor,
-                onSelect = actions.onSelectKinematic,
+                onSelect = actions.onSelectFatigue,
             )
         LiftDetailEditField.LoadType ->
             SingleSelectDetailSheet(
@@ -240,9 +246,9 @@ private fun LiftDetailsEditorContent(
             )
             add(
                 DetailSpec(
-                    label = stringResource(UiR.string.lift_info_kinematic),
-                    value = state.kinematicLabel.ifBlank { "—" },
-                    editField = LiftDetailEditField.Kinematic,
+                    label = stringResource(UiR.string.lift_info_fatigue_profile),
+                    value = state.fatigueLabel.ifBlank { "—" },
+                    editField = LiftDetailEditField.Fatigue,
                 ),
             )
             add(
@@ -465,6 +471,7 @@ private fun SingleSelectDetailSheet(
             options.forEach { option ->
                 DetailOptionRow(
                     label = option.label,
+                    description = option.description,
                     selected = option.selected,
                     onClick = { onSelect(option.key) },
                 )
@@ -609,6 +616,7 @@ private fun DetailOptionRow(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    description: String? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -630,15 +638,38 @@ private fun DetailOptionRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StratumText(text = label)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            StratumText(text = label)
+            if (!description.isNullOrBlank()) {
+                StratumText(
+                    text = description,
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                )
+            }
+        }
         if (selected) {
             StratumText(
                 text = stringResource(UiR.string.lift_info_selected_marker),
                 muted = true,
+                modifier = Modifier.padding(start = 12.dp),
             )
         }
     }
 }
+
+/** Supporting copy for fatigue bottom-sheet options (keyed by [FatigueProfile] name). */
+@Composable
+private fun fatigueTierDescription(key: String): String =
+    when (key) {
+        FatigueProfile.High.name -> stringResource(UiR.string.lift_info_fatigue_desc_high)
+        FatigueProfile.Medium.name -> stringResource(UiR.string.lift_info_fatigue_desc_medium)
+        FatigueProfile.Low.name -> stringResource(UiR.string.lift_info_fatigue_desc_low)
+        else -> ""
+    }
 
 private val DetailsMuscleCardWidth = 76.dp
 /** Matches UI_DESIGN.md §5 minimum touch target (48dp). */

@@ -86,7 +86,7 @@ internal fun injectCrossDomainTouchSlots(
 
         val touchSlot = WorkoutSlotTemplate(
             slotId = slotId,
-            role = SlotRole.Isolation,
+            role = SlotRole.Accessory,
             pattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull() ?: continue,
             primaryMuscle = muscle,
             repProfile = RpRepProfile.Isolation,

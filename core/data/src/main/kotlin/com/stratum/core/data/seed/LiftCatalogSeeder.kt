@@ -10,7 +10,7 @@ import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.importing.GymEquipment
 import com.stratum.domain.lift.GymPreset
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -78,78 +78,89 @@ class LiftCatalogSeeder(
         return pattern.containsMatchIn(id) || pattern.containsMatchIn(name)
     }
 
-    private fun mapDto(dto: LiftSeedDto): MappedLift? {
-        val patterns = dto.movementPatterns.toSet()
-        if (patterns.isEmpty()) return null
-        val primary = dto.primaryMuscles.toSet()
-        val secondary = dto.secondaryMuscles.toSet()
-        val tags = dto.presetTags.mapNotNull { enumValueOfOrNull<GymPreset>(it) }.toSet()
-        val bias = dto.muscleLengthBias ?: MuscleLengthBias.MidRange
-        val profile = dto.kinematicProfile ?: KinematicProfile.Isolation
-        val loadType = dto.loadType ?: LoadType.Weighted
-        val id = LiftId(dto.id)
-        val equipmentId =
-            dto.equipmentId?.let { EquipmentId(it) }
-                ?: GymEquipmentToEquipmentId.equipmentIdFor(
-                    liftId = id,
-                    tags = equipmentTagsByLiftId[id].orEmpty(),
-                )
-        val lift = LiftEntity(
-            id = id,
-            name = dto.name,
-            movementPatternsBitmask = patterns.toBitmask(),
-            primaryMusclesBitmask = primary.toBitmask(),
-            secondaryMusclesBitmask = secondary.toBitmask(),
-            presetTags = tags.toPresetCsv(),
-            equipmentId = equipmentId,
-            isCustom = false,
-            enabled = false,
-            description = dto.description,
-            imageUrisCsv = dto.imageUris.joinToString(","),
-            muscleLengthBias = bias,
-            mainstream = dto.mainstream,
-            kinematicProfile = profile,
-            loadType = loadType,
-            updatedAtEpochMillis = 0L,
-            pendingSync = SyncFlags.CLEAN,
-        )
-        // Explicit seed override only — otherwise inherit equipment defaults.
-        val overrideTiers =
-            dto.incrementTiers?.map { t ->
-                IncrementTierEntity(
-                    id = IncrementTierId.forBand(id, t.lowerBound),
-                    liftId = id,
-                    equipmentId = null,
-                    lowerBound = t.lowerBound,
-                    upperBound = t.upperBound,
-                    increment = t.increment,
-                    updatedAtEpochMillis = 0L,
-                    pendingSync = SyncFlags.CLEAN,
-                )
-            }.orEmpty()
-        return MappedLift(lift, overrideTiers)
-    }
-
-    private data class MappedLift(
-        val lift: LiftEntity,
-        val overrideTiers: List<IncrementTierEntity>,
-    )
-
-    private inline fun <reified T : Enum<T>> enumValueOfOrNull(name: String): T? =
-        runCatching { enumValueOf<T>(name) }.getOrNull()
+    private fun mapDto(dto: LiftSeedDto): MappedLift? =
+        mapSeedDto(dto, equipmentTagsByLiftId)
 
     companion object {
         const val ASSET_PATH = "lifts/seed-lifts.json"
 
         /**
+         * Pure seed DTO → entity mapping (testable without DAO). Missing [LiftSeedDto.fatigueProfile]
+         * defaults to [FatigueProfile.Low].
+         */
+        internal fun mapSeedDto(
+            dto: LiftSeedDto,
+            equipmentTagsByLiftId: Map<LiftId, Set<GymEquipment>> = emptyMap(),
+        ): MappedLift? {
+            val patterns = dto.movementPatterns.toSet()
+            if (patterns.isEmpty()) return null
+            val primary = dto.primaryMuscles.toSet()
+            val secondary = dto.secondaryMuscles.toSet()
+            val tags = dto.presetTags.mapNotNull { enumValueOfOrNull<GymPreset>(it) }.toSet()
+            val bias = dto.muscleLengthBias ?: MuscleLengthBias.MidRange
+            val profile = dto.fatigueProfile ?: FatigueProfile.Low
+            val loadType = dto.loadType ?: LoadType.Weighted
+            val id = LiftId(dto.id)
+            val equipmentId =
+                dto.equipmentId?.let { EquipmentId(it) }
+                    ?: GymEquipmentToEquipmentId.equipmentIdFor(
+                        liftId = id,
+                        tags = equipmentTagsByLiftId[id].orEmpty(),
+                    )
+            val lift =
+                LiftEntity(
+                    id = id,
+                    name = dto.name,
+                    movementPatternsBitmask = patterns.toBitmask(),
+                    primaryMusclesBitmask = primary.toBitmask(),
+                    secondaryMusclesBitmask = secondary.toBitmask(),
+                    presetTags = tags.toPresetCsv(),
+                    equipmentId = equipmentId,
+                    isCustom = false,
+                    enabled = false,
+                    description = dto.description,
+                    imageUrisCsv = dto.imageUris.joinToString(","),
+                    muscleLengthBias = bias,
+                    mainstream = dto.mainstream,
+                    fatigueProfile = profile,
+                    loadType = loadType,
+                    updatedAtEpochMillis = 0L,
+                    pendingSync = SyncFlags.CLEAN,
+                )
+            val overrideTiers =
+                dto.incrementTiers?.map { t ->
+                    IncrementTierEntity(
+                        id = IncrementTierId.forBand(id, t.lowerBound),
+                        liftId = id,
+                        equipmentId = null,
+                        lowerBound = t.lowerBound,
+                        upperBound = t.upperBound,
+                        increment = t.increment,
+                        updatedAtEpochMillis = 0L,
+                        pendingSync = SyncFlags.CLEAN,
+                    )
+                }.orEmpty()
+            return MappedLift(lift, overrideTiers)
+        }
+
+        /**
          * Last-resort lb tiers when a lift has neither override nor equipment defaults
          * (OS-4 §2.2 example). Not written to seed rows that inherit equipment.
          */
-        val DEFAULT_TIERS: List<IncrementTierSeedDto> = listOf(
-            IncrementTierSeedDto(lowerBound = 0.0, upperBound = 40.0, increment = 2.5),
-            IncrementTierSeedDto(lowerBound = 40.0, upperBound = 100.0, increment = 5.0),
-            IncrementTierSeedDto(lowerBound = 100.0, upperBound = 300.0, increment = 10.0),
-            IncrementTierSeedDto(lowerBound = 300.0, upperBound = null, increment = 25.0),
-        )
+        val DEFAULT_TIERS: List<IncrementTierSeedDto> =
+            listOf(
+                IncrementTierSeedDto(lowerBound = 0.0, upperBound = 40.0, increment = 2.5),
+                IncrementTierSeedDto(lowerBound = 40.0, upperBound = 100.0, increment = 5.0),
+                IncrementTierSeedDto(lowerBound = 100.0, upperBound = 300.0, increment = 10.0),
+                IncrementTierSeedDto(lowerBound = 300.0, upperBound = null, increment = 25.0),
+            )
+
+        private inline fun <reified T : Enum<T>> enumValueOfOrNull(name: String): T? =
+            runCatching { enumValueOf<T>(name) }.getOrNull()
     }
+
+    internal data class MappedLift(
+        val lift: LiftEntity,
+        val overrideTiers: List<IncrementTierEntity>,
+    )
 }

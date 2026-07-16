@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.AddCustomLiftUseCase
 import com.stratum.domain.lift.CustomLiftDefinition
-import com.stratum.domain.lift.DEFAULT_ISOLATION_REST_SECONDS
+import com.stratum.domain.lift.DEFAULT_STANDARD_REST_SECONDS
 import com.stratum.domain.lift.Equipment
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
@@ -16,7 +16,7 @@ import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.lift.inferKinematicProfile
+import com.stratum.domain.lift.inferFatigueProfile
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.onboarding.MuscleGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,7 +57,7 @@ class CreateLiftViewModel @Inject constructor(
         val secondary: Set<MuscleGroup> = emptySet(),
         val patterns: Set<MovementPattern> = emptySet(),
         val bias: MuscleLengthBias = MuscleLengthBias.MidRange,
-        val kinematic: KinematicProfile = KinematicProfile.Isolation,
+        val fatigue: FatigueProfile = FatigueProfile.Low,
         val load: LoadType = LoadType.Weighted,
         /** Default implement: bodyweight-only (catalog null remains for legacy unassigned rows). */
         val equipmentId: EquipmentId = SeedEquipmentIds.Bodyweight,
@@ -69,7 +69,7 @@ class CreateLiftViewModel @Inject constructor(
         val showAdd: Boolean = false,
         val editing: LiftDetailEditField? = null,
         val draftPatterns: Set<MovementPattern> = emptySet(),
-        val restDraft: Int = DEFAULT_ISOLATION_REST_SECONDS,
+        val restDraft: Int = DEFAULT_STANDARD_REST_SECONDS,
         val saving: Boolean = false,
     )
 
@@ -130,7 +130,7 @@ class CreateLiftViewModel @Inject constructor(
             } else {
                 current.copy(
                     name = nextName,
-                    kinematic = inferKinematicProfile(current.patterns, nextName),
+                    fatigue = inferFatigueProfile(current.patterns, nextName),
                 )
             }
         }
@@ -199,9 +199,9 @@ class CreateLiftViewModel @Inject constructor(
         sheets.update { it.copy(editing = null) }
     }
 
-    fun onSelectKinematic(key: String) {
-        val profile = KinematicProfile.entries.firstOrNull { it.name == key } ?: return
-        draft.update { it.copy(kinematic = profile) }
+    fun onSelectFatigue(key: String) {
+        val profile = FatigueProfile.entries.firstOrNull { it.name == key } ?: return
+        draft.update { it.copy(fatigue = profile) }
         sheets.update { it.copy(editing = null) }
     }
 
@@ -231,7 +231,7 @@ class CreateLiftViewModel @Inject constructor(
         draft.update { current ->
             current.copy(
                 patterns = patterns,
-                kinematic = inferKinematicProfile(patterns, current.name),
+                fatigue = inferFatigueProfile(patterns, current.name),
             )
         }
         sheets.update { it.copy(editing = null) }
@@ -277,7 +277,7 @@ class CreateLiftViewModel @Inject constructor(
                         secondaryMuscles = current.secondary,
                         equipmentId = current.equipmentId,
                         muscleLengthBias = current.bias,
-                        kinematicProfile = current.kinematic,
+                        fatigueProfile = current.fatigue,
                         loadType = current.load,
                         defaultRestSeconds = current.restOverride,
                     ),
@@ -316,7 +316,7 @@ class CreateLiftViewModel @Inject constructor(
                     secondaryMuscles = d.secondary.toMuscleCards(),
                     lengthBiasLabel = d.bias.toDetailLabel(),
                     movementPatternLabels = d.patterns.map { it.displayName }.sorted(),
-                    kinematicLabel = d.kinematic.toDetailLabel(),
+                    fatigueLabel = d.fatigue.toDetailLabel(),
                     loadTypeLabel = d.load.toDetailLabel(),
                     equipment = equipmentDetailLabel(d.equipmentId, snapshot.equipmentName),
                     // Category is derived and non-actionable on create — omit the row.
@@ -325,10 +325,15 @@ class CreateLiftViewModel @Inject constructor(
                     showAddMuscleSheet = s.showAdd,
                     editingField = s.editing,
                     lengthBiasOptions = lengthBiasOptions(d.bias),
-                    kinematicOptions = kinematicOptions(d.kinematic),
+                    fatigueOptions = fatigueOptions(d.fatigue),
                     loadTypeOptions = loadTypeOptions(d.load),
                     movementPatternOptions = movementPatternOptions(s.draftPatterns),
-                    restDraftSeconds = s.restDraft,
+                    restDraftSeconds =
+                        if (s.editing == LiftDetailEditField.DefaultRest) {
+                            s.restDraft
+                        } else {
+                            d.restOverride ?: resolvedRest
+                        },
                 ),
         )
     }
@@ -349,7 +354,7 @@ class CreateLiftViewModel @Inject constructor(
             enabled = true,
             isCustom = true,
             muscleLengthBias = d.bias,
-            kinematicProfile = d.kinematic,
+            fatigueProfile = d.fatigue,
             loadType = d.load,
             defaultRestSeconds = d.restOverride,
         )

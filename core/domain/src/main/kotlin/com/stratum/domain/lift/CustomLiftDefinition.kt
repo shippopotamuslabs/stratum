@@ -7,7 +7,7 @@ import com.stratum.domain.onboarding.MuscleGroup
  * Metadata for a user-defined lift created during import or manual catalog edits.
  *
  * Category is intentionally omitted — it is derived via [classifyLiftCategory] from patterns,
- * kinematic profile, and primary muscles. Defaults for bias / kinematic / load type match
+ * fatigue profile, and primary muscles. Defaults for bias / fatigue / load type match
  * [Lift] construction defaults.
  *
  * Prefer [equipmentId] when known (seed loading methods from import). [equipmentName] is
@@ -29,7 +29,7 @@ data class CustomLiftDefinition(
     val equipmentCreateIncrement: Weight? = null,
     val increment: Weight? = null,
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
-    val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+    val fatigueProfile: FatigueProfile = FatigueProfile.Low,
     val loadType: LoadType = LoadType.Weighted,
     val defaultRestSeconds: Int? = null,
 )

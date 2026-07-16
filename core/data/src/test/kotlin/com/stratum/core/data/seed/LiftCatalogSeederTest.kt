@@ -105,6 +105,15 @@ class LiftCatalogSeederTest {
 
         val tBar = lifts.first { it.lift.id.value == "t-bar-row-with-handle" }.lift
         assertEquals(EquipmentId("single-weight-plate"), tBar.equipmentId)
+
+        // Generic / sled / plate-loaded leg press → dual-horn plates; machine variant → pin stack.
+        val sledLegPress = lifts.first { it.lift.id.value == "sled-leg-press" }.lift
+        assertEquals(EquipmentId("double-weight-plates"), sledLegPress.equipmentId)
+        val plateLoadedLegPress =
+            lifts.first { it.lift.id.value == "plate-loaded-single-leg-press" }.lift
+        assertEquals(EquipmentId("double-weight-plates"), plateLoadedLegPress.equipmentId)
+        val machineLegPress = lifts.first { it.lift.id.value == "machine-single-leg-press" }.lift
+        assertEquals(EquipmentId("pin-loaded-machine"), machineLegPress.equipmentId)
     }
 
     @Test

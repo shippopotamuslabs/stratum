@@ -38,7 +38,7 @@ class DefaultLoggedLiftContextFactory : LoggedLiftContextFactory {
             movementPatternsBitmask = lift.movementPatterns.toMovementPatternsBitmask(),
             primaryMusclesBitmask = lift.primaryMuscles.toMusclesBitmask(),
             secondaryMusclesBitmask = lift.secondaryMuscles.toMusclesBitmask(),
-            kinematicProfile = lift.kinematicProfile,
+            fatigueProfile = lift.fatigueProfile,
             muscleLengthBias = lift.muscleLengthBias,
         )
 

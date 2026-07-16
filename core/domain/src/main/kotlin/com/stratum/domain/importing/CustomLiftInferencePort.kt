@@ -4,7 +4,7 @@ import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
-import com.stratum.domain.lift.inferKinematicProfile
+import com.stratum.domain.lift.inferFatigueProfile
 import com.stratum.domain.onboarding.MuscleGroup
 
 /** An imported exercise name that did not match the bundled seed catalog. */
@@ -73,8 +73,8 @@ data class InferredCustomLiftMetadata(
     fun toCustomLiftDefinition(): CustomLiftDefinition {
         val normalized = CustomLiftMusclePolicy.withPatternSecondaryDefaults(this)
         val patterns = setOf(normalized.movementPattern) + normalized.movementPattern.secondaryPatterns
-        val kinematic =
-            inferKinematicProfile(normalized.movementPattern, normalized.exerciseNameRaw)
+        val fatigue =
+            inferFatigueProfile(normalized.movementPattern, normalized.exerciseNameRaw)
         return when (val loading = normalized.loading ?: InferredEquipmentLoading.defaultEquipment()) {
             is InferredEquipmentLoading.Seed ->
                 CustomLiftDefinition(
@@ -86,7 +86,7 @@ data class InferredCustomLiftMetadata(
                     equipmentName = null,
                     equipmentCreateIncrement = null,
                     increment = null,
-                    kinematicProfile = kinematic,
+                    fatigueProfile = fatigue,
                 )
             is InferredEquipmentLoading.Custom ->
                 CustomLiftDefinition(
@@ -102,7 +102,7 @@ data class InferredCustomLiftMetadata(
                             Weight.WeightUnit.Lb,
                         ),
                     increment = null,
-                    kinematicProfile = kinematic,
+                    fatigueProfile = fatigue,
                 )
         }
     }

@@ -28,7 +28,7 @@ internal fun applySpecFocusedUpperSlots(
         val muscle = slots[slot].primaryMuscle
         if (context.specialization[muscle] == SpecializationLevel.Specialize) {
             if (slots[slot].role == SlotRole.Optional) {
-                slots[slot] = slots[slot].copy(role = SlotRole.Isolation)
+                slots[slot] = slots[slot].copy(role = SlotRole.Accessory)
             }
         }
     }
@@ -48,7 +48,7 @@ private fun ensureDirectIsolationSlot(
     slots.add(
         WorkoutSlotTemplate(
             slotId = slotId,
-            role = SlotRole.Isolation,
+            role = SlotRole.Accessory,
             pattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull() ?: return,
             primaryMuscle = muscle,
             repProfile = RpRepProfile.Isolation,

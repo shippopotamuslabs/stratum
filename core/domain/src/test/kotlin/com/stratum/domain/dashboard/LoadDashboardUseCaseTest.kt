@@ -8,7 +8,7 @@ import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
@@ -361,11 +361,11 @@ class LoadDashboardUseCaseTest {
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(
             listOf(
-                lift(legCurlId, "Machine Seated Leg Curl", MuscleGroup.Hamstring, KinematicProfile.Isolation),
-                lift(curlId, "DB Curl", MuscleGroup.Bicep, KinematicProfile.Isolation),
-                lift(squatId, "Back Squat", MuscleGroup.Quad, KinematicProfile.AxialCompound),
-                lift(legPressId, "Leg Press", MuscleGroup.Quad, KinematicProfile.NonAxialCompound),
-                lift(benchId, "Bench Press", MuscleGroup.Chest, KinematicProfile.AxialCompound),
+                lift(legCurlId, "Machine Seated Leg Curl", MuscleGroup.Hamstring, FatigueProfile.Low),
+                lift(curlId, "DB Curl", MuscleGroup.Bicep, FatigueProfile.Low),
+                lift(squatId, "Back Squat", MuscleGroup.Quad, FatigueProfile.High),
+                lift(legPressId, "Leg Press", MuscleGroup.Quad, FatigueProfile.Medium),
+                lift(benchId, "Bench Press", MuscleGroup.Chest, FatigueProfile.High),
             ),
         )
         val performanceRepo = FakeLiftWeeklyPerformanceRepository()
@@ -457,7 +457,7 @@ class LoadDashboardUseCaseTest {
         id: LiftId,
         name: String,
         muscle: MuscleGroup,
-        kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+        fatigueProfile: FatigueProfile = FatigueProfile.Low,
     ): Lift = Lift(
         id = id,
         name = name,
@@ -467,7 +467,7 @@ class LoadDashboardUseCaseTest {
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,
-        kinematicProfile = kinematicProfile,
+        fatigueProfile = fatigueProfile,
     )
 
     private fun stimulus(muscle: MuscleGroup, weekStart: Instant, hardSets: Double): MuscleWeeklyStimulus =

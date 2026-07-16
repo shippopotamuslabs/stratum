@@ -7,7 +7,7 @@ import com.stratum.core.testing.response.FakeMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.testing.response.FakeMuscleWeeklyStimulusRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
@@ -149,7 +149,7 @@ class LoadGraphDetailUseCaseTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
-            kinematicProfile = KinematicProfile.AxialCompound,
+            fatigueProfile = FatigueProfile.High,
         )
         val liftRepo = FakeLiftRepository()
         liftRepo.seedLifts(listOf(bench))
@@ -278,7 +278,7 @@ class LoadGraphDetailUseCaseTest {
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,
-        kinematicProfile = KinematicProfile.AxialCompound,
+        fatigueProfile = FatigueProfile.High,
     )
 
     private fun performance(
