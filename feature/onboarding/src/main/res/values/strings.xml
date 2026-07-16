@@ -35,11 +35,11 @@
     <string name="onboarding_import_phase_matching_catalog">Matching exercises to your catalog…</string>
     <string name="onboarding_import_phase_complete">Program ready</string>
     <string name="onboarding_import_error_title">Couldn\'t import that file</string>
+    <string name="onboarding_import_error_rejected_title">This doesn\'t look like a workout program</string>
     <string name="onboarding_import_error_rejected">We couldn\'t import that file as a workout program. Try an Alpha Progression or MacroFactor export, or a spreadsheet with clear days, lifts, sets, and rep ranges.</string>
     <string name="onboarding_import_error_generic">Something went wrong reading that file. Try a different file.</string>
     <string name="onboarding_import_error_too_large">That file is too large. Program files should be under %1$d MB.</string>
     <string name="onboarding_import_error_retry">Choose another file</string>
-    <string name="onboarding_import_error_back">Back</string>
     <string name="onboarding_content_description_back">Go back</string>
 
 

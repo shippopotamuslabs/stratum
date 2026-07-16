@@ -109,7 +109,8 @@ private fun HistoryDayCell(
     day: HistoryDayUi,
     onDayClick: (day: HistoryDayUi) -> Unit,
 ) {
-    val hasSessions = day.sessionIds.isNotEmpty()
+    val sessionCount = day.sessionIds.size
+    val hasSessions = sessionCount > 0
     Column(
         modifier =
             Modifier
@@ -125,30 +126,53 @@ private fun HistoryDayCell(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(
+        Box(contentAlignment = Alignment.Center) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (day.hasWorkout) {
+                                StratumThemeAccessor.colors.accent
+                            } else {
+                                StratumThemeAccessor.colors.surfaceBase
+                            },
+                        ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = day.dayOfMonth.toString(),
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    color =
                         if (day.hasWorkout) {
-                            StratumThemeAccessor.colors.accent
+                            StratumThemeAccessor.colors.onAccent
                         } else {
-                            StratumThemeAccessor.colors.surfaceBase
+                            StratumThemeAccessor.colors.textMuted
                         },
-                    ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = day.dayOfMonth.toString(),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                color =
-                    if (day.hasWorkout) {
-                        StratumThemeAccessor.colors.onAccent
-                    } else {
-                        StratumThemeAccessor.colors.textMuted
-                    },
-            )
+                )
+            }
+            // Multi-session days show a count badge so a second workout is not invisible.
+            if (sessionCount > 1) {
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(StratumThemeAccessor.colors.surfaceRaised)
+                            .padding(1.dp)
+                            .clip(CircleShape)
+                            .background(StratumThemeAccessor.colors.accent),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = sessionCount.coerceAtMost(9).toString(),
+                        style = StratumThemeAccessor.typography.sectionLabel,
+                        color = StratumThemeAccessor.colors.onAccent,
+                    )
+                }
+            }
         }
         StratumText(
             text = day.workoutLabel.orEmpty(),

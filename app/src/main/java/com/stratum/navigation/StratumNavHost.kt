@@ -233,27 +233,29 @@ fun StratumNavHost(
                 onDayClick = { day ->
                     when (day.sessionIds.size) {
                         0 -> Unit
-                        1 -> backStack.add(WorkoutSessionDetailKey(day.sessionIds.single()))
-                        else ->
-                            backStack.add(
-                                HistoryDaySessionsKey(
-                                    dateIso = day.date.toString(),
-                                    sessionIds = day.sessionIds,
-                                ),
-                            )
+                        1 -> {
+                            val key = WorkoutSessionDetailKey(day.sessionIds.single())
+                            if (backStack.lastOrNull() != key) backStack.add(key)
+                        }
+                        else -> {
+                            val key = HistoryDaySessionsKey(dateIso = day.date.toString())
+                            if (backStack.lastOrNull() != key) backStack.add(key)
+                        }
                     }
                 },
             )
             historyDaySessionsEntry(
                 onBackClick = onNavigateBack,
                 onSessionClick = { sessionId ->
-                    backStack.add(WorkoutSessionDetailKey(sessionId))
+                    val key = WorkoutSessionDetailKey(sessionId)
+                    if (backStack.lastOrNull() != key) backStack.add(key)
                 },
             )
             workoutSessionDetailEntry(
                 onBackClick = onNavigateBack,
                 onEditWorkoutClick = { sessionId ->
-                    backStack.add(EditHistoricalWorkoutKey(sessionId))
+                    val key = EditHistoricalWorkoutKey(sessionId)
+                    if (backStack.lastOrNull() != key) backStack.add(key)
                 },
             )
             editHistoricalWorkoutEntry(

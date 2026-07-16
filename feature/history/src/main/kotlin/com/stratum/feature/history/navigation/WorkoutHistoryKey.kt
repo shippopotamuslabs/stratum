@@ -32,12 +32,11 @@ data object WorkoutHistoryKey : NavKey
 
 /**
  * Nav3 key for a multi-workout day list. [dateIso] is `LocalDate.toString()` (yyyy-MM-dd).
- * [sessionIds] are newest-first completed sessions for that day.
+ * Session ids are resolved live from the calendar on load/resume (not frozen in the key).
  */
 @Serializable
 data class HistoryDaySessionsKey(
     val dateIso: String,
-    val sessionIds: List<String>,
 ) : NavKey
 
 /** Nav3 key for a completed session detail screen. */
@@ -71,7 +70,6 @@ fun EntryProviderScope<NavKey>.historyDaySessionsEntry(
     entry<HistoryDaySessionsKey> { key ->
         HistoryDaySessionsRoute(
             dateIso = key.dateIso,
-            sessionIds = key.sessionIds,
             onBackClick = onBackClick,
             onSessionClick = onSessionClick,
         )
@@ -124,14 +122,23 @@ private fun WorkoutHistoryRoute(
 @Composable
 private fun HistoryDaySessionsRoute(
     dateIso: String,
-    sessionIds: List<String>,
     onBackClick: () -> Unit,
     onSessionClick: (sessionId: String) -> Unit,
     viewModel: HistoryDaySessionsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(dateIso, sessionIds) {
-        viewModel.load(dateIso = dateIso, sessionIds = sessionIds)
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Reload on every resume so edits/deletes on a detail screen refresh the day list.
+    DisposableEffect(lifecycleOwner, dateIso) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    viewModel.load(dateIso = dateIso)
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     HistoryDaySessionsScreen(
         state = uiState,
