@@ -7,6 +7,7 @@ import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
@@ -78,6 +79,60 @@ class LogSetUseCaseTest {
 
         assertEquals(WorkoutLoggingFixtures.CHEST_BITMASK, set.liftContext.primaryMusclesBitmask)
         assertEquals("Barbell Bench Press", set.liftContext.liftName)
+    }
+
+    @Test
+    @DisplayName("WL-035 session-only workout lift (not on template) still logs with stamped id")
+    fun wl035_sessionOnlyWorkoutLiftLogs() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        val sessionOnlyId = WorkoutLiftId("wl-session-added")
+        val useCase = buildUseCase(repo)
+
+        val set = useCase(
+            command(workoutLiftId = sessionOnlyId).copy(
+                setType = SetType.Standard,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 2,
+            ),
+        ).getOrThrow()
+
+        assertEquals(1, repo.insertSetCallCount)
+        assertEquals(sessionOnlyId, set.liftContext.workoutLiftId)
+        assertEquals(ProgressionScheme.Double, set.liftContext.progressionScheme)
+        assertEquals(SetType.Standard, set.liftContext.setType)
+        assertEquals(8, set.liftContext.repMin)
+        assertEquals(12, set.liftContext.repMax)
+        assertEquals(2, set.liftContext.rirGoal)
+        assertEquals(WorkoutLoggingFixtures.CHEST_BITMASK, set.liftContext.primaryMusclesBitmask)
+    }
+
+    @Test
+    @DisplayName("WL-036 ad-hoc session with null program still logs overlay lift")
+    fun wl036_nullProgramSessionOnlyLift() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(
+            WorkoutLoggingFixtures.inProgressSession(
+                id = "ts-adhoc",
+                workoutId = null,
+                kind = TrainingSessionKind.AD_HOC,
+            ),
+        )
+        val sessionOnlyId = WorkoutLiftId("wl-adhoc-1")
+        val useCase = LogSetUseCase(
+            repo,
+            FakeLiftRepository(initialLifts = listOf(WorkoutLoggingFixtures.benchLift())),
+            FakeProgramRepository(initial = null),
+            StubLoggedLiftContextFactory(),
+            FakeLoggingPort(),
+        )
+
+        val set = useCase(command(sessionId = "ts-adhoc", workoutLiftId = sessionOnlyId)).getOrThrow()
+
+        assertEquals(1, repo.insertSetCallCount)
+        assertEquals(sessionOnlyId, set.liftContext.workoutLiftId)
+        assertEquals(ProgressionScheme.Double, set.liftContext.progressionScheme)
     }
 
     private fun buildUseCase(

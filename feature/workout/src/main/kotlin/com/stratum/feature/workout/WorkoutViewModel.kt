@@ -351,6 +351,12 @@ class WorkoutViewModel @Inject constructor(
                     reps = reps,
                     rir = rir,
                     completedAt = Instant.now(),
+                    // Session-only lifts (overlay add / ad-hoc) are not on the template yet;
+                    // stamp live slot shape so LoggedLiftContext is complete without a lookup.
+                    setType = slot.setType,
+                    repMin = slot.repMin,
+                    repMax = slot.repMax,
+                    rirGoal = slot.rirGoal,
                 ),
             )
         if (insertResult.isFailure) {
