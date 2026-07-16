@@ -9,7 +9,7 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.draft.ProgramLiftDraft
-import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
+import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.TOP_SET_RIR
 import com.stratum.domain.program.generation.reference.clampBackOffRir
 import com.stratum.domain.program.generation.reference.schemeForTrainingAge

@@ -8,7 +8,7 @@ import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
-import com.stratum.domain.program.generation.reference.MAJOR_COMPOUND_PATTERNS
+import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.MIN_SPECIALIZED_DIRECT_SETS
 import com.stratum.domain.program.generation.reference.sessionTrimHardSetsForLength
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget

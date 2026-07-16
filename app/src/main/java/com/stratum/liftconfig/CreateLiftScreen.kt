@@ -62,7 +62,7 @@ fun CreateLiftRoute(
                 onSelectLoadType = viewModel::onSelectLoadType,
                 onToggleDraftMovementPattern = viewModel::onToggleDraftMovementPattern,
                 onConfirmMovementPatterns = viewModel::onConfirmMovementPatterns,
-                onClearEquipment = viewModel::onClearEquipment,
+                onAssignBodyweightEquipment = viewModel::onAssignBodyweightEquipment,
                 onChooseEquipment = {
                     viewModel.onDismissDetailEditor()
                     viewModel.onBeginChooseEquipment()
