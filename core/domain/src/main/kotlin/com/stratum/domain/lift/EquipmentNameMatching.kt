@@ -77,6 +77,9 @@ object EquipmentNameMatching {
                 "ez bar",
                 "ezbar",
                 "smith machine",
+                // Generic / sled dual-horn leg press (not a pin stack).
+                "leg press",
+                "sled leg press",
             )
             alias(
                 EquipmentId("single-weight-plate"),
@@ -98,6 +101,7 @@ object EquipmentNameMatching {
                 "pin-loaded machine",
                 "selectorized",
                 "stack machine",
+                "machine leg press",
             )
             alias(
                 EquipmentId("bodyweight"),
