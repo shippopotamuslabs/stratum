@@ -1298,9 +1298,48 @@ class WorkoutViewModelTest {
 
             // Swap to catalogLift2 (Bench Press)
             viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+            advanceUntilIdle()
             val updated = awaitItem() as WorkoutUiState.Loaded
             assertEquals("Bench Press", updated.lifts.first().liftName)
             assertEquals("L-2", updated.lifts.first().liftId)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("After in-session swap, previous and recommendations rebind to the new lift")
+    fun activeSessionSwapLiftRebindsPreviousAndRecommendations() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertEquals("Squat", loaded.lifts.first().liftName)
+            val preSwapPrevious = loaded.lifts.first().sets.first().previousWeightLabel.orEmpty()
+            assertTrue(
+                preSwapPrevious.contains("135"),
+                "pre-swap previous should come from L-1 history, got $preSwapPrevious",
+            )
+
+            // Distinct history for the swap target so stale L-1 baselines are detectable.
+            seedHistoryForLift(LiftId("L-2"), name = "Bench Press", topWeight = 185.0)
+
+            viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+            advanceUntilIdle()
+
+            val updated = awaitItem() as WorkoutUiState.Loaded
+            assertEquals("Bench Press", updated.lifts.first().liftName)
+            assertEquals("L-2", updated.lifts.first().liftId)
+            val previousLabel = updated.lifts.first().sets.first().previousWeightLabel.orEmpty()
+            assertTrue(
+                previousLabel.contains("185"),
+                "expected previous from swapped-in lift history, got $previousLabel",
+            )
+            val recommended = updated.lifts.first().sets.first().recommendedWeightAmount
+            assertTrue(
+                recommended > 135.0,
+                "recommended weight should track L-2 history (185-class), got $recommended",
+            )
 
             cancelAndIgnoreRemainingEvents()
         }
