@@ -1,7 +1,7 @@
 package com.stratum.domain.program.generation.synthesis.wire
 
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.onboarding.MuscleGroup
@@ -28,11 +28,33 @@ import com.stratum.domain.program.generation.synthesis.ProgramSynthesisResult
 import com.stratum.domain.program.generation.structure.SessionRegionFilter
 import com.stratum.domain.program.generation.volume.WeeklyVolumeTarget
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class ProgramSynthesisWireTest {
+
+    @Test
+    @DisplayName("FPR-S1-020 context wire encodes fatigueProfile as High Medium Low names")
+    fun fprS1020_contextWireEncodesFatigueProfile() {
+        val context = minimalContext()
+        val encoded = ProgramSynthesisWire.encodeRequest(emptyMap(), context)
+        assertTrue(
+            encoded.contains("\"fatigueProfile\""),
+            "JSON must contain key fatigueProfile",
+        )
+        assertTrue(
+            encoded.contains("\"High\""),
+            "JSON fatigueProfile value must be High for Axial/High lift fixture",
+        )
+        assertFalse(
+            encoded.contains("\"kinematicProfile\""),
+            "JSON must not contain legacy key kinematicProfile",
+        )
+    }
+
 
     @Test
     fun `request round-trip preserves minimal realistic context and targets`() {
@@ -151,7 +173,7 @@ class ProgramSynthesisWireTest {
                 fatigueDecayIntercept = 1.0,
                 muscleLengthBias = MuscleLengthBias.MidRange,
                 equipment = "barbell",
-                kinematicProfile = KinematicProfile.AxialCompound,
+                fatigueProfile = FatigueProfile.High,
                 incrementTiers =
                     listOf(
                         IncrementTier(
@@ -234,8 +256,8 @@ class ProgramSynthesisWireTest {
                 lengthBiasPreference = MuscleLengthBiasPreference.Any,
                 siblingVariant = SiblingVariant.A,
                 isCrossDomainTouch = false,
-                allowedKinematicProfiles =
-                    setOf(KinematicProfile.AxialCompound, KinematicProfile.NonAxialCompound),
+                allowedFatigueProfiles =
+                    setOf(FatigueProfile.High, FatigueProfile.Medium),
             )
         val filled =
             FilledSlot(

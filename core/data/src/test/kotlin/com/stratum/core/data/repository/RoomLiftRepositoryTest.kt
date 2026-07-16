@@ -10,7 +10,7 @@ import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.GymPreset
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -168,7 +168,7 @@ class RoomLiftRepositoryTest {
                     primaryMuscles = setOf(MuscleGroup.Chest),
                     increment = Weight(5.0, Weight.WeightUnit.Lb),
                     muscleLengthBias = MuscleLengthBias.Lengthened,
-                    kinematicProfile = KinematicProfile.NonAxialCompound,
+                    fatigueProfile = FatigueProfile.Medium,
                     loadType = LoadType.Weighted,
                     defaultRestSeconds = 150,
                 ),
@@ -181,7 +181,7 @@ class RoomLiftRepositoryTest {
             assertTrue(custom.enabled)
             assertTrue(custom.isCustom)
             assertEquals(MuscleLengthBias.Lengthened, custom.muscleLengthBias)
-            assertEquals(KinematicProfile.NonAxialCompound, custom.kinematicProfile)
+            assertEquals(FatigueProfile.Medium, custom.fatigueProfile)
             assertEquals(LoadType.Weighted, custom.loadType)
             assertEquals(150, custom.defaultRestSeconds)
         }

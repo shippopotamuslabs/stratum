@@ -10,7 +10,7 @@ import com.stratum.domain.json.jsonObject
 import com.stratum.domain.json.jsonString
 import com.stratum.domain.json.jsonStringOrNull
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
@@ -186,7 +186,7 @@ private fun encodeLiftContext(lift: LiftContext): String =
         "fatigueDecayIntercept" to jsonNumberOrNull(lift.fatigueDecayIntercept),
         "muscleLengthBias" to jsonStringOrNull(lift.muscleLengthBias?.name),
         "equipment" to jsonStringOrNull(lift.equipment),
-        "kinematicProfile" to jsonString(lift.kinematicProfile.name),
+        "fatigueProfile" to jsonString(lift.fatigueProfile.name),
         "incrementTiers" to jsonArray(lift.incrementTiers.map { encodeIncrementTier(it) }),
         "estimatedOneRm" to encodeWeightOrNull(lift.estimatedOneRm),
     )
@@ -218,9 +218,10 @@ private fun decodeLiftContext(obj: JsonObject): LiftContext =
         fatigueDecayIntercept = obj.optionalDouble("fatigueDecayIntercept"),
         muscleLengthBias = obj.optionalString("muscleLengthBias")?.let { enumValueOf<MuscleLengthBias>(it) },
         equipment = obj.optionalString("equipment"),
-        kinematicProfile =
-            obj.optionalString("kinematicProfile")?.let { enumValueOf<KinematicProfile>(it) }
-                ?: KinematicProfile.Isolation,
+        fatigueProfile =
+            obj.optionalString("fatigueProfile")
+                ?.let { runCatching { enumValueOf<FatigueProfile>(it) }.getOrNull() }
+                ?: FatigueProfile.Low,
         incrementTiers =
             (obj["incrementTiers"] as? JsonArray)?.values?.map {
                 decodeIncrementTier(it.requireAsObject("incrementTier"))

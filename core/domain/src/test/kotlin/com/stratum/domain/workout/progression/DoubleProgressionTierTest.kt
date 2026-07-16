@@ -2,7 +2,7 @@ package com.stratum.domain.workout.progression
 
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -109,7 +109,7 @@ class DoubleProgressionTierTest {
                     liftContext =
                         LoggedLiftContext(
                             liftName = "Squat",
-                            kinematicProfile = KinematicProfile.NonAxialCompound,
+                            fatigueProfile = FatigueProfile.Medium,
                             muscleLengthBias = MuscleLengthBias.MidRange,
                         ),
                 ),

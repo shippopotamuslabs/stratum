@@ -110,7 +110,7 @@ interface LiftRepository {
 
     /**
      * Persists a per-lift default rest override (seconds). Applies to catalog and custom lifts.
-     * Null clears the override so [resolvedDefaultRestSeconds] falls back to compound/isolation
+     * Null clears the override so [resolvedDefaultRestSeconds] falls back to High→180 / else 120
      * defaults. Does not rewrite existing workout set rest values.
      */
     suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?)

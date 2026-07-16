@@ -2,10 +2,10 @@
 
 package com.stratum.domain.program.generation.selection
 
-import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
+import com.stratum.domain.program.generation.context.hasCompoundFatigue
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 
 private val LIFT_ID_PENALTIES: Map<String, Double> = mapOf(
@@ -97,9 +97,8 @@ private fun nameBonus(name: String, pattern: MovementPattern?, slot: WorkoutSlot
 }
 
 private fun isHighSystemicFatigueCompound(lift: LiftContext): Boolean {
-    val isCompound = lift.kinematicProfile == KinematicProfile.AxialCompound ||
-        lift.kinematicProfile == KinematicProfile.NonAxialCompound
-    if (!isCompound) return false
+    // Systemic demotion targets High/Medium fatigue compounds only (not multi-pattern Low).
+    if (!lift.hasCompoundFatigue) return false
     val hasLowerBackPrimary = MuscleGroup.LowerBack in lift.primaryMuscles
     val hasManySecondaries = lift.secondaryMuscles.size >= 6
     return hasLowerBackPrimary || hasManySecondaries

@@ -19,7 +19,7 @@ import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
 import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.training.identity.TrainingSessionId
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.core.testing.workout.FakeProgressionHistoryRepository
@@ -151,7 +151,7 @@ class Slice1SnapshotMergeTest {
                 movementPatternsBitmask = 1,
                 primaryMusclesBitmask = 1,
                 secondaryMusclesBitmask = 0,
-                kinematicProfile = KinematicProfile.Isolation,
+                fatigueProfile = FatigueProfile.Low,
                 muscleLengthBias = MuscleLengthBias.MidRange,
             ),
         )
@@ -296,7 +296,7 @@ class Slice1SnapshotMergeTest {
                 movementPatternsBitmask = 1,
                 primaryMusclesBitmask = 1,
                 secondaryMusclesBitmask = 0,
-                kinematicProfile = KinematicProfile.Isolation,
+                fatigueProfile = FatigueProfile.Low,
                 muscleLengthBias = MuscleLengthBias.MidRange,
             ),
         )
@@ -437,7 +437,7 @@ class Slice1SnapshotMergeTest {
             movementPatternsBitmask = 1,
             primaryMusclesBitmask = 1,
             secondaryMusclesBitmask = 0,
-            kinematicProfile = KinematicProfile.Isolation,
+            fatigueProfile = FatigueProfile.Low,
             muscleLengthBias = MuscleLengthBias.MidRange,
         ),
     )

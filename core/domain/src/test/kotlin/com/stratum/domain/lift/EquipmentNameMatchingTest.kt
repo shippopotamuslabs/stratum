@@ -31,6 +31,23 @@ class EquipmentNameMatchingTest {
     }
 
     @Test
+    @DisplayName("seedIdFromFreeText maps generic leg press to double weight plates")
+    fun legPressAlias() {
+        assertEquals(
+            EquipmentId("double-weight-plates"),
+            EquipmentNameMatching.seedIdFromFreeText("leg press"),
+        )
+        assertEquals(
+            EquipmentId("double-weight-plates"),
+            EquipmentNameMatching.seedIdFromFreeText("sled leg press"),
+        )
+        assertEquals(
+            EquipmentId("pin-loaded-machine"),
+            EquipmentNameMatching.seedIdFromFreeText("machine leg press"),
+        )
+    }
+
+    @Test
     @DisplayName("unknown free-text returns null so callers can create custom equipment")
     fun unknownReturnsNull() {
         assertNull(EquipmentNameMatching.seedIdFromFreeText("Life Fitness Pro2 Stack"))

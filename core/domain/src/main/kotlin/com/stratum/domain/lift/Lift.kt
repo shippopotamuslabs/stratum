@@ -27,8 +27,9 @@ import com.stratum.domain.onboarding.MuscleGroup
  * - [isCustom]: user-created vs. bundled. Distinguishes the two so generation (OS-6) and voice
  *   catalog edits (OS-8) can treat user lifts with appropriate defaults.
  * - [defaultRestSeconds]: optional per-lift rest override for sets created when this lift is
- *   added or swapped into a workout. Null means use [resolvedDefaultRestSeconds] (compound vs
- *   isolation). Existing workout templates are never rewritten when this changes.
+ *   added or swapped into a workout. Null means use [resolvedDefaultRestSeconds] (High → 180,
+ *   else 120). Existing workout templates are never rewritten when this changes.
+ * - [fatigueProfile]: loading / recovery cost band (catalog-authored).
  *
  * Pure domain value — no framework deps (ARCHITECTURE.md §0). Value class `LiftId` keeps id
  * assignment type-safe; muscle sets are decoded from the stored bitmask in the data mapper.
@@ -51,41 +52,50 @@ data class Lift(
     val imageUris: List<String> = emptyList(),
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val mainstream: Boolean = false,
-    val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+    val fatigueProfile: FatigueProfile = FatigueProfile.Low,
     val loadType: LoadType = LoadType.Weighted,
     val defaultRestSeconds: Int? = null,
 ) {
     /**
-     * Multi-joint loading for **default rest** and programming UI that must match logged rest.
+     * Multi-joint / Linear programming gate — **not** used for rest.
      *
-     * True when the lift has **more than one** movement pattern (classic co-pattern compounds
-     * such as press + elbow extension) **or** when [kinematicProfile] is
-     * [KinematicProfile.AxialCompound] / [KinematicProfile.NonAxialCompound]. Many catalog
-     * rows store only a primary pattern (e.g. `SquatPattern` alone on a hack squat) and encode
-     * multi-joint status on kinematic profile — pattern count alone is not enough.
+     * True when the lift has **more than one** movement pattern **or** [hasCompoundFatigue]
+     * (High/Medium). Prefer this over ad-hoc High|Medium checks so Linear UI, generation
+     * scheme, and selection stay aligned.
      *
-     * **Not** the Gym / swap "Lift Type" compound bit — that uses [isCompoundForCategory], which
-     * is intentionally broader (also [MAJOR_COMPOUND_PATTERNS]) so a mis-tagged Isolation
-     * kinematic on a press/pull/squat/hinge still filters as compound without changing rest.
+     * **Not** the Gym/swap filter bit — that is [isCompoundForCategory] (broader, also major
+     * compound patterns). **Not** rest — rest is [resolvedDefaultRestSeconds] from
+     * [fatigueProfile] only.
      */
     val isCompound: Boolean
-        get() =
-            movementPatterns.size > 1 ||
-                kinematicProfile == KinematicProfile.AxialCompound ||
-                kinematicProfile == KinematicProfile.NonAxialCompound
+        get() = movementPatterns.size > 1 || hasCompoundFatigue
 }
 
-/** Default inter-set rest for compound lifts when no override is set. */
-const val DEFAULT_COMPOUND_REST_SECONDS = 180
+/**
+ * True when [Lift.fatigueProfile] is High or Medium (systemic multi-joint fatigue band).
+ * Used when pattern count must not promote Low accessories into “compound fatigue” logic.
+ */
+val Lift.hasCompoundFatigue: Boolean
+    get() =
+        fatigueProfile == FatigueProfile.High ||
+            fatigueProfile == FatigueProfile.Medium
 
-/** Default inter-set rest for isolation lifts when no override is set. */
-const val DEFAULT_ISOLATION_REST_SECONDS = 120
+
+/** Default inter-set rest for High-fatigue lifts when no override is set. */
+const val DEFAULT_HIGH_FATIGUE_REST_SECONDS: Int = 180
+
+/** Default inter-set rest for Medium/Low fatigue lifts when no override is set. */
+const val DEFAULT_STANDARD_REST_SECONDS: Int = 120
 
 /**
  * Rest seconds to use when this lift is added or swapped into a workout. Prefer the stored
- * [Lift.defaultRestSeconds] override; otherwise compound → 3 min, isolation → 2 min.
- * Compound/isolation uses [Lift.isCompound] (patterns **or** kinematic profile).
+ * [Lift.defaultRestSeconds] override; otherwise High → 180s, Medium and Low → 120s.
+ * Rest is driven by [Lift.fatigueProfile] only — never by [Lift.isCompound].
  */
 fun Lift.resolvedDefaultRestSeconds(): Int =
     defaultRestSeconds
-        ?: if (isCompound) DEFAULT_COMPOUND_REST_SECONDS else DEFAULT_ISOLATION_REST_SECONDS
+        ?: if (fatigueProfile == FatigueProfile.High) {
+            DEFAULT_HIGH_FATIGUE_REST_SECONDS
+        } else {
+            DEFAULT_STANDARD_REST_SECONDS
+        }

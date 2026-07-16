@@ -5,7 +5,7 @@ package com.stratum.domain.solver
 import com.stratum.core.testing.program.parseScenarioContext
 import com.stratum.core.testing.program.scenarioPayload
 import com.stratum.core.testing.program.testProgramGenerationPipeline
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
@@ -236,7 +236,7 @@ class ProgramCandidateAuditTest {
     ): List<String> {
         val failures = mutableListOf<String>()
         val axialLiftIds = context.liftsById.values
-            .filter { it.kinematicProfile == KinematicProfile.AxialCompound }
+            .filter { it.fatigueProfile == FatigueProfile.High }
             .map { it.id }
             .toSet()
         val workoutByDayIndex = draft.workouts
@@ -319,11 +319,11 @@ class ProgramCandidateAuditTest {
         pattern: String,
         primary: List<String>,
         secondary: List<String> = emptyList(),
-        kinematicProfile: KinematicProfile = when (pattern) {
-            "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) KinematicProfile.AxialCompound else KinematicProfile.NonAxialCompound
+        fatigueProfile: FatigueProfile = when (pattern) {
+            "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) FatigueProfile.High else FatigueProfile.Medium
             "HipExtension", "HorizontalPress", "VerticalPress", "InclinePress",
-            "HorizontalPull", "VerticalPull" -> KinematicProfile.NonAxialCompound
-            else -> KinematicProfile.Isolation
+            "HorizontalPull", "VerticalPull" -> FatigueProfile.Medium
+            else -> FatigueProfile.Low
         },
     ): LiftContext {
         val movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
@@ -336,7 +336,7 @@ class ProgramCandidateAuditTest {
             secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
             proven = true,
             mainstream = true,
-            kinematicProfile = kinematicProfile,
+            fatigueProfile = fatigueProfile,
         )
     }
 

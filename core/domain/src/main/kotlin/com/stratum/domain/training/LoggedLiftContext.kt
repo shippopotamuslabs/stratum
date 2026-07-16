@@ -1,6 +1,6 @@
 package com.stratum.domain.training
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
@@ -11,7 +11,7 @@ data class LoggedLiftContext(
     val movementPatternsBitmask: Int = 0,
     val primaryMusclesBitmask: Int = 0,
     val secondaryMusclesBitmask: Int = 0,
-    val kinematicProfile: KinematicProfile = KinematicProfile.NonAxialCompound,
+    val fatigueProfile: FatigueProfile = FatigueProfile.Medium,
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val workoutLiftId: WorkoutLiftId? = null,
     val progressionScheme: ProgressionScheme? = null,

@@ -2,7 +2,7 @@
 
 package com.stratum.domain.program.generation.prescription
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.PRIMARY_SET_CREDIT
@@ -23,7 +23,7 @@ data class FilledSlot(
     val lengthBiasPreference: MuscleLengthBiasPreference? = null,
     val siblingVariant: SiblingVariant? = null,
     val isCrossDomainTouch: Boolean = false,
-    val allowedKinematicProfiles: Set<KinematicProfile>? = null,
+    val allowedFatigueProfiles: Set<FatigueProfile>? = null,
     var setCount: Int,
 ) {
     fun toWorkoutSlotTemplate(): WorkoutSlotTemplate =
@@ -36,7 +36,7 @@ data class FilledSlot(
             lengthBiasPreference = lengthBiasPreference,
             siblingVariant = siblingVariant,
             isCrossDomainTouch = isCrossDomainTouch,
-            allowedKinematicProfiles = allowedKinematicProfiles,
+            allowedFatigueProfiles = allowedFatigueProfiles,
         )
 }
 

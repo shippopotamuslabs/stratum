@@ -1,17 +1,32 @@
 package com.stratum.domain.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.core.testing.program.FakeLiftSwapPort
+import com.stratum.core.testing.program.FakeProgramNamingPort
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.program.FakeProgramSynthesisPort
 import com.stratum.core.testing.program.FixedProgramGenerationContextLoader
 import com.stratum.core.testing.program.SCENARIO_LIFT_CATALOG
 import com.stratum.core.testing.program.scenarioContext
 import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
-import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
+import com.stratum.domain.lift.FatigueProfile
+import com.stratum.domain.lift.Lift
+import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
-import com.stratum.domain.program.ScheduleDayItem
-import com.stratum.domain.program.buildWeeklySchedule
-import com.stratum.domain.training.ProgramChangeEventRepository
+import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.generation.BuildProgramWorkoutsUseCase
+import com.stratum.domain.program.generation.IntegrateAndValidateProgramUseCase
+import com.stratum.domain.program.generation.PlanWeeklyVolumeUseCase
+import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.pipeline.PipelineOptions
+import com.stratum.domain.program.generation.pipeline.ProgramGenerationPipeline
+import com.stratum.domain.program.generation.schema.NormalizedLift
+import com.stratum.domain.program.generation.schema.NormalizedProgram
+import com.stratum.domain.program.generation.schema.NormalizedSet
+import com.stratum.domain.program.generation.schema.NormalizedWorkout
+import com.stratum.domain.program.generation.schema.ProgramNormalizationRequest
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -191,4 +206,105 @@ class GenerateProgramUseCaseTest {
             appended.single().eventType,
         )
     }
+
+    @Test
+    @DisplayName("FPR-S3-006 GenerateProgramUseCase supplies catalog rest lookup")
+    fun fprS3006_generateProgramPassesCatalogRestLookup() = runTest {
+        // FIX-LIFT-HIGH — High fatigue → 180s rest via catalog lookup
+        val highLift =
+            Lift(
+                id = LiftId("lift-high"),
+                name = "Barbell Back Squat",
+                movementPatterns = setOf(MovementPattern.SquatPattern),
+                primaryMuscles = setOf(MuscleGroup.Quad),
+                secondaryMuscles = emptySet(),
+                incrementTiers = emptyList(),
+                presetTags = emptySet(),
+                enabled = true,
+                fatigueProfile = FatigueProfile.High,
+                defaultRestSeconds = null,
+            )
+        // Fake pipeline returns FIX-NORM-ONE-SET for that lift id (not full synthesis path).
+        val fixedNormalized =
+            NormalizedProgram(
+                name = "Rest Matrix Program",
+                cycleLength = 1,
+                restSlotIndices = emptySet(),
+                workouts =
+                    listOf(
+                        NormalizedWorkout(
+                            name = "Day 1",
+                            weekday = "Monday",
+                            position = 0,
+                            workoutLifts =
+                                listOf(
+                                    NormalizedLift(
+                                        liftId = highLift.id.value,
+                                        position = 0,
+                                        progressionScheme = ProgressionScheme.Double,
+                                        workoutLiftSets =
+                                            listOf(
+                                                NormalizedSet(
+                                                    position = 0,
+                                                    setType = SetType.Standard,
+                                                    repMin = 6,
+                                                    repMax = 10,
+                                                    rirGoal = 2,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val useCase =
+            GenerateProgramUseCase(
+                loadContext =
+                    FixedProgramGenerationContextLoader(
+                        context = scenarioContext(days = 3, specialization = emptyMap()),
+                    ),
+                pipeline = FixedNormalizedProgramPipeline(fixedNormalized),
+                liftRepository = FakeLiftRepository(initialLifts = listOf(highLift)),
+                generationDispatcher = UnconfinedTestDispatcher(testScheduler),
+            )
+
+        val program = useCase.invoke().getOrThrow()
+
+        val highSets =
+            program.workouts
+                .flatMap { workout -> workout.workoutLifts }
+                .filter { lift -> lift.liftId == highLift.id }
+                .flatMap { lift -> lift.sets }
+        assertTrue(highSets.isNotEmpty(), "expected generated program to retain lift-high")
+        // Catalog High → resolvedDefaultRestSeconds 180 once use case passes restSecondsForLift.
+        assertTrue(
+            highSets.all { set -> set.restSeconds == 180 },
+            "expected restSeconds 180 for High fatigue lift, got ${highSets.map { it.restSeconds }}",
+        )
+    }
+}
+
+/**
+ * Test double: returns a fixed [NormalizedProgram] so FPR-S3-006 exercises
+ * [GenerateProgramUseCase] catalog → toDomainProgram wiring without full synthesis.
+ */
+private class FixedNormalizedProgramPipeline(
+    private val fixed: NormalizedProgram,
+) : ProgramGenerationPipeline(
+    planWeeklyVolume = PlanWeeklyVolumeUseCase(),
+    buildProgramWorkouts = BuildProgramWorkoutsUseCase(),
+    integrateAndValidate =
+        IntegrateAndValidateProgramUseCase(
+            liftSwapPort = FakeLiftSwapPort(),
+            programNamingPort = FakeProgramNamingPort(),
+        ),
+    programSynthesisPort = FakeProgramSynthesisPort(),
+    telemetryLogger = ProgramGenerationTelemetryLogger(FakeLoggingPort()),
+) {
+    override suspend fun generate(
+        context: ProgramGenerationContext,
+        normalizationRequest: ProgramNormalizationRequest,
+        options: PipelineOptions,
+    ): NormalizedProgram = fixed
 }

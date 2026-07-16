@@ -131,9 +131,9 @@ object DatabaseModule {
         @ApplicationContext context: Context,
         seedGate: com.stratum.core.data.sync.LiftCatalogSeedGate,
     ): StratumDatabase {
-        // Pre-release (DATA_LAYER_RULES §7): keep Room at version 1 with no migrations.
-        // Same-version identity-hash changes still require uninstall/reinstall.
-        // Destructive fallback only applies if the version is bumped without a Migration.
+        // Pre-release: keep Room at version 1 with no migrations. Schema renames (e.g.
+        // fatigueProfile) require uninstall/clear-data — same-version identity-hash changes are
+        // not healed by destructive fallback. Wipe local DB + Firestore when schema shape changes.
         val database = Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()

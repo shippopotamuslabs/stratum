@@ -3,7 +3,7 @@
 package com.stratum.domain.program.generation.context
 
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.onboarding.MuscleGroup
@@ -38,8 +38,8 @@ data class LiftContext(
     val fatigueDecayIntercept: Double? = null,
     val muscleLengthBias: MuscleLengthBias? = null,
     val equipment: String? = null,
-    /** Loading category — drives recovery classification (AxialCompound/NonAxialCompound/Isolation). */
-    val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+    /** Loading / recovery cost band (High/Medium/Low) — drives recovery stress class. */
+    val fatigueProfile: FatigueProfile = FatigueProfile.Low,
     /**
      * Weight-banded increment steps (from the [com.stratum.domain.lift.Lift]). Drives the
      * rep-range *width* via the increment:typical-load ratio — a small increment on a light

@@ -3,7 +3,7 @@ package com.stratum.domain.workout
 import com.stratum.domain.workout.fatigue.PopulationFatigueModel
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
@@ -95,7 +95,7 @@ class LoadTypeProgressionTest {
                     movementPatternsBitmask = 1,
                     primaryMusclesBitmask = 1,
                     secondaryMusclesBitmask = 0,
-                    kinematicProfile = KinematicProfile.Isolation,
+                    fatigueProfile = FatigueProfile.Low,
                     muscleLengthBias = MuscleLengthBias.MidRange,
                 ),
             ),

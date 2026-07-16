@@ -1,7 +1,7 @@
 package com.stratum.domain.importing
 
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.Weight
@@ -82,7 +82,7 @@ object ImportHistoryTrainingMapper {
             movementPatternsBitmask = 0,
             primaryMusclesBitmask = 0,
             secondaryMusclesBitmask = 0,
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
             muscleLengthBias = MuscleLengthBias.MidRange,
         )
 }

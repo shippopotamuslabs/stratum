@@ -1,6 +1,6 @@
 package com.stratum.domain.importing
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.Weight
@@ -92,7 +92,7 @@ class InferredCustomLiftMetadataTest {
                 primaryMuscles = setOf(MuscleGroup.Chest),
                 loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.DoubleWeightPlates),
             ).toCustomLiftDefinition()
-        assertEquals(KinematicProfile.NonAxialCompound, definition.kinematicProfile)
+        assertEquals(FatigueProfile.Medium, definition.fatigueProfile)
     }
 
     @Test
@@ -105,7 +105,7 @@ class InferredCustomLiftMetadataTest {
                 primaryMuscles = setOf(MuscleGroup.Back),
                 loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.Cable),
             ).toCustomLiftDefinition()
-        assertEquals(KinematicProfile.NonAxialCompound, definition.kinematicProfile)
+        assertEquals(FatigueProfile.Medium, definition.fatigueProfile)
     }
 
     @Test
@@ -118,7 +118,7 @@ class InferredCustomLiftMetadataTest {
                 primaryMuscles = setOf(MuscleGroup.Hamstring),
                 loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.DoubleWeightPlates),
             ).toCustomLiftDefinition()
-        assertEquals(KinematicProfile.AxialCompound, definition.kinematicProfile)
+        assertEquals(FatigueProfile.High, definition.fatigueProfile)
     }
 
     @Test
@@ -131,6 +131,6 @@ class InferredCustomLiftMetadataTest {
                 primaryMuscles = setOf(MuscleGroup.Tricep),
                 loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.Cable),
             ).toCustomLiftDefinition()
-        assertEquals(KinematicProfile.Isolation, definition.kinematicProfile)
+        assertEquals(FatigueProfile.Low, definition.fatigueProfile)
     }
 }

@@ -3,7 +3,8 @@ package com.stratum.domain.program
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
-import com.stratum.domain.lift.DEFAULT_COMPOUND_REST_SECONDS
+import com.stratum.domain.lift.DEFAULT_HIGH_FATIGUE_REST_SECONDS
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.LiftId
@@ -36,6 +37,8 @@ class AddWorkoutLiftUseCaseTest {
                 incrementTiers = emptyList(),
                 presetTags = emptySet(),
                 enabled = true,
+                // High fatigue → 180s rest (rest is no longer driven by multi-pattern isCompound)
+                fatigueProfile = FatigueProfile.High,
             )
 
         val initialProgram =
@@ -78,7 +81,7 @@ class AddWorkoutLiftUseCaseTest {
         val addedSet = addedLift?.sets?.first()
         assertEquals(8, addedSet?.repMin)
         assertEquals(12, addedSet?.repMax)
-        assertEquals(DEFAULT_COMPOUND_REST_SECONDS, addedSet?.restSeconds)
+        assertEquals(DEFAULT_HIGH_FATIGUE_REST_SECONDS, addedSet?.restSeconds)
         assertEquals(2, addedSet?.rirGoal)
     }
 

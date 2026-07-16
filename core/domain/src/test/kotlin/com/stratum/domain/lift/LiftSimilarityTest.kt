@@ -30,14 +30,14 @@ class LiftSimilarityTest {
                 id = "bench",
                 patterns = setOf(MovementPattern.HorizontalPress),
                 primary = setOf(MuscleGroup.Chest),
-                kinematic = KinematicProfile.NonAxialCompound,
+                fatigue = FatigueProfile.Medium,
                 bias = MuscleLengthBias.MidRange,
             )
             val legCurl = sampleLift(
                 id = "leg-curl",
                 patterns = setOf(MovementPattern.KneeFlexion),
                 primary = setOf(MuscleGroup.Hamstring),
-                kinematic = KinematicProfile.Isolation,
+                fatigue = FatigueProfile.Low,
                 bias = MuscleLengthBias.Shortened,
             )
             assertEquals(0.0, liftSimilarity(bench, legCurl))
@@ -89,21 +89,21 @@ class LiftSimilarityTest {
                 id = "target",
                 patterns = setOf(MovementPattern.HorizontalPress),
                 primary = setOf(MuscleGroup.Chest),
-                kinematic = KinematicProfile.NonAxialCompound,
+                fatigue = FatigueProfile.Medium,
                 bias = MuscleLengthBias.Lengthened,
             )
             val sameClass = sampleLift(
                 id = "same",
                 patterns = setOf(MovementPattern.InclinePress),
                 primary = setOf(MuscleGroup.Chest),
-                kinematic = KinematicProfile.NonAxialCompound,
+                fatigue = FatigueProfile.Medium,
                 bias = MuscleLengthBias.Lengthened,
             )
             val differentClass = sampleLift(
                 id = "diff",
                 patterns = setOf(MovementPattern.InclinePress),
                 primary = setOf(MuscleGroup.Chest),
-                kinematic = KinematicProfile.Isolation,
+                fatigue = FatigueProfile.Low,
                 bias = MuscleLengthBias.Shortened,
             )
             assertTrue(
@@ -122,7 +122,7 @@ class LiftSimilarityTest {
                 patterns = setOf(MovementPattern.HorizontalPress, MovementPattern.ElbowExtension),
                 primary = setOf(MuscleGroup.Chest, MuscleGroup.Tricep),
                 secondary = setOf(MuscleGroup.AnteriorDeltoid),
-                kinematic = KinematicProfile.NonAxialCompound,
+                fatigue = FatigueProfile.Medium,
                 bias = MuscleLengthBias.MidRange,
             )
             val candidate = sampleLift(
@@ -130,7 +130,7 @@ class LiftSimilarityTest {
                 patterns = setOf(MovementPattern.HorizontalPress, MovementPattern.ElbowExtension),
                 primary = setOf(MuscleGroup.Chest, MuscleGroup.Tricep),
                 secondary = setOf(MuscleGroup.AnteriorDeltoid),
-                kinematic = KinematicProfile.NonAxialCompound,
+                fatigue = FatigueProfile.Medium,
                 bias = MuscleLengthBias.MidRange,
             )
             assertTrue(liftSimilarity(target, candidate) <= 1.0)
@@ -142,7 +142,7 @@ class LiftSimilarityTest {
         patterns: Set<MovementPattern>,
         primary: Set<MuscleGroup>,
         secondary: Set<MuscleGroup> = emptySet(),
-        kinematic: KinematicProfile = KinematicProfile.Isolation,
+        fatigue: FatigueProfile = FatigueProfile.Low,
         bias: MuscleLengthBias = MuscleLengthBias.MidRange,
     ): Lift =
         Lift(
@@ -155,6 +155,6 @@ class LiftSimilarityTest {
             presetTags = emptySet(),
             enabled = true,
             muscleLengthBias = bias,
-            kinematicProfile = kinematic,
+            fatigueProfile = fatigue,
         )
 }

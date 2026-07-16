@@ -1,7 +1,7 @@
 package com.stratum.domain.program.generation.prescription
 
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.onboarding.MuscleGroup
@@ -289,7 +289,7 @@ class RepRirPlannerTest {
             movementPatterns = setOf(MovementPattern.HorizontalPress),
             primaryMuscles = setOf(MuscleGroup.Chest),
             secondaryMuscles = setOf(MuscleGroup.Tricep),
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
             fatigueDecaySlope = -3.0,
         )
         assertEquals(
@@ -351,7 +351,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = setOf(MuscleGroup.Glute, MuscleGroup.Hamstring),
-        kinematicProfile = KinematicProfile.AxialCompound,
+        fatigueProfile = FatigueProfile.High,
     )
 
     private fun barbellDeadliftLift(): LiftContext = LiftContext(
@@ -361,7 +361,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.HipHinge),
         primaryMuscles = setOf(MuscleGroup.Hamstring),
         secondaryMuscles = setOf(MuscleGroup.Glute, MuscleGroup.LowerBack),
-        kinematicProfile = KinematicProfile.AxialCompound,
+        fatigueProfile = FatigueProfile.High,
     )
 
     private fun smithMachineDeadliftLift(): LiftContext = LiftContext(
@@ -371,7 +371,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.HipHinge),
         primaryMuscles = setOf(MuscleGroup.Hamstring),
         secondaryMuscles = setOf(MuscleGroup.Glute),
-        kinematicProfile = KinematicProfile.AxialCompound,
+        fatigueProfile = FatigueProfile.High,
     )
 
     private fun legPressLift(): LiftContext = LiftContext(
@@ -381,7 +381,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.SquatPattern),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = setOf(MuscleGroup.Glute),
-        kinematicProfile = KinematicProfile.NonAxialCompound,
+        fatigueProfile = FatigueProfile.Medium,
     )
 
     private fun latPulldownLift(): LiftContext = LiftContext(
@@ -391,7 +391,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.VerticalPull),
         primaryMuscles = setOf(MuscleGroup.Back),
         secondaryMuscles = setOf(MuscleGroup.Bicep),
-        kinematicProfile = KinematicProfile.NonAxialCompound,
+        fatigueProfile = FatigueProfile.Medium,
     )
 
     private fun dumbbellCurlLift(): LiftContext = LiftContext(
@@ -401,7 +401,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.ElbowFlexion),
         primaryMuscles = setOf(MuscleGroup.Bicep),
         secondaryMuscles = emptySet(),
-        kinematicProfile = KinematicProfile.Isolation,
+        fatigueProfile = FatigueProfile.Low,
     )
 
     private fun legExtensionLift(): LiftContext = LiftContext(
@@ -411,7 +411,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.KneeExtension),
         primaryMuscles = setOf(MuscleGroup.Quad),
         secondaryMuscles = emptySet(),
-        kinematicProfile = KinematicProfile.Isolation,
+        fatigueProfile = FatigueProfile.Low,
     )
 
     // --- Lift factories with increment + e1RM signal (for end-to-end rep-range tests) ---
@@ -423,7 +423,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.HorizontalPress),
         primaryMuscles = setOf(MuscleGroup.Chest),
         secondaryMuscles = setOf(MuscleGroup.Tricep),
-        kinematicProfile = KinematicProfile.NonAxialCompound,
+        fatigueProfile = FatigueProfile.Medium,
         fatigueDecaySlope = fatigueSlope,
         incrementTiers = plateLoadedTiers(),
         estimatedOneRm = Weight(140.0, Weight.WeightUnit.Lb),
@@ -436,7 +436,7 @@ class RepRirPlannerTest {
         movementPatterns = setOf(MovementPattern.HorizontalPress),
         primaryMuscles = setOf(MuscleGroup.Chest),
         secondaryMuscles = setOf(MuscleGroup.Tricep),
-        kinematicProfile = KinematicProfile.AxialCompound,
+        fatigueProfile = FatigueProfile.High,
         fatigueDecaySlope = fatigueSlope,
         incrementTiers = heavyBarbellTiers(),
         estimatedOneRm = Weight(250.0, Weight.WeightUnit.Lb),

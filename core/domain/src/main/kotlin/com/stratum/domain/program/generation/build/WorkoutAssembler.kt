@@ -3,7 +3,6 @@
 package com.stratum.domain.program.generation.build
 
 import com.stratum.domain.lift.MovementPattern
-import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.LastTrainedBucket
 import com.stratum.domain.onboarding.TrainingAge
@@ -11,6 +10,7 @@ import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.ProgressionRepRangePolicy
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.context.isCompoundLift
 import com.stratum.domain.program.generation.draft.LiftSetDraft
 import com.stratum.domain.program.generation.draft.ProgramLiftDraft
 import com.stratum.domain.program.generation.draft.ProgramWorkoutDraft
@@ -162,10 +162,12 @@ private fun buildLiftDrafts(
     val trainingAge = runCatching { TrainingAge.valueOf(context.trainingAge) }.getOrNull()
     val lastTrained = context.lastTrained?.let { runCatching { LastTrainedBucket.valueOf(it) }.getOrNull() }
     return selections.mapIndexed { liftIndex, sel ->
-        val isCompound =
-            sel.lift.kinematicProfile == KinematicProfile.AxialCompound ||
-                sel.lift.kinematicProfile == KinematicProfile.NonAxialCompound
-        val scheme = schemeForTrainingAge(trainingAge, lastTrained, isCompound)
+        val scheme =
+            schemeForTrainingAge(
+                trainingAge,
+                lastTrained,
+                isCompound = sel.lift.isCompoundLift,
+            )
         val repRir = repRirForSlot(
             slot = sel.slot.toWorkoutSlotTemplate(),
             lift = sel.lift,

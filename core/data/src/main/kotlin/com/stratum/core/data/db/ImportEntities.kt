@@ -7,7 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.importing.ImportJobStatus
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
@@ -62,7 +62,7 @@ data class LoggedSetEntity(
     val movementPatternsBitmask: Int = 0,
     val primaryMusclesBitmask: Int = 0,
     val secondaryMusclesBitmask: Int = 0,
-    val kinematicProfile: KinematicProfile = KinematicProfile.NonAxialCompound,
+    val fatigueProfile: FatigueProfile = FatigueProfile.Medium,
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val workoutLiftId: WorkoutLiftId? = null,
     val progressionScheme: ProgressionScheme? = null,

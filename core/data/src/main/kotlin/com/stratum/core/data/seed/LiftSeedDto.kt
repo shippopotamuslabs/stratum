@@ -1,6 +1,6 @@
 package com.stratum.core.data.seed
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -16,7 +16,7 @@ import kotlinx.serialization.Serializable
  * values directly from their `.name` strings (e.g. `"Chest"` → [MuscleGroup.Chest]):
  * - [primaryMuscles]/[secondaryMuscles] are [MuscleGroup] values.
  * - [movementPatterns] are [MovementPattern] values.
- * - [muscleLengthBias] is a [MuscleLengthBias] value; [kinematicProfile] is a [KinematicProfile].
+ * - [muscleLengthBias] is a [MuscleLengthBias] value; [fatigueProfile] is a [FatigueProfile].
  * - [presetTags] are `GymPreset.name` strings (left as strings — they are decoded to enums in
  *   the seeder, which keeps a single conversion boundary for the preset domain).
  *
@@ -54,7 +54,7 @@ data class LiftSeedDto(
     val imageUris: List<String> = emptyList(),
     val muscleLengthBias: MuscleLengthBias? = null,
     val mainstream: Boolean = false,
-    val kinematicProfile: KinematicProfile? = null,
+    val fatigueProfile: FatigueProfile? = null,
     /**
      * Loading modality (Weighted / Bodyweight / Assisted). Null defaults to
      * [LoadType.Weighted] in [LiftCatalogSeeder.mapDto] so the bulk of the catalog — which

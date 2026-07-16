@@ -6,7 +6,6 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
-import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import kotlin.math.log10
 import kotlin.math.min
 
@@ -19,9 +18,11 @@ data class LiftCandidate(
     val priority: Double,
     /** Coarse tier label for the prompt: "proven" or "available". */
     val priorityTier: String,
-    /** Whether this lift is a major compound (multi-joint) — derived from [pattern] via
-     *  [MAJOR_COMPOUND_PATTERNS]. Surfaced to the builder so it can order compounds before
-     *  isolation/accessory work. */
+    /**
+     * Multi-joint / Linear-style gate: multi-pattern or High/Medium fatigue
+     * ([com.stratum.domain.program.generation.context.isCompoundLift]). Surfaced for ordering
+     * compounds before accessory work — not used for rest.
+     */
     val isCompound: Boolean,
     val mainstream: Boolean? = null,
     val primaryMuscles: Set<MuscleGroup>,
