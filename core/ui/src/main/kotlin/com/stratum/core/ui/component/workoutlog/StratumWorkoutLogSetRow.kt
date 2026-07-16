@@ -210,6 +210,9 @@ fun StratumWorkoutLogSetRow(
                             enabled = checkboxEnabled,
                             onCheckedChange = { checked ->
                                 if (checked && keyboardOpenForSet) {
+                                    // Same race as keyboard Check: collapse restore must not
+                                    // cancel post-log focus scroll.
+                                    keyboardHost.overlay.skipNextCollapseScrollRestore = true
                                     keyboardHost.dismiss()
                                 }
                                 actions.onCheckedChange.invoke(checked)

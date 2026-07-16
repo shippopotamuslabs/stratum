@@ -135,6 +135,18 @@ class SetLogKeyboardHostStateTest {
     }
 
     @Nested
+    @DisplayName("complete dismiss restore flag")
+    inner class CompleteDismissRestore {
+        @Test
+        @DisplayName("overlay skipNextCollapseScrollRestore defaults false and is settable")
+        fun skipRestoreFlag() {
+            assertFalse(host.overlay.skipNextCollapseScrollRestore)
+            host.overlay.skipNextCollapseScrollRestore = true
+            assertTrue(host.overlay.skipNextCollapseScrollRestore)
+        }
+    }
+
+    @Nested
     @DisplayName("syncSessionChrome")
     inner class SyncChrome {
         @Test
