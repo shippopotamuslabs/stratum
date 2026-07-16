@@ -31,6 +31,34 @@ internal object NormalizedProgramTemplateJson {
         return parseTemplate(root)
     }
 
+    /**
+     * Multi-template parse:
+     * - if root has "programs" array → each element id? + template object or nested "template"
+     * - else treat root as single [NormalizedProgramTemplate] with exportedId = null
+     */
+    fun parseAll(json: String): List<ParsedProgramTemplate> {
+        val root = JsonReader(json).readRootObject()
+        val programsArray = root["programs"] as? JsonArray
+        if (programsArray != null) {
+            return programsArray.values.mapNotNull { entry ->
+                val obj = entry as? JsonObject ?: return@mapNotNull null
+                val exportedId = obj.optionalString("id")
+                val templateObj =
+                    (obj["template"] as? JsonObject) ?: obj
+                ParsedProgramTemplate(
+                    exportedId = exportedId,
+                    template = parseTemplate(templateObj),
+                )
+            }
+        }
+        return listOf(
+            ParsedProgramTemplate(
+                exportedId = null,
+                template = parseTemplate(root),
+            ),
+        )
+    }
+
     private fun parseTemplate(obj: JsonObject): NormalizedProgramTemplate {
         val workouts = (obj["workouts"] as? JsonArray)
             ?.values

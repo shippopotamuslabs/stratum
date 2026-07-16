@@ -44,7 +44,12 @@ class PersistImportedHistoryUseCaseResponseTest {
             persistence = persistence,
         )
 
-        val result = useCase(fixture.sessions, fixture.sets)
+        val result =
+            useCase(
+                sessions = fixture.sessions,
+                sets = fixture.sets,
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            )
 
         assertTrue(result.isSuccess)
         assertNotNull(metadataRepo.get())
@@ -68,7 +73,12 @@ class PersistImportedHistoryUseCaseResponseTest {
             persistence = persistence,
         )
 
-        val result = useCase(fixture.sessions, fixture.sets)
+        val result =
+            useCase(
+                sessions = fixture.sessions,
+                sets = fixture.sets,
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            )
 
         assertTrue(result.isFailure)
         assertEquals(0, trainingLogRepo.getImportSessions().size)
@@ -91,7 +101,12 @@ class PersistImportedHistoryUseCaseResponseTest {
             persistence = persistence,
         )
 
-        val result = useCase(fixture.sessions, fixture.sets)
+        val result =
+            useCase(
+                sessions = fixture.sessions,
+                sets = fixture.sets,
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            )
 
         assertTrue(result.isFailure)
         assertEquals(0, persistence.epochRepository.getAll().size)
@@ -114,7 +129,12 @@ class PersistImportedHistoryUseCaseResponseTest {
             persistence = persistence,
         )
 
-        val result = useCase(fixture.sessions, fixture.sets)
+        val result =
+            useCase(
+                sessions = fixture.sessions,
+                sets = fixture.sets,
+                policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            )
 
         assertTrue(result.isFailure)
         assertEquals(0, trainingLogRepo.getImportSessions().size)

@@ -27,6 +27,8 @@ export interface LatestConversion {
   sessionCount: number;
   sizeBytes: number;
   createdAt: FirebaseFirestore.Timestamp;
+  /** Deterministic format id when known (`"stratum"`, `"hevy"`, …). */
+  format?: string;
 }
 
 export interface ImportJobDoc {

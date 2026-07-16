@@ -16,6 +16,7 @@ import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
+import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.domain.importing.ResolveImportLiftsUseCase
 import com.stratum.domain.importing.SupersetAffinity
@@ -51,6 +52,7 @@ class WorkoutLoggingMutationDefenseTest {
         persistUseCase(
             sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
             sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
+            policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
         ).getOrThrow()
 
         liftRepo.seedLifts(catalogWithBench().map { lift ->
@@ -83,6 +85,7 @@ class WorkoutLoggingMutationDefenseTest {
         persistUseCase(
             sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
             sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
+            policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
         ).getOrThrow()
 
         liftRepo.seedLifts(listOf(WorkoutLoggingFixtures.verticalPullCatalogBench()))

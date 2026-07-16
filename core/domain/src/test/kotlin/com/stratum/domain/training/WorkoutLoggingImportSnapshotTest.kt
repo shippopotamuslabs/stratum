@@ -16,6 +16,7 @@ import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.MuscleVolumeBaselineRepository
+import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.PersistImportedHistoryUseCase
 import com.stratum.domain.importing.ResolveImportLiftsUseCase
 import com.stratum.domain.importing.SupersetAffinity
@@ -48,6 +49,7 @@ class WorkoutLoggingImportSnapshotTest {
         useCase(
             sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
             sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
+            policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
         ).getOrThrow()
 
         val stored = trainingLogRepo.getImportSets().single()
@@ -69,6 +71,7 @@ class WorkoutLoggingImportSnapshotTest {
         useCase(
             sessions = listOf(WorkoutLoggingFixtures.importTrainingSession()),
             sets = listOf(WorkoutLoggingFixtures.importLoggedSet()),
+            policy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
         ).getOrThrow()
 
         val liftContext = trainingLogRepo.getImportSets().single().liftContext

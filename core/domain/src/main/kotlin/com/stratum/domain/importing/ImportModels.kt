@@ -84,6 +84,8 @@ data class ExtractTrainingInsightsSummary(
     val musclesWithBaselines: Int,
     /** Populated after historical import lift resolution; null for insight-only runs. */
     val liftResolution: ResolveImportLiftsSummary? = null,
+    /** Populated under [ImportHistoryPersistPolicy.MergeSkipDuplicates]; null under replace. */
+    val mergeStats: MergeImportStats? = null,
 )
 
 /** Diagnostics for import-time BM25 catalog matching and lift enablement. */

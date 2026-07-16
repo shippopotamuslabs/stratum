@@ -44,19 +44,38 @@ export async function deterministicProgramConvert(
     return null;
   }
 
-  let template;
+  // Validate every template (single or multi-program Stratum).
+  let validatedTemplates: Array<{ id: string | null; template: ReturnType<typeof validateProgramTemplate> }>;
   try {
-    template = validateProgramTemplate(detected.template);
+    if (detected.programs && detected.programs.length > 0) {
+      validatedTemplates = detected.programs.map((p) => ({
+        id: p.id,
+        template: validateProgramTemplate(p.template),
+      }));
+    } else {
+      validatedTemplates = [{ id: null, template: validateProgramTemplate(detected.template) }];
+    }
   } catch {
     return null;
   }
 
+  const primary = validatedTemplates[0].template;
   const ts = Date.now();
   const conversionPath = `programImports/${deps.uid}/${deps.jobId}/conversions/${ts}/template.json`;
-  const outputBytes = Buffer.from(JSON.stringify(template), "utf8");
+  // Multi-program Stratum: wrap as { programs: [...] }; single stays bare template.
+  const outputBody =
+    detected.programs && detected.programs.length > 0
+      ? {
+          programs: validatedTemplates.map((p) => ({
+            ...(p.id != null ? { id: p.id } : {}),
+            template: p.template,
+          })),
+        }
+      : primary;
+  const outputBytes = Buffer.from(JSON.stringify(outputBody), "utf8");
   await deps.storage.save(conversionPath, outputBytes, "application/json");
 
-  const workoutCount = template.workouts.length;
+  const workoutCount = primary.workouts.length;
   await deps.jobRef.update({
     status: "ready",
     progressPhase: "parsing",
@@ -70,5 +89,5 @@ export async function deterministicProgramConvert(
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  return { format: detected.format, template };
+  return { format: detected.format, template: primary };
 }
