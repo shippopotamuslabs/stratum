@@ -8,7 +8,7 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.domain.lift.AddCustomLiftUseCase
 import com.stratum.domain.lift.Equipment
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -93,6 +93,58 @@ class CreateLiftViewModelTest {
     }
 
     @Test
+    @DisplayName("FPR-S5-003 create-lift draft defaults to Low and 120 rest")
+    fun fprS5003_createDraftLowRest120() = runTest {
+        subject.uiState.test {
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            // New contract: fatigue label Low + restDraft 120
+            assertEquals("Low", state.details.fatigueLabel)
+            assertEquals(120, state.details.restDraftSeconds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("FPR-S5-004 committing a major compound pattern re-infers Medium")
+    fun fprS5004_majorPatternInfersMedium() = runTest {
+        subject.onNameChange("Machine Chest Press")
+        subject.onOpenDetailEditor(LiftDetailEditField.MovementPatterns)
+        subject.onToggleDraftMovementPattern(MovementPattern.HorizontalPress.name)
+        subject.onConfirmMovementPatterns()
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertEquals("Medium", state.details.fatigueLabel)
+            assertEquals(120, state.details.restDraftSeconds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("FPR-S5-005 free-weight axial name and squat pattern re-infer High and 180 rest")
+    fun fprS5005_axialInfersHighRest180() = runTest {
+        subject.onNameChange("Barbell Back Squat")
+        subject.onOpenDetailEditor(LiftDetailEditField.MovementPatterns)
+        subject.onToggleDraftMovementPattern(MovementPattern.SquatPattern.name)
+        subject.onConfirmMovementPatterns()
+        // Rest draft should track resolver after re-infer (Implementation).
+        subject.onOpenDetailEditor(LiftDetailEditField.DefaultRest)
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertEquals("High", state.details.fatigueLabel)
+            assertEquals(180, state.details.restDraftSeconds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+
+    @Test
     @DisplayName("Given equipment bodyweight action when selected then draft keeps bodyweight id")
     fun bodyweightEquipmentAction() = runTest {
         subject.onBeginChooseEquipment()
@@ -140,7 +192,7 @@ class CreateLiftViewModelTest {
         subject.onToggleDraftMovementPattern(MovementPattern.ShoulderAdduction.name)
         subject.onConfirmMovementPatterns()
         subject.onSelectLengthBias(MuscleLengthBias.Lengthened.name)
-        subject.onSelectKinematic(KinematicProfile.Isolation.name)
+        subject.onSelectFatigue(FatigueProfile.Low.name)
         subject.onSelectLoadType(LoadType.Weighted.name)
         subject.onBeginChooseEquipment()
         equipmentPickResult.publish(EquipmentId("cable"))

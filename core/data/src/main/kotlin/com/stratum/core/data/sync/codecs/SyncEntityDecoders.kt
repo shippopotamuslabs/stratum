@@ -19,7 +19,7 @@ import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.sync.FirestoreSyncMetadata
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.GymPreset
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -164,7 +164,7 @@ class SyncEntityDecoders @Inject constructor() {
                 imageUrisCsv = stringList(data["image_uris"]).joinToString(",").ifBlank { null },
                 muscleLengthBias = enumOrNull(data["muscle_length_bias"]) ?: MuscleLengthBias.MidRange,
                 mainstream = data["mainstream"] as? Boolean ?: false,
-                kinematicProfile = enumOrNull(data["kinematic_profile"]) ?: KinematicProfile.Isolation,
+                fatigueProfile = enumOrNull(data["fatigue_profile"]) ?: FatigueProfile.Low,
                 loadType = enumOrNull(data["load_type"]) ?: LoadType.Weighted,
                 defaultRestSeconds = (data["default_rest_seconds"] as? Number)?.toInt(),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
@@ -297,7 +297,7 @@ class SyncEntityDecoders @Inject constructor() {
                 movementPatternsBitmask = (data["movement_patterns_bitmask"] as? Number)?.toInt() ?: 0,
                 primaryMusclesBitmask = (data["primary_muscles_bitmask"] as? Number)?.toInt() ?: 0,
                 secondaryMusclesBitmask = (data["secondary_muscles_bitmask"] as? Number)?.toInt() ?: 0,
-                kinematicProfile = enumOrNull(data["kinematic_profile"]) ?: KinematicProfile.NonAxialCompound,
+                fatigueProfile = enumOrNull(data["fatigue_profile"]) ?: FatigueProfile.Medium,
                 muscleLengthBias = enumOrNull(data["muscle_length_bias"]) ?: MuscleLengthBias.MidRange,
                 workoutLiftId = (data["workout_lift_id"] as? String)?.let(::WorkoutLiftId),
                 progressionScheme = enumOrNull(data["progression_scheme"]),

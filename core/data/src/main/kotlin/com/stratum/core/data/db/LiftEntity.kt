@@ -6,7 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.stratum.core.data.sync.SyncFlags
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.EquipmentId
@@ -55,7 +55,7 @@ data class LiftEntity(
     val imageUrisCsv: String? = null,
     val muscleLengthBias: MuscleLengthBias = MuscleLengthBias.MidRange,
     val mainstream: Boolean = false,
-    val kinematicProfile: KinematicProfile = KinematicProfile.Isolation,
+    val fatigueProfile: FatigueProfile = FatigueProfile.Low,
     val loadType: LoadType = LoadType.Weighted,
     val defaultRestSeconds: Int? = null,
     @ColumnInfo(name = "updated_at_epoch_millis")

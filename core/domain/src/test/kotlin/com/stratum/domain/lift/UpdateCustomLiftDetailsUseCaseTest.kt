@@ -31,7 +31,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
                     CustomLiftDetails(
                         movementPatterns = setOf(MovementPattern.ShoulderAdduction),
                         muscleLengthBias = MuscleLengthBias.Lengthened,
-                        kinematicProfile = KinematicProfile.Isolation,
+                        fatigueProfile = FatigueProfile.Low,
                         loadType = LoadType.Weighted,
                         equipmentId = cableId,
                     ),
@@ -58,7 +58,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
                     CustomLiftDetails(
                         movementPatterns = setOf(MovementPattern.HipHinge),
                         muscleLengthBias = MuscleLengthBias.Shortened,
-                        kinematicProfile = KinematicProfile.AxialCompound,
+                        fatigueProfile = FatigueProfile.High,
                         loadType = LoadType.Bodyweight,
                         equipmentId = EquipmentId("double-weight-plates"),
                     ),
@@ -83,7 +83,7 @@ class UpdateCustomLiftDetailsUseCaseTest {
                     CustomLiftDetails(
                         movementPatterns = emptySet(),
                         muscleLengthBias = MuscleLengthBias.MidRange,
-                        kinematicProfile = KinematicProfile.Isolation,
+                        fatigueProfile = FatigueProfile.Low,
                         loadType = LoadType.Weighted,
                         equipmentId = null,
                     ),

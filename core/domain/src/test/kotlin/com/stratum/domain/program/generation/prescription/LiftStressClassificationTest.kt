@@ -1,6 +1,6 @@
 package com.stratum.domain.program.generation.prescription
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
@@ -11,6 +11,25 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class LiftStressClassificationTest {
+
+    @Test
+    @DisplayName("FPR-S1-010 High maps to HeavyAxial")
+    fun fprS1010_highMapsToHeavyAxial() {
+        assertEquals(LiftStressClass.HeavyAxial, fatigueProfileToStressClass(FatigueProfile.High))
+    }
+
+    @Test
+    @DisplayName("FPR-S1-011 Medium maps to UpperCompound")
+    fun fprS1011_mediumMapsToUpperCompound() {
+        assertEquals(LiftStressClass.UpperCompound, fatigueProfileToStressClass(FatigueProfile.Medium))
+    }
+
+    @Test
+    @DisplayName("FPR-S1-012 Low maps to LiftStressClass.Isolation")
+    fun fprS1012_lowMapsToIsolation() {
+        assertEquals(LiftStressClass.Isolation, fatigueProfileToStressClass(FatigueProfile.Low))
+    }
+
 
     @Test
     @DisplayName("deadlift classifies as heavy axial for LowerBack primary")
@@ -147,37 +166,37 @@ class LiftStressClassificationTest {
         )
     }
 
-    // --- KinematicProfile → LiftStressClass mapping (Bug #2 refactor) ---
+    // --- FatigueProfile → LiftStressClass mapping (Bug #2 refactor) ---
 
     @Test
-    @DisplayName("kinematicProfileToStressClass maps AxialCompound to HeavyAxial")
+    @DisplayName("fatigueProfileToStressClass maps AxialCompound to HeavyAxial")
     fun axialCompoundMapsToHeavyAxial() {
-        assertEquals(LiftStressClass.HeavyAxial, kinematicProfileToStressClass(KinematicProfile.AxialCompound))
+        assertEquals(LiftStressClass.HeavyAxial, fatigueProfileToStressClass(FatigueProfile.High))
     }
 
     @Test
-    @DisplayName("kinematicProfileToStressClass maps NonAxialCompound to UpperCompound")
+    @DisplayName("fatigueProfileToStressClass maps NonAxialCompound to UpperCompound")
     fun nonAxialCompoundMapsToUpperCompound() {
-        assertEquals(LiftStressClass.UpperCompound, kinematicProfileToStressClass(KinematicProfile.NonAxialCompound))
+        assertEquals(LiftStressClass.UpperCompound, fatigueProfileToStressClass(FatigueProfile.Medium))
     }
 
     @Test
-    @DisplayName("kinematicProfileToStressClass maps Isolation to Isolation")
+    @DisplayName("fatigueProfileToStressClass maps Isolation to Isolation")
     fun isolationMapsToIsolation() {
-        assertEquals(LiftStressClass.Isolation, kinematicProfileToStressClass(KinematicProfile.Isolation))
+        assertEquals(LiftStressClass.Isolation, fatigueProfileToStressClass(FatigueProfile.Low))
     }
 
     @Test
-    @DisplayName("kinematicProfileToStressClass defaults unknown string to Isolation")
+    @DisplayName("fatigueProfileToStressClass defaults unknown string to Isolation")
     fun unknownProfileDefaultsToIsolation() {
-        // The mapping is now a closed enum (KinematicProfile); the only non-Axial/NonAxial value
+        // The mapping is now a closed enum (FatigueProfile); the only non-Axial/NonAxial value
         // (Isolation) is the default fallback, preserving the original "unknown → Isolation" intent.
-        assertEquals(LiftStressClass.Isolation, kinematicProfileToStressClass(KinematicProfile.Isolation))
+        assertEquals(LiftStressClass.Isolation, fatigueProfileToStressClass(FatigueProfile.Low))
     }
 
     @Test
-    @DisplayName("classifyLiftStressClass(LiftContext) uses kinematicProfile, not pattern/name heuristic")
-    fun classifyLiftStressClassByLiftContextUsesKinematicProfile() {
+    @DisplayName("classifyLiftStressClass(LiftContext) uses fatigueProfile, not pattern/name heuristic")
+    fun classifyLiftStressClassByLiftContextUsesFatigueProfile() {
         // Leg press is SquatPattern but NonAxialCompound — must classify as UpperCompound, not HeavyAxial.
         val legPress = LiftContext(
             id = "sled-leg-press",
@@ -187,7 +206,7 @@ class LiftStressClassificationTest {
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = setOf(MuscleGroup.Calf, MuscleGroup.Glute),
             proven = true,
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
         )
         assertEquals(LiftStressClass.UpperCompound, classifyLiftStressClass(legPress))
     }
@@ -203,7 +222,7 @@ class LiftStressClassificationTest {
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = setOf(MuscleGroup.Calf, MuscleGroup.Glute),
             proven = true,
-            kinematicProfile = KinematicProfile.AxialCompound,
+            fatigueProfile = FatigueProfile.High,
         )
         assertEquals(LiftStressClass.HeavyAxial, classifyLiftStressClass(backSquat))
     }
@@ -219,15 +238,15 @@ class LiftStressClassificationTest {
             primaryMuscles = setOf(MuscleGroup.Quad),
             secondaryMuscles = emptySet(),
             proven = true,
-            kinematicProfile = KinematicProfile.Isolation,
+            fatigueProfile = FatigueProfile.Low,
         )
         assertEquals(LiftStressClass.Isolation, classifyLiftStressClass(legExtension))
     }
 
     @Test
-    @DisplayName("classifyLiftStressClass(LiftContext) defaults to Isolation when kinematicProfile is unset")
+    @DisplayName("classifyLiftStressClass(LiftContext) defaults to Isolation when fatigueProfile is unset")
     fun classifyLiftStressClassByLiftContextDefaultsToIsolation() {
-        // Legacy LiftContext without kinematicProfile (defaults to "Isolation")
+        // Legacy LiftContext without fatigueProfile (defaults to "Isolation")
         val legacyLift = LiftContext(
             id = "some-lift",
             name = "Some Lift",

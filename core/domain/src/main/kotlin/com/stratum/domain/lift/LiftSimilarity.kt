@@ -11,7 +11,7 @@ package com.stratum.domain.lift
  *
  * The blend weights movement-pattern overlap highest (a squat and a front squat are close even
  * if their muscle tags differ slightly), then primary-muscle overlap, then secondary-muscle
- * overlap, with small flat bonuses for matching [KinematicProfile], [MuscleLengthBias], and
+ * overlap, with small flat bonuses for matching [FatigueProfile], [MuscleLengthBias], and
  * [LiftCategory] (load class, length-tension profile, and coarse taxonomy).
  *
  * Symmetric: `liftSimilarity(a, b) == liftSimilarity(b, a)`. Pure function — no framework deps.
@@ -29,7 +29,7 @@ fun liftSimilarity(target: Lift, candidate: Lift): Double {
             secondaryScore * WEIGHT_SECONDARY
 
     val bonus =
-        if (target.kinematicProfile == candidate.kinematicProfile) BONUS_KINEMATIC else 0.0
+        if (target.fatigueProfile == candidate.fatigueProfile) BONUS_FATIGUE_PROFILE else 0.0
     val lengthBonus =
         if (target.muscleLengthBias == candidate.muscleLengthBias) BONUS_LENGTH_BIAS else 0.0
     val categoryBonus =
@@ -58,6 +58,6 @@ private const val WEIGHT_PRIMARY = 0.35
 private const val WEIGHT_SECONDARY = 0.15
 
 // Flat bonuses stacked on top of the Jaccard blend (total can exceed 1.0 before the clamp).
-private const val BONUS_KINEMATIC = 0.1
+private const val BONUS_FATIGUE_PROFILE = 0.1
 private const val BONUS_LENGTH_BIAS = 0.05
 private const val BONUS_CATEGORY = 0.1

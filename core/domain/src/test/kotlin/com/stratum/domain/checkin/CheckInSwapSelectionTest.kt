@@ -1,6 +1,6 @@
 package com.stratum.domain.checkin
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ScoredLift
@@ -84,7 +84,7 @@ class CheckInSwapSelectionTest {
                     incrementTiers = emptyList(),
                     presetTags = emptySet(),
                     enabled = true,
-                    kinematicProfile = KinematicProfile.NonAxialCompound,
+                    fatigueProfile = FatigueProfile.Medium,
                 ),
             similarity = similarity,
         )

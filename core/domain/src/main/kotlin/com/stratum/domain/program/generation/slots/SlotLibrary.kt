@@ -9,15 +9,15 @@ package com.stratum.domain.program.generation.slots
  *
  * Groups are composed from [UPPER_SLOTS], [LOWER_SLOTS], [FULL_BODY_SLOTS], [UPPER_PUSH_SLOTS],
  * and [UPPER_PULL_SLOTS] — no invented slots. First-wins order matches the former
- * SOURCE_SESSION_TYPES iteration so non-key fields (length bias, rep profile, kinematics)
+ * SOURCE_SESSION_TYPES iteration so non-key fields (length bias, rep profile, fatigue allow-lists)
  * stay faithful when templates share a [librarySlotKey].
  *
  * Logical groups (documentation / tests):
  * - [LOWER_ANCHORS]: squat, hinge (anchor), glute
- * - [LOWER_ISOLATIONS]: quad-iso (NonAxial), ham-iso (NonAxial), calf
+ * - [LOWER_ACCESSORIES]: quad-iso (NonAxial), ham-iso (NonAxial), calf
  * - [UPPER_PRESS]: h-press, incline variants, v-press
  * - [UPPER_PULL]: v-pull / h-pull role+sibling variants
- * - [UPPER_ISOLATIONS]: lat-raise, bicep, tricep, rear-delt role variants
+ * - [UPPER_ACCESSORIES]: lat-raise, bicep, tricep, rear-delt role variants
  * - Full-body role variants (hinge secondary, etc.) appear via the FullBody catalog union
  */
 fun baseSlotLibrary(): List<WorkoutSlotTemplate> {
@@ -36,9 +36,9 @@ fun baseSlotLibrary(): List<WorkoutSlotTemplate> {
 val LOWER_ANCHORS: List<WorkoutSlotTemplate>
     get() = LOWER_SLOTS.filter { it.role == SlotRole.Anchor }
 
-/** Quad/ham isolations (with NonAxial admission) and calf. */
-val LOWER_ISOLATIONS: List<WorkoutSlotTemplate>
-    get() = LOWER_SLOTS.filter { it.role == SlotRole.Isolation || it.role == SlotRole.Optional }
+/** Quad/ham accessories (Low+Medium fatigue admission) and calf. */
+val LOWER_ACCESSORIES: List<WorkoutSlotTemplate>
+    get() = LOWER_SLOTS.filter { it.role == SlotRole.Accessory || it.role == SlotRole.Optional }
 
 /** Horizontal / incline / vertical press family from upper + upper-push catalogs. */
 val UPPER_PRESS: List<WorkoutSlotTemplate>
@@ -54,11 +54,11 @@ val UPPER_PULL: List<WorkoutSlotTemplate>
             it.pattern.name in setOf("VerticalPull", "HorizontalPull")
         }.distinctBy { librarySlotKey(it) }
 
-/** Lateral raise, arms, rear-delt (optional + isolation role variants). */
-val UPPER_ISOLATIONS: List<WorkoutSlotTemplate>
+/** Lateral raise, arms, rear-delt (optional + accessory role variants). */
+val UPPER_ACCESSORIES: List<WorkoutSlotTemplate>
     get() =
         (UPPER_SLOTS + UPPER_PULL_SLOTS).filter {
-            it.role == SlotRole.Isolation ||
+            it.role == SlotRole.Accessory ||
                 it.role == SlotRole.Optional ||
                 it.primaryMuscle.name in setOf("Bicep", "Tricep", "LateralDeltoid", "PosteriorDeltoid")
         }.filter {

@@ -128,7 +128,7 @@ class FakeLiftRepository(
                 enabled = true,
                 isCustom = true,
                 muscleLengthBias = definition.muscleLengthBias,
-                kinematicProfile = definition.kinematicProfile,
+                fatigueProfile = definition.fatigueProfile,
                 loadType = definition.loadType,
                 defaultRestSeconds = definition.defaultRestSeconds,
             )
@@ -214,7 +214,7 @@ class FakeLiftRepository(
                 lift.copy(
                     movementPatterns = details.movementPatterns,
                     muscleLengthBias = details.muscleLengthBias,
-                    kinematicProfile = details.kinematicProfile,
+                    fatigueProfile = details.fatigueProfile,
                     loadType = details.loadType,
                     equipmentId = details.equipmentId,
                     equipmentName = details.equipmentId?.let { equipmentNamesById[it] },

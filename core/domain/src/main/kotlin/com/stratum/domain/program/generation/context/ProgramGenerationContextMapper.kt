@@ -102,7 +102,7 @@ object ProgramGenerationContextMapper {
             fatigueDecayIntercept = trainingInsights?.fatigueDecayIntercept,
             muscleLengthBias = lift.muscleLengthBias.toGenerationContext(),
             equipment = lift.equipmentName,
-            kinematicProfile = lift.kinematicProfile,
+            fatigueProfile = lift.fatigueProfile,
             incrementTiers = lift.incrementTiers,
             estimatedOneRm = trainingInsights?.estimatedOneRm,
         )

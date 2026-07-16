@@ -1,6 +1,6 @@
 package com.stratum.domain.program.generation.selection
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
@@ -36,9 +36,9 @@ class LiftSelectionTuningTest {
 
         // CASE 1: Anchor slot should treat compound machines (e.g. Leverage Chest Press / Hammer Strength) on equal footing
         val case1Lifts = listOf(
-            lift("barbell-bench", "Barbell Bench Press", "HorizontalPress", listOf("Chest"), proven = true, mainstream = true, equipment = "Barbell", kinematicProfile = "NonAxialCompound"),
-            lift("db-bench", "Dumbbell Bench Press", "HorizontalPress", listOf("Chest"), proven = true, mainstream = true, equipment = "Dumbbell", kinematicProfile = "NonAxialCompound"),
-            lift("hammer-smith", "Hammer Strength Chest Press", "HorizontalPress", listOf("Chest"), proven = true, mainstream = true, equipment = "Machine", kinematicProfile = "NonAxialCompound")
+            lift("barbell-bench", "Barbell Bench Press", "HorizontalPress", listOf("Chest"), proven = true, mainstream = true, equipment = "Barbell", fatigueProfile = "Medium"),
+            lift("db-bench", "Dumbbell Bench Press", "HorizontalPress", listOf("Chest"), proven = true, mainstream = true, equipment = "Dumbbell", fatigueProfile = "Medium"),
+            lift("hammer-smith", "Hammer Strength Chest Press", "HorizontalPress", listOf("Chest"), proven = true, mainstream = true, equipment = "Machine", fatigueProfile = "Medium")
         )
         val context1 = testContext(case1Lifts)
         val slot1 = slot(role = SlotRole.Anchor, pattern = "HorizontalPress", primary = "Chest")
@@ -57,7 +57,7 @@ class LiftSelectionTuningTest {
             lift("preacher-curl", "Preacher Curl", "ElbowFlexion", listOf("Bicep"), lengthBias = "Shortened")
         )
         val context2 = testContext(case2Lifts)
-        val slot2 = slot(role = SlotRole.Isolation, pattern = "ElbowFlexion", primary = "Bicep", lengthBias = MuscleLengthBiasPreference.Lengthened)
+        val slot2 = slot(role = SlotRole.Accessory, pattern = "ElbowFlexion", primary = "Bicep", lengthBias = MuscleLengthBiasPreference.Lengthened)
         val ranked2 = rankLiftsForSlot(case2Lifts, slot2, context2, LiftSelectionState())
         val inclineIdx = ranked2.indexOfFirst { it.id == "incline-db-curl" }
         val preacherIdx = ranked2.indexOfFirst { it.id == "preacher-curl" }
@@ -72,7 +72,7 @@ class LiftSelectionTuningTest {
             lift("barbell-tricep-ext", "Standing Overhead Barbell Triceps Extension", "ElbowExtension", listOf("Tricep"), equipment = "Barbell")
         )
         val context3 = testContext(case3Lifts)
-        val slot3 = slot(role = SlotRole.Isolation, pattern = "ElbowExtension", primary = "Tricep")
+        val slot3 = slot(role = SlotRole.Accessory, pattern = "ElbowExtension", primary = "Tricep")
         val ranked3 = rankLiftsForSlot(case3Lifts, slot3, context3, LiftSelectionState())
         val cableIdx = ranked3.indexOfFirst { it.id == "cable-pushdown" }
         val barbellTricepIdx = ranked3.indexOfFirst { it.id == "barbell-tricep-ext" }
@@ -115,8 +115,8 @@ class LiftSelectionTuningTest {
 
         // CASE 6: Hip Hinge Selection should prefer RDL (high-SFR) over Conventional Deadlift (low-SFR, systemic fatigue)
         val case6Lifts = listOf(
-            lift("barbell-rdl", "Barbell Romanian Deadlift", "HipHinge", listOf("Hamstring"), secondary = listOf("Glute", "LowerBack"), kinematicProfile = "AxialCompound"),
-            lift("barbell-deadlift", "Barbell Deadlift", "HipHinge", listOf("LowerBack"), secondary = listOf("Calf", "Forearm", "Glute", "Hamstring", "Back", "Quad", "Trap"), kinematicProfile = "AxialCompound")
+            lift("barbell-rdl", "Barbell Romanian Deadlift", "HipHinge", listOf("Hamstring"), secondary = listOf("Glute", "LowerBack"), fatigueProfile = "High"),
+            lift("barbell-deadlift", "Barbell Deadlift", "HipHinge", listOf("LowerBack"), secondary = listOf("Calf", "Forearm", "Glute", "Hamstring", "Back", "Quad", "Trap"), fatigueProfile = "High")
         )
         val context6 = testContext(case6Lifts)
         val slot6 = slot(role = SlotRole.Anchor, pattern = "HipHinge", primary = "Hamstring")
@@ -201,7 +201,7 @@ class LiftSelectionTuningTest {
         mainstream: Boolean = true,
         equipment: String? = null,
         lengthBias: String? = null,
-        kinematicProfile: String = "Isolation"
+        fatigueProfile: String = "Isolation"
     ): LiftContext =
         LiftContext(
             id = id,
@@ -214,7 +214,7 @@ class LiftSelectionTuningTest {
             mainstream = mainstream,
             equipment = equipment,
             muscleLengthBias = lengthBias?.let { MuscleLengthBias.valueOf(it) },
-            kinematicProfile = runCatching { KinematicProfile.valueOf(kinematicProfile) }.getOrNull() ?: KinematicProfile.Isolation
+            fatigueProfile = runCatching { FatigueProfile.valueOf(fatigueProfile) }.getOrNull() ?: FatigueProfile.Low
         )
 
     private fun slot(
@@ -232,7 +232,7 @@ class LiftSelectionTuningTest {
             lengthBiasPreference = lengthBias,
             siblingVariant = SiblingVariant.A,
             isCrossDomainTouch = false,
-            allowedKinematicProfiles = null
+            allowedFatigueProfiles = null
         )
 
     private fun testContext(lifts: List<LiftContext>): ProgramGenerationContext {

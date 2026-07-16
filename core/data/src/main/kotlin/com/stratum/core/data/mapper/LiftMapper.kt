@@ -52,7 +52,7 @@ fun LiftWithTiers.toDomain(
         imageUris = lift.imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
         muscleLengthBias = lift.muscleLengthBias,
         mainstream = lift.mainstream,
-        kinematicProfile = lift.kinematicProfile,
+        fatigueProfile = lift.fatigueProfile,
         loadType = lift.loadType,
         defaultRestSeconds = lift.defaultRestSeconds,
     )
@@ -75,7 +75,7 @@ fun Lift.toEntity(
     imageUrisCsv = imageUris.joinToString(","),
     muscleLengthBias = muscleLengthBias,
     mainstream = mainstream,
-    kinematicProfile = kinematicProfile,
+    fatigueProfile = fatigueProfile,
     loadType = loadType,
     defaultRestSeconds = defaultRestSeconds,
     updatedAtEpochMillis = nowMillis,

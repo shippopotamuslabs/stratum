@@ -16,8 +16,18 @@ import com.stratum.domain.program.identity.WorkoutLiftId
 import java.time.Instant
 import java.util.UUID
 
-/** Maps a normalized generation output to a domain [Program], assigning UUID ids client-side (D1). */
-fun NormalizedProgram.toDomainProgram(createdAt: Instant = Instant.now()): Program {
+/**
+ * Maps a normalized generation output to a domain [Program], assigning UUID ids client-side (D1).
+ *
+ * [restSecondsForLift] — when catalog rest is known, return resolved rest seconds per lift
+ * (High → 180, Medium/Low → 120, or [Lift.defaultRestSeconds] override). Null →
+ * [DEFAULT_LIFT_SET_REST_SECONDS] (120).
+ *
+ */
+fun NormalizedProgram.toDomainProgram(
+    createdAt: Instant = Instant.now(),
+    restSecondsForLift: (LiftId) -> Int? = { null },
+): Program {
     val programId = ProgramId(UUID.randomUUID().toString())
     val workouts = this.workouts.mapIndexed { index, workout ->
         val workoutId = WorkoutId(UUID.randomUUID().toString())
@@ -45,7 +55,7 @@ fun NormalizedProgram.toDomainProgram(createdAt: Instant = Instant.now()): Progr
                             repMax = set.repMax,
                             rirGoal = set.rirGoal,
                             isTopSet = set.isTopSet,
-                            restSeconds = DEFAULT_LIFT_SET_REST_SECONDS,
+                            restSeconds = restSecondsForLift(LiftId(lift.liftId)) ?: DEFAULT_LIFT_SET_REST_SECONDS,
                         )
                     },
                 )

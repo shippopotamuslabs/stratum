@@ -8,7 +8,7 @@ import com.stratum.domain.json.jsonNumber
 import com.stratum.domain.json.jsonObject
 import com.stratum.domain.json.jsonString
 import com.stratum.domain.json.jsonStringOrNull
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.prescription.FilledSlot
@@ -84,11 +84,11 @@ private fun encodeFilledSlot(slot: FilledSlot): String =
         "lengthBiasPreference" to jsonStringOrNull(slot.lengthBiasPreference?.name),
         "siblingVariant" to jsonStringOrNull(slot.siblingVariant?.name),
         "isCrossDomainTouch" to jsonBoolean(slot.isCrossDomainTouch),
-        "allowedKinematicProfiles" to
-            if (slot.allowedKinematicProfiles == null) {
+        "allowedFatigueProfiles" to
+            if (slot.allowedFatigueProfiles == null) {
                 "null"
             } else {
-                jsonArray(slot.allowedKinematicProfiles.map { jsonString(it.name) })
+                jsonArray(slot.allowedFatigueProfiles.map { jsonString(it.name) })
             },
         "setCount" to jsonNumber(slot.setCount),
     )
@@ -96,7 +96,7 @@ private fun encodeFilledSlot(slot: FilledSlot): String =
 private fun decodeFilledSlot(obj: JsonObject): FilledSlot =
     FilledSlot(
         slotId = obj.requireString("slotId"),
-        role = enumValueOf<SlotRole>(obj.requireString("role")),
+        role = decodeSlotRole(obj.requireString("role")),
         pattern = enumValueOf<MovementPattern>(obj.requireString("pattern")),
         primaryMuscle = enumValueOf<MuscleGroup>(obj.requireString("primaryMuscle")),
         repProfile = enumValueOf<RpRepProfile>(obj.requireString("repProfile")),
@@ -107,7 +107,7 @@ private fun decodeFilledSlot(obj: JsonObject): FilledSlot =
         siblingVariant =
             obj.optionalString("siblingVariant")?.let { enumValueOf<SiblingVariant>(it) },
         isCrossDomainTouch = obj.optionalBoolean("isCrossDomainTouch") ?: false,
-        allowedKinematicProfiles = decodeKinematicProfileSet(obj["allowedKinematicProfiles"]),
+        allowedFatigueProfiles = decodeFatigueProfileSet(obj["allowedFatigueProfiles"]),
         setCount = obj.requireInt("setCount"),
     )
 
@@ -121,18 +121,18 @@ private fun encodeWorkoutSlotTemplate(slot: WorkoutSlotTemplate): String =
         "lengthBiasPreference" to jsonStringOrNull(slot.lengthBiasPreference?.name),
         "siblingVariant" to jsonStringOrNull(slot.siblingVariant?.name),
         "isCrossDomainTouch" to jsonBoolean(slot.isCrossDomainTouch),
-        "allowedKinematicProfiles" to
-            if (slot.allowedKinematicProfiles == null) {
+        "allowedFatigueProfiles" to
+            if (slot.allowedFatigueProfiles == null) {
                 "null"
             } else {
-                jsonArray(slot.allowedKinematicProfiles.map { jsonString(it.name) })
+                jsonArray(slot.allowedFatigueProfiles.map { jsonString(it.name) })
             },
     )
 
 private fun decodeWorkoutSlotTemplate(obj: JsonObject): WorkoutSlotTemplate =
     WorkoutSlotTemplate(
         slotId = obj.requireString("slotId"),
-        role = enumValueOf<SlotRole>(obj.requireString("role")),
+        role = decodeSlotRole(obj.requireString("role")),
         pattern = enumValueOf<MovementPattern>(obj.requireString("pattern")),
         primaryMuscle = enumValueOf<MuscleGroup>(obj.requireString("primaryMuscle")),
         repProfile = enumValueOf<RpRepProfile>(obj.requireString("repProfile")),
@@ -143,15 +143,29 @@ private fun decodeWorkoutSlotTemplate(obj: JsonObject): WorkoutSlotTemplate =
         siblingVariant =
             obj.optionalString("siblingVariant")?.let { enumValueOf<SiblingVariant>(it) },
         isCrossDomainTouch = obj.optionalBoolean("isCrossDomainTouch") ?: false,
-        allowedKinematicProfiles = decodeKinematicProfileSet(obj["allowedKinematicProfiles"]),
+        allowedFatigueProfiles = decodeFatigueProfileSet(obj["allowedFatigueProfiles"]),
     )
 
-private fun decodeKinematicProfileSet(value: JsonValue?): Set<KinematicProfile>? {
+/**
+ * Soft-parse fatigue names; drop unknowns rather than crash on stale wire caches.
+ * Does not map legacy kinematic strings (AxialCompound → …) — those are ignored.
+ */
+private fun decodeFatigueProfileOrNull(name: String?): FatigueProfile? =
+    name?.let { runCatching { enumValueOf<FatigueProfile>(it) }.getOrNull() }
+
+/** SlotRole with one legacy wire alias: Isolation → Accessory (role rename only). */
+private fun decodeSlotRole(name: String): SlotRole =
+    when (name) {
+        "Isolation" -> SlotRole.Accessory
+        else -> enumValueOf(name)
+    }
+
+private fun decodeFatigueProfileSet(value: JsonValue?): Set<FatigueProfile>? {
     if (value == null || value.isNull()) return null
-    val arr = value.asArrayOrNull() ?: error("Expected array or null for allowedKinematicProfiles")
-    return arr.values.map {
-        enumValueOf<KinematicProfile>(it.asStringOrNull() ?: error("Expected kinematic profile"))
-    }.toSet()
+    val arr = value.asArrayOrNull() ?: error("Expected array or null for allowedFatigueProfiles")
+    val profiles =
+        arr.values.mapNotNull { decodeFatigueProfileOrNull(it.asStringOrNull()) }.toSet()
+    return profiles.ifEmpty { null }
 }
 
 internal fun encodeObjective(objective: SynthesisObjectiveBreakdown): String =

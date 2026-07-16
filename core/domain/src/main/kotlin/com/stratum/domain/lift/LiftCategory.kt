@@ -15,7 +15,7 @@ enum class LiftCategoryRegion {
 /**
  * Region a [MovementPattern] implies for Gym / swap "Lift Type" classification.
  *
- * Orthogonal to [KinematicProfile]: a vertical pull can be compound or isolation-tagged wrongly;
+ * Orthogonal to [FatigueProfile]: a vertical pull can be compound or isolation-tagged wrongly;
  * region still says upper.
  */
 val MovementPattern.categoryRegion: LiftCategoryRegion
@@ -83,7 +83,7 @@ val CORE_MUSCLE_GROUPS: Set<MuscleGroup> =
  * Single source of truth — do not duplicate this set elsewhere.
  *
  * Does not include [MovementPattern.HipExtension] alone — glute bridge / reverse hyper can
- * legitimately be isolation. Does not change [Lift.isCompound] / default rest.
+ * legitimately be Low fatigue. Does not change [Lift.isCompound] / default rest.
  */
 val MAJOR_COMPOUND_PATTERNS: Set<MovementPattern> =
     setOf(
@@ -102,7 +102,7 @@ val MAJOR_COMPOUND_PATTERNS: Set<MovementPattern> =
  * Five buckets that match how lifters actually think about exercise taxonomy:
  * - [CompoundUpper] / [CompoundLower]: multi-joint upper- or lower-body movements
  *   (bench press, row, squat, deadlift).
- * - [IsolationUpper] / [IsolationLower]: single-joint movements (bicep curl, leg curl).
+ * - [AccessoryUpper] / [AccessoryLower]: single-joint movements (bicep curl, leg curl).
  * - [Core]: spinal-flexion / ab / lower-back focused isolation work.
  *
  * Derived deterministically from a [Lift] via [classifyLiftCategory] — no new catalog column,
@@ -111,8 +111,8 @@ val MAJOR_COMPOUND_PATTERNS: Set<MovementPattern> =
 enum class LiftCategory {
     CompoundUpper,
     CompoundLower,
-    IsolationUpper,
-    IsolationLower,
+    AccessoryUpper,
+    AccessoryLower,
     Core,
     ;
 
@@ -122,8 +122,8 @@ enum class LiftCategory {
             when (this) {
                 CompoundUpper -> "Compound Upper"
                 CompoundLower -> "Compound Lower"
-                IsolationUpper -> "Upper Isolation"
-                IsolationLower -> "Lower Isolation"
+                AccessoryUpper -> "Upper Accessory"
+                AccessoryLower -> "Lower Accessory"
                 Core -> "Core"
             }
 }
@@ -133,14 +133,14 @@ enum class LiftCategory {
  *
  * Rules, in order:
  *
- * 1. **Compound?** — [isCompoundForCategory]: multi-pattern, axial/non-axial kinematic, **or**
- *    any [MAJOR_COMPOUND_PATTERNS] (category-only hardening; does not change rest).
- * 2. **Core** — isolation only: any core-region pattern ([MovementPattern.SpinalFlexion]) **or**
+ * 1. **Compound?** — [isCompoundForCategory]: multi-pattern / High|Medium fatigue, **or** any
+ *    [MAJOR_COMPOUND_PATTERNS] (category-only hardening; does not change rest).
+ * 2. **Core** — accessory only: any core-region pattern ([MovementPattern.SpinalFlexion]) **or**
  *    non-empty primaries entirely within [CORE_MUSCLE_GROUPS], and not compound. Compounds with
  *    LowerBack primary (deadlift) never land in Core.
  * 3. **Body region** — [resolveBodyRegion]: primary lower muscles → lower patterns → non-core
  *    primary → upper patterns → secondary lower → default Upper.
- * 4. **Bucket** — compound×region / isolation×region.
+ * 4. **Bucket** — compound×region / accessory×region.
  *
  * Pure function — safe to call from any thread, no framework deps.
  */
@@ -159,24 +159,22 @@ fun Lift.classifyLiftCategory(): LiftCategory {
     return when {
         compound && lower -> LiftCategory.CompoundLower
         compound -> LiftCategory.CompoundUpper
-        lower -> LiftCategory.IsolationLower
-        else -> LiftCategory.IsolationUpper
+        lower -> LiftCategory.AccessoryLower
+        else -> LiftCategory.AccessoryUpper
     }
 }
 
 /**
  * Whether this lift should appear under Compound Upper/Lower in the Gym / swap filters.
  *
- * **Dual semantics (intentional):**
- * - [Lift.isCompound] drives default rest and programming UI that must match logged rest.
- * - [isCompoundForCategory] is broader: also treats [MAJOR_COMPOUND_PATTERNS] as compound so a
- *   mis-tagged Isolation kinematic on a press/pull/squat/hinge still filters as compound.
+ * **Separate from rest and Linear:**
+ * - Rest → [resolvedDefaultRestSeconds] from [Lift.fatigueProfile] only (High 180 / else 120).
+ * - Linear / multi-joint gate → [Lift.isCompound] (multi-pattern | High | Medium).
+ * - Filters → this function: [isCompound] **or** any [MAJOR_COMPOUND_PATTERNS], so a mis-tagged
+ *   Low fatigue on a press/pull/squat/hinge still filters as compound without changing rest.
  *
- * A custom lift can therefore be **filter-compound** (appears under Compound Upper/Lower) while
- * still resolving **isolation rest** (120s) when kinematic was left at Isolation. Prefer fixing
- * kinematic on create when patterns are major compounds; the filter remains forgiving.
- *
- * Does **not** change [Lift.resolvedDefaultRestSeconds].
+ * Prefer fixing [Lift.fatigueProfile] on create when patterns are major compounds; the filter
+ * remains forgiving for catalog discovery.
  */
 fun Lift.isCompoundForCategory(): Boolean =
     isCompound ||

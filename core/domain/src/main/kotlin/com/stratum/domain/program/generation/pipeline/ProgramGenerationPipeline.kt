@@ -37,14 +37,14 @@ data class PipelineOptions(
     val progress: PipelineProgressCallback = {},
 )
 
-class ProgramGenerationPipeline @Inject constructor(
+open class ProgramGenerationPipeline @Inject constructor(
     private val planWeeklyVolume: PlanWeeklyVolumeUseCase,
     private val buildProgramWorkouts: BuildProgramWorkoutsUseCase,
     private val integrateAndValidate: IntegrateAndValidateProgramUseCase,
     private val programSynthesisPort: ProgramSynthesisPort,
     private val telemetryLogger: ProgramGenerationTelemetryLogger,
 ) {
-    suspend fun generate(
+    open suspend fun generate(
         context: ProgramGenerationContext,
         normalizationRequest: ProgramNormalizationRequest,
         options: PipelineOptions = PipelineOptions(),

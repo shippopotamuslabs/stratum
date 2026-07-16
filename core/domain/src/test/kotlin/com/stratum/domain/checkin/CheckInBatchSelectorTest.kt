@@ -1,6 +1,6 @@
 package com.stratum.domain.checkin
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -112,7 +112,7 @@ class CheckInBatchSelectorTest {
                 name = "Pushdown",
                 muscles = setOf(MuscleGroup.Tricep),
                 action = CheckInAction.IncreaseVolume(CHECKIN_VOLUME_STEP),
-                kinematic = KinematicProfile.Isolation,
+                fatigue = FatigueProfile.Low,
             )
         val result = CheckInBatchSelector.select(listOf(bench, pushdown))
         val byName = result.associateBy { it.input.liftName }
@@ -177,14 +177,14 @@ class CheckInBatchSelectorTest {
                 name = "Compound",
                 muscles = setOf(MuscleGroup.Chest),
                 action = CheckInAction.IncreaseVolume(CHECKIN_VOLUME_STEP),
-                kinematic = KinematicProfile.NonAxialCompound,
+                fatigue = FatigueProfile.Medium,
             )
         val isolation =
             provisional(
                 name = "Isolation",
                 muscles = setOf(MuscleGroup.Chest),
                 action = CheckInAction.IncreaseVolume(CHECKIN_VOLUME_STEP),
-                kinematic = KinematicProfile.Isolation,
+                fatigue = FatigueProfile.Low,
             )
         val winner =
             CheckInBatchSelector.select(listOf(compound, isolation))
@@ -355,7 +355,7 @@ class CheckInBatchSelectorTest {
                         6,
                     ),
                 setCount = 4,
-                kinematic = KinematicProfile.NonAxialCompound,
+                fatigue = FatigueProfile.Medium,
                 tenure = 6,
             )
         val freshIsolation =
@@ -364,7 +364,7 @@ class CheckInBatchSelectorTest {
                 muscles = setOf(MuscleGroup.Chest),
                 action = CheckInAction.IncreaseVolume(CHECKIN_VOLUME_STEP),
                 setCount = 2,
-                kinematic = KinematicProfile.Isolation,
+                fatigue = FatigueProfile.Low,
                 tenure = 2,
             )
         val result = CheckInBatchSelector.select(listOf(staleCompound, freshIsolation))
@@ -396,7 +396,7 @@ class CheckInBatchSelectorTest {
         tenure: Int = 2,
         trend: PerformanceTrend = PerformanceTrend.Flat,
         recovery: RecoverySignal = RecoverySignal.Good,
-        kinematic: KinematicProfile? = KinematicProfile.Isolation,
+        fatigue: FatigueProfile? = FatigueProfile.Low,
         rationale: CheckInRationale = CheckInRationale.NoClearChange,
     ): CheckInProvisionalRecommendation =
         CheckInProvisionalRecommendation(
@@ -410,7 +410,7 @@ class CheckInBatchSelectorTest {
                     recoverySignal = recovery,
                     rotationTenureWeeks = tenure,
                     currentSetCount = setCount,
-                    kinematicProfile = kinematic,
+                    fatigueProfile = fatigue,
                 ),
             action = action,
             rationale = rationale,

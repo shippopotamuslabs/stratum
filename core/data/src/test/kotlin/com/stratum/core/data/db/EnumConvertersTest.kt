@@ -1,6 +1,7 @@
 package com.stratum.core.data.db
 
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.OnboardingStep
@@ -15,6 +16,42 @@ import org.junit.jupiter.api.Test
 class EnumConvertersTest {
 
     private val converters = EnumConverters()
+
+    @Test
+    @DisplayName("FPR-S2-001 FatigueProfile High round-trips")
+    fun fprS2001_highRoundTrip() {
+        assertEquals("High", converters.fromFatigueProfile(FatigueProfile.High))
+        assertEquals(FatigueProfile.High, converters.toFatigueProfile("High"))
+    }
+
+    @Test
+    @DisplayName("FPR-S2-002 FatigueProfile Medium round-trips")
+    fun fprS2002_mediumRoundTrip() {
+        assertEquals("Medium", converters.fromFatigueProfile(FatigueProfile.Medium))
+        assertEquals(FatigueProfile.Medium, converters.toFatigueProfile("Medium"))
+    }
+
+    @Test
+    @DisplayName("FPR-S2-003 FatigueProfile Low round-trips")
+    fun fprS2003_lowRoundTrip() {
+        assertEquals("Low", converters.fromFatigueProfile(FatigueProfile.Low))
+        assertEquals(FatigueProfile.Low, converters.toFatigueProfile("Low"))
+    }
+
+    @Test
+    @DisplayName("FPR-S2-004 unknown fatigue string decodes to null")
+    fun fprS2004_unknownDecodesNull() {
+        assertNull(converters.toFatigueProfile("NotARealProfile"))
+    }
+
+    @Test
+    @DisplayName("FPR-S2-M001 legacy AxialCompound does not decode to High")
+    fun fprS2M001_legacyNamesDoNotAlias() {
+        assertNull(converters.toFatigueProfile("AxialCompound"))
+        assertNull(converters.toFatigueProfile("NonAxialCompound"))
+        assertNull(converters.toFatigueProfile("Isolation"))
+    }
+
 
     @Test
     @DisplayName("Given a known enum value when round-tripped through a converter then it is preserved")

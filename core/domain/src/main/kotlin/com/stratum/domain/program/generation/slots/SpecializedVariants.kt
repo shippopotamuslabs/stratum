@@ -37,7 +37,7 @@ private fun variantInsertionForMuscle(
     val inDomain = slots.filter { it.primaryMuscle == muscle && !it.isCrossDomainTouch }
     if (inDomain.size != 1) return null
     val primary = inDomain.single()
-    if (primary.role != SlotRole.Isolation && primary.role != SlotRole.Anchor) return null
+    if (primary.role != SlotRole.Accessory && primary.role != SlotRole.Anchor) return null
     if (!hasMultipleLiftOptions(primary.pattern, muscle, context)) return null
     val variantId = "${primary.slotId}-alt"
     if (slots.any { it.slotId == variantId }) return null

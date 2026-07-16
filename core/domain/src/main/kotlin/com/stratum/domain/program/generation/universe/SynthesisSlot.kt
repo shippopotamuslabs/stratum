@@ -1,6 +1,6 @@
 package com.stratum.domain.program.generation.universe
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.slots.MuscleLengthBiasPreference
 import com.stratum.domain.program.generation.slots.SiblingVariant
@@ -22,5 +22,5 @@ data class SynthesisSlot(
      * Isolation slots (e.g. quad-iso) admit NonAxialCompound machines alongside true isolation.
      * Must survive materialization so lift selection sees the same pool as the catalog templates.
      */
-    val allowedKinematicProfiles: Set<KinematicProfile>? = null,
+    val allowedFatigueProfiles: Set<FatigueProfile>? = null,
 )
