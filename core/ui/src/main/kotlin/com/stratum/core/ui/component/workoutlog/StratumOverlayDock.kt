@@ -94,6 +94,13 @@ class StratumOverlayDockHostState {
     var isOpen: Boolean by mutableStateOf(false)
         internal set
 
+    /**
+     * When true, the next dock collapse skips [rememberOverlayDockListBinding]'s
+     * scroll-position restore. Set before dismissing for a successful set-complete so
+     * post-log autoscroll is not cancelled by `scrollToItem(anchor)`.
+     */
+    var skipNextCollapseScrollRestore: Boolean = false
+
     /** Bump [revealEpoch] (e.g. field tab within a session). */
     fun requestReveal() {
         revealEpoch++
@@ -223,7 +230,16 @@ fun rememberOverlayDockListBinding(
         val prev = previousDockHeightPx
         if (prev > 0f && dockHeightPx == 0f) {
             awaitFrame()
-            listState.scrollToItem(anchorIndex, anchorOffset)
+            // Completing a set dismisses the pad and then may animate to the next lift.
+            // Restoring the pre-dismiss anchor here races that animation and cancels it
+            // (common when check is hit quickly with only one field typed).
+            val skipRestore = dock?.skipNextCollapseScrollRestore == true
+            if (dock != null) {
+                dock.skipNextCollapseScrollRestore = false
+            }
+            if (!skipRestore) {
+                listState.scrollToItem(anchorIndex, anchorOffset)
+            }
         }
         previousDockHeightPx = dockHeightPx
     }

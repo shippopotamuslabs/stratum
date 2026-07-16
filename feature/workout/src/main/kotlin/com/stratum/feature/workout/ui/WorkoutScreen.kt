@@ -39,6 +39,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.launch
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumIconButton
@@ -200,6 +201,12 @@ fun WorkoutScreen(
                 slotKey = slotKey,
                 alreadyAutoShownCompleteSheet = autoShownCompleteSheet,
             )
+        // Keyboard Check dismisses the pad before SetLogged arrives. Give the list one frame
+        // to apply collapsed dock padding so animateScrollToLiftTop measures the final layout
+        // (collapse restore is suppressed on complete — see skipNextCollapseScrollRestore).
+        if (decision is AfterSetLoggedDecision.FocusLift) {
+            awaitFrame()
+        }
         applyAfterSetLoggedDecision(
             decision = decision,
             onShowCompleteSheet = {
