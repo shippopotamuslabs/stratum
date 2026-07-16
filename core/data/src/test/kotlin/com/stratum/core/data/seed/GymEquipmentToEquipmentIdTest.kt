@@ -4,6 +4,8 @@ import com.stratum.domain.importing.GymEquipment
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -71,6 +73,68 @@ class GymEquipmentToEquipmentIdTest {
         assertEquals(
             EquipmentId("cable"),
             GymEquipmentToEquipmentId.seedIdFromFreeText("CableStation"),
+        )
+    }
+
+    @Test
+    @DisplayName("Generic LegPress tag maps to double weight plates")
+    fun legPressMapsToDoublePlates() {
+        assertEquals(
+            EquipmentId("double-weight-plates"),
+            GymEquipmentToEquipmentId.map(GymEquipment.LegPress),
+        )
+        assertEquals(
+            EquipmentId("double-weight-plates"),
+            GymEquipmentToEquipmentId.equipmentIdFor(
+                LiftId("sled-leg-press"),
+                setOf(GymEquipment.LegPress, GymEquipment.CalfRaiseMachine),
+            ),
+        )
+        assertEquals(
+            EquipmentId("double-weight-plates"),
+            GymEquipmentToEquipmentId.equipmentIdFor(
+                LiftId("narrow-stance-leg-press"),
+                setOf(GymEquipment.LegPress),
+            ),
+        )
+        assertEquals(
+            EquipmentId("double-weight-plates"),
+            GymEquipmentToEquipmentId.equipmentIdFor(
+                LiftId("plate-loaded-single-leg-press"),
+                setOf(GymEquipment.LegPress),
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("Machine leg press catalog variants map to pin-loaded")
+    fun machineLegPressMapsToPinLoaded() {
+        assertEquals(
+            EquipmentId("pin-loaded-machine"),
+            GymEquipmentToEquipmentId.equipmentIdFor(
+                LiftId("machine-single-leg-press"),
+                setOf(GymEquipment.LegPress),
+            ),
+        )
+        assertTrue(GymEquipmentToEquipmentId.isMachineLegPressVariant("machine-single-leg-press"))
+        assertFalse(GymEquipmentToEquipmentId.isMachineLegPressVariant("sled-leg-press"))
+        assertFalse(GymEquipmentToEquipmentId.isMachineLegPressVariant("plate-loaded-single-leg-press"))
+    }
+
+    @Test
+    @DisplayName("free-text leg press aliases resolve to plate vs pin loading")
+    fun freeTextLegPressAliases() {
+        assertEquals(
+            EquipmentId("double-weight-plates"),
+            GymEquipmentToEquipmentId.seedIdFromFreeText("leg press"),
+        )
+        assertEquals(
+            EquipmentId("double-weight-plates"),
+            GymEquipmentToEquipmentId.seedIdFromFreeText("LegPress"),
+        )
+        assertEquals(
+            EquipmentId("pin-loaded-machine"),
+            GymEquipmentToEquipmentId.seedIdFromFreeText("machine leg press"),
         )
     }
 }

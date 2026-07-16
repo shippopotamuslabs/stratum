@@ -973,6 +973,12 @@
     ]
   },
   {
+    "id": "machine-single-leg-press",
+    "equipment": [
+      "LegPress"
+    ]
+  },
+  {
     "id": "machine-triceps-extension",
     "equipment": [
       "CableStation"
@@ -1109,6 +1115,12 @@
     "id": "plank",
     "equipment": [
       "Bodyweight"
+    ]
+  },
+  {
+    "id": "plate-loaded-single-leg-press",
+    "equipment": [
+      "LegPress"
     ]
   },
   {

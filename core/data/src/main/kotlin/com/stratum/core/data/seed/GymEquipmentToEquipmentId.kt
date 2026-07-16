@@ -16,6 +16,8 @@ import com.stratum.domain.lift.identity.LiftId
  * - Fixed rubber bars / most free-weight rows → fixed barbell (+10)
  * - T-bar / single-end loading → single weight plate (+2.5)
  * - EZ-bar stays plate-loaded both ends → double weight plates
+ * - Generic / sled leg press → double weight plates (dual-horn plate loading)
+ * - Named "machine … leg press" catalog variants → pin-loaded stack (+15)
  */
 object GymEquipmentToEquipmentId {
     private val LOAD_BEARING_PRIORITY: List<GymEquipment> = listOf(
@@ -57,6 +59,10 @@ object GymEquipmentToEquipmentId {
 
     fun equipmentIdFor(liftId: LiftId, tags: Set<GymEquipment>): EquipmentId? {
         LIFT_ID_OVERRIDES[liftId.value]?.let { return it }
+        // Selectorized "Machine … Leg Press" catalog rows — not dual-horn sled loading.
+        if (isMachineLegPressVariant(liftId.value)) {
+            return EquipmentId("pin-loaded-machine")
+        }
         return equipmentIdFor(tags)
     }
 
@@ -74,6 +80,9 @@ object GymEquipmentToEquipmentId {
             GymEquipment.Barbell,
             GymEquipment.EzBar,
             GymEquipment.SmithMachine,
+            // Sled / dual-horn plate leg press is the commercial default; pin-stack variants
+            // are called out by catalog id via [isMachineLegPressVariant].
+            GymEquipment.LegPress,
             -> EquipmentId("double-weight-plates")
             GymEquipment.TBarRowStation -> EquipmentId("single-weight-plate")
             GymEquipment.CableStation,
@@ -81,7 +90,6 @@ object GymEquipmentToEquipmentId {
             GymEquipment.SeatedCableRowStation,
             GymEquipment.LatPulldownMachine,
             -> EquipmentId("cable")
-            GymEquipment.LegPress,
             GymEquipment.HackSquat,
             GymEquipment.LegExtension,
             GymEquipment.LegCurl,
@@ -101,6 +109,15 @@ object GymEquipmentToEquipmentId {
             GymEquipment.PowerRack,
             -> null
         }
+
+    /**
+     * Catalog slugs like `machine-single-leg-press` name the selectorized stack machine.
+     * Generic / sled / plate-loaded leg-press ids do not match.
+     */
+    internal fun isMachineLegPressVariant(liftId: String): Boolean {
+        val key = liftId.lowercase()
+        return key.contains("leg-press") && key.contains("machine")
+    }
 
     /**
      * Resolves free-text equipment labels (LLM import, create-lift shorthand) onto seed
