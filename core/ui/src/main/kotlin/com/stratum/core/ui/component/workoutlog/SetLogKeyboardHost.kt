@@ -341,6 +341,12 @@ private fun SetLogKeyboardDockContent(
             hasRepsRecommendation = session.hasRepsRecommendation,
         )
     val completeAndDismiss: () -> Unit = {
+        // Host is SoT for weight/reps while open — flush so the commit path sees typed
+        // digits even if a write-through was skipped, then skip dock scroll restore so
+        // post-log autoscroll is not cancelled by the collapse anchor restore.
+        session.onWeightChange(host.weightText)
+        session.onRepsChange(host.repsText)
+        host.overlay.skipNextCollapseScrollRestore = true
         session.onComplete?.invoke()
         host.dismiss()
     }
