@@ -25,11 +25,11 @@
     <string name="manage_equipment_open_increments">Edit increments</string>
     <string name="equipment_increments_title">Equipment increments</string>
     <!-- Affects N lifts (no name preview) -->
-    <string name="equipment_increments_affects_count">Affects %1$d lifts</string>
+    <string name="equipment_increments_affects_count">Affects %1$d lift(s)</string>
     <!-- Affects N lifts: Name1, Name2, Name3 -->
-    <string name="equipment_increments_affects_with_names">Affects %1$d lifts: %2$s</string>
+    <string name="equipment_increments_affects_with_names">Affects %1$d lift(s): %2$s</string>
     <!-- Affects N lifts: Name1, Name2, Name3 +M more -->
-    <string name="equipment_increments_affects_with_more">Affects %1$d lifts: %2$s +%3$d more</string>
+    <string name="equipment_increments_affects_with_more">Affects %1$d lift(s): %2$s +%3$d more</string>
     <string name="equipment_increments_affects_none">No lifts use these defaults yet</string>
     <string name="lift_increments_using_equipment">Using defaults from %1$s. Save to override for this lift only.</string>
     <string name="lift_increments_using_fallback">No equipment defaults — these are global fallback bands. Save to override for this lift only.</string>
@@ -210,7 +210,8 @@
     <string name="lift_info_equipment">Equipment</string>
     <string name="lift_info_equipment_placeholder">e.g. Cable, Dumbbell</string>
     <string name="lift_info_save_equipment">Save equipment</string>
-    <string name="lift_info_equipment_none">None</string>
+    <!-- Equipment implement: no external load hardware (distinct from Load type "Bodyweight"). -->
+    <string name="lift_info_equipment_bodyweight">Bodyweight only</string>
     <string name="lift_info_equipment_choose">Choose Equipment</string>
     <string name="manage_equipment_choose_title">Choose Equipment</string>
     <string name="manage_equipment_use">Use this equipment</string>

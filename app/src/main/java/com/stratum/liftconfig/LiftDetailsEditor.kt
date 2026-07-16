@@ -77,7 +77,11 @@ data class LiftDetailsEditorState(
     val kinematicLabel: String = "",
     val loadTypeLabel: String = "",
     val equipment: String? = null,
-    val categoryLabel: String = "",
+    /**
+     * Derived Gym / swap category label. Non-null shows the row (Lift Info);
+     * null omits it (Create — not actionable there).
+     */
+    val categoryLabel: String? = null,
     val defaultRestLabel: String = "",
     val showAddMuscleSheet: Boolean = false,
     val editingField: LiftDetailEditField? = null,
@@ -101,8 +105,8 @@ data class LiftDetailsEditorActions(
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
-    /** Clear equipment FK (None). */
-    val onClearEquipment: () -> Unit,
+    /** Assign bodyweight-only equipment (no external load implement). Does not change load type. */
+    val onAssignBodyweightEquipment: () -> Unit,
     /** Navigate to full Choose Equipment screen. */
     val onChooseEquipment: () -> Unit,
     val onRestDraftChange: (Int) -> Unit,
@@ -186,7 +190,7 @@ fun LiftDetailsEditor(
         LiftDetailEditField.Equipment ->
             EquipmentActionSheet(
                 onDismiss = actions.onDismissDetailEditor,
-                onNone = actions.onClearEquipment,
+                onAssignBodyweight = actions.onAssignBodyweightEquipment,
                 onChooseEquipment = actions.onChooseEquipment,
             )
         LiftDetailEditField.DefaultRest ->
@@ -248,14 +252,16 @@ private fun LiftDetailsEditorContent(
                     editField = LiftDetailEditField.LoadType,
                 ),
             )
-            add(
-                DetailSpec(
-                    label = stringResource(UiR.string.lift_info_category),
-                    value = state.categoryLabel.ifBlank { "—" },
-                    // Derived from patterns + primary muscles — never edited directly.
-                    editField = null,
-                ),
-            )
+            state.categoryLabel?.let { label ->
+                add(
+                    DetailSpec(
+                        label = stringResource(UiR.string.lift_info_category),
+                        value = label.ifBlank { "—" },
+                        // Derived from patterns + primary muscles — never edited directly.
+                        editField = null,
+                    ),
+                )
+            }
             add(
                 DetailSpec(
                     label = stringResource(UiR.string.lift_info_equipment),
@@ -500,12 +506,12 @@ private fun MultiSelectDetailSheet(
 }
 
 /**
- * Two-option sheet: clear equipment, or navigate to full Manage Equipment (selection mode).
+ * Two-option sheet: assign bodyweight-only equipment, or open Manage Equipment (selection mode).
  */
 @Composable
 private fun EquipmentActionSheet(
     onDismiss: () -> Unit,
-    onNone: () -> Unit,
+    onAssignBodyweight: () -> Unit,
     onChooseEquipment: () -> Unit,
 ) {
     StratumBottomSheet(
@@ -517,9 +523,9 @@ private fun EquipmentActionSheet(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             EquipmentActionRow(
-                label = stringResource(UiR.string.lift_info_equipment_none),
+                label = stringResource(UiR.string.lift_info_equipment_bodyweight),
                 showChevron = false,
-                onClick = onNone,
+                onClick = onAssignBodyweight,
             )
             EquipmentActionRow(
                 label = stringResource(UiR.string.lift_info_equipment_choose),

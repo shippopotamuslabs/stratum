@@ -6,6 +6,8 @@ import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
+import com.stratum.domain.lift.SeedEquipmentIds
+import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.onboarding.MuscleGroup
 
 /** Display label for length-bias chips and detail rows. */
@@ -19,12 +21,17 @@ fun MuscleLengthBias.toDetailLabel(): String =
 /** Display label for kinematic profile chips and detail rows. */
 fun KinematicProfile.toDetailLabel(): String =
     when (this) {
-        KinematicProfile.AxialCompound -> "Axial Compound"
-        KinematicProfile.NonAxialCompound -> "Non-Axial Compound"
+        KinematicProfile.AxialCompound -> "Compound -- Spine Loaded"
+        KinematicProfile.NonAxialCompound -> "Compound -- No Spine Loading"
         KinematicProfile.Isolation -> "Isolation"
     }
 
-/** Display label for load-type chips and detail rows. */
+/**
+ * Display label for load-type chips and detail rows.
+ *
+ * Distinct from [equipmentDetailLabel]: load type is how resistance is logged
+ * (weight column visibility / sign), not which implement supplies increment defaults.
+ */
 fun LoadType.toDetailLabel(): String =
     when (this) {
         LoadType.Weighted -> "Weighted"
@@ -32,14 +39,20 @@ fun LoadType.toDetailLabel(): String =
         LoadType.Assisted -> "Assisted"
     }
 
-/** Title-cases freeform equipment so seed values like "cable" match other detail labels. */
-fun String.toTitleCaseWords(): String =
-    trim()
-        .split(Regex("\\s+"))
-        .filter { it.isNotEmpty() }
-        .joinToString(" ") { word ->
-            word.lowercase().replaceFirstChar { ch -> ch.titlecase() }
-        }
+/**
+ * Equipment implement label for detail rows.
+ *
+ * Seed bodyweight uses "Bodyweight only" so it is not confused with [LoadType.Bodyweight]
+ * ("Bodyweight" = no external load logged).
+ */
+fun equipmentDetailLabel(
+    equipmentId: EquipmentId?,
+    equipmentName: String?,
+): String? =
+    when {
+        equipmentId == SeedEquipmentIds.Bodyweight -> "Bodyweight only"
+        else -> equipmentName
+    }
 
 fun Set<MuscleGroup>.toMuscleCards(): List<StratumMuscleFilterCardState> =
     sortedBy { it.name }.map { StratumMuscleFilterCardState(it, it.toVolumeDisplayName()) }

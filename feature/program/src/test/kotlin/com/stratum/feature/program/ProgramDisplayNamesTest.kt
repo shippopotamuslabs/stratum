@@ -25,7 +25,7 @@ class ProgramDisplayNamesTest {
     @Test
     @DisplayName("PROG-DN-403 other patterns keep domain displayName")
     fun progDn403_otherPatternsKeepDomainDisplayName() {
-        assertEquals("Squat Pattern", MovementPattern.SquatPattern.toProgramDisplayName())
+        assertEquals("Squat", MovementPattern.SquatPattern.toProgramDisplayName())
     }
 
     @Test

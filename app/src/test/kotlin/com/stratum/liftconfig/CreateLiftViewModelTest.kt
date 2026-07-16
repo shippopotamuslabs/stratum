@@ -13,6 +13,7 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -21,6 +22,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -35,6 +37,11 @@ class CreateLiftViewModelTest {
     private val fakeEquipmentRepository =
         FakeEquipmentRepository(
             listOf(
+                Equipment(
+                    id = EquipmentId("bodyweight"),
+                    name = "Bodyweight",
+                    incrementTiers = emptyList(),
+                ),
                 Equipment(
                     id = EquipmentId("cable"),
                     name = "Cables",
@@ -55,7 +62,11 @@ class CreateLiftViewModelTest {
     @BeforeEach
     fun setup() {
         fakeLiftRepository.seedLifts(emptyList())
-        fakeLiftRepository.equipmentNamesById = mapOf(EquipmentId("cable") to "Cables")
+        fakeLiftRepository.equipmentNamesById =
+            mapOf(
+                SeedEquipmentIds.Bodyweight to "Bodyweight",
+                EquipmentId("cable") to "Cables",
+            )
         val logging = FakeLoggingPort()
         subject =
             CreateLiftViewModel(
@@ -69,10 +80,31 @@ class CreateLiftViewModelTest {
     @DisplayName("Given empty draft when observed then Confirm is disabled")
     fun confirmDisabledOnEmptyDraft() = runTest {
         subject.uiState.test {
-            val state = awaitItem()
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
             assertFalse(state.canConfirm)
             assertEquals("", state.name)
             assertTrue(state.details.canEdit)
+            assertNull(state.details.categoryLabel)
+            assertEquals("Bodyweight only", state.details.equipment)
+            assertEquals("Weighted", state.details.loadTypeLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given equipment bodyweight action when selected then draft keeps bodyweight id")
+    fun bodyweightEquipmentAction() = runTest {
+        subject.onBeginChooseEquipment()
+        equipmentPickResult.publish(EquipmentId("cable"))
+        advanceUntilIdle()
+        subject.onAssignBodyweightEquipment()
+        advanceUntilIdle()
+
+        subject.uiState.test {
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertEquals("Bodyweight only", state.details.equipment)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -131,6 +163,30 @@ class CreateLiftViewModelTest {
         assertEquals(MuscleLengthBias.Lengthened, lift.muscleLengthBias)
         assertEquals(EquipmentId("cable"), lift.equipmentId)
         assertEquals("Cables", lift.equipmentName)
+    }
+
+    @Test
+    @DisplayName("Given valid draft with default equipment when confirmed then bodyweight id is persisted")
+    fun confirmPersistsDefaultBodyweightEquipment() = runTest {
+        subject.onNameChange("Push-Up")
+        subject.onAddMuscle(MuscleGroup.Chest)
+        subject.onOpenDetailEditor(LiftDetailEditField.MovementPatterns)
+        subject.onToggleDraftMovementPattern(MovementPattern.HorizontalPress.name)
+        subject.onConfirmMovementPatterns()
+        advanceUntilIdle()
+
+        subject.events.test {
+            subject.onConfirm()
+            advanceUntilIdle()
+            assertEquals(CreateLiftEvent.NavigateBack, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val lift = fakeLiftRepository.currentLifts.single()
+        assertEquals(SeedEquipmentIds.Bodyweight, lift.equipmentId)
+        // Empty bodyweight lattice → not inheritsFromEquipmentLattice (global fallback).
+        assertFalse(lift.inheritsFromEquipmentLattice)
+        assertEquals(LoadType.Weighted, lift.loadType)
     }
 
     @Test

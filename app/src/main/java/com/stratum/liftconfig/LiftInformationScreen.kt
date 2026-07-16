@@ -82,7 +82,7 @@ fun LiftInformationRoute(
                 onSelectLoadType = viewModel::onSelectLoadType,
                 onToggleDraftMovementPattern = viewModel::onToggleDraftMovementPattern,
                 onConfirmMovementPatterns = viewModel::onConfirmMovementPatterns,
-                onClearEquipment = viewModel::onClearEquipment,
+                onAssignBodyweightEquipment = viewModel::onAssignBodyweightEquipment,
                 onChooseEquipment = {
                     viewModel.onDismissDetailEditor()
                     viewModel.onBeginChooseEquipment()
@@ -155,7 +155,7 @@ fun LiftInformationScreen(
                                 onSelectLoadType = actions.onSelectLoadType,
                                 onToggleDraftMovementPattern = actions.onToggleDraftMovementPattern,
                                 onConfirmMovementPatterns = actions.onConfirmMovementPatterns,
-                                onClearEquipment = actions.onClearEquipment,
+                                onAssignBodyweightEquipment = actions.onAssignBodyweightEquipment,
                                 onChooseEquipment = actions.onChooseEquipment,
                                 onRestDraftChange = actions.onRestDraftChange,
                                 onSaveDefaultRest = actions.onSaveDefaultRest,
