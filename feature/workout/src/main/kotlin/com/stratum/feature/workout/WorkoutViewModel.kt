@@ -61,6 +61,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -165,6 +166,12 @@ class WorkoutViewModel @Inject constructor(
     private var liftsById: Map<LiftId, com.stratum.domain.lift.Lift> = emptyMap()
     private var fatigueByLiftId: Map<LiftId, FatigueDecay> = emptyMap()
     private var snapshotLoaded = false
+    /**
+     * `(workoutLiftId, catalogLiftId)` pairs from the last structure build. When merge (or
+     * any template rewrite) re-points catalog ids, this fingerprint changes and we rebuild
+     * structure + progression snapshot so names/previous/recs track the survivor lift.
+     */
+    private var templateLiftFingerprint: List<Pair<String, String>> = emptyList()
     private var baselineWorkout: Workout? = null
     /** Guards double-tap complete; reset when finalize fails so the user can retry. */
     private var isCompleting: Boolean = false
@@ -181,6 +188,7 @@ class WorkoutViewModel @Inject constructor(
         if (activeWorkoutId == workoutId && snapshotLoaded) return
         activeWorkoutId = workoutId
         snapshotLoaded = false
+        templateLiftFingerprint = emptyList()
         overlay = WorkoutOverlay()
         snapshotBySlot = emptyMap()
         structure = null
@@ -188,12 +196,18 @@ class WorkoutViewModel @Inject constructor(
         sessionObservationJob?.cancel()
         sessionObservationJob =
             viewModelScope.launch {
-                liftNamesById =
-                    observeLiftCatalog().first().associate { lift -> lift.id to lift.name }
-                liftsById =
-                    observeLiftCatalog().first().associateBy { lift -> lift.id }
                 fatigueByLiftId = observeLiftTrainingInsights()
-                observeCycleProgress().collect { progress ->
+                // Catalog is combined so a mid-session lift merge (delete/hide source + overlay
+                // remap) rebinds even when the program row fingerprint is unchanged.
+                combine(
+                    observeCycleProgress(),
+                    observeLiftCatalog(),
+                ) { progress, catalog ->
+                    progress to catalog
+                }.collect { (progress, catalog) ->
+                    liftNamesById = catalog.associate { lift -> lift.id to lift.name }
+                    liftsById = catalog.associateBy { lift -> lift.id }
+
                     val program = progress.program
                     val session = progress.activeSession
                     if (program == null || session == null || session.workoutId != workoutId) {
@@ -201,6 +215,7 @@ class WorkoutViewModel @Inject constructor(
                         sessionStartedAt = null
                         activeWorkoutId = null
                         snapshotLoaded = false
+                        templateLiftFingerprint = emptyList()
                         structure = null
                         snapshotBySlot = emptyMap()
                         overlay = WorkoutOverlay()
@@ -213,7 +228,14 @@ class WorkoutViewModel @Inject constructor(
                     sessionStartedAt = session.startedAt
                     val workout = program.workouts.firstOrNull { it.id == workoutId } ?: return@collect
                     baselineWorkout = workout
-                    if (!snapshotLoaded) {
+                    val fingerprint =
+                        workout.workoutLifts.map { lift ->
+                            lift.id.value to lift.liftId.value
+                        }
+                    val needsStructureRebuild =
+                        !snapshotLoaded || fingerprint != templateLiftFingerprint
+                    if (needsStructureRebuild) {
+                        val isInitialLoad = !snapshotLoaded
                         val projected = projectStructure(
                             workout,
                             liftNamesById,
@@ -234,37 +256,67 @@ class WorkoutViewModel @Inject constructor(
                             com.stratum.domain.workout.ProgressionSnapshot(workoutId, emptyMap()),
                         )
                         snapshotBySlot = snapshot.bySlot
-                        
-                        // Load already logged sets for the session from database (resume session support)
-                        val dbSets = getLoggedSetsForSession(session.id)
-                        val resumedLoggedSets = mutableMapOf<SetSlotId, LoggedSetValue>()
-                        for (dbSet in dbSets) {
-                            val slot = projected.lifts.flatMap { it.slots }.firstOrNull {
-                                it.workoutLiftId == dbSet.liftContext.workoutLiftId && it.position == dbSet.setIndex
+
+                        if (isInitialLoad) {
+                            // Load already logged sets for the session from database (resume).
+                            val dbSets = getLoggedSetsForSession(session.id)
+                            val resumedLoggedSets = mutableMapOf<SetSlotId, LoggedSetValue>()
+                            for (dbSet in dbSets) {
+                                val slot = projected.lifts.flatMap { it.slots }.firstOrNull {
+                                    it.workoutLiftId == dbSet.liftContext.workoutLiftId &&
+                                        it.position == dbSet.setIndex
+                                }
+                                if (slot != null) {
+                                    resumedLoggedSets[slot.slotId] = LoggedSetValue(
+                                        slotId = slot.slotId,
+                                        weight = dbSet.weight,
+                                        reps = dbSet.reps,
+                                        rir = dbSet.rir,
+                                    )
+                                }
                             }
-                            if (slot != null) {
-                                resumedLoggedSets[slot.slotId] = LoggedSetValue(
-                                    slotId = slot.slotId,
-                                    weight = dbSet.weight,
-                                    reps = dbSet.reps,
-                                    rir = dbSet.rir,
-                                )
+                            // Prefer a persisted overlay (process-death / merge rebind). On a
+                            // fresh session nothing is stored, so fall back to DB-resumed logs.
+                            val persisted = manageWorkoutOverlay.load(session.id)
+                            overlay = persisted ?: overlay.copy(loggedSets = resumedLoggedSets)
+                        } else {
+                            // Template catalog ids changed (e.g. lift merge re-point). Prefer
+                            // the store copy — MergeLiftsUseCase remaps swaps/added lifts there.
+                            val persisted = manageWorkoutOverlay.load(session.id)
+                            if (persisted != null) {
+                                overlay = persisted
                             }
                         }
-                        // Prefer a persisted overlay (process-death restore). On a fresh
-                        // session nothing is stored, so fall back to the DB-resumed logged
-                        // sets. The persisted overlay is authoritative: every mutation
-                        // persists in lockstep, so loggedSets/addedSlots/undoStack/etc. are
-                        // all captured for the resumed session.
-                        val persisted = manageWorkoutOverlay.load(session.id)
-                        overlay = persisted ?: overlay.copy(loggedSets = resumedLoggedSets)
+                        templateLiftFingerprint = fingerprint
                         snapshotLoaded = true
+                    } else {
+                        // Overlay-only rewrite (merge remaps swaps/adds without template change).
+                        val persisted = manageWorkoutOverlay.load(session.id)
+                        if (
+                            persisted != null &&
+                            catalogIdentitySignature(persisted) != catalogIdentitySignature(overlay)
+                        ) {
+                            overlay = persisted
+                        }
                     }
                     recomputeRecommendations()
                     render()
                 }
             }
     }
+
+    private fun catalogIdentitySignature(value: WorkoutOverlay): List<String> =
+        buildList {
+            value.swappedLifts.forEach { (workoutLiftId, liftId) ->
+                add("swap:${workoutLiftId.value}:${liftId.value}")
+            }
+            value.addedLifts.forEach { added ->
+                add("add:${added.workoutLiftId.value}:${added.liftId.value}")
+            }
+            value.addedSlots.forEach { slot ->
+                add("slot:${LiveWorkoutOverlayOps.slotKey(slot.slotId)}:${slot.liftId.value}")
+            }
+        }.sorted()
 
     fun logSet(slotKey: String, weight: Weight, reps: Int, rir: Int?) {
         val session = cachedSessionId ?: return
@@ -815,6 +867,7 @@ class WorkoutViewModel @Inject constructor(
         sessionObservationJob = null
         activeWorkoutId = null
         snapshotLoaded = false
+        templateLiftFingerprint = emptyList()
         structure = null
         snapshotBySlot = emptyMap()
         fatigueByLiftId = emptyMap()

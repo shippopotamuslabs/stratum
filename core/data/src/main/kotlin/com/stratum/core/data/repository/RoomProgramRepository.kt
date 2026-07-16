@@ -17,6 +17,7 @@ import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.ProgramId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 
@@ -40,14 +41,24 @@ class RoomProgramRepository @Inject constructor(
     private val syncTouch: SyncTouch,
 ) : ProgramRepository {
     override fun observeProgram(): Flow<Program?> =
-        programDao.observeActive().mapLatest { entity ->
-            if (entity == null) null else readProgram(entity.id)
-        }
+        // Re-read hierarchy when workout_lifts change (e.g. merge re-point) even if the
+        // parent program row is unchanged — observeActive alone would miss those writes.
+        combine(
+            programDao.observeActive(),
+            workoutLiftDao.observeAll(),
+        ) { entity, _ -> entity }
+            .mapLatest { entity ->
+                if (entity == null) null else readProgram(entity.id)
+            }
 
     override fun observeProgramById(programId: ProgramId): Flow<Program?> =
-        programDao.observeById(programId).mapLatest { entity ->
-            if (entity == null) null else readProgram(entity.id)
-        }
+        combine(
+            programDao.observeById(programId),
+            workoutLiftDao.observeAll(),
+        ) { entity, _ -> entity }
+            .mapLatest { entity ->
+                if (entity == null) null else readProgram(entity.id)
+            }
 
     override fun observeLibraryPrograms(): Flow<List<Program>> =
         programDao.observeLibrary().map { entities ->

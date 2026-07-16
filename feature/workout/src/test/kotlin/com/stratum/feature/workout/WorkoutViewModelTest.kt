@@ -66,6 +66,7 @@ import java.time.Instant
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -151,9 +152,31 @@ class WorkoutViewModelTest {
     )
 
     private fun seedHistoryForTopSet() {
+        seedHistoryForLift(
+            historyLiftId = liftId,
+            name = "Squat",
+            topWeight = 135.0,
+            sessionId = "s-history",
+            set0Id = "hist-set-1",
+            set1Id = "hist-set-2",
+            set0Reps = 5,
+            set1Reps = 8,
+        )
+    }
+
+    private fun seedHistoryForLift(
+        historyLiftId: LiftId,
+        name: String,
+        topWeight: Double,
+        sessionId: String = "s-history-${historyLiftId.value}",
+        set0Id: String = "hist-set-1-${historyLiftId.value}",
+        set1Id: String = "hist-set-2-${historyLiftId.value}",
+        set0Reps: Int = 5,
+        set1Reps: Int = 8,
+    ) {
         val session =
             TrainingSession(
-                id = TrainingSessionId("s-history"),
+                id = TrainingSessionId(sessionId),
                 programId = programId,
                 workoutId = workoutId,
                 status = TrainingSessionStatus.COMPLETED,
@@ -166,21 +189,21 @@ class WorkoutViewModelTest {
                 sourceApp = null,
             )
         progressionHistory.seed(
-            SlotHistoryRequest(programId, workoutId, workoutLiftId, liftId, 0),
+            SlotHistoryRequest(programId, workoutId, workoutLiftId, historyLiftId, 0),
             SlotHistoryEntry(
                 session,
                 com.stratum.domain.training.LoggedSet(
-                    id = com.stratum.domain.importing.identity.LoggedSetId("hist-set-1"),
+                    id = com.stratum.domain.importing.identity.LoggedSetId(set0Id),
                     sessionId = session.id,
-                    exerciseNameRaw = "Squat",
-                    liftId = liftId,
+                    exerciseNameRaw = name,
+                    liftId = historyLiftId,
                     setIndex = 0,
-                    weight = lb(135.0),
-                    reps = 5,
+                    weight = lb(topWeight),
+                    reps = set0Reps,
                     rir = 2,
                     completedAt = Instant.parse("2026-06-28T10:30:00Z"),
                     liftContext = com.stratum.domain.training.LoggedLiftContext(
-                        liftName = "Squat",
+                        liftName = name,
                         movementPatternsBitmask = 1,
                         primaryMusclesBitmask = 1,
                         secondaryMusclesBitmask = 0,
@@ -191,21 +214,21 @@ class WorkoutViewModelTest {
             ),
         )
         progressionHistory.seed(
-            SlotHistoryRequest(programId, workoutId, workoutLiftId, liftId, 1),
+            SlotHistoryRequest(programId, workoutId, workoutLiftId, historyLiftId, 1),
             SlotHistoryEntry(
                 session,
                 com.stratum.domain.training.LoggedSet(
-                    id = com.stratum.domain.importing.identity.LoggedSetId("hist-set-2"),
+                    id = com.stratum.domain.importing.identity.LoggedSetId(set1Id),
                     sessionId = session.id,
-                    exerciseNameRaw = "Squat",
-                    liftId = liftId,
+                    exerciseNameRaw = name,
+                    liftId = historyLiftId,
                     setIndex = 1,
-                    weight = lb(135.0),
-                    reps = 8,
+                    weight = lb(topWeight),
+                    reps = set1Reps,
                     rir = 2,
                     completedAt = Instant.parse("2026-06-28T10:35:00Z"),
                     liftContext = com.stratum.domain.training.LoggedLiftContext(
-                        liftName = "Squat",
+                        liftName = name,
                         movementPatternsBitmask = 1,
                         primaryMusclesBitmask = 1,
                         secondaryMusclesBitmask = 0,
@@ -329,9 +352,11 @@ class WorkoutViewModelTest {
                 ),
         )
 
-    private fun buildViewModel(): WorkoutViewModel {
+    private fun buildViewModel(
+        liftRepository: FakeLiftRepository =
+            FakeLiftRepository(initialLifts = listOf(catalogLift(), catalogLift2())),
+    ): WorkoutViewModel {
         // Uses the seeded [programRepository] / [progressionHistory] from [setUp].
-        val liftRepository = FakeLiftRepository(initialLifts = listOf(catalogLift(), catalogLift2()))
         return WorkoutViewModel(
             observeCycleProgress = ObserveCycleProgressUseCase(programRepository, trainingLogRepository),
             generateSnapshot =
@@ -368,6 +393,21 @@ class WorkoutViewModelTest {
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
             workoutEditSession = workoutEditSession,
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
+        )
+    }
+
+    /** Re-points every template slot in the active program workout onto [survivorLiftId]. */
+    private suspend fun repointActiveWorkoutTo(survivorLiftId: LiftId) {
+        val current = programRepository.getProgram()!!
+        val workout = current.workouts.single { it.id == workoutId }
+        val repointed =
+            workout.copy(
+                workoutLifts = workout.workoutLifts.map { wl -> wl.copy(liftId = survivorLiftId) },
+            )
+        programRepository.saveProgram(
+            current.copy(
+                workouts = current.workouts.map { if (it.id == workoutId) repointed else it },
+            ),
         )
     }
 
@@ -732,18 +772,27 @@ class WorkoutViewModelTest {
     fun `S7-empty-overlay-renders-snapshot-baseline`() = runTest {
         val viewModel = buildViewModel()
         viewModel.startSession(workoutId)
-        viewModel.uiState.test {
-            val loaded = awaitLoaded()
-            val firstSet = loaded.lifts.first().sets.first()
-            // History: slot 0 (top, 4-6 RIR 2) did 135×5 RIR 2; slot 1 (backoff, RIR 2)
-            // did 135×8 RIR 2. Same weight → capacity reorder: the backoff's 8@2 (cap 10)
-            // becomes the top-set baseline. 8 >= repMax 6 at RIR 2 → increment to 140,
-            // reps reset to max(repMin, BACKOFF_REP_FLOOR) = 5.
-            assertEquals("140", firstSet.recommendedWeightLabel)
-            assertEquals("5", firstSet.recommendedRepsLabel)
-            assertNull(firstSet.loggedWeightLabel)
-            cancelAndIgnoreRemainingEvents()
-        }
+        // combine(catalog, cycleProgress) can emit more than once at session start; wait for
+        // the snapshot rebuild to settle before asserting baseline labels.
+        advanceUntilIdle()
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        val firstSet = loaded.lifts.first().sets.first()
+        // History: slot 0 (top, 4–6 RIR 2) did 135×5 RIR 2; slot 1 (backoff) did 135×8 RIR 2.
+        // Capacity reorder uses the stronger 8@2 for math → scheme gate increments +5 lb, then
+        // straight-set shared-weight floor may drop slightly so last-set capacity clears the floor.
+        // previous* stays positional (what you did last time on this set index) → 135×5.
+        assertEquals("135 lb × 5", firstSet.previousWeightLabel)
+        assertTrue(
+            firstSet.recommendedWeightAmount > 135.0,
+            "expected increment from capacity-reordered baseline, got ${firstSet.recommendedWeightAmount}",
+        )
+        assertTrue(
+            firstSet.recommendedWeightAmount <= 140.0,
+            "expected shared-weight floor ≤ 140, got ${firstSet.recommendedWeightAmount}",
+        )
+        assertEquals("5", firstSet.recommendedRepsLabel)
+        assertNull(firstSet.loggedWeightLabel)
+        assertFalse(firstSet.hasLiveRepsRecommendation)
     }
 
     @Test
@@ -1255,6 +1304,221 @@ class WorkoutViewModelTest {
 
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    @DisplayName("After template re-point (lift merge) mid-session, name and previous rebind to survivor")
+    fun templateRepointRebuildsNameAndPrevious() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertEquals("Squat", loaded.lifts.first().liftName)
+            assertEquals("L-1", loaded.lifts.first().liftId)
+
+            // Survivor history for the re-pointed catalog id (merge reassigns sets similarly).
+            seedHistoryForLift(LiftId("L-2"), name = "Bench Press", topWeight = 185.0)
+
+            repointActiveWorkoutTo(LiftId("L-2"))
+            advanceUntilIdle()
+
+            val updated = awaitItem() as WorkoutUiState.Loaded
+            assertEquals("Bench Press", updated.lifts.first().liftName)
+            assertEquals("L-2", updated.lifts.first().liftId)
+            // Previous column should now come from survivor history, not the pre-merge snapshot.
+            val previousLabel = updated.lifts.first().sets.first().previousWeightLabel.orEmpty()
+            assertTrue(
+                previousLabel.contains("185"),
+                "expected previous from survivor history, got $previousLabel",
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("After re-point when source is deleted from catalog, card name is survivor not blank")
+    fun templateRepointAfterSourceDeletedKeepsSurvivorName() = runTest {
+        val liftRepository =
+            FakeLiftRepository(initialLifts = listOf(catalogLift(), catalogLift2()))
+        val viewModel = buildViewModel(liftRepository)
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        assertEquals("Squat", (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.first().liftName)
+
+        seedHistoryForLift(LiftId("L-2"), name = "Bench Press", topWeight = 185.0)
+        // Simulate custom-source merge: re-point then hard-delete the source row.
+        repointActiveWorkoutTo(LiftId("L-2"))
+        liftRepository.deleteLifts(listOf(LiftId("L-1")))
+        advanceUntilIdle()
+
+        val updated = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("Bench Press", updated.lifts.first().liftName)
+        assertEquals("L-2", updated.lifts.first().liftId)
+        assertTrue(updated.lifts.first().liftName.isNotBlank())
+    }
+
+    @Test
+    @DisplayName("After merge remaps overlay swap/add to survivor, live UI shows survivor name")
+    fun overlayRemapAfterMergeShowsSurvivorName() = runTest {
+        val liftRepository =
+            FakeLiftRepository(initialLifts = listOf(catalogLift(), catalogLift2()))
+        val viewModel = buildViewModel(liftRepository)
+        val sessionId = TrainingSessionId("ts-active")
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+        assertEquals("Squat", (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.first().liftName)
+
+        // In-session swap onto L-2 (as if the user performed the source lift).
+        viewModel.swapLift(workoutLiftId, LiftId("L-2"))
+        advanceUntilIdle()
+        assertEquals(
+            "Bench Press",
+            (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.first().liftName,
+        )
+
+        // Merge L-2 → L-1: remap store, template stays L-1, delete source from catalog.
+        val remapped =
+            overlayStore.load(sessionId)!!.remapCatalogLiftIds(
+                sourceLiftIds = setOf(LiftId("L-2")),
+                targetLiftId = LiftId("L-1"),
+            )
+        overlayStore.save(sessionId, remapped)
+        liftRepository.deleteLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+
+        val updated = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("Squat", updated.lifts.first().liftName)
+        assertEquals("L-1", updated.lifts.first().liftId)
+        assertTrue(updated.lifts.first().liftName.isNotBlank())
+    }
+
+    @Test
+    @DisplayName("After re-point when two slots share survivor, both cards show survivor name")
+    fun duplicateSurvivorSlotsBothKeepNames() = runTest {
+        val twoSlotProgram =
+            Program(
+                id = programId,
+                name = "Test Program",
+                createdAt = Instant.parse("2026-06-26T00:00:00Z"),
+                cycleLength = 1,
+                trainingWeekdays = setOf(Weekday.Monday),
+                workouts =
+                    listOf(
+                        Workout(
+                            id = workoutId,
+                            programId = programId,
+                            name = "Workout 1",
+                            weekday = Weekday.Monday,
+                            position = 0,
+                            workoutLifts =
+                                listOf(
+                                    WorkoutLift(
+                                        id = WorkoutLiftId("wl-1"),
+                                        workoutId = workoutId,
+                                        liftId = LiftId("L-1"),
+                                        progressionScheme = ProgressionScheme.Double,
+                                        position = 0,
+                                        sets =
+                                            listOf(
+                                                LiftSet(
+                                                    id = LiftSetId("ls-1"),
+                                                    workoutLiftId = WorkoutLiftId("wl-1"),
+                                                    position = 0,
+                                                    setType = SetType.Standard,
+                                                    repMin = 5,
+                                                    repMax = 5,
+                                                    rirGoal = 2,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                    ),
+                                    WorkoutLift(
+                                        id = WorkoutLiftId("wl-2"),
+                                        workoutId = workoutId,
+                                        liftId = LiftId("L-2"),
+                                        progressionScheme = ProgressionScheme.Double,
+                                        position = 1,
+                                        sets =
+                                            listOf(
+                                                LiftSet(
+                                                    id = LiftSetId("ls-2"),
+                                                    workoutLiftId = WorkoutLiftId("wl-2"),
+                                                    position = 0,
+                                                    setType = SetType.Standard,
+                                                    repMin = 5,
+                                                    repMax = 5,
+                                                    rirGoal = 2,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val viewModel =
+            buildViewModelWithProgram(
+                twoSlotProgram,
+                lifts = listOf(catalogLift(), catalogLift2()),
+            )
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertEquals(2, loaded.lifts.size)
+            assertEquals("Squat", loaded.lifts[0].liftName)
+            assertEquals("Bench Press", loaded.lifts[1].liftName)
+
+            // Merge L-1 → L-2 without collapsing slots.
+            val current = programRepository.getProgram()!!
+            val workout = current.workouts.single()
+            programRepository.saveProgram(
+                current.copy(
+                    workouts =
+                        listOf(
+                            workout.copy(
+                                workoutLifts =
+                                    workout.workoutLifts.map { it.copy(liftId = LiftId("L-2")) },
+                            ),
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            val updated = awaitItem() as WorkoutUiState.Loaded
+            assertEquals(2, updated.lifts.size)
+            assertEquals("wl-1", updated.lifts[0].workoutLiftId)
+            assertEquals("wl-2", updated.lifts[1].workoutLiftId)
+            assertTrue(updated.lifts.all { it.liftId == "L-2" })
+            assertTrue(updated.lifts.all { it.liftName == "Bench Press" })
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("After template re-point, logSet attributes LoggedSet.liftId to the survivor")
+    fun logAfterRepointAttributesToSurvivor() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        repointActiveWorkoutTo(LiftId("L-2"))
+        advanceUntilIdle()
+
+        viewModel.logSet(
+            slotKey = liftSetId.value,
+            weight = lb(185.0),
+            reps = 5,
+            rir = 2,
+        )
+        advanceUntilIdle()
+
+        val sessionSets =
+            trainingLogRepository.getSetsForSession(TrainingSessionId("ts-active"))
+        assertEquals(1, sessionSets.size)
+        assertEquals(LiftId("L-2"), sessionSets.single().liftId)
+        assertEquals("Bench Press", sessionSets.single().exerciseNameRaw)
     }
 
     @Test

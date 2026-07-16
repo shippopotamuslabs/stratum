@@ -6,6 +6,7 @@ import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.training.ComputePersonalRecordsUseCase
 import com.stratum.domain.training.RebuildLocalDerivedTrainingDataUseCase
 import com.stratum.domain.training.TrainingLogRepository
+import com.stratum.domain.workout.WorkoutOverlayStore
 import javax.inject.Inject
 
 /**
@@ -14,10 +15,12 @@ import javax.inject.Inject
  * - Logged sets for each source get `liftId` = [targetLiftId] and snapshot names rewritten to
  *   the target's catalog name. Other snapshot metadata is left unchanged.
  * - Survivor catalog metadata (muscles, equipment, increments, etc.) is never modified.
- * - Program `workout_lifts` that pointed at sources are re-pointed to the target.
+ * - Program `workout_lifts` that pointed at sources are re-pointed to the target. The same
+ *   catalog lift may appear more than once in a workout after re-point (no slot collapse).
  * - **Seed** sources are **hidden** (`enabled = false`), not deleted — keeps the shared catalog
  *   row for re-enable / reseed integrity (same pattern as import non-recent customs).
  * - **Custom** sources are hard-deleted after re-point.
+ * - Active-session overlay catalog ids (swaps / mid-session adds) are remapped to the survivor.
  * - Structural mutations run via [MergeLiftsPort] in one data-layer transaction.
  * - Personal records are demoted inside that transaction, then recomputed post-commit.
  */
@@ -27,6 +30,7 @@ class MergeLiftsUseCase @Inject constructor(
     private val mergeLiftsPort: MergeLiftsPort,
     private val computePersonalRecords: ComputePersonalRecordsUseCase,
     private val rebuildLocalDerived: RebuildLocalDerivedTrainingDataUseCase,
+    private val workoutOverlayStore: WorkoutOverlayStore,
     private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(
@@ -53,6 +57,11 @@ class MergeLiftsUseCase @Inject constructor(
                 sourcesToDelete = sourcesToDelete,
             )
 
+            remapActiveSessionOverlay(
+                sourceLiftIds = sourceLiftIds,
+                targetLiftId = targetLiftId,
+            )
+
             recomputePersonalRecords(targetLiftId)
 
             rebuildLocalDerived().onFailure { error ->
@@ -62,6 +71,18 @@ class MergeLiftsUseCase @Inject constructor(
                 )
             }
         }
+
+    private suspend fun remapActiveSessionOverlay(
+        sourceLiftIds: Set<LiftId>,
+        targetLiftId: LiftId,
+    ) {
+        val session = trainingLogRepository.getActiveSession() ?: return
+        val overlay = workoutOverlayStore.load(session.id) ?: return
+        val remapped = overlay.remapCatalogLiftIds(sourceLiftIds, targetLiftId)
+        if (remapped !== overlay) {
+            workoutOverlayStore.save(session.id, remapped)
+        }
+    }
 
     private suspend fun recomputePersonalRecords(targetLiftId: LiftId) {
         val allForTarget = trainingLogRepository.getSetsForLift(targetLiftId)

@@ -4,11 +4,11 @@ import com.stratum.domain.lift.identity.LiftId
 
 /**
  * Atomic persistence boundary for [MergeLiftsUseCase]. Implementations must apply all structural
- * mutations in a single transaction (history reassignment, program template re-point, hide seed
- * sources, delete custom sources + sync tombstones).
+ * mutations in a single transaction (history reassignment, program template re-point without
+ * collapsing duplicate slots, hide seed sources, delete custom sources + sync tombstones).
  *
- * Personal-record recompute and derived weekly rebuild are intentionally **outside** this port
- * (post-commit).
+ * Personal-record recompute, active-session overlay remap, and derived weekly rebuild are
+ * intentionally **outside** this port (post-commit).
  */
 interface MergeLiftsPort {
     /**
