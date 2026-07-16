@@ -95,6 +95,8 @@ fun CreateProgramRoute(
                     onBackClick()
                 },
                 onDismissDiscard = viewModel::dismissDiscard,
+                onConfirmActiveSessionDiscard = viewModel::confirmActiveSessionDiscard,
+                onDismissActiveSessionDiscard = viewModel::dismissActiveSessionDiscard,
             ),
         modifier = modifier.fillMaxSize(),
     )

@@ -10,6 +10,11 @@ data class ProgramLibraryUiState(
     val pendingDeleteProgramName: String? = null,
     /** True when the program pending delete has an in-progress training session. */
     val pendingDeleteHasActiveSession: Boolean = false,
+    /**
+     * Program id waiting for activate confirmation when an in-progress session would be discarded.
+     */
+    val pendingActivateProgramId: String? = null,
+    val pendingActivateProgramName: String? = null,
     val isDeleting: Boolean = false,
     val userMessage: String? = null,
 )

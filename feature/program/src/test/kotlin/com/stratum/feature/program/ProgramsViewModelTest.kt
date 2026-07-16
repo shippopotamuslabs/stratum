@@ -190,7 +190,7 @@ class ProgramsViewModelTest {
         }
 
         @Test
-        fun `orphan active session after workout delete still shows cancelable bar`() = runTest {
+        fun `orphan active session is abandoned and bar stays empty`() = runTest {
             repository = FakeProgramRepository(PROGRAM_PPL)
             val trainingLog = FakeTrainingLogRepository(programRepository = repository)
             trainingLog.seedSession(
@@ -240,16 +240,16 @@ class ProgramsViewModelTest {
                         SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository(), logging),
                 )
 
+            // Collect bar so WhileSubscribed starts; orphan cleanup runs from init.
             viewModel.activeWorkoutBarState.test {
-                var state = awaitItem()
-                if (state == null) {
-                    state = awaitItem()
-                }
-                assertEquals("deleted-w", state?.workoutId)
-                assertEquals("Deleted Day", state?.workoutName)
-                assertEquals("Workout removed from program", state?.nextLiftName)
+                assertNull(awaitItem())
+                advanceUntilIdle()
+                expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
+            assertNull(trainingLog.getActiveSession())
+            // Keep VM referenced so init collector is not GC'd mid-test.
+            assertNull(viewModel.activeWorkoutBarState.value)
         }
     }
 
