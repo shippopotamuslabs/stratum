@@ -4,6 +4,7 @@ import type OpenAI from "openai";
 import {
   coerceProgramTemplate,
   convertProgramTemplateWithLlm,
+  looksLikeNameOnlyShell,
 } from "./programTemplateLlmConvert";
 
 function fakeCompletion(content: string): OpenAI.Chat.Completions.ChatCompletion {
@@ -62,6 +63,63 @@ describe("programTemplateLlmConvert", () => {
     assert.equal(t.programName, "P");
     assert.equal(t.workouts[0]!.lifts[0]!.name, "Squat");
     assert.equal(t.workouts[0]!.lifts[0]!.sets[0]!.isTopSet, true);
+  });
+
+  it("expands compact setCount + shared rep range server-side", () => {
+    const t = coerceProgramTemplate({
+      programName: "5-Day Hypertrophy",
+      cycleLength: 5,
+      workouts: [
+        {
+          name: "Upper A",
+          weekday: null,
+          position: 0,
+          lifts: [
+            {
+              name: "T-Bar Row",
+              position: 0,
+              setCount: 4,
+              repMin: 10,
+              repMax: 14,
+              rirGoal: null,
+              restSeconds: null,
+              setTypeLabel: null,
+              supersetGroupKey: null,
+            },
+          ],
+        },
+      ],
+    });
+    const lift = t.workouts[0]!.lifts[0]!;
+    assert.equal(lift.sets.length, 4);
+    assert.equal(lift.sets[0]!.isTopSet, true);
+    assert.equal(lift.sets[1]!.isTopSet, false);
+    assert.equal(lift.sets[0]!.repMin, 10);
+    assert.equal(lift.sets[3]!.repMax, 14);
+  });
+
+  it("treats sets-as-number as setCount for compact lifts", () => {
+    const t = coerceProgramTemplate({
+      workouts: [
+        {
+          name: "Day 1",
+          lifts: [{ name: "Squat", sets: 3, repMin: 5, repMax: 8 }],
+        },
+      ],
+    });
+    assert.equal(t.workouts[0]!.lifts[0]!.sets.length, 3);
+  });
+
+  it("detects name-only workout shells", () => {
+    const t = coerceProgramTemplate({
+      programName: "5-Day Hypertrophy",
+      workouts: [
+        { name: "Upper A", weekday: null },
+        { name: "Lower A", weekday: null },
+      ],
+    });
+    assert.equal(t.workouts[0]!.lifts.length, 0);
+    assert.equal(looksLikeNameOnlyShell(t), true);
   });
 
   it("returns validated template on first successful model call", async () => {

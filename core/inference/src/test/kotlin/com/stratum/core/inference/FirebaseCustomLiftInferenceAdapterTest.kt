@@ -46,6 +46,31 @@ class FirebaseCustomLiftInferenceAdapterTest {
     }
 
     @Test
+    @DisplayName("parseResponse ignores wire primaryMuscles and derives from movementPattern")
+    fun ignoresWireMuscles() {
+        val data =
+            mapOf(
+                "lifts" to
+                    listOf(
+                        mapOf(
+                            "name" to "Machine Crunch",
+                            "movementPattern" to "SpinalFlexion",
+                            "primaryMuscles" to listOf("Quad"),
+                            "secondaryMuscles" to listOf("Hamstring"),
+                            "loading" to
+                                mapOf(
+                                    "type" to "seed",
+                                    "equipmentId" to "pin-loaded-machine",
+                                ),
+                        ),
+                    ),
+            )
+        val parsed = FirebaseCustomLiftInferenceAdapter.parseResponse(data)
+        assertEquals(setOf(MuscleGroup.Ab), parsed.single().primaryMuscles)
+        assertTrue(parsed.single().secondaryMuscles.none { it == MuscleGroup.Quad })
+    }
+
+    @Test
     @DisplayName("parseResponse maps plate-loaded dual-horn seed to double-weight-plates")
     fun parsesDoubleWeightPlates() {
         val name = "Seated Neutral Grip Plate-Loaded Machine Press"

@@ -5,9 +5,10 @@ import {
   DEFAULT_CUSTOM_INCREMENT_LB,
   DEFAULT_EQUIPMENT_NAME,
   parseInferredCustomLifts,
+  primaryMusclesForPattern,
 } from "./customLiftInferenceSchema";
 
-/** Helper: seed loading fields for fixtures. */
+/** Helper: seed loading fields for fixtures (pattern-only LLM schema). */
 function seedLoading(kind: string) {
   return {
     equipmentKind: kind,
@@ -24,15 +25,11 @@ describe("parseInferredCustomLifts", () => {
           {
             name: "Katana Triceps Extension",
             movementPattern: "ElbowExtension",
-            primaryMuscles: ["Tricep"],
-            secondaryMuscles: [],
             ...seedLoading("cable"),
           },
           {
             name: "Not Requested",
             movementPattern: "ElbowFlexion",
-            primaryMuscles: ["Bicep"],
-            secondaryMuscles: [],
             ...seedLoading("dumbbell"),
           },
         ],
@@ -55,8 +52,6 @@ describe("parseInferredCustomLifts", () => {
           {
             name,
             movementPattern: "HorizontalPress",
-            primaryMuscles: ["Chest"],
-            secondaryMuscles: [],
             ...seedLoading("double-weight-plates"),
           },
         ],
@@ -77,9 +72,7 @@ describe("parseInferredCustomLifts", () => {
         lifts: [
           {
             name: "Pro2 Pec Fly",
-            movementPattern: "HorizontalPress",
-            primaryMuscles: ["Chest"],
-            secondaryMuscles: [],
+            movementPattern: "ShoulderAdduction",
             equipmentKind: "custom",
             customEquipmentName: "Life Fitness Pro2 Stack",
             customIncrementLb: 12.5,
@@ -95,6 +88,7 @@ describe("parseInferredCustomLifts", () => {
       name: "Life Fitness Pro2 Stack",
       incrementLb: 12.5,
     });
+    assert.deepEqual(rows[0]?.primaryMuscles, ["Chest"]);
   });
 
   it("falls back blank custom name to shared Default equipment and +5 increment", () => {
@@ -104,8 +98,6 @@ describe("parseInferredCustomLifts", () => {
           {
             name: "Mystery Brand Press",
             movementPattern: "HorizontalPress",
-            primaryMuscles: ["Chest"],
-            secondaryMuscles: [],
             equipmentKind: "custom",
             customEquipmentName: null,
             customIncrementLb: null,
@@ -130,8 +122,6 @@ describe("parseInferredCustomLifts", () => {
           {
             name: "Unknown Gizmo",
             movementPattern: "ElbowExtension",
-            primaryMuscles: ["Tricep"],
-            secondaryMuscles: [],
             equipmentKind: "not-a-real-kind",
             customEquipmentName: null,
             customIncrementLb: null,
@@ -156,8 +146,6 @@ describe("parseInferredCustomLifts", () => {
           {
             name: "Wild Stack",
             movementPattern: "HorizontalPress",
-            primaryMuscles: ["Chest"],
-            secondaryMuscles: [],
             equipmentKind: "custom",
             customEquipmentName: "Wild Stack",
             customIncrementLb: 1_000_000,
@@ -174,22 +162,13 @@ describe("parseInferredCustomLifts", () => {
     });
   });
 
-  it("rejects rows with invalid enums or missing primary muscles", () => {
+  it("rejects rows with invalid movement patterns", () => {
     const rows = parseInferredCustomLifts(
       {
         lifts: [
           {
             name: "Mystery Move",
             movementPattern: "NotReal",
-            primaryMuscles: ["Tricep"],
-            secondaryMuscles: [],
-            ...seedLoading("cable"),
-          },
-          {
-            name: "Mystery Move",
-            movementPattern: "ElbowExtension",
-            primaryMuscles: [],
-            secondaryMuscles: [],
             ...seedLoading("cable"),
           },
         ],
@@ -200,19 +179,39 @@ describe("parseInferredCustomLifts", () => {
     assert.equal(rows.length, 0);
   });
 
+  it("ignores LLM primary muscle fields and derives from pattern", () => {
+    const rows = parseInferredCustomLifts(
+      {
+        lifts: [
+          {
+            name: "Machine Crunch",
+            movementPattern: "SpinalFlexion",
+            // Legacy/stale model fields — must not be trusted.
+            primaryMuscles: ["Quad"],
+            secondaryMuscles: ["Hamstring"],
+            ...seedLoading("pin-loaded-machine"),
+          },
+        ],
+      },
+      new Set(["Machine Crunch"]),
+    );
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.primaryMuscles, ["Ab"]);
+    assert.deepEqual(rows[0]?.secondaryMuscles, []);
+  });
+
   it("caps batch size constant matches domain", () => {
     assert.equal(CUSTOM_LIFT_INFERENCE_MAX_BATCH, 75);
   });
 
-  it("adds bicep secondary for pull patterns when the LLM omits it", () => {
+  it("adds bicep secondary for pull patterns", () => {
     const rows = parseInferredCustomLifts(
       {
         lifts: [
           {
             name: "Neutral Wide Grip Cable Row",
             movementPattern: "HorizontalPull",
-            primaryMuscles: ["Back"],
-            secondaryMuscles: [],
             ...seedLoading("cable"),
           },
         ],
@@ -221,18 +220,17 @@ describe("parseInferredCustomLifts", () => {
     );
 
     assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0]?.primaryMuscles, ["Back"]);
     assert.deepEqual(rows[0]?.secondaryMuscles, ["Bicep"]);
   });
 
-  it("adds tricep secondary for compound push patterns when the LLM omits it", () => {
+  it("adds tricep secondary for compound push patterns", () => {
     const rows = parseInferredCustomLifts(
       {
         lifts: [
           {
             name: "Machine Chest Press",
             movementPattern: "HorizontalPress",
-            primaryMuscles: ["Chest"],
-            secondaryMuscles: [],
             ...seedLoading("pin-loaded-machine"),
           },
         ],
@@ -244,44 +242,20 @@ describe("parseInferredCustomLifts", () => {
     assert.deepEqual(rows[0]?.secondaryMuscles, ["Tricep"]);
   });
 
-  it("keeps up to 4 secondary muscles for compound lifts", () => {
+  it("derives hinge muscles as glute + hamstring", () => {
+    assert.deepEqual(primaryMusclesForPattern("HipHinge"), ["Glute", "Hamstring"]);
     const rows = parseInferredCustomLifts(
       {
         lifts: [
           {
-            name: "Close-Grip Bench Press",
-            movementPattern: "HorizontalPress",
-            primaryMuscles: ["Chest"],
-            secondaryMuscles: ["Tricep", "AnteriorDeltoid", "Bicep", "Back"],
-            ...seedLoading("double-weight-plates"),
+            name: "Weighted Roman Chair Hip Hinge",
+            movementPattern: "HipHinge",
+            ...seedLoading("bodyweight"),
           },
         ],
       },
-      new Set(["Close-Grip Bench Press"]),
+      new Set(["Weighted Roman Chair Hip Hinge"]),
     );
-
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0]?.secondaryMuscles.length, 4);
-    assert.deepEqual(rows[0]?.secondaryMuscles, ["Tricep", "AnteriorDeltoid", "Bicep", "Back"]);
-  });
-
-  it("dedupes a secondary muscle already listed as primary", () => {
-    const rows = parseInferredCustomLifts(
-      {
-        lifts: [
-          {
-            name: "Hip Thrust",
-            movementPattern: "HipExtension",
-            primaryMuscles: ["Glute"],
-            secondaryMuscles: ["Glute", "Hamstring"],
-            ...seedLoading("double-weight-plates"),
-          },
-        ],
-      },
-      new Set(["Hip Thrust"]),
-    );
-
-    assert.equal(rows.length, 1);
-    assert.deepEqual(rows[0]?.secondaryMuscles, ["Hamstring"]);
+    assert.deepEqual(rows[0]?.primaryMuscles, ["Glute", "Hamstring"]);
   });
 });

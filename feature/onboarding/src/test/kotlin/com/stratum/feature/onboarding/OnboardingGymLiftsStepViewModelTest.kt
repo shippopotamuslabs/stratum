@@ -329,6 +329,46 @@ class OnboardingGymLiftsStepViewModelTest {
     }
 
     @Test
+    @DisplayName("Given failed then cancelled import when a new file is selected then import runs again")
+    fun cancelThenRetryStartsFreshImport() = runTest {
+        OnboardingViewModelTestFixtures.fakeHistoricalImport.setEvents(
+            listOf(HistoricalImportEvent.Failed("Conversion failed.")),
+        )
+        subject = OnboardingViewModelTestFixtures.buildViewModel()
+        subject.onImportFilesSelected(listOf(ImportFileInput("bad".toByteArray(), "export.csv")))
+        advanceUntilIdle()
+
+        subject.onCancelImport()
+        advanceUntilIdle()
+
+        OnboardingViewModelTestFixtures.fakeHistoricalImport.resetInvocations()
+        OnboardingViewModelTestFixtures.fakeHistoricalImport.setEvents(
+            listOf(
+                HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)),
+                HistoricalImportEvent.Completed(
+                    com.stratum.domain.importing.ExtractTrainingInsightsSummary(
+                        liftsWithInsights = 1,
+                        supersetPairs = 0,
+                        musclesWithBaselines = 1,
+                    ),
+                ),
+            ),
+        )
+
+        subject.onImportFilesSelected(listOf(ImportFileInput("good".toByteArray(), "export.csv")))
+        advanceUntilIdle()
+
+        assertEquals(1, OnboardingViewModelTestFixtures.fakeHistoricalImport.invocations.size)
+        subject.uiState.test {
+            val draft = awaitItem().gymLiftsDraft
+            assertTrue(draft.importComplete)
+            assertFalse(draft.importFailed)
+            assertNull(draft.importError)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given more than max files when import starts then it fails without invoking runner")
     fun tooManyFilesRejected() = runTest {
         subject = OnboardingViewModelTestFixtures.buildViewModel()

@@ -38,7 +38,7 @@ class ResolveImportLiftsUseCaseTest {
                 results =
                     listOf(
                         InferredCustomLiftMetadata(
-                            exerciseNameRaw = "Katana Triceps Extension",
+                            exerciseNameRaw = "Katana Special Gizmo",
                             movementPattern = MovementPattern.ElbowExtension,
                             primaryMuscles = setOf(MuscleGroup.Tricep),
                             secondaryMuscles = emptySet(),
@@ -51,21 +51,53 @@ class ResolveImportLiftsUseCaseTest {
         val outcome =
             subject(
                 listOf(
-                    loggedSet(exerciseNameRaw = "Katana Triceps Extension"),
-                    loggedSet(exerciseNameRaw = "Katana Triceps Extension"),
+                    loggedSet(exerciseNameRaw = "Katana Special Gizmo"),
+                    loggedSet(exerciseNameRaw = "Katana Special Gizmo"),
                 ),
             )
 
         assertEquals(2, outcome.resolvedSets.size)
         assertTrue(outcome.resolvedSets.all { it.liftId != null })
         assertEquals(1, outcome.summary.customLiftsCreated)
+        assertEquals(1, outcome.summary.customLiftLlmInferredCount)
         assertEquals(0, outcome.summary.distinctCatalogLiftsEnabledInFirstPass)
         val custom = liftRepo.currentLifts.single { it.isCustom }
-        assertEquals("Katana Triceps Extension", custom.name)
+        assertEquals("Katana Special Gizmo", custom.name)
         assertEquals(MovementPattern.ElbowExtension, custom.movementPatterns.first())
         assertEquals(setOf(MuscleGroup.Tricep), custom.primaryMuscles)
         assertEquals(SeedEquipmentIds.Cable, custom.equipmentId)
         assertEquals(1, inference.invocations.single().size)
+    }
+
+    @Test
+    @DisplayName("Given name-rule match when resolving then custom lift is created without LLM")
+    fun nameRulesCreateCustomLiftWithoutLlm() = runTest {
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        val inference = FakeCustomLiftInferencePort(fail = true)
+        val subject = buildSubject(liftRepo, customInference = inference)
+
+        val outcome =
+            subject(
+                listOf(
+                    loggedSet(exerciseNameRaw = "Machine Crunch"),
+                    loggedSet(exerciseNameRaw = "Weighted Roman Chair Hip Hinge"),
+                ),
+            )
+
+        assertEquals(0, inference.invocations.size)
+        assertEquals(2, outcome.summary.customLiftsCreated)
+        assertEquals(0, outcome.summary.customLiftLlmInferredCount)
+        assertEquals(0, outcome.summary.customLiftsSkipped)
+        val customs = liftRepo.currentLifts.filter { it.isCustom }.associateBy { it.name }
+        assertEquals(setOf(MuscleGroup.Ab), customs.getValue("Machine Crunch").primaryMuscles)
+        assertEquals(
+            setOf(MuscleGroup.Glute, MuscleGroup.Hamstring),
+            customs.getValue("Weighted Roman Chair Hip Hinge").primaryMuscles,
+        )
+        assertEquals(
+            MovementPattern.HipHinge,
+            customs.getValue("Weighted Roman Chair Hip Hinge").movementPatterns.first(),
+        )
     }
 
     @Test
@@ -125,12 +157,14 @@ class ResolveImportLiftsUseCaseTest {
     @DisplayName("Given custom loading when creating custom lift then name and create increment are passed through")
     fun customLoadingPassesCreateIncrement() = runTest {
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
+        // Ambiguous name so name rules do not skip LLM equipment inference.
+        val name = "Pro2 Special"
         val inference =
             FakeCustomLiftInferencePort(
                 results =
                     listOf(
                         InferredCustomLiftMetadata(
-                            exerciseNameRaw = "Pro2 Pec Fly",
+                            exerciseNameRaw = name,
                             movementPattern = MovementPattern.HorizontalPress,
                             primaryMuscles = setOf(MuscleGroup.Chest),
                             loading =
@@ -143,7 +177,7 @@ class ResolveImportLiftsUseCaseTest {
             )
         val subject = buildSubject(liftRepo, customInference = inference)
 
-        subject(listOf(loggedSet(exerciseNameRaw = "Pro2 Pec Fly")))
+        subject(listOf(loggedSet(exerciseNameRaw = name)))
 
         val custom = liftRepo.currentLifts.single { it.isCustom }
         assertEquals("Life Fitness Pro2 Stack", custom.equipmentName)
@@ -160,7 +194,8 @@ class ResolveImportLiftsUseCaseTest {
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val subject = buildSubject(liftRepo, customInference = FakeCustomLiftInferencePort(fail = true))
 
-        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Triceps Extension")))
+        // Ambiguous name so name rules do not short-circuit before the failing LLM path.
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Special Gizmo")))
 
         assertTrue(liftRepo.currentLifts.none { it.isCustom })
         assertEquals(0, outcome.summary.customLiftsCreated)
@@ -227,11 +262,12 @@ class ResolveImportLiftsUseCaseTest {
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val subject = buildSubject(liftRepo, customInference = FakeCustomLiftInferencePort())
 
+        // Ambiguous base name so name rules do not short-circuit; suffixes still collapse to one candidate.
         val outcome =
             subject(
                 listOf(
-                    loggedSet(exerciseNameRaw = "Katana Triceps Extension ∈ SS1"),
-                    loggedSet(exerciseNameRaw = "Katana Triceps Extension ∈ SS2"),
+                    loggedSet(exerciseNameRaw = "BrandX Widget ∈ SS1"),
+                    loggedSet(exerciseNameRaw = "BrandX Widget ∈ SS2"),
                 ),
             )
 
@@ -436,10 +472,11 @@ class ResolveImportLiftsUseCaseTest {
         val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog())
         val subject = buildSubject(liftRepo)
 
-        val recentSet = loggedSet(exerciseNameRaw = "Recent Bench").copy(
+        // Ambiguous names so empty LLM results stay skipped (no name-rule short-circuit).
+        val recentSet = loggedSet(exerciseNameRaw = "Recent BrandX Widget").copy(
             completedAt = Instant.parse("2025-01-01T12:00:00Z"),
         )
-        val nonRecentSet = loggedSet(exerciseNameRaw = "Old Incline Press").copy(
+        val nonRecentSet = loggedSet(exerciseNameRaw = "Old BrandY Widget").copy(
             completedAt = Instant.parse("2024-05-01T12:00:00Z"), // > 183 days ago
         )
 
@@ -452,8 +489,8 @@ class ResolveImportLiftsUseCaseTest {
         assertTrue(outcome.provenLiftIds.isEmpty())
 
         // Both sets stay unresolved (liftId == null).
-        val resolvedRecentSet = outcome.resolvedSets.first { it.exerciseNameRaw == "Recent Bench" }
-        val resolvedNonRecentSet = outcome.resolvedSets.first { it.exerciseNameRaw == "Old Incline Press" }
+        val resolvedRecentSet = outcome.resolvedSets.first { it.exerciseNameRaw == "Recent BrandX Widget" }
+        val resolvedNonRecentSet = outcome.resolvedSets.first { it.exerciseNameRaw == "Old BrandY Widget" }
 
         assertNull(resolvedRecentSet.liftId)
         assertNull(resolvedNonRecentSet.liftId)

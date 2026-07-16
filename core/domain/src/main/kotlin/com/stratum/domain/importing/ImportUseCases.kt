@@ -229,7 +229,9 @@ class ResolveImportLiftsUseCase @Inject constructor(
                     if (inferred != null) {
                         val createdId =
                             liftRepository.addCustomLift(inferred.toCustomLiftDefinition())
-                        customLiftLlmInferredCount += 1
+                        if (aggregate.displayName !in enrichment.nameRuleResolvedNames) {
+                            customLiftLlmInferredCount += 1
+                        }
                         if (aggregate.isRecent) {
                             customLiftIds += createdId
                         } else {
@@ -237,10 +239,10 @@ class ResolveImportLiftsUseCase @Inject constructor(
                         }
                         customLiftsCreated += 1
                     } else {
-                        // LLM inference returned no metadata for this name. Skip creating a custom
-                        // lift rather than persisting a stub with guessed movement patterns/muscles
-                        // — a broken lift in the catalog pollutes program generation. The set stays
-                        // unresolved (liftId == null) and may match the catalog on the second pass.
+                        // No name-rule hit and LLM returned no metadata. Skip creating a custom
+                        // lift rather than persisting a broken Squat/Quad stub — a wrong lift in
+                        // the catalog pollutes program generation. The set stays unresolved
+                        // (liftId == null) and may match the catalog on the second pass.
                         customLiftsSkipped += 1
                     }
                 }
@@ -488,14 +490,17 @@ class ResolveImportLiftsUseCase @Inject constructor(
 class StartHistoricalImportUseCase @Inject constructor(
     private val importJobRepository: ImportJobRepository,
 ) {
+    /**
+     * Always allocates a fresh local job. Any non-terminal local job (left behind by cancel/stop
+     * or a crashed coroutine) is failed first so we never re-upload under a remote job that is
+     * still `pending_agent`/`agent_running` — that path used to surface "Import job is already
+     * running" / "Another import is already in progress."
+     */
     suspend operator fun invoke(): Result<ImportJob> = runCatching {
-        importJobRepository.getActiveJob()?.let { existing ->
-            if (existing.status != ImportJobStatus.Failed &&
-                existing.status != ImportJobStatus.Completed
-            ) {
-                return@runCatching existing
-            }
-        }
+        failActiveImportJobs(
+            importJobRepository = importJobRepository,
+            errorMessage = "Superseded by a new import.",
+        )
         importJobRepository.createJob()
     }
 }

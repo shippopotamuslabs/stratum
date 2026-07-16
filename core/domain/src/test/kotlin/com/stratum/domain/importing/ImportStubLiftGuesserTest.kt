@@ -132,4 +132,64 @@ class ImportStubLiftGuesserTest {
             ImportStubLiftGuesser.guessMovementPattern("Triceps Dip"),
         )
     }
+
+    @Test
+    @DisplayName("Given crunch and sit-up names when guessing then SpinalFlexion and Ab are used")
+    fun crunchNamesMapToAbs() {
+        val names = listOf("Machine Crunch", "Cable Crunch", "Decline Sit-Up", "Ab Roller")
+        names.forEach { name ->
+            assertEquals(
+                MovementPattern.SpinalFlexion,
+                ImportStubLiftGuesser.guessMovementPattern(name),
+                name,
+            )
+            val meta = checkNotNull(ImportStubLiftGuesser.inferredMetadataFromName(name))
+            assertEquals(setOf(MuscleGroup.Ab), meta.primaryMuscles, name)
+        }
+    }
+
+    @Test
+    @DisplayName("Given hip hinge names when guessing then HipHinge and glute/hamstring are used")
+    fun hipHingeNamesMapToHingeMuscles() {
+        val names =
+            listOf(
+                "Weighted Roman Chair Hip Hinge",
+                "Roman Chair Hip Hinge",
+                "45° Back Extension",
+                "Barbell Romanian Deadlift",
+            )
+        names.forEach { name ->
+            assertEquals(
+                MovementPattern.HipHinge,
+                ImportStubLiftGuesser.guessMovementPattern(name),
+                name,
+            )
+            val meta = checkNotNull(ImportStubLiftGuesser.inferredMetadataFromName(name))
+            assertEquals(
+                setOf(MuscleGroup.Glute, MuscleGroup.Hamstring),
+                meta.primaryMuscles,
+                name,
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("Given leg curl name when guessing then KneeFlexion not ElbowFlexion")
+    fun legCurlIsNotBicepsCurl() {
+        assertEquals(
+            MovementPattern.KneeFlexion,
+            ImportStubLiftGuesser.guessMovementPattern("Lying Leg Curl"),
+        )
+        assertEquals(
+            setOf(MuscleGroup.Hamstring),
+            ImportStubLiftGuesser.primaryMusclesFor(MovementPattern.KneeFlexion),
+        )
+    }
+
+    @Test
+    @DisplayName("Given ambiguous brand name when guessing then null so LLM residual path is used")
+    fun ambiguousBrandNameReturnsNull() {
+        assertEquals(null, ImportStubLiftGuesser.guessMovementPattern("Katana Special"))
+        assertEquals(null, ImportStubLiftGuesser.inferredMetadataFromName("Katana Special"))
+    }
 }
