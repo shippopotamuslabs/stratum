@@ -519,6 +519,162 @@ class PersistImportedHistoryUseCase @Inject constructor(
         sessions: List<TrainingSession>,
         sets: List<LoggedSet>,
         onProgress: ImportProgressCallback = {},
+        policy: ImportHistoryPersistPolicy,
+        sourceKind: ImportDedupeSourceKind = ImportDedupeSourceKind.ThirdParty,
+        /**
+         * Post-merge session ids from Stratum chunks (`preserveStableIds`). Those sessions
+         * use id-only merge skip; all other sessions use ThirdParty content fingerprint.
+         * Empty + [sourceKind] [ImportDedupeSourceKind.StratumStableIds] keeps the pure-Stratum
+         * id-only path for callers that do not supply per-session ids.
+         */
+        stableIdSessionIds: Set<String> = emptySet(),
+        zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    ): Result<ExtractTrainingInsightsSummary> {
+        return when (policy) {
+            ImportHistoryPersistPolicy.ReplaceImportOrigin ->
+                invokeReplace(sessions, sets, onProgress)
+            ImportHistoryPersistPolicy.MergeSkipDuplicates ->
+                invokeMerge(sessions, sets, onProgress, sourceKind, stableIdSessionIds, zone)
+        }
+    }
+
+    private suspend fun invokeMerge(
+        sessions: List<TrainingSession>,
+        sets: List<LoggedSet>,
+        onProgress: ImportProgressCallback,
+        sourceKind: ImportDedupeSourceKind,
+        stableIdSessionIds: Set<String>,
+        zone: java.time.ZoneId,
+    ): Result<ExtractTrainingInsightsSummary> = runCatching {
+        val (sanitizedSessions, sanitizedSets) = ImportedHistorySanitizer.sanitize(sessions, sets)
+        require(sanitizedSessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {
+            "Import persist requires all sessions to have origin IMPORT."
+        }
+        val existingSessions = trainingLogRepository.getAllSessions()
+        val existingSets = trainingLogRepository.getAllSets()
+        val filtered =
+            ImportHistoryDedupe.filterForMerge(
+                incomingSessions = sanitizedSessions,
+                incomingSets = sanitizedSets,
+                existingSessions = existingSessions,
+                existingSets = existingSets,
+                zone = zone,
+                sourceKind = sourceKind,
+                stableIdSessionIds = stableIdSessionIds,
+            )
+        val mergeStats =
+            MergeImportStats(
+                sessionsInserted = filtered.sessions.size,
+                setsInserted = filtered.sets.size,
+                sessionsSkipped = filtered.skippedSessionCount,
+                setsSkipped = filtered.skippedSetCount,
+            )
+        if (filtered.sets.isEmpty()) {
+            // All-skip path: no append. Still run insights when local history already exists so a
+            // misconfigured insights pipeline fails closed without wiping prior IMPORT rows.
+            // Fresh-empty device → summary zeros without extract.
+            if (existingSessions.isEmpty()) {
+                return@runCatching ExtractTrainingInsightsSummary(
+                    liftsWithInsights = 0,
+                    supersetPairs = 0,
+                    musclesWithBaselines = 0,
+                    mergeStats = mergeStats,
+                )
+            }
+            onProgress(
+                ImportProgress(
+                    phase = ImportProgressPhase.ExtractingInsights,
+                    catalogStep = ImportCatalogProgressStep.AnalyzingPatterns,
+                ),
+            )
+            return@runCatching extractTrainingInsights()
+                .getOrThrow()
+                .copy(mergeStats = mergeStats)
+        }
+        val outcome = resolveImportLifts(filtered.sets, onProgress = onProgress)
+        val factory = loggedLiftContextFactory ?: com.stratum.domain.training.DefaultLoggedLiftContextFactory()
+        val lifts = liftRepository.observeLifts().first().associateBy { it.id }
+        val enrichedSets =
+            outcome.resolvedSets.map { set ->
+                ImportHistoryTrainingMapper.enrichLiftContext(set, factory, lifts)
+            }
+        val existingSetIds = existingSets.map { it.id.value }.toSet()
+        val computation =
+            computePersonalRecords(enrichedSets, excludeSetIds = existingSetIds).getOrThrow()
+
+        onProgress(
+            ImportProgress(
+                phase = ImportProgressPhase.EnrichingCustomLifts,
+                catalogStep = ImportCatalogProgressStep.SavingHistory,
+            ),
+        )
+        // Demoted LIVE PRs (isPersonalRecord=false). Capture restore copies before writing.
+        val demotedPrSets = computation.oldPrSetsToUpdate
+        val restorePrSets = demotedPrSets.map { it.copy(isPersonalRecord = true) }
+        if (demotedPrSets.isNotEmpty()) {
+            trainingLogRepository.updateSets(demotedPrSets)
+        }
+        val appendedSessions = filtered.sessions
+        val appendedSets = computation.updatedIncomingSets
+        trainingLogRepository.appendImportHistory(appendedSessions, appendedSets)
+        onProgress(
+            ImportProgress(
+                phase = ImportProgressPhase.ExtractingInsights,
+                catalogStep = ImportCatalogProgressStep.AnalyzingPatterns,
+            ),
+        )
+        // On insights/response failure: remove only rows we just appended and restore demoted PRs.
+        val summary =
+            try {
+                extractTrainingInsights(outcome.provenLiftIds)
+                    .getOrThrow()
+                    .copy(
+                        liftResolution = outcome.summary,
+                        mergeStats = mergeStats,
+                    )
+            } catch (error: Throwable) {
+                unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
+                throw error
+            }
+        try {
+            extractResponseProfile(outcome.provenLiftIds).getOrThrow()
+        } catch (error: Throwable) {
+            unwindMergeAppend(appendedSessions, appendedSets, restorePrSets)
+            throw error
+        }
+        liftRepository.setUsedHistoricalImport(true)
+        liftRepository.setSelectedPreset(null)
+        summary
+    }
+
+    /** Removes rows appended this merge and restores any LIVE PRs demoted for the import. */
+    private suspend fun unwindMergeAppend(
+        sessions: List<TrainingSession>,
+        sets: List<LoggedSet>,
+        restorePrSets: List<LoggedSet>,
+    ) {
+        removeAppendedImportRows(sessions, sets)
+        if (restorePrSets.isNotEmpty()) {
+            trainingLogRepository.updateSets(restorePrSets)
+        }
+    }
+
+    private suspend fun removeAppendedImportRows(
+        sessions: List<TrainingSession>,
+        sets: List<LoggedSet>,
+    ) {
+        for (set in sets) {
+            trainingLogRepository.deleteSet(set.id)
+        }
+        for (session in sessions) {
+            trainingLogRepository.deleteSession(session.id)
+        }
+    }
+
+    private suspend fun invokeReplace(
+        sessions: List<TrainingSession>,
+        sets: List<LoggedSet>,
+        onProgress: ImportProgressCallback,
     ): Result<ExtractTrainingInsightsSummary> = runCatching {
         val (sessions, sanitizedSets) = ImportedHistorySanitizer.sanitize(sessions, sets)
         require(sessions.all { it.origin == TrainingSessionOrigin.IMPORT }) {

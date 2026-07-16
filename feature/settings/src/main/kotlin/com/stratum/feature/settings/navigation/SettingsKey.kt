@@ -25,16 +25,20 @@ data object LegalKey : NavKey
 
 /**
  * Registers the Settings entry in a Nav3 [EntryProviderScope]. Back is handled by the app
- * shell via [onBackClick]; Legal is reached via [onNavigateToLegal].
+ * shell via [onBackClick]; Legal / Import / Export hubs via navigation callbacks.
  */
 fun EntryProviderScope<NavKey>.settingsEntry(
     onBackClick: () -> Unit,
     onNavigateToLegal: () -> Unit,
+    onNavigateToImportData: () -> Unit = {},
+    onNavigateToExportData: () -> Unit = {},
 ) {
     entry<SettingsKey> {
         SettingsRoute(
             onBackClick = onBackClick,
             onNavigateToLegal = onNavigateToLegal,
+            onNavigateToImportData = onNavigateToImportData,
+            onNavigateToExportData = onNavigateToExportData,
         )
     }
 }
@@ -52,6 +56,8 @@ fun EntryProviderScope<NavKey>.legalEntry(
 private fun SettingsRoute(
     onBackClick: () -> Unit,
     onNavigateToLegal: () -> Unit,
+    onNavigateToImportData: () -> Unit,
+    onNavigateToExportData: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -71,6 +77,8 @@ private fun SettingsRoute(
         onPostWorkoutSuggestionEnabledChange = viewModel::onPostWorkoutSuggestionEnabledChange,
         onForceCheckInPending = viewModel::forceCheckInPending,
         onLegalClick = onNavigateToLegal,
+        onImportDataClick = onNavigateToImportData,
+        onExportDataClick = onNavigateToExportData,
         accountActions =
             SettingsAccountActions(
                 onLogoutClick = viewModel::onLogoutClick,

@@ -9,5 +9,6 @@ class RunHistoricalImportUseCase @Inject constructor(
     operator fun invoke(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
-    ): Flow<HistoricalImportEvent> = runner.run(files, resume)
+        persistPolicy: ImportHistoryPersistPolicy,
+    ): Flow<HistoricalImportEvent> = runner.run(files, resume, persistPolicy)
 }

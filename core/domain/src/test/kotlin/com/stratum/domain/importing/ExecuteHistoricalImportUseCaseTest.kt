@@ -16,7 +16,6 @@ import com.stratum.domain.lift.identity.LiftId
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -28,7 +27,11 @@ class ExecuteHistoricalImportUseCaseTest {
         val runner = FakeHistoricalImportRunnerPort()
         val subject = buildSubject(runner)
 
-        subject(files = emptyList(), resume = null).test {
+        subject(
+            files = emptyList(),
+            resume = null,
+            persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+        ).test {
             val event = awaitItem()
             assertTrue(event is HistoricalImportOrchestrationEvent.ValidationFailed)
             assertEquals(ImportFileValidationResult.Invalid.NoFiles, (event as HistoricalImportOrchestrationEvent.ValidationFailed).reason)
@@ -69,7 +72,11 @@ class ExecuteHistoricalImportUseCaseTest {
         val subject = buildSubject(runner, metadataRepo)
         val files = listOf(ImportFileInput(bytes = byteArrayOf(1), fileName = "export.csv"))
 
-        subject(files = files, resume = null).test {
+        subject(
+            files = files,
+            resume = null,
+            persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+        ).test {
             assertEquals(HistoricalImportOrchestrationEvent.Progress(progress), awaitItem())
             val completed = awaitItem() as HistoricalImportOrchestrationEvent.Completed
             assertTrue(completed.refresh.hasCompletedHistoricalImport)
@@ -77,11 +84,15 @@ class ExecuteHistoricalImportUseCaseTest {
         }
         assertEquals(1, runner.invocations.size)
         assertEquals(files, runner.invocations.single().files)
+        assertEquals(
+            ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            runner.invocations.single().persistPolicy,
+        )
     }
 
     @Test
-    @DisplayName("Given failed import when executed then rolls back and emits Failed with refresh")
-    fun failedImportRollsBack() = runTest {
+    @DisplayName("Given failed import when executed then emits Failed with refresh without rolling back")
+    fun failedImportEmitsFailedWithoutRollback() = runTest {
         val resume =
             HistoricalImportResumeState(
                 files = listOf(ImportFileInput(bytes = byteArrayOf(1), fileName = "a.csv")),
@@ -99,19 +110,33 @@ class ExecuteHistoricalImportUseCaseTest {
             )
         val liftRepo = FakeLiftRepository()
         liftRepo.seedUsedHistoricalImport(true)
-        val subject = buildSubject(runner, FakeImportAnalysisMetadataRepository(), liftRepo)
+        // Metadata present so refresh reconcile will not wipe; isolates Execute from runner rollback.
+        val metadataRepo =
+            FakeImportAnalysisMetadataRepository(
+                ImportAnalysisMetadata(
+                    windowStart = Instant.parse("2025-01-01T00:00:00Z"),
+                    windowEnd = Instant.parse("2025-06-01T00:00:00Z"),
+                    provenLiftIds = listOf(LiftId("squat")),
+                    unmatchedExerciseNames = emptyList(),
+                    totalSessions = 3,
+                    totalSets = 30,
+                ),
+            )
+        val subject = buildSubject(runner, metadataRepo, liftRepo)
 
         subject(
             files = listOf(ImportFileInput(bytes = byteArrayOf(1), fileName = "a.csv")),
             resume = null,
+            persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
         ).test {
             val failed = awaitItem() as HistoricalImportOrchestrationEvent.Failed
             assertEquals("conversion failed", failed.message)
             assertEquals(resume, failed.resume)
-            assertFalse(failed.refresh.hasCompletedHistoricalImport)
+            // Refresh still runs; flag stays true because Execute does not own rollback.
+            assertTrue(failed.refresh.hasCompletedHistoricalImport)
             awaitComplete()
         }
-        assertFalse(liftRepo.currentUsedHistoricalImport)
+        assertTrue(liftRepo.currentUsedHistoricalImport)
     }
 
     @Test
@@ -125,7 +150,11 @@ class ExecuteHistoricalImportUseCaseTest {
             )
         val subject = buildSubject(runner)
 
-        subject(files = emptyList(), resume = resume).test {
+        subject(
+            files = emptyList(),
+            resume = resume,
+            persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+        ).test {
             val progress = awaitItem() as HistoricalImportOrchestrationEvent.Progress
             assertEquals(ImportProgressPhase.Uploading, progress.progress.phase)
             awaitItem() // Completed
@@ -167,7 +196,6 @@ class ExecuteHistoricalImportUseCaseTest {
         return ExecuteHistoricalImportUseCase(
             validateImportFiles = ValidateImportFilesUseCase(),
             runHistoricalImport = RunHistoricalImportUseCase(runner),
-            rollbackHistoricalImport = rollback,
             refreshPersistedImportState = refresh,
         )
     }

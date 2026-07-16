@@ -19,7 +19,12 @@ export const getImportJobStatus = onCall(async (request) => {
   }
   const job = snap.data()!;
   const latest = job.latestConversion as
-    | { storagePath: string; rowCount: number; sessionCount: number }
+    | {
+        storagePath: string;
+        rowCount: number;
+        sessionCount: number;
+        format?: string;
+      }
     | undefined;
 
   return {
@@ -34,6 +39,7 @@ export const getImportJobStatus = onCall(async (request) => {
           storagePath: latest.storagePath,
           rowCount: latest.rowCount,
           sessionCount: latest.sessionCount,
+          ...(typeof latest.format === "string" ? { format: latest.format } : {}),
         }
       : null,
     errorMessage: job.errorMessage ?? null,

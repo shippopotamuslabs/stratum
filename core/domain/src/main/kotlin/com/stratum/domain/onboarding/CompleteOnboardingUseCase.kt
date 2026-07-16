@@ -7,11 +7,11 @@ import javax.inject.Inject
  * persistence + completion marking so the ViewModel composes one operation rather than
  * reaching into repositories (ARCHITECTURE.md §4.3).
  */
-class CompleteOnboardingUseCase @Inject constructor(
+open class CompleteOnboardingUseCase @Inject constructor(
     private val onboardingRepository: OnboardingRepository,
     private val profileRepository: UserTrainingProfileRepository,
 ) {
-    suspend operator fun invoke(finalProfile: UserTrainingProfile) {
+    open suspend operator fun invoke(finalProfile: UserTrainingProfile) {
         profileRepository.saveProfile(finalProfile)
         onboardingRepository.markComplete()
     }

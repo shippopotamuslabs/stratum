@@ -1,0 +1,30 @@
+{
+  "schema": "stratum.export.logs",
+  "schemaVersion": 1,
+  "source": "stratum",
+  "exportedAt": "2026-07-16T15:00:00Z",
+  "range": { "kind": "all_time" },
+  "history": {
+    "sessions": [
+      {
+        "id": "sess-export-1",
+        "startedAt": "2026-07-01T14:00:00Z",
+        "endedAt": "2026-07-01T15:00:00Z",
+        "sourceApp": "stratum"
+      }
+    ],
+    "sets": [
+      {
+        "id": "set-export-1",
+        "sessionId": "sess-export-1",
+        "exerciseNameRaw": "Squat",
+        "setIndex": 0,
+        "weightAmount": 100,
+        "weightUnit": "Lb",
+        "reps": 5,
+        "rir": 2,
+        "completedAt": "2026-07-01T14:05:00Z"
+      }
+    ]
+  }
+}
