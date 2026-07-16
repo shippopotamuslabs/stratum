@@ -2,21 +2,21 @@
 
 package com.stratum.domain.program.generation.prescription
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
+import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.reference.LiftStressClass
-import com.stratum.domain.lift.MAJOR_COMPOUND_PATTERNS
 import com.stratum.domain.program.generation.reference.RpRepProfile
 import com.stratum.domain.program.generation.slots.WorkoutSlotTemplate
 
 /**
  * Classifies movement stress for recovery scheduling (literature-aligned three-tier model).
  *
- * The lift-based overload reads the [LiftContext.kinematicProfile] — an explicit catalog property
+ * The lift-based overload reads the [LiftContext.fatigueProfile] — an explicit catalog property
  * set in `seed-lifts.json` — instead of inferring the class from movement-pattern heuristics and
- * lift-name regex. This means a leg press (`NonAxialCompound`) recovers as a compound, not as an
- * isolation like a leg extension (`Isolation`), even though both are Quad-primary lower-body lifts.
+ * lift-name regex. This means a leg press (`FatigueProfile.Medium`) recovers as a compound, not as
+ * isolation like a leg extension (`FatigueProfile.Low`), even though both are Quad-primary.
  *
  * The slot-based overload (`classifyLiftStressClass(slot, lift)`) still uses the slot's `repProfile`
  * and `movementPattern` because slots are templates, not specific lifts — the slot determines the
@@ -47,17 +47,21 @@ fun classifyLiftStressClass(slot: WorkoutSlotTemplate, lift: LiftContext): LiftS
 
 /**
  * Metadata-truth classification when no slot template is available (repairs, validation).
- * Uses the lift's explicit [LiftContext.kinematicProfile] — no pattern/name heuristics.
+ * Uses the lift's explicit [LiftContext.fatigueProfile] — no pattern/name heuristics.
  */
 fun classifyLiftStressClass(lift: LiftContext): LiftStressClass =
-    kinematicProfileToStressClass(lift.kinematicProfile)
+    fatigueProfileToStressClass(lift.fatigueProfile)
 
-/** Maps a [KinematicProfile] (from [LiftContext.kinematicProfile]) to [LiftStressClass]. */
-fun kinematicProfileToStressClass(profile: KinematicProfile): LiftStressClass =
+/**
+ * Maps a [FatigueProfile] (from [LiftContext.fatigueProfile]) to [LiftStressClass].
+ * High → HeavyAxial, Medium → UpperCompound, Low → LiftStressClass.Isolation
+ * (stress class names unchanged).
+ */
+fun fatigueProfileToStressClass(profile: FatigueProfile): LiftStressClass =
     when (profile) {
-        KinematicProfile.AxialCompound -> LiftStressClass.HeavyAxial
-        KinematicProfile.NonAxialCompound -> LiftStressClass.UpperCompound
-        KinematicProfile.Isolation -> LiftStressClass.Isolation
+        FatigueProfile.High -> LiftStressClass.HeavyAxial
+        FatigueProfile.Medium -> LiftStressClass.UpperCompound
+        FatigueProfile.Low -> LiftStressClass.Isolation
     }
 
 internal fun inferRepProfileForStressClassification(lift: LiftContext): RpRepProfile {

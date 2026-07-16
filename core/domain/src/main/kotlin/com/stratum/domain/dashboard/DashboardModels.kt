@@ -1,6 +1,6 @@
 package com.stratum.domain.dashboard
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -14,7 +14,7 @@ import java.time.Instant
  *  - [lifts]: per-lift weekly peak-e1RM performance series + weekly hard-set volume.
  *
  * Muscles are ordered by mean weekly hard-sets descending. Lifts are sectioned Upper then Lower
- * and ordered AxialCompound → NonAxialCompound → Isolation within each section.
+ * and ordered by fatigue High → Medium → Low within each section.
  *
  * Data sources (kept fresh by workers / finalize):
  * - `muscle_weekly_stimulus`, `lift_weekly_performance` — cheap weekly refresh on workout complete
@@ -67,8 +67,8 @@ data class MuscleSeries(
  * Per-lift time series. [performanceSeries] is the weekly peak-e1RM (the strength signal);
  * [volumeSeries] is that lift's weekly hard-set count. [tenureWeeks] answers "how long have I been
  * on this lift?" (calendar weeks since first-ever set — all-time, not window-scoped).
- * [isLower] / [kinematicProfile] drive dashboard sectioning and sort order (Upper/Lower, then
- * AxialCompound → NonAxialCompound → Isolation).
+ * [isLower] / [fatigueProfile] drive dashboard sectioning and sort order (Upper/Lower, then
+ * High → Medium → Low fatigue).
  */
 data class LiftSeries(
     val liftId: LiftId,
@@ -79,7 +79,7 @@ data class LiftSeries(
     val tenureWeeks: Int,
     val sessionCount: Int,
     val isLower: Boolean,
-    val kinematicProfile: KinematicProfile,
+    val fatigueProfile: FatigueProfile,
 )
 
 /** A single weekly point on a series. [value] is in the series's native units (sets, e1RM, or index). */

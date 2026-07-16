@@ -1,6 +1,6 @@
 package com.stratum.domain.checkin
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -151,7 +151,7 @@ data class CheckInRecommendation(
     val currentSetCount: Int,
     val action: CheckInAction,
     val rationale: CheckInRationale,
-    val kinematicProfile: KinematicProfile? = null,
+    val fatigueProfile: FatigueProfile? = null,
     val atVolumeCeiling: Boolean = false,
 )
 
@@ -179,7 +179,7 @@ data class LiftCheckInInput(
     /** True when any primary muscle is at/above recoverable volume ceiling. */
     val atVolumeCeiling: Boolean = false,
     /** For batch ranking (+1 prefers isolation). */
-    val kinematicProfile: KinematicProfile? = null,
+    val fatigueProfile: FatigueProfile? = null,
 )
 
 /**

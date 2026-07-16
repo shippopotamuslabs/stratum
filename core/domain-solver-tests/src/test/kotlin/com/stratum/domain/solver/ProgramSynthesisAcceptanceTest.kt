@@ -9,7 +9,7 @@ import com.stratum.core.testing.program.testProgramGenerationPipeline
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.onboarding.Weekday
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.program.generation.context.ALWAYS_AIM_MUSCLES
 import com.stratum.domain.program.generation.context.LiftContext
@@ -583,11 +583,11 @@ class ProgramSynthesisAcceptanceTest {
         pattern: String,
         primary: List<String>,
         secondary: List<String> = emptyList(),
-        kinematicProfile: KinematicProfile = when (pattern) {
-            "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) KinematicProfile.AxialCompound else KinematicProfile.NonAxialCompound
+        fatigueProfile: FatigueProfile = when (pattern) {
+            "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) FatigueProfile.High else FatigueProfile.Medium
             "HipExtension", "HorizontalPress", "VerticalPress", "InclinePress",
-            "HorizontalPull", "VerticalPull" -> KinematicProfile.NonAxialCompound
-            else -> KinematicProfile.Isolation
+            "HorizontalPull", "VerticalPull" -> FatigueProfile.Medium
+            else -> FatigueProfile.Low
         },
     ): LiftContext {
         val movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
@@ -600,7 +600,7 @@ class ProgramSynthesisAcceptanceTest {
             secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
             proven = true,
             mainstream = true,
-            kinematicProfile = kinematicProfile,
+            fatigueProfile = fatigueProfile,
         )
     }
 

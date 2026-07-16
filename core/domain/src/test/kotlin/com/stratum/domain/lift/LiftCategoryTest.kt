@@ -96,13 +96,13 @@ class LiftCategoryTest {
 
         @Test
         @DisplayName("compound lower: single SquatPattern + NonAxialCompound")
-        fun compoundLowerViaKinematicProfile() {
+        fun compoundLowerViaFatigueProfile() {
             assertEquals(
                 LiftCategory.CompoundLower,
                 sampleLift(
                     patterns = setOf(MovementPattern.SquatPattern),
                     primary = setOf(MuscleGroup.Quad),
-                    kinematic = KinematicProfile.NonAxialCompound,
+                    fatigue = FatigueProfile.Medium,
                 ).classifyLiftCategory(),
             )
         }
@@ -115,7 +115,7 @@ class LiftCategoryTest {
                 sampleLift(
                     patterns = setOf(MovementPattern.SquatPattern),
                     primary = setOf(MuscleGroup.Quad),
-                    kinematic = KinematicProfile.AxialCompound,
+                    fatigue = FatigueProfile.High,
                 ).classifyLiftCategory(),
             )
         }
@@ -129,7 +129,7 @@ class LiftCategoryTest {
                     patterns = setOf(MovementPattern.HipHinge, MovementPattern.HipExtension),
                     primary = setOf(MuscleGroup.Hamstring, MuscleGroup.Glute),
                     secondary = setOf(MuscleGroup.LowerBack),
-                    kinematic = KinematicProfile.AxialCompound,
+                    fatigue = FatigueProfile.High,
                 ).classifyLiftCategory(),
             )
         }
@@ -143,7 +143,7 @@ class LiftCategoryTest {
                     patterns = setOf(MovementPattern.HipHinge, MovementPattern.HipExtension),
                     primary = setOf(MuscleGroup.LowerBack),
                     secondary = setOf(MuscleGroup.Glute, MuscleGroup.Hamstring),
-                    kinematic = KinematicProfile.AxialCompound,
+                    fatigue = FatigueProfile.High,
                 ).classifyLiftCategory(),
             )
         }
@@ -156,7 +156,7 @@ class LiftCategoryTest {
                 sampleLift(
                     patterns = setOf(MovementPattern.HipHinge, MovementPattern.HipExtension),
                     primary = setOf(MuscleGroup.LowerBack),
-                    kinematic = KinematicProfile.AxialCompound,
+                    fatigue = FatigueProfile.High,
                 ).classifyLiftCategory(),
             )
         }
@@ -169,20 +169,20 @@ class LiftCategoryTest {
                 sampleLift(
                     patterns = setOf(MovementPattern.HipHinge, MovementPattern.HipExtension),
                     primary = setOf(MuscleGroup.LowerBack),
-                    kinematic = KinematicProfile.NonAxialCompound,
+                    fatigue = FatigueProfile.Medium,
                 ).classifyLiftCategory(),
             )
         }
 
         @Test
-        @DisplayName("inherent compound: single HorizontalPress + Isolation kinematic is CompoundUpper")
+        @DisplayName("inherent compound: single HorizontalPress + Low fatigue is CompoundUpper")
         fun inherentCompoundHorizontalPress() {
             assertEquals(
                 LiftCategory.CompoundUpper,
                 sampleLift(
                     patterns = setOf(MovementPattern.HorizontalPress),
                     primary = setOf(MuscleGroup.Chest),
-                    kinematic = KinematicProfile.Isolation,
+                    fatigue = FatigueProfile.Low,
                 ).classifyLiftCategory(),
             )
         }
@@ -195,7 +195,7 @@ class LiftCategoryTest {
                 sampleLift(
                     patterns = setOf(MovementPattern.VerticalPull),
                     primary = setOf(MuscleGroup.Back),
-                    kinematic = KinematicProfile.Isolation,
+                    fatigue = FatigueProfile.Low,
                 ).classifyLiftCategory(),
             )
         }
@@ -208,7 +208,7 @@ class LiftCategoryTest {
                 sampleLift(
                     patterns = setOf(MovementPattern.SquatPattern),
                     primary = setOf(MuscleGroup.Quad),
-                    kinematic = KinematicProfile.Isolation,
+                    fatigue = FatigueProfile.Low,
                 ).classifyLiftCategory(),
             )
         }
@@ -221,7 +221,7 @@ class LiftCategoryTest {
                 sampleLift(
                     patterns = setOf(MovementPattern.SquatPattern),
                     primary = emptySet(),
-                    kinematic = KinematicProfile.AxialCompound,
+                    fatigue = FatigueProfile.High,
                 ).classifyLiftCategory(),
             )
         }
@@ -234,7 +234,7 @@ class LiftCategoryTest {
         @DisplayName("upper isolation: bicep curl")
         fun isolationUpperCurl() {
             assertEquals(
-                LiftCategory.IsolationUpper,
+                LiftCategory.AccessoryUpper,
                 sampleLift(
                     patterns = setOf(MovementPattern.ElbowFlexion),
                     primary = setOf(MuscleGroup.Bicep),
@@ -246,7 +246,7 @@ class LiftCategoryTest {
         @DisplayName("lower isolation: leg curl")
         fun isolationLowerLegCurl() {
             assertEquals(
-                LiftCategory.IsolationLower,
+                LiftCategory.AccessoryLower,
                 sampleLift(
                     patterns = setOf(MovementPattern.KneeFlexion),
                     primary = setOf(MuscleGroup.Hamstring),
@@ -255,10 +255,10 @@ class LiftCategoryTest {
         }
 
         @Test
-        @DisplayName("HipAbduction + Abductor primary is IsolationLower")
-        fun hipAbductionIsolationLower() {
+        @DisplayName("HipAbduction + Abductor primary is AccessoryLower")
+        fun hipAbductionAccessoryLower() {
             assertEquals(
-                LiftCategory.IsolationLower,
+                LiftCategory.AccessoryLower,
                 sampleLift(
                     patterns = setOf(MovementPattern.HipAbduction),
                     primary = setOf(MuscleGroup.Abductor),
@@ -267,10 +267,10 @@ class LiftCategoryTest {
         }
 
         @Test
-        @DisplayName("empty primary + ElbowFlexion is IsolationUpper")
+        @DisplayName("empty primary + ElbowFlexion is AccessoryUpper")
         fun emptyPrimaryElbowFlexion() {
             assertEquals(
-                LiftCategory.IsolationUpper,
+                LiftCategory.AccessoryUpper,
                 sampleLift(
                     patterns = setOf(MovementPattern.ElbowFlexion),
                     primary = emptySet(),
@@ -279,10 +279,10 @@ class LiftCategoryTest {
         }
 
         @Test
-        @DisplayName("empty primary + empty patterns defaults to IsolationUpper")
-        fun emptyMetadataDefaultsIsolationUpper() {
+        @DisplayName("empty primary + empty patterns defaults to AccessoryUpper")
+        fun emptyMetadataDefaultsAccessoryUpper() {
             assertEquals(
-                LiftCategory.IsolationUpper,
+                LiftCategory.AccessoryUpper,
                 sampleLift(
                     patterns = emptySet(),
                     primary = emptySet(),
@@ -291,10 +291,10 @@ class LiftCategoryTest {
         }
 
         @Test
-        @DisplayName("secondary lower only (no primary lower) resolves IsolationLower")
+        @DisplayName("secondary lower only (no primary lower) resolves AccessoryLower")
         fun secondaryLowerWeakSignal() {
             assertEquals(
-                LiftCategory.IsolationLower,
+                LiftCategory.AccessoryLower,
                 sampleLift(
                     patterns = emptySet(),
                     primary = emptySet(),
@@ -339,7 +339,7 @@ class LiftCategoryTest {
                 sampleLift(
                     patterns = setOf(MovementPattern.HipHinge, MovementPattern.HipExtension),
                     primary = setOf(MuscleGroup.LowerBack),
-                    kinematic = KinematicProfile.AxialCompound,
+                    fatigue = FatigueProfile.High,
                 ).classifyLiftCategory(),
             )
         }
@@ -360,13 +360,13 @@ class LiftCategoryTest {
         }
 
         @Test
-        @DisplayName("inherent compound pattern is compound for category even with Isolation kinematic")
+        @DisplayName("inherent compound pattern is compound for category even with Low fatigue")
         fun inherentPattern() {
             assertTrue(
                 sampleLift(
                     patterns = setOf(MovementPattern.VerticalPull),
                     primary = setOf(MuscleGroup.Back),
-                    kinematic = KinematicProfile.Isolation,
+                    fatigue = FatigueProfile.Low,
                 ).isCompoundForCategory(),
             )
         }
@@ -404,9 +404,25 @@ class LiftCategoryTest {
         fun coversAllFiveBuckets() {
             assertEquals("Compound Upper", LiftCategory.CompoundUpper.displayName)
             assertEquals("Compound Lower", LiftCategory.CompoundLower.displayName)
-            assertEquals("Upper Isolation", LiftCategory.IsolationUpper.displayName)
-            assertEquals("Lower Isolation", LiftCategory.IsolationLower.displayName)
+            assertEquals("Upper Accessory", LiftCategory.AccessoryUpper.displayName)
+            assertEquals("Lower Accessory", LiftCategory.AccessoryLower.displayName)
             assertEquals("Core", LiftCategory.Core.displayName)
+        }
+
+        @Test
+        @DisplayName("FPR-S4-003 AccessoryUpper display name is Upper Accessory")
+        fun fprS4003_accessoryUpperDisplayName() {
+            val accessoryUpper =
+                LiftCategory.entries.single { it.name == "AccessoryUpper" }
+            assertEquals("Upper Accessory", accessoryUpper.displayName)
+        }
+
+        @Test
+        @DisplayName("FPR-S4-004 AccessoryLower display name is Lower Accessory")
+        fun fprS4004_accessoryLowerDisplayName() {
+            val accessoryLower =
+                LiftCategory.entries.single { it.name == "AccessoryLower" }
+            assertEquals("Lower Accessory", accessoryLower.displayName)
         }
     }
 
@@ -441,7 +457,7 @@ class LiftCategoryTest {
         patterns: Set<MovementPattern>,
         primary: Set<MuscleGroup>,
         secondary: Set<MuscleGroup> = emptySet(),
-        kinematic: KinematicProfile = KinematicProfile.Isolation,
+        fatigue: FatigueProfile = FatigueProfile.Low,
     ): Lift =
         Lift(
             id = LiftId("sample-${primary.joinToString { it.name }}-${patterns.joinToString { it.name }}"),
@@ -452,6 +468,6 @@ class LiftCategoryTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
-            kinematicProfile = kinematic,
+            fatigueProfile = fatigue,
         )
 }

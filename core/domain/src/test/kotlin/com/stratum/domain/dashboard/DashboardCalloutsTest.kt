@@ -1,6 +1,6 @@
 package com.stratum.domain.dashboard
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -153,7 +153,7 @@ class DashboardCalloutsTest {
             tenureWeeks = 20,
             sessionCount = sessions,
             isLower = false,
-            kinematicProfile = KinematicProfile.AxialCompound,
+            fatigueProfile = FatigueProfile.High,
         )
     }
 }

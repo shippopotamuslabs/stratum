@@ -58,7 +58,7 @@ fun CreateLiftRoute(
                 onOpenDetailEditor = viewModel::onOpenDetailEditor,
                 onDismissDetailEditor = viewModel::onDismissDetailEditor,
                 onSelectLengthBias = viewModel::onSelectLengthBias,
-                onSelectKinematic = viewModel::onSelectKinematic,
+                onSelectFatigue = viewModel::onSelectFatigue,
                 onSelectLoadType = viewModel::onSelectLoadType,
                 onToggleDraftMovementPattern = viewModel::onToggleDraftMovementPattern,
                 onConfirmMovementPatterns = viewModel::onConfirmMovementPatterns,

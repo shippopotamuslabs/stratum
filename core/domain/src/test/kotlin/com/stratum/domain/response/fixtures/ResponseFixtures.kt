@@ -4,7 +4,7 @@ import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.domain.importing.MuscleVolumeBaseline
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -854,7 +854,7 @@ object ResponseFixtures {
             movementPatternsBitmask = 0,
             primaryMusclesBitmask = 0,
             secondaryMusclesBitmask = 0,
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
             muscleLengthBias = MuscleLengthBias.MidRange,
         )
 

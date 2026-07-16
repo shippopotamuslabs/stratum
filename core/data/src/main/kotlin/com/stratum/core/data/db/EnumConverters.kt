@@ -4,8 +4,8 @@ import androidx.room.TypeConverter
 import com.stratum.domain.importing.ImportJobStatus
 import com.stratum.domain.importing.IntervalMethod
 import com.stratum.domain.importing.LandmarkConfidenceTier
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.GymPreset
-import com.stratum.domain.lift.KinematicProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -135,11 +135,12 @@ class EnumConverters {
         value?.let { runCatching { MuscleLengthBias.valueOf(it) }.getOrNull() }
 
     @TypeConverter
-    fun fromKinematicProfile(profile: KinematicProfile?): String? = profile?.name
+    fun fromFatigueProfile(profile: FatigueProfile?): String? = profile?.name
 
     @TypeConverter
-    fun toKinematicProfile(value: String?): KinematicProfile? =
-        value?.let { runCatching { KinematicProfile.valueOf(it) }.getOrNull() }
+    fun toFatigueProfile(value: String?): FatigueProfile? =
+        value?.let { runCatching { FatigueProfile.valueOf(it) }.getOrNull() }
+
 
     @TypeConverter
     fun fromLoadType(loadType: LoadType?): String? = loadType?.name

@@ -77,7 +77,7 @@ class SyncEntityEncoders @Inject constructor() {
             "image_uris" to (e.imageUrisCsv?.split(",")?.filter { it.isNotBlank() } ?: emptyList()),
             "muscle_length_bias" to e.muscleLengthBias.name,
             "mainstream" to e.mainstream,
-            "kinematic_profile" to e.kinematicProfile.name,
+            "fatigue_profile" to e.fatigueProfile.name,
             "load_type" to e.loadType.name,
             "default_rest_seconds" to e.defaultRestSeconds,
         )
@@ -166,7 +166,7 @@ class SyncEntityEncoders @Inject constructor() {
             "movement_patterns_bitmask" to e.movementPatternsBitmask,
             "primary_muscles_bitmask" to e.primaryMusclesBitmask,
             "secondary_muscles_bitmask" to e.secondaryMusclesBitmask,
-            "kinematic_profile" to e.kinematicProfile.name,
+            "fatigue_profile" to e.fatigueProfile.name,
             "muscle_length_bias" to e.muscleLengthBias.name,
             "workout_lift_id" to e.workoutLiftId?.value,
             "progression_scheme" to e.progressionScheme?.name,

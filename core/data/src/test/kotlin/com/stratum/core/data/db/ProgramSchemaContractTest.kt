@@ -22,7 +22,7 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
  * Schema invariants and converter tests for the v1 database (pre-release: no migration file;
- * uninstall/reinstall to apply).
+ * uninstall/reinstall to apply schema renames).
  */
 @ExtendWith(RobolectricExtension::class)
 class ProgramSchemaContractTest {

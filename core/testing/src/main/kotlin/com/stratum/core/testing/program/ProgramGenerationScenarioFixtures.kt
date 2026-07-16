@@ -2,7 +2,7 @@
 
 package com.stratum.core.testing.program
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
@@ -287,11 +287,11 @@ private fun lift(
     pattern: String,
     primary: List<String>,
     secondary: List<String> = emptyList(),
-    kinematicProfile: String = when (pattern) {
-        "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) "AxialCompound" else "NonAxialCompound"
+    fatigueProfile: String = when (pattern) {
+        "SquatPattern", "HipHinge" -> if ("barbell" in name.lowercase()) "High" else "Medium"
         "HipExtension", "HorizontalPress", "VerticalPress", "InclinePress",
-        "HorizontalPull", "VerticalPull" -> "NonAxialCompound"
-        else -> "Isolation"
+        "HorizontalPull", "VerticalPull" -> "Medium"
+        else -> "Low"
     },
 ): LiftContext {
     val movementPattern = runCatching { MovementPattern.valueOf(pattern) }.getOrNull()
@@ -303,7 +303,7 @@ private fun lift(
         primaryMuscles = primary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
         secondaryMuscles = secondary.mapNotNull { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }.toSet(),
         proven = true,
-        kinematicProfile = runCatching { KinematicProfile.valueOf(kinematicProfile) }.getOrDefault(KinematicProfile.Isolation),
+        fatigueProfile = runCatching { FatigueProfile.valueOf(fatigueProfile) }.getOrDefault(FatigueProfile.Low),
     )
 }
 

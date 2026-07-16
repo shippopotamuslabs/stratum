@@ -405,7 +405,7 @@ object ConstructiveSynthesisSeed {
         when (role) {
             SlotRole.Anchor -> 3
             SlotRole.SecondaryCompound -> 2
-            SlotRole.Isolation -> 1
+            SlotRole.Accessory -> 1
             else -> 0
         }
 

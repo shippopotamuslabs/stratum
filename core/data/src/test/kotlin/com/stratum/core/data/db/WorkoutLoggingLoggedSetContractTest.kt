@@ -3,7 +3,7 @@ package com.stratum.core.data.db
 import androidx.room.Room
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
@@ -96,7 +96,7 @@ class WorkoutLoggingLoggedSetContractTest {
             movementPatternsBitmask = WorkoutLoggingFixtures.BENCH_HORIZONTAL_BITMASK,
             primaryMusclesBitmask = WorkoutLoggingFixtures.CHEST_BITMASK,
             secondaryMusclesBitmask = WorkoutLoggingFixtures.TRICEPS_BITMASK,
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
             muscleLengthBias = MuscleLengthBias.MidRange,
             workoutLiftId = null,
             progressionScheme = null,

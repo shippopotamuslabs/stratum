@@ -2,11 +2,13 @@
 
 package com.stratum.domain.program.generation.selection
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.context.hasCompoundFatigue
+import com.stratum.domain.program.generation.context.isCompoundLift
 import com.stratum.domain.program.generation.prescription.FilledSlot
 import com.stratum.domain.program.generation.slots.MuscleLengthBiasPreference
 import com.stratum.domain.program.generation.slots.SiblingVariant
@@ -42,9 +44,8 @@ private fun slotRoleBonus(slot: WorkoutSlotTemplate, lift: LiftContext): Double 
     when (slot.role) {
         SlotRole.Anchor -> {
             bonus += mainstream * LiftSelectionWeights.ANCHOR_MAINSTREAM_BONUS
-            val isCompound = lift.kinematicProfile == KinematicProfile.AxialCompound ||
-                lift.kinematicProfile == KinematicProfile.NonAxialCompound
-            if (isCompound) {
+            // Prefer High/Medium fatigue for barbell anchors; Low is machine-ish penalty territory.
+            if (lift.hasCompoundFatigue) {
                 if (Regex("""\bbarbell\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.name)) {
                     bonus += LiftSelectionWeights.ANCHOR_BARBELL_BONUS
                 }
@@ -61,18 +62,17 @@ private fun slotRoleBonus(slot: WorkoutSlotTemplate, lift: LiftContext): Double 
                 }
             }
         }
-        SlotRole.Isolation -> {
+        SlotRole.Accessory -> {
             if (Regex("""\b(cable|machine)\b""", RegexOption.IGNORE_CASE).containsMatchIn(lift.name)) {
-                bonus += LiftSelectionWeights.ISOLATION_CABLE_MACHINE_BONUS
+                bonus += LiftSelectionWeights.ACCESSORY_CABLE_MACHINE_BONUS
             }
-            // Quad/ham iso slots admit NonAxial compounds (leg press, hack squat, …) as
-            // variety — but pure Isolation kinematics still rank first.
-            if (slot.allowedKinematicProfiles != null) {
-                when (lift.kinematicProfile) {
-                    KinematicProfile.Isolation ->
-                        bonus += LiftSelectionWeights.ISOLATION_TRUE_KINEMATIC_BONUS
-                    KinematicProfile.NonAxialCompound ->
-                        bonus += LiftSelectionWeights.ISOLATION_NON_AXIAL_FALLBACK_PENALTY
+            // Accessory slots may admit Medium (e.g. leg press) as variety — prefer true Low first.
+            if (slot.allowedFatigueProfiles != null) {
+                when (lift.fatigueProfile) {
+                    FatigueProfile.Low ->
+                        bonus += LiftSelectionWeights.ACCESSORY_TRUE_LOW_FATIGUE_BONUS
+                    FatigueProfile.Medium ->
+                        bonus += LiftSelectionWeights.ACCESSORY_MEDIUM_FALLBACK_PENALTY
                     else -> Unit
                 }
             }
@@ -129,21 +129,19 @@ fun candidatesForSlot(
     for (lift in context.liftsById.values) {
         if (lift.id !in context.enabledLiftIds) continue
         val patternMatch = matchesPattern(lift, slot.pattern, strictPrimaryPattern = isStrictIsolationTouch(slot))
-        // Kinematic-profile fallback: when the slot allows NonAxialCompound lifts (e.g. quad-iso
-        // admitting leg press/hack squat), a NonAxialCompound lift with the right primary muscle
-        // is a candidate even if its movement pattern doesn't match the slot's pattern. This is
-        // the explicit replacement for the old KneeExtension-pattern-overloading hack.
-        val kinematicMatch = slot.allowedKinematicProfiles != null &&
-            lift.kinematicProfile in slot.allowedKinematicProfiles &&
+        // Fatigue allow-list fallback: when the slot admits Medium (e.g. quad-iso + leg press),
+        // a matching primary-muscle lift is a candidate even if its movement pattern differs.
+        val fatigueAllowListMatch = slot.allowedFatigueProfiles != null &&
+            lift.fatigueProfile in slot.allowedFatigueProfiles &&
             slot.primaryMuscle in lift.primaryMuscles
-        if (!patternMatch && !kinematicMatch) continue
+        if (!patternMatch && !fatigueAllowListMatch) continue
         run {
             val primaryMatch = slot.primaryMuscle in lift.primaryMuscles
             when {
                 slot.isCrossDomainTouch -> {
                     if (!primaryMatch) continue
                 }
-                slot.role == SlotRole.Isolation || slot.role == SlotRole.Anchor -> {
+                slot.role == SlotRole.Accessory || slot.role == SlotRole.Anchor -> {
                     if (!primaryMatch) continue
                 }
                 !primaryMatch && slot.primaryMuscle !in lift.secondaryMuscles -> continue
@@ -197,7 +195,7 @@ fun selectLiftForSlot(
                     pattern = a.movementPattern,
                     priority = sa,
                     priorityTier = if (a.proven == true) "proven" else "available",
-                    isCompound = a.movementPatterns.size > 1,
+                    isCompound = a.isCompoundLift,
                     primaryMuscles = a.primaryMuscles,
                     secondaryMuscles = a.secondaryMuscles,
                 ),
@@ -207,7 +205,7 @@ fun selectLiftForSlot(
                     pattern = b.movementPattern,
                     priority = sb,
                     priorityTier = if (b.proven == true) "proven" else "available",
-                    isCompound = b.movementPatterns.size > 1,
+                    isCompound = b.isCompoundLift,
                     primaryMuscles = b.primaryMuscles,
                     secondaryMuscles = b.secondaryMuscles,
                 ),

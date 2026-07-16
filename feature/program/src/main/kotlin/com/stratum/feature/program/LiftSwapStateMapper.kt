@@ -101,8 +101,8 @@ private fun categoryDropdownOptions(): List<LiftSwapDropdownOption<LiftCategory?
         LiftSwapDropdownOption(value = null, label = "All", leadingIconRes = R.drawable.ic_lift_type),
         LiftSwapDropdownOption(LiftCategory.CompoundUpper, LiftCategory.CompoundUpper.displayName),
         LiftSwapDropdownOption(LiftCategory.CompoundLower, LiftCategory.CompoundLower.displayName),
-        LiftSwapDropdownOption(LiftCategory.IsolationUpper, LiftCategory.IsolationUpper.displayName),
-        LiftSwapDropdownOption(LiftCategory.IsolationLower, LiftCategory.IsolationLower.displayName),
+        LiftSwapDropdownOption(LiftCategory.AccessoryUpper, LiftCategory.AccessoryUpper.displayName),
+        LiftSwapDropdownOption(LiftCategory.AccessoryLower, LiftCategory.AccessoryLower.displayName),
         LiftSwapDropdownOption(LiftCategory.Core, LiftCategory.Core.displayName),
     )
 

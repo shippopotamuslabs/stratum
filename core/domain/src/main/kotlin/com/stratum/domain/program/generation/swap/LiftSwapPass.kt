@@ -6,6 +6,7 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.SpecializationLevel
 import com.stratum.domain.program.generation.context.LiftContext
 import com.stratum.domain.program.generation.context.ProgramGenerationContext
+import com.stratum.domain.program.generation.context.isCompoundLift
 import com.stratum.domain.program.generation.draft.ProgramDraft
 import com.stratum.domain.program.generation.selection.LiftCandidate
 import com.stratum.domain.program.generation.selection.SelectedSlotLift
@@ -45,7 +46,7 @@ private fun liftContextToCandidate(lift: LiftContext, context: ProgramGeneration
         pattern = lift.movementPattern,
         priority = swapCandidateScore(lift, context),
         priorityTier = if (lift.proven == true) "proven" else "available",
-        isCompound = lift.movementPatterns.size > 1,
+        isCompound = lift.isCompoundLift,
         mainstream = lift.mainstream,
         primaryMuscles = lift.primaryMuscles,
         secondaryMuscles = lift.secondaryMuscles,

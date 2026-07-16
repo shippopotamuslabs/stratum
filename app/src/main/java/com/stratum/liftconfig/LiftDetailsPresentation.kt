@@ -2,7 +2,7 @@ package com.stratum.liftconfig
 
 import com.stratum.core.ui.component.StratumMuscleFilterCardState
 import com.stratum.core.ui.component.toVolumeDisplayName
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -18,12 +18,12 @@ fun MuscleLengthBias.toDetailLabel(): String =
         MuscleLengthBias.Shortened -> "Shortened"
     }
 
-/** Display label for kinematic profile chips and detail rows. */
-fun KinematicProfile.toDetailLabel(): String =
+/** Display label for fatigue profile chips and detail rows. */
+fun FatigueProfile.toDetailLabel(): String =
     when (this) {
-        KinematicProfile.AxialCompound -> "Compound -- Spine Loaded"
-        KinematicProfile.NonAxialCompound -> "Compound -- No Spine Loading"
-        KinematicProfile.Isolation -> "Isolation"
+        FatigueProfile.High -> "High"
+        FatigueProfile.Medium -> "Medium"
+        FatigueProfile.Low -> "Low"
     }
 
 /**
@@ -66,8 +66,8 @@ fun lengthBiasOptions(selected: MuscleLengthBias): List<LiftDetailOptionUi> =
         )
     }
 
-fun kinematicOptions(selected: KinematicProfile): List<LiftDetailOptionUi> =
-    KinematicProfile.entries.map { profile ->
+fun fatigueOptions(selected: FatigueProfile): List<LiftDetailOptionUi> =
+    FatigueProfile.entries.map { profile ->
         LiftDetailOptionUi(
             key = profile.name,
             label = profile.toDetailLabel(),

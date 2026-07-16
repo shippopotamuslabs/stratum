@@ -4,7 +4,7 @@ import com.stratum.domain.lift.CustomLiftDefinition
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
-import com.stratum.domain.lift.inferKinematicProfile
+import com.stratum.domain.lift.inferFatigueProfile
 import com.stratum.domain.onboarding.MuscleGroup
 
 /**
@@ -35,7 +35,7 @@ object ImportStubLiftGuesser {
             secondaryMuscles = normalized.secondaryMuscles,
             equipmentName = null,
             increment = increment,
-            kinematicProfile = inferKinematicProfile(normalized.movementPattern, name),
+            fatigueProfile = inferFatigueProfile(normalized.movementPattern, name),
         )
     }
 

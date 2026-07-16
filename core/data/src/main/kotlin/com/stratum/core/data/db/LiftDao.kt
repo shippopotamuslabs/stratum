@@ -5,7 +5,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import com.stratum.core.data.sync.SyncFlags
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.EquipmentId
@@ -136,7 +136,7 @@ interface LiftDao {
         UPDATE lifts
         SET movementPatternsBitmask = :movementPatternsBitmask,
             muscleLengthBias = :muscleLengthBias,
-            kinematicProfile = :kinematicProfile,
+            fatigueProfile = :fatigueProfile,
             loadType = :loadType,
             equipmentId = :equipmentId,
             pending_sync = ${SyncFlags.PENDING_UPSERT},
@@ -148,7 +148,7 @@ interface LiftDao {
         id: LiftId,
         movementPatternsBitmask: Int,
         muscleLengthBias: MuscleLengthBias,
-        kinematicProfile: KinematicProfile,
+        fatigueProfile: FatigueProfile,
         loadType: LoadType,
         equipmentId: EquipmentId?,
         updatedAtEpochMillis: Long,

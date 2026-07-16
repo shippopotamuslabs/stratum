@@ -47,7 +47,7 @@ fun buildUnifiedSessionPlans(
                             lengthBiasPreference = slot.lengthBiasPreference,
                             siblingVariant = slot.siblingVariant,
                             isCrossDomainTouch = slot.isCrossDomainTouch,
-                            allowedKinematicProfiles = slot.allowedKinematicProfiles,
+                            allowedFatigueProfiles = slot.allowedFatigueProfiles,
                             setCount = 0,
                         )
                     }
@@ -107,7 +107,7 @@ fun materializeSynthesisResult(
                     lengthBiasPreference = slot.lengthBiasPreference,
                     isCrossDomainTouch = slot.isCrossDomainTouch,
                     siblingVariant = slot.siblingVariant,
-                    allowedKinematicProfiles = slot.allowedKinematicProfiles,
+                    allowedFatigueProfiles = slot.allowedFatigueProfiles,
                 ) to setCount
             }
         // Prefer solver region filter for the legacy SessionTypeId label; fall back to slot
@@ -129,7 +129,7 @@ fun materializeSynthesisResult(
                     lengthBiasPreference = template.lengthBiasPreference,
                     isCrossDomainTouch = template.isCrossDomainTouch,
                     siblingVariant = template.siblingVariant,
-                    allowedKinematicProfiles = template.allowedKinematicProfiles,
+                    allowedFatigueProfiles = template.allowedFatigueProfiles,
                     setCount = setCount,
                 )
             }

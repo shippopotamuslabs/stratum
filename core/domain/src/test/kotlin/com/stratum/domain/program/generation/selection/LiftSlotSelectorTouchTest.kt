@@ -20,7 +20,7 @@ class LiftSlotSelectorTouchTest {
         val touchSlot =
             WorkoutSlotTemplate(
                 slotId = "touch-bicep-lower",
-                role = SlotRole.Isolation,
+                role = SlotRole.Accessory,
                 pattern = MovementPattern.ElbowFlexion,
                 primaryMuscle = MuscleGroup.Bicep,
                 repProfile = RpRepProfile.Isolation,

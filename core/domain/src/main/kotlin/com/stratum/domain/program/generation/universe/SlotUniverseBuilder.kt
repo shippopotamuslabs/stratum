@@ -129,5 +129,5 @@ private fun WorkoutSlotTemplate.toSynthesisSlot(): SynthesisSlot =
         isCrossDomainTouch = isCrossDomainTouch,
         siblingVariant = siblingVariant,
         lengthBiasPreference = lengthBiasPreference,
-        allowedKinematicProfiles = allowedKinematicProfiles,
+        allowedFatigueProfiles = allowedFatigueProfiles,
     )

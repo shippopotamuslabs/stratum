@@ -1,6 +1,6 @@
 package com.stratum.domain.dashboard
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LOWER_BODY_MUSCLE_GROUPS
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LiftRepository
@@ -209,7 +209,7 @@ class LoadDashboardUseCase @Inject constructor(
                 val tenureWeeks = firstSet?.let { weeksBetween(it, now) } ?: 0
                 val sessionCount = sorted.sumOf { it.sessions }
                 val isLower = lift?.primaryMuscles?.any { it in LOWER_BODY_MUSCLE_GROUPS } == true
-                val kinematicProfile = lift?.kinematicProfile ?: KinematicProfile.Isolation
+                val fatigueProfile = lift?.fatigueProfile ?: FatigueProfile.Low
                 LiftSeries(
                     liftId = liftId,
                     name = lift?.name ?: liftId.value,
@@ -219,7 +219,7 @@ class LoadDashboardUseCase @Inject constructor(
                     tenureWeeks = tenureWeeks,
                     sessionCount = sessionCount,
                     isLower = isLower,
-                    kinematicProfile = kinematicProfile,
+                    fatigueProfile = fatigueProfile,
                 )
             }.sortedWith(liftComparator())
 
@@ -237,10 +237,10 @@ class LoadDashboardUseCase @Inject constructor(
         compareByDescending<MuscleSeries> { it.meanWeeklyHardSets }
             .thenBy { it.displayName }
 
-    /** Upper first, then Lower; within section Axial → NonAxial → Isolation; name as stable tie-break. */
+    /** Upper first, then Lower; within section High → Medium → Low fatigue; name as stable tie-break. */
     private fun liftComparator(): Comparator<LiftSeries> =
         compareBy<LiftSeries> { it.isLower }
-            .thenBy { it.kinematicProfile.ordinal }
+            .thenBy { it.fatigueProfile.ordinal }
             .thenBy { it.name }
 
     private fun Double?.orZero(): Double = this ?: 0.0

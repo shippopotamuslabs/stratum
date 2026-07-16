@@ -54,7 +54,7 @@ enum class MuscleRoleFilter {
 enum class LiftDetailEditField {
     LengthBias,
     MovementPatterns,
-    Kinematic,
+    Fatigue,
     LoadType,
     Equipment,
     DefaultRest,
@@ -74,7 +74,7 @@ data class LiftDetailsEditorState(
     val secondaryMuscles: List<StratumMuscleFilterCardState> = emptyList(),
     val lengthBiasLabel: String = "",
     val movementPatternLabels: List<String> = emptyList(),
-    val kinematicLabel: String = "",
+    val fatigueLabel: String = "",
     val loadTypeLabel: String = "",
     val equipment: String? = null,
     /**
@@ -86,7 +86,7 @@ data class LiftDetailsEditorState(
     val showAddMuscleSheet: Boolean = false,
     val editingField: LiftDetailEditField? = null,
     val lengthBiasOptions: List<LiftDetailOptionUi> = emptyList(),
-    val kinematicOptions: List<LiftDetailOptionUi> = emptyList(),
+    val fatigueOptions: List<LiftDetailOptionUi> = emptyList(),
     val loadTypeOptions: List<LiftDetailOptionUi> = emptyList(),
     val movementPatternOptions: List<LiftDetailOptionUi> = emptyList(),
     val restDraftSeconds: Int = 120,
@@ -101,7 +101,7 @@ data class LiftDetailsEditorActions(
     val onOpenDetailEditor: (LiftDetailEditField) -> Unit,
     val onDismissDetailEditor: () -> Unit,
     val onSelectLengthBias: (String) -> Unit,
-    val onSelectKinematic: (String) -> Unit,
+    val onSelectFatigue: (String) -> Unit,
     val onSelectLoadType: (String) -> Unit,
     val onToggleDraftMovementPattern: (String) -> Unit,
     val onConfirmMovementPatterns: () -> Unit,
@@ -164,12 +164,12 @@ fun LiftDetailsEditor(
                 onDismiss = actions.onDismissDetailEditor,
                 onSelect = actions.onSelectLengthBias,
             )
-        LiftDetailEditField.Kinematic ->
+        LiftDetailEditField.Fatigue ->
             SingleSelectDetailSheet(
-                title = stringResource(UiR.string.lift_info_kinematic),
-                options = state.kinematicOptions,
+                title = stringResource(UiR.string.lift_info_fatigue_profile),
+                options = state.fatigueOptions,
                 onDismiss = actions.onDismissDetailEditor,
-                onSelect = actions.onSelectKinematic,
+                onSelect = actions.onSelectFatigue,
             )
         LiftDetailEditField.LoadType ->
             SingleSelectDetailSheet(
@@ -240,9 +240,9 @@ private fun LiftDetailsEditorContent(
             )
             add(
                 DetailSpec(
-                    label = stringResource(UiR.string.lift_info_kinematic),
-                    value = state.kinematicLabel.ifBlank { "—" },
-                    editField = LiftDetailEditField.Kinematic,
+                    label = stringResource(UiR.string.lift_info_fatigue_profile),
+                    value = state.fatigueLabel.ifBlank { "—" },
+                    editField = LiftDetailEditField.Fatigue,
                 ),
             )
             add(
@@ -387,6 +387,14 @@ private fun LiftDetailsEditorContent(
                                 ?.takeIf { editable }
                                 ?.let { field -> { onOpenDetailEditor(field) } },
                     )
+                    if (row.editField == LiftDetailEditField.Fatigue) {
+                        StratumText(
+                            text = stringResource(UiR.string.lift_info_fatigue_help),
+                            style = StratumThemeAccessor.typography.sectionLabel,
+                            muted = true,
+                            modifier = Modifier.padding(bottom = 8.dp, top = 2.dp),
+                        )
+                    }
                     if (index != specRows.lastIndex) {
                         Box(
                             modifier =

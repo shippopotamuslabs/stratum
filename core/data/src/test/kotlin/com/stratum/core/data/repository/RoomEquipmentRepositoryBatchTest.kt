@@ -9,7 +9,7 @@ import com.stratum.core.data.mapper.toPresetCsv
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.core.data.sync.testSyncTouch
 import com.stratum.domain.lift.IncrementTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
@@ -137,7 +137,7 @@ class RoomEquipmentRepositoryBatchTest {
                 isCustom = false,
                 enabled = true,
                 muscleLengthBias = MuscleLengthBias.MidRange,
-                kinematicProfile = KinematicProfile.Isolation,
+                fatigueProfile = FatigueProfile.Low,
                 loadType = LoadType.Weighted,
                 updatedAtEpochMillis = 1L,
                 pendingSync = SyncFlags.CLEAN,

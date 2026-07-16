@@ -2,7 +2,7 @@
 
 package com.stratum.domain.program.generation.slots
 
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.SpecializationLevel
@@ -12,7 +12,7 @@ import com.stratum.domain.program.generation.reference.RpRepProfile
 enum class SlotRole {
     Anchor,
     SecondaryCompound,
-    Isolation,
+    Accessory,
     Optional,
 }
 
@@ -41,13 +41,12 @@ data class WorkoutSlotTemplate(
     /** Supplementary direct work on a session outside the muscle's primary domain. */
     val isCrossDomainTouch: Boolean = false,
     /**
-     * When set, only lifts whose [com.stratum.domain.lift.KinematicProfile] is in this set are
-     * eligible candidates (in addition to the pattern/primary-muscle match). `null` = no
-     * kinematic-profile filter (all matching lifts are candidates). Used by isolation slots
-     * like `quad-iso`/`ham-iso` to also admit `NonAxialCompound` lifts (leg press, hack squat)
-     * alongside true `Isolation` lifts (leg extension, leg curl), so the slot has variety.
+     * When set, lifts whose [FatigueProfile] is in this set may match via fatigue allow-list
+     * even if their movement pattern differs (pattern OR allow-list; not exclusive filter).
+     * `null` = pattern match only. Used by accessory slots (e.g. `quad-iso`/`ham-iso`) to admit
+     * Medium (leg press, hack squat) alongside Low (leg extension, leg curl).
      */
-    val allowedKinematicProfiles: Set<KinematicProfile>? = null,
+    val allowedFatigueProfiles: Set<FatigueProfile>? = null,
 )
 
 enum class SessionTypeId {
@@ -78,10 +77,10 @@ enum class SessionTypeId {
 internal val LOWER_SLOTS: List<WorkoutSlotTemplate> = listOf(
     WorkoutSlotTemplate("squat", SlotRole.Anchor, MovementPattern.SquatPattern, MuscleGroup.Quad, RpRepProfile.LowerFreeWeightCompound),
     WorkoutSlotTemplate("hinge", SlotRole.Anchor, MovementPattern.HipHinge, MuscleGroup.Hamstring, RpRepProfile.LowerFreeWeightCompound),
-    WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, MovementPattern.KneeExtension, MuscleGroup.Quad, RpRepProfile.Isolation,
-        allowedKinematicProfiles = setOf(KinematicProfile.Isolation, KinematicProfile.NonAxialCompound)),
-    WorkoutSlotTemplate("ham-iso", SlotRole.Isolation, MovementPattern.KneeFlexion, MuscleGroup.Hamstring, RpRepProfile.Isolation,
-        allowedKinematicProfiles = setOf(KinematicProfile.Isolation, KinematicProfile.NonAxialCompound)),
+    WorkoutSlotTemplate("quad-iso", SlotRole.Accessory, MovementPattern.KneeExtension, MuscleGroup.Quad, RpRepProfile.Isolation,
+        allowedFatigueProfiles = setOf(FatigueProfile.Low, FatigueProfile.Medium)),
+    WorkoutSlotTemplate("ham-iso", SlotRole.Accessory, MovementPattern.KneeFlexion, MuscleGroup.Hamstring, RpRepProfile.Isolation,
+        allowedFatigueProfiles = setOf(FatigueProfile.Low, FatigueProfile.Medium)),
     WorkoutSlotTemplate("calf", SlotRole.Optional, MovementPattern.PlantarFlexion, MuscleGroup.Calf, RpRepProfile.Isolation),
     // Glute-primary slot. Excluded from the universe for Maintenance users (Glute volume rides on
     // squat/hinge secondaries — see PATTERN_SECONDARY_MUSCLE_CREDITS); included only when the user
@@ -117,9 +116,9 @@ internal val UPPER_SLOTS: List<WorkoutSlotTemplate> = listOf(
         RpRepProfile.LowerMachineOrUpperPress,
         siblingVariant = SiblingVariant.B,
     ),
-    WorkoutSlotTemplate("lat-raise", SlotRole.Isolation, MovementPattern.ShoulderAbduction, MuscleGroup.LateralDeltoid, RpRepProfile.Isolation),
-    WorkoutSlotTemplate("bicep", SlotRole.Isolation, MovementPattern.ElbowFlexion, MuscleGroup.Bicep, RpRepProfile.Isolation),
-    WorkoutSlotTemplate("tricep", SlotRole.Isolation, MovementPattern.ElbowExtension, MuscleGroup.Tricep, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("lat-raise", SlotRole.Accessory, MovementPattern.ShoulderAbduction, MuscleGroup.LateralDeltoid, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("bicep", SlotRole.Accessory, MovementPattern.ElbowFlexion, MuscleGroup.Bicep, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("tricep", SlotRole.Accessory, MovementPattern.ElbowExtension, MuscleGroup.Tricep, RpRepProfile.Isolation),
     WorkoutSlotTemplate(
         "rear-delt",
         SlotRole.Optional,
@@ -146,8 +145,8 @@ internal val UPPER_PUSH_SLOTS: List<WorkoutSlotTemplate> = listOf(
         MuscleGroup.Chest,
         RpRepProfile.LowerMachineOrUpperPress,
     ),
-    WorkoutSlotTemplate("lat-raise", SlotRole.Isolation, MovementPattern.ShoulderAbduction, MuscleGroup.LateralDeltoid, RpRepProfile.Isolation),
-    WorkoutSlotTemplate("tricep", SlotRole.Isolation, MovementPattern.ElbowExtension, MuscleGroup.Tricep, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("lat-raise", SlotRole.Accessory, MovementPattern.ShoulderAbduction, MuscleGroup.LateralDeltoid, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("tricep", SlotRole.Accessory, MovementPattern.ElbowExtension, MuscleGroup.Tricep, RpRepProfile.Isolation),
 )
 
 /** Upper-pull catalog templates — also sourced by [baseSlotLibrary]. */
@@ -163,12 +162,12 @@ internal val UPPER_PULL_SLOTS: List<WorkoutSlotTemplate> = listOf(
     ),
     WorkoutSlotTemplate(
         "rear-delt",
-        SlotRole.Isolation,
+        SlotRole.Accessory,
         MovementPattern.ShoulderHorizontalAbduction,
         MuscleGroup.PosteriorDeltoid,
         RpRepProfile.Isolation,
     ),
-    WorkoutSlotTemplate("bicep", SlotRole.Isolation, MovementPattern.ElbowFlexion, MuscleGroup.Bicep, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("bicep", SlotRole.Accessory, MovementPattern.ElbowFlexion, MuscleGroup.Bicep, RpRepProfile.Isolation),
 )
 
 /** Full-body catalog templates — also sourced by [baseSlotLibrary] (role variants). */
@@ -182,8 +181,8 @@ internal val FULL_BODY_SLOTS: List<WorkoutSlotTemplate> = listOf(
 private val FULL_PUSH_SLOTS: List<WorkoutSlotTemplate> =
     UPPER_PUSH_SLOTS +
         listOf(
-            WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, MovementPattern.KneeExtension, MuscleGroup.Quad, RpRepProfile.Isolation,
-                allowedKinematicProfiles = setOf(KinematicProfile.Isolation, KinematicProfile.NonAxialCompound)),
+            WorkoutSlotTemplate("quad-iso", SlotRole.Accessory, MovementPattern.KneeExtension, MuscleGroup.Quad, RpRepProfile.Isolation,
+                allowedFatigueProfiles = setOf(FatigueProfile.Low, FatigueProfile.Medium)),
             WorkoutSlotTemplate("calf", SlotRole.Optional, MovementPattern.PlantarFlexion, MuscleGroup.Calf, RpRepProfile.Isolation),
         )
 
@@ -191,14 +190,14 @@ private val FULL_PULL_SLOTS: List<WorkoutSlotTemplate> =
     UPPER_PULL_SLOTS +
         listOf(
             WorkoutSlotTemplate("hinge", SlotRole.Anchor, MovementPattern.HipHinge, MuscleGroup.Hamstring, RpRepProfile.LowerFreeWeightCompound),
-            WorkoutSlotTemplate("ham-iso", SlotRole.Isolation, MovementPattern.KneeFlexion, MuscleGroup.Hamstring, RpRepProfile.Isolation,
-                allowedKinematicProfiles = setOf(KinematicProfile.Isolation, KinematicProfile.NonAxialCompound)),
+            WorkoutSlotTemplate("ham-iso", SlotRole.Accessory, MovementPattern.KneeFlexion, MuscleGroup.Hamstring, RpRepProfile.Isolation,
+                allowedFatigueProfiles = setOf(FatigueProfile.Low, FatigueProfile.Medium)),
         )
 
 private val CHEST_SLOTS: List<WorkoutSlotTemplate> = listOf(
     WorkoutSlotTemplate("h-press", SlotRole.Anchor, MovementPattern.HorizontalPress, MuscleGroup.Chest, RpRepProfile.LowerMachineOrUpperPress),
     WorkoutSlotTemplate("incline", SlotRole.SecondaryCompound, MovementPattern.InclinePress, MuscleGroup.Chest, RpRepProfile.LowerMachineOrUpperPress),
-    WorkoutSlotTemplate("fly", SlotRole.Isolation, MovementPattern.HorizontalPress, MuscleGroup.Chest, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("fly", SlotRole.Accessory, MovementPattern.HorizontalPress, MuscleGroup.Chest, RpRepProfile.Isolation),
 )
 
 private val BACK_SLOTS: List<WorkoutSlotTemplate> = listOf(
@@ -215,10 +214,10 @@ private val BACK_SLOTS: List<WorkoutSlotTemplate> = listOf(
 
 private val SHOULDERS_SLOTS: List<WorkoutSlotTemplate> = listOf(
     WorkoutSlotTemplate("v-press", SlotRole.Anchor, MovementPattern.VerticalPress, MuscleGroup.AnteriorDeltoid, RpRepProfile.LowerMachineOrUpperPress),
-    WorkoutSlotTemplate("lat-raise", SlotRole.Isolation, MovementPattern.ShoulderAbduction, MuscleGroup.LateralDeltoid, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("lat-raise", SlotRole.Accessory, MovementPattern.ShoulderAbduction, MuscleGroup.LateralDeltoid, RpRepProfile.Isolation),
     WorkoutSlotTemplate(
         "rear-delt",
-        SlotRole.Isolation,
+        SlotRole.Accessory,
         MovementPattern.ShoulderHorizontalAbduction,
         MuscleGroup.PosteriorDeltoid,
         RpRepProfile.Isolation,
@@ -232,27 +231,27 @@ private val ARMS_SLOTS: List<WorkoutSlotTemplate> = listOf(
 
 private val QUADS_CALVES_SLOTS: List<WorkoutSlotTemplate> = listOf(
     WorkoutSlotTemplate("squat", SlotRole.Anchor, MovementPattern.SquatPattern, MuscleGroup.Quad, RpRepProfile.LowerFreeWeightCompound),
-    WorkoutSlotTemplate("quad-iso", SlotRole.Isolation, MovementPattern.KneeExtension, MuscleGroup.Quad, RpRepProfile.Isolation,
-        allowedKinematicProfiles = setOf(KinematicProfile.Isolation, KinematicProfile.NonAxialCompound)),
-    WorkoutSlotTemplate("calf", SlotRole.Isolation, MovementPattern.PlantarFlexion, MuscleGroup.Calf, RpRepProfile.Isolation),
+    WorkoutSlotTemplate("quad-iso", SlotRole.Accessory, MovementPattern.KneeExtension, MuscleGroup.Quad, RpRepProfile.Isolation,
+        allowedFatigueProfiles = setOf(FatigueProfile.Low, FatigueProfile.Medium)),
+    WorkoutSlotTemplate("calf", SlotRole.Accessory, MovementPattern.PlantarFlexion, MuscleGroup.Calf, RpRepProfile.Isolation),
 )
 
 private val GLUTES_HAMS_SLOTS: List<WorkoutSlotTemplate> = listOf(
     WorkoutSlotTemplate("hinge", SlotRole.Anchor, MovementPattern.HipHinge, MuscleGroup.Hamstring, RpRepProfile.LowerFreeWeightCompound),
-    WorkoutSlotTemplate("ham-iso", SlotRole.Isolation, MovementPattern.KneeFlexion, MuscleGroup.Hamstring, RpRepProfile.Isolation,
-        allowedKinematicProfiles = setOf(KinematicProfile.Isolation, KinematicProfile.NonAxialCompound)),
+    WorkoutSlotTemplate("ham-iso", SlotRole.Accessory, MovementPattern.KneeFlexion, MuscleGroup.Hamstring, RpRepProfile.Isolation,
+        allowedFatigueProfiles = setOf(FatigueProfile.Low, FatigueProfile.Medium)),
 )
 
 private val CHEST_TRIS_SLOTS: List<WorkoutSlotTemplate> =
     CHEST_SLOTS +
         listOf(
-            WorkoutSlotTemplate("tricep", SlotRole.Isolation, MovementPattern.ElbowExtension, MuscleGroup.Tricep, RpRepProfile.Isolation),
+            WorkoutSlotTemplate("tricep", SlotRole.Accessory, MovementPattern.ElbowExtension, MuscleGroup.Tricep, RpRepProfile.Isolation),
         )
 
 private val BACK_BIS_SLOTS: List<WorkoutSlotTemplate> =
     BACK_SLOTS +
         listOf(
-            WorkoutSlotTemplate("bicep", SlotRole.Isolation, MovementPattern.ElbowFlexion, MuscleGroup.Bicep, RpRepProfile.Isolation),
+            WorkoutSlotTemplate("bicep", SlotRole.Accessory, MovementPattern.ElbowFlexion, MuscleGroup.Bicep, RpRepProfile.Isolation),
         )
 
 private val FULL_BODY_COMPLEMENT_B_SLOTS: List<WorkoutSlotTemplate> = listOf(
@@ -329,7 +328,7 @@ internal fun promoteSpecializedSlots(
         val slot = slots[i]
         if (slot.role != SlotRole.Optional) continue
         if (context.specialization[slot.primaryMuscle] == SpecializationLevel.Specialize) {
-            slots[i] = slot.copy(role = SlotRole.Isolation)
+            slots[i] = slot.copy(role = SlotRole.Accessory)
         }
     }
 }

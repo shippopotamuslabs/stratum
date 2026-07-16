@@ -27,7 +27,7 @@ class AddCustomLiftUseCaseTest {
                     secondaryMuscles = setOf(MuscleGroup.Tricep, MuscleGroup.Chest),
                     equipmentName = "  landmine  ",
                     muscleLengthBias = MuscleLengthBias.Lengthened,
-                    kinematicProfile = KinematicProfile.NonAxialCompound,
+                    fatigueProfile = FatigueProfile.Medium,
                     loadType = LoadType.Weighted,
                     defaultRestSeconds = 150,
                 ),
@@ -43,7 +43,7 @@ class AddCustomLiftUseCaseTest {
         assertEquals(setOf(MuscleGroup.Tricep), lift.secondaryMuscles)
         assertEquals("landmine", lift.equipmentName)
         assertEquals(MuscleLengthBias.Lengthened, lift.muscleLengthBias)
-        assertEquals(KinematicProfile.NonAxialCompound, lift.kinematicProfile)
+        assertEquals(FatigueProfile.Medium, lift.fatigueProfile)
         assertEquals(LoadType.Weighted, lift.loadType)
         assertEquals(150, lift.defaultRestSeconds)
     }

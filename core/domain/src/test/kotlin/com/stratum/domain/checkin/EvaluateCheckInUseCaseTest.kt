@@ -9,7 +9,7 @@ import com.stratum.domain.dashboard.CALLOUT_MIN_POINTS
 import com.stratum.domain.importing.GlobalVolumePriors
 import com.stratum.domain.importing.LandmarkConfidenceInterval
 import com.stratum.domain.importing.LandmarkConfidenceTier
-import com.stratum.domain.lift.KinematicProfile
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.RankSwapCandidatesUseCase
@@ -270,7 +270,7 @@ class EvaluateCheckInUseCaseTest {
     @DisplayName("D4: two soft-fresh same muscle → single +1 on lighter slot")
     fun twoSoftFreshOneIncrease() = runTest {
         val heavy = BENCH.copy(id = LiftId("heavy-bench"), name = "Heavy Bench")
-        val light = BENCH.copy(id = LiftId("light-fly"), name = "Light Fly", kinematicProfile = KinematicProfile.Isolation)
+        val light = BENCH.copy(id = LiftId("light-fly"), name = "Light Fly", fatigueProfile = FatigueProfile.Low)
         val lifts = FakeLiftRepository()
         lifts.seedLifts(listOf(heavy, light, INCLINE))
         val program =
@@ -333,7 +333,7 @@ class EvaluateCheckInUseCaseTest {
                 id = LiftId("heavy-bench"),
                 name = "Heavy Bench",
                 primaryMuscles = setOf(MuscleGroup.Chest, MuscleGroup.Tricep),
-                kinematicProfile = KinematicProfile.NonAxialCompound,
+                fatigueProfile = FatigueProfile.Medium,
             )
         val light =
             BENCH.copy(
@@ -341,7 +341,7 @@ class EvaluateCheckInUseCaseTest {
                 name = "Light Fly",
                 primaryMuscles = setOf(MuscleGroup.Chest),
                 secondaryMuscles = emptySet(),
-                kinematicProfile = KinematicProfile.Isolation,
+                fatigueProfile = FatigueProfile.Low,
                 movementPatterns = setOf(MovementPattern.HorizontalPress),
             )
         val lifts = FakeLiftRepository()
@@ -573,7 +573,7 @@ class EvaluateCheckInUseCaseTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
         )
         val INCLINE = Lift(
             id = LiftId("incline-press"),
@@ -584,7 +584,7 @@ class EvaluateCheckInUseCaseTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
-            kinematicProfile = KinematicProfile.NonAxialCompound,
+            fatigueProfile = FatigueProfile.Medium,
         )
         val LEG_CURL = Lift(
             id = LiftId("leg-curl"),
@@ -595,7 +595,7 @@ class EvaluateCheckInUseCaseTest {
             incrementTiers = emptyList(),
             presetTags = emptySet(),
             enabled = true,
-            kinematicProfile = KinematicProfile.Isolation,
+            fatigueProfile = FatigueProfile.Low,
         )
     }
 }
