@@ -1288,6 +1288,32 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("Active session whose workout was deleted leaves Loading and shows NoActiveSession")
+    fun deletedWorkoutTemplateLeavesNoActiveSessionNotSpinner() = runTest {
+        // Keep a different training day so the program is still valid, but remove the bound one.
+        val current = programRepository.getProgram()!!
+        val otherWorkout =
+            current.workouts.single().copy(
+                id = WorkoutId("w-other"),
+                name = "Other Day",
+            )
+        programRepository.saveProgram(current.copy(workouts = listOf(otherWorkout)))
+
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            var item = awaitItem()
+            while (item is WorkoutUiState.Loading) {
+                item = awaitItem()
+            }
+            assertTrue(item is WorkoutUiState.NoActiveSession)
+            cancelAndIgnoreRemainingEvents()
+        }
+        advanceUntilIdle()
+        assertNull(trainingLogRepository.getActiveSession())
+    }
+
+    @Test
     @DisplayName("Active Session Edit: Swap Lift in memory updates presentation lift metadata")
     fun activeSessionSwapLiftUpdatesMetadata() = runTest {
         val viewModel = buildViewModel()

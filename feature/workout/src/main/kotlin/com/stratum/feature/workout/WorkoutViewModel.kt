@@ -232,10 +232,30 @@ class WorkoutViewModel @Inject constructor(
                         _uiState.value = WorkoutUiState.NoActiveSession
                         return@collect
                     }
+                    val workout = program.workouts.firstOrNull { it.id == workoutId }
+                    if (workout == null) {
+                        // Workout template deleted while session was active: leave Loading would
+                        // spin forever and block restarts. Abandon the orphan and surface empty.
+                        if (cachedSessionId != session.id) {
+                            processScopedAbandon.abandon(session.id) { /* recovery — best effort */ }
+                        }
+                        cachedProgramId = null
+                        cachedSessionId = session.id
+                        sessionStartedAt = null
+                        activeWorkoutId = null
+                        snapshotLoaded = false
+                        templateLiftFingerprint = emptyList()
+                        structure = null
+                        snapshotBySlot = emptyMap()
+                        overlay = WorkoutOverlay()
+                        baselineWorkout = null
+                        liveWorkoutSurfaces.clearSession()
+                        _uiState.value = WorkoutUiState.NoActiveSession
+                        return@collect
+                    }
                     cachedProgramId = program.id
                     cachedSessionId = session.id
                     sessionStartedAt = session.startedAt
-                    val workout = program.workouts.firstOrNull { it.id == workoutId } ?: return@collect
                     baselineWorkout = workout
                     val fingerprint =
                         workout.workoutLifts.map { lift ->
