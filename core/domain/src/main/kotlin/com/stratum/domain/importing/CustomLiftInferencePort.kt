@@ -71,18 +71,24 @@ data class InferredCustomLiftMetadata(
      * for find-or-create (reuse by name/alias, or mint with that open band).
      */
     fun toCustomLiftDefinition(): CustomLiftDefinition {
-        val normalized = CustomLiftMusclePolicy.withPatternSecondaryDefaults(this)
+        // Muscles are always derived from movementPattern — never trust free-form tags.
+        val normalized =
+            ImportStubLiftGuesser.metadataFromPattern(
+                exerciseNameRaw = exerciseNameRaw,
+                movementPattern = movementPattern,
+                loading = loading,
+            )
         val patterns = setOf(normalized.movementPattern) + normalized.movementPattern.secondaryPatterns
         val fatigue =
             inferFatigueProfile(normalized.movementPattern, normalized.exerciseNameRaw)
-        return when (val loading = normalized.loading ?: InferredEquipmentLoading.defaultEquipment()) {
+        return when (val resolvedLoading = normalized.loading ?: InferredEquipmentLoading.defaultEquipment()) {
             is InferredEquipmentLoading.Seed ->
                 CustomLiftDefinition(
                     name = normalized.exerciseNameRaw,
                     movementPatterns = patterns,
                     primaryMuscles = normalized.primaryMuscles,
                     secondaryMuscles = normalized.secondaryMuscles,
-                    equipmentId = loading.equipmentId,
+                    equipmentId = resolvedLoading.equipmentId,
                     equipmentName = null,
                     equipmentCreateIncrement = null,
                     increment = null,
@@ -95,10 +101,11 @@ data class InferredCustomLiftMetadata(
                     primaryMuscles = normalized.primaryMuscles,
                     secondaryMuscles = normalized.secondaryMuscles,
                     equipmentId = null,
-                    equipmentName = loading.name.ifBlank { InferredEquipmentLoading.DEFAULT_EQUIPMENT_NAME },
+                    equipmentName =
+                        resolvedLoading.name.ifBlank { InferredEquipmentLoading.DEFAULT_EQUIPMENT_NAME },
                     equipmentCreateIncrement =
                         Weight(
-                            InferredEquipmentLoading.sanitizeIncrementLb(loading.incrementLb),
+                            InferredEquipmentLoading.sanitizeIncrementLb(resolvedLoading.incrementLb),
                             Weight.WeightUnit.Lb,
                         ),
                     increment = null,

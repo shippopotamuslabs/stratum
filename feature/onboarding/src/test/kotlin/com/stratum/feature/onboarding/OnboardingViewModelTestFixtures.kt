@@ -191,6 +191,7 @@ internal object OnboardingViewModelTestFixtures {
             cancelHistoricalImport = CancelHistoricalImportUseCase(
                 rollbackHistoricalImport,
                 refreshPersistedImportState,
+                com.stratum.core.testing.importing.FakeImportJobRepository(),
             ),
             refreshPersistedImportState = refreshPersistedImportState,
             updateUserTrainingProfile = UpdateUserTrainingProfileUseCase(fakeProfileRepository),

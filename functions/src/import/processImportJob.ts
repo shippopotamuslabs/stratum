@@ -28,11 +28,12 @@ export const processImportJob = onDocumentWritten(
       return;
     }
     const data = after.data();
+    // Only process jobs that are waiting to be claimed. Concurrent writers (startImport retries,
+    // progress heartbeats) may leave status as pending_agent across multiple document events —
+    // do NOT skip when before.status was also pending_agent. That guard permanently stuck retries
+    // that re-set the same job to pending_agent (UI frozen on "Preparing import…"). Idempotency is
+    // the transaction claim below: only one invocation wins the pending_agent → agent_running flip.
     if (!data || data.status !== "pending_agent") {
-      return;
-    }
-    const before = event.data?.before?.data();
-    if (before?.status === "pending_agent") {
       return;
     }
 
@@ -51,7 +52,7 @@ export const processImportJob = onDocumentWritten(
       tx.update(jobRef, {
         status: "agent_running",
         progressPhase: "reading_data",
-        progressMessage: "Preparing import…",
+        progressMessage: "Reading your data…",
         progressUpdatedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
