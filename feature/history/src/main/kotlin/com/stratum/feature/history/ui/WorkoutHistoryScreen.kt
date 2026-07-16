@@ -47,7 +47,7 @@ fun WorkoutHistoryScreen(
     onModeSelected: (HistoryCalendarMode) -> Unit,
     onMonthClick: (YearMonth) -> Unit,
     onYearClick: (year: Int) -> Unit,
-    onSessionClick: (sessionId: String) -> Unit,
+    onDayClick: (day: HistoryDayUi) -> Unit,
     onScrollToMonthConsumed: () -> Unit,
     onScrollToYearConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -114,7 +114,7 @@ fun WorkoutHistoryScreen(
                     state = state,
                     onMonthClick = onMonthClick,
                     onYearClick = onYearClick,
-                    onSessionClick = onSessionClick,
+                    onDayClick = onDayClick,
                     onScrollToMonthConsumed = onScrollToMonthConsumed,
                     onScrollToYearConsumed = onScrollToYearConsumed,
                     modifier =
@@ -187,7 +187,7 @@ private fun HistoryCalendarBody(
     state: WorkoutHistoryUiState.Loaded,
     onMonthClick: (YearMonth) -> Unit,
     onYearClick: (year: Int) -> Unit,
-    onSessionClick: (sessionId: String) -> Unit,
+    onDayClick: (day: HistoryDayUi) -> Unit,
     onScrollToMonthConsumed: () -> Unit,
     onScrollToYearConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -219,7 +219,7 @@ private fun HistoryCalendarBody(
                 ) { month ->
                     HistoryMonthBlock(
                         month = month,
-                        onDayClick = onSessionClick,
+                        onDayClick = onDayClick,
                     )
                 }
             }

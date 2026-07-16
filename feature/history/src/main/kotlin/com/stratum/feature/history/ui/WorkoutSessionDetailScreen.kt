@@ -12,10 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.outlined.Tag
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -28,15 +24,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetBadge
-import com.stratum.core.ui.component.StratumMuscleVolumeRow
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumScaffold
-import com.stratum.core.ui.component.StratumStatCard
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
-import com.stratum.core.ui.component.StratumVolumeBodyTier
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 
@@ -116,35 +109,15 @@ private fun SessionDetailContent(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            StratumText(
-                text = state.workoutName,
-                style = StratumThemeAccessor.typography.titleLarge,
-            )
-            StratumText(
-                text = state.completedAtLabel,
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-            )
-        }
-
-        SessionStatsRow(state)
-
-        HorizontalDivider(color = StratumThemeAccessor.colors.borderSubtle)
-
-        if (state.upperVolumeByMuscle.isNotEmpty() || state.lowerVolumeByMuscle.isNotEmpty()) {
-            val initialTier =
-                if (state.upperVolumeByMuscle.isEmpty() && state.lowerVolumeByMuscle.isNotEmpty()) {
-                    StratumVolumeBodyTier.Lower
-                } else {
-                    StratumVolumeBodyTier.Upper
-                }
-            StratumMuscleVolumeRow(
-                upperCards = state.upperVolumeByMuscle,
-                lowerCards = state.lowerVolumeByMuscle,
-                initialTier = initialTier,
-            )
-        }
+        SessionSummaryContent(
+            workoutName = state.workoutName,
+            completedAtLabel = state.completedAtLabel,
+            durationFormatted = state.durationFormatted,
+            totalSetsLabel = state.totalSetsLabel,
+            personalRecordsLabel = state.personalRecordsLabel,
+            upperVolumeByMuscle = state.upperVolumeByMuscle,
+            lowerVolumeByMuscle = state.lowerVolumeByMuscle,
+        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -165,57 +138,6 @@ private fun SessionDetailContent(
         state.lifts.forEach { lift ->
             HistoryLiftBlock(lift = lift)
         }
-    }
-}
-
-@Composable
-private fun SessionStatsRow(state: WorkoutSessionDetailUiState.Loaded) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        StratumStatCard(
-            label = stringResource(R.string.history_session_duration),
-            value = state.durationFormatted,
-            leading = {
-                Icon(
-                    imageVector = Icons.Filled.Timer,
-                    contentDescription = null,
-                    tint = StratumThemeAccessor.colors.textMuted,
-                )
-            },
-            contentPadding = 12.dp,
-            valueStyle = StratumThemeAccessor.typography.titleMedium,
-            modifier = Modifier.weight(1f),
-        )
-        StratumStatCard(
-            label = stringResource(R.string.history_session_sets),
-            value = state.totalSetsLabel,
-            leading = {
-                Icon(
-                    imageVector = Icons.Outlined.Tag,
-                    contentDescription = null,
-                    tint = StratumThemeAccessor.colors.textMuted,
-                )
-            },
-            contentPadding = 12.dp,
-            valueStyle = StratumThemeAccessor.typography.titleMedium,
-            modifier = Modifier.weight(1f),
-        )
-        StratumStatCard(
-            label = stringResource(R.string.history_session_prs),
-            value = state.personalRecordsLabel,
-            leading = {
-                Icon(
-                    painter = painterResource(CoreUiR.drawable.ic_personal_record),
-                    contentDescription = null,
-                    tint = StratumThemeAccessor.colors.prHighlight,
-                )
-            },
-            contentPadding = 12.dp,
-            valueStyle = StratumThemeAccessor.typography.titleMedium,
-            modifier = Modifier.weight(1f),
-        )
     }
 }
 

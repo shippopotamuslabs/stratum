@@ -102,10 +102,10 @@ internal object WorkoutHistoryMapper {
                 HistoryDayUi(
                     date = date,
                     dayOfMonth = day,
-                    hasWorkout = primary != null,
+                    hasWorkout = sessions.isNotEmpty(),
                     // Domain already stores the workout title (not a lift name).
                     workoutLabel = primary?.workoutName,
-                    sessionId = primary?.sessionId?.value,
+                    sessionIds = sessions.map { it.sessionId.value },
                 )
             }
         return HistoryMonthUi(

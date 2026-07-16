@@ -38,9 +38,11 @@ import com.stratum.feature.program.navigation.reorderLiftsEntry
 import com.stratum.feature.program.navigation.ReorderWorkoutsKey
 import com.stratum.feature.program.navigation.reorderWorkoutsEntry
 import com.stratum.feature.history.navigation.EditHistoricalWorkoutKey
+import com.stratum.feature.history.navigation.HistoryDaySessionsKey
 import com.stratum.feature.history.navigation.WorkoutHistoryKey
 import com.stratum.feature.history.navigation.WorkoutSessionDetailKey
 import com.stratum.feature.history.navigation.editHistoricalWorkoutEntry
+import com.stratum.feature.history.navigation.historyDaySessionsEntry
 import com.stratum.feature.history.navigation.workoutHistoryEntry
 import com.stratum.feature.history.navigation.workoutSessionDetailEntry
 import com.stratum.feature.settings.navigation.LegalKey
@@ -227,6 +229,22 @@ fun StratumNavHost(
             )
             legalEntry(onBackClick = onNavigateBack)
             workoutHistoryEntry(
+                onBackClick = onNavigateBack,
+                onDayClick = { day ->
+                    when (day.sessionIds.size) {
+                        0 -> Unit
+                        1 -> backStack.add(WorkoutSessionDetailKey(day.sessionIds.single()))
+                        else ->
+                            backStack.add(
+                                HistoryDaySessionsKey(
+                                    dateIso = day.date.toString(),
+                                    sessionIds = day.sessionIds,
+                                ),
+                            )
+                    }
+                },
+            )
+            historyDaySessionsEntry(
                 onBackClick = onNavigateBack,
                 onSessionClick = { sessionId ->
                     backStack.add(WorkoutSessionDetailKey(sessionId))
