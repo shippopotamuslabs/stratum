@@ -39,6 +39,7 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextField
 import com.stratum.core.ui.component.defaultMuscleFilterTiers
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 
@@ -64,6 +65,8 @@ data class LiftDetailOptionUi(
     val key: String,
     val label: String,
     val selected: Boolean,
+    /** Optional supporting line under [label] (e.g. fatigue tier meaning). */
+    val description: String? = null,
 )
 
 /** Presentation model for the shared Details editor (Information + Create Lift). */
@@ -167,7 +170,10 @@ fun LiftDetailsEditor(
         LiftDetailEditField.Fatigue ->
             SingleSelectDetailSheet(
                 title = stringResource(UiR.string.lift_info_fatigue_profile),
-                options = state.fatigueOptions,
+                options =
+                    state.fatigueOptions.map { option ->
+                        option.copy(description = fatigueTierDescription(option.key))
+                    },
                 onDismiss = actions.onDismissDetailEditor,
                 onSelect = actions.onSelectFatigue,
             )
@@ -387,14 +393,6 @@ private fun LiftDetailsEditorContent(
                                 ?.takeIf { editable }
                                 ?.let { field -> { onOpenDetailEditor(field) } },
                     )
-                    if (row.editField == LiftDetailEditField.Fatigue) {
-                        StratumText(
-                            text = stringResource(UiR.string.lift_info_fatigue_help),
-                            style = StratumThemeAccessor.typography.sectionLabel,
-                            muted = true,
-                            modifier = Modifier.padding(bottom = 8.dp, top = 2.dp),
-                        )
-                    }
                     if (index != specRows.lastIndex) {
                         Box(
                             modifier =
@@ -473,6 +471,7 @@ private fun SingleSelectDetailSheet(
             options.forEach { option ->
                 DetailOptionRow(
                     label = option.label,
+                    description = option.description,
                     selected = option.selected,
                     onClick = { onSelect(option.key) },
                 )
@@ -617,6 +616,7 @@ private fun DetailOptionRow(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    description: String? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
@@ -638,15 +638,38 @@ private fun DetailOptionRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StratumText(text = label)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            StratumText(text = label)
+            if (!description.isNullOrBlank()) {
+                StratumText(
+                    text = description,
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                )
+            }
+        }
         if (selected) {
             StratumText(
                 text = stringResource(UiR.string.lift_info_selected_marker),
                 muted = true,
+                modifier = Modifier.padding(start = 12.dp),
             )
         }
     }
 }
+
+/** Supporting copy for fatigue bottom-sheet options (keyed by [FatigueProfile] name). */
+@Composable
+private fun fatigueTierDescription(key: String): String =
+    when (key) {
+        FatigueProfile.High.name -> stringResource(UiR.string.lift_info_fatigue_desc_high)
+        FatigueProfile.Medium.name -> stringResource(UiR.string.lift_info_fatigue_desc_medium)
+        FatigueProfile.Low.name -> stringResource(UiR.string.lift_info_fatigue_desc_low)
+        else -> ""
+    }
 
 private val DetailsMuscleCardWidth = 76.dp
 /** Matches UI_DESIGN.md §5 minimum touch target (48dp). */

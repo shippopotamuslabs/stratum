@@ -51,19 +51,25 @@ class FatigueProfilePresentationTest {
     }
 
     @Test
-    @DisplayName("FPR-S5-007 fatigue help string documents tiers and rejects single-joint-only framing")
-    fun fprS5007_inlineHelpCopy() {
+    @DisplayName("FPR-S5-007 fatigue tier descriptions live under sheet options, not a single blob")
+    fun fprS5007_perOptionDescriptions() {
         val strings = uiStringsXml()
-        assertTrue(
+        assertFalse(
             strings.contains("name=\"lift_info_fatigue_help\""),
-            "strings.xml must define lift_info_fatigue_help",
+            "inline fatigue help blob must be removed from Details",
         )
-        val help = extractStringValue(strings, "lift_info_fatigue_help")
-        assertTrue("High" in help)
-        assertTrue("Medium" in help)
-        assertTrue("Low" in help)
-        assertTrue("not" in help.lowercase())
-        assertTrue("single-joint" in help.lowercase())
+        assertEquals(
+            "Heavy free-weight compounds — squat, deadlift, barbell row",
+            extractStringValue(strings, "lift_info_fatigue_desc_high"),
+        )
+        assertEquals(
+            "Supported multi-joint work — machine press, iso-lateral row",
+            extractStringValue(strings, "lift_info_fatigue_desc_medium"),
+        )
+        assertEquals(
+            "Accessories — fly, curl, raise, extension",
+            extractStringValue(strings, "lift_info_fatigue_desc_low"),
+        )
     }
 
     @Test
