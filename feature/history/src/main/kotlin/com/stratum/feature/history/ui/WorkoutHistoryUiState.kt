@@ -41,10 +41,13 @@ data class HistoryDayUi(
     val date: LocalDate,
     val dayOfMonth: Int,
     val hasWorkout: Boolean,
-    /** Primary label under the day circle (ellipsis applied in UI). */
+    /** Primary label under the day circle (newest session; ellipsis applied in UI). */
     val workoutLabel: String?,
-    /** Session to open on tap (most recent that day when multiple). */
-    val sessionId: String?,
+    /**
+     * Completed session ids for this day, newest first.
+     * Single id → open detail; multiple → day session list then detail.
+     */
+    val sessionIds: List<String>,
 )
 
 data class HistoryYearUi(

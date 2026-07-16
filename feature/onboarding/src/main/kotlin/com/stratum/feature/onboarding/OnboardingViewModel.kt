@@ -609,6 +609,9 @@ class OnboardingViewModel @Inject constructor(
                 is AdvanceOnboardingStepResult.Success -> {
                     edits.value = ProfileEdit()
                     specializationEdits.value = SpecializationEdit()
+                    // Leaving Review (or any step) must not leave import Error/Loading sticky —
+                    // a failed Import attempt must not lock Generate Review later.
+                    clearImportProgramProgress()
                     ephemeral.update { it.copy(navigationError = null) }
                     if (result.newStep == OnboardingStep.MinimumVolume) {
                         maybePrefillMinimumVolumeFromImport()
@@ -645,6 +648,7 @@ class OnboardingViewModel @Inject constructor(
                 is AdvanceOnboardingStepResult.Success -> {
                     edits.value = ProfileEdit()
                     specializationEdits.value = SpecializationEdit()
+                    clearImportProgramProgress()
                     ephemeral.update { it.copy(navigationError = null) }
                 }
                 AdvanceOnboardingStepResult.PersistenceFailed ->
@@ -796,17 +800,21 @@ class OnboardingViewModel @Inject constructor(
 
     /**
      * Surface an import error without starting a job — used when the file itself cannot be read
-     * (e.g. a virtual doc that won't materialize). Logs the detail via [LogErrorUseCase] and
-     * shows the generic error UI; the raw [message] is never displayed to the user.
+     * or is oversized. [userFacingMessage] must already be safe for UI (e.g. a string resource);
+     * [logDetail] is for logs only (raw IO / OS codes). When [userFacingMessage] is null the UI
+     * uses generic import-error copy.
      */
-    fun showImportProgramError(message: String?) {
+    fun showImportProgramError(
+        userFacingMessage: String? = null,
+        logDetail: String? = null,
+    ) {
         logError(
             OnboardingProgramFlowOps.TAG_IMPORT,
-            OnboardingProgramFlowOps.fileReadFailureLogMessage(message),
+            OnboardingProgramFlowOps.fileReadFailureLogMessage(logDetail ?: userFacingMessage),
         )
         ephemeral.update {
             it.copy(
-                importProgramState = ImportProgramState.Error(null),
+                importProgramState = ImportProgramState.Error(userFacingMessage),
                 importMaxTimelineIndex = 0,
             )
         }
@@ -823,6 +831,18 @@ class OnboardingViewModel @Inject constructor(
             error,
         )
         ephemeral.update { OnboardingProgramFlowOps.importProgramFailed(it, error) }
+    }
+
+    /** Cancels an in-flight import and resets import UI so it cannot leak across paths/steps. */
+    private fun clearImportProgramProgress() {
+        importProgramJob?.cancel()
+        importProgramJob = null
+        ephemeral.update {
+            it.copy(
+                importProgramState = ImportProgramState.Idle,
+                importMaxTimelineIndex = 0,
+            )
+        }
     }
 
     private fun logGenerateFailure(error: Throwable) {

@@ -27,18 +27,21 @@ import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.GenerateState
-import com.stratum.feature.onboarding.ImportProgramPhaseUi
 import com.stratum.feature.onboarding.ImportProgramState
 import com.stratum.feature.onboarding.OnboardingPathUi
 import com.stratum.feature.onboarding.ProgramGenerationProgressUi
 import com.stratum.feature.onboarding.R
 import com.stratum.feature.onboarding.ReviewDraftUi
 
-/** Which pane the Review Crossfade shows: summary cards, generate timeline, or import timeline. */
+/**
+ * Which pane the Review Crossfade shows: summary cards, generate/import timelines, or import
+ * recovery after a failed/rejected file.
+ */
 private enum class ReviewBodyMode {
     Summary,
     GenerateTimeline,
     ImportTimeline,
+    ImportError,
 }
 
 /**
@@ -47,7 +50,9 @@ private enum class ReviewBodyMode {
  *
  * On the Import path the Schedule/Specialization/Minimum Volume cards are hidden (the user skipped
  * those steps), so only Profile and Gym & Lifts show. While generate or import is loading, the
- * summary Crossfades out and a status timeline takes its place (same pattern for both flows).
+ * summary Crossfades out and a status timeline takes its place. On import failure/rejection, the
+ * summary is replaced by a focused recovery pane (error card + single retry CTA) so the user is
+ * not left with a top Import button and an error blob under the cards.
  */
 @Composable
 fun ReviewScreen(
@@ -64,12 +69,21 @@ fun ReviewScreen(
     modifier: Modifier = Modifier,
 ) {
     val showGenerateCards = path == OnboardingPathUi.Generate
+    val onImportPath = path == OnboardingPathUi.Import
     val generating = generateState == GenerateState.Loading
-    val importLoading = importProgramState is ImportProgramState.Loading
+    // Import load/error chrome is path-scoped so a stale Import failure cannot hide Generate.
+    val importLoading = onImportPath && importProgramState is ImportProgramState.Loading
+    val importFailed =
+        onImportPath &&
+            (
+                importProgramState is ImportProgramState.Error ||
+                    importProgramState is ImportProgramState.Rejected
+                )
     val bodyMode =
         when {
             generating -> ReviewBodyMode.GenerateTimeline
             importLoading -> ReviewBodyMode.ImportTimeline
+            importFailed -> ReviewBodyMode.ImportError
             else -> ReviewBodyMode.Summary
         }
 
@@ -78,16 +92,18 @@ fun ReviewScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Primary action pinned to the top so it's always visible without scrolling.
+        // Hidden during import load/error — those panes own the CTA (timeline / Choose another file).
         ReviewPrimaryAction(
             path = path,
             generating = generating,
             importLoading = importLoading,
+            importFailed = importFailed,
             generateError = generateState == GenerateState.Error,
             onGenerate = onGenerate,
             onImportExisting = onImportExisting,
         )
 
-        // Summary fades out as a timeline fades in — only one is on screen at a time.
+        // Summary fades out as a timeline or import-error pane fades in — only one body at a time.
         Crossfade(
             targetState = bodyMode,
             animationSpec = tween(durationMillis = 400),
@@ -107,14 +123,26 @@ fun ReviewScreen(
                         maxActiveIndex = importMaxTimelineIndex,
                     )
                 }
+                ReviewBodyMode.ImportError -> {
+                    val rejected = importProgramState is ImportProgramState.Rejected
+                    val message =
+                        when (importProgramState) {
+                            is ImportProgramState.Error -> importProgramState.message
+                            is ImportProgramState.Rejected -> importProgramState.message
+                            else -> null
+                        }
+                    ImportProgramErrorContent(
+                        rejected = rejected,
+                        message = message,
+                        onRetry = onImportExisting,
+                    )
+                }
                 ReviewBodyMode.Summary ->
                     ReviewSummary(
                         draft = draft,
                         showGenerateCards = showGenerateCards,
-                        importProgramState = importProgramState,
                         generateError = generateState == GenerateState.Error,
                         generateErrorMessage = generateErrorMessage,
-                        onImportExisting = onImportExisting,
                     )
             }
         }
@@ -123,18 +151,19 @@ fun ReviewScreen(
 
 /**
  * The primary CTA at the top of Review. Shows Generate (Generate path) or Import (Import path).
- * Hides while a generate/import is loading (the timeline replaces the summary).
+ * Hides while generate/import is loading, and while import recovery owns the retry CTA.
  */
 @Composable
 private fun ReviewPrimaryAction(
     path: OnboardingPathUi,
     generating: Boolean,
     importLoading: Boolean,
+    importFailed: Boolean,
     generateError: Boolean,
     onGenerate: () -> Unit,
     onImportExisting: () -> Unit,
 ) {
-    if (generating || importLoading) return
+    if (generating || importLoading || importFailed) return
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         if (path == OnboardingPathUi.Generate) {
             StratumButton(
@@ -159,17 +188,15 @@ private fun ReviewPrimaryAction(
 }
 
 /**
- * The summary cards + any inline import/generate-error state. Rendered inside the Crossfade so it
- * disappears entirely when a timeline takes over.
+ * The summary cards + any generate-error note. Rendered inside the Crossfade so it disappears
+ * entirely when a timeline or import-error recovery pane takes over.
  */
 @Composable
 private fun ReviewSummary(
     draft: ReviewDraftUi,
     showGenerateCards: Boolean,
-    importProgramState: ImportProgramState,
     generateError: Boolean,
     generateErrorMessage: String?,
-    onImportExisting: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         StratumText(
@@ -228,38 +255,11 @@ private fun ReviewSummary(
             }
         }
 
-        // Import errors (not progress) render below the summary when not loading.
-        ReviewImportState(
-            importProgramState = importProgramState,
-            onImportExisting = onImportExisting,
-        )
-
         if (generateError) {
             ReviewGenerateError(
                 message = generateErrorMessage,
             )
         }
-    }
-}
-
-@Composable
-private fun ReviewImportState(
-    importProgramState: ImportProgramState,
-    onImportExisting: () -> Unit,
-) {
-    when (importProgramState) {
-        // Loading is handled by the timeline Crossfade pane.
-        is ImportProgramState.Loading -> Unit
-        is ImportProgramState.Error -> ImportErrorInline(
-            message = importProgramState.message,
-            onRetry = onImportExisting,
-        )
-        is ImportProgramState.Rejected -> ImportErrorInline(
-            message = importProgramState.message,
-            rejected = true,
-            onRetry = onImportExisting,
-        )
-        ImportProgramState.Idle -> Unit
     }
 }
 
@@ -273,32 +273,6 @@ private fun ReviewGenerateError(message: String?) {
         if (!message.isNullOrEmpty()) {
             StratumText(text = message, muted = true)
         }
-    }
-}
-
-@Composable
-private fun ImportErrorInline(
-    message: String?,
-    rejected: Boolean = false,
-    onRetry: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        StratumText(text = stringResource(R.string.onboarding_import_error_title))
-        StratumText(
-            text = when {
-                !message.isNullOrEmpty() -> message
-                rejected -> stringResource(R.string.onboarding_import_error_rejected)
-                else -> stringResource(R.string.onboarding_import_error_generic)
-            },
-            muted = true,
-        )
-        StratumButton(
-            text = stringResource(R.string.onboarding_import_error_retry),
-            onClick = onRetry,
-        )
     }
 }
 
