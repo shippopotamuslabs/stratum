@@ -206,7 +206,10 @@
     <string name="lift_info_length_bias">Length bias</string>
     <string name="lift_info_movement_patterns">Movement patterns</string>
     <string name="lift_info_fatigue_profile">Fatigue profile</string>
-    <string name="lift_info_fatigue_help">High: spine-loaded free-weight compounds (e.g. barbell squat, deadlift). Medium: other multi-joint compounds. Low: lighter accessories</string>
+    <!-- Fatigue bottom-sheet option subtitles (not shown on the Details list). -->
+    <string name="lift_info_fatigue_desc_high">Heavy free-weight compounds — squat, deadlift, barbell row</string>
+    <string name="lift_info_fatigue_desc_medium">Supported multi-joint work — machine press, iso-lateral row</string>
+    <string name="lift_info_fatigue_desc_low">Accessories — fly, curl, raise, extension</string>
     <string name="lift_info_load_type">Load type</string>
     <string name="lift_info_equipment">Equipment</string>
     <string name="lift_info_equipment_placeholder">e.g. Cable, Dumbbell</string>
