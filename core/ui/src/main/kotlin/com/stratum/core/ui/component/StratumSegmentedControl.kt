@@ -107,10 +107,13 @@ private fun ConnectedSegmentBar(
     val shapes = StratumThemeAccessor.shapes
     val outerShape = RoundedCornerShape(shapes.chipCorner)
 
+    val elevations = StratumThemeAccessor.elevations
+    val trackBorder =
+        if (elevations.useHardShadow) colors.borderStrong else colors.borderSubtle
     Box(
         modifier = modifier
             .height(MinSegmentHeight)
-            .border(shapes.borderWidth, colors.borderSubtle, outerShape)
+            .border(shapes.borderWidth, trackBorder, outerShape)
             .clip(outerShape),
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
