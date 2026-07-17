@@ -27,9 +27,14 @@ import com.stratum.domain.training.LogSetCommand
 import com.stratum.domain.training.LogSetUseCase
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.LoggedSet
+import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionDisplayName
+import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.UpdateLoggedSetUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.training.liveWorkoutRouteId
 import com.stratum.domain.program.SaveWorkoutUseCase
+import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
@@ -179,6 +184,12 @@ class WorkoutViewModel @Inject constructor(
      */
     private var templateLiftFingerprint: List<Pair<String, String>> = emptyList()
     private var baselineWorkout: Workout? = null
+    /**
+     * True only for [TrainingSessionKind.PROGRAM_WORKOUT] with a real template baseline.
+     * Controls save-to-program-day UI (`hasDirtyEdits`) and [SaveWorkoutUseCase] on complete.
+     * Ad-hoc sessions always false — structural edits stay overlay/session only.
+     */
+    private var canSaveTemplateChanges: Boolean = false
     /** Guards double-tap complete; reset when finalize fails so the user can retry. */
     private var isCompleting: Boolean = false
     /**
@@ -186,6 +197,12 @@ class WorkoutViewModel @Inject constructor(
      * finalize-only retry does not re-apply overlay (and mint new set ids) a second time.
      */
     private var templateSavedThisComplete: Boolean = false
+    /**
+     * After intentional complete/abandon, keep the last [WorkoutUiState.Loaded] frame so
+     * NavHost exit transitions do not flash [WorkoutUiState.NoActiveSession] ("No active
+     * session." + Back) while this route is still composed.
+     */
+    private var retainLoadedUiForExit: Boolean = false
     private val overlayPersistMutex = Mutex()
     /** Serializes log/unlog so concurrent first-completes cannot double-insert. */
     private val setLogMutex = Mutex()
@@ -193,12 +210,14 @@ class WorkoutViewModel @Inject constructor(
     fun startSession(workoutId: WorkoutId) {
         if (activeWorkoutId == workoutId && snapshotLoaded) return
         activeWorkoutId = workoutId
+        retainLoadedUiForExit = false
         cachedProgramId = null
         snapshotLoaded = false
         templateLiftFingerprint = emptyList()
         overlay = WorkoutOverlay()
         snapshotBySlot = emptyMap()
         structure = null
+        canSaveTemplateChanges = false
         _uiState.value = WorkoutUiState.Loading
         sessionObservationJob?.cancel()
         sessionObservationJob =
@@ -217,46 +236,26 @@ class WorkoutViewModel @Inject constructor(
 
                     val program = progress.program
                     val session = progress.activeSession
-                    if (program == null || session == null || session.workoutId != workoutId) {
-                        cachedProgramId = null
-                        cachedSessionId = null
-                        sessionStartedAt = null
-                        activeWorkoutId = null
-                        snapshotLoaded = false
-                        templateLiftFingerprint = emptyList()
-                        structure = null
-                        snapshotBySlot = emptyMap()
-                        overlay = WorkoutOverlay()
-                        baselineWorkout = null
-                        liveWorkoutSurfaces.clearSession()
-                        _uiState.value = WorkoutUiState.NoActiveSession
+                    if (program == null || session == null || !sessionMatchesRoute(session, workoutId)) {
+                        clearToNoActiveSession()
                         return@collect
                     }
-                    val workout = program.workouts.firstOrNull { it.id == workoutId }
+                    val workout = resolveSessionWorkout(session, program, workoutId)
                     if (workout == null) {
-                        // Workout template deleted while session was active: leave Loading would
-                        // spin forever and block restarts. Abandon the orphan and surface empty.
+                        // Program template deleted mid-session: abandon orphan and surface empty.
                         if (cachedSessionId != session.id) {
                             processScopedAbandon.abandon(session.id) { /* recovery — best effort */ }
                         }
-                        cachedProgramId = null
-                        cachedSessionId = session.id
-                        sessionStartedAt = null
-                        activeWorkoutId = null
-                        snapshotLoaded = false
-                        templateLiftFingerprint = emptyList()
-                        structure = null
-                        snapshotBySlot = emptyMap()
-                        overlay = WorkoutOverlay()
-                        baselineWorkout = null
-                        liveWorkoutSurfaces.clearSession()
-                        _uiState.value = WorkoutUiState.NoActiveSession
+                        // Keep session id so we do not re-abandon the same orphan every collect.
+                        clearToNoActiveSession(retainSessionId = session.id)
                         return@collect
                     }
                     cachedProgramId = program.id
                     cachedSessionId = session.id
                     sessionStartedAt = session.startedAt
                     baselineWorkout = workout
+                    // Kind is source of truth — never save synthetic AD_HOC baselines as program days.
+                    canSaveTemplateChanges = session.kind == TrainingSessionKind.PROGRAM_WORKOUT
                     val fingerprint =
                         workout.workoutLifts.map { lift ->
                             lift.id.value to lift.liftId.value
@@ -274,7 +273,7 @@ class WorkoutViewModel @Inject constructor(
                         val snapshotResult = generateSnapshot(
                             SnapshotRequest(
                                 programId = program.id,
-                                workoutId = workoutId,
+                                workoutId = workout.id,
                                 lifts = workout.workoutLifts,
                                 loadTypesById = liftsById.mapValues { it.value.loadType },
                                 incrementTiersById =
@@ -282,32 +281,15 @@ class WorkoutViewModel @Inject constructor(
                             ),
                         )
                         val snapshot = snapshotResult.getOrDefault(
-                            com.stratum.domain.workout.ProgressionSnapshot(workoutId, emptyMap()),
+                            com.stratum.domain.workout.ProgressionSnapshot(workout.id, emptyMap()),
                         )
                         snapshotBySlot = snapshot.bySlot
 
                         if (isInitialLoad) {
-                            // Load already logged sets for the session from database (resume).
-                            val dbSets = getLoggedSetsForSession(session.id)
-                            val resumedLoggedSets = mutableMapOf<SetSlotId, LoggedSetValue>()
-                            for (dbSet in dbSets) {
-                                val slot = projected.lifts.flatMap { it.slots }.firstOrNull {
-                                    it.workoutLiftId == dbSet.liftContext.workoutLiftId &&
-                                        it.position == dbSet.setIndex
-                                }
-                                if (slot != null) {
-                                    resumedLoggedSets[slot.slotId] = LoggedSetValue(
-                                        slotId = slot.slotId,
-                                        weight = dbSet.weight,
-                                        reps = dbSet.reps,
-                                        rir = dbSet.rir,
-                                    )
-                                }
-                            }
-                            // Prefer a persisted overlay (process-death / merge rebind). On a
-                            // fresh session nothing is stored, so fall back to DB-resumed logs.
-                            val persisted = manageWorkoutOverlay.load(session.id)
-                            overlay = persisted ?: overlay.copy(loggedSets = resumedLoggedSets)
+                            overlay = restoreOverlayOnInitialLoad(
+                                sessionId = session.id,
+                                projected = projected,
+                            )
                         } else {
                             // Template catalog ids changed (e.g. lift merge re-point). Prefer
                             // the store copy — MergeLiftsUseCase remaps swaps/added lifts there.
@@ -336,6 +318,121 @@ class WorkoutViewModel @Inject constructor(
                     render()
                 }
             }
+    }
+
+    /**
+     * Prefer DataStore overlay; else map DB logs onto template slots; else rebuild
+     * session-added structure from durable logs (ad-hoc / mid-session adds after overlay loss).
+     */
+    private suspend fun restoreOverlayOnInitialLoad(
+        sessionId: TrainingSessionId,
+        projected: WorkoutStructureProjection,
+    ): WorkoutOverlay {
+        val dbSets = getLoggedSetsForSession(sessionId)
+        val templateWorkoutLiftIds = projected.lifts.map { it.workoutLiftId }.toSet()
+        val resumedLoggedSets = mutableMapOf<SetSlotId, LoggedSetValue>()
+        for (dbSet in dbSets) {
+            val slot = projected.lifts.flatMap { it.slots }.firstOrNull {
+                it.workoutLiftId == dbSet.liftContext.workoutLiftId &&
+                    it.position == dbSet.setIndex
+            }
+            if (slot != null) {
+                resumedLoggedSets[slot.slotId] = LoggedSetValue(
+                    slotId = slot.slotId,
+                    weight = dbSet.weight,
+                    reps = dbSet.reps,
+                    rir = dbSet.rir,
+                )
+            }
+        }
+        val persisted = manageWorkoutOverlay.load(sessionId)
+        if (persisted != null) return persisted
+
+        val orphanSets =
+            dbSets.filter { set ->
+                val wlId = set.liftContext.workoutLiftId
+                wlId != null &&
+                    set.liftId != null &&
+                    wlId !in templateWorkoutLiftIds
+            }
+        val rebuilt =
+            if (orphanSets.isNotEmpty()) {
+                LiveWorkoutOverlayOps.rebuildFromSessionLoggedSets(
+                    dbSets = orphanSets,
+                    zeroWeight = Weight(0.0, Weight.WeightUnit.Lb),
+                )
+            } else {
+                null
+            }
+        return when {
+            rebuilt != null ->
+                rebuilt.copy(loggedSets = rebuilt.loggedSets + resumedLoggedSets)
+            else -> WorkoutOverlay(loggedSets = resumedLoggedSets)
+        }
+    }
+
+    /**
+     * Program workouts match on template id; ad-hoc empty sessions match on session id
+     * (the route key when [TrainingSession.workoutId] is null).
+     */
+    private fun sessionMatchesRoute(session: TrainingSession, routeWorkoutId: WorkoutId): Boolean =
+        session.liveWorkoutRouteId() == routeWorkoutId.value
+
+    /**
+     * Resolves the structural baseline for the live session. Ad-hoc uses a synthetic empty
+     * [Workout] so overlay add-lift / log flows work without a program template row.
+     */
+    private fun resolveSessionWorkout(
+        session: TrainingSession,
+        program: Program,
+        routeWorkoutId: WorkoutId,
+    ): Workout? =
+        when (session.kind) {
+            TrainingSessionKind.PROGRAM_WORKOUT ->
+                session.workoutId?.let { boundId ->
+                    program.workouts.firstOrNull { it.id == boundId }
+                }
+            TrainingSessionKind.AD_HOC ->
+                Workout(
+                    id = routeWorkoutId,
+                    programId = program.id,
+                    name = TrainingSessionDisplayName.resolve(session = session, program = program),
+                    weekday = null,
+                    position = 0,
+                    workoutLifts = emptyList(),
+                )
+            TrainingSessionKind.REST_DAY -> null
+        }
+
+    /**
+     * @param retainSessionId when non-null, keeps [cachedSessionId] so orphan abandon does not
+     * re-fire every collect for the same dead session.
+     */
+    private fun clearToNoActiveSession(
+        retainSessionId: TrainingSessionId? = null,
+    ) {
+        cachedProgramId = null
+        cachedSessionId = retainSessionId
+        sessionStartedAt = null
+        activeWorkoutId = null
+        snapshotLoaded = false
+        templateLiftFingerprint = emptyList()
+        structure = null
+        snapshotBySlot = emptyMap()
+        overlay = WorkoutOverlay()
+        baselineWorkout = null
+        canSaveTemplateChanges = false
+        liveWorkoutSurfaces.clearSession()
+        publishNoActiveSessionIfNeeded()
+    }
+
+    /**
+     * Publishes [WorkoutUiState.NoActiveSession] only when the empty session is unexpected.
+     * Intentional complete/abandon keeps [WorkoutUiState.Loaded] for the exit transition.
+     */
+    private fun publishNoActiveSessionIfNeeded() {
+        if (isCompleting || retainLoadedUiForExit) return
+        _uiState.value = WorkoutUiState.NoActiveSession
     }
 
     private fun catalogIdentitySignature(value: WorkoutOverlay): List<String> =
@@ -641,6 +738,8 @@ class WorkoutViewModel @Inject constructor(
         )
         // Snapshot previous/recs are keyed by template history; recompute them for the
         // performed lift so the card does not keep the pre-swap baselines (D3).
+        // Session-added / ad-hoc lifts: merge applies swappedLifts for display + log;
+        // recomputeRecommendations rebinds live recs (keep dynamicBaselines so slots stay).
         viewModelScope.launch {
             val workout = baselineWorkout
             val templateLift = workout?.workoutLifts?.firstOrNull { it.id == workoutLiftId }
@@ -867,8 +966,16 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 var templateSaved = false
-                if (saveTemplate && workout != null && !templateSavedThisComplete) {
-                    val updated = applyOverlayToWorkout(workout, overlay)
+                // Hard rule: only PROGRAM_WORKOUT sessions may write the program template.
+                // Ad-hoc baselines are synthetic (route id = session id) — never SaveWorkout.
+                val templateToSave =
+                    if (saveTemplate && canSaveTemplateChanges && !templateSavedThisComplete) {
+                        workout
+                    } else {
+                        null
+                    }
+                if (templateToSave != null) {
+                    val updated = applyOverlayToWorkout(templateToSave, overlay)
                     val saveResult = saveWorkoutUseCase(workoutId, updated)
                     if (saveResult.isFailure) {
                         _userMessage.value = MSG_COMPLETE_FAILED
@@ -880,8 +987,12 @@ class WorkoutViewModel @Inject constructor(
                     templateSavedThisComplete = true
                     templateSaved = true
                 }
+                // Arm before finalize so observe(null session) cannot flash NoActiveSession
+                // while NavHost is still composing this route during the exit transition.
+                retainLoadedUiForExit = true
                 val finalizeResult = finalizeTrainingSession(sessionId)
                 if (finalizeResult.isFailure) {
+                    retainLoadedUiForExit = false
                     _userMessage.value =
                         if (templateSaved || templateSavedThisComplete) {
                             MSG_COMPLETE_FINALIZE_AFTER_TEMPLATE
@@ -911,6 +1022,10 @@ class WorkoutViewModel @Inject constructor(
         val session = cachedSessionId
         if (session == null) {
             liveWorkoutSurfaces.clearSession()
+            // Leaving intentionally — avoid NoActiveSession flash during pop when we had UI.
+            if (_uiState.value is WorkoutUiState.Loaded) {
+                retainLoadedUiForExit = true
+            }
             resetLocalSessionState()
             viewModelScope.launch {
                 manageWorkoutOverlay.clear()
@@ -922,9 +1037,12 @@ class WorkoutViewModel @Inject constructor(
         val restoreName =
             (_uiState.value as? WorkoutUiState.Loaded)?.workoutName
         val restoreStartedMs = sessionStartedAt?.toEpochMilli()
+        // Arm before domain delete so observe(null) cannot flash NoActiveSession mid-transition.
+        retainLoadedUiForExit = true
         processScopedAbandon.abandon(session) { result ->
             viewModelScope.launch {
                 if (result.isFailure) {
+                    retainLoadedUiForExit = false
                     _userMessage.value = MSG_ABANDON_FAILED
                     // Eager clear left surfaces empty while domain session remains — re-publish.
                     if (restoreWorkoutId != null && restoreName != null && restoreStartedMs != null) {
@@ -957,10 +1075,9 @@ class WorkoutViewModel @Inject constructor(
         cachedSessionId = null
         sessionStartedAt = null
         baselineWorkout = null
-        _uiState.value = WorkoutUiState.NoActiveSession
+        canSaveTemplateChanges = false
+        publishNoActiveSessionIfNeeded()
     }
-
-
 
     /**
      * Recomputes overlay-only recommendations for upcoming unlogged sets from the most
@@ -1022,7 +1139,9 @@ class WorkoutViewModel @Inject constructor(
         val hasIncompleteLifts = rendered.lifts.any { lift ->
             lift.sets.any { it.loggedValue == null }
         }
-        val hasDirtyEdits = overlay.isDirty
+        // Presentation name is historical: means "offer save-to-program-day", not raw overlay dirty.
+        // Ad-hoc never offers template save (canSaveTemplateChanges == false).
+        val hasDirtyEdits = overlay.isDirty && canSaveTemplateChanges
         val imageUrlByLiftId = liftsById.mapValues { (_, lift) -> lift.imageUris.firstOrNull() }
             .mapKeys { (id, _) -> id.value }
         val mapped = WorkoutUiMapper.map(

@@ -75,7 +75,8 @@ class StartTrainingSessionUseCase @Inject constructor(
                         endedAt = null,
                         sourceApp = null,
                         programNameSnapshot = program.name,
-                        workoutNameSnapshot = null,
+                        // Stable label for bar / history / notifications (no program workout row).
+                        workoutNameSnapshot = AD_HOC_WORKOUT_NAME,
                     )
             }
 
@@ -90,5 +91,6 @@ class StartTrainingSessionUseCase @Inject constructor(
 
     private companion object {
         const val TAG = "StartTrainingSession"
+        const val AD_HOC_WORKOUT_NAME = "Empty Workout"
     }
 }

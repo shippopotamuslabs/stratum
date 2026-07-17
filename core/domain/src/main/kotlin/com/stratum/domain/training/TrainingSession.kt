@@ -48,6 +48,10 @@ data class TrainingSession(
     val sourceApp: String?,
     /** Program display name at session create (survives program delete). */
     val programNameSnapshot: String? = null,
-    /** Workout display name at session create (survives template delete); null for rest/ad-hoc. */
+    /**
+     * Workout display name at session create (survives template delete).
+     * Null for rest-day ledger rows; live ad-hoc empty starts use a stable label
+     * (e.g. "Empty Workout") from [StartTrainingSessionUseCase].
+     */
     val workoutNameSnapshot: String? = null,
 )
