@@ -55,6 +55,7 @@ class FirebaseHistoricalImportAdapter @Inject constructor() : HistoricalImportPo
             progressMessage = map["progressMessage"] as? String,
             conversionStoragePath = latest?.get("storagePath") as? String,
             errorMessage = map["errorMessage"] as? String,
+            conversionFormat = latest?.get("format") as? String,
         )
     }
 

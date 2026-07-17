@@ -260,4 +260,20 @@
     <string name="program_generate_phase_saving">Saving your program</string>
     <string name="program_generate_phase_complete">Program ready</string>
     <string name="program_generate_error_title">Something went wrong</string>
+
+    <!-- Shared date picker -->
+    <string name="stratum_date_picker_confirm">OK</string>
+    <string name="stratum_date_picker_dismiss">Cancel</string>
+
+    <!-- Shared import progress timeline labels (historical logs) -->
+    <string name="import_timeline_upload">Upload</string>
+    <string name="import_timeline_convert">Convert</string>
+    <string name="import_timeline_catalog">Match lifts</string>
+    <string name="import_timeline_analyze">Analyze</string>
+
+    <!-- Shared import progress timeline labels (program template) -->
+    <string name="import_program_timeline_upload">Upload</string>
+    <string name="import_program_timeline_convert">Convert</string>
+    <string name="import_program_timeline_match">Match lifts</string>
+    <string name="import_program_timeline_done">Save to library</string>
 </resources>

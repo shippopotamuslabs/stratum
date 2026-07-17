@@ -24,6 +24,13 @@ interface TrainingLogRepository {
     suspend fun updateSets(sets: List<LoggedSet>)
     suspend fun replaceAll(sessions: List<TrainingSession>, sets: List<LoggedSet>)
     suspend fun replaceImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>)
+
+    /**
+     * Inserts only; does not delete prior IMPORT or LIVE rows.
+     * Used by Settings merge-safe import ([com.stratum.domain.importing.ImportHistoryPersistPolicy.MergeSkipDuplicates]).
+     */
+    suspend fun appendImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>)
+
     suspend fun getAllSessions(): List<TrainingSession>
     suspend fun getAllSets(): List<LoggedSet>
 

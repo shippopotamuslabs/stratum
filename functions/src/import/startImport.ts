@@ -4,6 +4,100 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { isHistoricalImportJobStale } from "./importJobGuards";
 
 /**
+ * Canonical client layout for historical import objects:
+ *   imports/{uid}/{jobId}/raw/{fileName}
+ *   imports/{uid}/{jobId}/sample/{fileName}
+ *
+ * Rejects path traversal, wrong kind folders, mismatched job ids, and any path that
+ * is not under the authenticated caller's prefix. This is stronger than a bare prefix
+ * check: the Admin SDK can read any bucket object, so the path shape is the ACL.
+ */
+export function assertOwnedImportStoragePaths(
+  uid: string,
+  rawStoragePath: string,
+  sampleStoragePath: string,
+): void {
+  const rawJobId = parseOwnedImportPath(uid, rawStoragePath, "raw");
+  const sampleJobId = parseOwnedImportPath(uid, sampleStoragePath, "sample");
+  if (rawJobId !== sampleJobId) {
+    throw new HttpsError(
+      "invalid-argument",
+      "rawStoragePath and sampleStoragePath must share the same jobId segment.",
+    );
+  }
+}
+
+/**
+ * @returns jobId segment under imports/{uid}/
+ */
+export function parseOwnedImportPath(
+  uid: string,
+  storagePath: string,
+  expectedKind: "raw" | "sample",
+): string {
+  if (typeof storagePath !== "string" || storagePath.length === 0) {
+    throw new HttpsError("invalid-argument", "Storage path is required.");
+  }
+  // Reject traversal and non-posix separators before any split.
+  if (
+    storagePath.includes("..") ||
+    storagePath.includes("\\") ||
+    storagePath.includes("\0") ||
+    storagePath.startsWith("/") ||
+    storagePath.includes("//")
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Storage path must be a relative posix path without traversal.",
+    );
+  }
+
+  const prefix = `imports/${uid}/`;
+  if (!storagePath.startsWith(prefix)) {
+    throw new HttpsError(
+      "invalid-argument",
+      `Storage path must start with ${prefix}`,
+    );
+  }
+
+  const rest = storagePath.slice(prefix.length);
+  const parts = rest.split("/");
+  // jobId / kind / fileName[+optional nested name segments]
+  if (parts.length < 3) {
+    throw new HttpsError(
+      "invalid-argument",
+      `Storage path must look like imports/{uid}/{jobId}/${expectedKind}/{fileName}`,
+    );
+  }
+
+  const [jobId, kind, ...fileParts] = parts;
+  if (!jobId || jobId === "." || jobId.includes("/")) {
+    throw new HttpsError("invalid-argument", "Storage path jobId segment is invalid.");
+  }
+  // Job ids are client UUIDs; allow alphanumeric + hyphen/underscore only.
+  if (!/^[A-Za-z0-9_-]+$/.test(jobId)) {
+    throw new HttpsError("invalid-argument", "Storage path jobId segment is invalid.");
+  }
+  if (kind !== expectedKind) {
+    throw new HttpsError(
+      "invalid-argument",
+      `Storage path must use the /${expectedKind}/ folder (found /${kind}/).`,
+    );
+  }
+  if (
+    fileParts.length === 0 ||
+    fileParts.some((p) => !p || p === "." || p === ".." || p.includes("\\"))
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Storage path file name segment is missing or invalid.",
+    );
+  }
+
+  return jobId;
+}
+
+/**
  * Enqueue a historical training-log import job. The client uploads raw + sample to Storage first,
  * then calls this with the Storage paths; this writes the job doc that `processImportJob` picks up.
  *
@@ -26,6 +120,16 @@ export const startImport = onCall(async (request) => {
     throw new HttpsError(
       "invalid-argument",
       "jobId, rawStoragePath, and sampleStoragePath are required.",
+    );
+  }
+  assertOwnedImportStoragePaths(uid, data.rawStoragePath, data.sampleStoragePath);
+
+  // Job id in the path must match the job doc id the client claims.
+  const pathJobId = parseOwnedImportPath(uid, data.rawStoragePath, "raw");
+  if (pathJobId !== data.jobId) {
+    throw new HttpsError(
+      "invalid-argument",
+      "jobId must match the jobId segment in rawStoragePath and sampleStoragePath.",
     );
   }
 

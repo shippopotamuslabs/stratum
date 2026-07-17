@@ -1,4 +1,4 @@
-package com.stratum.feature.onboarding
+package com.stratum.core.ui.importing
 
 import android.content.ContentResolver
 import android.content.Context
@@ -8,10 +8,9 @@ import com.stratum.domain.importing.ImportFileInput
 import java.io.IOException
 
 /**
- * Reads selected document URIs into [ImportFileInput] payloads. Kept outside composables so
- * [OnboardingRoute] stays thin and file I/O is testable without Compose.
+ * Reads selected document URIs into [ImportFileInput] payloads. Shared by onboarding and settings.
  */
-internal fun readImportFilesFromUris(
+fun readImportFilesFromUris(
     contentResolver: ContentResolver,
     uris: List<Uri>,
 ): List<ImportFileInput> =
@@ -28,11 +27,8 @@ internal fun readImportFilesFromUris(
  * Returns true if a permission was taken OR none was needed (local files don't require it); false
  * only when taking the permission itself throws (genuinely inaccessible URI).
  */
-internal fun ensureReadPermission(context: Context, uri: Uri): Boolean {
+fun ensureReadPermission(context: Context, uri: Uri): Boolean {
     val flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-    // takePersistableUriPermission throws for URIs whose provider doesn't offer persistable
-    // grants (local files); that's fine — those don't need an explicit grant. For URIs where the
-    // grant genuinely cannot be taken, return false so the caller surfaces a clear error.
     return runCatching {
         context.contentResolver.takePersistableUriPermission(uri, flags)
     }.isSuccess
@@ -45,15 +41,9 @@ internal fun ensureReadPermission(context: Context, uri: Uri): Boolean {
  * `openInputStream` throws `FileNotFoundException: File is virtual` on those, and
  * `openFileDescriptor` returns `null`. This helper tries `openInputStream` first (the common case
  * for local files), then falls back to `openFileDescriptor`, and surfaces any failure as an
- * [IOException] (rather than silently returning null) so the caller can show the user feedback.
- *
- * Reads the real display name via [OpenableColumns.DISPLAY_NAME]; falls back to the URI's last
- * path segment.
- *
- * @throws IOException when the file cannot be opened or read (e.g. virtual doc that won't
- * materialize, revoked access, provider error).
+ * [IOException] so the caller can show the user feedback.
  */
-internal fun readImportFileFromUri(
+fun readImportFileFromUri(
     contentResolver: ContentResolver,
     uri: Uri,
 ): Result<ImportFileInput> = runCatching {
@@ -63,16 +53,15 @@ internal fun readImportFileFromUri(
 }
 
 private fun readBytes(contentResolver: ContentResolver, uri: Uri): ByteArray {
-    // Strategy 1: openInputStream — works for local files and most providers.
-    val streamBytes = runCatching {
-        contentResolver.openInputStream(uri)?.use { it.readBytes() }
-    }.getOrNull()
+    val streamBytes =
+        runCatching {
+            contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        }.getOrNull()
     if (streamBytes != null) return streamBytes
 
-    // Strategy 2: openFileDescriptor — forces materialization for some virtual docs that
-    // openInputStream rejects. Throws if the provider still cannot deliver bytes.
-    val pfd = contentResolver.openFileDescriptor(uri, "r")
-        ?: throw IOException("Provider returned no file descriptor for $uri")
+    val pfd =
+        contentResolver.openFileDescriptor(uri, "r")
+            ?: throw IOException("Provider returned no file descriptor for $uri")
     return pfd.use { java.io.FileInputStream(it.fileDescriptor).use { s -> s.readBytes() } }
 }
 

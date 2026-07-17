@@ -10,6 +10,7 @@ import {
   readXlsxRows,
 } from "./macroFactorParser";
 import { matchesAlphaProgression, parseAlphaProgression } from "./alphaProgressionParser";
+import { matchesStratumLogExport, parseStratumLogExport } from "./stratumLogParser";
 import type { ImportFormat } from "./types";
 
 /**
@@ -22,12 +23,8 @@ import type { ImportFormat } from "./types";
  * (CSV header sniff) are the source of truth, since Android's document picker
  * hands us file names that can be wrong or missing.
  *
- * Order matters. The CSV-table formats (Hevy, Strong, MacroFactor-CSV) are
- * disambiguated by their distinctive headers, so they cannot be confused with
- * each other. The XLSX branch is checked first because XLSX bytes are not
- * valid UTF-8, so attempting to decode them as CSV would be meaningless. Alpha
- * Progression's sectional layout has no header row at all, so it is checked
- * last — only after every flat-table format has declined.
+ * Order: (1) XLSX MacroFactor, (2) Stratum log JSON, (3) Alpha Progression,
+ * (4) Hevy / MacroFactor CSV / Strong.
  */
 export function detectAndParse(rawBytes: Buffer, fileName: string): { format: ImportFormat; history: NormalizedHistory } | null {
   // 1. XLSX (binary): only MacroFactor ships XLSX today.
@@ -43,10 +40,20 @@ export function detectAndParse(rawBytes: Buffer, fileName: string): { format: Im
     return null;
   }
 
-  // 2. Decode as UTF-8 text for the CSV-based formats.
+  // 2. Decode as UTF-8 text.
   const text = rawBytes.toString("utf8");
 
-  // 2a. Alpha Progression (sectional, no header row) — check via its own sniff.
+  // 2a. Stratum first-class JSON envelope (before third-party CSV formats).
+  if (matchesStratumLogExport(text)) {
+    try {
+      const history = parseStratumLogExport(text);
+      return { format: "stratum", history };
+    } catch {
+      // Malformed envelope — fall through.
+    }
+  }
+
+  // 2b. Alpha Progression (sectional, no header row).
   if (matchesAlphaProgression(text)) {
     const history = parseAlphaProgression(text);
     if (history) {
@@ -54,7 +61,7 @@ export function detectAndParse(rawBytes: Buffer, fileName: string): { format: Im
     }
   }
 
-  // 2b. Flat CSV tables. Try each format's header sniff; the signatures are
+  // 2c. Flat CSV tables. Try each format's header sniff; the signatures are
   //     mutually exclusive so the first match wins.
   const commaRows = parseCsv(text, ",");
   const commaHeader = commaRows[0];

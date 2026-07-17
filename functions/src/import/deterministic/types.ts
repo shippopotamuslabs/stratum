@@ -12,7 +12,8 @@ export type ImportFormat =
   | "hevy"
   | "strong"
   | "macrofactor"
-  | "alpha_progression";
+  | "alpha_progression"
+  | "stratum";
 
 /**
  * Result of a successful deterministic conversion: the normalized history plus

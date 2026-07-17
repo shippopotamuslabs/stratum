@@ -198,10 +198,107 @@ describe("dispatchTool", () => {
     assert.ok(jobRef.data.fullSliceStoragePath);
     assert.equal(jobRef.data.fullSliceStoragePath, rawPath);
     assert.ok(jobRef.data.latestConversion);
+    // Unknown CSV — format stays unset (third-party).
+    assert.equal(
+      (jobRef.data.latestConversion as { format?: string }).format,
+      undefined,
+    );
     const conversionPaths = [...storage.files.keys()].filter((k) => k.includes("/conversions/"));
     assert.equal(conversionPaths.length, 1);
     const saved = JSON.parse(storage.files.get(conversionPaths[0]!)!.toString("utf8"));
     validateNormalizedHistory(saved);
+  });
+
+  it("resolveConversionFormat stamps stratum when envelope matches but full parse fails", async () => {
+    const { resolveConversionFormat } = await import("./tools");
+    const storage = new FakeToolStorage();
+    const rawPath = "imports/user-1/job-1/raw/broken-stratum.json";
+    // Matches envelope markers; history is invalid so detectAndParse falls through.
+    const brokenEnvelope = JSON.stringify({
+      schema: "stratum.export.logs",
+      schemaVersion: 1,
+      source: "stratum",
+      history: "not-an-object",
+    });
+    storage.files.set(rawPath, Buffer.from(brokenEnvelope, "utf8"));
+    const format = await resolveConversionFormat(storage, rawPath, undefined, "broken-stratum.json");
+    assert.equal(format, "stratum");
+  });
+
+  it("resolveConversionFormat falls back to sample path when raw is missing", async () => {
+    const { resolveConversionFormat } = await import("./tools");
+    const storage = new FakeToolStorage();
+    const samplePath = "imports/user-1/job-1/sample/stratum-logs.json";
+    const stratumEnvelope = JSON.stringify({
+      schema: "stratum.export.logs",
+      schemaVersion: 1,
+      source: "stratum",
+      exportedAt: "2026-07-16T15:00:00Z",
+      history: { sessions: [], sets: [] },
+    });
+    storage.files.set(samplePath, Buffer.from(stratumEnvelope, "utf8"));
+    const format = await resolveConversionFormat(
+      storage,
+      "imports/user-1/job-1/raw/missing.json",
+      samplePath,
+      "stratum-logs.json",
+    );
+    assert.equal(format, "stratum");
+  });
+
+  it("execute_on_full sets format stratum when raw input is a Stratum log export", async () => {
+    const jobRef = new FakeJobRef({
+      scriptStoragePath: `imports/${UID}/${JOB_ID}/script/converter.py`,
+      fileName: "stratum-logs.json",
+    });
+    const storage = new FakeToolStorage();
+    const rawPath = "imports/user-1/job-1/raw/stratum-logs.json";
+    const stratumEnvelope = JSON.stringify({
+      schema: "stratum.export.logs",
+      schemaVersion: 1,
+      source: "stratum",
+      exportedAt: "2026-07-16T15:00:00Z",
+      range: { kind: "all_time" },
+      history: {
+        sessions: [
+          {
+            id: "sess-export-1",
+            startedAt: "2026-07-01T14:00:00Z",
+            endedAt: "2026-07-01T15:00:00Z",
+            sourceApp: "stratum",
+          },
+        ],
+        sets: [
+          {
+            id: "set-export-1",
+            sessionId: "sess-export-1",
+            exerciseNameRaw: "Squat",
+            setIndex: 0,
+            weightAmount: 100,
+            weightUnit: "Lb",
+            reps: 5,
+            rir: 2,
+            completedAt: "2026-07-01T14:05:00Z",
+          },
+        ],
+      },
+    });
+    storage.files.set(rawPath, Buffer.from(stratumEnvelope, "utf8"));
+
+    const result = await dispatchTool(
+      "execute_on_full",
+      { intent: "Full history convert", scriptStoragePath: jobRef.data.scriptStoragePath },
+      toolCtx(jobRef, storage, {
+        rawStoragePath: rawPath,
+        runSandbox: async () => sandboxSuccess({ rowCount: 1, sessionCount: 1 }),
+      }),
+    );
+
+    assert.equal(result.isError, false);
+    assert.equal(
+      (jobRef.data.latestConversion as { format?: string }).format,
+      "stratum",
+    );
   });
 
   it("execute_on_full persists normalized timestamps, not raw converter output", async () => {

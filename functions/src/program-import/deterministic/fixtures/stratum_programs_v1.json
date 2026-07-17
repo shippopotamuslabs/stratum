@@ -1,0 +1,72 @@
+{
+  "schema": "stratum.export.programs",
+  "schemaVersion": 1,
+  "source": "stratum",
+  "exportedAt": "2026-07-16T15:00:00Z",
+  "programs": [
+    {
+      "id": "prog-a",
+      "template": {
+        "programName": "Program A",
+        "cycleLength": 4,
+        "workouts": [
+          {
+            "name": "Day A",
+            "weekday": null,
+            "position": 0,
+            "lifts": [
+              {
+                "name": "Squat",
+                "position": 0,
+                "sets": [
+                  {
+                    "position": 0,
+                    "setTypeLabel": null,
+                    "repMin": 5,
+                    "repMax": 5,
+                    "rirGoal": 2,
+                    "restSeconds": 120,
+                    "isTopSet": true
+                  }
+                ],
+                "supersetGroupKey": null
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "prog-b",
+      "template": {
+        "programName": "Program B",
+        "cycleLength": 4,
+        "workouts": [
+          {
+            "name": "Day B",
+            "weekday": null,
+            "position": 0,
+            "lifts": [
+              {
+                "name": "Bench",
+                "position": 0,
+                "sets": [
+                  {
+                    "position": 0,
+                    "setTypeLabel": null,
+                    "repMin": 5,
+                    "repMax": 5,
+                    "rirGoal": 2,
+                    "restSeconds": 120,
+                    "isTopSet": true
+                  }
+                ],
+                "supersetGroupKey": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

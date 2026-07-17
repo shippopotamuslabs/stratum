@@ -45,8 +45,20 @@ import com.stratum.feature.history.navigation.editHistoricalWorkoutEntry
 import com.stratum.feature.history.navigation.historyDaySessionsEntry
 import com.stratum.feature.history.navigation.workoutHistoryEntry
 import com.stratum.feature.history.navigation.workoutSessionDetailEntry
+import com.stratum.feature.settings.navigation.ExportDataKey
+import com.stratum.feature.settings.navigation.ExportLogsKey
+import com.stratum.feature.settings.navigation.ExportProgramsKey
+import com.stratum.feature.settings.navigation.ImportDataKey
+import com.stratum.feature.settings.navigation.ImportLogsKey
+import com.stratum.feature.settings.navigation.ImportProgramKey
 import com.stratum.feature.settings.navigation.LegalKey
 import com.stratum.feature.settings.navigation.SettingsKey
+import com.stratum.feature.settings.navigation.exportDataEntry
+import com.stratum.feature.settings.navigation.exportLogsEntry
+import com.stratum.feature.settings.navigation.exportProgramsEntry
+import com.stratum.feature.settings.navigation.importDataEntry
+import com.stratum.feature.settings.navigation.importLogsEntry
+import com.stratum.feature.settings.navigation.importProgramEntry
 import com.stratum.feature.settings.navigation.legalEntry
 import com.stratum.feature.settings.navigation.settingsEntry
 import com.stratum.feature.workout.navigation.WorkoutKey
@@ -226,8 +238,24 @@ fun StratumNavHost(
             settingsEntry(
                 onBackClick = onNavigateBack,
                 onNavigateToLegal = { backStack.add(LegalKey) },
+                onNavigateToImportData = { backStack.add(ImportDataKey) },
+                onNavigateToExportData = { backStack.add(ExportDataKey) },
             )
             legalEntry(onBackClick = onNavigateBack)
+            importDataEntry(
+                onBackClick = onNavigateBack,
+                onNavigateToImportLogs = { backStack.add(ImportLogsKey) },
+                onNavigateToImportProgram = { backStack.add(ImportProgramKey) },
+            )
+            importLogsEntry(onBackClick = onNavigateBack)
+            importProgramEntry(onBackClick = onNavigateBack)
+            exportDataEntry(
+                onBackClick = onNavigateBack,
+                onNavigateToExportLogs = { backStack.add(ExportLogsKey) },
+                onNavigateToExportPrograms = { backStack.add(ExportProgramsKey) },
+            )
+            exportLogsEntry(onBackClick = onNavigateBack)
+            exportProgramsEntry(onBackClick = onNavigateBack)
             workoutHistoryEntry(
                 onBackClick = onNavigateBack,
                 onDayClick = { day ->

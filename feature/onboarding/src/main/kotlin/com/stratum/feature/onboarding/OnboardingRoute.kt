@@ -21,9 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -34,6 +32,8 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.importing.loadImportFile
+import com.stratum.core.ui.importing.loadImportFiles
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.program.importing.ProgramTemplateImportLimits
@@ -80,13 +80,12 @@ fun OnboardingRoute(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
-        // SAF result callbacks run on the main thread; reading file bytes (openInputStream,
-        // readBytes, openFileDescriptor) is blocking IPC + disk I/O and must not run there.
+        // SAF result callbacks run on the main thread; permission take + file reads are blocking I/O.
         // Reading historically caused ANRs ("Input dispatching timed out") on the import step.
         scope.launch {
-            val files = withContext(Dispatchers.IO) { readImportFilesFromUris(context.contentResolver, uris) }
-            if (files.isEmpty()) return@launch
-            viewModel.onImportFilesSelected(files)
+            loadImportFiles(context, uris)
+                .onSuccess { files -> viewModel.onImportFilesSelected(files) }
+            // Empty/all-failed stays silent on onboarding multi-file (prior behavior).
         }
     }
 
@@ -95,21 +94,9 @@ fun OnboardingRoute(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        // SAF result callbacks run on the main thread; both permission-taking (an IPC) and file
-        // reads (openInputStream/readBytes/openFileDescriptor) are blocking and must not run there.
+        // SAF result callbacks run on the main thread; permission take + file reads are blocking I/O.
         scope.launch {
-            val result =
-                withContext(Dispatchers.IO) {
-                    // Cloud providers (Drive) deny reads unless the URI permission grant is explicitly
-                    // taken, even for the transient OpenDocument grant. Take it before reading the bytes.
-                    val granted = ensureReadPermission(context, uri)
-                    if (granted) {
-                        readImportFileFromUri(context.contentResolver, uri)
-                    } else {
-                        Result.failure(java.io.IOException("Could not get permission to read the file."))
-                    }
-                }
-            result
+            loadImportFile(context, uri)
                 .onSuccess { file ->
                     // Reject oversized files before upload — program templates are tiny, so even 1 MB
                     // is generous. Saves bandwidth and protects the server-side LLM budget.
@@ -333,25 +320,12 @@ private const val WIZARD_STEP_CHOOSE_PATH = "ChoosePath"
  * Providers that mis-report `.xlsx` as `application/octet-stream` will still grey those out —
  * download locally first.
  */
-private val HISTORICAL_IMPORT_MIME_TYPES = arrayOf(
-    "text/*",
-    "application/json",
-    "text/csv",
-    "text/comma-separated-values",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
+private val HISTORICAL_IMPORT_MIME_TYPES =
+    com.stratum.core.ui.importing.ImportMimeTypes.HISTORICAL
 
 /**
- * MIME types accepted by the program-template import picker (CSV + XLSX). The picker ORs these
- * together. Local files (Downloads, Files app) report the correct MIME types, so CSV/XLSX files
- * are selectable and unrelated files are greyed out. Providers that mis-report `.xlsx` as
- * `application/octet-stream` (some cloud providers) will grey out those files — the user can
- * download such a file locally first, which is a reasonable expectation for a small program file.
+ * MIME types accepted by the program-template import picker (CSV + XLSX + JSON). Shared with
+ * Settings via [com.stratum.core.ui.importing.ImportMimeTypes].
  */
-private val PROGRAM_IMPORT_MIME_TYPES = arrayOf(
-    "text/csv",
-    "text/comma-separated-values",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
+private val PROGRAM_IMPORT_MIME_TYPES =
+    com.stratum.core.ui.importing.ImportMimeTypes.PROGRAM

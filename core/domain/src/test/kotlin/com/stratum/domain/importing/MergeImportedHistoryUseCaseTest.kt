@@ -6,6 +6,7 @@ import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class MergeImportedHistoryUseCaseTest {
@@ -22,7 +23,7 @@ class MergeImportedHistoryUseCaseTest {
                 liftId = null,
             )
 
-        val (sessions, sets) =
+        val merged =
             subject(
                 listOf(
                     ImportedHistoryChunk(
@@ -33,10 +34,11 @@ class MergeImportedHistoryUseCaseTest {
                 ),
             )
 
-        assertEquals(1, sessions.size)
-        assertEquals(TrainingSessionId("f0::s1"), sessions.single().id)
-        assertEquals(LoggedSetId("f0::set1"), sets.single().id)
-        assertEquals(TrainingSessionId("f0::s1"), sets.single().sessionId)
+        assertEquals(1, merged.sessions.size)
+        assertEquals(TrainingSessionId("f0::s1"), merged.sessions.single().id)
+        assertEquals(LoggedSetId("f0::set1"), merged.sets.single().id)
+        assertEquals(TrainingSessionId("f0::s1"), merged.sets.single().sessionId)
+        assertTrue(merged.stableIdSessionIds.isEmpty())
     }
 
     @Test
@@ -58,7 +60,7 @@ class MergeImportedHistoryUseCaseTest {
             )
         }
 
-        val (sessions, sets) =
+        val merged =
             subject(
                 listOf(
                     chunk("a.csv", "Squat"),
@@ -66,12 +68,12 @@ class MergeImportedHistoryUseCaseTest {
                 ),
             )
 
-        assertEquals(2, sessions.size)
-        assertEquals(2, sets.size)
-        assertEquals(setOf("f0::1", "f1::1"), sessions.map { it.id.value }.toSet())
-        assertEquals(setOf("f0::1", "f1::1"), sets.map { it.id.value }.toSet())
-        assertEquals("Squat", sets.first { it.id.value == "f0::1" }.exerciseNameRaw)
-        assertEquals("Bench", sets.first { it.id.value == "f1::1" }.exerciseNameRaw)
+        assertEquals(2, merged.sessions.size)
+        assertEquals(2, merged.sets.size)
+        assertEquals(setOf("f0::1", "f1::1"), merged.sessions.map { it.id.value }.toSet())
+        assertEquals(setOf("f0::1", "f1::1"), merged.sets.map { it.id.value }.toSet())
+        assertEquals("Squat", merged.sets.first { it.id.value == "f0::1" }.exerciseNameRaw)
+        assertEquals("Bench", merged.sets.first { it.id.value == "f1::1" }.exerciseNameRaw)
     }
 
     @Test
@@ -85,7 +87,7 @@ class MergeImportedHistoryUseCaseTest {
                 liftId = null,
             )
 
-        val (_, sets) =
+        val merged =
             subject(
                 listOf(
                     ImportedHistoryChunk("empty.csv", emptyList(), emptyList()),
@@ -93,7 +95,7 @@ class MergeImportedHistoryUseCaseTest {
                 ),
             )
 
-        assertEquals(1, sets.size)
+        assertEquals(1, merged.sets.size)
     }
 
     @Test
@@ -124,7 +126,7 @@ class MergeImportedHistoryUseCaseTest {
                 completedAt = completedAt,
             )
 
-        val (_, sets) =
+        val merged =
             subject(
                 listOf(
                     ImportedHistoryChunk("a.csv", listOf(session), listOf(set)),
@@ -136,6 +138,47 @@ class MergeImportedHistoryUseCaseTest {
                 ),
             )
 
-        assertEquals(1, sets.size)
+        assertEquals(1, merged.sets.size)
+    }
+
+    @Test
+    fun `preserveStableIds sessions are reported in stableIdSessionIds`() {
+        val stratumSession = WorkoutLoggingFixtures.importTrainingSession(id = "stratum-1")
+        val stratumSet =
+            WorkoutLoggingFixtures.importLoggedSet(
+                id = "stratum-set-1",
+                sessionId = "stratum-1",
+                exerciseNameRaw = "Squat",
+                liftId = null,
+            )
+        val thirdSession = WorkoutLoggingFixtures.importTrainingSession(id = "tp-1")
+        val thirdSet =
+            WorkoutLoggingFixtures.importLoggedSet(
+                id = "tp-set-1",
+                sessionId = "tp-1",
+                exerciseNameRaw = "Bench",
+                liftId = null,
+            )
+
+        val merged =
+            subject(
+                listOf(
+                    ImportedHistoryChunk(
+                        sourceLabel = "stratum.json",
+                        sessions = listOf(stratumSession),
+                        sets = listOf(stratumSet),
+                        preserveStableIds = true,
+                    ),
+                    ImportedHistoryChunk(
+                        sourceLabel = "hevy.csv",
+                        sessions = listOf(thirdSession),
+                        sets = listOf(thirdSet),
+                        preserveStableIds = false,
+                    ),
+                ),
+            )
+
+        assertEquals(setOf("stratum-1"), merged.stableIdSessionIds)
+        assertEquals(setOf("stratum-1", "f1::tp-1"), merged.sessions.map { it.id.value }.toSet())
     }
 }

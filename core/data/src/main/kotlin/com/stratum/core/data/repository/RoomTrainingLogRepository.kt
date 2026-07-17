@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 @Singleton
+@Suppress("TooManyFunctions")
 class RoomTrainingLogRepository @Inject constructor(
     private val database: StratumDatabase,
     private val sessionDao: TrainingSessionDao,
@@ -92,6 +93,44 @@ class RoomTrainingLogRepository @Inject constructor(
                 val nextSets = sets.map { it.toEntity(nowMillis = now) }
                 if (nextSessions.isNotEmpty()) sessionDao.upsertAll(nextSessions)
                 if (nextSets.isNotEmpty()) setDao.upsertAll(nextSets)
+            }
+            syncTouch.markDirty()
+        }
+    }
+
+    override suspend fun appendImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>) {
+        // Insert-only merge path: never deletes IMPORT or LIVE rows.
+        // Defense in depth — even if domain pre-filter misses a collision, skip ids that
+        // already exist so Room upsert cannot overwrite live history.
+        if (sessions.isEmpty() && sets.isEmpty()) return
+        val now = System.currentTimeMillis()
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                programDao.upsert(importHistoryProgramEntity())
+                val existingSessionIds = sessionDao.getAll().map { it.id.value }.toSet()
+                val existingSetIds = setDao.getAll().map { it.id.value }.toSet()
+                val nextSessions =
+                    sessions
+                        .filter { it.id.value !in existingSessionIds }
+                        .map { it.toEntity(nowMillis = now) }
+                val nextSets =
+                    sets
+                        .filter { it.id.value !in existingSetIds }
+                        .map { it.toEntity(nowMillis = now) }
+                if (nextSessions.isNotEmpty()) {
+                    sessionDao.upsertAll(nextSessions)
+                    syncTouch.cancelDelete(
+                        SyncCollection.TrainingSessions,
+                        nextSessions.map { it.id.value },
+                    )
+                }
+                if (nextSets.isNotEmpty()) {
+                    setDao.upsertAll(nextSets)
+                    syncTouch.cancelDelete(
+                        SyncCollection.LoggedSets,
+                        nextSets.map { it.id.value },
+                    )
+                }
             }
             syncTouch.markDirty()
         }

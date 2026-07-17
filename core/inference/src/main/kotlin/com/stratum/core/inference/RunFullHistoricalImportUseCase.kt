@@ -4,7 +4,9 @@ import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.HistoricalImportPort
 import com.stratum.domain.importing.HistoricalImportRunnerPort
 import com.stratum.domain.importing.ImportCatalogProgressStep
+import com.stratum.domain.importing.ImportDedupeSourceKind
 import com.stratum.domain.importing.ImportFileInput
+import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.ImportJob
 import com.stratum.domain.importing.ImportJobRepository
 import com.stratum.domain.importing.ImportJobStatus
@@ -47,6 +49,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
     override fun run(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
+        persistPolicy: ImportHistoryPersistPolicy,
         // emit() is called both directly here and from nested onProgress callbacks inside
         // convertSingleFile / persistImportedHistory (which run on importDispatcher via flowOn).
         // Wrapping those calls in withContext would make emit() fire on a different dispatcher than
@@ -88,7 +91,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     ),
                 )
             }
-            val (sessions, sets) = mergeImportedHistory(chunks)
+            val merged = mergeImportedHistory(chunks)
             emit(
                 HistoricalImportEvent.Progress(
                     ImportProgress(
@@ -97,13 +100,28 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     ),
                 ),
             )
+            // Per-session dedupe: Stratum chunk session ids (stableIdSessionIds) use id-only
+            // skip; all other sessions use ThirdParty content fingerprint. Do not collapse a
+            // mixed batch to a single global sourceKind.
             val summary =
-                persistImportedHistory(sessions, sets) { progress ->
-                    emit(HistoricalImportEvent.Progress(progress))
-                }.getOrThrow()
+                persistImportedHistory(
+                    sessions = merged.sessions,
+                    sets = merged.sets,
+                    onProgress = { progress ->
+                        emit(HistoricalImportEvent.Progress(progress))
+                    },
+                    policy = persistPolicy,
+                    sourceKind = ImportDedupeSourceKind.ThirdParty,
+                    stableIdSessionIds = merged.stableIdSessionIds,
+                ).getOrThrow()
             summary.liftResolution?.let(importLiftResolutionLogger::log)
             emit(HistoricalImportEvent.Progress(ImportProgress(ImportProgressPhase.Complete)))
-            emit(HistoricalImportEvent.Completed(summary))
+            emit(
+                HistoricalImportEvent.Completed(
+                    summary = summary,
+                    mergeStats = summary.mergeStats,
+                ),
+            )
         } catch (error: UnsupportedImportFileException) {
             emit(
                 buildImportFailureEvent(
@@ -111,6 +129,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     kind = ImportFailureKind.UnsupportedFile,
                     allFiles = allFiles,
                     chunks = chunks,
+                    persistPolicy = persistPolicy,
                 ),
             )
         } catch (error: Throwable) {
@@ -120,6 +139,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     kind = ImportFailureKind.Generic,
                     allFiles = allFiles,
                     chunks = chunks,
+                    persistPolicy = persistPolicy,
                 ),
             )
         }
@@ -130,8 +150,12 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         kind: ImportFailureKind,
         allFiles: List<ImportFileInput>,
         chunks: List<ImportedHistoryChunk>,
+        persistPolicy: ImportHistoryPersistPolicy,
     ): HistoricalImportEvent.Failed {
-        rollbackHistoricalImport()
+        // Merge path must not wipe prior local import history on failure.
+        if (persistPolicy == ImportHistoryPersistPolicy.ReplaceImportOrigin) {
+            rollbackHistoricalImport()
+        }
         val message = error.message ?: "Import failed."
         loggingPort.error(TAG, "Historical import failed: $message", error)
         val resumeState =
@@ -203,10 +227,12 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             val payload = historicalImportPort.downloadConversion(conversionPath).getOrThrow()
             val (sessions, sets) = ImportedHistoryJsonParser.parse(payload)
             updateLocalJob(job, ImportJobStatus.Completed)
+            val preserveStableIds = snapshot.conversionFormat == "stratum"
             return ImportedHistoryChunk(
                 sourceLabel = file.fileName,
                 sessions = sessions,
                 sets = sets,
+                preserveStableIds = preserveStableIds,
             )
         } catch (error: Throwable) {
             updateLocalJob(

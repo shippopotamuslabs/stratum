@@ -91,6 +91,7 @@ export async function deterministicConvert(
       sessionCount,
       sizeBytes: outputBytes.length,
       createdAt: Timestamp.now(),
+      format: detected.format,
     },
     updatedAt: FieldValue.serverTimestamp(),
   });

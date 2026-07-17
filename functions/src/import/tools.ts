@@ -1,4 +1,6 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { detectAndParse } from "./deterministic/formatDetector";
+import { matchesStratumLogExport } from "./deterministic/stratumLogParser";
 import { limitSamplePreview } from "./sliceExport";
 import { runPythonSandbox, type SandboxResult } from "./pythonSandbox";
 import type { JobRef } from "./jobRef";
@@ -24,6 +26,44 @@ export interface ToolContext {
 
 function resolveStorage(ctx: ToolContext): ToolStorage {
   return ctx.storage ?? createAdminToolStorage();
+}
+
+/**
+ * Best-effort format label for agent conversions. Exported for unit tests.
+ *
+ * Order: full detector on primary path → Stratum envelope markers on primary →
+ * same on fallback path (sample). Returns undefined when nothing is recognized.
+ */
+export async function resolveConversionFormat(
+  storage: ToolStorage,
+  primaryPath: string,
+  fallbackPath: string | undefined,
+  fileName: string,
+): Promise<string | undefined> {
+  const fromPrimary = await detectFormatFromPath(storage, primaryPath, fileName);
+  if (fromPrimary) return fromPrimary;
+  if (fallbackPath && fallbackPath !== primaryPath) {
+    return detectFormatFromPath(storage, fallbackPath, fileName);
+  }
+  return undefined;
+}
+
+async function detectFormatFromPath(
+  storage: ToolStorage,
+  path: string,
+  fileName: string,
+): Promise<string | undefined> {
+  try {
+    const bytes = await storage.download(path);
+    const detected = detectAndParse(bytes, fileName);
+    if (detected) return detected.format;
+    // detectAndParse swallows Stratum parse errors after match — still stamp stratum.
+    const text = bytes.toString("utf8");
+    if (matchesStratumLogExport(text)) return "stratum";
+  } catch {
+    // Missing/unreadable object — try next path.
+  }
+  return undefined;
 }
 
 async function invokeSandbox(
@@ -155,6 +195,17 @@ async function executeOnFull(
   const result = await invokeSandbox(ctx, scriptPath, inputPath);
   const normalized = validateNormalizedHistory(JSON.parse(result.outputJson));
 
+  // Stamp format on latestConversion so the client can enable preserveStableIds
+  // when the agent path was used for a first-class Stratum (or other known) file.
+  // Prefer full detectAndParse; fall back to Stratum envelope markers when parse
+  // of history fails after match; finally try the sample path if raw is unreadable.
+  const fileName = (jobData.fileName as string | undefined) ?? "";
+  const samplePath =
+    typeof jobData.sampleStoragePath === "string"
+      ? jobData.sampleStoragePath
+      : ctx.sampleStoragePath;
+  const detectedFormat = await resolveConversionFormat(storage, inputPath, samplePath, fileName);
+
   const ts = Date.now();
   const conversionPath = `imports/${ctx.uid}/${ctx.jobId}/conversions/${ts}/normalized.json`;
   const outputBytes = Buffer.from(JSON.stringify(normalized), "utf8");
@@ -166,6 +217,7 @@ async function executeOnFull(
     sessionCount: result.sessionCount,
     sizeBytes: outputBytes.length,
     createdAt: Timestamp.now(),
+    ...(detectedFormat ? { format: detectedFormat } : {}),
   };
   await ctx.jobRef.update({
     latestConversion,
