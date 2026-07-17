@@ -28,11 +28,10 @@ export const processProgramTemplateJob = onDocumentWritten(
       return;
     }
     const data = after.data();
+    // Only process jobs waiting to be claimed. Do NOT skip when before.status was also "pending" —
+    // that permanently stuck retries that re-set the same job to pending (UI frozen on
+    // "Reading your file…"). Idempotency is the transaction claim below.
     if (!data || data.status !== "pending") {
-      return;
-    }
-    const before = event.data?.before?.data();
-    if (before?.status === "pending") {
       return;
     }
 
@@ -50,7 +49,7 @@ export const processProgramTemplateJob = onDocumentWritten(
       tx.update(jobRef, {
         status: "running",
         progressPhase: "sniffing",
-        progressMessage: "Preparing import…",
+        progressMessage: "Reading your file…",
         progressUpdatedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });

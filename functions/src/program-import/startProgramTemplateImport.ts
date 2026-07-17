@@ -8,9 +8,9 @@ import { isProgramTemplateJobStale } from "./programTemplateJobGuards";
  * inference adapter), then calls this with the Storage path; this writes the job doc that the
  * `processProgramTemplateJob` trigger picks up.
  *
- * Mirrors `startImport.ts` but targets the `programImportJobs` collection. Includes the "another
- * job in progress" guard so only one program import runs per user at a time. Stale running/pending
- * jobs (e.g. after a Cloud Function hard-timeout) are failed so the user can retry.
+ * Mirrors `startImport.ts`. Other pending/running jobs for this user are always superseded (failed)
+ * so a cancelled, timed-out, or abandoned attempt cannot block retries with "already in progress"
+ * for up to the stale-job window.
  */
 export const startProgramTemplateImport = onCall(async (request) => {
   if (!request.auth) {
@@ -41,17 +41,16 @@ export const startProgramTemplateImport = onCall(async (request) => {
       continue;
     }
     const jobData = doc.data();
-    if (isProgramTemplateJobStale(jobData)) {
-      await doc.ref.update({
-        status: "failed",
-        progressPhase: "failed",
-        progressMessage: "Import timed out",
-        errorMessage: "Previous program import timed out. Please try again.",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      continue;
-    }
-    throw new HttpsError("failed-precondition", "Another program import is already in progress.");
+    const stale = isProgramTemplateJobStale(jobData);
+    await doc.ref.update({
+      status: "failed",
+      progressPhase: "failed",
+      progressMessage: stale ? "Import timed out" : "Import replaced",
+      errorMessage: stale
+        ? "Previous program import timed out. Please try again."
+        : "Previous program import was replaced by a new import.",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   }
 
   const jobRef = db.doc(`users/${uid}/programImportJobs/${data.jobId}`);
