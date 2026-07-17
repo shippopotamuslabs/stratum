@@ -2,27 +2,31 @@
 <resources>
     <string name="settings_title">Settings</string>
     <string name="settings_navigate_back">Go back</string>
+
+    <!-- Section group labels (muted headers above cards) -->
+    <string name="settings_look_feel_section">Look &amp; feel</string>
+    <string name="settings_training_section">Training</string>
+    <string name="settings_legal_section">Legal</string>
+
     <string name="settings_appearance_title">Appearance</string>
-    <string name="settings_appearance_description">Light, dark, or match the system setting.</string>
     <string name="settings_appearance_system">System</string>
     <string name="settings_appearance_light">Light</string>
     <string name="settings_appearance_dark">Dark</string>
     <string name="settings_theme_family_title">Theme</string>
-    <string name="settings_theme_family_description">Stratum Tonal chrome or Neo Brutalist iron and concrete.</string>
     <string name="settings_theme_family_stratum">Stratum</string>
     <string name="settings_theme_family_neo_brutalist">Neo Brutalist</string>
-    <string name="settings_checkin_title">Progress check-ins</string>
-    <string name="settings_checkin_description">After enough new training data, Stratum prompts a short recovery and performance review on Programs.</string>
+
     <string name="settings_checkin_enabled">Enable check-ins</string>
-    <string name="settings_post_workout_title">Post-workout suggestions</string>
-    <string name="settings_post_workout_description">Optional cards after you finish a workout. Turn these off if you prefer a quieter complete screen.</string>
+    <string name="settings_checkin_subtitle">Short recovery and performance review on Programs after enough new training data</string>
     <string name="settings_equipment_proposals_enabled">Equipment step suggestions</string>
+    <string name="settings_equipment_proposals_subtitle">Optional post-workout cards when equipment steps may help</string>
     <string name="settings_rep_range_proposals_enabled">Rep-range shift suggestions</string>
+    <string name="settings_rep_range_proposals_subtitle">Optional post-workout cards when a rep-range shift may help</string>
+
     <string name="settings_debug_title">Developer tools</string>
-    <string name="settings_debug_description">Debug builds only. Skip the 20-workout re-extract gate while testing.</string>
     <string name="settings_debug_force_checkin">Force coach check-in</string>
     <string name="settings_account_title">Account</string>
-    <string name="settings_account_description">Sign out clears local training data on this device. Your cloud data returns when you sign back in. Delete account permanently removes your Stratum account and training data from this device and the cloud.</string>
+    <string name="settings_account_description">Sign out or permanently delete your Stratum account.</string>
     <string name="settings_logout">Log out</string>
     <string name="settings_logout_in_progress">Signing out…</string>
     <string name="settings_logout_confirm_title">Log out?</string>
@@ -47,7 +51,6 @@
     <string name="legal_oss_subtitle">Third-party software notices</string>
 
     <string name="settings_data_section_title">Your data</string>
-    <string name="settings_data_section_description">Import training history or programs, or share a Stratum backup file.</string>
     <string name="settings_import_data_row_title">Import data</string>
     <string name="settings_import_data_row_subtitle">Bring in logs or a program from Stratum or another app</string>
     <string name="settings_export_data_row_title">Export data</string>
