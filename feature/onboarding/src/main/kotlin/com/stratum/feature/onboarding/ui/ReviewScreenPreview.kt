@@ -14,21 +14,71 @@ import com.stratum.feature.onboarding.ImportProgramState
 import com.stratum.feature.onboarding.OnboardingPathUi
 import com.stratum.feature.onboarding.ReviewDraftUi
 
+// ── Happy-path summaries (Generate + Import idle) ───────────────────────────
+
 @PreviewLightDark
 @Composable
 private fun ReviewScreenTonalPreview() {
-    ReviewScreenPreviewGrid(family = StratumThemeId.Tonal)
+    ReviewScreenSummaryGrid(family = StratumThemeId.Tonal)
 }
 
 @PreviewLightDark
 @Composable
 private fun ReviewScreenNeoPreview() {
-    ReviewScreenPreviewGrid(family = StratumThemeId.NeoBrutalist)
+    ReviewScreenSummaryGrid(family = StratumThemeId.NeoBrutalist)
+}
+
+// ── Import failure recovery (focused error pane, no top Import CTA) ─────────
+
+@PreviewLightDark
+@Composable
+private fun ReviewImportRejectedTonalPreview() {
+    ReviewImportFailurePreview(
+        family = StratumThemeId.Tonal,
+        importProgramState = ImportProgramState.Rejected(null),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun ReviewImportRejectedNeoPreview() {
+    ReviewImportFailurePreview(
+        family = StratumThemeId.NeoBrutalist,
+        importProgramState = ImportProgramState.Rejected(null),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun ReviewImportErrorTonalPreview() {
+    ReviewImportFailurePreview(
+        family = StratumThemeId.Tonal,
+        importProgramState = ImportProgramState.Error(null),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun ReviewImportErrorNeoPreview() {
+    ReviewImportFailurePreview(
+        family = StratumThemeId.NeoBrutalist,
+        importProgramState = ImportProgramState.Error(null),
+    )
+}
+
+@PreviewLightDark
+@Composable
+private fun ReviewImportTooLargeTonalPreview() {
+    ReviewImportFailurePreview(
+        family = StratumThemeId.Tonal,
+        importProgramState = ImportProgramState.Error(
+            message = "That file is too large. Program files should be under 1 MB.",
+        ),
+    )
 }
 
 @Composable
-private fun ReviewScreenPreviewGrid(family: StratumThemeId) {
-    // Two states back-to-back: a fully-answered Generate summary and the Import summary.
+private fun ReviewScreenSummaryGrid(family: StratumThemeId) {
     StratumTheme(themeId = family) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -47,7 +97,7 @@ private fun ReviewScreenPreviewGrid(family: StratumThemeId) {
                 importMaxTimelineIndex = 0,
             )
             ReviewScreen(
-                draft = ReviewDraftUi(),
+                draft = importReviewDraft(),
                 path = OnboardingPathUi.Import,
                 onGenerate = {},
                 onImportExisting = {},
@@ -62,11 +112,39 @@ private fun ReviewScreenPreviewGrid(family: StratumThemeId) {
     }
 }
 
+@Composable
+private fun ReviewImportFailurePreview(
+    family: StratumThemeId,
+    importProgramState: ImportProgramState,
+) {
+    StratumTheme(themeId = family) {
+        ReviewScreen(
+            draft = importReviewDraft(),
+            path = OnboardingPathUi.Import,
+            onGenerate = {},
+            onImportExisting = {},
+            generateState = GenerateState.Idle,
+            generateProgress = null,
+            generateMaxTimelineIndex = 0,
+            generateErrorMessage = null,
+            importProgramState = importProgramState,
+            importMaxTimelineIndex = 0,
+        )
+    }
+}
+
 private fun completedReviewDraft(): ReviewDraftUi = ReviewDraftUi(
     trainingAge = "4–7 years",
     lastTrained = "Within the last month",
     sessionMinutes = 60,
     specialization = listOf("Quads", "Chest"),
+    presetLabel = "Commercial gym",
+    enabledLiftCount = 18,
+)
+
+private fun importReviewDraft(): ReviewDraftUi = ReviewDraftUi(
+    trainingAge = "4–7 years",
+    lastTrained = "Within the last month",
     presetLabel = "Commercial gym",
     enabledLiftCount = 18,
 )

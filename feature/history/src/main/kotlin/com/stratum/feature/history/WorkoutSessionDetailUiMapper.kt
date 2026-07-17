@@ -55,8 +55,6 @@ internal object WorkoutSessionDetailUiMapper {
             durationFormatted = formatWorkoutDuration(detail.durationMillis),
             totalSetsLabel = detail.totalSets.toString(),
             personalRecordsLabel = detail.personalRecordCount.toString(),
-            upperVolumeByMuscle = detail.muscleVolumes.toUpperVolumeCards(),
-            lowerVolumeByMuscle = detail.muscleVolumes.toLowerVolumeCards(),
         )
 
     fun formatDayTitle(dateIso: String): String {

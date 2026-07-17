@@ -1,7 +1,5 @@
 package com.stratum.feature.history.ui
 
-import com.stratum.core.ui.component.StratumMuscleVolumeCardState
-
 sealed interface HistoryDaySessionsUiState {
     data object Loading : HistoryDaySessionsUiState
     data object Error : HistoryDaySessionsUiState
@@ -13,8 +11,8 @@ sealed interface HistoryDaySessionsUiState {
 }
 
 /**
- * Presentation summary for one completed workout on a multi-session day list card.
- * Mirrors the session detail header (name, time, stats, volume) without lift rows.
+ * Compact presentation summary for one completed workout on a multi-session day list card.
+ * Stats only (no interactive volume row — volume lives on session detail).
  */
 data class HistoryDaySessionSummaryUi(
     val sessionId: String,
@@ -23,6 +21,4 @@ data class HistoryDaySessionSummaryUi(
     val durationFormatted: String,
     val totalSetsLabel: String,
     val personalRecordsLabel: String,
-    val upperVolumeByMuscle: List<StratumMuscleVolumeCardState>,
-    val lowerVolumeByMuscle: List<StratumMuscleVolumeCardState>,
 )

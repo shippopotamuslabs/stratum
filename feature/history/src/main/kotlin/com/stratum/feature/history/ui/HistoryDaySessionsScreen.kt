@@ -98,6 +98,10 @@ fun HistoryDaySessionsScreen(
     }
 }
 
+/**
+ * Compact day-list card: name, time, stats. No interactive volume row (avoids nested click targets
+ * and keeps the list scannable). Full volume lives on session detail.
+ */
 @Composable
 private fun HistoryDaySessionCard(
     session: HistoryDaySessionSummaryUi,
@@ -120,15 +124,23 @@ private fun HistoryDaySessionCard(
                 )
                 .clickable(role = Role.Button, onClick = onClick)
                 .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SessionSummaryContent(
-            workoutName = session.workoutName,
-            completedAtLabel = session.completedAtLabel,
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            StratumText(
+                text = session.workoutName,
+                style = StratumThemeAccessor.typography.titleLarge,
+            )
+            StratumText(
+                text = session.completedAtLabel,
+                style = StratumThemeAccessor.typography.bodyLarge,
+                muted = true,
+            )
+        }
+        SessionStatsRow(
             durationFormatted = session.durationFormatted,
             totalSetsLabel = session.totalSetsLabel,
             personalRecordsLabel = session.personalRecordsLabel,
-            upperVolumeByMuscle = session.upperVolumeByMuscle,
-            lowerVolumeByMuscle = session.lowerVolumeByMuscle,
         )
     }
 }
