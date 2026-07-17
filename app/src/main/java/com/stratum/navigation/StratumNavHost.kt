@@ -38,9 +38,11 @@ import com.stratum.feature.program.navigation.reorderLiftsEntry
 import com.stratum.feature.program.navigation.ReorderWorkoutsKey
 import com.stratum.feature.program.navigation.reorderWorkoutsEntry
 import com.stratum.feature.history.navigation.EditHistoricalWorkoutKey
+import com.stratum.feature.history.navigation.HistoryDaySessionsKey
 import com.stratum.feature.history.navigation.WorkoutHistoryKey
 import com.stratum.feature.history.navigation.WorkoutSessionDetailKey
 import com.stratum.feature.history.navigation.editHistoricalWorkoutEntry
+import com.stratum.feature.history.navigation.historyDaySessionsEntry
 import com.stratum.feature.history.navigation.workoutHistoryEntry
 import com.stratum.feature.history.navigation.workoutSessionDetailEntry
 import com.stratum.feature.settings.navigation.LegalKey
@@ -228,14 +230,32 @@ fun StratumNavHost(
             legalEntry(onBackClick = onNavigateBack)
             workoutHistoryEntry(
                 onBackClick = onNavigateBack,
+                onDayClick = { day ->
+                    when (day.sessionIds.size) {
+                        0 -> Unit
+                        1 -> {
+                            val key = WorkoutSessionDetailKey(day.sessionIds.single())
+                            if (backStack.lastOrNull() != key) backStack.add(key)
+                        }
+                        else -> {
+                            val key = HistoryDaySessionsKey(dateIso = day.date.toString())
+                            if (backStack.lastOrNull() != key) backStack.add(key)
+                        }
+                    }
+                },
+            )
+            historyDaySessionsEntry(
+                onBackClick = onNavigateBack,
                 onSessionClick = { sessionId ->
-                    backStack.add(WorkoutSessionDetailKey(sessionId))
+                    val key = WorkoutSessionDetailKey(sessionId)
+                    if (backStack.lastOrNull() != key) backStack.add(key)
                 },
             )
             workoutSessionDetailEntry(
                 onBackClick = onNavigateBack,
                 onEditWorkoutClick = { sessionId ->
-                    backStack.add(EditHistoricalWorkoutKey(sessionId))
+                    val key = EditHistoricalWorkoutKey(sessionId)
+                    if (backStack.lastOrNull() != key) backStack.add(key)
                 },
             )
             editHistoricalWorkoutEntry(

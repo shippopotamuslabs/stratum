@@ -115,16 +115,20 @@ fun OnboardingRoute(
                     // is generous. Saves bandwidth and protects the server-side LLM budget.
                     if (file.bytes.size > ProgramTemplateImportLimits.MAX_FILE_BYTES) {
                         viewModel.showImportProgramError(
-                            context.getString(
-                                R.string.onboarding_import_error_too_large,
-                                ProgramTemplateImportLimits.MAX_FILE_SIZE_MB,
-                            ),
+                            userFacingMessage =
+                                context.getString(
+                                    R.string.onboarding_import_error_too_large,
+                                    ProgramTemplateImportLimits.MAX_FILE_SIZE_MB,
+                                ),
                         )
                     } else {
                         viewModel.importExistingProgram(file)
                     }
                 }
-                .onFailure { error -> viewModel.showImportProgramError(error.message) }
+                .onFailure { error ->
+                    // Raw IO messages stay in logs only — UI uses generic copy.
+                    viewModel.showImportProgramError(logDetail = error.message)
+                }
         }
     }
 

@@ -82,10 +82,11 @@ data class ProfileDraftUi(
 enum class GenerateState { Idle, Loading, Error }
 
 /**
- * State of the "Import Existing" program flow on the Generate step. `Idle` shows both CTAs;
- * `Loading` shows phase copy; `Error` offers retry (choose another file) + back. `Rejected` is a
- * distinct error for files the server determined are not a program. Success is implicit — the
- * wizard's `isComplete` flips just like generation.
+ * State of the "Import Existing" program flow on the Review step. `Idle` shows the Import CTA
+ * above the summary; `Loading` replaces the body with a progress timeline; `Error` / `Rejected`
+ * replace the body with a focused recovery pane (error card + Choose another file). `Rejected` is
+ * for files the server determined are not a program. Success is implicit — the wizard's
+ * `isComplete` flips just like generation.
  */
 sealed interface ImportProgramState {
     data object Idle : ImportProgramState

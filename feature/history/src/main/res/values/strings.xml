@@ -23,6 +23,8 @@
     <string name="history_session_rir">RIR %1$s</string>
     <string name="history_session_pr_cd">Personal record</string>
     <string name="history_session_load_error">Could not load this workout</string>
+    <string name="history_day_sessions_title">Workouts</string>
+    <string name="history_day_sessions_load_error">Could not load workouts for this day</string>
     <string name="history_mode_selected">Selected</string>
     <string name="history_edit_title">Edit Workout</string>
     <string name="history_edit_confirm">Confirm</string>

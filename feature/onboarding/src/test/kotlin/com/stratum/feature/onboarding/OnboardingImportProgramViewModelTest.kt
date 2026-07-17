@@ -153,6 +153,38 @@ class OnboardingImportProgramViewModelTest {
         assertEquals("not a program", ex.message)
     }
 
+    @Test
+    fun `showImportProgramError keeps user-facing message for UI`() = runTest {
+        val importPort = FakeProgramTemplateImportPort()
+        val (viewModel, _, _) = buildViewModel(importPort, testScheduler)
+
+        viewModel.showImportProgramError(userFacingMessage = "That file is too large.")
+        advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val error = state.importProgramState as ImportProgramState.Error
+            assertEquals("That file is too large.", error.message)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `showImportProgramError with only logDetail shows Error without message`() = runTest {
+        val importPort = FakeProgramTemplateImportPort()
+        val (viewModel, _, _) = buildViewModel(importPort, testScheduler)
+
+        viewModel.showImportProgramError(logDetail = "Permission denied")
+        advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val error = state.importProgramState as ImportProgramState.Error
+            assertEquals(null, error.message)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private fun buildViewModel(
         importPort: FakeProgramTemplateImportPort,
         testScheduler: TestCoroutineScheduler,
