@@ -15,10 +15,13 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.feature.history.EditHistoricalWorkoutViewModel
+import com.stratum.feature.history.HistoryDaySessionsViewModel
 import com.stratum.feature.history.WorkoutHistoryViewModel
 import com.stratum.feature.history.WorkoutSessionDetailViewModel
 import com.stratum.feature.history.ui.EditHistoricalWorkoutEvent
 import com.stratum.feature.history.ui.EditHistoricalWorkoutScreen
+import com.stratum.feature.history.ui.HistoryDaySessionsScreen
+import com.stratum.feature.history.ui.HistoryDayUi
 import com.stratum.feature.history.ui.WorkoutHistoryScreen
 import com.stratum.feature.history.ui.WorkoutSessionDetailScreen
 import kotlinx.serialization.Serializable
@@ -26,6 +29,16 @@ import kotlinx.serialization.Serializable
 /** Nav3 key for the workout history calendar screen. */
 @Serializable
 data object WorkoutHistoryKey : NavKey
+
+/**
+ * Nav3 key for a multi-workout day list. [dateIso] is `LocalDate.toString()` (yyyy-MM-dd).
+ * [sessionIds] are newest-first completed sessions for that day.
+ */
+@Serializable
+data class HistoryDaySessionsKey(
+    val dateIso: String,
+    val sessionIds: List<String>,
+) : NavKey
 
 /** Nav3 key for a completed session detail screen. */
 @Serializable
@@ -41,10 +54,24 @@ data class EditHistoricalWorkoutKey(
 
 fun EntryProviderScope<NavKey>.workoutHistoryEntry(
     onBackClick: () -> Unit,
-    onSessionClick: (sessionId: String) -> Unit,
+    onDayClick: (day: HistoryDayUi) -> Unit,
 ) {
     entry<WorkoutHistoryKey> {
         WorkoutHistoryRoute(
+            onBackClick = onBackClick,
+            onDayClick = onDayClick,
+        )
+    }
+}
+
+fun EntryProviderScope<NavKey>.historyDaySessionsEntry(
+    onBackClick: () -> Unit,
+    onSessionClick: (sessionId: String) -> Unit,
+) {
+    entry<HistoryDaySessionsKey> { key ->
+        HistoryDaySessionsRoute(
+            dateIso = key.dateIso,
+            sessionIds = key.sessionIds,
             onBackClick = onBackClick,
             onSessionClick = onSessionClick,
         )
@@ -78,7 +105,7 @@ fun EntryProviderScope<NavKey>.editHistoricalWorkoutEntry(
 @Composable
 private fun WorkoutHistoryRoute(
     onBackClick: () -> Unit,
-    onSessionClick: (sessionId: String) -> Unit,
+    onDayClick: (day: HistoryDayUi) -> Unit,
     viewModel: WorkoutHistoryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -88,9 +115,28 @@ private fun WorkoutHistoryRoute(
         onModeSelected = viewModel::onModeSelected,
         onMonthClick = viewModel::onYearMonthClick,
         onYearClick = viewModel::onYearClick,
-        onSessionClick = onSessionClick,
+        onDayClick = onDayClick,
         onScrollToMonthConsumed = viewModel::onScrollToMonthConsumed,
         onScrollToYearConsumed = viewModel::onScrollToYearConsumed,
+    )
+}
+
+@Composable
+private fun HistoryDaySessionsRoute(
+    dateIso: String,
+    sessionIds: List<String>,
+    onBackClick: () -> Unit,
+    onSessionClick: (sessionId: String) -> Unit,
+    viewModel: HistoryDaySessionsViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(dateIso, sessionIds) {
+        viewModel.load(dateIso = dateIso, sessionIds = sessionIds)
+    }
+    HistoryDaySessionsScreen(
+        state = uiState,
+        onBackClick = onBackClick,
+        onSessionClick = onSessionClick,
     )
 }
 

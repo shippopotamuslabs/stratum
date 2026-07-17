@@ -32,7 +32,7 @@ import java.util.Locale
 @Composable
 internal fun HistoryMonthBlock(
     month: HistoryMonthUi,
-    onDayClick: (sessionId: String) -> Unit,
+    onDayClick: (day: HistoryDayUi) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -79,7 +79,7 @@ internal fun WeekdayHeaderRow(modifier: Modifier = Modifier) {
 @Composable
 private fun MonthDayGrid(
     month: HistoryMonthUi,
-    onDayClick: (sessionId: String) -> Unit,
+    onDayClick: (day: HistoryDayUi) -> Unit,
 ) {
     val cells = buildList {
         repeat(month.leadingEmptyDays) { add(null) }
@@ -107,16 +107,16 @@ private fun MonthDayGrid(
 @Composable
 private fun HistoryDayCell(
     day: HistoryDayUi,
-    onDayClick: (sessionId: String) -> Unit,
+    onDayClick: (day: HistoryDayUi) -> Unit,
 ) {
-    val sessionId = day.sessionId
+    val hasSessions = day.sessionIds.isNotEmpty()
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .then(
-                    if (sessionId != null) {
-                        Modifier.clickable { onDayClick(sessionId) }
+                    if (hasSessions) {
+                        Modifier.clickable { onDayClick(day) }
                     } else {
                         Modifier
                     },

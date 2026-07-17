@@ -49,7 +49,48 @@ class WorkoutHistoryMapperTest {
                 .first { it.dayOfMonth == 2 }
         assertTrue(novDay.hasWorkout)
         assertEquals("Upper A", novDay.workoutLabel)
-        assertEquals("ts-1", novDay.sessionId)
+        assertEquals(listOf("ts-1"), novDay.sessionIds)
+    }
+
+    @Test
+    @DisplayName("Multiple sessions on one day map all ids newest-first")
+    fun multiSessionDayMapsAllIds() {
+        val calendar =
+            WorkoutHistoryCalendar(
+                days =
+                    mapOf(
+                        LocalDate.of(2025, 11, 2) to
+                            listOf(
+                                HistoryDaySession(
+                                    sessionId = TrainingSessionId("ts-new"),
+                                    workoutName = "Upper A",
+                                    completedAt = Instant.parse("2025-11-02T18:00:00Z"),
+                                ),
+                                HistoryDaySession(
+                                    sessionId = TrainingSessionId("ts-old"),
+                                    workoutName = "Lower B",
+                                    completedAt = Instant.parse("2025-11-02T10:00:00Z"),
+                                ),
+                            ),
+                    ),
+                weekStreak = 1,
+                restDaysCount = 0,
+            )
+        val loaded =
+            WorkoutHistoryMapper.toUiState(
+                calendar = calendar,
+                mode = HistoryCalendarMode.Month,
+                today = LocalDate.of(2025, 12, 1),
+                scrollToMonth = null,
+            )
+        val novDay =
+            loaded.months
+                .first { it.yearMonth == YearMonth.of(2025, 11) }
+                .days
+                .first { it.dayOfMonth == 2 }
+        assertTrue(novDay.hasWorkout)
+        assertEquals("Upper A", novDay.workoutLabel)
+        assertEquals(listOf("ts-new", "ts-old"), novDay.sessionIds)
     }
 
     @Test
