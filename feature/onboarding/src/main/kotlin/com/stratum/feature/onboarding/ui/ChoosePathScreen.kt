@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.stratumCardHardShadow
 import com.stratum.feature.onboarding.R
 
 /**
@@ -72,17 +73,23 @@ private fun ChoosePathCard(
     description: String,
     onClick: () -> Unit,
 ) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val elevations = StratumThemeAccessor.elevations
+    val borderColor =
+        if (elevations.useHardShadow) colors.borderStrong else colors.borderSubtle
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .stratumCardHardShadow(shape = shapes.panel)
             .background(
-                color = StratumThemeAccessor.colors.surfaceRaised,
-                shape = StratumThemeAccessor.shapes.panel,
+                color = colors.surfaceRaised,
+                shape = shapes.panel,
             )
             .border(
-                width = StratumThemeAccessor.shapes.borderWidth,
-                color = StratumThemeAccessor.colors.borderSubtle,
-                shape = StratumThemeAccessor.shapes.panel,
+                width = shapes.borderWidth,
+                color = borderColor,
+                shape = shapes.panel,
             )
             .clickable(onClick = onClick)
             .padding(20.dp),

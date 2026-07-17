@@ -44,6 +44,8 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.progress.ProgramGenerationProgressUi
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.stratumCardHardShadow
+import com.stratum.core.ui.theme.stratumDockTopRule
 import com.stratum.core.ui.trainingsetup.MinimumVolumePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SchedulePreferencesScreen
 import com.stratum.core.ui.trainingsetup.SpecializationPreferencesScreen
@@ -340,18 +342,24 @@ private fun PathCard(
     description: String,
     onClick: () -> Unit,
 ) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    val elevations = StratumThemeAccessor.elevations
+    val borderColor =
+        if (elevations.useHardShadow) colors.borderStrong else colors.borderSubtle
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .stratumCardHardShadow(shape = shapes.panel)
                 .background(
-                    color = StratumThemeAccessor.colors.surfaceRaised,
-                    shape = StratumThemeAccessor.shapes.panel,
+                    color = colors.surfaceRaised,
+                    shape = shapes.panel,
                 )
                 .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderSubtle,
-                    shape = StratumThemeAccessor.shapes.panel,
+                    width = shapes.borderWidth,
+                    color = borderColor,
+                    shape = shapes.panel,
                 )
                 .clickable(onClick = onClick)
                 .padding(20.dp),
@@ -687,6 +695,7 @@ private fun WizardBottomBar(
             Modifier
                 .fillMaxWidth()
                 .background(StratumThemeAccessor.colors.surfaceRaised)
+                .stratumDockTopRule()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .navigationBarsPadding(),
     ) {
@@ -715,6 +724,7 @@ private fun EditorBottomBar(
             Modifier
                 .fillMaxWidth()
                 .background(StratumThemeAccessor.colors.surfaceRaised)
+                .stratumDockTopRule()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .navigationBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(8.dp),

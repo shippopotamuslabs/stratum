@@ -79,10 +79,13 @@ fun StratumWorkoutLogLiftPanel(
             showTrailingColumn = showTrailingColumn,
         )
 
+        // Inset subtle rule under the column headers — matches Edit Workout set table chrome
+        // (lighter grey, not full-bleed edge-to-edge).
         Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = WorkoutLogTableHorizontalPadding)
                     .height(StratumThemeAccessor.shapes.borderWidth)
                     .background(StratumThemeAccessor.colors.borderSubtle),
         )

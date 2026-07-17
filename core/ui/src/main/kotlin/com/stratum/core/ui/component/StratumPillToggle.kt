@@ -1,6 +1,7 @@
 package com.stratum.core.ui.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -14,8 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -26,10 +27,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.theme.StratumColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.stratumHardShadow
 
 /**
  * Single-select toggle for low-emphasis filters (e.g. Upper/Lower, Primary/Secondary).
- * Options render as plain text; the active option sits on a borderless ovular pill fill.
+ *
+ * Tonal: soft oval pills with a borderless selected fill.
+ * Neo: chip corners, strong selected border, and a hard-offset shadow on the active segment
+ * (driven by [com.stratum.core.ui.theme.StratumElevations] — no feature theme branching).
+ *
  * Segment min height is 48.dp (UI_DESIGN.md touch-target guidance for tappable chrome).
  */
 @Composable
@@ -76,15 +82,53 @@ private fun PillToggleSegment(
     modifier: Modifier = Modifier,
 ) {
     val colors = StratumThemeAccessor.colors
-    val pillShape = RoundedCornerShape(percent = 50)
+    val shapes = StratumThemeAccessor.shapes
+    val elevations = StratumThemeAccessor.elevations
+    val hardChrome = elevations.useHardShadow
+    val pillShape: Shape =
+        if (hardChrome) {
+            shapes.chip
+        } else {
+            RoundedCornerShape(percent = 50)
+        }
     val interactionSource = remember { MutableInteractionSource() }
+    val showSelectedShadow = hardChrome && selected && enabled
+    val shadowOffset = elevations.buttonShadowOffset
 
     Box(
         modifier =
             modifier
                 .heightIn(min = MinPillToggleHeight)
-                .clip(pillShape)
-                .background(pillBackground(selected = selected, enabled = enabled, selectedColor = selectedColor))
+                .then(
+                    if (showSelectedShadow && shadowOffset > 0.dp) {
+                        Modifier.stratumHardShadow(
+                            offset = shadowOffset,
+                            color = elevations.hardShadowColor,
+                            shape = pillShape,
+                        )
+                    } else {
+                        Modifier
+                    },
+                )
+                .background(
+                    color = pillBackground(
+                        selected = selected,
+                        enabled = enabled,
+                        selectedColor = selectedColor,
+                    ),
+                    shape = pillShape,
+                )
+                .then(
+                    if (selected && enabled && hardChrome) {
+                        Modifier.border(
+                            width = shapes.borderWidth,
+                            color = colors.borderStrong,
+                            shape = pillShape,
+                        )
+                    } else {
+                        Modifier
+                    },
+                )
                 .semantics {
                     role = Role.Tab
                     this.selected = selected

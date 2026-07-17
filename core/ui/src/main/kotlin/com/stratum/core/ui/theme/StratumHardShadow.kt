@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -92,4 +94,29 @@ fun Modifier.stratumCardHardShadow(
         color = elevations.hardShadowColor,
         shape = shape,
     )
+}
+
+/**
+ * Strong top rule for bottom docks / sticky bars when hard-shadow themes are active.
+ * No-ops on Tonal so docks stay flat raised slabs.
+ *
+ * Apply after [androidx.compose.foundation.background] so the stroke sits on the face.
+ */
+@Composable
+fun Modifier.stratumDockTopRule(): Modifier {
+    val elevations = StratumThemeAccessor.elevations
+    if (!elevations.useHardShadow) return this
+    val strokeWidth = StratumThemeAccessor.shapes.borderWidth
+    val color = StratumThemeAccessor.colors.borderStrong
+    return drawWithContent {
+        drawContent()
+        val stroke = strokeWidth.toPx()
+        val half = stroke / 2f
+        drawLine(
+            color = color,
+            start = Offset(0f, half),
+            end = Offset(size.width, half),
+            strokeWidth = stroke,
+        )
+    }
 }
