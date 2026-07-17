@@ -2,9 +2,10 @@ package com.stratum.feature.workout.ui
 
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -15,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
@@ -25,8 +25,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumIconButton
-import com.stratum.core.ui.component.StratumTextButton
+import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.workoutlog.LocalSetLogKeyboardHost
 import com.stratum.core.ui.component.workoutlog.ProvideSetLogKeyboardHost
 import com.stratum.core.ui.component.workoutlog.StratumWorkoutLogLiftPanel
@@ -36,13 +37,21 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
 
 internal val LiftListSpacing = 16.dp
+/** Matches lift panel header inset so footer CTAs align with log chrome. */
+private val FooterHorizontalPadding = 16.dp
+/** Vertical gap between Add Lift and Discard inside the session footer. */
+private val FooterActionSpacing = 12.dp
 private const val DEFAULT_ESTIMATED_LIFT_HEIGHT_PX = 420
+/** LazyList key for the trailing Add Lift + Discard chrome (not a lift panel). */
+internal const val WORKOUT_SESSION_FOOTER_KEY = "session-footer"
 /** Extra gap kept between focused cell bottom and keyboard top when revealing. */
 private val KeyboardRevealMargin = 8.dp
 
 /**
- * Scrollable lift panels + discard. Bottom [contentPadding] is sized so max scroll pins the
- * last lift under the navigator — only the shortfall after last-lift + gap + discard.
+ * Scrollable lift panels + session footer (Add Lift, Discard). Bottom [contentPadding] is sized
+ * so max scroll pins the last lift under the navigator — only the shortfall after last-lift +
+ * gap + footer. Footer is a **single** LazyList item so pin math stays one inter-item gap
+ * after the last lift (keyboard dock padding is layered on top and stays independent).
  *
  * When the set-log keyboard is open, dock height is **added** to contentPadding (pin padding
  * stays stable) so low fields can scroll above the overlay without jumping on dismiss.
@@ -57,12 +66,13 @@ internal fun WorkoutLiftList(
     onAddSet: (workoutLiftId: String) -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
     onShowLiftActions: (workoutLiftId: String) -> Unit,
+    onAddLift: () -> Unit,
     onDiscardClick: () -> Unit,
     modifier: Modifier = Modifier,
     failedLogSlotKey: String? = null,
     onFailedLogConsumed: () -> Unit = {},
 ) {
-    var discardHeightPx by remember { mutableIntStateOf(0) }
+    var footerHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val listSpacingPx = with(density) { LiftListSpacing.roundToPx() }
     val viewportHeightPx = listState.layoutInfo.viewportSize.height
@@ -73,17 +83,17 @@ internal fun WorkoutLiftList(
             ?.size
             ?: lifts.lastOrNull()?.let { liftHeightsPx[it.workoutLiftId] }
             ?: 0
-    val measuredDiscardPx =
+    val measuredFooterPx =
         listState.layoutInfo.visibleItemsInfo
-            .firstOrNull { it.key == "discard" }
+            .firstOrNull { it.key == WORKOUT_SESSION_FOOTER_KEY }
             ?.size
-            ?: discardHeightPx
+            ?: footerHeightPx
     // Pin padding always uses the full list viewport (keyboard overlays; does not shrink it).
     val bottomPinPaddingPx =
         bottomPinSpacerHeightPx(
             viewportHeightPx = viewportHeightPx,
             lastLiftHeightPx = measuredLastLiftPx,
-            discardHeightPx = measuredDiscardPx,
+            footerHeightPx = measuredFooterPx,
             listSpacingPx = listSpacingPx,
         )
 
@@ -122,17 +132,26 @@ internal fun WorkoutLiftList(
                 )
             }
 
-            item(key = "discard") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onSizeChanged { discardHeightPx = it.height },
-                    contentAlignment = Alignment.Center,
+            // Single footer item: one gap after last lift; height feeds bottom pin padding.
+            item(key = WORKOUT_SESSION_FOOTER_KEY) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = FooterHorizontalPadding)
+                            .onSizeChanged { footerHeightPx = it.height },
+                    verticalArrangement = Arrangement.spacedBy(FooterActionSpacing),
                 ) {
-                    StratumTextButton(
-                        text = "Discard Workout",
+                    StratumButton(
+                        text = stringResource(R.string.workout_screen_add_lift),
+                        onClick = onAddLift,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    StratumOutlinedButton(
+                        text = stringResource(R.string.workout_screen_discard_workout_action),
                         onClick = onDiscardClick,
-                        contentColor = StratumThemeAccessor.colors.error,
+                        modifier = Modifier.fillMaxWidth(),
+                        destructive = true,
                     )
                 }
             }
@@ -373,16 +392,17 @@ internal suspend fun LazyListState.animateScrollToLiftTop(
 
 /**
  * Bottom content-padding so max scroll places the last lift's top at the viewport top:
- * `lastLift + spacing + discard + padding == viewport` (padding is not a list item, so only
- * one inter-item gap after the last lift).
+ * `lastLift + spacing + footer + padding == viewport` (padding is not a list item, so only
+ * one inter-item gap after the last lift). [footerHeightPx] is the full session footer
+ * (Add Lift + Discard) measured as a single LazyList item.
  */
 internal fun bottomPinSpacerHeightPx(
     viewportHeightPx: Int,
     lastLiftHeightPx: Int,
-    discardHeightPx: Int,
+    footerHeightPx: Int,
     listSpacingPx: Int,
 ): Int {
     if (viewportHeightPx <= 0 || lastLiftHeightPx <= 0) return 0
-    return (viewportHeightPx - lastLiftHeightPx - discardHeightPx - listSpacingPx)
+    return (viewportHeightPx - lastLiftHeightPx - footerHeightPx - listSpacingPx)
         .coerceAtLeast(0)
 }

@@ -1275,14 +1275,37 @@ class WorkoutViewModelTest {
             viewModel.abandonSession()
             advanceUntilIdle()
 
-            // Should transition to NoActiveSession and reset states
-            val noSession = awaitItem()
-            assertTrue(noSession is WorkoutUiState.NoActiveSession)
+            // Keep last Loaded frame for NavHost exit — no "No active session." flash.
+            expectNoEvents()
+            assertTrue(viewModel.uiState.value is WorkoutUiState.Loaded)
 
             cancelAndIgnoreRemainingEvents()
         }
         viewModel.events.test {
             assertEquals(WorkoutUiEvent.NavigateBackAfterAbandon, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Given active session when completed then ui stays Loaded for exit (no NoActiveSession flash)")
+    fun completeWorkoutRetainsLoadedUiForExitTransition() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        viewModel.uiState.test {
+            assertNotNull(awaitLoaded())
+
+            viewModel.completeWorkout(saveTemplate = false)
+            advanceUntilIdle()
+
+            // Domain session is cleared, but Loaded is retained for the NavHost exit frame.
+            expectNoEvents()
+            assertTrue(viewModel.uiState.value is WorkoutUiState.Loaded)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+        viewModel.events.test {
+            assertTrue(awaitItem() is WorkoutUiEvent.NavigateToFinalize)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -2058,6 +2081,211 @@ class WorkoutViewModelTest {
         assertEquals(2, loaded.lifts.size)
         assertEquals("Bench Press", loaded.lifts.last().liftName)
         assertEquals(1, loaded.lifts.last().sets.size)
+    }
+
+    @Test
+    @DisplayName("Ad-hoc empty session loads with no template lifts and route key = session id")
+    fun adHocEmptySessionLoadsEmptyStructure() = runTest {
+        trainingLogRepository = FakeTrainingLogRepository(
+            initialSessions = listOf(
+                TrainingSession(
+                    id = TrainingSessionId("ts-adhoc"),
+                    programId = programId,
+                    workoutId = null,
+                    status = TrainingSessionStatus.IN_PROGRESS,
+                    kind = TrainingSessionKind.AD_HOC,
+                    origin = TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = null,
+                    startedAt = Instant.parse("2026-07-05T10:00:00Z"),
+                    endedAt = null,
+                    sourceApp = null,
+                    workoutNameSnapshot = "Empty Workout",
+                ),
+            ),
+        )
+        val routeId = WorkoutId("ts-adhoc")
+        val viewModel = buildViewModel()
+        viewModel.startSession(routeId)
+        viewModel.uiState.test {
+            val loaded = awaitLoaded()
+            assertEquals("ts-adhoc", loaded.workoutId)
+            assertEquals("Empty Workout", loaded.workoutName)
+            assertTrue(loaded.lifts.isEmpty())
+            // Overlay mutations must not offer save-to-template for ad-hoc.
+            assertTrue(!loaded.hasDirtyEdits)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Ad-hoc empty session can add a lift without marking dirty-template edits")
+    fun adHocEmptySessionAddLift() = runTest {
+        trainingLogRepository = FakeTrainingLogRepository(
+            initialSessions = listOf(
+                TrainingSession(
+                    id = TrainingSessionId("ts-adhoc"),
+                    programId = programId,
+                    workoutId = null,
+                    status = TrainingSessionStatus.IN_PROGRESS,
+                    kind = TrainingSessionKind.AD_HOC,
+                    origin = TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = null,
+                    startedAt = Instant.parse("2026-07-05T10:00:00Z"),
+                    endedAt = null,
+                    sourceApp = null,
+                    workoutNameSnapshot = "Empty Workout",
+                ),
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(WorkoutId("ts-adhoc"))
+        advanceUntilIdle()
+
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(1, loaded.lifts.size)
+        assertEquals("Bench Press", loaded.lifts.single().liftName)
+        assertTrue(!loaded.hasDirtyEdits)
+    }
+
+    @Test
+    @DisplayName("Ad-hoc swap updates rendered lift name (session-added path)")
+    fun adHocSwapUpdatesRenderedName() = runTest {
+        trainingLogRepository = FakeTrainingLogRepository(
+            initialSessions = listOf(
+                TrainingSession(
+                    id = TrainingSessionId("ts-adhoc"),
+                    programId = programId,
+                    workoutId = null,
+                    status = TrainingSessionStatus.IN_PROGRESS,
+                    kind = TrainingSessionKind.AD_HOC,
+                    origin = TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = null,
+                    startedAt = Instant.parse("2026-07-05T10:00:00Z"),
+                    endedAt = null,
+                    sourceApp = null,
+                    workoutNameSnapshot = "Empty Workout",
+                ),
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(WorkoutId("ts-adhoc"))
+        advanceUntilIdle()
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+        val added = (viewModel.uiState.value as WorkoutUiState.Loaded).lifts.single()
+        assertEquals("Bench Press", added.liftName)
+
+        viewModel.swapLift(WorkoutLiftId(added.workoutLiftId), liftId)
+        advanceUntilIdle()
+        val after = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals("Squat", after.lifts.single().liftName)
+        assertEquals(liftId.value, after.lifts.single().liftId)
+        assertTrue(!after.hasDirtyEdits)
+    }
+
+    @Test
+    @DisplayName("Ad-hoc complete finalizes without save-template prompt eligibility")
+    fun adHocCompleteDoesNotOfferTemplateSave() = runTest {
+        trainingLogRepository = FakeTrainingLogRepository(
+            initialSessions = listOf(
+                TrainingSession(
+                    id = TrainingSessionId("ts-adhoc"),
+                    programId = programId,
+                    workoutId = null,
+                    status = TrainingSessionStatus.IN_PROGRESS,
+                    kind = TrainingSessionKind.AD_HOC,
+                    origin = TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = null,
+                    startedAt = Instant.parse("2026-07-05T10:00:00Z"),
+                    endedAt = null,
+                    sourceApp = null,
+                    workoutNameSnapshot = "Empty Workout",
+                ),
+            ),
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(WorkoutId("ts-adhoc"))
+        advanceUntilIdle()
+        viewModel.addLifts(listOf(LiftId("L-2")))
+        advanceUntilIdle()
+        val before = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertTrue(!before.hasDirtyEdits)
+
+        viewModel.events.test {
+            viewModel.completeWorkout(saveTemplate = true)
+            advanceUntilIdle()
+            val event = awaitItem()
+            assertTrue(event is WorkoutUiEvent.NavigateToFinalize)
+            cancelAndIgnoreRemainingEvents()
+        }
+        val active = trainingLogRepository.getActiveSession()
+        assertNull(active)
+        // Program template unchanged — no spurious day with session-id as workout id.
+        assertTrue(programRepository.getProgram()!!.workouts.none { it.id.value == "ts-adhoc" })
+    }
+
+    @Test
+    @DisplayName("Ad-hoc resume rebuilds structure from DB logs when overlay is missing")
+    fun adHocResumeRebuildsFromLoggedSetsWithoutOverlay() = runTest {
+        val sessionId = TrainingSessionId("ts-adhoc")
+        val wlId = WorkoutLiftId("wl-session-1")
+        trainingLogRepository = FakeTrainingLogRepository(
+            initialSessions = listOf(
+                TrainingSession(
+                    id = sessionId,
+                    programId = programId,
+                    workoutId = null,
+                    status = TrainingSessionStatus.IN_PROGRESS,
+                    kind = TrainingSessionKind.AD_HOC,
+                    origin = TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = null,
+                    startedAt = Instant.parse("2026-07-05T10:00:00Z"),
+                    endedAt = null,
+                    sourceApp = null,
+                    workoutNameSnapshot = "Empty Workout",
+                ),
+            ),
+        )
+        // Seed a durable logged set with session-only workoutLiftId (no overlay store).
+        trainingLogRepository.seedSet(
+            com.stratum.domain.training.LoggedSet(
+                id = com.stratum.domain.importing.identity.LoggedSetId("ls-adhoc-1"),
+                sessionId = sessionId,
+                exerciseNameRaw = "Bench Press",
+                liftId = LiftId("L-2"),
+                setIndex = 0,
+                weight = lb(95.0),
+                reps = 8,
+                rir = 2,
+                completedAt = Instant.parse("2026-07-05T10:05:00Z"),
+                liftContext = com.stratum.domain.training.LoggedLiftContext(
+                    liftName = "Bench Press",
+                    workoutLiftId = wlId,
+                    progressionScheme = ProgressionScheme.Double,
+                    setType = SetType.Standard,
+                    repMin = 8,
+                    repMax = 12,
+                    rirGoal = 2,
+                ),
+            ),
+        )
+        // Ensure overlay store is empty for this session.
+        overlayStore = FakeWorkoutOverlayStore()
+        val viewModel = buildViewModel()
+        viewModel.startSession(WorkoutId("ts-adhoc"))
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(1, loaded.lifts.size)
+        assertEquals("Bench Press", loaded.lifts.single().liftName)
+        assertTrue(loaded.lifts.single().sets.any { it.isComplete })
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {

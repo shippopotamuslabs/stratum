@@ -319,6 +319,7 @@ fun WorkoutScreen(
                 onAddSet = actions.onAddSet,
                 onDeleteSet = actions.onDeleteSet,
                 onShowLiftActions = { liftActionsLiftId = it },
+                onAddLift = actions.onAddLift,
                 onDiscardClick = { showDiscardDialog = true },
                 failedLogSlotKey = failedLogSlotKey,
                 onFailedLogConsumed = onFailedLogConsumed,
