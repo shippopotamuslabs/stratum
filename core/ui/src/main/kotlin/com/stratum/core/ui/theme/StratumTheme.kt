@@ -92,4 +92,7 @@ object StratumThemeAccessor {
 
     val shapes: StratumShapes
         @Composable get() = LocalStratumTheme.current.shapes
+
+    val elevations: StratumElevations
+        @Composable get() = LocalStratumTheme.current.elevations
 }

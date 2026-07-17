@@ -16,6 +16,9 @@ private fun SettingsScreenTonalPreview() {
             uiState = SettingsUiState(
                 appearance = AppearanceUi.System,
                 themeFamily = ThemeFamilyUi.Stratum,
+                checkInsEnabled = true,
+                equipmentProposalsEnabled = true,
+                repRangeProposalsEnabled = false,
             ),
             onBackClick = {},
             onAppearanceSelected = {},
@@ -33,6 +36,11 @@ private fun SettingsScreenNeoPreview() {
             uiState = SettingsUiState(
                 appearance = AppearanceUi.Dark,
                 themeFamily = ThemeFamilyUi.NeoBrutalist,
+                checkInsEnabled = false,
+                equipmentProposalsEnabled = true,
+                repRangeProposalsEnabled = true,
+                showDebugTools = true,
+                debugStatusMessage = "Check-in forced for testing.",
             ),
             onBackClick = {},
             onAppearanceSelected = {},

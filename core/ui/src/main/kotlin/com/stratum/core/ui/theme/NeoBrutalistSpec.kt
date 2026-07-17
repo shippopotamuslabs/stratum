@@ -37,9 +37,11 @@ object NeoBrutalistSpec {
             shapes = neoBrutalistShapes(),
             elevations =
                 StratumElevations(
+                    // Larger dark offsets so hard edges read against charcoal (pocket-crew parity).
                     cardShadowOffset = 4.dp,
-                    buttonShadowOffset = 3.dp,
+                    buttonShadowOffset = 5.dp,
                     useHardShadow = true,
+                    hardShadowColor = Color(0xFF000000),
                 ),
             typography = DefaultStratumTypography,
         )
@@ -70,9 +72,11 @@ object NeoBrutalistSpec {
             shapes = neoBrutalistShapes(),
             elevations =
                 StratumElevations(
-                    cardShadowOffset = 4.dp,
-                    buttonShadowOffset = 3.dp,
+                    cardShadowOffset = 3.dp,
+                    buttonShadowOffset = 2.dp,
                     useHardShadow = true,
+                    // Near-black slate so the offset reads on light concrete without pure pure-black harshness.
+                    hardShadowColor = Color(0xFF0F172A),
                 ),
             typography = DefaultStratumTypography,
         )

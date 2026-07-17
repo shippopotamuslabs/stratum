@@ -43,7 +43,7 @@ private fun EdgeToEdgeCardPreview(family: StratumThemeId) {
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
                 StratumText(
-                    text = "Edge-to-edge panel — no border or side inset",
+                    text = "Edge-to-edge panel — flush sides; Neo adds top/bottom bands",
                     muted = true,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
