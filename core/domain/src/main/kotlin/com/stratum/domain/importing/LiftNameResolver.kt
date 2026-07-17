@@ -386,6 +386,8 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
                     "loaded",
                     "plate",
                     "iso",
+                    // Load modifier only — "Weighted Roman Chair Hip Hinge" → seed hinge, not custom.
+                    "weighted",
                 )
     }
 }

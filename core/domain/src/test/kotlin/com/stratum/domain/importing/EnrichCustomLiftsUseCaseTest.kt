@@ -15,10 +15,11 @@ class EnrichCustomLiftsUseCaseTest {
     fun chunksLargeCandidateLists() = runTest {
         val inference = FakeCustomLiftInferencePort()
         val subject = EnrichCustomLiftsUseCase(inference)
+        // Ambiguous names so name rules do not short-circuit the LLM path.
         val candidates =
             (1..80).map { index ->
                 UnmatchedExerciseCandidate(
-                    exerciseNameRaw = "Custom Lift $index",
+                    exerciseNameRaw = "BrandX Widget $index",
                     loggedSetCount = index,
                 )
             }
@@ -30,6 +31,7 @@ class EnrichCustomLiftsUseCaseTest {
         assertEquals(5, inference.invocations[1].size)
         assertEquals(2, outcome.batchesAttempted)
         assertEquals(0, outcome.batchesFailed)
+        assertEquals(0, outcome.nameRuleResolvedNames.size)
     }
 
     @Test
@@ -64,7 +66,7 @@ class EnrichCustomLiftsUseCaseTest {
         val candidates =
             (1..80).map { index ->
                 UnmatchedExerciseCandidate(
-                    exerciseNameRaw = "Custom Lift $index",
+                    exerciseNameRaw = "BrandX Widget $index",
                     loggedSetCount = index,
                 )
             }
@@ -75,5 +77,59 @@ class EnrichCustomLiftsUseCaseTest {
         assertEquals(2, outcome.batchesAttempted)
         assertEquals(1, outcome.batchesFailed)
         assertEquals("timeout", outcome.lastFailureMessage)
+    }
+
+    @Test
+    @DisplayName("Given name-rule matches when enriching then LLM is not called for those names")
+    fun nameRulesSkipLlm() = runTest {
+        val inference = FakeCustomLiftInferencePort()
+        val subject = EnrichCustomLiftsUseCase(inference)
+
+        val outcome =
+            subject(
+                listOf(
+                    UnmatchedExerciseCandidate("Machine Crunch", loggedSetCount = 10),
+                    UnmatchedExerciseCandidate("Weighted Roman Chair Hip Hinge", loggedSetCount = 8),
+                    UnmatchedExerciseCandidate("BrandX Widget", loggedSetCount = 3),
+                ),
+            )
+
+        assertEquals(setOf("Machine Crunch", "Weighted Roman Chair Hip Hinge"), outcome.nameRuleResolvedNames)
+        assertEquals(1, inference.invocations.size)
+        assertEquals(listOf("BrandX Widget"), inference.invocations.single().map { it.exerciseNameRaw })
+        assertEquals(
+            setOf(MuscleGroup.Ab),
+            outcome.inferredByName.getValue("Machine Crunch").primaryMuscles,
+        )
+        assertEquals(
+            setOf(MuscleGroup.Glute, MuscleGroup.Hamstring),
+            outcome.inferredByName.getValue("Weighted Roman Chair Hip Hinge").primaryMuscles,
+        )
+    }
+
+    @Test
+    @DisplayName("Given LLM returns wrong primary muscles when enriching then pattern-derived muscles win")
+    fun llmMusclesAreOverriddenByPattern() = runTest {
+        val inference =
+            FakeCustomLiftInferencePort(
+                results =
+                    listOf(
+                        InferredCustomLiftMetadata(
+                            exerciseNameRaw = "BrandX Widget",
+                            movementPattern = MovementPattern.SpinalFlexion,
+                            primaryMuscles = setOf(MuscleGroup.Quad),
+                            secondaryMuscles = emptySet(),
+                            loading = InferredEquipmentLoading.Seed(SeedEquipmentIds.PinLoadedMachine),
+                        ),
+                    ),
+            )
+        val subject = EnrichCustomLiftsUseCase(inference)
+
+        val outcome = subject(listOf(UnmatchedExerciseCandidate("BrandX Widget", 1)))
+
+        assertEquals(
+            setOf(MuscleGroup.Ab),
+            outcome.inferredByName.getValue("BrandX Widget").primaryMuscles,
+        )
     }
 }

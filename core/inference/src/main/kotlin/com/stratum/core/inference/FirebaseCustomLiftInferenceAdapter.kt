@@ -3,14 +3,13 @@ package com.stratum.core.inference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.stratum.domain.importing.CustomLiftInferencePort
-import com.stratum.domain.importing.CustomLiftMusclePolicy
+import com.stratum.domain.importing.ImportStubLiftGuesser
 import com.stratum.domain.importing.InferredCustomLiftMetadata
 import com.stratum.domain.importing.InferredEquipmentLoading
 import com.stratum.domain.importing.UnmatchedExerciseCandidate
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.logging.LoggingPort
-import com.stratum.domain.onboarding.MuscleGroup
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,8 +18,9 @@ import kotlinx.coroutines.tasks.await
 /**
  * Firebase Callable client for `inferCustomLifts`.
  *
- * Decodes the **server-normalized** payload (`loading: { type, ... }`), not the raw LLM
- * schema fields. Unknown or malformed loading becomes the shared Default equipment lattice.
+ * Decodes the **server-normalized** payload (`loading: { type, ... }` + movementPattern).
+ * Primary/secondary muscles are always derived from pattern via [ImportStubLiftGuesser]
+ * (LLM free-form muscle tags are ignored). Unknown loading becomes the shared Default lattice.
  */
 @Singleton
 class FirebaseCustomLiftInferenceAdapter @Inject constructor(
@@ -72,23 +72,14 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor(
 
         private fun parseLift(entry: Map<*, *>?): InferredCustomLiftMetadata? {
             if (entry == null) return null
-            val name = entry["name"] as? String
+            val name = entry["name"] as? String ?: return null
             val movementPattern = parseMovementPattern(entry["movementPattern"] as? String)
-            val primary = parseMuscleGroups(entry["primaryMuscles"], maxItems = 2)
-            if (name == null || movementPattern == null || primary.isEmpty()) {
-                return null
-            }
-            val secondary =
-                parseMuscleGroups(entry["secondaryMuscles"], maxItems = 4)
-                    .filterNot { it in primary }
-                    .toSet()
-            return InferredCustomLiftMetadata(
+                ?: return null
+            return ImportStubLiftGuesser.metadataFromPattern(
                 exerciseNameRaw = name,
                 movementPattern = movementPattern,
-                primaryMuscles = primary,
-                secondaryMuscles = secondary,
                 loading = parseCallableLoading(entry["loading"]),
-            ).let(CustomLiftMusclePolicy::withPatternSecondaryDefaults)
+            )
         }
 
         /**
@@ -124,15 +115,7 @@ class FirebaseCustomLiftInferenceAdapter @Inject constructor(
                 else -> null
             }
 
-        private fun parseMuscleGroups(value: Any?, maxItems: Int): Set<MuscleGroup> {
-            val list = value as? List<*> ?: return emptySet()
-            return list.mapNotNull { parseMuscleGroup(it as? String) }.take(maxItems).toSet()
-        }
-
         private fun parseMovementPattern(value: String?): MovementPattern? =
             value?.let { runCatching { MovementPattern.valueOf(it) }.getOrNull() }
-
-        private fun parseMuscleGroup(value: String?): MuscleGroup? =
-            value?.let { runCatching { MuscleGroup.valueOf(it) }.getOrNull() }
     }
 }

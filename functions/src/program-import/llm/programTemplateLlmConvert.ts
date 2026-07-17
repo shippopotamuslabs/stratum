@@ -2,7 +2,10 @@
  * Single-shot (optional one repair) OpenRouter conversion of a spreadsheet view → NormalizedProgramTemplate.
  */
 import OpenAI from "openai";
-import type { NormalizedProgramTemplate } from "../deterministic/types";
+import type {
+  NormalizedProgramTemplate,
+  NormalizedProgramTemplateSet,
+} from "../deterministic/types";
 import { validateProgramTemplate } from "../deterministic/types";
 import {
   buildProgramTemplateRepairPrompt,
@@ -29,8 +32,44 @@ function stripJsonFence(content: string): string {
   return s.trim();
 }
 
+/** Hard cap so a bad model integer cannot explode memory. */
+const MAX_EXPANDED_SETS = 30;
+
+function asNullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function expandIdenticalSets(params: {
+  setCount: number;
+  setTypeLabel: string | null;
+  repMin: number | null;
+  repMax: number | null;
+  rirGoal: number | null;
+  restSeconds: number | null;
+}): NormalizedProgramTemplateSet[] {
+  const n = Math.min(Math.max(0, Math.floor(params.setCount)), MAX_EXPANDED_SETS);
+  const sets: NormalizedProgramTemplateSet[] = [];
+  for (let si = 0; si < n; si++) {
+    sets.push({
+      position: si,
+      setTypeLabel: params.setTypeLabel,
+      repMin: params.repMin,
+      repMax: params.repMax,
+      rirGoal: params.rirGoal,
+      restSeconds: params.restSeconds,
+      isTopSet: si === 0,
+    });
+  }
+  return sets;
+}
+
 /**
  * Coerce a loosely-parsed model object into NormalizedProgramTemplate shape.
+ * Accepts compact lifts (`setCount` + shared prescription) and expands them server-side.
  * Throws if the top-level shape is unusable.
  */
 export function coerceProgramTemplate(raw: unknown): NormalizedProgramTemplate {
@@ -44,25 +83,58 @@ export function coerceProgramTemplate(raw: unknown): NormalizedProgramTemplate {
     const liftsIn = Array.isArray(wo.lifts) ? wo.lifts : [];
     const lifts = liftsIn.map((l, li) => {
       const lo = (l && typeof l === "object" ? l : {}) as Record<string, unknown>;
-      const setsIn = Array.isArray(lo.sets) ? lo.sets : [];
-      const sets = setsIn.map((s, si) => {
-        const so = (s && typeof s === "object" ? s : {}) as Record<string, unknown>;
-        return {
-          position: typeof so.position === "number" ? so.position : si,
-          setTypeLabel: typeof so.setTypeLabel === "string" ? so.setTypeLabel : null,
-          repMin: typeof so.repMin === "number" ? so.repMin : null,
-          repMax: typeof so.repMax === "number" ? so.repMax : null,
-          rirGoal: typeof so.rirGoal === "number" ? so.rirGoal : null,
-          restSeconds: typeof so.restSeconds === "number" ? so.restSeconds : null,
-          isTopSet: typeof so.isTopSet === "boolean" ? so.isTopSet : si === 0,
-        };
-      });
+      const liftRepMin = asNullableNumber(lo.repMin);
+      const liftRepMax = asNullableNumber(lo.repMax);
+      const liftRir = asNullableNumber(lo.rirGoal);
+      const liftRest = asNullableNumber(lo.restSeconds);
+      const liftSetType = asNullableString(lo.setTypeLabel);
+
+      let sets: NormalizedProgramTemplateSet[] = [];
+
+      // Expanded sets array (heterogeneous prescriptions) wins when non-empty.
+      if (Array.isArray(lo.sets) && lo.sets.length > 0 && typeof lo.sets[0] === "object") {
+        sets = lo.sets.map((s, si) => {
+          const so = (s && typeof s === "object" ? s : {}) as Record<string, unknown>;
+          return {
+            position: typeof so.position === "number" ? so.position : si,
+            setTypeLabel: asNullableString(so.setTypeLabel) ?? liftSetType,
+            repMin: asNullableNumber(so.repMin) ?? liftRepMin,
+            repMax: asNullableNumber(so.repMax) ?? liftRepMax,
+            rirGoal: asNullableNumber(so.rirGoal) ?? liftRir,
+            restSeconds: asNullableNumber(so.restSeconds) ?? liftRest,
+            isTopSet: typeof so.isTopSet === "boolean" ? so.isTopSet : si === 0,
+          };
+        });
+      } else {
+        // Compact: setCount / sets-as-number + lift-level prescription.
+        let setCount: number | null = null;
+        if (typeof lo.setCount === "number" && Number.isFinite(lo.setCount)) {
+          setCount = lo.setCount;
+        } else if (typeof lo.sets === "number" && Number.isFinite(lo.sets)) {
+          setCount = lo.sets;
+        } else if (typeof lo.setCount === "string" && lo.setCount.trim() !== "") {
+          const parsed = Number(lo.setCount);
+          if (Number.isFinite(parsed)) {
+            setCount = parsed;
+          }
+        }
+        if (setCount != null && setCount > 0) {
+          sets = expandIdenticalSets({
+            setCount,
+            setTypeLabel: liftSetType,
+            repMin: liftRepMin,
+            repMax: liftRepMax,
+            rirGoal: liftRir,
+            restSeconds: liftRest,
+          });
+        }
+      }
+
       return {
         name: typeof lo.name === "string" ? lo.name : "",
         position: typeof lo.position === "number" ? lo.position : li,
         sets,
-        supersetGroupKey:
-          typeof lo.supersetGroupKey === "string" ? lo.supersetGroupKey : null,
+        supersetGroupKey: asNullableString(lo.supersetGroupKey),
       };
     });
     return {
@@ -148,6 +220,12 @@ export async function convertProgramTemplateWithLlm(
     return { ok: true, template: validateProgramTemplate(template) };
   }
 
+  if (looksLikeNameOnlyShell(template)) {
+    console.warn(
+      `programTemplateLlmConvert: name-only workout shell (contentLen=${rawContent.length}); attempting repair`,
+    );
+  }
+
   // One repair turn.
   messages.push({ role: "assistant", content: rawContent });
   messages.push({
@@ -169,6 +247,11 @@ export async function convertProgramTemplateWithLlm(
 
   errors = collectValidationErrors(template);
   if (errors.length > 0) {
+    if (looksLikeNameOnlyShell(template)) {
+      console.warn(
+        `programTemplateLlmConvert: repair still name-only shell (contentLen=${rawContent.length})`,
+      );
+    }
     return {
       ok: false,
       error: errors.join("; "),
@@ -177,6 +260,12 @@ export async function convertProgramTemplateWithLlm(
   }
 
   return { ok: true, template: validateProgramTemplate(template) };
+}
+
+/** True when every non-rest workout has zero lifts — classic reasoning-vs-content failure. */
+export function looksLikeNameOnlyShell(template: NormalizedProgramTemplate): boolean {
+  const training = template.workouts.filter((w) => !w.restDay);
+  return training.length > 0 && training.every((w) => w.lifts.length === 0);
 }
 
 /**

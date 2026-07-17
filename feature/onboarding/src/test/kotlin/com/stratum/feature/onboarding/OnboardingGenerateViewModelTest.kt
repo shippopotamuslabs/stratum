@@ -240,6 +240,7 @@ class OnboardingGenerateViewModelTest {
             cancelHistoricalImport = com.stratum.domain.importing.CancelHistoricalImportUseCase(
                 rollbackHistoricalImport,
                 refreshPersistedImportState,
+                com.stratum.core.testing.importing.FakeImportJobRepository(),
             ),
             refreshPersistedImportState = refreshPersistedImportState,
             updateUserTrainingProfile = com.stratum.domain.onboarding.UpdateUserTrainingProfileUseCase(profileRepo),

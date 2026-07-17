@@ -79,6 +79,20 @@ class Bm25LiftNameResolverTest {
     }
 
     @Test
+    fun `weighted load qualifier strongly aligns with unweighted catalog hinge`() {
+        val catalog = mapOf(LiftId("roman-chair-hip-hinge") to "Roman Chair Hip Hinge")
+        assertTrue(
+            resolver.isStrongTokenAlignment(
+                "Weighted Roman Chair Hip Hinge",
+                catalog.getValue(LiftId("roman-chair-hip-hinge")),
+            ),
+        )
+        val evaluation = resolver.evaluate("Weighted Roman Chair Hip Hinge", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("roman-chair-hip-hinge"), evaluation.matchedLiftId)
+    }
+
+    @Test
     fun `overhead press does not match bench press despite shared tokens`() {
         val catalog = mapOf(LiftId("bench") to "Barbell Bench Press")
         // "overhead press (barbell)" → "barbell overhead press" — "overhead" not in catalog

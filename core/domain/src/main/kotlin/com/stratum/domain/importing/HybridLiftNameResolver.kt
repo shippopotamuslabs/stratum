@@ -205,7 +205,8 @@ class HybridLiftNameResolver(
                 "rear",
                 "rocky",
                 "assisted",
-                "weighted",
+                // "weighted" intentionally omitted: load-only qualifier should not block embedding
+                // match to the unweighted catalog row (see QUERY_SUPERSET_MODIFIER_TOKENS).
             )
     }
 }

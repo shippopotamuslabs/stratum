@@ -7,8 +7,10 @@ import { isHistoricalImportJobStale } from "./importJobGuards";
  * Enqueue a historical training-log import job. The client uploads raw + sample to Storage first,
  * then calls this with the Storage paths; this writes the job doc that `processImportJob` picks up.
  *
- * Stale pending_agent/agent_running jobs (e.g. after a Cloud Function hard-timeout) are failed so
- * the user can retry instead of being permanently blocked by "another import is already in progress."
+ * Other pending_agent/agent_running jobs for this user are always superseded (failed). A new
+ * startImport is the user's signal that they abandoned the previous attempt (cancel/stop, failed
+ * client, or retry). Only failing stale jobs left cancelled-but-fresh jobs blocking retries with
+ * "another import is already in progress" for up to HISTORICAL_IMPORT_STALE_JOB_MS.
  */
 export const startImport = onCall(async (request) => {
   if (!request.auth) {
@@ -39,17 +41,16 @@ export const startImport = onCall(async (request) => {
       continue;
     }
     const jobData = doc.data();
-    if (isHistoricalImportJobStale(jobData)) {
-      await doc.ref.update({
-        status: "failed",
-        progressPhase: "failed",
-        progressMessage: "Import timed out",
-        errorMessage: "Previous import timed out. Please try again.",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      continue;
-    }
-    throw new HttpsError("failed-precondition", "Another import is already in progress.");
+    const stale = isHistoricalImportJobStale(jobData);
+    await doc.ref.update({
+      status: "failed",
+      progressPhase: "failed",
+      progressMessage: stale ? "Import timed out" : "Import replaced",
+      errorMessage: stale
+        ? "Previous import timed out. Please try again."
+        : "Previous import was replaced by a new import.",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   }
 
   const jobRef = db.doc(`users/${uid}/importJobs/${data.jobId}`);

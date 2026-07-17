@@ -19,6 +19,8 @@ export const MOVEMENT_PATTERNS = [
   "SpinalFlexion",
   "InclinePress",
   "VerticalPress",
+  "HipAbduction",
+  "HipAdduction",
 ] as const;
 
 export const MUSCLE_GROUPS = [
@@ -88,6 +90,7 @@ export type InferredEquipmentLoading = SeedEquipmentLoading | CustomEquipmentLoa
 export interface InferredCustomLiftRow {
   name: string;
   movementPattern: MovementPattern;
+  /** Always derived from [movementPattern] on the server — never free-form LLM tags. */
   primaryMuscles: MuscleGroup[];
   secondaryMuscles: MuscleGroup[];
   loading: InferredEquipmentLoading;
@@ -108,32 +111,91 @@ const PUSH_PATTERNS = new Set<MovementPattern>([
 ]);
 const SEED_LOADING_KIND_SET = new Set<string>(SEED_LOADING_KINDS);
 
-function applyPatternSecondaryDefaults(row: InferredCustomLiftRow): InferredCustomLiftRow {
-  const secondary = [...row.secondaryMuscles];
-  if (PULL_PATTERNS.has(row.movementPattern) && !row.primaryMuscles.includes("Bicep")) {
-    if (!secondary.includes("Bicep")) {
-      secondary.push("Bicep");
+/**
+ * Keep in sync with `ImportStubLiftGuesser.primaryMusclesFor` in Kotlin domain.
+ * Muscles are never asked of the model — only movementPattern is.
+ */
+export function primaryMusclesForPattern(pattern: MovementPattern): MuscleGroup[] {
+  switch (pattern) {
+    case "ElbowFlexion":
+      return ["Bicep"];
+    case "ElbowExtension":
+      return ["Tricep"];
+    case "ShoulderAdduction":
+      return ["Chest"];
+    case "ShoulderAbduction":
+      return ["LateralDeltoid"];
+    case "ShoulderHorizontalAbduction":
+      return ["PosteriorDeltoid"];
+    case "ShoulderFlexion":
+      return ["AnteriorDeltoid"];
+    case "HorizontalPull":
+    case "VerticalPull":
+      return ["Back"];
+    case "HorizontalPress":
+    case "InclinePress":
+      return ["Chest"];
+    case "VerticalPress":
+      return ["AnteriorDeltoid"];
+    case "SquatPattern":
+      return ["Quad"];
+    case "HipHinge":
+      return ["Glute", "Hamstring"];
+    case "KneeExtension":
+      return ["Quad"];
+    case "KneeFlexion":
+      return ["Hamstring"];
+    case "PlantarFlexion":
+      return ["Calf"];
+    case "HipExtension":
+      return ["Glute"];
+    case "ScapularElevation":
+      return ["Trap"];
+    case "WristFlexionExtension":
+      return ["Forearm"];
+    case "SpinalFlexion":
+      return ["Ab"];
+    case "HipAbduction":
+      return ["Abductor"];
+    case "HipAdduction":
+      return ["Adductor"];
+    default: {
+      const _exhaustive: never = pattern;
+      return _exhaustive;
     }
   }
-  if (PUSH_PATTERNS.has(row.movementPattern) && !row.primaryMuscles.includes("Tricep")) {
-    if (!secondary.includes("Tricep")) {
-      secondary.push("Tricep");
-    }
+}
+
+function applyPatternMuscleDefaults(
+  name: string,
+  movementPattern: MovementPattern,
+  loading: InferredEquipmentLoading,
+): InferredCustomLiftRow {
+  const primaryMuscles = primaryMusclesForPattern(movementPattern);
+  const secondary: MuscleGroup[] = [];
+  if (PULL_PATTERNS.has(movementPattern) && !primaryMuscles.includes("Bicep")) {
+    secondary.push("Bicep");
+  }
+  if (PUSH_PATTERNS.has(movementPattern) && !primaryMuscles.includes("Tricep")) {
+    secondary.push("Tricep");
   }
   return {
-    ...row,
-    secondaryMuscles: secondary.filter((muscle) => !row.primaryMuscles.includes(muscle)),
+    name,
+    movementPattern,
+    primaryMuscles,
+    secondaryMuscles: secondary.filter((muscle) => !primaryMuscles.includes(muscle)),
+    loading,
   };
 }
 
 export const CUSTOM_LIFT_SYSTEM_PROMPT = `You classify strength-training exercise names for a workout app catalog.
 
-For each exercise name, infer:
+For each exercise name, infer ONLY:
 - movementPattern: one enum value describing how the lift moves
-- primaryMuscles: 1-2 muscle groups that receive most training stress
-- secondaryMuscles: 0-4 supporting / co-mover muscle groups (e.g. triceps and front delts on a press, biceps on a row)
 - equipmentKind: how the lift is LOADED for weight increments (seed loading method), not the station brand
 - customEquipmentName / customIncrementLb: only when equipmentKind is "custom"; otherwise null
+
+Do NOT invent muscle groups — the server derives primary/secondary muscles from movementPattern.
 
 equipmentKind is a closed loading lattice (prefer seed over custom):
 - double-weight-plates: free bar both sleeves OR plate-loaded machines with two independent horns/sides (Hammer Strength chest press, plate-loaded row, dual-horn press, etc.)
@@ -144,15 +206,19 @@ equipmentKind is a closed loading lattice (prefer seed over custom):
 - custom: ONLY when load steps are brand-specific and not modeled by the seeds; then set customEquipmentName (short label) and customIncrementLb (positive lb step, e.g. 5 or 10)
 
 Examples:
-- "Seated Neutral Grip Plate-Loaded Machine Press" -> equipmentKind "double-weight-plates"
-- "Katana Triceps Extension" (cable) -> equipmentKind "cable"
-- "Leg Extension (Machine)" selectorized -> equipmentKind "pin-loaded-machine"
-- "Bench Press (Dumbbell)" -> equipmentKind "dumbbell"
+- "Seated Neutral Grip Plate-Loaded Machine Press" -> movementPattern HorizontalPress, equipmentKind "double-weight-plates"
+- "Katana Triceps Extension" (cable) -> movementPattern ElbowExtension, equipmentKind "cable"
+- "Leg Extension (Machine)" selectorized -> movementPattern KneeExtension, equipmentKind "pin-loaded-machine"
+- "Bench Press (Dumbbell)" -> movementPattern HorizontalPress, equipmentKind "dumbbell"
+- "Machine Crunch" -> movementPattern SpinalFlexion, equipmentKind "pin-loaded-machine"
+- "Roman Chair Hip Hinge" -> movementPattern HipHinge, equipmentKind "bodyweight" (or double-weight-plates if loaded)
 
-Use only the provided enum values. Prefer isolation patterns (ElbowExtension, ElbowFlexion, etc.) for single-joint accessories.
-Lateral raises, side raises, and Y-raises: movementPattern ShoulderAbduction, primaryMuscles ["LateralDeltoid"].
-Rear delt fly, reverse fly, and face pulls: movementPattern ShoulderHorizontalAbduction, primaryMuscles ["PosteriorDeltoid"].
-Front raises: movementPattern ShoulderFlexion, primaryMuscles ["AnteriorDeltoid"].
+Use only the provided enum values. Prefer isolation patterns (ElbowExtension, ElbowFlexion, SpinalFlexion, etc.) for single-joint accessories.
+Lateral raises, side raises, and Y-raises: movementPattern ShoulderAbduction.
+Rear delt fly, reverse fly, and face pulls: movementPattern ShoulderHorizontalAbduction.
+Front raises: movementPattern ShoulderFlexion.
+Crunches, sit-ups, ab machines: movementPattern SpinalFlexion.
+Hip hinges, RDLs, good mornings, back extensions, roman chair hinges: movementPattern HipHinge.
 If the name mentions a brand or variant (e.g. "Katana Triceps Extension"), classify by the underlying movement.
 Return one row per input exercise; keep the name exactly as provided.`;
 
@@ -178,17 +244,6 @@ export function customLiftInferenceJsonSchema() {
             properties: {
               name: { type: "string" },
               movementPattern: { type: "string", enum: [...MOVEMENT_PATTERNS] },
-              primaryMuscles: {
-                type: "array",
-                items: { type: "string", enum: [...MUSCLE_GROUPS] },
-                minItems: 1,
-                maxItems: 2,
-              },
-              secondaryMuscles: {
-                type: "array",
-                items: { type: "string", enum: [...MUSCLE_GROUPS] },
-                maxItems: 4,
-              },
               equipmentKind: { type: "string", enum: [...EQUIPMENT_KINDS] },
               customEquipmentName: { type: ["string", "null"] },
               customIncrementLb: { type: ["number", "null"] },
@@ -196,8 +251,6 @@ export function customLiftInferenceJsonSchema() {
             required: [
               "name",
               "movementPattern",
-              "primaryMuscles",
-              "secondaryMuscles",
               "equipmentKind",
               "customEquipmentName",
               "customIncrementLb",
@@ -222,7 +275,6 @@ export function parseInferredCustomLifts(
     return [];
   }
   const patternSet = new Set<string>(MOVEMENT_PATTERNS);
-  const muscleSet = new Set<string>(MUSCLE_GROUPS);
   const seen = new Set<string>();
   const rows: InferredCustomLiftRow[] = [];
   for (const entry of lifts) {
@@ -238,22 +290,9 @@ export function parseInferredCustomLifts(
     if (typeof movementPattern !== "string" || !patternSet.has(movementPattern)) {
       continue;
     }
-    const primaryMuscles = normalizeMuscleList(row.primaryMuscles, muscleSet, 2);
-    if (primaryMuscles.length === 0) {
-      continue;
-    }
-    const secondaryMuscles = normalizeMuscleList(row.secondaryMuscles, muscleSet, 4).filter(
-      (muscle) => !primaryMuscles.includes(muscle),
-    );
     const loading = resolveLoading(row, name);
     rows.push(
-      applyPatternSecondaryDefaults({
-        name,
-        movementPattern: movementPattern as MovementPattern,
-        primaryMuscles: primaryMuscles as MuscleGroup[],
-        secondaryMuscles: secondaryMuscles as MuscleGroup[],
-        loading,
-      }),
+      applyPatternMuscleDefaults(name, movementPattern as MovementPattern, loading),
     );
     seen.add(name);
   }
@@ -309,25 +348,4 @@ function resolveCustomIncrementLb(raw: unknown): number {
     return raw;
   }
   return DEFAULT_CUSTOM_INCREMENT_LB;
-}
-
-function normalizeMuscleList(
-  value: unknown,
-  allowed: Set<string>,
-  maxItems: number,
-): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const out: string[] = [];
-  for (const item of value) {
-    if (typeof item !== "string" || !allowed.has(item) || out.includes(item)) {
-      continue;
-    }
-    out.push(item);
-    if (out.length >= maxItems) {
-      break;
-    }
-  }
-  return out;
 }
