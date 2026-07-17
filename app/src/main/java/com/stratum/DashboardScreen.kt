@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -46,12 +47,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumIndexVolumeChart
+import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
-import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.stratumButtonHardShadow
 
 @Composable
 fun DashboardScreen(
@@ -565,10 +568,11 @@ private const val SECTION_HEADER_TOP_PADDING_DP = 4
 private const val SECTION_HEADER_BOTTOM_PADDING_DP = 0
 
 /**
- * Larger Muscles | Lifts tab switch living under the dashboard title. Selected label is white
- * (textPrimary) and carries a short centered underline (~50% of the word width); deselected is
- * grey (textMuted) with no underline. App-local one-off per UI_DESIGN.md §7.2 — the underline
- * indicator is dashboard-specific, so it stays out of `:core:ui` until it repeats elsewhere.
+ * Muscles | 7-Day | Lifts board switch in the dashboard top bar.
+ *
+ * - **Tonal:** large underlined text tabs (dashboard-specific chrome per UI_DESIGN.md §7.2).
+ * - **Neo:** [StratumSegmentedControl] with hard-offset shadow from elevations — same control
+ *   language as Settings/theme pickers; no feature branching on [com.stratum.core.ui.theme.StratumThemeId].
  */
 @Composable
 private fun DashboardTabToggle(
@@ -577,6 +581,24 @@ private fun DashboardTabToggle(
     onSelectedIndexChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val elevations = StratumThemeAccessor.elevations
+    if (elevations.useHardShadow) {
+        val chipShape = RoundedCornerShape(StratumThemeAccessor.shapes.chipCorner)
+        StratumSegmentedControl(
+            modifier =
+                modifier.stratumButtonHardShadow(
+                    enabled = true,
+                    shape = chipShape,
+                    // Top bar is tight; let shadow paint into surrounding chrome.
+                    reserveSpace = false,
+                ),
+            segments = labels,
+            selectedIndex = selectedIndex,
+            onSelectedIndexChange = onSelectedIndexChange,
+        )
+        return
+    }
+
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(TAB_TOGGLE_SPACING),
