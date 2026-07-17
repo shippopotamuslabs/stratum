@@ -17,6 +17,10 @@ sealed interface WorkoutUiState {
         val isFinalizing: Boolean,
         val sessionStartedAtEpochMilli: Long,
         val hasIncompleteLifts: Boolean = false,
+        /**
+         * When true, complete flow may offer "save structural edits to the program day".
+         * Not raw overlay dirtiness — ad-hoc sessions always false (no template to update).
+         */
         val hasDirtyEdits: Boolean = false,
     ) : WorkoutUiState
 

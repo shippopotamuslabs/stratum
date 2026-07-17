@@ -48,6 +48,39 @@ class DomainActiveSessionSurfaceSyncTest {
         }
 
     @Test
+    @DisplayName("When ad-hoc session is present then surface uses session id as route key")
+    fun publishesAdHocSessionWithSessionIdRoute() =
+        runTest(UnconfinedTestDispatcher()) {
+            val session =
+                TrainingSession(
+                    id = TrainingSessionId("ts-adhoc"),
+                    programId = null,
+                    workoutId = null,
+                    status = TrainingSessionStatus.IN_PROGRESS,
+                    kind = TrainingSessionKind.AD_HOC,
+                    origin = TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = null,
+                    startedAt = Instant.parse("2026-07-05T10:00:00Z"),
+                    endedAt = null,
+                    sourceApp = null,
+                    workoutNameSnapshot = "Empty Workout",
+                )
+            val domainActive = MutableStateFlow<TrainingSession?>(session)
+            val surfaces = surfaces()
+
+            DomainActiveSessionSurfaceSync(
+                observeCycleProgress = unusedCycleProgress(),
+                liveWorkoutSurfaces = surfaces,
+            ).start(backgroundScope, domainActive)
+
+            val active = surfaces.activeWorkout.active.value
+            assertNotNull(active)
+            assertEquals("ts-adhoc", active!!.workoutId)
+            assertEquals("Empty Workout", active.workoutName)
+        }
+
+    @Test
     @DisplayName("When domain active session becomes null then live surfaces are cleared")
     fun clearsSurfacesWhenDomainSessionNull() =
         runTest(UnconfinedTestDispatcher()) {

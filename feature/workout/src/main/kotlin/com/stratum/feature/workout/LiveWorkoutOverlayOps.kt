@@ -10,6 +10,7 @@ import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.workout.AddedLiftDefaults
+import com.stratum.domain.workout.LoggedSetValue
 import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
 import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
@@ -307,7 +308,9 @@ internal object LiveWorkoutOverlayOps {
         val sessionAdded = overlay.addedLifts
             .filterNot { it.workoutLiftId in overlay.deletedLiftIds }
             .map { added ->
-                val catalog = liftsById[added.liftId]
+                // Match template-lift path: in-session swaps rebind catalog id / name / load type.
+                val effectiveLiftId = overlay.swappedLifts[added.workoutLiftId] ?: added.liftId
+                val catalog = liftsById[effectiveLiftId]
                 val groupId = if (overlay.supersetGroupIdOverrides.containsKey(added.workoutLiftId)) {
                     overlay.supersetGroupIdOverrides[added.workoutLiftId]
                 } else {
@@ -316,10 +319,11 @@ internal object LiveWorkoutOverlayOps {
                 val slots = overlay.addedSlots
                     .filter { it.workoutLiftId == added.workoutLiftId }
                     .sortedBy { it.position }
+                    .map { applyOverlaySlotFields(it, overlay) }
                 WorkoutLiftProjection(
                     workoutLiftId = added.workoutLiftId,
-                    liftId = added.liftId,
-                    liftName = catalog?.name ?: liftNamesById[added.liftId].orEmpty(),
+                    liftId = effectiveLiftId,
+                    liftName = catalog?.name ?: liftNamesById[effectiveLiftId].orEmpty(),
                     progressionScheme = added.progressionScheme,
                     slots = slots,
                     supersetGroupId = groupId,
@@ -332,5 +336,94 @@ internal object LiveWorkoutOverlayOps {
         val withAdded = base.copy(lifts = mappedLifts + sessionAdded)
         val snapshot = ProgressionSnapshot(withAdded.workoutId, snapshotBySlot)
         return mergeRenderedWorkout(withAdded, snapshot, overlay)
+    }
+
+    /**
+     * Rebuilds a minimal session-added overlay from durable [LoggedSet] rows when the
+     * DataStore overlay is missing (process death after a failed/partial persist).
+     *
+     * Only lifts with a stamped [LoggedLiftContext.workoutLiftId] and catalog [LoggedSet.liftId]
+     * are reconstructed. Returns null when nothing can be rebuilt.
+     */
+    fun rebuildFromSessionLoggedSets(
+        dbSets: List<com.stratum.domain.training.LoggedSet>,
+        zeroWeight: Weight,
+    ): WorkoutOverlay? {
+        val eligible = dbSets.filter { set ->
+            set.liftContext.workoutLiftId != null && set.liftId != null
+        }
+        if (eligible.isEmpty()) return null
+
+        val byWorkoutLift = eligible.groupBy { it.liftContext.workoutLiftId!! }
+        val orderedGroups =
+            byWorkoutLift.entries.sortedBy { (_, sets) -> sets.minOf { it.completedAt } }
+
+        val addedLifts = mutableListOf<OverlayAddedLift>()
+        val addedSlots = mutableListOf<SetSlot>()
+        val dynamicBaselines = mutableMapOf<SetSlotId, SlotRecommendation>()
+        val loggedSets = mutableMapOf<SetSlotId, LoggedSetValue>()
+        val orderedIds = mutableListOf<String>()
+
+        for ((workoutLiftId, sets) in orderedGroups) {
+            val orderedSets = sets.sortedBy { it.setIndex }
+            val first = orderedSets.first()
+            val liftId = first.liftId!!
+            val scheme = first.liftContext.progressionScheme ?: ProgressionScheme.Double
+            addedLifts += OverlayAddedLift(
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                progressionScheme = scheme,
+                supersetGroupId = null,
+                useRestTimerBetweenLifts = false,
+            )
+            orderedIds += workoutLiftId.value
+
+            val positions = orderedSets.map { it.setIndex }.toSet()
+            val maxIndex = positions.maxOrNull() ?: 0
+            for (position in 0..maxIndex) {
+                val logged = orderedSets.firstOrNull { it.setIndex == position }
+                val repMin = logged?.liftContext?.repMin ?: AddedLiftDefaults.REP_MIN
+                val repMax = logged?.liftContext?.repMax ?: AddedLiftDefaults.REP_MAX
+                val rirGoal = logged?.liftContext?.rirGoal ?: AddedLiftDefaults.RIR
+                val setType = logged?.liftContext?.setType ?: SetType.Standard
+                val slotId = SetSlotId.Overlay(
+                    OverlaySetInstanceId("rebuilt-${workoutLiftId.value}-$position"),
+                )
+                val slot = SetSlot(
+                    slotId = slotId,
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    position = position,
+                    setType = setType,
+                    isTopSet = position == 0,
+                    repMin = repMin,
+                    repMax = repMax,
+                    rirGoal = rirGoal,
+                    restSeconds = AddedLiftDefaults.REST_SECONDS,
+                )
+                addedSlots += slot
+                dynamicBaselines[slotId] = SlotRecommendation(
+                    slotId = slotId,
+                    recommendedWeight = zeroWeight,
+                    baselineExpectedReps = repMin,
+                )
+                if (logged != null) {
+                    loggedSets[slotId] = LoggedSetValue(
+                        slotId = slotId,
+                        weight = logged.weight,
+                        reps = logged.reps,
+                        rir = logged.rir,
+                    )
+                }
+            }
+        }
+
+        return WorkoutOverlay(
+            addedLifts = addedLifts,
+            addedSlots = addedSlots,
+            dynamicBaselines = dynamicBaselines,
+            loggedSets = loggedSets,
+            orderedLiftIds = orderedIds,
+        )
     }
 }
