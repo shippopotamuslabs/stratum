@@ -15,8 +15,9 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.stratumButtonHardShadow
 
 /**
- * Secondary call-to-action with transparent fill and accent outline — e.g. "Start Empty Workout".
+ * Secondary call-to-action with transparent fill and outline — e.g. "Start Empty Workout".
  *
+ * When [destructive] is true, border and label use the error semantic role (e.g. discard actions).
  * Neo Brutalist themes apply a hard-offset shadow from elevations; Tonal stays flat.
  */
 @Composable
@@ -28,16 +29,19 @@ fun StratumOutlinedButton(
     style: TextStyle = StratumThemeAccessor.typography.bodyLarge,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
     containerColor: Color = Color.Transparent,
+    /** When true, uses error semantic colors for border and label. */
+    destructive: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
     val elevations = StratumThemeAccessor.elevations
     val borderColor =
-        if (elevations.useHardShadow) {
-            colors.borderStrong
-        } else {
-            colors.accent
+        when {
+            destructive -> colors.error
+            elevations.useHardShadow -> colors.borderStrong
+            else -> colors.accent
         }
+    val contentColor = if (destructive) colors.error else colors.accent
     OutlinedButton(
         onClick = onClick,
         modifier =
@@ -58,7 +62,7 @@ fun StratumOutlinedButton(
         colors =
             ButtonDefaults.outlinedButtonColors(
                 containerColor = containerColor,
-                contentColor = colors.accent,
+                contentColor = contentColor,
                 disabledContainerColor = containerColor,
                 disabledContentColor = colors.textMuted,
             ),

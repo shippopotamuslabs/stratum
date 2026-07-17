@@ -51,6 +51,12 @@ private fun ButtonPreviewColumn() {
             onClick = {},
             modifier = Modifier.fillMaxWidth(),
         )
+        StratumOutlinedButton(
+            text = "Discard Workout",
+            onClick = {},
+            modifier = Modifier.fillMaxWidth(),
+            destructive = true,
+        )
         StratumButton(
             text = "Delete account",
             onClick = {},
