@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,9 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.stratumButtonHardShadow
 
 @Composable
 fun StratumGoogleSignInButton(
@@ -30,18 +31,30 @@ fun StratumGoogleSignInButton(
     text: String = "Sign in with Google",
 ) {
     val isDark = StratumThemeAccessor.colors.surfaceBase.luminance() < 0.5f
+    val shapes = StratumThemeAccessor.shapes
+    val elevations = StratumThemeAccessor.elevations
+    // Google brand chrome is fixed; border width still follows theme geometry (neo 2dp / tonal 1dp).
     val backgroundColor = if (isDark) Color(0xFF131314) else Color(0xFFFFFFFF)
     val textColor = if (isDark) Color(0xFFE3E3E3) else Color(0xFF1F1F1F)
-    val borderColor = if (isDark) Color(0xFF8E918F) else Color(0xFF747775)
+    val borderColor =
+        if (elevations.useHardShadow) {
+            StratumThemeAccessor.colors.borderStrong
+        } else if (isDark) {
+            Color(0xFF8E918F)
+        } else {
+            Color(0xFF747775)
+        }
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .background(backgroundColor, RoundedCornerShape(4.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(4.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .stratumButtonHardShadow(enabled = enabled, shape = shapes.button)
+                .background(backgroundColor, shapes.button)
+                .border(shapes.borderWidth, borderColor, shapes.button)
+                .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -58,5 +71,3 @@ fun StratumGoogleSignInButton(
         )
     }
 }
-
-private fun Color.luminance(): Float = red * 0.2126f + green * 0.7152f + blue * 0.0722f

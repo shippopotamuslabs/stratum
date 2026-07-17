@@ -2,6 +2,7 @@ package com.stratum.core.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -29,11 +30,21 @@ data class StratumTypography(
     val sectionLabel: TextStyle,
 )
 
+/**
+ * Elevation / shadow tokens for a theme family.
+ *
+ * When [useHardShadow] is true (Neo Brutalist), components paint a solid offset fill via
+ * [com.stratum.core.ui.theme.stratumHardShadow] — never soft Material blur. Offsets are
+ * typically larger in dark mode so the hard edge reads against charcoal surfaces.
+ * Tonal sets [useHardShadow] false and zero offsets; components no-op the hard path.
+ */
 @Immutable
 data class StratumElevations(
     val cardShadowOffset: Dp,
     val buttonShadowOffset: Dp,
     val useHardShadow: Boolean,
+    /** Fill color for hard-offset shadows; ignored when [useHardShadow] is false. */
+    val hardShadowColor: Color,
 )
 
 @Immutable

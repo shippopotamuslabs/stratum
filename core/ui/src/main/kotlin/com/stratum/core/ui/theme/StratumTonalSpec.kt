@@ -42,6 +42,7 @@ object StratumTonalSpec {
                     cardShadowOffset = 0.dp,
                     buttonShadowOffset = 0.dp,
                     useHardShadow = false,
+                    hardShadowColor = Color.Transparent,
                 ),
             typography = DefaultStratumTypography,
         )
@@ -75,6 +76,7 @@ object StratumTonalSpec {
                     cardShadowOffset = 0.dp,
                     buttonShadowOffset = 0.dp,
                     useHardShadow = false,
+                    hardShadowColor = Color.Transparent,
                 ),
             typography = DefaultStratumTypography,
         )

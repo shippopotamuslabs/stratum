@@ -1,16 +1,18 @@
 package com.stratum.feature.settings.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -67,90 +69,117 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            SettingsSection(
-                title = stringResource(R.string.settings_appearance_title),
-                description = stringResource(R.string.settings_appearance_description),
-            ) {
-                val appearanceOptions = listOf(
-                    AppearanceUi.System to stringResource(R.string.settings_appearance_system),
-                    AppearanceUi.Light to stringResource(R.string.settings_appearance_light),
-                    AppearanceUi.Dark to stringResource(R.string.settings_appearance_dark),
-                )
-                StratumSegmentedControl(
-                    modifier = Modifier.fillMaxWidth(),
-                    segments = appearanceOptions.map { it.second },
-                    selectedIndex = appearanceOptions.indexOfFirst { it.first == uiState.appearance }
-                        .takeIf { it >= 0 },
-                    onSelectedIndexChange = { index ->
-                        onAppearanceSelected(appearanceOptions[index].first)
-                    },
-                )
+            SettingsGroup(title = stringResource(R.string.settings_look_feel_section)) {
+                SettingsControlBlock(
+                    label = stringResource(R.string.settings_appearance_title),
+                ) {
+                    val appearanceOptions = listOf(
+                        AppearanceUi.System to stringResource(R.string.settings_appearance_system),
+                        AppearanceUi.Light to stringResource(R.string.settings_appearance_light),
+                        AppearanceUi.Dark to stringResource(R.string.settings_appearance_dark),
+                    )
+                    StratumSegmentedControl(
+                        modifier = Modifier.fillMaxWidth(),
+                        segments = appearanceOptions.map { it.second },
+                        selectedIndex = appearanceOptions.indexOfFirst { it.first == uiState.appearance }
+                            .takeIf { it >= 0 },
+                        onSelectedIndexChange = { index ->
+                            onAppearanceSelected(appearanceOptions[index].first)
+                        },
+                    )
+                }
+                SettingsGroupDivider()
+                SettingsControlBlock(
+                    label = stringResource(R.string.settings_theme_family_title),
+                ) {
+                    val familyOptions = listOf(
+                        ThemeFamilyUi.Stratum to stringResource(R.string.settings_theme_family_stratum),
+                        ThemeFamilyUi.NeoBrutalist to
+                            stringResource(R.string.settings_theme_family_neo_brutalist),
+                    )
+                    StratumSegmentedControl(
+                        modifier = Modifier.fillMaxWidth(),
+                        segments = familyOptions.map { it.second },
+                        selectedIndex = familyOptions.indexOfFirst { it.first == uiState.themeFamily }
+                            .takeIf { it >= 0 },
+                        onSelectedIndexChange = { index ->
+                            onThemeFamilySelected(familyOptions[index].first)
+                        },
+                    )
+                }
             }
 
-            SettingsSection(
-                title = stringResource(R.string.settings_theme_family_title),
-                description = stringResource(R.string.settings_theme_family_description),
-            ) {
-                val familyOptions = listOf(
-                    ThemeFamilyUi.Stratum to stringResource(R.string.settings_theme_family_stratum),
-                    ThemeFamilyUi.NeoBrutalist to
-                        stringResource(R.string.settings_theme_family_neo_brutalist),
-                )
-                StratumSegmentedControl(
-                    modifier = Modifier.fillMaxWidth(),
-                    segments = familyOptions.map { it.second },
-                    selectedIndex = familyOptions.indexOfFirst { it.first == uiState.themeFamily }
-                        .takeIf { it >= 0 },
-                    onSelectedIndexChange = { index ->
-                        onThemeFamilySelected(familyOptions[index].first)
-                    },
-                )
-            }
-
-            SettingsSection(
-                title = stringResource(R.string.settings_checkin_title),
-                description = stringResource(R.string.settings_checkin_description),
-            ) {
-                SettingsSwitchRow(
-                    label = stringResource(R.string.settings_checkin_enabled),
-                    checked = uiState.checkInsEnabled,
-                    onCheckedChange = onCheckInsEnabledChange,
-                )
-            }
-
-            SettingsSection(
-                title = stringResource(R.string.settings_post_workout_title),
-                description = stringResource(R.string.settings_post_workout_description),
-            ) {
-                SettingsSwitchRow(
-                    label = stringResource(R.string.settings_equipment_proposals_enabled),
-                    checked = uiState.equipmentProposalsEnabled,
-                    onCheckedChange = { enabled ->
-                        onPostWorkoutSuggestionEnabledChange(
-                            PostWorkoutSuggestionUi.EquipmentSteps,
-                            enabled,
+            SettingsGroup(title = stringResource(R.string.settings_training_section)) {
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_checkin_enabled),
+                    subtitle = stringResource(R.string.settings_checkin_subtitle),
+                    trailing = {
+                        StratumSwitch(
+                            checked = uiState.checkInsEnabled,
+                            onCheckedChange = onCheckInsEnabledChange,
                         )
                     },
                 )
-                SettingsSwitchRow(
-                    label = stringResource(R.string.settings_rep_range_proposals_enabled),
-                    checked = uiState.repRangeProposalsEnabled,
-                    onCheckedChange = { enabled ->
-                        onPostWorkoutSuggestionEnabledChange(
-                            PostWorkoutSuggestionUi.RepRangeShift,
-                            enabled,
+                SettingsGroupDivider()
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_equipment_proposals_enabled),
+                    subtitle = stringResource(R.string.settings_equipment_proposals_subtitle),
+                    trailing = {
+                        StratumSwitch(
+                            checked = uiState.equipmentProposalsEnabled,
+                            onCheckedChange = { enabled ->
+                                onPostWorkoutSuggestionEnabledChange(
+                                    PostWorkoutSuggestionUi.EquipmentSteps,
+                                    enabled,
+                                )
+                            },
                         )
                     },
+                )
+                SettingsGroupDivider()
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_rep_range_proposals_enabled),
+                    subtitle = stringResource(R.string.settings_rep_range_proposals_subtitle),
+                    trailing = {
+                        StratumSwitch(
+                            checked = uiState.repRangeProposalsEnabled,
+                            onCheckedChange = { enabled ->
+                                onPostWorkoutSuggestionEnabledChange(
+                                    PostWorkoutSuggestionUi.RepRangeShift,
+                                    enabled,
+                                )
+                            },
+                        )
+                    },
+                )
+            }
+
+            SettingsGroup(title = stringResource(R.string.settings_data_section_title)) {
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_import_data_row_title),
+                    subtitle = stringResource(R.string.settings_import_data_row_subtitle),
+                    onClick = onImportDataClick,
+                )
+                SettingsGroupDivider()
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_export_data_row_title),
+                    subtitle = stringResource(R.string.settings_export_data_row_subtitle),
+                    onClick = onExportDataClick,
+                )
+            }
+
+            SettingsGroup(title = stringResource(R.string.settings_legal_section)) {
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_legal_row_title),
+                    subtitle = stringResource(R.string.settings_legal_row_subtitle),
+                    onClick = onLegalClick,
                 )
             }
 
             if (uiState.showDebugTools) {
-                SettingsSection(
-                    title = stringResource(R.string.settings_debug_title),
-                    description = stringResource(R.string.settings_debug_description),
-                ) {
+                SettingsGroup(title = stringResource(R.string.settings_debug_title)) {
                     StratumButton(
                         text = stringResource(R.string.settings_debug_force_checkin),
                         onClick = onForceCheckInPending,
@@ -166,10 +195,12 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsSection(
-                title = stringResource(R.string.settings_account_title),
-                description = stringResource(R.string.settings_account_description),
-            ) {
+            SettingsGroup(title = stringResource(R.string.settings_account_title)) {
+                StratumText(
+                    text = stringResource(R.string.settings_account_description),
+                    muted = true,
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                )
                 StratumButton(
                     text = stringResource(
                         if (uiState.isLoggingOut) {
@@ -197,28 +228,6 @@ fun SettingsScreen(
                     destructive = true,
                 )
             }
-
-            SettingsSection(
-                title = stringResource(R.string.settings_data_section_title),
-                description = stringResource(R.string.settings_data_section_description),
-            ) {
-                StratumPreferenceRow(
-                    title = stringResource(R.string.settings_import_data_row_title),
-                    subtitle = stringResource(R.string.settings_import_data_row_subtitle),
-                    onClick = onImportDataClick,
-                )
-                StratumPreferenceRow(
-                    title = stringResource(R.string.settings_export_data_row_title),
-                    subtitle = stringResource(R.string.settings_export_data_row_subtitle),
-                    onClick = onExportDataClick,
-                )
-            }
-
-            StratumPreferenceRow(
-                title = stringResource(R.string.settings_legal_row_title),
-                subtitle = stringResource(R.string.settings_legal_row_subtitle),
-                onClick = onLegalClick,
-            )
         }
     }
 
@@ -249,22 +258,56 @@ fun SettingsScreen(
     }
 }
 
+/**
+ * Muted section label above a raised bordered group card.
+ * Matches import/export and review card chrome elsewhere in the app.
+ */
 @Composable
-private fun SettingsSection(
+private fun SettingsGroup(
     title: String,
-    description: String,
     content: @Composable () -> Unit,
 ) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         StratumText(
             text = title,
-            style = StratumThemeAccessor.typography.titleMedium,
+            muted = true,
+            style = StratumThemeAccessor.typography.sectionLabel,
         )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(
+                    width = shapes.borderWidth,
+                    color = colors.borderSubtle,
+                    shape = shapes.panel,
+                )
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SettingsControlBlock(
+    label: String,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         StratumText(
-            text = description,
+            text = label,
             muted = true,
             style = StratumThemeAccessor.typography.sectionLabel,
         )
@@ -273,24 +316,11 @@ private fun SettingsSection(
 }
 
 @Composable
-private fun SettingsSwitchRow(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        StratumText(
-            text = label,
-            style = StratumThemeAccessor.typography.bodyLarge,
-            modifier = Modifier.weight(1f).padding(end = 12.dp),
-        )
-        StratumSwitch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-        )
-    }
+private fun SettingsGroupDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(StratumThemeAccessor.shapes.borderWidth)
+            .background(StratumThemeAccessor.colors.borderSubtle),
+    )
 }
