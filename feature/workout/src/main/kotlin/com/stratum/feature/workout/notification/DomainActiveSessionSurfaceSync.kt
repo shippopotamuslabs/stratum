@@ -2,6 +2,8 @@ package com.stratum.feature.workout.notification
 
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionDisplayName
+import com.stratum.domain.training.liveWorkoutRouteId
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -47,11 +49,9 @@ class DomainActiveSessionSurfaceSync @Inject constructor(
     }
 
     private fun publishActive(session: TrainingSession) {
-        val workoutId = session.workoutId?.value ?: session.id.value
-        val workoutName = session.workoutNameSnapshot?.takeIf { it.isNotBlank() } ?: "Workout"
         liveWorkoutSurfaces.activeWorkout.setActive(
-            workoutId = workoutId,
-            workoutName = workoutName,
+            workoutId = session.liveWorkoutRouteId(),
+            workoutName = TrainingSessionDisplayName.resolve(session),
             startedAtEpochMs = session.startedAt.toEpochMilli(),
         )
     }

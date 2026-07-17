@@ -7,6 +7,7 @@ import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.program.FakeProgramsUiPreferencesRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
@@ -29,6 +30,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.StartTrainingSessionUseCase
+import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.feature.program.ui.ProgramsUiEvent
 import com.stratum.feature.program.ui.ProgramsUiState
 import com.stratum.feature.program.ui.ScheduleItemState
@@ -166,6 +168,43 @@ class ProgramsViewModelTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+
+        @Test
+        fun `startEmptyWorkout emits NavigateToWorkout with session route id`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+            viewModel.programsUiState.test {
+                assertTrue(awaitItem() is ProgramsUiState.Loaded)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.startEmptyWorkout()
+                val event = awaitItem() as ProgramsUiEvent.NavigateToWorkout
+                // Ad-hoc has no template workoutId — route key is the live session id (non-empty).
+                assertTrue(event.workoutId.isNotBlank())
+                assertTrue(event.workoutId != "w-1")
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        fun `when empty session is active then startProgramWorkout navigates to ad-hoc route`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+            viewModel.programsUiState.test {
+                assertTrue(awaitItem() is ProgramsUiState.Loaded)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.startEmptyWorkout()
+                val emptyRoute = (awaitItem() as ProgramsUiEvent.NavigateToWorkout).workoutId
+
+                // Conflict: should resume the live ad-hoc session, not snackbar-deadlock.
+                viewModel.startProgramWorkout("w-1")
+                assertEquals(ProgramsUiEvent.NavigateToWorkout(emptyRoute), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
     }
 
     @Nested
@@ -185,6 +224,24 @@ class ProgramsViewModelTest {
                 assertEquals("w-1", state?.workoutId)
                 assertEquals("Push Day", state?.workoutName)
                 assertTrue(state?.startedAtEpochMilli != null)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        fun `when empty session is active then bar uses session id and Empty Workout name`() = runTest {
+            val viewModel = buildViewModel(initial = PROGRAM_PPL)
+
+            viewModel.activeWorkoutBarState.test {
+                assertEquals(null, awaitItem())
+
+                viewModel.startEmptyWorkout()
+
+                val state = awaitItem()
+                assertTrue(state != null)
+                assertTrue(state!!.workoutId.isNotBlank())
+                assertEquals("Empty Workout", state.workoutName)
+                assertEquals("Add lifts", state.nextLiftName)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -234,6 +291,8 @@ class ProgramsViewModelTest {
                     recordRestDaySkip =
                         com.stratum.domain.training.RecordRestDaySkipUseCase(trainingLog, repository),
                     unskipWorkout = com.stratum.domain.training.UnskipWorkoutUseCase(trainingLog, repository),
+                    manageWorkoutOverlay =
+                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
                     observeProgramsUiPreferences =
                         ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
                     setExpandedWorkoutId =
@@ -344,6 +403,7 @@ class ProgramsViewModelTest {
             recordWorkoutSkip = com.stratum.domain.training.RecordWorkoutSkipUseCase(trainingLog, repository),
             recordRestDaySkip = com.stratum.domain.training.RecordRestDaySkipUseCase(trainingLog, repository),
             unskipWorkout = com.stratum.domain.training.UnskipWorkoutUseCase(trainingLog, repository),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
             observeProgramsUiPreferences = ObserveProgramsUiPreferencesUseCase(uiPrefs),
             setExpandedWorkoutId = SetExpandedWorkoutIdUseCase(uiPrefs, logging),
         )

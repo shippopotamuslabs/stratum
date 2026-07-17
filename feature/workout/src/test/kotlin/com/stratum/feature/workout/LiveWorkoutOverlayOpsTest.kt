@@ -162,6 +162,83 @@ class LiveWorkoutOverlayOpsTest {
     }
 
     @Test
+    @DisplayName("merge applies swappedLifts to session-added lift name and slot liftId")
+    fun mergeAppliesSwapToSessionAddedLifts() {
+        val addedWl = WorkoutLiftId("wl-added")
+        val addedSlot = SetSlot(
+            slotId = overlaySlotId,
+            workoutLiftId = addedWl,
+            liftId = originalLiftId,
+            position = 0,
+            setType = SetType.Standard,
+            isTopSet = true,
+            repMin = 8,
+            repMax = 12,
+            rirGoal = 2,
+            restSeconds = 120,
+        )
+        val emptyStructure = WorkoutStructureProjection(
+            workoutId = WorkoutId("ts-adhoc"),
+            workoutName = "Empty Workout",
+            lifts = emptyList(),
+        )
+        val overlay = WorkoutOverlay(
+            swappedLifts = mapOf(addedWl to swappedLiftId),
+            addedLifts = listOf(
+                com.stratum.domain.workout.OverlayAddedLift(
+                    workoutLiftId = addedWl,
+                    liftId = originalLiftId,
+                ),
+            ),
+            addedSlots = listOf(addedSlot),
+            dynamicBaselines = mapOf(
+                overlaySlotId to com.stratum.domain.workout.SlotRecommendation(
+                    slotId = overlaySlotId,
+                    recommendedWeight = com.stratum.domain.lift.Weight(0.0, com.stratum.domain.lift.Weight.WeightUnit.Lb),
+                    baselineExpectedReps = 8,
+                ),
+            ),
+        )
+        val liftsById = mapOf(
+            originalLiftId to com.stratum.domain.lift.Lift(
+                id = originalLiftId,
+                name = "Original Lift",
+                movementPatterns = emptySet(),
+                primaryMuscles = emptySet(),
+                secondaryMuscles = emptySet(),
+                incrementTiers = emptyList(),
+                presetTags = emptySet(),
+                enabled = true,
+            ),
+            swappedLiftId to com.stratum.domain.lift.Lift(
+                id = swappedLiftId,
+                name = "Swapped Lift",
+                movementPatterns = emptySet(),
+                primaryMuscles = emptySet(),
+                secondaryMuscles = emptySet(),
+                incrementTiers = emptyList(),
+                presetTags = emptySet(),
+                enabled = true,
+            ),
+        )
+
+        val rendered = LiveWorkoutOverlayOps.merge(
+            structure = emptyStructure,
+            overlay = overlay,
+            snapshotBySlot = emptyMap(),
+            liftsById = liftsById,
+            liftNamesById = liftsById.mapValues { it.value.name },
+            mergeRenderedWorkout = com.stratum.domain.workout.MergeRenderedWorkoutUseCase(),
+        )
+
+        assertEquals(1, rendered.lifts.size)
+        assertEquals(swappedLiftId, rendered.lifts.single().liftId)
+        assertEquals("Swapped Lift", rendered.lifts.single().liftName)
+        assertEquals(swappedLiftId, rendered.lifts.single().sets.single().liftId)
+    }
+
+
+    @Test
     @DisplayName("resolveSlot applies restSecondsOverrides")
     fun resolveSlotAppliesRestSecondsOverride() {
         val overlay =

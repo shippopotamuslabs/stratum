@@ -35,11 +35,11 @@ class LiftNavigatorScrollTest {
     }
 
     @Test
-    @DisplayName("ignores non-lift list keys such as discard / spacer")
+    @DisplayName("ignores non-lift list keys such as session footer / spacer")
     fun ignoresNonLiftKeys() {
         val selected =
             primaryLiftIdFromScroll(
-                visibleItems = listOf("discard" to 0, "wl-1" to 10),
+                visibleItems = listOf(WORKOUT_SESSION_FOOTER_KEY to 0, "wl-1" to 10),
                 liftKeys = setOf("wl-1"),
                 threshold = 0,
             )
@@ -51,7 +51,7 @@ class LiftNavigatorScrollTest {
     fun nullWhenEmpty() {
         assertNull(
             primaryLiftIdFromScroll(
-                visibleItems = listOf("discard" to 0),
+                visibleItems = listOf(WORKOUT_SESSION_FOOTER_KEY to 0),
                 liftKeys = setOf("wl-1"),
             ),
         )
@@ -105,14 +105,14 @@ class LiftNavigatorScrollTest {
     }
 
     @Test
-    @DisplayName("bottom pin padding equals viewport minus last lift, discard, and one gap")
+    @DisplayName("bottom pin padding equals viewport minus last lift, footer, and one gap")
     fun bottomPinSpacerSizing() {
         assertEquals(
             300,
             bottomPinSpacerHeightPx(
                 viewportHeightPx = 1000,
                 lastLiftHeightPx = 400,
-                discardHeightPx = 200,
+                footerHeightPx = 200,
                 listSpacingPx = 100,
             ),
         )
@@ -121,7 +121,7 @@ class LiftNavigatorScrollTest {
             bottomPinSpacerHeightPx(
                 viewportHeightPx = 500,
                 lastLiftHeightPx = 400,
-                discardHeightPx = 200,
+                footerHeightPx = 200,
                 listSpacingPx = 16,
             ),
         )
@@ -130,7 +130,7 @@ class LiftNavigatorScrollTest {
             bottomPinSpacerHeightPx(
                 viewportHeightPx = 1000,
                 lastLiftHeightPx = 0,
-                discardHeightPx = 100,
+                footerHeightPx = 100,
                 listSpacingPx = 16,
             ),
         )

@@ -47,6 +47,7 @@ class StartTrainingSessionUseCaseTest {
         assertEquals(TrainingSessionKind.AD_HOC, session.kind)
         assertNull(session.workoutId)
         assertEquals(TrainingSessionStatus.IN_PROGRESS, session.status)
+        assertEquals("Empty Workout", session.workoutNameSnapshot)
     }
 
     @Test

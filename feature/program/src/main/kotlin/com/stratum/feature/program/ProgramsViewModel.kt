@@ -8,6 +8,7 @@ import com.stratum.domain.program.ObserveProgramUseCase
 import com.stratum.domain.program.ObserveProgramsUiPreferencesUseCase
 import com.stratum.domain.program.SetExpandedWorkoutIdUseCase
 import com.stratum.domain.program.identity.WorkoutId
+import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.ActiveTrainingSessionExistsException
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.GetLoggedSetsForSessionUseCase
@@ -17,8 +18,13 @@ import com.stratum.domain.training.RecordWorkoutSkipUseCase
 import com.stratum.domain.training.StartTrainingSessionRequest
 import com.stratum.domain.training.StartTrainingSessionUseCase
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionDisplayName
+import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.UnskipWorkoutUseCase
 import com.stratum.domain.training.isOrphanedAgainstActiveProgram
+import com.stratum.domain.training.liveWorkoutRouteId
+import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
+import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.feature.program.ui.MinimizedWorkoutState
 import com.stratum.feature.program.ui.ProgramsStartAction
 import com.stratum.feature.program.ui.ProgramsUiEvent
@@ -66,6 +72,7 @@ class ProgramsViewModel @Inject constructor(
     private val recordWorkoutSkip: RecordWorkoutSkipUseCase,
     private val recordRestDaySkip: RecordRestDaySkipUseCase,
     private val unskipWorkout: UnskipWorkoutUseCase,
+    private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     observeProgramsUiPreferences: ObserveProgramsUiPreferencesUseCase,
     private val setExpandedWorkoutId: SetExpandedWorkoutIdUseCase,
 ) : ViewModel() {
@@ -168,7 +175,8 @@ class ProgramsViewModel @Inject constructor(
         viewModelScope.launch {
             val result = startTrainingSession(StartTrainingSessionRequest.AdHocEmpty)
             if (result.isSuccess) {
-                showUserMessage(MSG_EMPTY_WORKOUT_STARTED)
+                // Ad-hoc has no template workoutId — route key is the session id.
+                _events.send(ProgramsUiEvent.NavigateToWorkout(result.getOrThrow().liveWorkoutRouteId()))
                 return@launch
             }
             handleStartFailure(result)
@@ -188,11 +196,12 @@ class ProgramsViewModel @Inject constructor(
         when (result.exceptionOrNull()) {
             is ActiveTrainingSessionExistsException -> {
                 val progress = observeCycleProgress().first()
-                val activeWorkoutId = progress.activeSession?.workoutId?.value
-                if (activeWorkoutId != null) {
-                    _events.send(ProgramsUiEvent.NavigateToWorkout(activeWorkoutId))
+                val routeId = progress.activeSession?.liveWorkoutRouteId()
+                if (routeId != null) {
+                    // Resume whatever is live (program or ad-hoc) instead of deadlocking.
+                    _events.send(ProgramsUiEvent.NavigateToWorkout(routeId))
                 } else {
-                    showUserMessage(MSG_EMPTY_WORKOUT_IN_PROGRESS)
+                    showUserMessage(MSG_START_WORKOUT_FAILED)
                 }
             }
             else -> showUserMessage(MSG_START_WORKOUT_FAILED)
@@ -203,33 +212,64 @@ class ProgramsViewModel @Inject constructor(
         observeCycleProgress().flatMapLatest { progress ->
             flow {
                 val session = progress.activeSession
-                val workoutId = session?.workoutId
-                if (session == null || workoutId == null) {
+                if (session == null) {
                     emit(null)
-                } else {
-                    val program = progress.program
-                    val workout = program?.workouts?.firstOrNull { it.id == workoutId }
-                    if (workout == null) {
-                        // Orphan: init collector abandons; hide bar so expand cannot open a dead route.
-                        emit(null)
-                    } else {
-                        // Soft-fail set/catalog load so a bad read never kills the bar or the VM.
+                    return@flow
+                }
+                when (session.kind) {
+                    TrainingSessionKind.AD_HOC -> {
                         val nextLiftName =
                             runCatching {
-                                val loggedSets = getLoggedSetsForSession(session.id)
                                 val lifts = observeLiftCatalog().first()
                                 val liftNames = lifts.associate { it.id to it.name }
-                                findNextLiftName(workout, loggedSets, liftNames)
+                                val overlay = manageWorkoutOverlay.load(session.id)
+                                val loggedSets = getLoggedSetsForSession(session.id)
+                                findNextAdHocLiftName(overlay, loggedSets, liftNames)
                             }.getOrNull()
                         emit(
                             MinimizedWorkoutState(
-                                workoutId = workoutId.value,
-                                workoutName = workout.name,
-                                nextLiftName = nextLiftName ?: "Workout in progress",
+                                workoutId = session.liveWorkoutRouteId(),
+                                workoutName = TrainingSessionDisplayName.resolve(
+                                    session = session,
+                                    program = progress.program,
+                                ),
+                                nextLiftName = nextLiftName ?: "Add lifts",
                                 startedAtEpochMilli = session.startedAt.toEpochMilli(),
-                            )
+                            ),
                         )
                     }
+                    TrainingSessionKind.PROGRAM_WORKOUT -> {
+                        val workoutId = session.workoutId
+                        if (workoutId == null) {
+                            emit(null)
+                            return@flow
+                        }
+                        val program = progress.program
+                        val workout = program?.workouts?.firstOrNull { it.id == workoutId }
+                        if (workout == null) {
+                            // Orphan: init collector abandons; hide bar so expand cannot open a dead route.
+                            emit(null)
+                        } else {
+                            // Soft-fail set/catalog load so a bad read never kills the bar or the VM.
+                            val nextLiftName =
+                                runCatching {
+                                    val loggedSets = getLoggedSetsForSession(session.id)
+                                    val lifts = observeLiftCatalog().first()
+                                    val liftNames = lifts.associate { it.id to it.name }
+                                    findNextLiftName(workout, loggedSets, liftNames)
+                                }.getOrNull()
+                            emit(
+                                MinimizedWorkoutState(
+                                    workoutId = workoutId.value,
+                                    workoutName = workout.name,
+                                    nextLiftName = nextLiftName ?: "Workout in progress",
+                                    startedAtEpochMilli = session.startedAt.toEpochMilli(),
+                                ),
+                            )
+                        }
+                    }
+                    // Rest-day ledger rows are not interactive live sessions.
+                    TrainingSessionKind.REST_DAY -> emit(null)
                 }
             }
         }.stateIn(
@@ -246,6 +286,10 @@ class ProgramsViewModel @Inject constructor(
             // Success is silent — cancel from the chip is intentional, not a failure to report.
             if (result.isFailure) {
                 showUserMessage(MSG_ABANDON_FAILED)
+            } else {
+                // Match live-screen abandon: drop process-scoped overlay so a new session
+                // cannot restore a dead session's structure from DataStore.
+                manageWorkoutOverlay.clear()
             }
         }
     }
@@ -287,6 +331,7 @@ class ProgramsViewModel @Inject constructor(
                     showUserMessage(MSG_ABANDON_FAILED)
                     return@launch
                 }
+                manageWorkoutOverlay.clear()
             }
             when (action) {
                 is ProgramsStartAction.StartWorkout ->
@@ -304,7 +349,7 @@ class ProgramsViewModel @Inject constructor(
     private fun findNextLiftName(
         workout: com.stratum.domain.program.Workout,
         loggedSets: List<com.stratum.domain.training.LoggedSet>,
-        liftNames: Map<com.stratum.domain.lift.identity.LiftId, String>,
+        liftNames: Map<LiftId, String>,
     ): String? {
         val sortedLifts = workout.workoutLifts.sortedBy { it.position }
         for (workoutLift in sortedLifts) {
@@ -321,11 +366,44 @@ class ProgramsViewModel @Inject constructor(
         return null
     }
 
+    /**
+     * Next incomplete session-added lift for the minimized bar. Prefers overlay structure;
+     * falls back to durable logs when overlay is missing.
+     */
+    private fun findNextAdHocLiftName(
+        overlay: WorkoutOverlay?,
+        loggedSets: List<com.stratum.domain.training.LoggedSet>,
+        liftNames: Map<LiftId, String>,
+    ): String {
+        if (overlay != null && overlay.addedLifts.isNotEmpty()) {
+            val order =
+                overlay.orderedLiftIds
+                    ?: overlay.addedLifts.map { it.workoutLiftId.value }
+            for (wlIdValue in order) {
+                val workoutLiftId = com.stratum.domain.program.identity.WorkoutLiftId(wlIdValue)
+                if (workoutLiftId in overlay.deletedLiftIds) continue
+                val slots =
+                    overlay.addedSlots
+                        .filter { it.workoutLiftId == workoutLiftId }
+                        .filterNot { it.slotId in overlay.deletedSlotIds }
+                        .sortedBy { it.position }
+                val hasUnlogged = slots.any { it.slotId !in overlay.loggedSets }
+                if (hasUnlogged || slots.isEmpty()) {
+                    val added = overlay.addedLifts.firstOrNull { it.workoutLiftId == workoutLiftId }
+                    val liftId = overlay.swappedLifts[workoutLiftId] ?: added?.liftId
+                    return liftId?.let { liftNames[it] } ?: "Workout in progress"
+                }
+            }
+            return "Workout in progress"
+        }
+        if (loggedSets.isEmpty()) return "Add lifts"
+        // Overlay lost but sets exist — surface generic progress, not a stale "Add lifts".
+        val last = loggedSets.maxByOrNull { it.completedAt }
+        val liftId = last?.liftId
+        return liftId?.let { liftNames[it] } ?: "Workout in progress"
+    }
+
     private companion object {
-        const val MSG_EMPTY_WORKOUT_STARTED =
-            "Empty workout session started. Structured workout screen requires a program workout."
-        const val MSG_EMPTY_WORKOUT_IN_PROGRESS =
-            "An empty workout is already in progress. Finish it before starting a program workout."
         const val MSG_START_WORKOUT_FAILED = "Couldn't start that workout. Try again."
         const val MSG_ABANDON_FAILED = "Couldn't cancel the workout. Try again."
         const val MSG_SKIP_FAILED = "Couldn't skip. Try again."
