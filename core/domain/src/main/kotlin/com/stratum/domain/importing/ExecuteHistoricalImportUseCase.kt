@@ -9,7 +9,10 @@ sealed interface HistoricalImportOrchestrationEvent {
 
     data class Progress(val progress: ImportProgress) : HistoricalImportOrchestrationEvent
 
-    data class Completed(val refresh: RefreshPersistedImportStateResult) : HistoricalImportOrchestrationEvent
+    data class Completed(
+        val refresh: RefreshPersistedImportStateResult,
+        val mergeStats: MergeImportStats? = null,
+    ) : HistoricalImportOrchestrationEvent
 
     data class Failed(
         val message: String,
@@ -22,12 +25,12 @@ sealed interface HistoricalImportOrchestrationEvent {
 class ExecuteHistoricalImportUseCase @Inject constructor(
     private val validateImportFiles: ValidateImportFilesUseCase,
     private val runHistoricalImport: RunHistoricalImportUseCase,
-    private val rollbackHistoricalImport: RollbackHistoricalImportUseCase,
     private val refreshPersistedImportState: RefreshPersistedImportStateUseCase,
 ) {
     operator fun invoke(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
+        persistPolicy: ImportHistoryPersistPolicy,
     ): Flow<HistoricalImportOrchestrationEvent> = flow {
         if (resume == null) {
             when (val validation = validateImportFiles(files)) {
@@ -38,16 +41,22 @@ class ExecuteHistoricalImportUseCase @Inject constructor(
                 }
             }
         }
-        runHistoricalImport(files, resume).collect { event ->
+        runHistoricalImport(files, resume, persistPolicy).collect { event ->
             when (event) {
                 is HistoricalImportEvent.Progress ->
                     emit(HistoricalImportOrchestrationEvent.Progress(event.progress))
                 is HistoricalImportEvent.Completed -> {
                     val refresh = refreshPersistedImportState()
-                    emit(HistoricalImportOrchestrationEvent.Completed(refresh))
+                    emit(
+                        HistoricalImportOrchestrationEvent.Completed(
+                            refresh = refresh,
+                            mergeStats = event.mergeStats,
+                        ),
+                    )
                 }
                 is HistoricalImportEvent.Failed -> {
-                    rollbackHistoricalImport()
+                    // Replace-on-failure rollback is owned solely by HistoricalImportRunnerPort
+                    // (RunFullHistoricalImportUseCase.buildImportFailureEvent) — not here.
                     val refresh = refreshPersistedImportState()
                     emit(
                         HistoricalImportOrchestrationEvent.Failed(

@@ -101,6 +101,8 @@ data class ImportJobSnapshot(
     val progressMessage: String?,
     val conversionStoragePath: String?,
     val errorMessage: String?,
+    /** Deterministic format id when known (`"stratum"`, `"hevy"`, …). */
+    val conversionFormat: String? = null,
 )
 
 data class ImportConversionResult(
@@ -125,7 +127,10 @@ interface HistoricalImportPort {
 sealed interface HistoricalImportEvent {
     data class Progress(val progress: ImportProgress) : HistoricalImportEvent
 
-    data class Completed(val summary: ExtractTrainingInsightsSummary) : HistoricalImportEvent
+    data class Completed(
+        val summary: ExtractTrainingInsightsSummary,
+        val mergeStats: MergeImportStats? = null,
+    ) : HistoricalImportEvent
 
     data class Failed(
         val message: String,
@@ -162,6 +167,8 @@ interface HistoricalImportRunnerPort {
     fun run(
         files: List<ImportFileInput> = emptyList(),
         resume: HistoricalImportResumeState? = null,
+        /** Required — callers must choose Replace vs Merge; no default that could wipe history. */
+        persistPolicy: ImportHistoryPersistPolicy,
     ): Flow<HistoricalImportEvent>
 }
 

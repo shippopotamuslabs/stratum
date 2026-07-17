@@ -7,6 +7,7 @@ import com.stratum.domain.importing.Bm25LiftNameResolver
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.ImportFileInput
+import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.MergeImportedHistoryUseCase
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.importing.ImportAnalysisMetadata
@@ -90,7 +91,8 @@ class RunFullHistoricalImportUseCaseTest {
 
         val events =
             useCase.run(
-                listOf(ImportFileInput("id,exercise_name\n1,Squat".toByteArray(), "export.csv")),
+                files = listOf(ImportFileInput("id,exercise_name\n1,Squat".toByteArray(), "export.csv")),
+                persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             ).toList()
 
         assertTrue(events.filterIsInstance<HistoricalImportEvent.Progress>().isNotEmpty())
@@ -149,10 +151,11 @@ class RunFullHistoricalImportUseCaseTest {
 
         val events =
             useCase.run(
-                listOf(
+                files = listOf(
                     ImportFileInput("a".toByteArray(), "a.csv"),
                     ImportFileInput("b".toByteArray(), "b.csv"),
                 ),
+                persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             ).toList()
 
         assertTrue(events.last() is HistoricalImportEvent.Completed)
@@ -208,10 +211,11 @@ class RunFullHistoricalImportUseCaseTest {
 
         val events =
             useCase.run(
-                listOf(
+                files = listOf(
                     ImportFileInput("a".toByteArray(), "a.csv"),
                     ImportFileInput("b".toByteArray(), "b.csv"),
                 ),
+                persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             ).toList()
 
         assertTrue(events.last() is HistoricalImportEvent.Failed)
@@ -281,7 +285,10 @@ class RunFullHistoricalImportUseCaseTest {
         val fileB = ImportFileInput("b".toByteArray(), "b.csv")
 
         val firstRun =
-            useCase.run(listOf(fileA, fileB)).toList()
+            useCase.run(
+                files = listOf(fileA, fileB),
+                persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            ).toList()
         val failed = firstRun.last() as HistoricalImportEvent.Failed
         val resume = checkNotNull(failed.resume)
         assertEquals(2, port.uploads.size)
@@ -292,6 +299,7 @@ class RunFullHistoricalImportUseCaseTest {
             useCase.run(
                 files = resumedFiles,
                 resume = resume.copy(files = resumedFiles),
+                persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
             ).toList()
 
         assertTrue(secondRun.last() is HistoricalImportEvent.Completed)

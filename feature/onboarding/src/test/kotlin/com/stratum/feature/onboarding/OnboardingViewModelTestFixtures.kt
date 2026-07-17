@@ -185,7 +185,6 @@ internal object OnboardingViewModelTestFixtures {
             executeHistoricalImport = ExecuteHistoricalImportUseCase(
                 validateImportFiles = com.stratum.domain.importing.ValidateImportFilesUseCase(),
                 runHistoricalImport = RunHistoricalImportUseCase(fakeHistoricalImport),
-                rollbackHistoricalImport = rollbackHistoricalImport,
                 refreshPersistedImportState = refreshPersistedImportState,
             ),
             cancelHistoricalImport = CancelHistoricalImportUseCase(

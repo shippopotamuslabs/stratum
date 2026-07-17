@@ -59,7 +59,7 @@ export interface NormalizedProgramTemplateSet {
  * not export programs, so their files never match and are rejected as unsupported. The list is
  * intentionally closed.
  */
-export type ProgramTemplateFormat = "alpha_progression" | "macrofactor" | "llm_custom";
+export type ProgramTemplateFormat = "alpha_progression" | "macrofactor" | "llm_custom" | "stratum";
 
 export interface ProgramTemplateDeterministicResult {
   format: ProgramTemplateFormat;

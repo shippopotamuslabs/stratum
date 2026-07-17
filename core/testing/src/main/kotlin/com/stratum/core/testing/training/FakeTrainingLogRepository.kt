@@ -66,6 +66,12 @@ class FakeTrainingLogRepository(
         refreshActiveSession()
     }
 
+    override suspend fun appendImportHistory(sessions: List<TrainingSession>, sets: List<LoggedSet>) {
+        sessions.forEach { insertSession(it) }
+        sets.forEach { insertSet(it) }
+        refreshActiveSession()
+    }
+
     override suspend fun getImportSessions(): List<TrainingSession> =
         sessions.values.filter { it.origin == TrainingSessionOrigin.IMPORT }
 

@@ -274,7 +274,6 @@ class OnboardingImportProgramViewModelTest {
                 runHistoricalImport = com.stratum.domain.importing.RunHistoricalImportUseCase(
                     com.stratum.core.testing.importing.FakeHistoricalImportRunnerPort(),
                 ),
-                rollbackHistoricalImport = rollbackHistoricalImport,
                 refreshPersistedImportState = refreshPersistedImportState,
             ),
             cancelHistoricalImport = com.stratum.domain.importing.CancelHistoricalImportUseCase(

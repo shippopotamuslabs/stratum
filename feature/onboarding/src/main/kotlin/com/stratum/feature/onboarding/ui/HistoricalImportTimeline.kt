@@ -1,48 +1,53 @@
 package com.stratum.feature.onboarding.ui
 
-import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.stratum.feature.onboarding.HistoricalImportTimelineStep
+import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumProgressTimeline
+import com.stratum.core.ui.importing.StratumImportProgressSection
 import com.stratum.feature.onboarding.ImportProgressPhaseUi
 import com.stratum.feature.onboarding.ImportProgressUi
-import com.stratum.feature.onboarding.R as FeatureR
 import com.stratum.feature.onboarding.historicalImportTimelineIndex
-import com.stratum.feature.onboarding.historicalImportTimelineSteps
 
 /**
- * Historical training-log import timeline for the Gym card. Reuses the shared
- * [OnboardingProgressTimeline] chrome from Review generate/import.
+ * Historical training-log import timeline for the Gym card. Uses shared import progress chrome
+ * and the shared 4-step labels from `:core:ui`.
  */
 @Composable
 internal fun HistoricalImportTimeline(
     progress: ImportProgressUi,
     maxActiveIndex: Int,
     modifier: Modifier = Modifier,
+    title: String? = null,
 ) {
     val phase = progress.phase.takeUnless { it == ImportProgressPhaseUi.Failed }
     val currentIndex = phase.historicalImportTimelineIndex()
     val activeIndex = maxOf(maxActiveIndex, currentIndex)
     val stepLabels =
-        historicalImportTimelineSteps.map { step ->
-            stringResource(historicalImportTimelineStepStringRes(step))
-        }
+        listOf(
+            stringResource(CoreUiR.string.import_timeline_upload),
+            stringResource(CoreUiR.string.import_timeline_convert),
+            stringResource(CoreUiR.string.import_timeline_catalog),
+            stringResource(CoreUiR.string.import_timeline_analyze),
+        )
     val activeDetail = importProgressSubtitle(progress)
 
-    OnboardingProgressTimeline(
-        stepLabels = stepLabels,
-        activeIndex = activeIndex,
-        activeDetail = activeDetail,
-        modifier = modifier,
-    )
-}
-
-@StringRes
-internal fun historicalImportTimelineStepStringRes(step: HistoricalImportTimelineStep): Int =
-    when (step) {
-        HistoricalImportTimelineStep.Upload -> FeatureR.string.gym_lifts_import_timeline_upload
-        HistoricalImportTimelineStep.Convert -> FeatureR.string.gym_lifts_import_timeline_convert
-        HistoricalImportTimelineStep.Catalog -> FeatureR.string.gym_lifts_import_timeline_catalog
-        HistoricalImportTimelineStep.Analyze -> FeatureR.string.gym_lifts_import_timeline_analyze
+    if (title != null) {
+        StratumImportProgressSection(
+            title = title,
+            stepLabels = stepLabels,
+            activeIndex = activeIndex,
+            activeDetail = activeDetail,
+            modifier = modifier,
+        )
+    } else {
+        // Gym card embeds timeline without a section title (parent provides context).
+        StratumProgressTimeline(
+            stepLabels = stepLabels,
+            activeIndex = activeIndex,
+            activeDetail = activeDetail,
+            modifier = modifier,
+        )
     }
+}

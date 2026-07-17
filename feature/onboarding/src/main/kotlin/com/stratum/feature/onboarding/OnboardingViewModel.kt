@@ -8,6 +8,7 @@ import com.stratum.domain.importing.HistoricalImportOrchestrationEvent
 import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.ImportFileInput
+import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.RefreshPersistedImportStateUseCase
@@ -437,7 +438,11 @@ class OnboardingViewModel @Inject constructor(
                 historicalImportMaxTimelineIndex = 0,
             )
         }
-        executeHistoricalImport(files = files, resume = resume).collect { event ->
+        executeHistoricalImport(
+            files = files,
+            resume = resume,
+            persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+        ).collect { event ->
             when (event) {
                 is HistoricalImportOrchestrationEvent.ValidationFailed ->
                     ephemeral.update {

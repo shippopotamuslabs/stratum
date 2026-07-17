@@ -41,6 +41,8 @@ fun SettingsScreen(
     onPostWorkoutSuggestionEnabledChange: (PostWorkoutSuggestionUi, Boolean) -> Unit = { _, _ -> },
     onForceCheckInPending: () -> Unit = {},
     onLegalClick: () -> Unit = {},
+    onImportDataClick: () -> Unit = {},
+    onExportDataClick: () -> Unit = {},
     accountActions: SettingsAccountActions = SettingsAccountActions(),
     snackbarHostState: SnackbarHostState? = null,
 ) {
@@ -193,6 +195,22 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !accountBusy,
                     destructive = true,
+                )
+            }
+
+            SettingsSection(
+                title = stringResource(R.string.settings_data_section_title),
+                description = stringResource(R.string.settings_data_section_description),
+            ) {
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_import_data_row_title),
+                    subtitle = stringResource(R.string.settings_import_data_row_subtitle),
+                    onClick = onImportDataClick,
+                )
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_export_data_row_title),
+                    subtitle = stringResource(R.string.settings_export_data_row_subtitle),
+                    onClick = onExportDataClick,
                 )
             }
 

@@ -54,6 +54,10 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
     private val liftNameResolver: LiftNameResolverPort,
 ) {
+    /** Current catalog display names keyed by lift id (includes customs created during resolve). */
+    suspend fun catalogNamesById(): Map<LiftId, String> =
+        liftRepository.observeLifts().first().associate { it.id to it.name }
+
     suspend operator fun invoke(
         template: NormalizedProgramTemplate,
     ): Program {
