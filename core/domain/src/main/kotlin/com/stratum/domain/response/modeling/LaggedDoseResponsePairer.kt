@@ -65,9 +65,9 @@ object LaggedDoseResponsePairer {
                 if (previous == null) {
                     current
                 } else {
-                    alpha * current + (1.0 - alpha) * previous!!
+                    alpha * current + (1.0 - alpha) * previous
                 }
-            out[weekStart] = previous!!
+            out[weekStart] = previous
         }
         return out
     }

@@ -56,7 +56,7 @@ class ComputePersonalRecordsUseCase @Inject constructor(
             }
 
             if (maxIncomingSet != null && maxIncomingSet.estimatedOneRm != null) {
-                val newMaxE1rm = maxIncomingSet.estimatedOneRm!!
+                val newMaxE1rm = maxIncomingSet.estimatedOneRm
                 val existingMaxE1rm = activeExistingPr?.estimatedOneRm ?: 0.0
 
                 if (activeExistingPr == null || newMaxE1rm > existingMaxE1rm) {

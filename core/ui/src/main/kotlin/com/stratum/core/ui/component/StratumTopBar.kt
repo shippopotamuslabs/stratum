@@ -12,6 +12,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.graphics.Color
 
 /**
  * Stratum's centered top bar. Wraps Material 3 [CenterAlignedTopAppBar] using
@@ -26,11 +27,12 @@ fun StratumTopBar(
     actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
     bottom: @Composable (() -> Unit)? = null,
 ) {
-    val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+    val colors = TopAppBarDefaults.topAppBarColors(
         containerColor = StratumThemeAccessor.colors.surfaceBase,
-        titleContentColor = StratumThemeAccessor.colors.textPrimary,
+        scrolledContainerColor = Color.Unspecified,
         navigationIconContentColor = StratumThemeAccessor.colors.textPrimary,
-        actionIconContentColor = StratumThemeAccessor.colors.textPrimary,
+        titleContentColor = StratumThemeAccessor.colors.textPrimary,
+        actionIconContentColor = StratumThemeAccessor.colors.textPrimary
     )
     val emptyNav: @Composable () -> Unit = {}
     val emptyActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
