@@ -1,6 +1,7 @@
 package com.stratum.domain.program
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -9,129 +10,199 @@ class EstimateWorkoutDurationMinutesUseCaseTest {
     private val subject = EstimateWorkoutDurationMinutesUseCase()
 
     @Test
-    @DisplayName("Solo lift: active work is reps × 5s; rest only between sets")
+    @DisplayName("Solo lift: setup + reps × 5s; rest only between sets")
     fun estimateDuration_soloUsesRepsAndBetweenSetRest() {
         val minutes =
             subject(
                 workoutLifts =
                     listOf(
-                        WorkoutLiftDurationInput(
-                            restSecondsBySet = listOf(120, 120),
-                            repsBySet = listOf(10, 10),
+                        lift(
+                            sets(rest = 120, repMin = 10, repMax = 10, count = 2),
                         ),
                     ),
             )
 
-        // 50s work + 120s rest + 50s work = 220s -> 4 minutes
-        assertEquals(4, minutes)
+        // 2 × (15 + 50) + 120 = 250s -> 5 minutes
+        assertEquals(5, minutes)
     }
 
     @Test
-    @DisplayName("estimateLiftSeconds sums rep work and between-set rest")
+    @DisplayName("estimateLiftSeconds sums setup, rep work, and between-set rest")
     fun estimateLiftSeconds_betweenSetRestOnly() {
         val seconds =
             estimateLiftSeconds(
-                WorkoutLiftDurationInput(
-                    restSecondsBySet = listOf(90, 90, 90),
-                    repsBySet = listOf(10, 10, 10),
-                ),
+                lift(sets(rest = 90, repMin = 10, repMax = 10, count = 3)),
             )
 
-        // 50 + 90 + 50 + 90 + 50
-        assertEquals(330, seconds)
+        // 3 × (15+50) + 2 × 90 = 375
+        assertEquals(375, seconds)
     }
 
     @Test
     @DisplayName("Empty set list yields zero duration")
     fun emptySets_zeroDuration() {
-        assertEquals(0, subject(listOf(WorkoutLiftDurationInput(restSecondsBySet = emptyList()))))
+        assertEquals(0, subject(listOf(lift(emptyList()))))
         assertEquals(0, subject(emptyList()))
     }
 
     @Test
-    @DisplayName("Non-positive rest falls back to 120s between sets")
-    fun nonPositiveRest_usesDefaultBetweenSets() {
+    @DisplayName("Configured rest of 0 is honored (not rewritten to 120)")
+    fun zeroRest_honored() {
         val seconds =
             estimateLiftSeconds(
-                WorkoutLiftDurationInput(
-                    restSecondsBySet = listOf(0, 0),
-                    repsBySet = listOf(10, 10),
+                lift(sets(rest = 0, repMin = 10, repMax = 10, count = 2)),
+            )
+
+        // 2 × (15+50) + 0 rest = 130
+        assertEquals(130, seconds)
+    }
+
+    @Test
+    @DisplayName("Negative rest is clamped to 0")
+    fun negativeRest_clampedToZero() {
+        val seconds =
+            estimateLiftSeconds(
+                lift(
+                    listOf(
+                        DurationSetInput(restSeconds = -10, repMin = 10, repMax = 10),
+                        DurationSetInput(restSeconds = -10, repMin = 10, repMax = 10),
+                    ),
                 ),
             )
 
-        // 50 + 120 + 50
-        assertEquals(220, seconds)
+        assertEquals(130, seconds)
     }
 
     @Test
-    @DisplayName("Missing repsBySet falls back to default 10 reps per set")
+    @DisplayName("Missing positive rep band falls back to default 10 reps")
     fun missingReps_defaultTen() {
         val seconds =
             estimateLiftSeconds(
-                WorkoutLiftDurationInput(restSecondsBySet = listOf(120, 120)),
+                lift(
+                    listOf(
+                        DurationSetInput(restSeconds = 120),
+                        DurationSetInput(restSeconds = 120),
+                    ),
+                ),
             )
 
-        // 50 + 120 + 50
-        assertEquals(220, seconds)
+        // 2 × (15+50) + 120 = 250
+        assertEquals(250, seconds)
     }
 
     @Test
-    @DisplayName("Superset uses 30s between lifts and terminal rest between rounds only")
-    fun supersetInterLiftAndRoundRest() {
+    @DisplayName("Double 0/0 back-off inherits midpoint from first positive band")
+    fun doubleBackOff_inheritsTopSetBand() {
+        val lift =
+            lift(
+                listOf(
+                    DurationSetInput(restSeconds = 120, repMin = 8, repMax = 12),
+                    DurationSetInput(restSeconds = 120, repMin = 0, repMax = 0),
+                ),
+            )
+
+        assertEquals(10, estimatedRepsForSet(lift, 0))
+        assertEquals(10, estimatedRepsForSet(lift, 1))
+    }
+
+    @Test
+    @DisplayName("midpointRepsOrNull returns null for 0/0 and midpoint otherwise")
+    fun midpointReps_policy() {
+        assertNull(midpointRepsOrNull(0, 0))
+        assertEquals(10, midpointRepsOrNull(8, 12))
+        assertEquals(5, midpointRepsOrNull(5, 0))
+        assertEquals(8, midpointRepsOrNull(0, 8))
+    }
+
+    @Test
+    @DisplayName("Superset with rest timer off uses 30s between lifts and terminal rest between rounds")
+    fun supersetInterLiftDefault30s() {
         val minutes =
             subject(
                 listOf(
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(60, 60),
-                        repsBySet = listOf(10, 10),
+                    lift(
+                        sets(rest = 60, repMin = 10, repMax = 10, count = 2),
                         position = 0,
                         supersetGroupId = "sg-1",
+                        useRestTimerBetweenLifts = false,
                     ),
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(90, 90),
-                        repsBySet = listOf(10, 10),
+                    lift(
+                        sets(rest = 90, repMin = 10, repMax = 10, count = 2),
                         position = 1,
                         supersetGroupId = "sg-1",
                     ),
                 ),
             )
 
-        // Round 1: 50 + 30 + 50 + 90 terminal rest
-        // Round 2: 50 + 30 + 50 (no final rest)
-        // = 350s -> 6 minutes
-        assertEquals(6, minutes)
+        // Round 1: (15+50)+30+(15+50)+90 = 250
+        // Round 2: (15+50)+30+(15+50) = 160
+        // = 410s -> 7 minutes
+        assertEquals(7, minutes)
     }
 
     @Test
-    @DisplayName("Superset block is shorter than the same lifts sequenced solo")
+    @DisplayName("Superset with rest timer on uses configured rest between lifts")
+    fun supersetInterLiftUsesConfiguredRestWhenEnabled() {
+        val without =
+            estimateWorkoutSeconds(
+                listOf(
+                    lift(
+                        sets(rest = 120, repMin = 10, repMax = 10, count = 1),
+                        position = 0,
+                        supersetGroupId = "sg-1",
+                        useRestTimerBetweenLifts = false,
+                    ),
+                    lift(
+                        sets(rest = 90, repMin = 10, repMax = 10, count = 1),
+                        position = 1,
+                        supersetGroupId = "sg-1",
+                    ),
+                ),
+            )
+        val withTimer =
+            estimateWorkoutSeconds(
+                listOf(
+                    lift(
+                        sets(rest = 120, repMin = 10, repMax = 10, count = 1),
+                        position = 0,
+                        supersetGroupId = "sg-1",
+                        useRestTimerBetweenLifts = true,
+                    ),
+                    lift(
+                        sets(rest = 90, repMin = 10, repMax = 10, count = 1),
+                        position = 1,
+                        supersetGroupId = "sg-1",
+                    ),
+                ),
+            )
+
+        // without: (15+50)+30+(15+50) = 160
+        // with:    (15+50)+120+(15+50) = 250
+        assertEquals(160, without)
+        assertEquals(250, withTimer)
+        assertTrue(withTimer > without)
+    }
+
+    @Test
+    @DisplayName("Superset block is shorter than the same lifts sequenced solo when inter-lift timer is off")
     fun supersetShorterThanSequential() {
         val solo =
             subject(
                 listOf(
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(120, 120, 120),
-                        repsBySet = listOf(10, 10, 10),
-                        position = 0,
-                    ),
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(120, 120, 120),
-                        repsBySet = listOf(10, 10, 10),
-                        position = 1,
-                    ),
+                    lift(sets(rest = 120, repMin = 10, repMax = 10, count = 3), position = 0),
+                    lift(sets(rest = 120, repMin = 10, repMax = 10, count = 3), position = 1),
                 ),
             )
         val superset =
             subject(
                 listOf(
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(120, 120, 120),
-                        repsBySet = listOf(10, 10, 10),
+                    lift(
+                        sets(rest = 120, repMin = 10, repMax = 10, count = 3),
                         position = 0,
                         supersetGroupId = "sg-1",
                     ),
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(120, 120, 120),
-                        repsBySet = listOf(10, 10, 10),
+                    lift(
+                        sets(rest = 120, repMin = 10, repMax = 10, count = 3),
                         position = 1,
                         supersetGroupId = "sg-1",
                     ),
@@ -147,16 +218,15 @@ class EstimateWorkoutDurationMinutesUseCaseTest {
         val minutes =
             subject(
                 listOf(
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(120, 120),
-                        repsBySet = listOf(10, 10),
+                    lift(
+                        sets(rest = 120, repMin = 10, repMax = 10, count = 2),
                         position = 0,
                         supersetGroupId = "sg-lonely",
                     ),
                 ),
             )
 
-        assertEquals(4, minutes)
+        assertEquals(5, minutes)
     }
 
     @Test
@@ -165,24 +235,59 @@ class EstimateWorkoutDurationMinutesUseCaseTest {
         val seconds =
             estimateWorkoutSeconds(
                 listOf(
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(120, 120),
-                        repsBySet = listOf(10, 10),
+                    lift(
+                        sets(rest = 120, repMin = 10, repMax = 10, count = 2),
                         position = 0,
                         supersetGroupId = "sg-1",
                     ),
-                    WorkoutLiftDurationInput(
-                        restSecondsBySet = listOf(90),
-                        repsBySet = listOf(8),
+                    lift(
+                        listOf(DurationSetInput(restSeconds = 90, repMin = 8, repMax = 8)),
                         position = 1,
                         supersetGroupId = "sg-1",
                     ),
                 ),
             )
 
-        // Round 0: A(50)+30 + B(40)+90 terminal = 210
-        // Round 1: A(50) only (B missing); A is sole participant so no inter-lift; last round -> no rest
-        // = 260
-        assertEquals(260, seconds)
+        // Round 0: A(65)+30 + B(15+40=55)+90 = 240
+        // Round 1: A(65) only, last round, no rest = 65
+        // = 305
+        assertEquals(305, seconds)
     }
+
+    @Test
+    @DisplayName("Low-rep sets still include fixed setup overhead per set")
+    fun lowRep_includesSetupOverhead() {
+        val seconds =
+            estimateLiftSeconds(
+                lift(
+                    listOf(DurationSetInput(restSeconds = 180, repMin = 1, repMax = 1)),
+                ),
+            )
+
+        // 15 setup + 5 rep work = 20 (not only 5)
+        assertEquals(20, seconds)
+    }
+
+    private fun lift(
+        sets: List<DurationSetInput>,
+        position: Int = 0,
+        supersetGroupId: String? = null,
+        useRestTimerBetweenLifts: Boolean = false,
+    ): WorkoutLiftDurationInput =
+        WorkoutLiftDurationInput(
+            sets = sets,
+            position = position,
+            supersetGroupId = supersetGroupId,
+            useRestTimerBetweenLifts = useRestTimerBetweenLifts,
+        )
+
+    private fun sets(
+        rest: Int,
+        repMin: Int,
+        repMax: Int,
+        count: Int,
+    ): List<DurationSetInput> =
+        List(count) {
+            DurationSetInput(restSeconds = rest, repMin = repMin, repMax = repMax)
+        }
 }
