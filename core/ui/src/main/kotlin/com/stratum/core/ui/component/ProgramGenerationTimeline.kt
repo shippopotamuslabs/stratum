@@ -26,7 +26,7 @@ fun ProgramGenerationTimeline(
     maxActiveIndex: Int,
     modifier: Modifier = Modifier,
 ) {
-    val currentIndex = progress?.phase.activeTimelineIndex() ?: 0
+    val currentIndex = progress?.phase.activeTimelineIndex()
     val activeIndex = maxOf(maxActiveIndex, currentIndex)
     val stepLabels =
         programGenerationTimelinePhases.map { phase ->
