@@ -170,7 +170,7 @@ private fun GymImportCard(
     val importActive = progress != null &&
         progress.phase != ImportProgressPhaseUi.Complete &&
         progress.phase != ImportProgressPhaseUi.Failed
-    val showTimeline = importActive && progress != null
+    val showTimeline = importActive
     val borderColor =
         when {
             importFailed -> StratumThemeAccessor.colors.error

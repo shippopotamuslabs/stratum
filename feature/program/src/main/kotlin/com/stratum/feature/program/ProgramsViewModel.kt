@@ -32,6 +32,7 @@ import com.stratum.feature.program.ui.ProgramsUiState
 import com.stratum.feature.program.ui.findNextWorkoutId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -208,6 +209,7 @@ class ProgramsViewModel @Inject constructor(
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val activeWorkoutBarState: StateFlow<MinimizedWorkoutState?> =
         observeCycleProgress().flatMapLatest { progress ->
             flow {
