@@ -38,7 +38,12 @@ android {
 
     sourceSets {
         getByName("test") {
-            assets.srcDirs("$projectDir/schemas", "$projectDir/src/main/assets")
+            assets.directories.addAll(
+                listOf(
+                    "$projectDir/schemas",
+                    "$projectDir/src/main/assets",
+                ),
+            )
         }
     }
 }
