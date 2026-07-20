@@ -4,12 +4,12 @@ import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.domain.program.DurationSetInput
 import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.WorkoutLiftVolumeInput
 import com.stratum.domain.program.WorkoutLiftDurationInput
 import com.stratum.feature.program.ui.EditLiftState
-import com.stratum.feature.program.ui.EditSetState
 import com.stratum.feature.program.ui.EditWorkoutUiState
 
 internal fun EditWorkoutUiState.Loaded.withDerivedMetrics(
@@ -21,12 +21,14 @@ internal fun EditWorkoutUiState.Loaded.withDerivedMetrics(
     val volumeInputs = lifts.toVolumeInputs()
     val durationInputs =
         lifts.map { lift ->
-            val inheritedReps = lift.sets.firstNotNullOfOrNull { set -> midpointRepsOrNull(set) }
             WorkoutLiftDurationInput(
-                restSecondsBySet = lift.sets.map { set -> set.restSeconds },
-                repsBySet =
+                sets =
                     lift.sets.map { set ->
-                        midpointRepsOrNull(set) ?: inheritedReps ?: DEFAULT_DURATION_REPS
+                        DurationSetInput(
+                            restSeconds = set.restSeconds,
+                            repMin = set.repMin,
+                            repMax = set.repMax,
+                        )
                     },
                 position = lift.position,
                 supersetGroupId = lift.supersetGroupId,
@@ -87,15 +89,4 @@ internal fun formatEstimatedWorkoutDuration(minutes: Int): String =
         else -> "${minutes / MINUTES_PER_HOUR}h ${minutes % MINUTES_PER_HOUR}m"
     }
 
-/** Midpoint of a set's rep band; null when Double back-off stores 0/0. */
-internal fun midpointRepsOrNull(set: EditSetState): Int? {
-    if (set.repMin <= 0 && set.repMax <= 0) return null
-    val min = if (set.repMin > 0) set.repMin else set.repMax
-    val max = if (set.repMax > 0) set.repMax else set.repMin
-    return ((min + max) / 2).coerceAtLeast(1)
-}
-
 private const val MINUTES_PER_HOUR = 60
-
-/** Mid-band of default prescription (8–12); matches domain duration fallback. */
-private const val DEFAULT_DURATION_REPS = 10
