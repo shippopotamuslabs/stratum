@@ -6,7 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumReorderItem
 import com.stratum.core.ui.component.StratumReorderListScreen

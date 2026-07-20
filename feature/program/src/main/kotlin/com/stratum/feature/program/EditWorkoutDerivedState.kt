@@ -4,6 +4,7 @@ import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.program.ComputeWorkoutMuscleVolumeUseCase
+import com.stratum.domain.program.DurationSetInput
 import com.stratum.domain.program.EstimateWorkoutDurationMinutesUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.WorkoutLiftVolumeInput
@@ -21,7 +22,14 @@ internal fun EditWorkoutUiState.Loaded.withDerivedMetrics(
     val durationInputs =
         lifts.map { lift ->
             WorkoutLiftDurationInput(
-                restSecondsBySet = lift.sets.map { set -> set.restSeconds },
+                sets =
+                    lift.sets.map { set ->
+                        DurationSetInput(
+                            restSeconds = set.restSeconds,
+                            repMin = set.repMin,
+                            repMax = set.repMax,
+                        )
+                    },
                 position = lift.position,
                 supersetGroupId = lift.supersetGroupId,
                 useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,

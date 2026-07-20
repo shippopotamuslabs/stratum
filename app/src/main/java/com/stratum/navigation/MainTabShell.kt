@@ -5,12 +5,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.automirrored.outlined.ListAlt
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.ListAlt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -79,8 +79,8 @@ fun MainTabShell(
             ),
             StratumNavigationBarItem(
                 label = stringResource(R.string.tab_program),
-                icon = Icons.Outlined.ListAlt,
-                selectedIcon = Icons.Filled.ListAlt,
+                icon = Icons.AutoMirrored.Outlined.ListAlt,
+                selectedIcon = Icons.AutoMirrored.Filled.ListAlt,
             ),
             StratumNavigationBarItem(
                 label = stringResource(R.string.tab_gym),
