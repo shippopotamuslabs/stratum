@@ -16,6 +16,7 @@ import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.ProgramId
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -40,6 +41,7 @@ class RoomProgramRepository @Inject constructor(
     private val programChangeEventDao: ProgramChangeEventDao,
     private val syncTouch: SyncTouch,
 ) : ProgramRepository {
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeProgram(): Flow<Program?> =
         // Re-read hierarchy when workout_lifts change (e.g. merge re-point) even if the
         // parent program row is unchanged — observeActive alone would miss those writes.
@@ -51,6 +53,7 @@ class RoomProgramRepository @Inject constructor(
                 if (entity == null) null else readProgram(entity.id)
             }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeProgramById(programId: ProgramId): Flow<Program?> =
         combine(
             programDao.observeById(programId),

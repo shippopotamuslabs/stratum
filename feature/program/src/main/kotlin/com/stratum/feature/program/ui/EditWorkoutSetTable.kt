@@ -297,10 +297,11 @@ private fun RepRangeCell(
     val sessionOpen = dock?.isRepSessionFor(setId) == true
     val minActive = dock?.isRepFieldActive(setId, RepRangeKeyboardField.Min) == true
     val maxActive = dock?.isRepFieldActive(setId, RepRangeKeyboardField.Max) == true
-    val validation = if (sessionOpen) dock?.repRangeValidation else null
+    // sessionOpen / minActive / maxActive imply dock != null (predicate is `dock?.… == true`).
+    val validation = if (sessionOpen) dock.repRangeValidation else null
     // While editing, show host drafts (not applyBand-clamped storage).
-    val displayMin = if (sessionOpen) dock?.minText.orEmpty() else committedMinText
-    val displayMax = if (sessionOpen) dock?.maxText.orEmpty() else committedMaxText
+    val displayMin = if (sessionOpen) dock.minText.orEmpty() else committedMinText
+    val displayMax = if (sessionOpen) dock.maxText.orEmpty() else committedMaxText
 
     val openField: (RepRangeKeyboardField) -> Unit = { field ->
         // Same set: tab field only (no commit). Other set / new session: host commits or blocks.
@@ -332,7 +333,7 @@ private fun RepRangeCell(
             cursorIndex = dock?.takeIf { sessionOpen }?.minCursor ?: displayMin.length,
             onCursorChange =
                 if (minActive) {
-                    { index -> dock?.setCursor(RepRangeKeyboardField.Min, index) }
+                    { index -> dock.setCursor(RepRangeKeyboardField.Min, index) }
                 } else {
                     null
                 },
@@ -353,7 +354,7 @@ private fun RepRangeCell(
             cursorIndex = dock?.takeIf { sessionOpen }?.maxCursor ?: displayMax.length,
             onCursorChange =
                 if (maxActive) {
-                    { index -> dock?.setCursor(RepRangeKeyboardField.Max, index) }
+                    { index -> dock.setCursor(RepRangeKeyboardField.Max, index) }
                 } else {
                     null
                 },
