@@ -24,9 +24,6 @@ import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.core.ui.component.isLastInSupersetChain
 import com.stratum.core.ui.component.isSupersetPairMember
-import com.stratum.core.ui.component.linkSupersetWithAdjacent
-import com.stratum.core.ui.component.unlinkLiftFromSuperset
-import com.stratum.core.ui.component.cleanupSupersetGroups
 import com.stratum.feature.program.formatEstimatedWorkoutDuration
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
 import com.stratum.feature.program.ui.EditLiftState
@@ -382,14 +379,7 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     fun removeLift(workoutLiftId: String) {
-        updateLoaded { loaded ->
-            val remainingLifts = loaded.lifts
-                .filterNot { lift -> lift.workoutLiftId == workoutLiftId }
-                .mapIndexed { index, lift -> lift.copy(position = index) }
-            loaded.copy(
-                lifts = remainingLifts.applySupersetChanges(cleanupSupersetGroups(remainingLifts)),
-            )
-        }
+        updateLoaded { loaded -> EditWorkoutLiftMutations.removeLift(loaded, workoutLiftId) }
     }
 
     fun removeSet(setId: String) {
@@ -556,11 +546,7 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     fun removeFromSuperset(workoutLiftId: String) {
-        updateLoaded { loaded ->
-            loaded.copy(
-                lifts = loaded.lifts.applySupersetChanges(unlinkLiftFromSuperset(loaded.lifts, workoutLiftId)),
-            )
-        }
+        updateLoaded { loaded -> EditWorkoutLiftMutations.removeFromSuperset(loaded, workoutLiftId) }
     }
 
     fun linkSuperset(
@@ -568,32 +554,12 @@ class EditWorkoutViewModel @Inject constructor(
         direction: SupersetLinkDirection,
     ) {
         updateLoaded { loaded ->
-            loaded.copy(
-                lifts = loaded.lifts.applySupersetChanges(
-                    linkSupersetWithAdjacent(
-                        lifts = loaded.lifts,
-                        workoutLiftId = workoutLiftId,
-                        direction = direction,
-                        nextGroupId = ::newSupersetGroupId,
-                    )
-                ),
+            EditWorkoutLiftMutations.linkSuperset(
+                loaded = loaded,
+                workoutLiftId = workoutLiftId,
+                direction = direction,
+                nextGroupId = ::newSupersetGroupId,
             )
-        }
-    }
-
-    private fun List<EditLiftState>.applySupersetChanges(
-        updated: List<com.stratum.core.ui.component.SupersetLinkableLiftState>
-    ): List<EditLiftState> {
-        return this.map { lift ->
-            val match = updated.firstOrNull { it.workoutLiftId == lift.workoutLiftId }
-            if (match != null) {
-                lift.copy(
-                    supersetGroupId = match.supersetGroupId,
-                    useRestTimerBetweenLifts = match.useRestTimerBetweenLifts
-                )
-            } else {
-                lift
-            }
         }
     }
 

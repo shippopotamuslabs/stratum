@@ -55,6 +55,14 @@ data class WorkoutOverlay(
     val deletedLiftIds: Set<WorkoutLiftId> = emptySet(),
     /** Mid-session lifts not present on the baseline template. */
     val addedLifts: List<OverlayAddedLift> = emptyList(),
+    /**
+     * Per-lift superset group overrides for the live session.
+     *
+     * **Key-present with `null` is intentional** and means “clear the group” — merge/save
+     * must use [Map.containsKey] (or equivalent), not `overrides[id] ?: baseline`, or orphan
+     * survivors of a removed superset partner keep their template/`OverlayAddedLift` group id.
+     * Key-absent means “use baseline / addedLift value.”
+     */
     val supersetGroupIdOverrides: Map<WorkoutLiftId, WorkoutSupersetGroupId?> = emptyMap(),
     val useRestTimerBetweenLiftsOverrides: Map<WorkoutLiftId, Boolean> = emptyMap(),
     /**

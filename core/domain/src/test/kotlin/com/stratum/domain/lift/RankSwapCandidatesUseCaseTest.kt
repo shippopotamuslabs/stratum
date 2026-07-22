@@ -81,6 +81,41 @@ class RankSwapCandidatesUseCaseTest {
     }
 
     @Test
+    @DisplayName("Given disabled target when ranked then similar enabled lifts still score by biomechanics")
+    fun disabledTargetStillRanksSimilar() = runTest {
+        repository.seedLifts(
+            listOf(
+                BENCH_PRESS.copy(enabled = false),
+                INCLINE_PRESS,
+                LEG_CURL,
+            ),
+        )
+
+        useCase(BENCH_PRESS.id).test {
+            val candidates = awaitItem()
+            assertTrue(
+                candidates.none { it.lift.id == BENCH_PRESS.id },
+                "Disabled target must not appear as a swap candidate",
+            )
+            assertEquals(2, candidates.size)
+            assertEquals(
+                INCLINE_PRESS.id,
+                candidates.first().lift.id,
+                "Incline press should rank first even when target is recommendation-disabled",
+            )
+            assertTrue(
+                candidates.first().similarity > candidates.last().similarity,
+                "Disabled target must still drive non-zero similarity scoring",
+            )
+            assertTrue(
+                candidates.first().similarity > 0.0,
+                "Biomechanical similarity must be non-zero for a close enabled match",
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("Given catalog update when collected then re-emits ranked list")
     fun reEmitsOnCatalogChange() = runTest {
         repository.seedLifts(listOf(BENCH_PRESS, INCLINE_PRESS))

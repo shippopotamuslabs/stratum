@@ -820,37 +820,18 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun removeLift(workoutLiftId: WorkoutLiftId) {
-        val currentLifts = getLinkableLifts().filterNot { it.workoutLiftId == workoutLiftId.value }
+        // Effective (merged) groups/rest flags before removal — includes template values and
+        // session-added OverlayAddedLift groups, not only existing override map entries.
+        val linkableBefore = getLinkableLifts()
+        val currentLifts = linkableBefore.filterNot { it.workoutLiftId == workoutLiftId.value }
         val cleaned = cleanupSupersetGroups(currentLifts)
-        // Start from existing overrides and drop the removed lift — do not write null
-        // overrides for every remaining lift (that would keep isDirty true forever).
-        val newGroupIdOverrides = overlay.supersetGroupIdOverrides.toMutableMap()
-        val newRestTimerOverrides = overlay.useRestTimerBetweenLiftsOverrides.toMutableMap()
-        newGroupIdOverrides.remove(workoutLiftId)
-        newRestTimerOverrides.remove(workoutLiftId)
-        cleaned.forEach { lift ->
-            val id = WorkoutLiftId(lift.workoutLiftId)
-            val group = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
-            val priorGroup =
-                if (overlay.supersetGroupIdOverrides.containsKey(id)) {
-                    overlay.supersetGroupIdOverrides[id]
-                } else {
-                    // No explicit override yet — compare against post-cleanup value only when
-                    // cleanup actually assigned a group (or cleared an existing one).
-                    null
-                }
-            if (group != priorGroup && (group != null || overlay.supersetGroupIdOverrides.containsKey(id))) {
-                newGroupIdOverrides[id] = group
-            }
-            if (overlay.useRestTimerBetweenLiftsOverrides.containsKey(id) ||
-                lift.useRestTimerBetweenLifts
-            ) {
-                val priorRest = overlay.useRestTimerBetweenLiftsOverrides[id]
-                if (priorRest != lift.useRestTimerBetweenLifts) {
-                    newRestTimerOverrides[id] = lift.useRestTimerBetweenLifts
-                }
-            }
-        }
+        val (newGroupIdOverrides, newRestTimerOverrides) =
+            LiveWorkoutOverlayOps.differentialSupersetOverrides(
+                prior = linkableBefore.map { it.toLinkableSupersetFields() },
+                updated = cleaned.map { it.toLinkableSupersetFields() },
+                existingGroupOverrides = overlay.supersetGroupIdOverrides - workoutLiftId,
+                existingRestOverrides = overlay.useRestTimerBetweenLiftsOverrides - workoutLiftId,
+            )
 
         val nextDeletedLiftIds =
             if (overlay.addedLifts.any { it.workoutLiftId == workoutLiftId }) {
@@ -879,45 +860,58 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun linkSuperset(workoutLiftId: WorkoutLiftId, direction: SupersetLinkDirection) {
-        val currentLifts = getLinkableLifts()
+        val prior = getLinkableLifts()
         val updated = linkSupersetWithAdjacent(
-            lifts = currentLifts,
+            lifts = prior,
             workoutLiftId = workoutLiftId.value,
             direction = direction,
-            nextGroupId = { WorkoutSupersetGroupId(java.util.UUID.randomUUID().toString()).value }
+            nextGroupId = { WorkoutSupersetGroupId(java.util.UUID.randomUUID().toString()).value },
         )
-        val newGroupIdOverrides = overlay.supersetGroupIdOverrides.toMutableMap()
-        val newRestTimerOverrides = overlay.useRestTimerBetweenLiftsOverrides.toMutableMap()
-        updated.forEach { lift ->
-            newGroupIdOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
-            newRestTimerOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.useRestTimerBetweenLifts
-        }
+        applySupersetLinkableUpdate(prior = prior, updated = updated)
+    }
+
+    fun removeFromSuperset(workoutLiftId: WorkoutLiftId) {
+        val prior = getLinkableLifts()
+        val updated = unlinkLiftFromSuperset(prior, workoutLiftId.value)
+        applySupersetLinkableUpdate(prior = prior, updated = updated)
+    }
+
+    /**
+     * Differential override maps + dual-source stamp onto session-added lifts. Explicit null
+     * group keys clear template/addedLift groups on merge (see [LiveWorkoutOverlayOps.merge]).
+     */
+    private fun applySupersetLinkableUpdate(
+        prior: List<com.stratum.core.ui.component.SupersetLinkableLiftState>,
+        updated: List<com.stratum.core.ui.component.SupersetLinkableLiftState>,
+    ) {
+        val (groupOverrides, restOverrides) =
+            LiveWorkoutOverlayOps.differentialSupersetOverrides(
+                prior = prior.map { it.toLinkableSupersetFields() },
+                updated = updated.map { it.toLinkableSupersetFields() },
+                existingGroupOverrides = overlay.supersetGroupIdOverrides,
+                existingRestOverrides = overlay.useRestTimerBetweenLiftsOverrides,
+            )
         overlay = overlay.copy(
-            supersetGroupIdOverrides = newGroupIdOverrides,
-            useRestTimerBetweenLiftsOverrides = newRestTimerOverrides
+            supersetGroupIdOverrides = groupOverrides,
+            useRestTimerBetweenLiftsOverrides = restOverrides,
+            addedLifts =
+                LiveWorkoutOverlayOps.applyGroupOverridesToAddedLifts(
+                    addedLifts = overlay.addedLifts,
+                    groupOverrides = groupOverrides,
+                    restOverrides = restOverrides,
+                ),
         )
         recomputeRecommendations()
         render()
         persistOverlay()
     }
 
-    fun removeFromSuperset(workoutLiftId: WorkoutLiftId) {
-        val currentLifts = getLinkableLifts()
-        val updated = unlinkLiftFromSuperset(currentLifts, workoutLiftId.value)
-        val newGroupIdOverrides = overlay.supersetGroupIdOverrides.toMutableMap()
-        val newRestTimerOverrides = overlay.useRestTimerBetweenLiftsOverrides.toMutableMap()
-        updated.forEach { lift ->
-            newGroupIdOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
-            newRestTimerOverrides[WorkoutLiftId(lift.workoutLiftId)] = lift.useRestTimerBetweenLifts
-        }
-        overlay = overlay.copy(
-            supersetGroupIdOverrides = newGroupIdOverrides,
-            useRestTimerBetweenLiftsOverrides = newRestTimerOverrides
+    private fun com.stratum.core.ui.component.SupersetLinkableLiftState.toLinkableSupersetFields() =
+        LiveWorkoutOverlayOps.LinkableSupersetFields(
+            workoutLiftId = workoutLiftId,
+            supersetGroupId = supersetGroupId,
+            useRestTimerBetweenLifts = useRestTimerBetweenLifts,
         )
-        recomputeRecommendations()
-        render()
-        persistOverlay()
-    }
 
     fun setUseRestTimerBetweenLifts(workoutLiftId: WorkoutLiftId, enabled: Boolean) {
         overlay = overlay.copy(
