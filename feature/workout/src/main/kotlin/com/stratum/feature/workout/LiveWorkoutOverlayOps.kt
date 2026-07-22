@@ -99,6 +99,83 @@ internal object LiveWorkoutOverlayOps {
         )
     }
 
+    /**
+     * Effective (merged) superset fields for one lift — used only as prior/updated snapshots when
+     * computing [differentialSupersetOverrides].
+     */
+    data class LinkableSupersetFields(
+        val workoutLiftId: String,
+        val supersetGroupId: String?,
+        val useRestTimerBetweenLifts: Boolean,
+    )
+
+    /**
+     * Writes only keys whose effective group/rest changed between [prior] and [updated].
+     * Explicit `null` group values are intentional clears (merge uses [Map.containsKey], not
+     * Elvis, so key-present-null ≠ key-absent).
+     */
+    fun differentialSupersetOverrides(
+        prior: List<LinkableSupersetFields>,
+        updated: List<LinkableSupersetFields>,
+        existingGroupOverrides: Map<WorkoutLiftId, WorkoutSupersetGroupId?>,
+        existingRestOverrides: Map<WorkoutLiftId, Boolean>,
+    ): Pair<Map<WorkoutLiftId, WorkoutSupersetGroupId?>, Map<WorkoutLiftId, Boolean>> {
+        val priorById = prior.associateBy { it.workoutLiftId }
+        val newGroups = existingGroupOverrides.toMutableMap()
+        val newRest = existingRestOverrides.toMutableMap()
+        // Drop lifts no longer present (removed).
+        val updatedIds = updated.map { it.workoutLiftId }.toSet()
+        newGroups.keys.filter { it.value !in updatedIds }.forEach { newGroups.remove(it) }
+        newRest.keys.filter { it.value !in updatedIds }.forEach { newRest.remove(it) }
+        updated.forEach { lift ->
+            val id = WorkoutLiftId(lift.workoutLiftId)
+            val before = priorById[lift.workoutLiftId]
+            if (lift.supersetGroupId != before?.supersetGroupId) {
+                newGroups[id] = lift.supersetGroupId?.let { WorkoutSupersetGroupId(it) }
+            }
+            if (lift.useRestTimerBetweenLifts != before?.useRestTimerBetweenLifts) {
+                newRest[id] = lift.useRestTimerBetweenLifts
+            }
+        }
+        return newGroups to newRest
+    }
+
+    /**
+     * Stamps [groupOverrides]/[restOverrides] onto session-added lifts so dual-source state
+     * (`OverlayAddedLift.supersetGroupId` vs override map) stays consistent. Only keys present
+     * in the maps are applied (including explicit null group clears).
+     */
+    fun applyGroupOverridesToAddedLifts(
+        addedLifts: List<OverlayAddedLift>,
+        groupOverrides: Map<WorkoutLiftId, WorkoutSupersetGroupId?>,
+        restOverrides: Map<WorkoutLiftId, Boolean>,
+    ): List<OverlayAddedLift> {
+        if (addedLifts.isEmpty()) return addedLifts
+        if (groupOverrides.isEmpty() && restOverrides.isEmpty()) return addedLifts
+        return addedLifts.map { added ->
+            val groupChanged = groupOverrides.containsKey(added.workoutLiftId)
+            val restChanged = restOverrides.containsKey(added.workoutLiftId)
+            if (!groupChanged && !restChanged) {
+                added
+            } else {
+                added.copy(
+                    supersetGroupId =
+                        if (groupChanged) {
+                            groupOverrides[added.workoutLiftId]
+                        } else {
+                            added.supersetGroupId
+                        },
+                    useRestTimerBetweenLifts =
+                        if (restChanged) {
+                            restOverrides.getValue(added.workoutLiftId)
+                        } else {
+                            added.useRestTimerBetweenLifts
+                        },
+                )
+            }
+        }
+    }
+
     fun removeLift(
         overlay: WorkoutOverlay,
         workoutLiftId: WorkoutLiftId,
@@ -119,8 +196,13 @@ internal object LiveWorkoutOverlayOps {
             .toSet()
         // Also drop any deleted-slot markers for those overlay instances (fossils after remove).
         val cleanedDeletedSlotIds = overlay.deletedSlotIds - slotsToDrop
+        // Clear dual-source group/rest on remaining session-added lifts (not only override map).
         val remainingAdded =
-            overlay.addedLifts.filterNot { it.workoutLiftId == workoutLiftId }
+            applyGroupOverridesToAddedLifts(
+                addedLifts = overlay.addedLifts.filterNot { it.workoutLiftId == workoutLiftId },
+                groupOverrides = cleanedGroupOverrides,
+                restOverrides = cleanedRestOverrides,
+            )
         val nextOrderedRaw = overlay.orderedLiftIds?.filterNot { it == workoutLiftId.value }
         val naturalOrder =
             baselineLiftIdsInOrder + remainingAdded.map { it.workoutLiftId.value }
@@ -155,6 +237,7 @@ internal object LiveWorkoutOverlayOps {
         } else {
             overlay.copy(
                 deletedLiftIds = overlay.deletedLiftIds + workoutLiftId,
+                addedLifts = remainingAdded,
                 addedSlots = overlay.addedSlots.filterNot { it.workoutLiftId == workoutLiftId },
                 deletedSlotIds = cleanedDeletedSlotIds,
                 dynamicBaselines = overlay.dynamicBaselines.filterKeys { it !in slotsToDrop },
