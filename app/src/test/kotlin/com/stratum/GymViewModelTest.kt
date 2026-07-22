@@ -99,11 +99,10 @@ class GymViewModelTest {
                         computePersonalRecords = ComputePersonalRecordsUseCase(fakeLogRepository),
                         rebuildLocalDerived =
                             RebuildLocalDerivedTrainingDataUseCase(
-                                refreshWeeklySeries =
-                                    RefreshWeeklySeriesUseCase(
-                                        trainingLogRepository = fakeLogRepository,
+                                localDerivedStages =
+                                    com.stratum.core.testing.training.localDerivedTrainingStages(
+                                        trainingLog = fakeLogRepository,
                                         liftRepository = fakeLiftRepository,
-                                        persistence = FakeResponseProfilePersistencePort(),
                                     ),
                                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
                                 loggingPort = logging,

@@ -12,31 +12,40 @@ import javax.inject.Inject
  * works) but `muscle_weekly_stimulus` / `lift_weekly_performance` stay empty until recomputed —
  * the dashboard charts read only those tables via [com.stratum.domain.dashboard.LoadDashboardUseCase].
  *
- * Stages (independently fail-safe):
- *  1. [RefreshWeeklySeriesUseCase] — cheap volume + peak-e1RM series the board requires.
+ * Stages:
+ *  1. [LocalDerivedTrainingStages] weekly series only (insights already live on the source device).
  *  2. [ResponseModelingSchedulerPort.enqueueRefresh] — heavy outcome-index / progress line
- *     (WorkManager; may lag the volume charts).
+ *     (WorkManager; may lag the volume charts; applies the 20-workout gate).
  *
  * Invoked after a successful cloud push/pull so a new device (or incremental remote training
  * edits) never leaves the dashboard empty while lift history is populated.
+ *
+ * @see ForceRefreshDerivedTrainingDataUseCase recovery path (insights + weekly + force extract)
  */
 class RebuildLocalDerivedTrainingDataUseCase @Inject constructor(
-    private val refreshWeeklySeries: RefreshWeeklySeriesUseCase,
+    private val localDerivedStages: LocalDerivedTrainingStages,
     private val responseModelingScheduler: ResponseModelingSchedulerPort,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(): Result<Unit> = runCatching {
-        val weeklyResult = refreshWeeklySeries()
-        if (weeklyResult.isFailure) {
+    suspend operator fun invoke(): Result<Unit> {
+        val stagesResult =
+            localDerivedStages.run(
+                includeInsights = false,
+                failPolicy = LocalDerivedTrainingStages.FailPolicy.Throw,
+                logTag = TAG,
+            )
+        if (stagesResult.isFailure) {
+            // Stage already logged; keep a top-level breadcrumb for hydrate callers.
             loggingPort.error(
                 TAG,
-                "Weekly series rebuild failed: ${weeklyResult.exceptionOrNull()?.message}",
-                weeklyResult.exceptionOrNull(),
+                "Weekly series rebuild failed: ${stagesResult.exceptionOrNull()?.message}",
+                stagesResult.exceptionOrNull(),
             )
-            weeklyResult.getOrThrow()
+            return stagesResult
         }
         // Non-blocking enqueue — worker owns gates / extract cost.
         responseModelingScheduler.enqueueRefresh()
+        return Result.success(Unit)
     }
 
     private companion object {

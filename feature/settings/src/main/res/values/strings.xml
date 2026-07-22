@@ -55,6 +55,14 @@
     <string name="settings_import_data_row_subtitle">Bring in logs or a program from Stratum or another app</string>
     <string name="settings_export_data_row_title">Export data</string>
     <string name="settings_export_data_row_subtitle">Share logs or programs as a Stratum JSON file</string>
+    <string name="settings_rebuild_progress_row_title">Rebuild progress data</string>
+    <string name="settings_rebuild_progress_row_subtitle">Recompute volume charts now and queue the progress line from your training history.</string>
+    <string name="settings_rebuild_progress_row_subtitle_busy">Rebuilding volume charts…</string>
+    <string name="settings_rebuild_progress_row_subtitle_queued">Progress model updating in the background…</string>
+    <string name="settings_rebuild_progress_confirm_title">Rebuild progress data?</string>
+    <string name="settings_rebuild_progress_confirm_body">Stratum will recompute volume charts from all history and queue a full progress model run. This can take a minute on large imports and needs battery not critically low.</string>
+    <string name="settings_rebuild_progress_confirm">Rebuild</string>
+    <string name="settings_rebuild_progress_cancel">Cancel</string>
 
     <string name="import_data_title">Import data</string>
     <string name="import_data_description">Import never overwrites what you already have. Matching sessions and programs are skipped.</string>

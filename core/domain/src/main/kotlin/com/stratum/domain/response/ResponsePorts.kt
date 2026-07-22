@@ -100,10 +100,19 @@ interface ResponseModelingSchedulerPort {
     fun enqueueRefresh()
 
     /**
-     * History-edit path: force re-extract because a session already included in the last modeling
-     * run was amended. Worker skips the completed-workout gate; does not open a coach check-in.
+     * Force a full dose-response extract, skipping the completed-workout gate. Does not open a
+     * coach check-in.
+     *
+     * Callers:
+     * - History edit: a session already included in the last modeling run was amended
+     *   ([replaceExisting] = true so corrected data always re-runs).
+     * - Settings recovery: user rebuilds progress after import / empty outcome indices
+     *   ([replaceExisting] = false so re-taps do not cancel an in-flight force job).
+     *
+     * @param replaceExisting when true, REPLACE any pending/running unique work; when false, KEEP
+     *   an already-scheduled force extract.
      */
-    fun enqueueHistoryInvalidation()
+    fun enqueueForceExtract(replaceExisting: Boolean = true)
 }
 
 interface ExperimentRegistry {

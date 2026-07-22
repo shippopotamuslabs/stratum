@@ -18,6 +18,7 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
+import com.stratum.core.testing.training.localDerivedTrainingStages
 import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import java.time.Instant
 import kotlin.coroutines.ContinuationInterceptor
@@ -113,8 +114,11 @@ class FinalizeTrainingSessionUseCaseTest {
             trainingLogRepository = repo,
             programRepository = programRepo,
             computePersonalRecords = computePersonalRecords,
-            extractTrainingInsights = insightsComponents.useCase,
-            refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            localDerivedStages = localDerivedTrainingStages(
+                trainingLog = repo,
+                extractTrainingInsights = insightsComponents.useCase,
+                refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            ),
             loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
@@ -187,9 +191,13 @@ class FinalizeTrainingSessionUseCaseTest {
                 trainingLogRepository = repo,
                 programRepository = programRepo,
                 computePersonalRecords = ComputePersonalRecordsUseCase(repo),
-                extractTrainingInsights = insights.useCase,
-                refreshWeeklySeries =
-                    RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+                localDerivedStages =
+                    localDerivedTrainingStages(
+                        trainingLog = repo,
+                        extractTrainingInsights = insights.useCase,
+                        refreshWeeklySeries =
+                            RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+                    ),
                 loggingPort = FakeLoggingPort(),
                 refreshScope = CoroutineScope(Dispatchers.Unconfined),
             )
@@ -223,12 +231,14 @@ class FinalizeTrainingSessionUseCaseTest {
             trainingLogRepository = repo,
             programRepository = programRepo,
             computePersonalRecords = ComputePersonalRecordsUseCase(repo),
-            extractTrainingInsights = insights.useCase,
-            refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            localDerivedStages = localDerivedTrainingStages(
+                trainingLog = repo,
+                extractTrainingInsights = insights.useCase,
+                refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            ),
             loggingPort = FakeLoggingPort(),
             responseModelingScheduler = modelingScheduler,
             refreshScope = refreshScope,
-            refreshDispatcher = coroutineContext[ContinuationInterceptor] as CoroutineDispatcher,
         )
 
         // invoke() must return before the refresh runs (dispatcher hasn't advanced).
@@ -268,8 +278,11 @@ class FinalizeTrainingSessionUseCaseTest {
             trainingLogRepository = repo,
             programRepository = programRepo,
             computePersonalRecords = ComputePersonalRecordsUseCase(repo),
-            extractTrainingInsights = failingUseCase,
-            refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            localDerivedStages = localDerivedTrainingStages(
+                trainingLog = repo,
+                extractTrainingInsights = failingUseCase,
+                refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            ),
             loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
@@ -304,8 +317,11 @@ class FinalizeTrainingSessionUseCaseTest {
             trainingLogRepository = repo,
             programRepository = programRepo,
             computePersonalRecords = computePersonalRecords,
-            extractTrainingInsights = insights.useCase,
-            refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            localDerivedStages = localDerivedTrainingStages(
+                trainingLog = repo,
+                extractTrainingInsights = insights.useCase,
+                refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            ),
             loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
         )
