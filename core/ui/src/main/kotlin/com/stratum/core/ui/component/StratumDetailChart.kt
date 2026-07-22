@@ -87,14 +87,20 @@ fun StratumDetailChart(
             secondaryColor
         }
 
+    // Drop non-finite Y values — Vico axis math divides by yRange.length and crashes on NaN rects.
+    val safePrimary = remember(primarySeries) { primarySeries.filter { it.value.isFinite() } }
+    val safeSecondary = remember(secondarySeries) {
+        secondarySeries?.filter { it.value.isFinite() }
+    }
+
     // Progress is always signed bars; Volume-only primary uses unsigned bars (daily / weekly volume).
     // Dual mode keeps volume as a secondary line so strength/progress stays readable.
     val progressAsBars = primaryYScale == DetailYScale.Progress
     val volumeAsBars = primaryYScale == DetailYScale.Volume
     val primaryAsBars = progressAsBars || volumeAsBars
     // Single weekly point is valid (bars or marked line). Never promote secondary to primary.
-    val hasPrimary = primarySeries.isNotEmpty()
-    val hasSecondary = secondarySeries != null && secondarySeries.isNotEmpty()
+    val hasPrimary = safePrimary.isNotEmpty()
+    val hasSecondary = safeSecondary != null && safeSecondary.isNotEmpty()
     val dualMode = hasPrimary && hasSecondary
 
     if (!hasPrimary) {
@@ -116,8 +122,8 @@ fun StratumDetailChart(
 
     key(structureKey) {
         DetailChartContent(
-            primarySeries = primarySeries,
-            secondarySeries = if (dualMode) secondarySeries else null,
+            primarySeries = safePrimary,
+            secondarySeries = if (dualMode) safeSecondary else null,
             primaryColor = resolvedPrimary,
             secondaryColor = resolvedSecondary,
             primaryYScale = primaryYScale,
@@ -416,9 +422,14 @@ private class DetailSignedColumnProvider(
 internal fun formatDetailAxisY(value: Double, scale: DetailYScale): String =
     formatChartNumber(value, scale)
 
+/**
+ * Y-range policy per metric. **Never returns a zero-length range** — Vico maps canvas Y with
+ * `(value - minY) / length` and throws `IllegalStateException: Invalid rectangle` when length is 0
+ * or NaN (common with a single week of identical e1RM / flat volume after Intrinsic or bad auto).
+ */
 internal fun rangeProviderFor(scale: DetailYScale): CartesianLayerRangeProvider = when (scale) {
-    DetailYScale.Weight -> CartesianLayerRangeProvider.Intrinsic
-    DetailYScale.Volume -> CartesianLayerRangeProvider.auto()
+    DetailYScale.Weight -> WeightRangeProvider
+    DetailYScale.Volume -> VolumeRangeProvider
     DetailYScale.Progress -> ProgressBaselineRangeProvider
 }
 
@@ -430,9 +441,30 @@ internal object ProgressBaselineRangeProvider : CartesianLayerRangeProvider {
         progressYRange(minY, maxY).second
 }
 
+internal object WeightRangeProvider : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        weightYRange(minY, maxY).first
+
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        weightYRange(minY, maxY).second
+}
+
+internal object VolumeRangeProvider : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        volumeYRange(minY, maxY).first
+
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double =
+        volumeYRange(minY, maxY).second
+}
+
+/**
+ * Signed progress index about zero. Always includes 0 and a minimum span so flat near-zero weeks
+ * still draw axis ticks without dividing by zero.
+ */
 internal fun progressYRange(dataMin: Double, dataMax: Double): Pair<Double, Double> {
-    val baseMin = min(dataMin, 0.0)
-    val baseMax = max(dataMax, 0.0)
+    val (lo, hi) = finiteDataBounds(dataMin, dataMax, fallbackSpan = PROGRESS_MIN_SPAN)
+    val baseMin = min(lo, 0.0)
+    val baseMax = max(hi, 0.0)
     val rawSpan = baseMax - baseMin
     val halfSpan = max(rawSpan, PROGRESS_MIN_SPAN) / 2.0
     val center = (baseMin + baseMax) / 2.0
@@ -440,6 +472,53 @@ internal fun progressYRange(dataMin: Double, dataMax: Double): Pair<Double, Doub
     val expandedMax = max(baseMax, center + halfSpan)
     val pad = (expandedMax - expandedMin) * PROGRESS_PAD_FRACTION
     return (expandedMin - pad) to (expandedMax + pad)
+}
+
+/**
+ * e1RM / weight. Pads and expands flat series (two sessions at the same load collapse to one
+ * week) so Intrinsic-style min==max never reaches Vico's axis mapper.
+ */
+internal fun weightYRange(dataMin: Double, dataMax: Double): Pair<Double, Double> {
+    val (lo, hi) = finiteDataBounds(dataMin, dataMax, fallbackSpan = WEIGHT_MIN_SPAN)
+    val span = max(hi - lo, WEIGHT_MIN_SPAN)
+    val center = (lo + hi) / 2.0
+    val half = span / 2.0
+    val expandedMin = min(lo, center - half)
+    val expandedMax = max(hi, center + half)
+    // Keep floor non-negative when all data is positive (typical e1RM); still pad so ticks exist.
+    val floor = if (expandedMin >= 0.0) max(0.0, expandedMin - span * WEIGHT_PAD_FRACTION) else {
+        expandedMin - span * WEIGHT_PAD_FRACTION
+    }
+    val ceiling = expandedMax + span * WEIGHT_PAD_FRACTION
+    return floor to max(ceiling, floor + WEIGHT_MIN_SPAN)
+}
+
+/**
+ * Hard-set volume bars/lines. Floor at 0; ensure a positive ceiling even when every bar is 0
+ * (zero-filled rest week) so VerticalAxis never sees length 0.
+ */
+internal fun volumeYRange(dataMin: Double, dataMax: Double): Pair<Double, Double> {
+    val (_, hi) = finiteDataBounds(dataMin, dataMax, fallbackSpan = VOLUME_MIN_SPAN)
+    val ceiling = max(hi, VOLUME_MIN_SPAN)
+    val pad = max(ceiling * VOLUME_PAD_FRACTION, VOLUME_MIN_SPAN * VOLUME_PAD_FRACTION)
+    return 0.0 to (ceiling + pad)
+}
+
+/** Coerce raw model min/max to a finite ordered pair with at least [fallbackSpan] width. */
+internal fun finiteDataBounds(
+    dataMin: Double,
+    dataMax: Double,
+    fallbackSpan: Double,
+): Pair<Double, Double> {
+    val loRaw = if (dataMin.isFinite()) dataMin else 0.0
+    val hiRaw = if (dataMax.isFinite()) dataMax else loRaw
+    val lo = min(loRaw, hiRaw)
+    val hi = max(loRaw, hiRaw)
+    if (hi - lo >= fallbackSpan * 1e-9) return lo to hi
+    // Flat / empty / non-finite — expand symmetrically around the point (or 0).
+    val center = if (lo.isFinite()) lo else 0.0
+    val half = fallbackSpan / 2.0
+    return (center - half) to (center + half)
 }
 
 @Composable
@@ -475,4 +554,10 @@ private const val SECONDS_PER_DAY = 86_400L
 private const val Y_AXIS_MAX_LABELS = 5
 private const val PROGRESS_MIN_SPAN = 0.02
 private const val PROGRESS_PAD_FRACTION = 0.08
+/** Minimum e1RM axis span (kg) so a single flat week still has non-zero length. */
+private const val WEIGHT_MIN_SPAN = 5.0
+private const val WEIGHT_PAD_FRACTION = 0.08
+/** Minimum hard-set axis span so all-zero volume (rest week) still draws ticks. */
+private const val VOLUME_MIN_SPAN = 1.0
+private const val VOLUME_PAD_FRACTION = 0.08
 private const val INDEX_NEGATIVE_LIGHTEN_FRACTION = 0.55f

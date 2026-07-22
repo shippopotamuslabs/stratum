@@ -63,4 +63,55 @@ class DetailAxisFormatTest {
         assertTrue(maxY - minY >= 0.02 * 0.9, "at least ~min span with pad: ${maxY - minY}")
         assertTrue(minY <= 0.0 && maxY >= 0.0)
     }
+
+    @Test
+    @DisplayName("weightYRange expands flat e1RM so axis length never hits 0")
+    fun weightRangeFlatSeries() {
+        val (minY, maxY) = weightYRange(dataMin = 100.0, dataMax = 100.0)
+        assertTrue(maxY - minY > 0.0, "length must be positive: $minY..$maxY")
+        assertTrue(minY <= 100.0 && maxY >= 100.0)
+        assertTrue(minY >= 0.0, "positive e1RM keeps non-negative floor: minY=$minY")
+    }
+
+    @Test
+    @DisplayName("weightYRange handles single-point and non-finite model bounds")
+    fun weightRangeSingleAndNonFinite() {
+        val single = weightYRange(dataMin = 80.0, dataMax = 80.0)
+        assertTrue(single.second - single.first > 0.0)
+        val nan = weightYRange(dataMin = Double.NaN, dataMax = Double.NaN)
+        assertTrue(nan.first.isFinite() && nan.second.isFinite())
+        assertTrue(nan.second - nan.first > 0.0)
+    }
+
+    @Test
+    @DisplayName("volumeYRange floors at 0 and expands all-zero / flat hard sets")
+    fun volumeRangeZeroAndFlat() {
+        val zeros = volumeYRange(dataMin = 0.0, dataMax = 0.0)
+        assertEquals(0.0, zeros.first, 0.0)
+        assertTrue(zeros.second > 0.0, "all-zero week still needs positive ceiling")
+
+        val flat = volumeYRange(dataMin = 4.0, dataMax = 4.0)
+        assertEquals(0.0, flat.first, 0.0)
+        assertTrue(flat.second > 4.0, "pad above peak sets: max=${flat.second}")
+    }
+
+    @Test
+    @DisplayName("volumeYRange keeps positive span for normal multi-week volume")
+    fun volumeRangeNormal() {
+        val (minY, maxY) = volumeYRange(dataMin = 2.0, dataMax = 12.0)
+        assertEquals(0.0, minY, 0.0)
+        assertTrue(maxY >= 12.0)
+        assertTrue(maxY - minY > 0.0)
+    }
+
+    @Test
+    @DisplayName("finiteDataBounds never returns inverted or zero-length pair")
+    fun finiteBoundsAlwaysUsable() {
+        val inverted = finiteDataBounds(10.0, 2.0, fallbackSpan = 1.0)
+        assertEquals(2.0, inverted.first, 0.0)
+        assertEquals(10.0, inverted.second, 0.0)
+
+        val flat = finiteDataBounds(5.0, 5.0, fallbackSpan = 2.0)
+        assertEquals(2.0, flat.second - flat.first, 1e-9)
+    }
 }
