@@ -488,6 +488,11 @@ abstract class RepositoryModule {
     ): ResponseModelingSchedulerPort
 
     @Binds
+    abstract fun bindForceRefreshDerivedTrainingData(
+        impl: com.stratum.domain.training.ForceRefreshDerivedTrainingDataUseCase,
+    ): com.stratum.domain.training.ForceRefreshDerivedTrainingData
+
+    @Binds
     @Singleton
     abstract fun bindExperimentRegistry(
         impl: EmptyExperimentRegistry,

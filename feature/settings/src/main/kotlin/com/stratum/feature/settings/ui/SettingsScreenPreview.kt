@@ -41,6 +41,7 @@ private fun SettingsScreenNeoPreview() {
                 repRangeProposalsEnabled = true,
                 showDebugTools = true,
                 debugStatusMessage = "Check-in forced for testing.",
+                isForceRefreshCooldown = true,
             ),
             onBackClick = {},
             onAppearanceSelected = {},

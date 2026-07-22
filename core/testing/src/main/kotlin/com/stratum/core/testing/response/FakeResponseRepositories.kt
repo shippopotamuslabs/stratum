@@ -160,14 +160,22 @@ class FakeResponseModelingSchedulerPort : ResponseModelingSchedulerPort {
     var enqueueCount: Int = 0
         private set
 
-    var historyInvalidationCount: Int = 0
+    var forceExtractCount: Int = 0
         private set
+
+    /** Last [replaceExisting] passed to [enqueueForceExtract], or null if never called. */
+    var lastForceReplaceExisting: Boolean? = null
+        private set
+
+    /** Alias for older tests that asserted history-invalidation force path. */
+    val historyInvalidationCount: Int get() = forceExtractCount
 
     override fun enqueueRefresh() {
         enqueueCount++
     }
 
-    override fun enqueueHistoryInvalidation() {
-        historyInvalidationCount++
+    override fun enqueueForceExtract(replaceExisting: Boolean) {
+        forceExtractCount++
+        lastForceReplaceExisting = replaceExisting
     }
 }

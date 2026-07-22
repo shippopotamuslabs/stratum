@@ -7,14 +7,14 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAccountDeletionPort
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
+import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.theme.FakeThemePreferencesRepository
+import com.stratum.core.testing.workout.FakeRepRangeShiftProposalPreferences
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.DeleteAccountUseCase
 import com.stratum.domain.auth.LogoutUseCase
 import com.stratum.domain.auth.UserProfile
-import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
-import com.stratum.core.testing.workout.FakeRepRangeShiftProposalPreferences
 import com.stratum.domain.checkin.CheckInPreferences
 import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
@@ -30,8 +30,10 @@ import com.stratum.domain.theme.SetColorModeUseCase
 import com.stratum.domain.theme.SetThemeFamilyUseCase
 import com.stratum.domain.theme.ThemeFamily
 import com.stratum.domain.theme.ThemePreferences
+import com.stratum.domain.training.ForceRefreshDerivedTrainingData
 import com.stratum.domain.workout.ObserveRepRangeShiftProposalsEnabledUseCase
 import com.stratum.domain.workout.SetRepRangeShiftProposalsEnabledUseCase
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -57,9 +59,15 @@ class SettingsViewModelTest {
     private lateinit var fakeCloudSync: FakeCloudSyncPort
     private lateinit var fakeAccountDeletion: FakeAccountDeletionPort
     private lateinit var subject: SettingsViewModel
+    private var forceRefreshCalls = 0
+    private var forceRefreshResult: Result<Unit> = Result.success(Unit)
+    private var forceRefreshGate: CompletableDeferred<Unit>? = null
 
     @BeforeEach
     fun setup() {
+        forceRefreshCalls = 0
+        forceRefreshResult = Result.success(Unit)
+        forceRefreshGate = null
         fakeThemePreferences.seed(ThemePreferences())
         fakeCheckInPreferences.seed(CheckInPreferences())
         fakeEquipmentProposals.seedEnabled(true)
@@ -72,7 +80,14 @@ class SettingsViewModelTest {
         subject = buildViewModel()
     }
 
-    private fun buildViewModel(): SettingsViewModel =
+    private fun buildViewModel(
+        forceRefresh: ForceRefreshDerivedTrainingData =
+            ForceRefreshDerivedTrainingData {
+                forceRefreshCalls++
+                forceRefreshGate?.await()
+                forceRefreshResult
+            },
+    ): SettingsViewModel =
         SettingsViewModel(
             observeThemePreferences = ObserveThemePreferencesUseCase(fakeThemePreferences),
             observeCheckInPreferences = ObserveCheckInPreferencesUseCase(fakeCheckInPreferences),
@@ -88,6 +103,7 @@ class SettingsViewModelTest {
             setRepRangeShiftProposalsEnabled =
                 SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals, FakeLoggingPort()),
             markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
+            forceRefreshDerived = forceRefresh,
             logout = LogoutUseCase(
                 authManager = fakeAuth,
                 endSessionAndWipe = EndSessionAndWipeUseCase(fakeCloudSync),
@@ -238,6 +254,83 @@ class SettingsViewModelTest {
         } else {
             assertFalse(fakeCheckInPreferences.current.enabled)
             assertEquals(null, fakeCheckInPreferences.current.pendingSinceExtractedAt)
+        }
+    }
+
+    @Test
+    @DisplayName("rebuild progress confirm runs force refresh and sets cooldown")
+    fun rebuildProgressSuccess() = runTest {
+        subject.uiState.test {
+            skipItems(1)
+            subject.onRebuildProgressClick()
+            assertTrue(awaitItem().showRebuildProgressConfirm)
+
+            subject.onRebuildProgressConfirmed()
+            // running then settled with cooldown
+            val running = awaitItem()
+            assertTrue(running.isForceRefreshingDerived || running.isForceRefreshCooldown)
+            val settled =
+                if (running.isForceRefreshCooldown && !running.isForceRefreshingDerived) {
+                    running
+                } else {
+                    awaitItem()
+                }
+            assertEquals(1, forceRefreshCalls)
+            assertTrue(settled.isForceRefreshCooldown)
+            assertFalse(settled.isForceRefreshingDerived)
+            assertFalse(settled.showRebuildProgressConfirm)
+            assertNotNull(subject.userMessage.value)
+            assertTrue(subject.userMessage.value!!.contains("Volume charts", ignoreCase = true))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("rebuild progress failure surfaces message without cooldown")
+    fun rebuildProgressFailure() = runTest {
+        forceRefreshResult = Result.failure(IllegalStateException("boom"))
+        subject = buildViewModel()
+
+        subject.uiState.test {
+            skipItems(1)
+            subject.onRebuildProgressClick()
+            assertTrue(awaitItem().showRebuildProgressConfirm)
+            subject.onRebuildProgressConfirmed()
+            // Consume running / failed emissions until settled
+            var settled = awaitItem()
+            if (settled.isForceRefreshingDerived) {
+                settled = awaitItem()
+            }
+            assertEquals(1, forceRefreshCalls)
+            assertTrue(subject.userMessage.value!!.contains("Couldn't rebuild", ignoreCase = true))
+            assertFalse(settled.isForceRefreshCooldown)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("double confirm while running is ignored")
+    fun rebuildProgressIgnoresReentrancy() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        forceRefreshGate = gate
+        subject = buildViewModel()
+
+        subject.uiState.test {
+            skipItems(1)
+            subject.onRebuildProgressClick()
+            assertTrue(awaitItem().showRebuildProgressConfirm)
+            subject.onRebuildProgressConfirmed()
+            assertTrue(awaitItem().isForceRefreshingDerived)
+
+            subject.onRebuildProgressConfirmed()
+            expectNoEvents()
+            assertEquals(1, forceRefreshCalls)
+
+            gate.complete(Unit)
+            val settled = awaitItem()
+            assertEquals(1, forceRefreshCalls)
+            assertTrue(settled.isForceRefreshCooldown)
+            cancelAndIgnoreRemainingEvents()
         }
     }
 

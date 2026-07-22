@@ -134,39 +134,16 @@ class EditHistoricalWorkoutViewModelTest {
         val update =
             UpdateCompletedSessionSetsUseCase(
                 trainingLogRepository = logRepo,
-                extractTrainingInsights =
-                    ExtractTrainingInsightsUseCase(
-                        trainingLogRepository = logRepo,
-                        liftTrainingInsightsRepository =
-                            object : LiftTrainingInsightsRepository {
-                                override suspend fun replaceAll(insights: List<LiftTrainingInsights>) = Unit
-                                override suspend fun getAll(): List<LiftTrainingInsights> = emptyList()
-                                override suspend fun getByLiftId(liftId: LiftId): LiftTrainingInsights? = null
-                            },
-                        supersetAffinityRepository =
-                            object : SupersetAffinityRepository {
-                                override suspend fun replaceAll(affinities: List<SupersetAffinity>) = Unit
-                                override suspend fun getAll(): List<SupersetAffinity> = emptyList()
-                            },
-                        muscleVolumeBaselineRepository =
-                            object : MuscleVolumeBaselineRepository {
-                                override suspend fun replaceAll(baselines: List<MuscleVolumeBaseline>) = Unit
-                                override suspend fun getAll(): List<MuscleVolumeBaseline> = emptyList()
-                            },
-                        importAnalysisMetadataRepository =
-                            object : ImportAnalysisMetadataRepository {
-                                override suspend fun save(metadata: ImportAnalysisMetadata) = Unit
-                                override suspend fun get(): ImportAnalysisMetadata? = null
-                                override suspend fun clear() = Unit
-                            },
+                localDerivedStages =
+                    com.stratum.core.testing.training.localDerivedTrainingStages(
+                        trainingLog = logRepo,
                         liftRepository = liftRepo,
+                        persistence = persistence,
                     ),
-                refreshWeeklySeries = RefreshWeeklySeriesUseCase(logRepo, liftRepo, persistence),
                 metadataRepository = metadataRepo,
                 responseModelingScheduler = FakeResponseModelingSchedulerPort(),
                 loggingPort = FakeLoggingPort(),
                 refreshScope = CoroutineScope(Dispatchers.Unconfined),
-                refreshDispatcher = Dispatchers.Unconfined,
             )
         val vm =
             EditHistoricalWorkoutViewModel(

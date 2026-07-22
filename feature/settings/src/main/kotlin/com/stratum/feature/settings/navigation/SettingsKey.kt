@@ -10,6 +10,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.feature.settings.SettingsAccountActions
+import com.stratum.feature.settings.SettingsDataActions
 import com.stratum.feature.settings.SettingsViewModel
 import com.stratum.feature.settings.ui.LegalScreen
 import com.stratum.feature.settings.ui.SettingsScreen
@@ -77,8 +78,14 @@ private fun SettingsRoute(
         onPostWorkoutSuggestionEnabledChange = viewModel::onPostWorkoutSuggestionEnabledChange,
         onForceCheckInPending = viewModel::forceCheckInPending,
         onLegalClick = onNavigateToLegal,
-        onImportDataClick = onNavigateToImportData,
-        onExportDataClick = onNavigateToExportData,
+        dataActions =
+            SettingsDataActions(
+                onImportDataClick = onNavigateToImportData,
+                onExportDataClick = onNavigateToExportData,
+                onRebuildProgressClick = viewModel::onRebuildProgressClick,
+                onRebuildProgressConfirmDismiss = viewModel::onRebuildProgressConfirmDismiss,
+                onRebuildProgressConfirmed = viewModel::onRebuildProgressConfirmed,
+            ),
         accountActions =
             SettingsAccountActions(
                 onLogoutClick = viewModel::onLogoutClick,

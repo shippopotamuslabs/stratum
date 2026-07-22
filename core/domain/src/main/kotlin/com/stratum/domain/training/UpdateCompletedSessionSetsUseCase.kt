@@ -1,20 +1,14 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.di.ApplicationScope
-import com.stratum.domain.di.DefaultDispatcher
-import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
-import com.stratum.domain.importing.InsightsAnalysisScope
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.response.ResponseModelingSchedulerPort
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.training.identity.TrainingSessionId
-import java.util.logging.Level
-import java.util.logging.Logger
 import javax.inject.Inject
 import kotlin.math.abs
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,17 +21,14 @@ import kotlinx.coroutines.launch
  */
 class UpdateCompletedSessionSetsUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
-    private val extractTrainingInsights: ExtractTrainingInsightsUseCase,
-    private val refreshWeeklySeries: RefreshWeeklySeriesUseCase,
+    private val localDerivedStages: LocalDerivedTrainingStages,
     private val metadataRepository: ResponseProfileMetadataRepository,
     private val responseModelingScheduler: ResponseModelingSchedulerPort =
         NoOpResponseModelingSchedulerForHistoryEdit,
     private val loggingPort: LoggingPort,
     @ApplicationScope private val refreshScope: CoroutineScope =
         CoroutineScope(Dispatchers.Main.immediate),
-    @DefaultDispatcher private val refreshDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
-    private val logger = Logger.getLogger(UpdateCompletedSessionSetsUseCase::class.java.name)
 
     /**
      * Replaces the session's set list with [desiredSets] (full desired state).
@@ -120,10 +111,17 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
             updates = updates.distinctBy { it.id },
         )
 
-        refreshScope.launch(refreshDispatcher) { refreshInsights() }
+        refreshScope.launch {
+            localDerivedStages.run(
+                includeInsights = true,
+                failPolicy = LocalDerivedTrainingStages.FailPolicy.LogAndContinue,
+                logTag = TAG,
+            )
+        }
 
         if (sessionWasInLastModelingRun(session)) {
-            responseModelingScheduler.enqueueHistoryInvalidation()
+            // REPLACE so amended sets always re-enter the model even if a job is pending.
+            responseModelingScheduler.enqueueForceExtract(replaceExisting = true)
         }
     }.onFailure { error ->
         loggingPort.error(TAG, "Failed to update completed session sets: ${error.message}", error)
@@ -178,25 +176,6 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
         }
     }
 
-    private suspend fun refreshInsights() {
-        val rollupResult = extractTrainingInsights(scope = InsightsAnalysisScope.All)
-        if (rollupResult.isFailure) {
-            logger.log(
-                Level.WARNING,
-                "Insights rollup refresh after historical session edit failed",
-                rollupResult.exceptionOrNull(),
-            )
-        }
-        val weeklyResult = refreshWeeklySeries()
-        if (weeklyResult.isFailure) {
-            logger.log(
-                Level.WARNING,
-                "Weekly series refresh after historical session edit failed",
-                weeklyResult.exceptionOrNull(),
-            )
-        }
-    }
-
     private companion object {
         const val TAG = "UpdateCompletedSessionSets"
     }
@@ -206,5 +185,5 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
 private object NoOpResponseModelingSchedulerForHistoryEdit : ResponseModelingSchedulerPort {
     override fun enqueueRefresh() = Unit
 
-    override fun enqueueHistoryInvalidation() = Unit
+    override fun enqueueForceExtract(replaceExisting: Boolean) = Unit
 }
