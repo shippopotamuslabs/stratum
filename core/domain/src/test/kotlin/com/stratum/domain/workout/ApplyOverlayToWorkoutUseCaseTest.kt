@@ -115,6 +115,85 @@ class ApplyOverlayToWorkoutUseCaseTest {
     }
 
     @Test
+    @DisplayName("Null superset override clears a baseline template group (key-present-null)")
+    fun nullSupersetOverrideClearsTemplateGroup() {
+        val groupId = WorkoutSupersetGroupId("ss-template")
+        val baseline =
+            sampleWorkout().copy(
+                workoutLifts =
+                    sampleWorkout().workoutLifts.map { lift ->
+                        lift.copy(supersetGroupId = groupId)
+                    },
+            )
+        val overlay =
+            WorkoutOverlay(
+                supersetGroupIdOverrides = mapOf(WorkoutLiftId("wl-1") to null),
+            )
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(null, result.workoutLifts.single { it.id.value == "wl-1" }.supersetGroupId)
+        assertEquals(groupId, result.workoutLifts.single { it.id.value == "wl-2" }.supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("Key-absent superset override leaves baseline group unchanged")
+    fun absentSupersetOverrideKeepsTemplateGroup() {
+        val groupId = WorkoutSupersetGroupId("ss-template")
+        val baseline =
+            sampleWorkout().copy(
+                workoutLifts =
+                    sampleWorkout().workoutLifts.map { lift ->
+                        lift.copy(supersetGroupId = groupId)
+                    },
+            )
+
+        val result = useCase(baseline, WorkoutOverlay())
+
+        assertEquals(groupId, result.workoutLifts[0].supersetGroupId)
+        assertEquals(groupId, result.workoutLifts[1].supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("Null superset override clears session-added OverlayAddedLift group")
+    fun nullSupersetOverrideClearsSessionAddedGroup() {
+        val groupId = WorkoutSupersetGroupId("ss-added")
+        val newWlId = WorkoutLiftId("wl-added")
+        val slot =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-ss-1")),
+                workoutLiftId = newWlId,
+                liftId = LiftId("lift-row"),
+                position = 0,
+                setType = SetType.Standard,
+                isTopSet = true,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 2,
+                restSeconds = 90,
+            )
+        val overlay =
+            WorkoutOverlay(
+                addedLifts =
+                    listOf(
+                        OverlayAddedLift(
+                            workoutLiftId = newWlId,
+                            liftId = LiftId("lift-row"),
+                            progressionScheme = ProgressionScheme.Double,
+                            supersetGroupId = groupId,
+                        ),
+                    ),
+                addedSlots = listOf(slot),
+                supersetGroupIdOverrides = mapOf(newWlId to null),
+            )
+
+        val result = useCase(sampleWorkout(), overlay)
+
+        val added = result.workoutLifts.single { it.id == newWlId }
+        assertEquals(null, added.supersetGroupId)
+    }
+
+    @Test
     @DisplayName("Rest timer overrides are applied")
     fun restTimerOverridesApplied() {
         val baseline = sampleWorkout()

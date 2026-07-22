@@ -448,10 +448,7 @@ private fun CreateProgramEditorContent(
             else ->
                 EmbeddedWorkoutEditor(
                     editState = selected.editState,
-                    onUpdate = callbacks.onUpdateSelectedWorkout,
-                    onAddExercise = callbacks.onAddExercise,
-                    onReorderLifts = callbacks.onReorderLifts,
-                    onSwapLift = callbacks.onSwapLift,
+                    callbacks = callbacks,
                     modifier = Modifier.weight(1f),
                 )
         }
@@ -564,126 +561,31 @@ private fun RestDayBody(onAddExercise: () -> Unit) {
 @Composable
 private fun EmbeddedWorkoutEditor(
     editState: EditWorkoutUiState.Loaded,
-    onUpdate: ((EditWorkoutUiState.Loaded) -> EditWorkoutUiState.Loaded) -> Unit,
-    onAddExercise: () -> Unit,
-    onReorderLifts: () -> Unit,
-    onSwapLift: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
+    callbacks: CreateProgramScreenCallbacks,
     modifier: Modifier = Modifier,
 ) {
     EditWorkoutEmbeddedContent(
         state = editState,
         callbacks =
             EditWorkoutScreenCallbacks(
-                onAddSet = { workoutLiftId ->
-                    onUpdate { loaded ->
-                        loaded.copy(
-                            lifts =
-                                loaded.lifts.map { lift ->
-                                    if (lift.workoutLiftId != workoutLiftId) {
-                                        lift
-                                    } else {
-                                        lift.copy(
-                                            sets = renumberSetsLocal(lift.sets + defaultSet(lift.sets.size + 1)),
-                                        )
-                                    }
-                                },
-                            isDirty = true,
-                        )
-                    }
-                },
-                onRemoveSet = { setId ->
-                    onUpdate { loaded ->
-                        loaded.copy(
-                            lifts =
-                                loaded.lifts.map { lift ->
-                                    val next = lift.sets.filterNot { set -> set.setId == setId }
-                                    if (next.size == lift.sets.size) {
-                                        lift
-                                    } else {
-                                        lift.copy(sets = renumberSetsLocal(next))
-                                    }
-                                },
-                            isDirty = true,
-                        )
-                    }
-                },
-                onRemoveLift = { workoutLiftId ->
-                    onUpdate { loaded ->
-                        loaded.copy(
-                            lifts =
-                                loaded.lifts
-                                    .filterNot { lift -> lift.workoutLiftId == workoutLiftId }
-                                    .mapIndexed { index, lift -> lift.copy(position = index) },
-                            isDirty = true,
-                        )
-                    }
-                },
-                onAddLift = onAddExercise,
-                onSwapLiftClick = onSwapLift,
-                onReorderLiftsClick = onReorderLifts,
-                onSetRepBand = { setId, min, max ->
-                    onUpdate { loaded ->
-                        loaded.updateSet(setId) { set -> set.copy(repMin = min, repMax = max) }
-                    }
-                },
-                onSetRirGoal = { setId, value ->
-                    onUpdate { loaded -> loaded.updateSet(setId) { set -> set.copy(rirGoal = value) } }
-                },
-                onSetRestSeconds = { setId, value ->
-                    onUpdate { loaded -> loaded.updateSet(setId) { set -> set.copy(restSeconds = value) } }
-                },
-                onSetRestSecondsForAllSetsOnLift = { workoutLiftId, value ->
-                    onUpdate { loaded ->
-                        loaded.copy(
-                            lifts =
-                                loaded.lifts.map { lift ->
-                                    if (lift.workoutLiftId != workoutLiftId) {
-                                        lift
-                                    } else {
-                                        lift.copy(
-                                            sets = lift.sets.map { set -> set.copy(restSeconds = value) },
-                                        )
-                                    }
-                                },
-                            isDirty = true,
-                        )
-                    }
-                },
+                onAddSet = callbacks.onAddSet,
+                onRemoveSet = callbacks.onRemoveSet,
+                onRemoveLift = callbacks.onRemoveLift,
+                onLinkSupersetWithPrevious = callbacks.onLinkSupersetWithPrevious,
+                onLinkSupersetWithNext = callbacks.onLinkSupersetWithNext,
+                onRemoveFromSuperset = callbacks.onRemoveFromSuperset,
+                onSetUseRestTimerBetweenLifts = callbacks.onSetUseRestTimerBetweenLifts,
+                onAddLift = callbacks.onAddExercise,
+                onSwapLiftClick = callbacks.onSwapLift,
+                onReorderLiftsClick = callbacks.onReorderLifts,
+                onSetRepBand = callbacks.onSetRepBand,
+                onSetRirGoal = callbacks.onSetRirGoal,
+                onSetRestSeconds = callbacks.onSetRestSeconds,
+                onSetRestSecondsForAllSetsOnLift = callbacks.onSetRestSecondsForAllSetsOnLift,
             ),
         modifier = modifier,
     )
 }
-
-private fun EditWorkoutUiState.Loaded.updateSet(
-    setId: String,
-    transform: (EditSetState) -> EditSetState,
-): EditWorkoutUiState.Loaded =
-    copy(
-        lifts =
-            lifts.map { lift ->
-                lift.copy(
-                    sets =
-                        lift.sets.map { set ->
-                            if (set.setId == setId) transform(set) else set
-                        },
-                )
-            },
-        isDirty = true,
-    )
-
-private fun renumberSetsLocal(sets: List<EditSetState>): List<EditSetState> =
-    sets.mapIndexed { index, set -> set.copy(setNumber = index + 1) }
-
-private fun defaultSet(setNumber: Int): EditSetState =
-    EditSetState(
-        setId = java.util.UUID.randomUUID().toString(),
-        setNumber = setNumber,
-        repMin = if (setNumber == 1) DEFAULT_REP_MIN else 0,
-        repMax = if (setNumber == 1) DEFAULT_REP_MAX else 0,
-        restSeconds = DEFAULT_REST_SECONDS,
-        rirGoal = DEFAULT_RIR_GOAL,
-        isTopSet = setNumber == 1,
-    )
 
 @Composable
 private fun WizardBottomBar(

@@ -6,6 +6,9 @@ import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.workout.MergeRenderedWorkoutUseCase
+import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
@@ -13,7 +16,9 @@ import com.stratum.domain.workout.WorkoutLiftProjection
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -272,5 +277,132 @@ class LiveWorkoutOverlayOpsTest {
             )
 
         assertEquals(30, slots.single().restSeconds)
+    }
+
+    @Test
+    @DisplayName("merge: key-present null override clears template superset group")
+    fun mergeNullOverrideClearsTemplateGroup() {
+        val groupId = WorkoutSupersetGroupId("ss-1")
+        val withGroup =
+            structure.copy(
+                lifts =
+                    structure.lifts.map { lift ->
+                        lift.copy(supersetGroupId = groupId)
+                    },
+            )
+        val overlay =
+            WorkoutOverlay(
+                supersetGroupIdOverrides = mapOf(workoutLiftId to null),
+            )
+
+        val rendered =
+            LiveWorkoutOverlayOps.merge(
+                structure = withGroup,
+                overlay = overlay,
+                snapshotBySlot = emptyMap(),
+                liftsById = emptyMap(),
+                liftNamesById = emptyMap(),
+                mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            )
+
+        assertNull(rendered.lifts.single().supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("merge: key-absent leaves template superset group")
+    fun mergeAbsentOverrideKeepsTemplateGroup() {
+        val groupId = WorkoutSupersetGroupId("ss-1")
+        val withGroup =
+            structure.copy(
+                lifts =
+                    structure.lifts.map { lift ->
+                        lift.copy(supersetGroupId = groupId)
+                    },
+            )
+
+        val rendered =
+            LiveWorkoutOverlayOps.merge(
+                structure = withGroup,
+                overlay = WorkoutOverlay(),
+                snapshotBySlot = emptyMap(),
+                liftsById = emptyMap(),
+                liftNamesById = emptyMap(),
+                mergeRenderedWorkout = MergeRenderedWorkoutUseCase(),
+            )
+
+        assertEquals(groupId, rendered.lifts.single().supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("removeLift stamps cleared group onto remaining OverlayAddedLift (dual-source)")
+    fun removeLiftClearsSessionAddedSurvivorGroupOnAddedLift() {
+        val groupId = WorkoutSupersetGroupId("ss-session")
+        val wlA = WorkoutLiftId("wl-added-a")
+        val wlB = WorkoutLiftId("wl-added-b")
+        val overlay =
+            WorkoutOverlay(
+                addedLifts =
+                    listOf(
+                        OverlayAddedLift(
+                            workoutLiftId = wlA,
+                            liftId = LiftId("L-a"),
+                            supersetGroupId = groupId,
+                        ),
+                        OverlayAddedLift(
+                            workoutLiftId = wlB,
+                            liftId = LiftId("L-b"),
+                            supersetGroupId = groupId,
+                        ),
+                    ),
+            )
+
+        val result =
+            LiveWorkoutOverlayOps.removeLift(
+                overlay = overlay,
+                workoutLiftId = wlB,
+                cleanedGroupOverrides = mapOf(wlA to null),
+                cleanedRestOverrides = emptyMap(),
+                resolveSlot = { null },
+                baselineLiftIdsInOrder = emptyList(),
+            )
+
+        assertEquals(1, result.addedLifts.size)
+        assertNull(result.addedLifts.single().supersetGroupId)
+        assertTrue(result.supersetGroupIdOverrides.containsKey(wlA))
+        assertNull(result.supersetGroupIdOverrides[wlA])
+    }
+
+    @Test
+    @DisplayName("differentialSupersetOverrides writes only changed keys including null clears")
+    fun differentialWritesOnlyChangedIncludingNull() {
+        val prior =
+            listOf(
+                LiveWorkoutOverlayOps.LinkableSupersetFields("wl-1", "g", false),
+                LiveWorkoutOverlayOps.LinkableSupersetFields("wl-2", "g", true),
+                LiveWorkoutOverlayOps.LinkableSupersetFields("wl-3", null, false),
+            )
+        val updated =
+            listOf(
+                LiveWorkoutOverlayOps.LinkableSupersetFields("wl-1", null, false),
+                LiveWorkoutOverlayOps.LinkableSupersetFields("wl-2", null, false),
+                LiveWorkoutOverlayOps.LinkableSupersetFields("wl-3", null, false),
+            )
+
+        val (groups, rest) =
+            LiveWorkoutOverlayOps.differentialSupersetOverrides(
+                prior = prior,
+                updated = updated,
+                existingGroupOverrides = emptyMap(),
+                existingRestOverrides = emptyMap(),
+            )
+
+        assertTrue(groups.containsKey(WorkoutLiftId("wl-1")))
+        assertNull(groups[WorkoutLiftId("wl-1")])
+        assertTrue(groups.containsKey(WorkoutLiftId("wl-2")))
+        assertNull(groups[WorkoutLiftId("wl-2")])
+        assertFalse(groups.containsKey(WorkoutLiftId("wl-3")))
+        assertTrue(rest.containsKey(WorkoutLiftId("wl-2")))
+        assertEquals(false, rest[WorkoutLiftId("wl-2")])
+        assertFalse(rest.containsKey(WorkoutLiftId("wl-3")))
     }
 }

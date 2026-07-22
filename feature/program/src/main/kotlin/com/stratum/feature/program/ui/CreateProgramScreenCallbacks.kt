@@ -25,7 +25,20 @@ data class CreateProgramScreenCallbacks(
     val onRenameProgram: (String) -> Unit = {},
     val onRenameWorkout: (String) -> Unit = {},
     val onAddExercise: () -> Unit = {},
+    /** Prefer typed mutation callbacks; retained for any residual transform-style callers. */
     val onUpdateSelectedWorkout: ((EditWorkoutUiState.Loaded) -> EditWorkoutUiState.Loaded) -> Unit = {},
+    val onRemoveLift: (workoutLiftId: String) -> Unit = {},
+    val onLinkSupersetWithPrevious: (workoutLiftId: String) -> Unit = {},
+    val onLinkSupersetWithNext: (workoutLiftId: String) -> Unit = {},
+    val onRemoveFromSuperset: (workoutLiftId: String) -> Unit = {},
+    val onSetUseRestTimerBetweenLifts: (workoutLiftId: String, enabled: Boolean) -> Unit = { _, _ -> },
+    val onAddSet: (workoutLiftId: String) -> Unit = {},
+    val onRemoveSet: (setId: String) -> Unit = {},
+    val onSetRepBand: (setId: String, repMin: Int, repMax: Int) -> Unit = { _, _, _ -> },
+    val onSetRirGoal: (setId: String, rirGoal: Int) -> Unit = { _, _ -> },
+    val onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit = { _, _ -> },
+    val onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit =
+        { _, _ -> },
     val onReorderLifts: () -> Unit = {},
     /** Apply local day reorder after the full-screen reorder host confirms. */
     val onDaysReordered: (orderedDayIds: List<String>) -> Unit = {},
