@@ -10,9 +10,10 @@ import com.stratum.domain.response.DayBucketSupport
 import com.stratum.domain.response.MuscleVolumeCredit
 import com.stratum.domain.response.WeeklySignalSupport
 import java.time.Instant
+import java.time.ZoneId
 
 /**
- * Per-muscle hard-set volume bucketed by UTC calendar day. Uses the same primary/secondary credit
+ * Per-muscle hard-set volume bucketed by local calendar day. Uses the same primary/secondary credit
  * rules as [MuscleWeeklyStimulusBuilder] so daily totals stay consistent with weekly stimulus when
  * summed over the same hard-set definition.
  */
@@ -32,16 +33,18 @@ object MuscleDailyVolumeBuilder {
     /**
      * Aggregates working sets into sparse daily points (days with zero credit are omitted).
      * Only [CleanTrainingSet.isWorkingSet] rows with a resolved lift id are credited.
+     * Day boundaries use [zone] (device default in production).
      */
     fun build(
         cleanSets: List<CleanTrainingSet>,
         lifts: List<Lift>,
+        zone: ZoneId,
     ): List<MuscleDailySeries> {
         val liftById = lifts.associateBy { it.id }
         val working = cleanSets.filter { it.isWorkingSet && it.sourceSet.liftId != null }
         if (working.isEmpty()) return emptyList()
 
-        val byDay = WeeklySignalSupport.groupByDay(working)
+        val byDay = WeeklySignalSupport.groupByDay(working, zone)
         val muscleDayCredits = mutableMapOf<MuscleGroup, MutableMap<Instant, Double>>()
         val muscleLifts = mutableMapOf<MuscleGroup, MutableSet<LiftId>>()
 
@@ -85,12 +88,13 @@ object MuscleDailyVolumeBuilder {
     }
 
     /**
-     * Zero-fills [dayCount] consecutive UTC days ending on [asOf]'s calendar day (inclusive).
-     * Oldest first. Days with no credit get `0.0`.
+     * Zero-fills [dayCount] consecutive local calendar days ending on [asOf]'s day in [zone]
+     * (inclusive). Oldest first. Days with no credit get `0.0`.
      */
     fun zeroFillLastDays(
         series: MuscleDailySeries,
         asOf: Instant,
+        zone: ZoneId,
         dayCount: Int = RUNNING_VOLUME_DAY_COUNT,
     ): List<DailyVolumePoint> {
         require(dayCount > 0) { "dayCount must be positive" }
@@ -98,6 +102,7 @@ object MuscleDailyVolumeBuilder {
             points = series.points.map { it.dayStart to it.hardSets },
             asOf = asOf,
             dayCount = dayCount,
+            zone = zone,
         ).map { (day, hardSets) -> DailyVolumePoint(dayStart = day, hardSets = hardSets) }
     }
 

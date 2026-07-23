@@ -34,6 +34,9 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -47,6 +50,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
 class DashboardViewModelTest {
+
+    private val testZone: ZoneId = ZoneOffset.UTC
+    private val newYork: ZoneId = ZoneId.of("America/New_York")
     @Test
     fun `emits Empty when no weekly data exists`() = runTest {
         val viewModel = buildViewModel()
@@ -408,15 +414,76 @@ class DashboardViewModelTest {
     @Test
     @DisplayName("shortWeekdayLabel uses R for Thursday and Sa/Su for weekend")
     fun shortWeekdayLabels() {
-        // 2025-06-09 is a Monday UTC
-        val monday = Instant.parse("2025-06-09T00:00:00Z")
-        assertEquals("M", shortWeekdayLabel(monday))
-        assertEquals("T", shortWeekdayLabel(monday.plus(1, ChronoUnit.DAYS)))
-        assertEquals("W", shortWeekdayLabel(monday.plus(2, ChronoUnit.DAYS)))
-        assertEquals("R", shortWeekdayLabel(monday.plus(3, ChronoUnit.DAYS)))
-        assertEquals("F", shortWeekdayLabel(monday.plus(4, ChronoUnit.DAYS)))
-        assertEquals("Sa", shortWeekdayLabel(monday.plus(5, ChronoUnit.DAYS)))
-        assertEquals("Su", shortWeekdayLabel(monday.plus(6, ChronoUnit.DAYS)))
+        // Local midnights for Mon–Su in America/New_York (EDT, UTC-4).
+        val monday = LocalDate.of(2025, 6, 9).atStartOfDay(newYork).toInstant()
+        assertEquals("M", shortWeekdayLabel(monday, newYork))
+        assertEquals("T", shortWeekdayLabel(monday.plus(1, ChronoUnit.DAYS), newYork))
+        assertEquals("W", shortWeekdayLabel(monday.plus(2, ChronoUnit.DAYS), newYork))
+        assertEquals("R", shortWeekdayLabel(monday.plus(3, ChronoUnit.DAYS), newYork))
+        assertEquals("F", shortWeekdayLabel(monday.plus(4, ChronoUnit.DAYS), newYork))
+        assertEquals("Sa", shortWeekdayLabel(monday.plus(5, ChronoUnit.DAYS), newYork))
+        assertEquals("Su", shortWeekdayLabel(monday.plus(6, ChronoUnit.DAYS), newYork))
+    }
+
+    @Test
+    @DisplayName("shortWeekdayLabel keeps Wednesday for evening Instant after UTC midnight")
+    fun shortWeekdayLabelLocalAfterUtcFlip() {
+        // Wed 2026-07-22 20:30 EDT = Thu 00:30 UTC — day-start key is still Wednesday local.
+        val wedEvening = Instant.parse("2026-07-23T00:30:00Z")
+        val wedLocalMidnight = LocalDate.of(2026, 7, 22).atStartOfDay(newYork).toInstant()
+        assertEquals(LocalDate.of(2026, 7, 22), wedEvening.atZone(newYork).toLocalDate())
+        assertEquals("W", shortWeekdayLabel(wedLocalMidnight, newYork))
+        // Bucket key for that evening is local midnight of Wed, not Thu UTC.
+        assertEquals("W", shortWeekdayLabel(wedLocalMidnight, newYork))
+        assertEquals("R", shortWeekdayLabel(wedLocalMidnight.plus(1, ChronoUnit.DAYS), newYork))
+    }
+
+    @Test
+    @DisplayName("7-Day board labels end on local Wednesday when zone is America/New_York")
+    fun sevenDayLabelsUsePinnedZone() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        // Wed 2026-07-22 20:30 EDT — already Thursday UTC.
+        val asOf = Instant.parse("2026-07-23T00:30:00Z")
+        val trainingLog = FakeTrainingLogRepository()
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1")
+        trainingLog.seedSession(session)
+        trainingLog.seedSet(
+            LoggedSet(
+                id = LoggedSetId("set-1"),
+                sessionId = session.id,
+                exerciseNameRaw = "Bench",
+                liftId = benchId,
+                setIndex = 0,
+                weight = Weight(100.0, Weight.WeightUnit.Kg),
+                reps = 8,
+                rir = 2,
+                completedAt = asOf,
+                liftContext = LoggedLiftContext(benchId.value),
+            ),
+        )
+        // Seed weekly stimulus so Loaded path is hit even if daily is empty (shouldn't be).
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        stimulusRepo.seed(listOf(stimulus(MuscleGroup.Chest, asOf.minus(7, ChronoUnit.DAYS), 8.0)))
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        performanceRepo.seed(listOf(perf(benchId, asOf.minus(7, ChronoUnit.DAYS), 100.0)))
+
+        val viewModel = buildViewModel(
+            stimulusRepo = stimulusRepo,
+            performanceRepo = performanceRepo,
+            liftRepo = liftRepo,
+            trainingLog = trainingLog,
+            programLiftIds = setOf(benchId),
+            zone = newYork,
+            now = asOf,
+        )
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as DashboardUiState.Loaded
+        val daily = loaded.runningDailyVolume.single { it.name == "Chest" }
+        assertEquals(7, daily.dayLabels.size)
+        assertEquals("W", daily.dayLabels.last(), "rightmost label must be local Wednesday")
     }
 
     @Test
@@ -543,6 +610,8 @@ class DashboardViewModelTest {
         programLiftIds: Set<LiftId> = emptySet(),
         cloudSync: FakeCloudSyncPort = FakeCloudSyncPort(),
         dashboardPreferences: FakeDashboardPreferencesRepository = FakeDashboardPreferencesRepository(),
+        zone: ZoneId = testZone,
+        now: Instant? = null,
     ): DashboardViewModel {
         val baseProgram = WorkoutLoggingFixtures.twoWorkoutProgram()
         val program = if (programLiftIds.isEmpty()) {
@@ -590,6 +659,8 @@ class DashboardViewModelTest {
             ),
             observeDashboardPreferences = ObserveDashboardPreferencesUseCase(dashboardPreferences),
             observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
+            zone = zone,
+            clock = { now ?: Instant.now() },
         )
     }
 
