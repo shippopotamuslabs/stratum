@@ -77,7 +77,12 @@ class RebuildLocalDerivedTrainingDataUseCaseTest {
         liftRepo: FakeLiftRepository,
     ): RebuildLocalDerivedTrainingDataUseCase =
         RebuildLocalDerivedTrainingDataUseCase(
-            refreshWeeklySeries = RefreshWeeklySeriesUseCase(logRepo, liftRepo, persistence),
+            localDerivedStages =
+                com.stratum.core.testing.training.localDerivedTrainingStages(
+                    trainingLog = logRepo,
+                    liftRepository = liftRepo,
+                    persistence = persistence,
+                ),
             responseModelingScheduler = modelingScheduler,
             loggingPort = FakeLoggingPort(),
         )

@@ -134,19 +134,11 @@ class WorkoutViewModelTest {
         trainingLogRepository = trainingLog,
         programRepository = programRepo,
         computePersonalRecords = ComputePersonalRecordsUseCase(trainingLog),
-        extractTrainingInsights = ExtractTrainingInsightsUseCase(
-            trainingLogRepository = trainingLog,
-            liftTrainingInsightsRepository = FakeLiftTrainingInsightsRepository(),
-            supersetAffinityRepository = FakeSupersetAffinityRepository(),
-            muscleVolumeBaselineRepository = FakeMuscleVolumeBaselineRepository(),
-            importAnalysisMetadataRepository = FakeImportAnalysisMetadataRepository(),
-            liftRepository = liftRepo,
-        ),
-        refreshWeeklySeries = com.stratum.domain.training.RefreshWeeklySeriesUseCase(
-            trainingLogRepository = trainingLog,
-            liftRepository = liftRepo,
-            persistence = com.stratum.core.testing.response.FakeResponseProfilePersistencePort(),
-        ),
+        localDerivedStages =
+            com.stratum.core.testing.training.localDerivedTrainingStages(
+                trainingLog = trainingLog,
+                liftRepository = liftRepo,
+            ),
         loggingPort = FakeLoggingPort(),
         refreshScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined),
     )
