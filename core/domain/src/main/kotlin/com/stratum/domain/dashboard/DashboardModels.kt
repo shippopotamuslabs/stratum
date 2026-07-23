@@ -52,6 +52,10 @@ data class MuscleDailyVolumeSeries(
  * (`MuscleWeeklyOutcomeIndex.indexValue`: log-e1RM deviation from an 8-wk median baseline,
  * credit × reliability weighted) written by the dose-response pipeline — the "what". `null` when
  * the worker has not produced enough in-window index rows for that muscle.
+ *
+ * [contributingLiftCount] is the number of **distinct primary** lifts that contributed hard-set
+ * stimulus to this muscle over the dashboard window (union across weeks), not the max concurrent
+ * contributors to a single week's outcome index.
  */
 data class MuscleSeries(
     val muscle: MuscleGroup,
