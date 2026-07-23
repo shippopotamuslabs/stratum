@@ -101,11 +101,10 @@ class MergeLiftsUseCaseTest {
                 computePersonalRecords = ComputePersonalRecordsUseCase(logRepo),
                 rebuildLocalDerived =
                     RebuildLocalDerivedTrainingDataUseCase(
-                        refreshWeeklySeries =
-                            RefreshWeeklySeriesUseCase(
-                                trainingLogRepository = logRepo,
+                        localDerivedStages =
+                            com.stratum.core.testing.training.localDerivedTrainingStages(
+                                trainingLog = logRepo,
                                 liftRepository = liftRepo,
-                                persistence = FakeResponseProfilePersistencePort(),
                             ),
                         responseModelingScheduler = FakeResponseModelingSchedulerPort(),
                         loggingPort = logging,

@@ -16,6 +16,7 @@ import com.stratum.domain.theme.ObserveThemePreferencesUseCase
 import com.stratum.domain.theme.SetColorModeUseCase
 import com.stratum.domain.theme.SetThemeFamilyUseCase
 import com.stratum.domain.theme.ThemeFamily
+import com.stratum.domain.training.ForceRefreshDerivedTrainingData
 import com.stratum.domain.workout.ObserveRepRangeShiftProposalsEnabledUseCase
 import com.stratum.domain.workout.SetRepRangeShiftProposalsEnabledUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -42,11 +44,13 @@ class SettingsViewModel @Inject constructor(
     private val setEquipmentProposalsEnabled: SetEquipmentProposalsEnabledUseCase,
     private val setRepRangeShiftProposalsEnabled: SetRepRangeShiftProposalsEnabledUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
+    private val forceRefreshDerived: ForceRefreshDerivedTrainingData,
     private val logout: LogoutUseCase,
     private val deleteAccount: DeleteAccountUseCase,
 ) : ViewModel() {
 
     private val debugStatusMessage = MutableStateFlow<String?>(null)
+    private val rebuildProgressUi = MutableStateFlow(RebuildProgressUi())
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
@@ -75,7 +79,8 @@ class SettingsViewModel @Inject constructor(
             },
             debugStatusMessage,
             accountUi,
-        ) { prefs, debugStatus, account ->
+            rebuildProgressUi,
+        ) { prefs, debugStatus, account, rebuild ->
             SettingsUiState(
                 appearance = prefs.appearance,
                 themeFamily = prefs.themeFamily,
@@ -84,6 +89,9 @@ class SettingsViewModel @Inject constructor(
                 repRangeProposalsEnabled = prefs.repRangeProposalsEnabled,
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
+                isForceRefreshingDerived = rebuild.isRunning,
+                isForceRefreshCooldown = rebuild.isOnCooldown(),
+                showRebuildProgressConfirm = rebuild.showConfirm,
                 showLogoutConfirm = account is AccountUi.ConfirmLogout,
                 isLoggingOut = account is AccountUi.LoggingOut,
                 showDeleteConfirm = account is AccountUi.ConfirmDelete,
@@ -151,6 +159,56 @@ class SettingsViewModel @Inject constructor(
                 return@launch
             }
             debugStatusMessage.value = "Check-in pending — open Programs"
+        }
+    }
+
+    /** Opens the confirm dialog for a full local progress rebuild. */
+    fun onRebuildProgressClick() {
+        val current = rebuildProgressUi.value
+        if (current.isRunning || current.isOnCooldown() || current.showConfirm) return
+        rebuildProgressUi.update { it.copy(showConfirm = true) }
+    }
+
+    fun onRebuildProgressConfirmDismiss() {
+        rebuildProgressUi.update { it.copy(showConfirm = false) }
+    }
+
+    /**
+     * Rebuilds local insights + weekly series and force-queues the full dose-response extract
+     * (bypasses the 20-workout gate). Recovery for missing Dashboard progress after import.
+     */
+    fun onRebuildProgressConfirmed() {
+        val current = rebuildProgressUi.value
+        if (current.isRunning || current.isOnCooldown()) {
+            rebuildProgressUi.update { it.copy(showConfirm = false) }
+            return
+        }
+        rebuildProgressUi.update { it.copy(showConfirm = false, isRunning = true) }
+        viewModelScope.launch {
+            try {
+                forceRefreshDerived()
+                    .onSuccess {
+                        rebuildProgressUi.update {
+                            it.copy(
+                                isRunning = false,
+                                cooldownUntilEpochMs =
+                                    System.currentTimeMillis() + FORCE_REFRESH_COOLDOWN_MS,
+                            )
+                        }
+                        _userMessage.value = MSG_FORCE_REFRESH_QUEUED
+                    }
+                    .onFailure { error ->
+                        if (error is CancellationException) throw error
+                        rebuildProgressUi.update { it.copy(isRunning = false) }
+                        _userMessage.value = MSG_FORCE_REFRESH_FAILED
+                    }
+            } catch (e: CancellationException) {
+                rebuildProgressUi.update { it.copy(isRunning = false) }
+                throw e
+            } catch (_: Throwable) {
+                rebuildProgressUi.update { it.copy(isRunning = false) }
+                _userMessage.value = MSG_FORCE_REFRESH_FAILED
+            }
         }
     }
 
@@ -238,6 +296,15 @@ class SettingsViewModel @Inject constructor(
         val repRangeProposalsEnabled: Boolean,
     )
 
+    private data class RebuildProgressUi(
+        val showConfirm: Boolean = false,
+        val isRunning: Boolean = false,
+        val cooldownUntilEpochMs: Long = 0L,
+    ) {
+        fun isOnCooldown(nowMs: Long = System.currentTimeMillis()): Boolean =
+            nowMs < cooldownUntilEpochMs
+    }
+
     private sealed class AccountUi {
         data object Idle : AccountUi()
         data object ConfirmLogout : AccountUi()
@@ -247,7 +314,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     private companion object {
+        const val FORCE_REFRESH_COOLDOWN_MS = 120_000L
         const val MSG_PREFS_FAILED = "Couldn't save that setting. Try again."
+        const val MSG_FORCE_REFRESH_QUEUED =
+            "Volume charts updated. Progress line refreshes in the background when battery isn’t low."
+        const val MSG_FORCE_REFRESH_FAILED = "Couldn't rebuild progress data. Try again."
         const val MSG_LOGOUT_FAILED = "Couldn't sign out. Try again."
         const val MSG_DELETE_FAILED = "Couldn't delete account. Try again."
         const val MSG_DELETE_AUTH_FAILED =
@@ -269,11 +340,20 @@ data class SettingsUiState(
     /** True only in debug builds; release UI never shows developer tools. */
     val showDebugTools: Boolean = false,
     val debugStatusMessage: String? = null,
+    /** True while insights + weekly series refresh is in flight. */
+    val isForceRefreshingDerived: Boolean = false,
+    /** True briefly after a successful queue so re-taps do not thrash WorkManager. */
+    val isForceRefreshCooldown: Boolean = false,
+    val showRebuildProgressConfirm: Boolean = false,
     val showLogoutConfirm: Boolean = false,
     val isLoggingOut: Boolean = false,
     val showDeleteConfirm: Boolean = false,
     val isDeletingAccount: Boolean = false,
-)
+) {
+    /** Row is not tappable while running, confirming, or in post-queue cooldown. */
+    val isRebuildProgressLocked: Boolean
+        get() = isForceRefreshingDerived || isForceRefreshCooldown || showRebuildProgressConfirm
+}
 
 /** Which post-workout suggestion switch the user toggled. */
 enum class PostWorkoutSuggestionUi {
@@ -292,6 +372,18 @@ data class SettingsAccountActions(
     val onDeleteAccountClick: () -> Unit = {},
     val onDeleteAccountConfirmDismiss: () -> Unit = {},
     val onDeleteAccountConfirmed: () -> Unit = {},
+)
+
+/**
+ * Import / export / rebuild callbacks for [com.stratum.feature.settings.ui.SettingsScreen].
+ * Grouped so the composable stays under Detekt [LongParameterList].
+ */
+data class SettingsDataActions(
+    val onImportDataClick: () -> Unit = {},
+    val onExportDataClick: () -> Unit = {},
+    val onRebuildProgressClick: () -> Unit = {},
+    val onRebuildProgressConfirmDismiss: () -> Unit = {},
+    val onRebuildProgressConfirmed: () -> Unit = {},
 )
 
 /** Light / Dark / System (device) appearance policy. */

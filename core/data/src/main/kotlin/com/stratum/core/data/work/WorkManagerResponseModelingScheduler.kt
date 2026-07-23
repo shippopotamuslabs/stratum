@@ -20,8 +20,9 @@ import javax.inject.Singleton
  * - Domain finalize stays free of WorkManager types (port in domain, impl here).
  * - [ExistingWorkPolicy.KEEP] coalesces rapid finalize storms into one pending job; after the job
  *   finishes the worker's workout-count gate no-ops until due again.
- * - History invalidation uses [ExistingWorkPolicy.REPLACE] with [KEY_FORCE_HISTORY_INVALIDATION]
- *   so an amended session already in the last extract always re-runs (skips the gate).
+ * - Force extract ([enqueueForceExtract]) uses [KEY_FORCE_HISTORY_INVALIDATION] so the worker
+ *   skips the workout-count gate. History edits pass `replaceExisting = true` (REPLACE);
+ *   Settings recovery passes `false` (KEEP) so re-taps do not cancel an in-flight job.
  */
 @Singleton
 class WorkManagerResponseModelingScheduler @Inject constructor(
@@ -32,8 +33,16 @@ class WorkManagerResponseModelingScheduler @Inject constructor(
         enqueue(forceHistoryInvalidation = false, policy = ExistingWorkPolicy.KEEP)
     }
 
-    override fun enqueueHistoryInvalidation() {
-        enqueue(forceHistoryInvalidation = true, policy = ExistingWorkPolicy.REPLACE)
+    override fun enqueueForceExtract(replaceExisting: Boolean) {
+        enqueue(
+            forceHistoryInvalidation = true,
+            policy =
+                if (replaceExisting) {
+                    ExistingWorkPolicy.REPLACE
+                } else {
+                    ExistingWorkPolicy.KEEP
+                },
+        )
     }
 
     private fun enqueue(

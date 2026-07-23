@@ -30,6 +30,7 @@ import com.stratum.feature.settings.AppearanceUi
 import com.stratum.feature.settings.PostWorkoutSuggestionUi
 import com.stratum.feature.settings.R
 import com.stratum.feature.settings.SettingsAccountActions
+import com.stratum.feature.settings.SettingsDataActions
 import com.stratum.feature.settings.SettingsUiState
 import com.stratum.feature.settings.ThemeFamilyUi
 
@@ -43,8 +44,7 @@ fun SettingsScreen(
     onPostWorkoutSuggestionEnabledChange: (PostWorkoutSuggestionUi, Boolean) -> Unit = { _, _ -> },
     onForceCheckInPending: () -> Unit = {},
     onLegalClick: () -> Unit = {},
-    onImportDataClick: () -> Unit = {},
-    onExportDataClick: () -> Unit = {},
+    dataActions: SettingsDataActions = SettingsDataActions(),
     accountActions: SettingsAccountActions = SettingsAccountActions(),
     snackbarHostState: SnackbarHostState? = null,
 ) {
@@ -160,13 +160,33 @@ fun SettingsScreen(
                 StratumPreferenceRow(
                     title = stringResource(R.string.settings_import_data_row_title),
                     subtitle = stringResource(R.string.settings_import_data_row_subtitle),
-                    onClick = onImportDataClick,
+                    onClick = dataActions.onImportDataClick,
                 )
                 SettingsGroupDivider()
                 StratumPreferenceRow(
                     title = stringResource(R.string.settings_export_data_row_title),
                     subtitle = stringResource(R.string.settings_export_data_row_subtitle),
-                    onClick = onExportDataClick,
+                    onClick = dataActions.onExportDataClick,
+                )
+                SettingsGroupDivider()
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_rebuild_progress_row_title),
+                    subtitle =
+                        stringResource(
+                            when {
+                                uiState.isForceRefreshingDerived ->
+                                    R.string.settings_rebuild_progress_row_subtitle_busy
+                                uiState.isForceRefreshCooldown ->
+                                    R.string.settings_rebuild_progress_row_subtitle_queued
+                                else -> R.string.settings_rebuild_progress_row_subtitle
+                            },
+                        ),
+                    onClick =
+                        if (uiState.isRebuildProgressLocked) {
+                            null
+                        } else {
+                            dataActions.onRebuildProgressClick
+                        },
                 )
             }
 
@@ -229,6 +249,19 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    if (uiState.showRebuildProgressConfirm) {
+        StratumConfirmDialog(
+            title = stringResource(R.string.settings_rebuild_progress_confirm_title),
+            body = stringResource(R.string.settings_rebuild_progress_confirm_body),
+            confirmLabel = stringResource(R.string.settings_rebuild_progress_confirm),
+            dismissLabel = stringResource(R.string.settings_rebuild_progress_cancel),
+            onConfirm = dataActions.onRebuildProgressConfirmed,
+            onDismiss = dataActions.onRebuildProgressConfirmDismiss,
+            destructiveConfirm = false,
+            confirmEnabled = !uiState.isForceRefreshingDerived,
+        )
     }
 
     if (uiState.showLogoutConfirm) {

@@ -250,13 +250,17 @@ class UpdateCompletedSessionSetsUseCaseTest {
         val persistence = FakeResponseProfilePersistencePort(metadataRepository = metadataRepo)
         return UpdateCompletedSessionSetsUseCase(
             trainingLogRepository = repo,
-            extractTrainingInsights = insights,
-            refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+            localDerivedStages =
+                com.stratum.core.testing.training.localDerivedTrainingStages(
+                    trainingLog = repo,
+                    extractTrainingInsights = insights,
+                    refreshWeeklySeries =
+                        RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), persistence),
+                ),
             metadataRepository = metadataRepo,
             responseModelingScheduler = scheduler,
             loggingPort = FakeLoggingPort(),
             refreshScope = CoroutineScope(Dispatchers.Unconfined),
-            refreshDispatcher = Dispatchers.Unconfined,
         )
     }
 
