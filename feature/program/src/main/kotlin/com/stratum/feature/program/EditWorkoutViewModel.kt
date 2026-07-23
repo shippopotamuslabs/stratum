@@ -16,9 +16,13 @@ import com.stratum.domain.program.Workout
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.training.AbandonTrainingSessionUseCase
+import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.training.StartTrainingSessionUseCase
+import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.core.ui.component.SupersetLinkDirection
@@ -28,23 +32,28 @@ import com.stratum.feature.program.formatEstimatedWorkoutDuration
 import com.stratum.feature.program.ui.DEFAULT_REST_SECONDS
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
+import com.stratum.feature.program.ui.EditWorkoutUiEvent
 import com.stratum.feature.program.ui.EditWorkoutUiState
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
 import com.stratum.feature.program.ui.SaveBlockedReason
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 // Slice 8 (D11): no AppendProgramChangeEventUseCase wrapper exists; SchemeChanged is
 // appended directly via the repository port (spec API-contracts note).
-@Suppress("ForbiddenRepositoryInViewModel")
+// Start pipeline + set/superset/scheme mutations keep this façade large; start body lives in
+// EditWorkoutStartCoordinator.
+@Suppress("ForbiddenRepositoryInViewModel", "TooManyFunctions", "LargeClass")
 class EditWorkoutViewModel @Inject constructor(
     private val observeProgram: ObserveProgramUseCase,
     private val observeProgramById: ObserveProgramByIdUseCase,
@@ -54,7 +63,19 @@ class EditWorkoutViewModel @Inject constructor(
     private val estimateWorkoutDurationMinutes: EstimateWorkoutDurationMinutesUseCase,
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val workoutEditSession: WorkoutEditSession,
+    startTrainingSession: StartTrainingSessionUseCase,
+    observeCycleProgress: ObserveCycleProgressUseCase,
+    abandonTrainingSession: AbandonTrainingSessionUseCase,
+    manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
 ) : ViewModel() {
+
+    private val startCoordinator =
+        EditWorkoutStartCoordinator(
+            startTrainingSession = startTrainingSession,
+            observeCycleProgress = observeCycleProgress,
+            abandonTrainingSession = abandonTrainingSession,
+            manageWorkoutOverlay = manageWorkoutOverlay,
+        )
 
     init {
         viewModelScope.launch {
@@ -92,12 +113,20 @@ class EditWorkoutViewModel @Inject constructor(
         _userMessage.value = null
     }
 
+    private val _events = Channel<EditWorkoutUiEvent>(Channel.BUFFERED)
+    val events: Flow<EditWorkoutUiEvent> = _events.receiveAsFlow()
+
+    private val _isStarting = MutableStateFlow(false)
+    /** True while a start (save/abandon/session) is in flight — disable Start chrome. */
+    val isStarting: StateFlow<Boolean> = _isStarting.asStateFlow()
+
     private var catalogLifts: List<Lift> = emptyList()
     private var programSnapshot: Program? = null
     private var baselineWorkout: Workout? = null
     /** When set, loads/saves that program (library or active); null = active only. */
     private var scopedProgramId: ProgramId? = null
     private var loadJob: Job? = null
+    private var startJob: Job? = null
 
     fun initialize(workoutId: String, programId: String? = null) {
         if (targetWorkoutId.value == workoutId && hasSnapshot.value && scopedProgramId?.value == programId) {
@@ -146,43 +175,144 @@ class EditWorkoutViewModel @Inject constructor(
         }
 
     fun saveWorkout(onComplete: () -> Unit = {}) {
-        val loaded = _uiState.value as? EditWorkoutUiState.Loaded ?: return
-        val baseline = baselineWorkout ?: return
-        if (loaded.saveBlockedReason != null || loaded.isSaving) {
+        viewModelScope.launch {
+            when (persistWorkoutIfNeeded()) {
+                EditWorkoutStartCoordinator.PersistResult.Success -> onComplete()
+                EditWorkoutStartCoordinator.PersistResult.Failed -> Unit
+                EditWorkoutStartCoordinator.PersistResult.Busy ->
+                    _userMessage.value = EditWorkoutStartCoordinator.MSG_START_BUSY
+                EditWorkoutStartCoordinator.PersistResult.Blocked ->
+                    _userMessage.value = EditWorkoutStartCoordinator.MSG_START_BLOCKED_PLACEHOLDER
+            }
+        }
+    }
+
+    /**
+     * Entry after UI committed the dock and resolved dirty edits (or state is clean).
+     * May emit [EditWorkoutUiEvent.ShowActiveSessionDiscardDialog].
+     */
+    fun requestStartWorkout() {
+        launchStart(discardActiveFirst = false, resolveDirty = null)
+    }
+
+    /**
+     * After dirty Confirm/Discard dialog.
+     * @param saveEdits true = persist first; false = restore baseline without saving.
+     */
+    fun startAfterDirtyResolution(saveEdits: Boolean) {
+        launchStart(
+            discardActiveFirst = false,
+            resolveDirty =
+                if (saveEdits) {
+                    EditWorkoutStartCoordinator.DirtyResolution.Save
+                } else {
+                    EditWorkoutStartCoordinator.DirtyResolution.DiscardLocal
+                },
+        )
+    }
+
+    /** User confirmed abandon of the live session. */
+    fun confirmDiscardActiveAndStart() {
+        launchStart(discardActiveFirst = true, resolveDirty = null)
+    }
+
+    private fun launchStart(
+        discardActiveFirst: Boolean,
+        resolveDirty: EditWorkoutStartCoordinator.DirtyResolution?,
+    ) {
+        if (startJob?.isActive == true) {
+            _userMessage.value = EditWorkoutStartCoordinator.MSG_START_BUSY
             return
         }
-        viewModelScope.launch {
-            _uiState.value = loaded.copy(isSaving = true)
-            val updatedWorkout = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))
+        startJob =
+            viewModelScope.launch {
+                _isStarting.value = true
+                try {
+                    applyStartOutcome(
+                        startCoordinator.run(
+                            uiState = _uiState.value,
+                            scopedProgramId = scopedProgramId,
+                            discardActiveFirst = discardActiveFirst,
+                            resolveDirty = resolveDirty,
+                            persistIfDirty = { persistWorkoutIfNeeded() },
+                            discardLocalEdits = { discardLocalEdits() },
+                        ),
+                    )
+                } finally {
+                    _isStarting.value = false
+                }
+            }
+    }
+
+    private suspend fun applyStartOutcome(outcome: EditWorkoutStartCoordinator.StartOutcome) {
+        when (outcome) {
+            EditWorkoutStartCoordinator.StartOutcome.LibraryScoped,
+            EditWorkoutStartCoordinator.StartOutcome.NotReady,
+            EditWorkoutStartCoordinator.StartOutcome.PersistFailed,
+            -> Unit
+            EditWorkoutStartCoordinator.StartOutcome.NeedsActiveSessionDiscard ->
+                _events.send(EditWorkoutUiEvent.ShowActiveSessionDiscardDialog)
+            is EditWorkoutStartCoordinator.StartOutcome.Navigate ->
+                _events.send(EditWorkoutUiEvent.NavigateToWorkout(outcome.workoutRouteId))
+            is EditWorkoutStartCoordinator.StartOutcome.UserMessage ->
+                _userMessage.value = outcome.message
+        }
+    }
+
+    /** Reset in-memory editor to the last persisted baseline (unsaved edits dropped). */
+    private fun discardLocalEdits() {
+        val baseline = baselineWorkout ?: return
+        val restored =
+            baseline
+                .toEditWorkoutUiState(
+                    catalogLifts.associate { lift -> lift.id.value to lift.name },
+                    catalogLifts.associate { lift -> lift.id.value to lift.isCompound },
+                )
+                .copy(isDirty = false, isSaving = false)
+                .markSaveState()
+        _uiState.value = applyDerivedMetrics(restored)
+    }
+
+    private suspend fun persistWorkoutIfNeeded(): EditWorkoutStartCoordinator.PersistResult {
+        val loaded = _uiState.value as? EditWorkoutUiState.Loaded
+            ?: return EditWorkoutStartCoordinator.PersistResult.Failed
+        val baseline = baselineWorkout
+            ?: return EditWorkoutStartCoordinator.PersistResult.Failed
+        EditWorkoutStartCoordinator.persistResultFor(loaded, isSaving = loaded.isSaving)?.let {
+            return it
+        }
+        if (!loaded.isDirty) {
+            return EditWorkoutStartCoordinator.PersistResult.Success
+        }
+        _uiState.value = loaded.copy(isSaving = true)
+        val updatedWorkout = loaded.lifts.toWorkout(baseline, WorkoutId(loaded.workoutId))
+        val result =
             saveWorkoutUseCase(
                 workoutId = WorkoutId(loaded.workoutId),
                 updatedWorkout = updatedWorkout,
                 programId = scopedProgramId ?: programSnapshot?.id,
             )
-                .onSuccess {
-                    // Slice 8 (D11): append a SchemeChanged event for each lift whose
-                    // progression scheme differs from the baseline (compounds only —
-                    // isolation toggles are no-ops in setProgressionScheme). Append-only.
-                    appendSchemeChangedEvents(baseline, updatedWorkout)
-                    appendLiftSwappedEvents(baseline, updatedWorkout)
-                    baselineWorkout = updatedWorkout
-                    programSnapshot =
-                        programSnapshot?.mergeWorkout(WorkoutId(loaded.workoutId), updatedWorkout)
-                    val savedState =
-                        updatedWorkout
-                            .toEditWorkoutUiState(
-                                catalogLifts.associate { lift -> lift.id.value to lift.name },
-                                catalogLifts.associate { lift -> lift.id.value to lift.isCompound },
-                            )
-                            .copy(isDirty = false, isSaving = false)
-                            .markSaveState()
-                    _uiState.value = applyDerivedMetrics(savedState)
-                    onComplete()
-                }
-                .onFailure {
-                    _uiState.value = loaded.copy(isSaving = false)
-                    _userMessage.value = MSG_SAVE_FAILED
-                }
+        return if (result.isSuccess) {
+            // Slice 8 (D11): append SchemeChanged / LiftSwapped for baseline diffs.
+            appendSchemeChangedEvents(baseline, updatedWorkout)
+            appendLiftSwappedEvents(baseline, updatedWorkout)
+            baselineWorkout = updatedWorkout
+            programSnapshot =
+                programSnapshot?.mergeWorkout(WorkoutId(loaded.workoutId), updatedWorkout)
+            val savedState =
+                updatedWorkout
+                    .toEditWorkoutUiState(
+                        catalogLifts.associate { lift -> lift.id.value to lift.name },
+                        catalogLifts.associate { lift -> lift.id.value to lift.isCompound },
+                    )
+                    .copy(isDirty = false, isSaving = false)
+                    .markSaveState()
+            _uiState.value = applyDerivedMetrics(savedState)
+            EditWorkoutStartCoordinator.PersistResult.Success
+        } else {
+            _uiState.value = loaded.copy(isSaving = false)
+            _userMessage.value = MSG_SAVE_FAILED
+            EditWorkoutStartCoordinator.PersistResult.Failed
         }
     }
 
