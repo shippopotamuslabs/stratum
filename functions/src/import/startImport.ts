@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { isHistoricalImportJobStale } from "./importJobGuards";
+import { parseFallbackWeightUnit } from "./weightUnit";
 
 /**
  * Canonical client layout for historical import objects:
@@ -115,6 +116,8 @@ export const startImport = onCall(async (request) => {
     jobId?: string;
     rawStoragePath?: string;
     sampleStoragePath?: string;
+    /** Optional "Lb" | "Kg" — used when converted sets omit weightUnit. Defaults Lb. */
+    fallbackWeightUnit?: string;
   };
   if (!data.jobId || !data.rawStoragePath || !data.sampleStoragePath) {
     throw new HttpsError(
@@ -123,6 +126,7 @@ export const startImport = onCall(async (request) => {
     );
   }
   assertOwnedImportStoragePaths(uid, data.rawStoragePath, data.sampleStoragePath);
+  const fallbackWeightUnit = parseFallbackWeightUnit(data.fallbackWeightUnit);
 
   // Job id in the path must match the job doc id the client claims.
   const pathJobId = parseOwnedImportPath(uid, data.rawStoragePath, "raw");
@@ -174,6 +178,7 @@ export const startImport = onCall(async (request) => {
       status: "pending_agent",
       rawStoragePath: data.rawStoragePath,
       sampleStoragePath: data.sampleStoragePath,
+      fallbackWeightUnit,
       agentTurnCount: 0,
       progressPhase: "reading_data",
       progressMessage: "Preparing import…",
@@ -187,3 +192,5 @@ export const startImport = onCall(async (request) => {
 
   return { jobId: data.jobId, status: "pending_agent" };
 });
+
+export { parseFallbackWeightUnit } from "./weightUnit";

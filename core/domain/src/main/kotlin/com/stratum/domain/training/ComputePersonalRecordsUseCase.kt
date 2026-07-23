@@ -1,5 +1,6 @@
 package com.stratum.domain.training
 
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import javax.inject.Inject
 
@@ -18,11 +19,18 @@ class ComputePersonalRecordsUseCase @Inject constructor(
         val updatedIncoming = mutableListOf<LoggedSet>()
         val oldPrSetsToUpdate = mutableMapOf<String, LoggedSet>()
 
-        // 1. Calculate estimatedOneRm for all incoming sets (considering RIR if present)
+        // 1. e1RM in **Lb magnitude** (RIR-adjusted). Assisted loads are negative in storage;
+        //    use abs so e1RM stays positive and comparable across load types.
         val setsWithE1rm = newOrUpdatedSets.map { set ->
             if (set.liftId != null && set.reps > 0) {
                 val effectiveReps = set.reps + (set.rir ?: 0)
-                val e1Rm = EstimatedOneRm.calculate(set.weight.amount, effectiveReps)
+                val loadMagnitudeLb = WeightConversion.loadMagnitudeLb(set.weight)
+                val e1Rm =
+                    if (loadMagnitudeLb > 0.0 && effectiveReps > 0) {
+                        EstimatedOneRm.calculate(loadMagnitudeLb, effectiveReps)
+                    } else {
+                        null
+                    }
                 set.copy(
                     estimatedOneRm = e1Rm,
                     isPersonalRecord = false

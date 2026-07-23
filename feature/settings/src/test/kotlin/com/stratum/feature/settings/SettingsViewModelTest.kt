@@ -7,6 +7,7 @@ import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAccountDeletionPort
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.checkin.FakeCheckInPreferencesRepository
+import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.onboarding.FakeEquipmentProposalPreferences
 import com.stratum.core.testing.sync.FakeCloudSyncPort
 import com.stratum.core.testing.theme.FakeThemePreferencesRepository
@@ -20,7 +21,11 @@ import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.domain.checkin.SetCheckInEnabledUseCase
 import com.stratum.domain.lift.ObserveEquipmentProposalsEnabledUseCase
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentProposalsEnabledUseCase
+import com.stratum.domain.lift.SetWeightDisplayUnitUseCase
+import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightDisplayPreferences
 import com.stratum.domain.sync.EndSessionAndWipeUseCase
 import com.stratum.domain.sync.StartCloudSyncUseCase
 import com.stratum.domain.sync.StopCloudSyncUseCase
@@ -55,6 +60,7 @@ class SettingsViewModelTest {
     private val fakeCheckInPreferences = FakeCheckInPreferencesRepository()
     private val fakeEquipmentProposals = FakeEquipmentProposalPreferences()
     private val fakeRepRangeProposals = FakeRepRangeShiftProposalPreferences()
+    private val fakeWeightDisplayPreferences = FakeWeightDisplayPreferencesRepository()
     private lateinit var fakeAuth: FakeAuthManager
     private lateinit var fakeCloudSync: FakeCloudSyncPort
     private lateinit var fakeAccountDeletion: FakeAccountDeletionPort
@@ -72,6 +78,7 @@ class SettingsViewModelTest {
         fakeCheckInPreferences.seed(CheckInPreferences())
         fakeEquipmentProposals.seedEnabled(true)
         fakeRepRangeProposals.seedEnabled(true)
+        fakeWeightDisplayPreferences.seed(WeightDisplayPreferences())
         fakeAuth = FakeAuthManager(
             AuthState.Authenticated(UserProfile("uid-1", "Test", "t@example.com", null)),
         )
@@ -95,6 +102,8 @@ class SettingsViewModelTest {
                 ObserveEquipmentProposalsEnabledUseCase(fakeEquipmentProposals),
             observeRepRangeShiftProposalsEnabled =
                 ObserveRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(fakeWeightDisplayPreferences),
             setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences, FakeLoggingPort()),
             setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
             setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
@@ -102,6 +111,8 @@ class SettingsViewModelTest {
                 SetEquipmentProposalsEnabledUseCase(fakeEquipmentProposals, FakeLoggingPort()),
             setRepRangeShiftProposalsEnabled =
                 SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals, FakeLoggingPort()),
+            setWeightDisplayUnit =
+                SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences, FakeLoggingPort()),
             markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
             forceRefreshDerived = forceRefresh,
             logout = LogoutUseCase(
@@ -126,6 +137,7 @@ class SettingsViewModelTest {
             val state = awaitItem()
             assertEquals(AppearanceUi.System, state.appearance)
             assertEquals(ThemeFamilyUi.Stratum, state.themeFamily)
+            assertEquals(WeightUnitUi.Lbs, state.weightUnit)
             assertTrue(state.checkInsEnabled)
             assertTrue(state.equipmentProposalsEnabled)
             assertTrue(state.repRangeProposalsEnabled)
@@ -229,6 +241,19 @@ class SettingsViewModelTest {
         assertFalse(fakeCheckInPreferences.current.enabled)
         subject.uiState.test {
             assertFalse(awaitItem().checkInsEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("When weight unit selected then repository stores Kg")
+    fun weightUnitSelectionPersists() = runTest {
+        subject.onWeightUnitSelected(WeightUnitUi.Kg)
+        advanceUntilIdle()
+
+        assertEquals(Weight.WeightUnit.Kg, fakeWeightDisplayPreferences.current.displayUnit)
+        subject.uiState.test {
+            assertEquals(WeightUnitUi.Kg, awaitItem().weightUnit)
             cancelAndIgnoreRemainingEvents()
         }
     }

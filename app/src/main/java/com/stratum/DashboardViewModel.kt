@@ -19,8 +19,11 @@ import com.stratum.domain.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsSlope
 import com.stratum.domain.dashboard.slopeToDirection
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.domain.sync.SyncStatus
@@ -42,6 +45,7 @@ class DashboardViewModel(
     private val setDashboardBoardTab: SetDashboardBoardTabUseCase,
     observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
     observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
+    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     /**
      * Device calendar zone for 7-Day buckets + labels. Captured once so load and presentation
      * cannot drift. Unit tests pass a fixed zone via the primary constructor.
@@ -61,12 +65,14 @@ class DashboardViewModel(
         setDashboardBoardTab: SetDashboardBoardTabUseCase,
         observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
         observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
+        observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     ) : this(
         loadDashboard,
         loadGraphDetail,
         setDashboardBoardTab,
         observeDashboardPreferences,
         observeCloudSyncStatus,
+        observeWeightDisplayPreferences,
         ZoneId.systemDefault(),
         Instant::now,
     )
@@ -85,14 +91,29 @@ class DashboardViewModel(
     private val _selectedTab = MutableStateFlow(DashboardBoardTabUi.Muscles)
     val selectedTab: StateFlow<DashboardBoardTabUi> = _selectedTab.asStateFlow()
 
+    /** Preferred weight unit for lift e1RM headlines, chart points, and graph detail. */
+    private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
+
     private var loadJob: Job? = null
     private var detailJob: Job? = null
     private var detailSession: GraphDetailSession? = null
+    /** Last successful domain summary so unit toggles re-map without a reload. */
+    private var lastSummary: DashboardSummary? = null
 
     init {
         viewModelScope.launch {
             observeDashboardPreferences().collect { prefs ->
                 _selectedTab.value = prefs.selectedTab.toUi()
+            }
+        }
+        viewModelScope.launch {
+            observeWeightDisplayPreferences().collect { prefs ->
+                if (displayUnit.value == prefs.displayUnit) return@collect
+                displayUnit.value = prefs.displayUnit
+                lastSummary?.let { summary ->
+                    _uiState.value = summary.toUiState(prefs.displayUnit, zone)
+                }
+                publishReady()
             }
         }
         load()
@@ -144,7 +165,9 @@ class DashboardViewModel(
                 _uiState.value = DashboardUiState.Loading
             }
             val summary = loadDashboard(now = clock(), zone = zone)
-            _uiState.value = summary?.toUiState() ?: DashboardUiState.Empty
+            lastSummary = summary
+            _uiState.value =
+                summary?.toUiState(displayUnit.value, zone) ?: DashboardUiState.Empty
         }
     }
 
@@ -199,7 +222,10 @@ class DashboardViewModel(
 
     private fun publishReady() {
         val session = detailSession ?: return
-        _graphDetailState.value = session.toReadyUi(now = clock())
+        _graphDetailState.value = session.toReadyUi(
+            now = clock(),
+            displayUnit = displayUnit.value,
+        )
     }
 }
 
@@ -271,7 +297,10 @@ data class LiftSeriesUi(
 /** Coarse direction used to pick a color + arrow glyph in the UI. */
 enum class TrendBadge { Up, Flat, Down, Unknown }
 
-private fun DashboardSummary.toUiState(): DashboardUiState.Loaded {
+private fun DashboardSummary.toUiState(
+    displayUnit: Weight.WeightUnit,
+    zone: ZoneId,
+): DashboardUiState.Loaded {
     val muscleHighlights = callouts
         .filter { it.kind == CalloutKind.Muscle }
         .associate { it.subjectName to it.direction.toUi() }
@@ -281,7 +310,10 @@ private fun DashboardSummary.toUiState(): DashboardUiState.Loaded {
     return DashboardUiState.Loaded(
         windowWeeks = windowWeeks,
         muscles = muscles.map { it.toUi(highlight = muscleHighlights[it.displayName]) },
-        liftSections = lifts.toLiftSections(highlights = liftHighlights),
+        liftSections = lifts.toLiftSections(
+            highlights = liftHighlights,
+            displayUnit = displayUnit,
+        ),
         // Use the zone that bucketed the series — never re-resolve systemDefault here.
         runningDailyVolume = runningDailyVolume.map { it.toUi(zone = zone) },
     )
@@ -350,6 +382,7 @@ private fun CalloutDirection.toUi(): CalloutDirectionUi = when (this) {
  */
 private fun List<LiftSeries>.toLiftSections(
     highlights: Map<String, CalloutDirectionUi>,
+    displayUnit: Weight.WeightUnit,
 ): List<LiftSectionUi> {
     if (isEmpty()) return emptyList()
     val sections = mutableListOf<LiftSectionUi>()
@@ -371,7 +404,7 @@ private fun List<LiftSeries>.toLiftSections(
             flush()
         }
         currentIsLower = lift.isLower
-        currentLifts += lift.toUi(highlight = highlights[lift.name])
+        currentLifts += lift.toUi(highlight = highlights[lift.name], displayUnit = displayUnit)
     }
     flush()
     return sections
@@ -421,16 +454,29 @@ internal fun alignMuscleSeries(
     return progressPoints to volumePoints
 }
 
-private fun LiftSeries.toUi(highlight: CalloutDirectionUi?): LiftSeriesUi {
+private fun LiftSeries.toUi(
+    highlight: CalloutDirectionUi?,
+    displayUnit: Weight.WeightUnit,
+): LiftSeriesUi {
+    // Slope stays on kg domain series (threshold is kg/week).
     val slope = olsSlope(performanceSeries)
     val direction = slopeToDirection(slope, LIFT_E1RM_SLOPE_THRESHOLD)
+    val e1rmDisplay = latestE1rm?.let { weight ->
+        // Analytics tag peak e1RM as kg; convert for the preferred display unit.
+        val amount =
+            WeightConversion.convertAmount(weight.amount, weight.unit, displayUnit)
+        "${amount.toInt()} ${displayUnit.shortLabel()}"
+    }
     return LiftSeriesUi(
         name = name,
         liftId = liftId.value,
-        e1rmText = latestE1rm?.let { "${it.amount.toInt()} ${it.unit.shortLabel()}" },
+        e1rmText = e1rmDisplay,
         badge = direction.toBadge(),
-        performancePoints = performanceSeries.toPoints(),
-        volumePoints = volumeSeries.toPoints(),
+        performancePoints = performanceSeries.toPoints(
+            scaleFromKg = true,
+            displayUnit = displayUnit,
+        ),
+        volumePoints = volumeSeries.toPoints(scaleFromKg = false, displayUnit = displayUnit),
         sessions = sessionCount,
         highlight = highlight,
     )
@@ -440,10 +486,25 @@ private fun LiftSeries.toUi(highlight: CalloutDirectionUi?): LiftSeriesUi {
  * Maps a domain series to UI points. Values are passed through as Floats; the chart normalizes
  * jointly when two series coexist (progress + volume), or solo for a single series. The weekIndex
  * is the positional index in the sorted series for the tap-to-inspect hook.
+ *
+ * When [scaleFromKg] is true (lift e1RM series), values convert from kg into [displayUnit].
  */
-private fun List<TrendPoint>?.toPoints(): List<TrendPointUi> =
+private fun List<TrendPoint>?.toPoints(
+    scaleFromKg: Boolean,
+    displayUnit: Weight.WeightUnit,
+): List<TrendPointUi> =
     this?.sortedBy { it.weekStart }?.mapIndexed { index, point ->
-        TrendPointUi(weekIndex = index, value = point.value.toFloat())
+        val value =
+            if (scaleFromKg) {
+                WeightConversion.convertAmount(
+                    point.value,
+                    Weight.WeightUnit.Kg,
+                    displayUnit,
+                ).toFloat()
+            } else {
+                point.value.toFloat()
+            }
+        TrendPointUi(weekIndex = index, value = value)
     } ?: emptyList()
 
 private fun com.stratum.domain.dashboard.SeriesDirection.toBadge(): TrendBadge = when (this) {
@@ -451,11 +512,6 @@ private fun com.stratum.domain.dashboard.SeriesDirection.toBadge(): TrendBadge =
     com.stratum.domain.dashboard.SeriesDirection.Flat -> TrendBadge.Flat
     com.stratum.domain.dashboard.SeriesDirection.Down -> TrendBadge.Down
     com.stratum.domain.dashboard.SeriesDirection.Insufficient -> TrendBadge.Unknown
-}
-
-private fun Weight.WeightUnit.shortLabel(): String = when (this) {
-    Weight.WeightUnit.Lb -> "lb"
-    Weight.WeightUnit.Kg -> "kg"
 }
 
 /** Presentation keys for section headers — mapped to string resources in the UI layer. */

@@ -1,5 +1,6 @@
 package com.stratum.domain.workout
 
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.fatigue.FatigueModel
 import javax.inject.Inject
@@ -18,11 +19,13 @@ class EstimateAddedSetRepsUseCase @Inject constructor(
         perLiftSlope: Double?,
         perLiftIntercept: Double?,
     ): Int {
-        if (previousRecommendation.recommendedWeight.amount <= 0.0 || previousRecommendation.baselineExpectedReps <= 0) {
+        val loadMagnitudeLb =
+            WeightConversion.loadMagnitudeLb(previousRecommendation.recommendedWeight)
+        if (loadMagnitudeLb <= 0.0 || previousRecommendation.baselineExpectedReps <= 0) {
             return previousRecommendation.baselineExpectedReps.coerceAtLeast(1)
         }
         val baselineOneRm = EstimatedOneRm.calculate(
-            previousRecommendation.recommendedWeight.amount,
+            loadMagnitudeLb,
             previousRecommendation.baselineExpectedReps,
         )
         return fatigueModel.expectedRepsForAddedSet(

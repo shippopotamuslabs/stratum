@@ -7,8 +7,6 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
 
 object TrainingSignalCleaner {
-    private const val LB_TO_KG = 0.45359237
-
     fun clean(input: ResponseExtractionInput): List<CleanTrainingSet> {
         val resolvedSets = input.sets.filter { it.liftId != null && it.reps > 0 }
         val mixedUnitLifts = detectMixedUnitLifts(resolvedSets)
@@ -89,8 +87,5 @@ object TrainingSignalCleaner {
             }
 
     private fun normalizeToKg(weight: Weight): Double =
-        when (weight.unit) {
-            Weight.WeightUnit.Kg -> weight.amount
-            Weight.WeightUnit.Lb -> weight.amount * LB_TO_KG
-        }
+        com.stratum.domain.lift.WeightConversion.amountInKg(weight)
 }

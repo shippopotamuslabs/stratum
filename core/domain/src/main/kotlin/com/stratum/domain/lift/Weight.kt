@@ -2,12 +2,14 @@ package com.stratum.domain.lift
 
 /**
  * A weight magnitude together with its unit. Introduced in OS-4 as the unit for increment
- * tiers (§2.2 mandates a domain `Weight` type). Unit selection is not exposed in onboarding
- * — the seed catalog ships lb tiers (the §10 "lb vs kg default" question is still open);
- * [Kg] exists so a future units setting can hold the same amount in either system.
+ * tiers (§2.2 mandates a domain `Weight` type).
  *
- * Pure value type — no arithmetic surface beyond what tiers need; comparisons go through the
- * amount in the lift's own unit (tiers on a single lift share a unit).
+ * **Canonical storage for training loads is [WeightUnit.Lb]** (logged sets after import/live
+ * log, increment tier amounts in Room). [Kg] is used for display conversion and for
+ * analytics series that normalize to kg. User preference is [WeightDisplayPreferences].
+ *
+ * Pure value type — lattice/compare math should convert via [WeightConversion] / [toStorageLb]
+ * when units may differ.
  */
 data class Weight(
     val amount: Double,

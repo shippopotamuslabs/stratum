@@ -4,6 +4,7 @@ import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.workout.fatigue.FatigueModel
 import javax.inject.Inject
@@ -118,14 +119,16 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         perLiftSlope: Double?,
         perLiftIntercept: Double?,
     ): Int {
-        if (lastPerformed == null || lastPerformed.weight.amount <= 0.0 || targetWeight.amount <= 0.0) {
+        val lastLoadLb = lastPerformed?.let { WeightConversion.loadMagnitudeLb(it.weight) } ?: 0.0
+        val targetLoadLb = WeightConversion.loadMagnitudeLb(targetWeight)
+        if (lastPerformed == null || lastLoadLb <= 0.0 || targetLoadLb <= 0.0) {
             return 1
         }
         val effectiveRir = lastPerformed.rir ?: 0
         val baselineReps = lastPerformed.reps + effectiveRir
         if (baselineReps <= 0) return 1
         val baselineOneRm = EstimatedOneRm.calculate(
-            lastPerformed.weight.amount,
+            lastLoadLb,
             baselineReps,
         )
         val rawCapacityReps = fatigueModel.expectedRepsForAddedSet(

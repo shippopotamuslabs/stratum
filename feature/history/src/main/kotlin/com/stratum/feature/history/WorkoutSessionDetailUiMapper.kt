@@ -4,6 +4,7 @@ import com.stratum.core.ui.component.formatSetPerformance
 import com.stratum.core.ui.component.formatWorkoutDuration
 import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.training.WorkoutSessionDetail
 import com.stratum.feature.history.ui.HistoryDaySessionSummaryUi
 import com.stratum.feature.history.ui.HistoryLiftUi
@@ -17,7 +18,10 @@ import java.util.Locale
 
 /** Maps domain session detail → history presentation models. */
 internal object WorkoutSessionDetailUiMapper {
-    fun toDetailLoaded(detail: WorkoutSessionDetail): WorkoutSessionDetailUiState.Loaded =
+    fun toDetailLoaded(
+        detail: WorkoutSessionDetail,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): WorkoutSessionDetailUiState.Loaded =
         WorkoutSessionDetailUiState.Loaded(
             workoutName = detail.workoutName,
             completedAtLabel = formatCompletedAt(detail.completedAt),
@@ -36,8 +40,10 @@ internal object WorkoutSessionDetailUiMapper {
                                     setIndex = set.setIndex,
                                     performanceLabel =
                                         formatSetPerformance(
-                                            set.weight.amount,
-                                            set.reps,
+                                            weight = set.weight,
+                                            reps = set.reps,
+                                            displayUnit = displayUnit,
+                                            includeUnit = false,
                                         ),
                                     rir = set.rir,
                                     isPersonalRecord = set.isPersonalRecord,

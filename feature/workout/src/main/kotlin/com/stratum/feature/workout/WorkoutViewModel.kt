@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.stratum.domain.importing.FatigueDecay
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
 import com.stratum.domain.lift.LoadType
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.storageWeightFromDisplay
+
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -89,7 +92,7 @@ import kotlinx.coroutines.sync.withLock
  * the snapshot).
  */
 @HiltViewModel
-@Suppress("LargeClass", "TooManyFunctions")
+@Suppress("LargeClass", "TooManyFunctions", "LongParameterList")
 // Session owner: structure helpers live in LiveWorkoutOverlayOps; further split is a follow-up.
 class WorkoutViewModel @Inject constructor(
     private val observeCycleProgress: ObserveCycleProgressUseCase,
@@ -111,9 +114,28 @@ class WorkoutViewModel @Inject constructor(
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val liveWorkoutSurfaces: LiveWorkoutSurfaces,
+    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
 
+    /**
+     * Preferred **display** unit (Settings). Live log storage is always **Lb** (canonical).
+     * Bumped via [displayUnitEpoch] so Compose draft stores clear on flip.
+     */
+    private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
+    private val displayUnitEpoch = MutableStateFlow(0)
+
     init {
+        viewModelScope.launch {
+            observeWeightDisplayPreferences().collect { prefs ->
+                if (displayUnit.value == prefs.displayUnit) return@collect
+                displayUnit.value = prefs.displayUnit
+                displayUnitEpoch.value += 1
+                // Re-render so recs/logged amounts flip units; drafts reseed via epoch.
+                if (_uiState.value is WorkoutUiState.Loaded) {
+                    render()
+                }
+            }
+        }
         viewModelScope.launch {
             workoutEditSession.events.collect { event ->
                 when (event) {
@@ -448,22 +470,21 @@ class WorkoutViewModel @Inject constructor(
             }
         }.sorted()
 
+    /** Unit live set fields are shown/typed in (Settings preference). */
+    fun currentDisplayUnit(): Weight.WeightUnit = displayUnit.value
+
     fun logSet(slotKey: String, weight: Weight, reps: Int, rir: Int?) {
         val session = cachedSessionId ?: return
         val slot = resolveSlotByKey(slotKey) ?: return
         val slotId = slot.slotId
-        // loadType-aware weight normalization before the value reaches the log use case:
-        //  - Bodyweight: force 0 (the UI hides the weight input, but guard anyway).
-        //  - Assisted: the user types a positive assistance amount; negate it so the
-        //    persisted value matches the negative-weight sign convention (LoadType.kt).
-        //  - Weighted: pass through unchanged.
+        // Canonical storage: always Lb. [weight] is display-unit magnitude from the UI.
         val loadType = liftsById[slot.liftId]?.loadType ?: LoadType.Weighted
-        val normalizedWeight = when (loadType) {
-            LoadType.Bodyweight -> Weight(0.0, weight.unit)
-            LoadType.Assisted ->
-                if (weight.amount > 0.0) Weight(-weight.amount, weight.unit) else weight
-            LoadType.Weighted -> weight
-        }
+        val normalizedWeight =
+            storageWeightFromDisplay(
+                displayAmount = weight.amount,
+                displayUnit = weight.unit,
+                loadType = loadType,
+            )
         viewModelScope.launch {
             setLogMutex.withLock {
                 // Re-read after lock so concurrent first-completes do not double-insert.
@@ -1144,6 +1165,8 @@ class WorkoutViewModel @Inject constructor(
             hasIncompleteLifts = hasIncompleteLifts,
             hasDirtyEdits = hasDirtyEdits,
             imageUrlByLiftId = imageUrlByLiftId,
+            displayUnit = displayUnit.value,
+            displayUnitEpoch = displayUnitEpoch.value,
         )
         // Active-workout notification snapshot is derived from domain session by
         // DomainActiveSessionSurfaceSync — do not dual-publish from render().

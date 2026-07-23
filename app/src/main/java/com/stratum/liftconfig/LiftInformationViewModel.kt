@@ -2,6 +2,7 @@ package com.stratum.liftconfig
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stratum.core.ui.component.formatWeightForDisplay
 import com.stratum.domain.lift.CustomLiftDetails
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.Lift
@@ -9,11 +10,13 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SeedEquipmentIds
 import com.stratum.domain.lift.SetLiftDefaultRestUseCase
 import com.stratum.domain.lift.SetLiftEquipmentUseCase
 import com.stratum.domain.lift.UpdateCustomLiftDetailsUseCase
 import com.stratum.domain.lift.UpdateLiftMusclesUseCase
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.classifyLiftCategory
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.LiftId
@@ -99,6 +102,7 @@ data class LiftInformationUiState(
 @HiltViewModel
 class LiftInformationViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
+    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val updateLiftMuscles: UpdateLiftMusclesUseCase,
     private val updateCustomLiftDetails: UpdateCustomLiftDetailsUseCase,
     private val setLiftDefaultRest: SetLiftDefaultRestUseCase,
@@ -143,12 +147,14 @@ class LiftInformationViewModel @Inject constructor(
         val expanded: Set<String>,
         val history: LiftHistory?,
         val sheets: SheetControls,
+        val displayUnit: Weight.WeightUnit,
     )
 
     val uiState: StateFlow<LiftInformationUiState> =
         combine(
             liftId,
             observeLiftCatalog(),
+            observeWeightDisplayPreferences(),
             combine(
                 selectedTab,
                 muscleRole,
@@ -164,11 +170,16 @@ class LiftInformationViewModel @Inject constructor(
                     SheetControls(showAdd, editing, drafts, restDraft, draft)
                 },
             ) { tab, role, expanded, hist, sheets ->
-                UiControls(tab, role, expanded, hist, sheets)
+                // displayUnit filled in the outer combine
+                UiControls(tab, role, expanded, hist, sheets, Weight.WeightUnit.Lb)
             },
-        ) { id, catalog, controls ->
+        ) { id, catalog, weightPrefs, controls ->
             val lift = catalog.firstOrNull { it.id.value == id }
-            mapState(id, lift, controls)
+            mapState(
+                id,
+                lift,
+                controls.copy(displayUnit = weightPrefs.displayUnit),
+            )
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
@@ -450,19 +461,20 @@ class LiftInformationViewModel @Inject constructor(
                     ),
             )
         }
-        val pr = controls.history?.personalRecord?.toPrUi()
+        val displayUnit = controls.displayUnit
+        val pr = controls.history?.personalRecord?.toPrUi(displayUnit)
         val sessions =
             controls.history?.sessions.orEmpty().map { session ->
                 LiftHistorySessionUi(
                     sessionId = session.sessionId.value,
                     dateText = formatDate(session.completedAt),
                     workoutLabel = session.workoutLabel,
-                    bestSetText = session.bestSet.toWeightRepsText(),
+                    bestSetText = session.bestSet.toWeightRepsText(displayUnit),
                     sets =
                         session.sets.map { set ->
                             LiftHistorySetUi(
                                 setIndex = set.setIndex + 1,
-                                weightRepsText = set.toWeightRepsText(),
+                                weightRepsText = set.toWeightRepsText(displayUnit),
                                 rir = set.rir,
                             )
                         },
@@ -523,31 +535,25 @@ class LiftInformationViewModel @Inject constructor(
             equipmentId = equipmentId,
         )
 
-    private fun LoggedSet.toPrUi(): LiftPrUi =
+    private fun LoggedSet.toPrUi(displayUnit: Weight.WeightUnit): LiftPrUi =
         LiftPrUi(
             dateText = formatDate(completedAt),
-            weightRepsText = toWeightRepsText(),
+            weightRepsText = toWeightRepsText(displayUnit),
             rir = rir,
             e1rmText =
                 estimatedOneRm?.let { e1 ->
-                    formatWeight(e1, weight.unit)
+                    // e1RM amount is in the same unit as the logged weight.
+                    formatWeightForDisplay(
+                        Weight(e1, weight.unit),
+                        displayUnit = displayUnit,
+                        includeUnit = true,
+                    )
                 } ?: "—",
         )
 
-    private fun LoggedSet.toWeightRepsText(): String {
-        val w = formatWeight(weight.amount, weight.unit)
+    private fun LoggedSet.toWeightRepsText(displayUnit: Weight.WeightUnit): String {
+        val w = formatWeightForDisplay(weight, displayUnit = displayUnit, includeUnit = true)
         return "$w × $reps"
-    }
-
-    private fun formatWeight(amount: Double, unit: com.stratum.domain.lift.Weight.WeightUnit): String {
-        val number =
-            if (amount % 1.0 == 0.0) amount.toInt().toString() else "%.1f".format(amount)
-        val unitLabel =
-            when (unit) {
-                com.stratum.domain.lift.Weight.WeightUnit.Lb -> "lb"
-                com.stratum.domain.lift.Weight.WeightUnit.Kg -> "kg"
-            }
-        return "$number $unitLabel"
     }
 
     private fun formatDate(instant: Instant): String =

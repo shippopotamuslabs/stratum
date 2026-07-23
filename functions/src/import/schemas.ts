@@ -114,7 +114,13 @@ export function normalizeImportTimestamp(raw: string): string {
   );
 }
 
-export function validateNormalizedHistory(data: unknown): NormalizedHistory {
+/**
+ * @param fallbackWeightUnit applied when a set omits weightUnit / blank (job-level import default).
+ */
+export function validateNormalizedHistory(
+  data: unknown,
+  fallbackWeightUnit: "Lb" | "Kg" = "Lb",
+): NormalizedHistory {
   if (!data || typeof data !== "object") {
     throw new Error("Output must be a JSON object.");
   }
@@ -146,13 +152,16 @@ export function validateNormalizedHistory(data: unknown): NormalizedHistory {
       typeof row.exerciseNameRaw !== "string" ||
       typeof row.setIndex !== "number" ||
       typeof row.weightAmount !== "number" ||
-      typeof row.weightUnit !== "string" ||
       typeof row.reps !== "number" ||
       typeof row.completedAt !== "string"
     ) {
-      throw new Error("Each set requires id, sessionId, exerciseNameRaw, setIndex, weightAmount, weightUnit, reps, completedAt.");
+      throw new Error("Each set requires id, sessionId, exerciseNameRaw, setIndex, weightAmount, reps, completedAt.");
     }
-    row.weightUnit = normalizeWeightUnit(row.weightUnit as string);
+    const rawUnit =
+      typeof row.weightUnit === "string" && row.weightUnit.trim().length > 0
+        ? row.weightUnit
+        : fallbackWeightUnit;
+    row.weightUnit = normalizeWeightUnit(rawUnit);
     row.completedAt = normalizeImportTimestamp(row.completedAt as string);
   }
   const history = obj as unknown as NormalizedHistory;

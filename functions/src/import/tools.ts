@@ -12,6 +12,7 @@ import {
   validateNormalizedHistory,
 } from "./schemas";
 import { ImportValidationError, validationErrorToolPayload } from "./importValidation";
+import { parseFallbackWeightUnit } from "./weightUnit";
 
 export interface ToolContext {
   uid: string;
@@ -157,7 +158,9 @@ async function executeOnSample(
   }
   const result = await invokeSandbox(ctx, scriptPath, ctx.sampleStoragePath);
   const preview = limitSamplePreview(result.outputJson);
-  validateNormalizedHistory(JSON.parse(result.outputJson));
+  const sampleJob = (await ctx.jobRef.get()).data() ?? {};
+  const sampleFallback = parseFallbackWeightUnit(sampleJob.fallbackWeightUnit);
+  validateNormalizedHistory(JSON.parse(result.outputJson), sampleFallback);
   await ctx.jobRef.update({
     progressMessage: `Sample looks good — ${result.rowCount} sets found`,
     updatedAt: FieldValue.serverTimestamp(),
@@ -193,7 +196,8 @@ async function executeOnFull(
   });
 
   const result = await invokeSandbox(ctx, scriptPath, inputPath);
-  const normalized = validateNormalizedHistory(JSON.parse(result.outputJson));
+  const fullFallback = parseFallbackWeightUnit(jobData.fallbackWeightUnit);
+  const normalized = validateNormalizedHistory(JSON.parse(result.outputJson), fullFallback);
 
   // Stamp format on latestConversion so the client can enable preserveStableIds
   // when the agent path was used for a first-class Stratum (or other known) file.

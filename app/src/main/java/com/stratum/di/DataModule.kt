@@ -65,11 +65,13 @@ import com.stratum.core.data.repository.DataStoreEquipmentProposalPreferences
 import com.stratum.core.data.repository.DataStoreProgramsUiPreferencesRepository
 import com.stratum.core.data.repository.DataStoreRepRangeShiftProposalPreferences
 import com.stratum.core.data.repository.DataStoreThemePreferencesRepository
+import com.stratum.core.data.repository.DataStoreWeightDisplayPreferencesRepository
 import com.stratum.core.data.repository.DataStoreWorkoutOverlayStore
 import com.stratum.core.data.repository.RoomLiftTrainingInsightsRepository
 import com.stratum.domain.checkin.CheckInPreferencesRepository
 import com.stratum.domain.dashboard.DashboardPreferencesRepository
 import com.stratum.domain.lift.EquipmentProposalPreferences
+import com.stratum.domain.lift.WeightDisplayPreferencesRepository
 import com.stratum.domain.program.ProgramsUiPreferencesRepository
 import com.stratum.domain.theme.ThemePreferencesRepository
 import com.stratum.domain.workout.RepRangeShiftProposalPreferences
@@ -525,6 +527,12 @@ abstract class RepositoryModule {
     abstract fun bindThemePreferencesRepository(
         impl: DataStoreThemePreferencesRepository,
     ): ThemePreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWeightDisplayPreferencesRepository(
+        impl: DataStoreWeightDisplayPreferencesRepository,
+    ): WeightDisplayPreferencesRepository
 
     @Binds
     @Singleton

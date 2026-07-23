@@ -298,6 +298,15 @@ class OnboardingImportProgramViewModelTest {
             completeOnboarding = completeOnboarding,
             importProgramTemplate = importUseCase,
             logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
+            observeWeightDisplayPreferences =
+                com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
+                    weightDisplayPreferences,
+                ),
+            setWeightDisplayUnit =
+                com.stratum.domain.lift.SetWeightDisplayUnitUseCase(
+                    weightDisplayPreferences,
+                    com.stratum.core.testing.logging.FakeLoggingPort(),
+                ),
         )
         return Triple(viewModel, onboardingRepo, programRepo)
     }

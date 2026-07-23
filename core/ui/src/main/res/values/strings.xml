@@ -271,6 +271,13 @@
     <string name="import_timeline_catalog">Match lifts</string>
     <string name="import_timeline_analyze">Analyze</string>
 
+    <string name="import_weight_unit_title">Weight unit for this import</string>
+    <string name="import_weight_unit_body">If the file says lb or kg, we\u2019ll use that. If it doesn\u2019t, treat amounts as:</string>
+    <string name="import_weight_unit_lbs">lbs</string>
+    <string name="import_weight_unit_kg">kg</string>
+    <string name="import_weight_unit_continue">Continue</string>
+    <string name="import_weight_unit_cancel">Cancel</string>
+
     <!-- Shared import progress timeline labels (program template) -->
     <string name="import_program_timeline_upload">Upload</string>
     <string name="import_program_timeline_convert">Convert</string>

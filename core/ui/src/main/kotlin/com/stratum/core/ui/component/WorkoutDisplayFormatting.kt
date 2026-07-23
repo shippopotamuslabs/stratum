@@ -1,5 +1,8 @@
 package com.stratum.core.ui.component
 
+import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
+import com.stratum.domain.lift.shortLabel
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -26,6 +29,27 @@ fun formatSetPerformance(weightAmount: Double, reps: Int): String =
     }
 
 /**
+ * Formats set performance after converting [weight] into [displayUnit].
+ * When [includeUnit] is true, appends the short unit label (e.g. `"135 lb × 5"`).
+ */
+fun formatSetPerformance(
+    weight: Weight,
+    reps: Int,
+    displayUnit: Weight.WeightUnit,
+    includeUnit: Boolean = false,
+): String {
+    val amount =
+        WeightConversion.convertAmount(weight.amount, weight.unit, displayUnit)
+    if (amount == 0.0) return reps.toString()
+    val amountLabel = formatWeightAmount(amount)
+    return if (includeUnit) {
+        "$amountLabel ${displayUnit.shortLabel()} × $reps"
+    } else {
+        "$amountLabel × $reps"
+    }
+}
+
+/**
  * Formats a weight amount for display: blank when 0 (cell placeholder contract), otherwise rounded
  * to at most one decimal with trailing `.0` stripped.
  *
@@ -37,6 +61,46 @@ fun formatWeightAmount(weight: Double, assistMode: Boolean = false): String {
     if (display == 0.0) return ""
     val rounded = (display * TEN_FACTOR).roundToInt() / TEN_FACTOR.toDouble()
     return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
+}
+
+/**
+ * Converts [amount] from [sourceUnit] into [displayUnit] and formats the number.
+ * Blank when the display amount is 0 (same contract as [formatWeightAmount]).
+ */
+fun formatWeightAmountForDisplay(
+    amount: Double,
+    sourceUnit: Weight.WeightUnit,
+    displayUnit: Weight.WeightUnit,
+    assistMode: Boolean = false,
+): String {
+    val converted = WeightConversion.convertAmount(amount, sourceUnit, displayUnit)
+    return formatWeightAmount(converted, assistMode)
+}
+
+/**
+ * Formats [weight] in [displayUnit]. When [includeUnit] is true, appends `" lb"` / `" kg"`.
+ *
+ * When [includeUnit] is false, zero follows the [formatWeightAmount] blank-placeholder contract.
+ * When [includeUnit] is true, zero renders as `"0 lb"` / `"0 kg"` so labels stay readable.
+ */
+fun formatWeightForDisplay(
+    weight: Weight,
+    displayUnit: Weight.WeightUnit,
+    assistMode: Boolean = false,
+    includeUnit: Boolean = true,
+): String {
+    val converted = WeightConversion.convertAmount(weight.amount, weight.unit, displayUnit)
+    val displayAmount = if (assistMode) kotlin.math.abs(converted) else converted
+    if (!includeUnit) {
+        return formatWeightAmount(displayAmount)
+    }
+    val number =
+        if (displayAmount == 0.0) {
+            "0"
+        } else {
+            formatWeightAmount(displayAmount).ifEmpty { "0" }
+        }
+    return "$number ${displayUnit.shortLabel()}"
 }
 
 /**

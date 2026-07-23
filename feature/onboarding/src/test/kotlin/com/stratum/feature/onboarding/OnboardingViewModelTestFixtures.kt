@@ -73,6 +73,7 @@ internal object OnboardingViewModelTestFixtures {
     val fakeLiftRepository = FakeLiftRepository()
 
     val fakeHistoricalImport = FakeHistoricalImportRunnerPort()
+    val weightDisplayPreferences = com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository()
     private val fakeTrainingLogRepository = FakeTrainingLogRepository()
     private val fakeMetadataRepository = FakeImportAnalysisMetadataRepository()
     private val fakeLiftInsightsRepository = FakeLiftInsightsRepository()
@@ -220,6 +221,15 @@ internal object OnboardingViewModelTestFixtures {
                 programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
             ),
             logError = com.stratum.domain.logging.LogErrorUseCase(FakeLoggingPort()),
+            observeWeightDisplayPreferences =
+                com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
+                    weightDisplayPreferences,
+                ),
+            setWeightDisplayUnit =
+                com.stratum.domain.lift.SetWeightDisplayUnitUseCase(
+                    weightDisplayPreferences,
+                    com.stratum.core.testing.logging.FakeLoggingPort(),
+                ),
         )
     }
 

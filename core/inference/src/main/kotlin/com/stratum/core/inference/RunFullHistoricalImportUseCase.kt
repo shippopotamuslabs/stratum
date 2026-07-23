@@ -50,6 +50,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
         persistPolicy: ImportHistoryPersistPolicy,
+        fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit,
         // emit() is called both directly here and from nested onProgress callbacks inside
         // convertSingleFile / persistImportedHistory (which run on importDispatcher via flowOn).
         // Wrapping those calls in withContext would make emit() fire on a different dispatcher than
@@ -63,6 +64,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             emit(HistoricalImportEvent.Failed("No files selected."))
             return@flow
         }
+        val effectiveFallback = resume?.fallbackWeightUnit ?: fallbackWeightUnit
         val totalFiles = allFiles.size
         val chunks = (resume?.completedChunks ?: emptyList()).toMutableList()
         val pendingFiles = allFiles.drop(chunks.size)
@@ -74,6 +76,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     file = file,
                     fileIndex = fileIndex,
                     fileCount = totalFiles,
+                    fallbackWeightUnit = effectiveFallback,
                     onProgress = { progress ->
                         emit(HistoricalImportEvent.Progress(progress))
                     },
@@ -130,6 +133,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     allFiles = allFiles,
                     chunks = chunks,
                     persistPolicy = persistPolicy,
+                    fallbackWeightUnit = effectiveFallback,
                 ),
             )
         } catch (error: Throwable) {
@@ -140,6 +144,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     allFiles = allFiles,
                     chunks = chunks,
                     persistPolicy = persistPolicy,
+                    fallbackWeightUnit = effectiveFallback,
                 ),
             )
         }
@@ -151,6 +156,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         allFiles: List<ImportFileInput>,
         chunks: List<ImportedHistoryChunk>,
         persistPolicy: ImportHistoryPersistPolicy,
+        fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit,
     ): HistoricalImportEvent.Failed {
         // Merge path must not wipe prior local import history on failure.
         if (persistPolicy == ImportHistoryPersistPolicy.ReplaceImportOrigin) {
@@ -162,6 +168,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
             HistoricalImportResumeState(
                 files = allFiles,
                 completedChunks = chunks.toList(),
+                fallbackWeightUnit = fallbackWeightUnit,
             ).takeIf { it.isResumable() }
         return HistoricalImportEvent.Failed(
             message = message,
@@ -174,6 +181,7 @@ class RunFullHistoricalImportUseCase @Inject constructor(
         file: ImportFileInput,
         fileIndex: Int,
         fileCount: Int,
+        fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit,
         onProgress: suspend (ImportProgress) -> Unit,
     ): ImportedHistoryChunk? {
         val job = startHistoricalImport().getOrElse { error ->
@@ -191,7 +199,9 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                 historicalImportPort.uploadRawAndSample(job.id, file.bytes, file.fileName).getOrThrow()
             updateLocalJob(job, ImportJobStatus.AgentRunning)
 
-            historicalImportPort.startImport(job.id, refs).getOrThrow()
+            historicalImportPort
+                .startImport(job.id, refs, fallbackWeightUnit = fallbackWeightUnit)
+                .getOrThrow()
 
             val snapshot =
                 pollUntilTerminal(
@@ -225,7 +235,8 @@ class RunFullHistoricalImportUseCase @Inject constructor(
                     ?: error("Import ready but conversion path missing.")
 
             val payload = historicalImportPort.downloadConversion(conversionPath).getOrThrow()
-            val (sessions, sets) = ImportedHistoryJsonParser.parse(payload)
+            val (sessions, sets) =
+                ImportedHistoryJsonParser.parse(payload, fallbackWeightUnit = fallbackWeightUnit)
             updateLocalJob(job, ImportJobStatus.Completed)
             val preserveStableIds = snapshot.conversionFormat == "stratum"
             return ImportedHistoryChunk(

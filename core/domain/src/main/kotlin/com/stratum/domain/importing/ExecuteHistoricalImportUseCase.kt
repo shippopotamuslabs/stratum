@@ -1,5 +1,6 @@
 package com.stratum.domain.importing
 
+import com.stratum.domain.lift.Weight
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -31,6 +32,11 @@ class ExecuteHistoricalImportUseCase @Inject constructor(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
         persistPolicy: ImportHistoryPersistPolicy,
+        /**
+         * Applied when converted sets omit weight unit. Resume carries its own value;
+         * when [resume] is non-null, [resume.fallbackWeightUnit] wins over this argument.
+         */
+        fallbackWeightUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
     ): Flow<HistoricalImportOrchestrationEvent> = flow {
         if (resume == null) {
             when (val validation = validateImportFiles(files)) {
@@ -41,7 +47,13 @@ class ExecuteHistoricalImportUseCase @Inject constructor(
                 }
             }
         }
-        runHistoricalImport(files, resume, persistPolicy).collect { event ->
+        val effectiveFallback = resume?.fallbackWeightUnit ?: fallbackWeightUnit
+        runHistoricalImport(
+            files = files,
+            resume = resume,
+            persistPolicy = persistPolicy,
+            fallbackWeightUnit = effectiveFallback,
+        ).collect { event ->
             when (event) {
                 is HistoricalImportEvent.Progress ->
                     emit(HistoricalImportOrchestrationEvent.Progress(event.progress))

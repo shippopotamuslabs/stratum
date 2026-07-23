@@ -22,6 +22,9 @@
     <string name="settings_equipment_proposals_subtitle">Optional post-workout cards when equipment steps may help</string>
     <string name="settings_rep_range_proposals_enabled">Rep-range shift suggestions</string>
     <string name="settings_rep_range_proposals_subtitle">Optional post-workout cards when a rep-range shift may help</string>
+    <string name="settings_weight_unit_title">Weight unit</string>
+    <string name="settings_weight_unit_lbs">lbs</string>
+    <string name="settings_weight_unit_kg">kg</string>
 
     <string name="settings_debug_title">Developer tools</string>
     <string name="settings_debug_force_checkin">Force coach check-in</string>

@@ -2,6 +2,7 @@ package com.stratum.domain.importing
 
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.training.EstimatedOneRm
@@ -124,7 +125,14 @@ object TrainingInsightsExtractor {
             bySession.forEach { (_, sessionSets) ->
                 val ordered = sessionSets.filter { it.reps > 0 }.sortedBy { it.setIndex }
                 if (ordered.isEmpty()) return@forEach
-                val e1rms = ordered.map { EstimatedOneRm.calculate(it.weight.amount, it.reps + (it.rir ?: 0)) }
+                // e1RM in Lb magnitude (canonical; abs for assisted negatives).
+                val e1rms =
+                    ordered.map {
+                        EstimatedOneRm.calculate(
+                            WeightConversion.loadMagnitudeLb(it.weight),
+                            it.reps + (it.rir ?: 0),
+                        )
+                    }
                 // Regress failure-reps (reps + RIR) against set index to derive a per-set fatigue
                 // slope in REPS PER SET — the unit every downstream consumer expects
                 // (RepRirPlanner.repRangeFromFatigue, FatigueModel.projectReps,
@@ -161,8 +169,7 @@ object TrainingInsightsExtractor {
             // to match POPULATION_FATIGUE_DECAY_INTERCEPT.
             val safeIntercept = if (safeSlope != null) 0.0 else null
             val estimatedOneRm = sessionPeaks.maxByOrNull { it.second }?.second?.let { value ->
-                val unit = liftSets.first().weight.unit
-                Weight(value, unit)
+                Weight(value, Weight.WeightUnit.Lb)
             }
             val progressTrend = computeProgressTrend(sessionPeaks)
             val lastPerformed = sessionPeaks.maxByOrNull { it.first }?.first

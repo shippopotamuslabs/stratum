@@ -9,11 +9,12 @@ import { FieldValue } from "firebase-admin/firestore";
 import type { JobRef } from "./jobRef";
 import { updateJobIfPresent } from "./safeJobUpdate";
 import { dispatchTool, type ToolContext } from "./tools";
+import { TOOL_DEFINITIONS } from "./schemas";
 import {
-  IMPORT_AGENT_SYSTEM_PROMPT,
-  TOOL_DEFINITIONS,
-} from "./schemas";
-import { buildImportAgentUserPrompt } from "./importDomainRules";
+  buildImportAgentSystemPrompt,
+  buildImportAgentUserPrompt,
+} from "./importDomainRules";
+import { parseFallbackWeightUnit } from "./weightUnit";
 
 export const MAX_TURNS = 15;
 export const MAX_BLOB_NUDGES = 5;
@@ -36,6 +37,8 @@ export interface ImportAgentJob {
   fullSliceStoragePath?: string;
   scriptStoragePath?: string;
   latestConversion?: { storagePath?: string };
+  /** User import-session fallback when file omits units. */
+  fallbackWeightUnit?: "Lb" | "Kg" | string;
 }
 
 export interface ChatMessage {
@@ -75,9 +78,10 @@ export async function runImportAgentSessionWithDeps(
   });
 
   const sampleText = (await deps.downloadSample(job.sampleStoragePath)).slice(0, 50_000);
+  const fallbackUnit = parseFallbackWeightUnit(job.fallbackWeightUnit);
 
   const messages: ChatMessage[] = [
-    { role: "system", content: IMPORT_AGENT_SYSTEM_PROMPT },
+    { role: "system", content: buildImportAgentSystemPrompt(fallbackUnit) },
     {
       role: "user",
       content: buildImportAgentUserPrompt(sampleText),
@@ -220,6 +224,7 @@ export async function runImportAgentSession(
         fullSliceStoragePath: data.fullSliceStoragePath as string | undefined,
         scriptStoragePath: data.scriptStoragePath as string | undefined,
         latestConversion: data.latestConversion as { storagePath?: string } | undefined,
+        fallbackWeightUnit: data.fallbackWeightUnit as string | undefined,
       };
     },
     async updateJob(patch) {
