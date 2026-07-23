@@ -5,6 +5,7 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
 import java.time.Instant
+import java.time.ZoneId
 
 /**
  * Top-level dashboard read model over a bounded window (default ~3 months). Answers
@@ -23,11 +24,16 @@ import java.time.Instant
 data class DashboardSummary(
     val windowWeeks: Int,
     val asOf: Instant,
+    /**
+     * Zone used to bucket [runningDailyVolume] day starts. Presentation (weekday labels) must use
+     * the same zone so board bars and labels cannot drift.
+     */
+    val zone: ZoneId,
     val muscles: List<MuscleSeries>,
     val lifts: List<LiftSeries>,
     /**
-     * Per-muscle hard-set volume for the running 7-day window (UTC days), zero-filled. Empty when
-     * no hard sets were logged in that window.
+     * Per-muscle hard-set volume for the running 7-day window (device-local days), zero-filled.
+     * Empty when no hard sets were logged in that window.
      */
     val runningDailyVolume: List<MuscleDailyVolumeSeries> = emptyList(),
     /** High-confidence progressing / regressing highlights — empty when nothing is clear. */
@@ -36,7 +42,7 @@ data class DashboardSummary(
 
 /**
  * Board series for the 7-Day volume tab. [dailyVolume] is always 7 points (oldest → newest), with
- * rest days at `0`. [TrendPoint.weekStart] holds the **UTC day start** (not a Monday week start).
+ * rest days at `0`. [TrendPoint.weekStart] holds the **local day start** (not a Monday week start).
  */
 data class MuscleDailyVolumeSeries(
     val muscle: MuscleGroup,

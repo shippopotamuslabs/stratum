@@ -3,8 +3,8 @@ package com.stratum.domain.response
 import com.stratum.domain.lift.identity.LiftId
 import java.time.DayOfWeek
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
-import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
 internal object WeeklySignalSupport {
@@ -16,8 +16,9 @@ internal object WeeklySignalSupport {
         return monday.atStartOfDay().toInstant(ZoneOffset.UTC)
     }
 
-    /** UTC calendar day at 00:00 — used for running 7-day / daily volume bars. */
-    fun dayStartFor(instant: Instant): Instant = DayBucketSupport.dayStartFor(instant)
+    /** Local calendar day at 00:00 in [zone] — used for running 7-day / daily volume bars. */
+    fun dayStartFor(instant: Instant, zone: ZoneId): Instant =
+        DayBucketSupport.dayStartFor(instant, zone)
 
     fun workingSetsInEpoch(
         epoch: Epoch,
@@ -38,6 +39,7 @@ internal object WeeklySignalSupport {
 
     fun groupByDay(
         sets: List<CleanTrainingSet>,
+        zone: ZoneId,
     ): Map<Instant, List<CleanTrainingSet>> =
-        sets.groupBy { dayStartFor(it.sourceSet.completedAt) }
+        sets.groupBy { dayStartFor(it.sourceSet.completedAt, zone) }
 }

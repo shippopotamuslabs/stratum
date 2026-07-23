@@ -22,6 +22,8 @@ import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -32,6 +34,8 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class LoadGraphDetailUseCaseTest {
+
+    private val utc: ZoneId = ZoneOffset.UTC
 
     @Test
     @DisplayName("returns null when lift has no performance rows")
@@ -126,11 +130,11 @@ class LoadGraphDetailUseCaseTest {
         log.seedSet(hardSet(benchId, "c", session.id, day1))
         val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log)
 
-        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest))
+        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc)
         assertNotNull(detail)
         assertEquals(GraphDetailKind.MuscleDailyVolume, detail!!.kind)
         assertEquals("Chest", detail.title)
-        assertEquals(2, detail.primary.size, "two distinct UTC days")
+        assertEquals(2, detail.primary.size, "two distinct local calendar days")
         assertEquals(1.0, detail.primary.first().value, 0.01)
         assertEquals(2.0, detail.primary.last().value, 0.01)
         assertTrue(detail.secondary.isEmpty())
@@ -160,7 +164,7 @@ class LoadGraphDetailUseCaseTest {
         log.seedSet(hardSet(benchId, "a", session.id, NOW.minus(1, ChronoUnit.DAYS)))
         val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log)
 
-        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Tricep))
+        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Tricep), zone = utc)
         assertNotNull(detail, "press pattern should load sets for Tricep even without stored secondary")
         assertEquals(0.5, detail!!.primary.single().value, 0.01)
     }
@@ -169,7 +173,7 @@ class LoadGraphDetailUseCaseTest {
     @DisplayName("returns null for MuscleDailyVolume with no hard sets")
     fun muscleDailyVolumeEmpty() = runTest {
         val useCase = buildUseCase()
-        assertNull(useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest)))
+        assertNull(useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc))
     }
 
     @Test
@@ -184,15 +188,35 @@ class LoadGraphDetailUseCaseTest {
     @Test
     @DisplayName("zeroFillDailyTrendPoints pads rest days")
     fun zeroFillDaily() {
-        val day = utcDayStart(NOW.minus(1, ChronoUnit.DAYS))
+        val day = calendarDayStart(NOW.minus(1, ChronoUnit.DAYS), utc)
         val filled = zeroFillDailyTrendPoints(
             points = listOf(TrendPoint(day, 4.0)),
             now = NOW,
             dayCount = 7,
+            zone = utc,
         )
         assertEquals(7, filled.size)
         assertEquals(4.0, filled.single { it.weekStart == day }.value)
         assertEquals(6, filled.count { it.value == 0.0 })
+    }
+
+    @Test
+    @DisplayName("zeroFillDailyTrendPoints ends on local day in America/New_York after UTC midnight")
+    fun zeroFillDailyLocalZone() {
+        val zone = ZoneId.of("America/New_York")
+        // Wed evening EDT while UTC is already Thursday.
+        val now = Instant.parse("2026-07-23T00:30:00Z")
+        val filled = zeroFillDailyTrendPoints(
+            points = emptyList(),
+            now = now,
+            dayCount = 7,
+            zone = zone,
+        )
+        assertEquals(7, filled.size)
+        assertEquals(
+            java.time.LocalDate.of(2026, 7, 22),
+            filled.last().weekStart.atZone(zone).toLocalDate(),
+        )
     }
 
     @Test
