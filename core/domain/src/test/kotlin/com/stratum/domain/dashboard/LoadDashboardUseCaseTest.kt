@@ -278,9 +278,83 @@ class LoadDashboardUseCaseTest {
         assertEquals(3, chest.progressSeries!!.size)
         assertEquals(0.0, chest.progressSeries!![0].value, 1e-9)
         assertEquals(0.01, chest.progressSeries!![2].value, 1e-9)
-        assertEquals(3, chest.contributingLiftCount, "max contributingLiftCount across weeks")
+        assertEquals(3, chest.contributingLiftCount, "falls back to max outcome count when composition empty")
         assertNotNull(chest.progressSlope)
         assertTrue(chest.progressSlope!! > 0.0, "rising log-index → positive slope")
+    }
+
+    @Test
+    fun `contributing lifts unions primary volume contributors across weeks`() = runTest {
+        // Week 0: only bench; week 1: only fly — outcome index max would be 1, footer must be 2.
+        val benchId = LiftId("bench")
+        val flyId = LiftId("fly")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(
+            listOf(
+                lift(benchId, "Bench Press", MuscleGroup.Chest),
+                lift(flyId, "Cable Fly", MuscleGroup.Chest),
+            ),
+        )
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        val outcomeRepo = FakeMuscleWeeklyOutcomeIndexRepository()
+        val w0 = NOW.minus(21, ChronoUnit.DAYS)
+        val w1 = NOW.minus(14, ChronoUnit.DAYS)
+        val w2 = NOW.minus(7, ChronoUnit.DAYS)
+        stimulusRepo.seed(
+            listOf(
+                stimulus(MuscleGroup.Chest, w0, 8.0, compositionHash = "bench:80"),
+                stimulus(MuscleGroup.Chest, w1, 6.0, compositionHash = "fly:60"),
+                stimulus(MuscleGroup.Chest, w2, 10.0, compositionHash = "bench:50|fly:50"),
+            ),
+        )
+        outcomeRepo.seed(
+            listOf(
+                // Per-week outcome counts stay at 1 when only one lift has e1RM that week.
+                outcomeIndex(MuscleGroup.Chest, w0, 0.0, contributing = 1),
+                outcomeIndex(MuscleGroup.Chest, w1, 0.005, contributing = 1),
+                outcomeIndex(MuscleGroup.Chest, w2, 0.01, contributing = 1),
+            ),
+        )
+        val useCase = buildUseCase(
+            stimulusRepo = stimulusRepo,
+            outcomeIndexRepo = outcomeRepo,
+            liftRepo = liftRepo,
+        )
+
+        val chest = useCase(now = NOW)!!.muscles.single { it.muscle == MuscleGroup.Chest }
+        assertEquals(2, chest.contributingLiftCount, "union of primary lifts over the window, not max week")
+    }
+
+    @Test
+    fun `contributing lifts excludes secondary-only volume contributors`() = runTest {
+        val benchId = LiftId("bench")
+        val pushdownId = LiftId("pushdown")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(
+            listOf(
+                // Bench is primary Chest; composition also lists it under Tricep as secondary credit.
+                lift(benchId, "Bench Press", MuscleGroup.Chest, secondary = setOf(MuscleGroup.Tricep)),
+                lift(pushdownId, "Pushdown", MuscleGroup.Tricep),
+            ),
+        )
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        val week = NOW.minus(7, ChronoUnit.DAYS)
+        stimulusRepo.seed(
+            listOf(
+                stimulus(MuscleGroup.Chest, week, 8.0, compositionHash = "bench:80"),
+                // Tricep volume includes secondary bench + primary pushdown.
+                stimulus(MuscleGroup.Tricep, week, 6.0, compositionHash = "bench:40|pushdown:40"),
+            ),
+        )
+        val useCase = buildUseCase(stimulusRepo = stimulusRepo, liftRepo = liftRepo)
+
+        val summary = useCase(now = NOW)!!
+        assertEquals(1, summary.muscles.single { it.muscle == MuscleGroup.Chest }.contributingLiftCount)
+        assertEquals(
+            1,
+            summary.muscles.single { it.muscle == MuscleGroup.Tricep }.contributingLiftCount,
+            "bench secondary must not count as a Tricep primary lift",
+        )
     }
 
     @Test
@@ -458,19 +532,25 @@ class LoadDashboardUseCaseTest {
         name: String,
         muscle: MuscleGroup,
         fatigueProfile: FatigueProfile = FatigueProfile.Low,
+        secondary: Set<MuscleGroup> = emptySet(),
     ): Lift = Lift(
         id = id,
         name = name,
         movementPatterns = setOf(MovementPattern.HorizontalPress),
         primaryMuscles = setOf(muscle),
-        secondaryMuscles = emptySet(),
+        secondaryMuscles = secondary,
         incrementTiers = emptyList(),
         presetTags = emptySet(),
         enabled = true,
         fatigueProfile = fatigueProfile,
     )
 
-    private fun stimulus(muscle: MuscleGroup, weekStart: Instant, hardSets: Double): MuscleWeeklyStimulus =
+    private fun stimulus(
+        muscle: MuscleGroup,
+        weekStart: Instant,
+        hardSets: Double,
+        compositionHash: String = "",
+    ): MuscleWeeklyStimulus =
         MuscleWeeklyStimulus(
             muscle = muscle,
             weekStart = weekStart,
@@ -478,7 +558,7 @@ class LoadDashboardUseCaseTest {
             sessions = 1,
             meanRir = 2.0,
             intensityProxy = null,
-            compositionHash = "",
+            compositionHash = compositionHash,
             deloadFlag = false,
             qualityFlags = emptySet<TrainingSignalQualityFlag>(),
         )

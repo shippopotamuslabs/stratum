@@ -1,5 +1,6 @@
 package com.stratum.domain.dashboard
 
+import com.stratum.domain.importing.ImportStubLiftGuesser
 import com.stratum.domain.lift.FatigueProfile
 import com.stratum.domain.lift.LOWER_BODY_MUSCLE_GROUPS
 import com.stratum.domain.lift.Lift
@@ -84,7 +85,7 @@ class LoadDashboardUseCase @Inject constructor(
         val firstSetPerLift = trainingLogRepository.getFirstSetDatePerLift()
         val programLiftIds = activeProgramLiftIds()
 
-        val muscles = buildMuscleSeries(stimulus, outcomeIndices)
+        val muscles = buildMuscleSeries(stimulus, outcomeIndices, liftsById)
         val liftSeries = buildLiftSeries(performance, liftsById, firstSetPerLift, now, programLiftIds)
         val callouts = selectDashboardCallouts(muscles = muscles, lifts = liftSeries)
 
@@ -160,6 +161,7 @@ class LoadDashboardUseCase @Inject constructor(
     private fun buildMuscleSeries(
         stimulus: List<MuscleWeeklyStimulus>,
         outcomeIndices: List<MuscleWeeklyOutcomeIndex>,
+        liftsById: Map<LiftId, Lift>,
     ): List<MuscleSeries> =
         stimulus.groupBy { it.muscle }.map { (muscle, rows) ->
             val volumeSeries = rows
@@ -174,8 +176,13 @@ class LoadDashboardUseCase @Inject constructor(
                 .map { TrendPoint(it.weekStart, it.indexValue) }
                 .takeIf { it.size >= MIN_PROGRESS_POINTS }
             val progressSlope = progressSeries?.let { olsSlope(it) }
-            val contributingLiftCount = muscleIndices
-                .maxOfOrNull { it.contributingLiftCount }
+            // Footer "N lifts" = distinct primary volume contributors over the whole dashboard
+            // window (union), not max concurrent outcome-index contributors in a single week.
+            // Outcome index is still used for progress bars; its per-week count systematically
+            // undercounts when primary lifts rotate across sessions/weeks.
+            val contributingLiftCount = countPrimaryContributingLifts(muscle, rows, liftsById)
+                .takeIf { it > 0 }
+                ?: muscleIndices.maxOfOrNull { it.contributingLiftCount }
                 ?: 0
 
             MuscleSeries(
@@ -188,6 +195,29 @@ class LoadDashboardUseCase @Inject constructor(
                 contributingLiftCount = contributingLiftCount,
             )
         }.sortedWith(muscleComparator())
+
+    /**
+     * Unique lifts that credited [muscle] as a **primary** mover in any in-window stimulus week.
+     * Parsed from [MuscleWeeklyStimulus.compositionHash] (`liftId:creditTenths|…`) and filtered
+     * with the same effective-primary rules as volume builders.
+     */
+    private fun countPrimaryContributingLifts(
+        muscle: MuscleGroup,
+        stimulusRows: List<MuscleWeeklyStimulus>,
+        liftsById: Map<LiftId, Lift>,
+    ): Int {
+        val liftIds = stimulusRows
+            .flatMap { parseCompositionLiftIds(it.compositionHash) }
+            .toSet()
+        if (liftIds.isEmpty()) return 0
+        return liftIds.count { liftId ->
+            val lift = liftsById[liftId] ?: return@count false
+            val movementPattern = ImportStubLiftGuesser.effectiveMovementPattern(lift)
+            val primaryMuscles =
+                ImportStubLiftGuesser.effectivePrimaryMuscles(lift, movementPattern)
+            muscle in primaryMuscles
+        }
+    }
 
     private fun buildLiftSeries(
         performance: List<LiftWeeklyPerformance>,
@@ -250,5 +280,18 @@ class LoadDashboardUseCase @Inject constructor(
         val WINDOW: Period = Period.ofWeeks(DASHBOARD_PERFORMANCE_WINDOW_WEEKS)
         /** Minimum weekly outcome-index points before a progress series is shown. */
         const val MIN_PROGRESS_POINTS = 3
+    }
+}
+
+/**
+ * Parses lift ids from a stimulus/outcome composition hash (`liftId:creditTenths|…`).
+ * Tokens without a non-blank id before `:` are skipped.
+ */
+internal fun parseCompositionLiftIds(compositionHash: String): List<LiftId> {
+    if (compositionHash.isBlank()) return emptyList()
+    return compositionHash.split('|').mapNotNull { token ->
+        val rawId = token.substringBefore(':').trim()
+        if (rawId.isEmpty()) return@mapNotNull null
+        LiftId(rawId)
     }
 }
