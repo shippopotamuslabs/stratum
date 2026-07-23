@@ -235,15 +235,29 @@ class EditWorkoutViewModelSchemeToggleTest {
                         catalogLift(LiftId("leg-curl"), "Leg Curl", compound = false),
                     ),
             )
+        val logging = FakeLoggingPort()
+        val trainingLog =
+            com.stratum.core.testing.training.FakeTrainingLogRepository(programRepository = repository)
         return EditWorkoutViewModel(
             observeProgram = ObserveProgramUseCase(repository),
             observeProgramById = com.stratum.domain.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository, FakeLoggingPort()),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEventRepository, logging),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
             programChangeEventRepository = programChangeEventRepository,
             workoutEditSession = workoutEditSession,
+            startTrainingSession =
+                com.stratum.domain.training.StartTrainingSessionUseCase(trainingLog, repository, logging),
+            observeCycleProgress =
+                com.stratum.domain.training.ObserveCycleProgressUseCase(repository, trainingLog),
+            abandonTrainingSession =
+                com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+            manageWorkoutOverlay =
+                com.stratum.domain.workout.ManageWorkoutOverlayUseCase(
+                    com.stratum.core.testing.workout.FakeWorkoutOverlayStore(),
+                    logging,
+                ),
         )
     }
 
