@@ -215,7 +215,8 @@ private fun DetailChartContent(
     val dateFormatter = remember {
         DateTimeFormatter.ofPattern("MMM d", Locale.getDefault())
     }
-    // Week starts are Monday 00:00 UTC — format in UTC so labels don't slip to Sunday locally.
+    // X is a pure epoch-day integer (LocalDate.toEpochDay). Format via UTC midnight of that
+    // proleptic day so weekly Monday-UTC and local daily keys both label the intended calendar date.
     val xFormatter = remember(dateFormatter) {
         CartesianValueFormatter { _, value, _ ->
             val day = value.toLong()
@@ -395,7 +396,11 @@ enum class DetailYScale {
     Progress,
 }
 
-/** One point on a [StratumDetailChart]. [xEpochDay] is UTC epoch day for the week start. */
+/**
+ * One point on a [StratumDetailChart].
+ * [xEpochDay] is [java.time.LocalDate.toEpochDay] for the series' calendar day (UTC Monday for
+ * weekly series; device-local calendar day for daily volume).
+ */
 data class DetailChartPoint(
     val xEpochDay: Long,
     val value: Float,

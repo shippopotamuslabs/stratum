@@ -22,21 +22,28 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.training.LoggedLiftContext
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.identity.TrainingSessionId
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class LoadDashboardUseCaseTest {
+
+    private val utc: ZoneId = ZoneOffset.UTC
+    private val newYork: ZoneId = ZoneId.of("America/New_York")
     @Test
     fun `returns null when no weekly data exists in window`() = runTest {
         val useCase = buildUseCase()
 
-        assertNull(useCase(now = NOW))
+        assertNull(useCase(now = NOW, zone = utc))
     }
 
     @Test
@@ -59,7 +66,7 @@ class LoadDashboardUseCaseTest {
             liftRepo = liftRepo,
         )
 
-        assertNull(useCase(now = NOW), "data older than the window should yield null")
+        assertNull(useCase(now = NOW, zone = utc), "data older than the window should yield null")
     }
 
     @Test
@@ -79,7 +86,7 @@ class LoadDashboardUseCaseTest {
             programLiftIds = setOf(benchId),
         )
 
-        val summary = useCase(now = NOW)
+        val summary = useCase(now = NOW, zone = utc)
         assertNotNull(summary)
         assertEquals(1, summary!!.muscles.size)
         assertEquals(MuscleGroup.Chest, summary.muscles.first().muscle)
@@ -96,7 +103,7 @@ class LoadDashboardUseCaseTest {
         log.seedSet(hardSet(benchId, "a", session.id, NOW, rir = 2))
         val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log, programLiftIds = setOf(benchId))
 
-        val summary = useCase(now = NOW)
+        val summary = useCase(now = NOW, zone = utc)
         assertNotNull(summary, "7-Day data alone should yield Loaded, not Empty")
         assertTrue(summary!!.muscles.isEmpty())
         assertTrue(summary.runningDailyVolume.isNotEmpty())
@@ -130,7 +137,7 @@ class LoadDashboardUseCaseTest {
             programLiftIds = setOf(benchId),
         )
 
-        val summary = useCase(now = NOW)!!
+        val summary = useCase(now = NOW, zone = utc)!!
         val daily = summary.runningDailyVolume.single { it.muscle == MuscleGroup.Chest }
         assertEquals(7, daily.dailyVolume.size, "always 7 zero-filled days")
         assertEquals(3.0, daily.totalHardSets, 0.01, "warmup excluded")
@@ -138,6 +145,37 @@ class LoadDashboardUseCaseTest {
         // Two calendar days with volume (today + two days ago); rest days zero-filled.
         assertEquals(2, daily.dailyVolume.count { it.value > 0.0 })
         assertTrue(daily.dailyVolume.any { it.value == 0.0 })
+    }
+
+    @Test
+    @DisplayName("7-Day window ends on local day after UTC midnight when still evening in America/New_York")
+    fun runningDailyVolumeUsesDeviceLocalDay() = runTest {
+        val benchId = LiftId("bench")
+        val liftRepo = FakeLiftRepository()
+        liftRepo.seedLifts(listOf(lift(benchId, "Bench Press", MuscleGroup.Chest)))
+        // Wed 2026-07-22 20:30 EDT = Thu 00:30 UTC (the reported early-flip case).
+        val asOf = Instant.parse("2026-07-23T00:30:00Z")
+        val log = FakeTrainingLogRepository()
+        val session = WorkoutLoggingFixtures.completedLiveSession(id = "s1")
+        log.seedSession(session)
+        log.seedSet(hardSet(benchId, "a", session.id, asOf, rir = 2))
+
+        val useCase = buildUseCase(
+            liftRepo = liftRepo,
+            trainingLog = log,
+            programLiftIds = setOf(benchId),
+        )
+        val summary = useCase(now = asOf, zone = newYork)!!
+        val daily = summary.runningDailyVolume.single { it.muscle == MuscleGroup.Chest }
+        assertEquals(7, daily.dailyVolume.size)
+        val lastDay = daily.dailyVolume.last().weekStart.atZone(newYork)
+        assertEquals(
+            java.time.LocalDate.of(2026, 7, 22),
+            lastDay.toLocalDate(),
+            "rightmost day must be Wednesday locally, not Thursday UTC",
+        )
+        assertEquals(DayOfWeek.WEDNESDAY, lastDay.dayOfWeek)
+        assertEquals(1.0, daily.dailyVolume.last().value, 0.01)
     }
 
     @Test
@@ -166,7 +204,7 @@ class LoadDashboardUseCaseTest {
             programLiftIds = setOf(benchId),
         )
 
-        val summary = useCase(now = NOW)!!
+        val summary = useCase(now = NOW, zone = utc)!!
         val liftIds = summary.lifts.map { it.liftId }
         assertTrue(benchId in liftIds, "program lift should appear")
         assertTrue(curlId !in liftIds, "non-program lift should be excluded from lifts tab")
@@ -206,7 +244,7 @@ class LoadDashboardUseCaseTest {
             programLiftIds = setOf(benchId),
         )
 
-        val summary = useCase(now = NOW)!!
+        val summary = useCase(now = NOW, zone = utc)!!
         val muscles = summary.muscles.map { it.muscle }.toSet()
         assertTrue(MuscleGroup.Chest in muscles, "program muscle should appear")
         assertTrue(MuscleGroup.Bicep in muscles, "non-program muscle with stimulus should still appear")
@@ -239,7 +277,7 @@ class LoadDashboardUseCaseTest {
             liftRepo = liftRepo,
         )
 
-        val chest = useCase(now = NOW)!!.muscles.first()
+        val chest = useCase(now = NOW, zone = utc)!!.muscles.first()
         assertNull(chest.progressSeries, "fewer than 3 outcome points → no progress series")
     }
 
@@ -273,7 +311,7 @@ class LoadDashboardUseCaseTest {
             liftRepo = liftRepo,
         )
 
-        val chest = useCase(now = NOW)!!.muscles.first()
+        val chest = useCase(now = NOW, zone = utc)!!.muscles.first()
         assertNotNull(chest.progressSeries)
         assertEquals(3, chest.progressSeries!!.size)
         assertEquals(0.0, chest.progressSeries!![0].value, 1e-9)
@@ -321,7 +359,7 @@ class LoadDashboardUseCaseTest {
             liftRepo = liftRepo,
         )
 
-        val chest = useCase(now = NOW)!!.muscles.single { it.muscle == MuscleGroup.Chest }
+        val chest = useCase(now = NOW, zone = utc)!!.muscles.single { it.muscle == MuscleGroup.Chest }
         assertEquals(2, chest.contributingLiftCount, "union of primary lifts over the window, not max week")
     }
 
@@ -348,7 +386,7 @@ class LoadDashboardUseCaseTest {
         )
         val useCase = buildUseCase(stimulusRepo = stimulusRepo, liftRepo = liftRepo)
 
-        val summary = useCase(now = NOW)!!
+        val summary = useCase(now = NOW, zone = utc)!!
         assertEquals(1, summary.muscles.single { it.muscle == MuscleGroup.Chest }.contributingLiftCount)
         assertEquals(
             1,
@@ -372,7 +410,7 @@ class LoadDashboardUseCaseTest {
         )
         val useCase = buildUseCase(stimulusRepo = stimulusRepo, outcomeIndexRepo = outcomeRepo)
 
-        val chest = useCase(now = NOW)!!.muscles.first()
+        val chest = useCase(now = NOW, zone = utc)!!.muscles.first()
         // Only one in-window point → null series (needs MIN_PROGRESS_POINTS).
         assertNull(chest.progressSeries)
     }
@@ -400,7 +438,7 @@ class LoadDashboardUseCaseTest {
             programLiftIds = setOf(benchId),
         )
 
-        val bench = useCase(now = NOW)!!.lifts.first { it.liftId == benchId }
+        val bench = useCase(now = NOW, zone = utc)!!.lifts.first { it.liftId == benchId }
         assertEquals(10, bench.tenureWeeks)
     }
 
@@ -417,7 +455,7 @@ class LoadDashboardUseCaseTest {
         )
         val useCase = buildUseCase(stimulusRepo = stimulusRepo)
 
-        val summary = useCase(now = NOW)!!
+        val summary = useCase(now = NOW, zone = utc)!!
         assertEquals(
             listOf(MuscleGroup.Quad, MuscleGroup.Chest, MuscleGroup.Bicep),
             summary.muscles.map { it.muscle },
@@ -459,7 +497,7 @@ class LoadDashboardUseCaseTest {
             programLiftIds = setOf(benchId, curlId, squatId, legPressId, legCurlId),
         )
 
-        val summary = useCase(now = NOW)!!
+        val summary = useCase(now = NOW, zone = utc)!!
         assertEquals(
             listOf(benchId, curlId, squatId, legPressId, legCurlId),
             summary.lifts.map { it.liftId },

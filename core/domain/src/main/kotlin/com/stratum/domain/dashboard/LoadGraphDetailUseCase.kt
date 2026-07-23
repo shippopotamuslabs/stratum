@@ -11,6 +11,7 @@ import com.stratum.domain.response.ResponseExtractionInput
 import com.stratum.domain.response.TrainingSignalCleaner
 import com.stratum.domain.response.modeling.MuscleDailyVolumeBuilder
 import com.stratum.domain.training.TrainingLogRepository
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
@@ -30,12 +31,20 @@ class LoadGraphDetailUseCase @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(subject: GraphDetailSubject): GraphDetailSeries? =
+    /**
+     * @param zone Calendar zone for daily volume bucketing. Board and detail must pass the same
+     * zone used for presentation (ViewModel captures once).
+     */
+    suspend operator fun invoke(
+        subject: GraphDetailSubject,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): GraphDetailSeries? =
         runCatching {
             when (subject) {
                 is GraphDetailSubject.Lift -> loadLift(subject.liftId)
                 is GraphDetailSubject.Muscle -> loadMuscle(subject.muscle)
-                is GraphDetailSubject.MuscleDailyVolume -> loadMuscleDailyVolume(subject.muscle)
+                is GraphDetailSubject.MuscleDailyVolume ->
+                    loadMuscleDailyVolume(subject.muscle, zone)
             }
         }.onFailure { error ->
             loggingPort.error(TAG, "Failed to load graph detail: ${error.message}", error)
@@ -84,7 +93,10 @@ class LoadGraphDetailUseCase @Inject constructor(
         )
     }
 
-    private suspend fun loadMuscleDailyVolume(muscle: MuscleGroup): GraphDetailSeries? {
+    private suspend fun loadMuscleDailyVolume(
+        muscle: MuscleGroup,
+        zone: ZoneId,
+    ): GraphDetailSeries? {
         // SQL join lifts ↔ logged_sets filtered by primary/secondary muscle bitmasks (all-time).
         // Not: load every set then filter by muscle in Kotlin.
         val sets = trainingLogRepository.getSetsCreditingMuscle(muscle)
@@ -110,7 +122,7 @@ class LoadGraphDetailUseCase @Inject constructor(
             activeExperiments = emptyList(),
         )
         val cleanSets = TrainingSignalCleaner.clean(input)
-        val series = MuscleDailyVolumeBuilder.build(cleanSets, lifts)
+        val series = MuscleDailyVolumeBuilder.build(cleanSets, lifts, zone)
             .firstOrNull { it.muscle == muscle }
             ?.takeIf { it.points.isNotEmpty() }
             ?: return null

@@ -23,7 +23,7 @@ import com.stratum.domain.training.TrainingLogRepository
 import java.time.Duration
 import java.time.Instant
 import java.time.Period
-import java.time.temporal.ChronoUnit
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 
@@ -55,26 +55,33 @@ class LoadDashboardUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(): DashboardSummary? = invoke(now = Instant.now())
+    suspend operator fun invoke(): DashboardSummary? =
+        invoke(now = Instant.now(), zone = ZoneId.systemDefault())
 
     /**
      * Returns the summary, or `null` when there is no data (empty board). Unexpected failures
      * are logged and also returned as `null` so the UI shows empty rather than crashing.
+     *
+     * [zone] drives the 7-Day rolling window (device local calendar days). Weekly series remain
+     * UTC-week based via the stimulus/performance tables.
      */
-    suspend operator fun invoke(now: Instant): DashboardSummary? =
-        runCatching { load(now) }
+    suspend operator fun invoke(
+        now: Instant,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): DashboardSummary? =
+        runCatching { load(now, zone) }
             .onFailure { error ->
                 loggingPort.error(TAG, "Failed to load dashboard: ${error.message}", error)
             }
             .getOrNull()
 
-    private suspend fun load(now: Instant): DashboardSummary? {
+    private suspend fun load(now: Instant, zone: ZoneId): DashboardSummary? {
         val windowStart = now.minus(WINDOW)
         val stimulus = muscleWeeklyStimulusRepository.getSince(windowStart)
         val performance = liftWeeklyPerformanceRepository.getSince(windowStart)
         // 7-Day volume is independent of weekly tables — build it even when stimulus/performance
         // are empty so recent hard sets still surface before weekly rebuild.
-        val runningDailyVolume = buildRunningDailyVolume(now)
+        val runningDailyVolume = buildRunningDailyVolume(now, zone)
         if (stimulus.isEmpty() && performance.isEmpty() && runningDailyVolume.isEmpty()) {
             return null
         }
@@ -92,6 +99,7 @@ class LoadDashboardUseCase @Inject constructor(
         return DashboardSummary(
             windowWeeks = DASHBOARD_PERFORMANCE_WINDOW_WEEKS,
             asOf = now,
+            zone = zone,
             muscles = muscles,
             lifts = liftSeries,
             runningDailyVolume = runningDailyVolume,
@@ -100,23 +108,25 @@ class LoadDashboardUseCase @Inject constructor(
     }
 
     /**
-     * Hard-set volume per muscle for the last 7 UTC days (zero-filled). Built on-read from logged
-     * sets so no daily Room table is required.
+     * Hard-set volume per muscle for the last 7 **local** calendar days (zero-filled). Built
+     * on-read from logged sets so no daily Room table is required.
      *
      * Sets are loaded via indexed [TrainingLogRepository.getSetsInWindow]; lifts are only those
      * referenced by those sets ([LiftRepository.getLiftsByIds]) — not the full catalog.
+     * Window bounds use [zone] midnights so the board does not flip at UTC midnight.
      */
     private suspend fun buildRunningDailyVolume(
         now: Instant,
+        zone: ZoneId,
     ): List<MuscleDailyVolumeSeries> {
-        val endDay = utcDayStart(now)
-        val startDay = endDay.minus(
+        val today = now.atZone(zone).toLocalDate()
+        val startDate = today.minusDays(
             (MuscleDailyVolumeBuilder.RUNNING_VOLUME_DAY_COUNT - 1).toLong(),
-            ChronoUnit.DAYS,
         )
-        // Half-open-ish upper bound: exclusive end of today's UTC day (start of tomorrow).
-        val windowEndExclusive = endDay.plus(1, ChronoUnit.DAYS)
-        val sets = trainingLogRepository.getSetsInWindow(startDay, windowEndExclusive.minusMillis(1))
+        val startDay = startDate.atStartOfDay(zone).toInstant()
+        // Inclusive end of today's local day (instant just before local midnight tomorrow).
+        val windowEndInclusive = today.plusDays(1).atStartOfDay(zone).toInstant().minusMillis(1)
+        val sets = trainingLogRepository.getSetsInWindow(startDay, windowEndInclusive)
         if (sets.isEmpty()) return emptyList()
 
         val liftIds = sets.mapNotNullTo(mutableSetOf()) { it.liftId }
@@ -137,11 +147,11 @@ class LoadDashboardUseCase @Inject constructor(
             activeExperiments = emptyList(),
         )
         val cleanSets = TrainingSignalCleaner.clean(input)
-        val built = MuscleDailyVolumeBuilder.build(cleanSets, lifts)
+        val built = MuscleDailyVolumeBuilder.build(cleanSets, lifts, zone)
         if (built.isEmpty()) return emptyList()
 
         return built.map { series ->
-            val filled = MuscleDailyVolumeBuilder.zeroFillLastDays(series, now)
+            val filled = MuscleDailyVolumeBuilder.zeroFillLastDays(series, now, zone = zone)
             val total = filled.sumOf { it.hardSets }
             MuscleDailyVolumeSeries(
                 muscle = series.muscle,

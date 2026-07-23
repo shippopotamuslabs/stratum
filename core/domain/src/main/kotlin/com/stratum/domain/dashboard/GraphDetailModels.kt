@@ -5,6 +5,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.response.DayBucketSupport
 import java.time.Instant
 import java.time.Period
+import java.time.ZoneId
 
 /**
  * Subject for a fullscreen graph detail load — one lift, one muscle (weekly), or daily muscle volume.
@@ -28,7 +29,7 @@ enum class GraphDetailKind {
  * Full-history dual series for one subject.
  * - Lift: [primary] e1RM, [secondary] weekly volume
  * - Muscle: [primary] progress index, [secondary] weekly volume
- * - MuscleDailyVolume: [primary] daily hard sets (UTC day start on [TrendPoint.weekStart]), [secondary] empty
+ * - MuscleDailyVolume: [primary] daily hard sets (local day start on [TrendPoint.weekStart]), [secondary] empty
  */
 data class GraphDetailSeries(
     val title: String,
@@ -83,22 +84,27 @@ fun filterTrendPointsByRange(
 fun GraphDetailTimeRange.windowStart(now: Instant): Instant? =
     period?.let { now.minus(it) }
 
-/** UTC calendar day at 00:00 for [instant]. Delegates to [DayBucketSupport]. */
-fun utcDayStart(instant: Instant): Instant = DayBucketSupport.dayStartFor(instant)
+/**
+ * Start of the calendar day containing [instant] in [zone]. Delegates to [DayBucketSupport].
+ */
+fun calendarDayStart(instant: Instant, zone: ZoneId): Instant =
+    DayBucketSupport.dayStartFor(instant, zone)
 
 /**
- * Ensures [dayCount] consecutive UTC days ending on [now]'s day (oldest first). Missing days get
- * value `0`. Used so 1W daily volume charts match the 7-Day board cards.
+ * Ensures [dayCount] consecutive local calendar days ending on [now]'s day in [zone] (oldest
+ * first). Missing days get value `0`. Used so 1W daily volume charts match the 7-Day board cards.
  */
 fun zeroFillDailyTrendPoints(
     points: List<TrendPoint>,
     now: Instant,
     dayCount: Int,
+    zone: ZoneId,
 ): List<TrendPoint> =
     DayBucketSupport.zeroFillDaily(
         points = points.map { it.weekStart to it.value },
         asOf = now,
         dayCount = dayCount,
+        zone = zone,
     ).map { (day, value) -> TrendPoint(weekStart = day, value = value) }
 
 /**

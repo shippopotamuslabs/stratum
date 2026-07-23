@@ -1,6 +1,7 @@
 package com.stratum.core.ui.component
 
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -57,10 +58,47 @@ fun formatWeekStartRangeLabel(from: Instant?, to: Instant?): String {
     return if (fromText == toText) fromText else "$fromText – $toText"
 }
 
+/**
+ * Formats a local calendar-day start [Instant] (zone midnight) for daily volume charts.
+ * [zone] must match the zone used to bucket the series.
+ */
+fun formatDayStartLabel(
+    dayStart: Instant,
+    zone: ZoneId,
+    pattern: String = "MMM d",
+): String {
+    val formatter = DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
+    return formatter.format(dayStart.atZone(zone))
+}
+
+fun formatDayStartRangeLabel(
+    from: Instant?,
+    to: Instant?,
+    zone: ZoneId,
+): String {
+    if (from == null || to == null) return ""
+    val fromText = formatDayStartLabel(from, zone, "MMM d, yyyy")
+    val toText = formatDayStartLabel(to, zone, "MMM d, yyyy")
+    return if (fromText == toText) fromText else "$fromText – $toText"
+}
+
 /** UTC epoch day for a week-start instant (matches [formatWeekStartLabel]). */
 fun weekStartToEpochDay(weekStartEpochMillis: Long): Long =
     Instant.ofEpochMilli(weekStartEpochMillis)
         .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+        .toEpochDay()
+
+/**
+ * Calendar epoch day for a daily volume day-start instant (matches [formatDayStartLabel]).
+ * [zone] must match the zone used to produce the day-start Instant.
+ */
+fun dayStartToEpochDay(
+    dayStartEpochMillis: Long,
+    zone: ZoneId,
+): Long =
+    Instant.ofEpochMilli(dayStartEpochMillis)
+        .atZone(zone)
         .toLocalDate()
         .toEpochDay()
 
