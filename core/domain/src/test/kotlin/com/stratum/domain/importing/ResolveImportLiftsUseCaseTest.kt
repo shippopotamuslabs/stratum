@@ -60,7 +60,7 @@ class ResolveImportLiftsUseCaseTest {
         assertTrue(outcome.resolvedSets.all { it.liftId != null })
         assertEquals(1, outcome.summary.customLiftsCreated)
         assertEquals(1, outcome.summary.customLiftLlmInferredCount)
-        assertEquals(0, outcome.summary.distinctCatalogLiftsEnabledInFirstPass)
+        assertEquals(0, outcome.summary.distinctPreCustomCatalogLiftsEnabled)
         val custom = liftRepo.currentLifts.single { it.isCustom }
         assertEquals("Katana Special Gizmo", custom.name)
         assertEquals(MovementPattern.ElbowExtension, custom.movementPatterns.first())
@@ -222,7 +222,7 @@ class ResolveImportLiftsUseCaseTest {
             )
 
         assertEquals(squatId, outcome.resolvedSets.single().liftId)
-        assertEquals(1, outcome.summary.distinctCatalogLiftsEnabledInFirstPass)
+        assertEquals(1, outcome.summary.distinctPreCustomCatalogLiftsEnabled)
         assertEquals(1, outcome.summary.finalEnabledSeedLiftCount)
         assertTrue(liftRepo.currentLifts.single { it.id == squatId }.enabled)
         assertTrue(liftRepo.currentLifts.none { it.isCustom })
@@ -247,7 +247,7 @@ class ResolveImportLiftsUseCaseTest {
             )
 
         assertEquals(2, outcome.summary.inputSetCount)
-        assertEquals(1, outcome.summary.firstPassCatalogMatches)
+        assertEquals(1, outcome.summary.preCustomCatalogSetMatches)
         assertEquals(0, outcome.summary.customLiftsCreated)
         assertEquals(1, outcome.summary.customLiftsSkipped)
         assertEquals(1, outcome.summary.finalEnabledTotal)
@@ -415,20 +415,20 @@ class ResolveImportLiftsUseCaseTest {
         )
 
         assertEquals(4, progress.size)
-        // Equipment inference is launched concurrently before first-pass BM25, so its progress
-        // step is emitted first, followed by matching, custom-lift identification, and enablement.
-        val equipment = progress[0] as ImportCatalogProgressStep.InferringEquipment
-        assertEquals(2, equipment.exerciseCount)
-        val matching = progress[1] as ImportCatalogProgressStep.MatchingCatalog
+        // Matching runs first (local). Equipment inference only for residual unmatched names,
+        // then custom-lift identification and enablement.
+        val matching = progress[0] as ImportCatalogProgressStep.MatchingCatalog
         assertEquals(2, matching.exerciseCount)
+        val equipment = progress[1] as ImportCatalogProgressStep.InferringEquipment
+        assertEquals(1, equipment.exerciseCount)
         val custom = progress[2] as ImportCatalogProgressStep.IdentifyingCustomLifts
         assertEquals(1, custom.exerciseCount)
         assertEquals(ImportCatalogProgressStep.EnablingAvailableLifts, progress[3])
     }
 
     @Test
-    @DisplayName("Given many sets sharing exercise names when matching then BM25 runs once per distinct name")
-    fun resolvesEachDistinctExerciseNameOnce() = runTest {
+    @DisplayName("Given many sets sharing an exact catalog name when matching then resolve runs once per distinct name")
+    fun resolvesExactDistinctExerciseNameOnce() = runTest {
         val squatId = LiftId("back-squat")
         val liftRepo =
             FakeLiftRepository(
@@ -447,6 +447,7 @@ class ResolveImportLiftsUseCaseTest {
 
         subject(List(100) { loggedSet(exerciseNameRaw = "Back Squat") })
 
+        // Exact local hit — residual re-resolve is not invoked for this name.
         assertEquals(1, countingResolver.resolveInvocations)
     }
 
@@ -497,7 +498,7 @@ class ResolveImportLiftsUseCaseTest {
     }
 
     @Test
-    fun `prepareBatch is called once with distinct exercise names`() = runTest {
+    fun `prepareBatch embeds only residual unmatched names`() = runTest {
         val embeddingPort = FakeLiftNameEmbeddingPort()
         val liftRepo =
             FakeLiftRepository(
@@ -526,7 +527,139 @@ class ResolveImportLiftsUseCaseTest {
             ),
         )
 
-        assertEquals(listOf("Back Squat", "Front Squat"), embeddingPort.lastRequestedNames)
+        // Exact catalog match is local-only; only the unmatched residual hits MiniLM.
+        assertEquals(listOf("Front Squat"), embeddingPort.lastRequestedNames)
+    }
+
+    @Test
+    @DisplayName("Given all names exact catalog match when resolving then no embeddings or equipment LLM")
+    fun allExactMatchesSkipCloudPorts() = runTest {
+        val embeddingPort = FakeLiftNameEmbeddingPort()
+        val equipmentInference = FakeImportEquipmentInferencePort()
+        val customInference = FakeCustomLiftInferencePort(fail = true)
+        val squatId = LiftId("back-squat")
+        val benchId = LiftId("bench")
+        val liftRepo =
+            FakeLiftRepository(
+                initialLifts =
+                    minimalSeedCatalog(
+                        catalogLift(id = squatId, name = "Back Squat"),
+                        catalogLift(id = benchId, name = "Barbell Bench Press"),
+                    ),
+            )
+        val subject =
+            ResolveImportLiftsUseCase(
+                liftRepository = liftRepo,
+                liftNameResolver =
+                    HybridLiftNameResolver(
+                        bm25 = Bm25LiftNameResolver(),
+                        catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                        nameEmbedding = embeddingPort,
+                    ),
+                enrichCustomLifts = EnrichCustomLiftsUseCase(customInference),
+                equipmentCatalogPort =
+                    FakeLiftEquipmentCatalog(
+                        mapOf(
+                            squatId to setOf(GymEquipment.Barbell),
+                            benchId to setOf(GymEquipment.Barbell, GymEquipment.FlatBench),
+                        ),
+                    ),
+                equipmentInferencePort = equipmentInference,
+                resolutionDispatcher = UnconfinedTestDispatcher(testScheduler),
+            )
+
+        val outcome =
+            subject(
+                listOf(
+                    loggedSet(exerciseNameRaw = "Back Squat"),
+                    loggedSet(exerciseNameRaw = "Barbell Bench Press"),
+                ),
+            )
+
+        assertTrue(embeddingPort.lastRequestedNames.isEmpty())
+        assertTrue(equipmentInference.invocations.isEmpty())
+        assertTrue(customInference.invocations.isEmpty())
+        assertEquals(0, outcome.summary.customLiftsCreated)
+        assertEquals(2, outcome.summary.distinctPreCustomCatalogLiftsEnabled)
+    }
+
+    @Test
+    @DisplayName("Given preexisting custom lift with same name when re-importing then existing custom is matched")
+    fun preexistingCustomLiftMatchesByName() = runTest {
+        val customId = LiftId("custom-gizmo")
+        val customLift =
+            catalogLift(id = customId, name = "Katana Special Gizmo").copy(isCustom = true, enabled = true)
+        val liftRepo = FakeLiftRepository(initialLifts = minimalSeedCatalog() + customLift)
+        val customInference = FakeCustomLiftInferencePort(fail = true)
+        val equipmentInference =
+            FakeImportEquipmentInferencePort(
+                equipmentByName =
+                    mapOf("Katana Special Gizmo" to setOf(GymEquipment.CableStation)),
+            )
+        val subject =
+            buildSubject(
+                liftRepo,
+                customInference = customInference,
+                equipmentInference = equipmentInference,
+            )
+
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Katana Special Gizmo")))
+
+        assertEquals(customId, outcome.resolvedSets.single().liftId)
+        assertEquals(0, outcome.summary.customLiftsCreated)
+        assertTrue(customInference.invocations.isEmpty())
+        // Matched customs have no seed equipment tags — equipment LLM still runs for enablement.
+        assertEquals(listOf(listOf("Katana Special Gizmo")), equipmentInference.invocations)
+        assertTrue(GymEquipment.CableStation in outcome.summary.confirmedEquipment)
+        assertEquals(1, liftRepo.currentLifts.count { it.isCustom })
+    }
+
+    @Test
+    @DisplayName("Given gray-zone residual name when embeddings rank catalog lift then use case resolves to catalog id")
+    fun residualEmbeddingRescueResolvesThroughUseCase() = runTest {
+        val seatedId = LiftId("seated-leg")
+        val ballId = LiftId("ball-leg")
+        val embeddingPort =
+            FakeLiftNameEmbeddingPort(
+                vectorsByName = mapOf("Hamstring Curl" to floatArrayOf(1f, 0f)),
+            )
+        val liftRepo =
+            FakeLiftRepository(
+                initialLifts =
+                    minimalSeedCatalog(
+                        catalogLift(id = ballId, name = "Ball Leg Curl"),
+                        catalogLift(id = seatedId, name = "Seated Leg Curl"),
+                    ),
+            )
+        val subject =
+            ResolveImportLiftsUseCase(
+                liftRepository = liftRepo,
+                liftNameResolver =
+                    HybridLiftNameResolver(
+                        bm25 = Bm25LiftNameResolver(),
+                        catalogEmbeddings =
+                            FakeLiftEmbeddingCatalog(
+                                vectorsByLiftId =
+                                    mapOf(
+                                        seatedId to floatArrayOf(0.95f, 0.31f),
+                                        ballId to floatArrayOf(0.2f, 0.98f),
+                                    ),
+                                dimensions = 2,
+                            ),
+                        nameEmbedding = embeddingPort,
+                    ),
+                enrichCustomLifts = EnrichCustomLiftsUseCase(FakeCustomLiftInferencePort(fail = true)),
+                equipmentCatalogPort = FakeLiftEquipmentCatalog(),
+                equipmentInferencePort = FakeImportEquipmentInferencePort(),
+                resolutionDispatcher = UnconfinedTestDispatcher(testScheduler),
+            )
+
+        val outcome = subject(listOf(loggedSet(exerciseNameRaw = "Hamstring Curl")))
+
+        assertEquals(listOf("Hamstring Curl"), embeddingPort.lastRequestedNames)
+        assertEquals(seatedId, outcome.resolvedSets.single().liftId)
+        assertEquals(0, outcome.summary.customLiftsCreated)
+        assertEquals(1, outcome.summary.distinctPreCustomCatalogLiftsEnabled)
     }
 
     private class CountingLiftNameResolver(

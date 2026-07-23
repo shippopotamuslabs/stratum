@@ -2,6 +2,7 @@ package com.stratum.domain.program.importing
 
 import com.stratum.domain.importing.ImportStubLiftGuesser
 import com.stratum.domain.importing.LiftNameResolverPort
+import com.stratum.domain.importing.ResidualLiftNameResolution
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
@@ -30,10 +31,10 @@ import kotlinx.coroutines.flow.first
  * Resolution strategy (mirrors the historical-import lift resolution):
  *  1. Load the full catalog **including** prior `isCustom` lifts so the user's existing customs are
  *     name-matchable.
- *  2. For each distinct imported lift name, call [LiftNameResolverPort.resolve] (exact-name first,
- *     then embeddings best-match via [com.stratum.domain.importing.HybridLiftNameResolver]).
- *  3. Unmatched names become new custom lifts via [LiftRepository.addCustomLift] (deterministic
- *     stub metadata from [ImportStubLiftGuesser]).
+ *  2. [ResidualLiftNameResolution]: clear singleton embeddings → local exact/BM25 → residual MiniLM
+ *     → re-resolve gray-zone names via [com.stratum.domain.importing.HybridLiftNameResolver].
+ *  3. Still-unmatched names become new custom lifts via [LiftRepository.addCustomLift]
+ *     (deterministic stub metadata from [ImportStubLiftGuesser] — no LLM).
  *
  * Cycle space materialization (independent of provider meso / "Cycles: N"):
  *  - Walk template workouts in order. [NormalizedProgramTemplateWorkout.restDay] rows become
@@ -65,19 +66,24 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
         val catalogNames = catalog.associate { it.id to it.name }
 
         val distinctNames = template.workouts.flatMap { w -> w.lifts.map { it.name } }.distinct()
-        liftNameResolver.prepareBatch(distinctNames)
 
-        // Cache name -> LiftId, creating a custom lift for any unmatched name.
+        val matchedOrNull =
+            ResidualLiftNameResolution.resolveNamesLocalThenResidual(
+                resolver = liftNameResolver,
+                distinctNames = distinctNames,
+                catalogNames = catalogNames,
+            )
         val resolutionByLiftName = mutableMapOf<String, LiftId>()
         for (name in distinctNames) {
-            val existing = liftNameResolver.resolve(name, catalogNames)
+            val existing = matchedOrNull[name]
             if (existing != null) {
                 resolutionByLiftName[name] = existing
             } else {
-                val definition = ImportStubLiftGuesser.definitionFromName(
-                    name = name,
-                    increment = DEFAULT_INCREMENT,
-                )
+                val definition =
+                    ImportStubLiftGuesser.definitionFromName(
+                        name = name,
+                        increment = DEFAULT_INCREMENT,
+                    )
                 val createdId = liftRepository.addCustomLift(definition)
                 resolutionByLiftName[name] = createdId
             }

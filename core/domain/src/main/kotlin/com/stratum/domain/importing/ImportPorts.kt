@@ -228,6 +228,15 @@ interface ImportAnalysisMetadataRepository {
 }
 
 interface LiftNameResolverPort {
+    /**
+     * Prefetch query embeddings for residual exercise names that still need semantic rerank after
+     * local exact/BM25 matching. Callers must **not** pass already high-confidence matched names —
+     * that forces unnecessary cloud MiniLM work on the happy path.
+     *
+     * Empty [exerciseNames] clears prior batch state without network (required for singleton
+     * resolvers before a local-only pass). Prefer [ResidualLiftNameResolution] for the full
+     * clear → local → residual embed → re-resolve contract.
+     */
     suspend fun prepareBatch(exerciseNames: List<String>) {}
 
     fun resolve(exerciseNameRaw: String, catalogNames: Map<LiftId, String>): LiftId?

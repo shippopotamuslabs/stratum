@@ -31,6 +31,16 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
         exerciseNameRaw: String,
         catalogNames: Map<LiftId, String>,
     ): LiftNameMatchEvaluation {
+        // O(catalog) exact scan — skips BM25 token scoring + Levenshtein for the common happy path.
+        val exact = findExactNormalizedMatch(exerciseNameRaw, catalogNames)
+        if (exact != null) {
+            return LiftNameMatchEvaluation(
+                matchedLiftId = exact.liftId,
+                bestScore = EXACT_MATCH_SCORE,
+                bestCatalogName = exact.catalogName,
+                matched = true,
+            )
+        }
         val best = scoreBest(exerciseNameRaw, catalogNames)
         if (best == null) {
             return LiftNameMatchEvaluation(
@@ -47,6 +57,36 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
             bestCatalogName = best.catalogName,
             matched = matched,
         )
+    }
+
+    /**
+     * First catalog row whose normalized name equals the normalized query, or null.
+     * Prefers the shortest display name on ties (stable with [isBetterMatch] length preference).
+     */
+    fun findExactNormalizedMatch(
+        exerciseNameRaw: String,
+        catalogNames: Map<LiftId, String>,
+    ): Bm25LiftCandidate? {
+        val normalizedQuery = normalizeForMatching(exerciseNameRaw)
+        if (normalizedQuery.isEmpty()) return null
+        var best: Bm25LiftCandidate? = null
+        for ((id, name) in catalogNames) {
+            if (normalizeForMatching(name) != normalizedQuery) continue
+            val candidate =
+                Bm25LiftCandidate(
+                    liftId = id,
+                    catalogName = name,
+                    score = EXACT_MATCH_SCORE,
+                    overlap = matchingQueryTokenCount(exerciseNameRaw),
+                )
+            best =
+                when {
+                    best == null -> candidate
+                    candidate.catalogName.length < best.catalogName.length -> candidate
+                    else -> best
+                }
+        }
+        return best
     }
 
     fun rankTopK(
@@ -284,6 +324,8 @@ class Bm25LiftNameResolver : LiftNameResolverPort {
     companion object {
         /** Minimum ranking score for near-miss diagnostics in import summaries. */
         const val MATCH_THRESHOLD = 0.6
+        /** Score assigned to normalized exact-name hits (above any fuzzy BM25 score). */
+        const val EXACT_MATCH_SCORE = 1.0
         const val SCORE_EPSILON = 0.000_1
         const val STRONG_JACCARD_MIN = 0.85
         const val STRONG_RECALL_MIN = 0.9

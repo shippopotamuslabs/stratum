@@ -37,17 +37,107 @@ class HybridLiftNameResolverTest {
             mapOf(
                 LiftId("bench") to "Barbell Bench Press",
             )
+        val embeddingPort = FakeLiftNameEmbeddingPort()
         val resolver =
             HybridLiftNameResolver(
                 bm25 = bm25,
                 catalogEmbeddings = FakeLiftEmbeddingCatalog(),
-                nameEmbedding = FakeLiftNameEmbeddingPort(),
+                nameEmbedding = embeddingPort,
             )
-        resolver.prepareBatch(listOf("barbell bench press"))
-
+        // Residual-only callers skip prepareBatch for high-conf names entirely.
         val evaluation = resolver.evaluate("barbell bench press", catalog)
         assertTrue(evaluation.matched)
         assertEquals(LiftId("bench"), evaluation.matchedLiftId)
+        assertTrue(embeddingPort.lastRequestedNames.isEmpty())
+    }
+
+    @Test
+    fun `exact short catalog name matches high confidence without embeddings`() = runTest {
+        val catalog =
+            mapOf(
+                LiftId("crunch") to "Crunch",
+            )
+        val embeddingPort = FakeLiftNameEmbeddingPort()
+        val resolver =
+            HybridLiftNameResolver(
+                bm25 = bm25,
+                catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                nameEmbedding = embeddingPort,
+            )
+
+        val evaluation = resolver.evaluate("Crunch", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(LiftId("crunch"), evaluation.matchedLiftId)
+        assertTrue(embeddingPort.lastRequestedNames.isEmpty())
+    }
+
+    @Test
+    fun `padded residual name still finds embedding keyed by trimmed batch name`() = runTest {
+        val seatedId = LiftId("seated-leg")
+        val ballId = LiftId("ball-leg")
+        val catalog =
+            mapOf(
+                ballId to "Ball Leg Curl",
+                seatedId to "Seated Leg Curl",
+            )
+        val query = floatArrayOf(1f, 0f)
+        val resolver =
+            HybridLiftNameResolver(
+                bm25 = bm25,
+                catalogEmbeddings =
+                    FakeLiftEmbeddingCatalog(
+                        vectorsByLiftId =
+                            mapOf(
+                                seatedId to floatArrayOf(0.95f, 0.31f),
+                                ballId to floatArrayOf(0.2f, 0.98f),
+                            ),
+                        dimensions = 2,
+                    ),
+                nameEmbedding =
+                    FakeLiftNameEmbeddingPort(
+                        vectorsByName = mapOf("Hamstring Curl" to query),
+                    ),
+            )
+        // Batch uses trimmed form (as cloud does); evaluate uses padded raw string.
+        resolver.prepareBatch(listOf("  Hamstring Curl  "))
+
+        val evaluation = resolver.evaluate("  Hamstring Curl  ", catalog)
+        assertTrue(evaluation.matched)
+        assertEquals(seatedId, evaluation.matchedLiftId)
+    }
+
+    @Test
+    fun `prepareBatch empty clears prior embeddings so local pass cannot reuse them`() = runTest {
+        val seatedId = LiftId("seated-leg")
+        val ballId = LiftId("ball-leg")
+        val catalog =
+            mapOf(
+                ballId to "Ball Leg Curl",
+                seatedId to "Seated Leg Curl",
+            )
+        val resolver =
+            HybridLiftNameResolver(
+                bm25 = bm25,
+                catalogEmbeddings =
+                    FakeLiftEmbeddingCatalog(
+                        vectorsByLiftId =
+                            mapOf(
+                                seatedId to floatArrayOf(0.95f, 0.31f),
+                                ballId to floatArrayOf(0.2f, 0.98f),
+                            ),
+                        dimensions = 2,
+                    ),
+                nameEmbedding =
+                    FakeLiftNameEmbeddingPort(
+                        vectorsByName = mapOf("Hamstring Curl" to floatArrayOf(1f, 0f)),
+                    ),
+            )
+        resolver.prepareBatch(listOf("Hamstring Curl"))
+        assertTrue(resolver.evaluate("Hamstring Curl", catalog).matched)
+
+        resolver.prepareBatch(emptyList())
+        // Without vectors, gray-zone falls through (no high-conf BM25 to seated/ball).
+        assertFalse(resolver.evaluate("Hamstring Curl", catalog).matched)
     }
 
     @Test

@@ -5,28 +5,50 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * BM25-first resolver with embedding rerank in the gray zone and for low-confidence rescue.
- * Query vectors are prefetched via [prepareBatch]; catalog vectors come from the APK asset.
  *
- * Catalog lifts are accepted only on exact normalized match, strong BM25 token alignment, or a
- * high-confidence embedding win with margin — otherwise the name becomes a custom lift.
+ * Callers should [prepareBatch] **only residual names** that failed high-confidence local match
+ * (exact / strong BM25). Prefetching every import name forces a cloud MiniLM round-trip even when
+ * all names already exist in the catalog.
+ *
+ * Catalog vectors come from the APK asset. Catalog lifts are accepted only on exact normalized
+ * match, strong BM25 token alignment, or a high-confidence embedding win with margin — otherwise
+ * the name becomes a custom lift.
  */
 class HybridLiftNameResolver(
     private val bm25: Bm25LiftNameResolver,
     private val catalogEmbeddings: LiftEmbeddingCatalogPort,
     private val nameEmbedding: LiftNameEmbeddingPort,
 ) : LiftNameResolverPort {
-    // ConcurrentHashMap so prepareBatch can populate concurrently with evaluate reads during
-    // parallelized import (high-confidence BM25 matches don't wait for embeddings).
+    // ConcurrentHashMap: this resolver is a process-wide singleton; concurrent imports must not
+    // tear the query-vector map during residual re-resolve.
     private val queryEmbeddings = ConcurrentHashMap<String, FloatArray>()
     @Volatile private var embeddingBatchError: String? = null
 
+    /**
+     * Prefetch query embeddings for residual [exerciseNames] only. Always clears prior batch state
+     * first (including when [exerciseNames] is empty) so callers can isolate the local pass from
+     * stale singleton vectors.
+     */
     override suspend fun prepareBatch(exerciseNames: List<String>) {
         queryEmbeddings.clear()
         embeddingBatchError = null
-        val distinct = exerciseNames.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
-        if (distinct.isEmpty()) return
-        nameEmbedding.embedExerciseNames(distinct)
-            .onSuccess { embeddings -> queryEmbeddings.putAll(embeddings) }
+        val rawToTrimmed =
+            exerciseNames
+                .map { raw -> raw to raw.trim() }
+                .filter { (_, trimmed) -> trimmed.isNotEmpty() }
+        val distinctTrimmed = rawToTrimmed.map { it.second }.distinct()
+        if (distinctTrimmed.isEmpty()) return
+        nameEmbedding.embedExerciseNames(distinctTrimmed)
+            .onSuccess { embeddings ->
+                queryEmbeddings.putAll(embeddings)
+                // Cloud keys are trimmed; also index original raw strings so evaluate lookups
+                // that still carry padding hit the same vector.
+                for ((raw, trimmed) in rawToTrimmed) {
+                    if (raw != trimmed) {
+                        embeddings[trimmed]?.let { queryEmbeddings[raw] = it }
+                    }
+                }
+            }
             .onFailure { error -> embeddingBatchError = error.message ?: error::class.simpleName }
     }
 
@@ -56,6 +78,10 @@ class HybridLiftNameResolver(
     ): Boolean {
         if (!evaluation.matched) return false
         val catalogName = evaluation.bestCatalogName ?: return false
+        // Exact normalized equality is never ambiguous — including short 1–2 token names.
+        if (bm25.isExactNormalizedMatch(exerciseNameRaw, catalogName)) {
+            return true
+        }
         if (isAmbiguousShortQuery(exerciseNameRaw)) {
             return false
         }
@@ -110,7 +136,9 @@ class HybridLiftNameResolver(
             return null
         }
 
-        val queryVector = queryEmbeddings[exerciseNameRaw]
+        val queryVector =
+            queryEmbeddings[exerciseNameRaw]
+                ?: queryEmbeddings[exerciseNameRaw.trim()]
         if (queryVector == null || catalogEmbeddings.dimensions != queryVector.size) {
             return null
         }

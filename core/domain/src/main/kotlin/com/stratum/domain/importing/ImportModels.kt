@@ -97,14 +97,26 @@ data class ResolveImportLiftsSummary(
     val distinctInputExerciseNamesNormalized: Int,
     val seedCatalogLiftCount: Int,
     val preexistingCustomLiftCount: Int,
-    /** Set count that matched a seed catalog lift on the first pass (not distinct lifts). */
-    val firstPassCatalogMatches: Int,
-    val distinctCatalogLiftsEnabledInFirstPass: Int,
-    /** Distinct normalized exercise names that matched a seed catalog lift on the first pass. */
-    val distinctExerciseNamesMatchedCatalogInFirstPass: Int,
+    /**
+     * Set rows that matched the full catalog (seed **or** preexisting custom) before any
+     * import-created custom lifts — includes local exact/BM25 and residual embedding rescues.
+     * Not distinct lifts.
+     */
+    val preCustomCatalogSetMatches: Int,
+    /** Distinct catalog lift ids enabled from pre-custom matches (seed + preexisting custom). */
+    val distinctPreCustomCatalogLiftsEnabled: Int,
+    /**
+     * Distinct normalized exercise names that matched the full catalog before import-created
+     * customs (local + residual embedding).
+     */
+    val distinctExerciseNamesMatchedPreCustom: Int,
     val distinctUnmatchedExerciseNames: Int,
     val customLiftsCreated: Int,
-    val secondPassAdditionalMatches: Int,
+    /**
+     * Additional set matches after import-created customs were added and names re-resolved
+     * (post-custom rematch).
+     */
+    val postCustomAdditionalMatches: Int,
     val finalEnabledSeedLiftCount: Int,
     val finalEnabledCustomLiftCount: Int,
     val finalEnabledTotal: Int,
