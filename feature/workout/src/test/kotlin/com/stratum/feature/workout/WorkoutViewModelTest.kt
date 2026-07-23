@@ -1987,6 +1987,115 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    @DisplayName("removeLift of one session-added superset member clears the survivor group id")
+    fun removeSessionAddedSupersetClearsOrphanGroup() = runTest {
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        viewModel.addLifts(listOf(LiftId("L-2"), LiftId("L-1")), asSuperset = true)
+        advanceUntilIdle()
+        val withSuperset = viewModel.uiState.value as WorkoutUiState.Loaded
+        val added = withSuperset.lifts.takeLast(2)
+        assertEquals(2, added.size)
+        assertNotNull(added[0].supersetGroupId)
+        assertEquals(added[0].supersetGroupId, added[1].supersetGroupId)
+
+        viewModel.removeLift(WorkoutLiftId(added[1].workoutLiftId))
+        advanceUntilIdle()
+        val after = viewModel.uiState.value as WorkoutUiState.Loaded
+        val survivor = after.lifts.single { it.workoutLiftId == added[0].workoutLiftId }
+        assertNull(survivor.supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("removeLift of one template superset member clears the survivor group id")
+    fun removeTemplateSupersetClearsOrphanGroup() = runTest {
+        val groupId = com.stratum.domain.program.identity.WorkoutSupersetGroupId("ss-template")
+        val wl2 = WorkoutLiftId("wl-2")
+        val ls3 = LiftSetId("ls-3")
+        programRepository = FakeProgramRepository(
+            Program(
+                id = programId,
+                name = "Test Program",
+                createdAt = Instant.parse("2026-06-26T00:00:00Z"),
+                cycleLength = 1,
+                trainingWeekdays = setOf(Weekday.Monday),
+                workouts = listOf(
+                    Workout(
+                        id = workoutId,
+                        programId = programId,
+                        name = "Workout 1",
+                        weekday = Weekday.Monday,
+                        position = 0,
+                        workoutLifts = listOf(
+                            WorkoutLift(
+                                id = workoutLiftId,
+                                workoutId = workoutId,
+                                liftId = liftId,
+                                progressionScheme = ProgressionScheme.Double,
+                                position = 0,
+                                sets = listOf(
+                                    LiftSet(
+                                        id = liftSetId,
+                                        workoutLiftId = workoutLiftId,
+                                        position = 0,
+                                        setType = SetType.Standard,
+                                        repMin = 4,
+                                        repMax = 6,
+                                        rirGoal = 2,
+                                        isTopSet = true,
+                                    ),
+                                ),
+                                supersetGroupId = groupId,
+                            ),
+                            WorkoutLift(
+                                id = wl2,
+                                workoutId = workoutId,
+                                liftId = LiftId("L-2"),
+                                progressionScheme = ProgressionScheme.Double,
+                                position = 1,
+                                sets = listOf(
+                                    LiftSet(
+                                        id = ls3,
+                                        workoutLiftId = wl2,
+                                        position = 0,
+                                        setType = SetType.Standard,
+                                        repMin = 8,
+                                        repMax = 12,
+                                        rirGoal = 2,
+                                        isTopSet = true,
+                                    ),
+                                ),
+                                supersetGroupId = groupId,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        seedHistoryForLift(
+            historyLiftId = LiftId("L-2"),
+            name = "Bench Press",
+            topWeight = 135.0,
+        )
+        val viewModel = buildViewModel()
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(2, loaded.lifts.size)
+        assertEquals(groupId.value, loaded.lifts[0].supersetGroupId)
+        assertEquals(groupId.value, loaded.lifts[1].supersetGroupId)
+
+        viewModel.removeLift(wl2)
+        advanceUntilIdle()
+        val after = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(1, after.lifts.size)
+        assertNull(after.lifts.single().supersetGroupId)
+    }
+
+    @Test
     @DisplayName("LiftSelected with null workoutLiftId adds a lift via edit session")
     fun liftSelectedNullIdAddsLift() = runTest {
         val viewModel = buildViewModel()

@@ -2,6 +2,7 @@ package com.stratum.feature.program
 
 import com.stratum.feature.program.ui.EditLiftState
 import com.stratum.feature.program.ui.EditSetState
+import com.stratum.feature.program.ui.EditWorkoutUiState
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.core.ui.component.isSupersetPairMember
 import com.stratum.core.ui.component.isLastInSupersetChain
@@ -80,6 +81,95 @@ class EditWorkoutSupersetTest {
         val cleaned = cleanupSupersetGroups(lifts)
 
         assertNull(cleaned[0].supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("Given a superset pair when one lift is removed then survivor loses group id")
+    fun removeLiftClearsOrphanSupersetGroup() {
+        val lifts =
+            listOf(
+                lift("wl-1", position = 0, groupId = groupA),
+                lift("wl-2", position = 1, groupId = groupA),
+                lift("wl-3", position = 2),
+            )
+
+        val remaining = removeLiftAndCleanupSupersets(lifts, "wl-2")
+
+        assertEquals(2, remaining.size)
+        assertNull(remaining.single { it.workoutLiftId == "wl-1" }.supersetGroupId)
+        assertEquals(0, remaining.single { it.workoutLiftId == "wl-1" }.position)
+        assertEquals(1, remaining.single { it.workoutLiftId == "wl-3" }.position)
+    }
+
+    @Test
+    @DisplayName("Given giant set of three when one lift is removed then remaining two keep group")
+    fun removeLiftFromGiantSetKeepsRemainingPair() {
+        val lifts =
+            listOf(
+                lift("wl-1", position = 0, groupId = groupB),
+                lift("wl-2", position = 1, groupId = groupB),
+                lift("wl-3", position = 2, groupId = groupB),
+            )
+
+        val remaining = removeLiftAndCleanupSupersets(lifts, "wl-2")
+
+        assertEquals(2, remaining.size)
+        assertEquals(groupB, remaining[0].supersetGroupId)
+        assertEquals(groupB, remaining[1].supersetGroupId)
+        assertEquals(listOf("wl-1", "wl-3"), remaining.map { it.workoutLiftId })
+    }
+
+    @Test
+    @DisplayName("Given unknown workoutLiftId when removeLift then list is unchanged")
+    fun removeLiftUnknownIdIsNoOp() {
+        val lifts =
+            listOf(
+                lift("wl-1", position = 0, groupId = groupA),
+                lift("wl-2", position = 1, groupId = groupA),
+            )
+
+        val remaining = removeLiftAndCleanupSupersets(lifts, "missing")
+
+        assertEquals(lifts, remaining)
+    }
+
+    @Test
+    @DisplayName("EditWorkoutLiftMutations.removeLift marks dirty and clears orphan")
+    fun mutationsRemoveLiftClearsOrphanAndMarksDirty() {
+        val loaded =
+            EditWorkoutUiState.Loaded(
+                workoutId = "w-1",
+                workoutName = "Day",
+                lifts =
+                    listOf(
+                        lift("wl-1", position = 0, groupId = groupA),
+                        lift("wl-2", position = 1, groupId = groupA),
+                    ),
+                isDirty = false,
+            )
+
+        val next = EditWorkoutLiftMutations.removeLift(loaded, "wl-2")
+
+        assertTrue(next.isDirty)
+        assertEquals(1, next.lifts.size)
+        assertNull(next.lifts.single().supersetGroupId)
+    }
+
+    @Test
+    @DisplayName("EditWorkoutLiftMutations.removeLift with unknown id does not mark dirty")
+    fun mutationsRemoveLiftUnknownIdSkipsDirty() {
+        val loaded =
+            EditWorkoutUiState.Loaded(
+                workoutId = "w-1",
+                workoutName = "Day",
+                lifts = listOf(lift("wl-1", position = 0)),
+                isDirty = false,
+            )
+
+        val next = EditWorkoutLiftMutations.removeLift(loaded, "missing")
+
+        assertFalse(next.isDirty)
+        assertEquals(loaded.lifts, next.lifts)
     }
 
     @Test

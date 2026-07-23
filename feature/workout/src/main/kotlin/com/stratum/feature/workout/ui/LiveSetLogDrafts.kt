@@ -137,17 +137,25 @@ private fun applySeedForSet(
 
 /**
  * Merges durable [lift] presentation with ephemeral [drafts] into the shared set-log panel model.
+ *
+ * [allLifts] gates the superset chip: singleton orphan group ids are not shown (matches edit
+ * workout's [com.stratum.core.ui.component.isSupersetPairMember] rule).
  */
 internal fun mergeLiveLogLift(
     lift: RenderedLiftUi,
     drafts: Map<String, SetFieldDraft>,
+    allLifts: List<RenderedLiftUi> = emptyList(),
 ): WorkoutLogLiftUi =
     WorkoutLogLiftUi(
         key = lift.workoutLiftId,
         liftName = lift.liftName,
         showWeightColumn = lift.showWeightColumn,
         weightHeaderLabel = lift.weightHeaderLabel,
-        supersetGroupId = lift.supersetGroupId,
+        supersetGroupId =
+            lift.supersetGroupId?.takeIf {
+                allLifts.isEmpty() ||
+                    com.stratum.core.ui.component.isSupersetPairMember(lift, allLifts)
+            },
         sets =
             lift.sets.map { set ->
                 val draft = drafts[set.slotKey] ?: set.draftFromDurable()

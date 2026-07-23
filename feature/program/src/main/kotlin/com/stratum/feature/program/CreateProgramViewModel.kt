@@ -18,6 +18,7 @@ import com.stratum.domain.program.UpdateExistingProgramUseCase
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.training.AbandonTrainingSessionUseCase
 import com.stratum.domain.training.ObserveActiveSessionUseCase
+import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.domain.workout.EditSessionEvent
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.program.ui.EditWorkoutUiState
@@ -241,6 +242,91 @@ class CreateProgramViewModel @Inject constructor(
 
     fun updateSelectedWorkout(transform: (EditWorkoutUiState.Loaded) -> EditWorkoutUiState.Loaded) =
         editor.updateSelectedWorkout(transform)
+
+    // Embedded-editor mutations: pure [EditWorkoutLiftMutations] via controller apply path
+    // (kept on the façade, not the editor controller, to stay under TooManyFunctions).
+
+    fun removeSelectedLift(workoutLiftId: String) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.removeLift(loaded, workoutLiftId)
+        }
+    }
+
+    fun linkSupersetWithPrevious(workoutLiftId: String) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.linkSuperset(
+                loaded = loaded,
+                workoutLiftId = workoutLiftId,
+                direction = SupersetLinkDirection.Previous,
+            )
+        }
+    }
+
+    fun linkSupersetWithNext(workoutLiftId: String) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.linkSuperset(
+                loaded = loaded,
+                workoutLiftId = workoutLiftId,
+                direction = SupersetLinkDirection.Next,
+            )
+        }
+    }
+
+    fun removeFromSuperset(workoutLiftId: String) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.removeFromSuperset(loaded, workoutLiftId)
+        }
+    }
+
+    fun setUseRestTimerBetweenLifts(workoutLiftId: String, enabled: Boolean) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.setUseRestTimerBetweenLifts(loaded, workoutLiftId, enabled)
+        }
+    }
+
+    fun addSetToSelectedLift(workoutLiftId: String) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.addSet(loaded, workoutLiftId)
+        }
+    }
+
+    fun removeSetFromSelectedWorkout(setId: String) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.removeSet(loaded, setId)
+        }
+    }
+
+    fun setRepBandOnSelectedWorkout(setId: String, repMin: Int, repMax: Int) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.updateSet(loaded, setId) { set ->
+                set.copy(repMin = repMin, repMax = repMax)
+            }
+        }
+    }
+
+    fun setRirGoalOnSelectedWorkout(setId: String, rirGoal: Int) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.updateSet(loaded, setId) { set -> set.copy(rirGoal = rirGoal) }
+        }
+    }
+
+    fun setRestSecondsOnSelectedWorkout(setId: String, restSeconds: Int) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.updateSet(loaded, setId) { set ->
+                set.copy(restSeconds = restSeconds)
+            }
+        }
+    }
+
+    fun setRestSecondsForAllSetsOnSelectedLift(workoutLiftId: String, restSeconds: Int) {
+        editor.updateSelectedWorkout { loaded ->
+            EditWorkoutLiftMutations.setRestSecondsForAllSetsOnLift(
+                loaded = loaded,
+                workoutLiftId = workoutLiftId,
+                restSeconds = restSeconds,
+            )
+        }
+    }
 
     fun startReorderLifts(onNavigate: (workoutId: String) -> Unit) =
         editor.startReorderLifts(onNavigate)

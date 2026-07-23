@@ -118,6 +118,7 @@ internal fun WorkoutLiftList(
             itemsIndexed(lifts, key = { _, lift -> lift.workoutLiftId }) { _, lift ->
                 LiveLiftSection(
                     lift = lift,
+                    allLifts = lifts,
                     onLogSet = onLogSet,
                     onUnlogSet = onUnlogSet,
                     onAddSet = { onAddSet(lift.workoutLiftId) },
@@ -178,6 +179,7 @@ internal fun LiveLiftSection(
     onDeleteSet: (slotKey: String) -> Unit,
     onShowLiftActions: () -> Unit,
     modifier: Modifier = Modifier,
+    allLifts: List<RenderedLiftUi> = emptyList(),
     failedLogSlotKey: String? = null,
     onFailedLogConsumed: () -> Unit = {},
 ) {
@@ -203,8 +205,8 @@ internal fun LiveLiftSection(
 
     // revision forces re-merge when drafts change; lift.sets when durable state updates.
     val logLift =
-        remember(lift, revision) {
-            mergeLiveLogLift(lift, draftStore.snapshot())
+        remember(lift, allLifts, revision) {
+            mergeLiveLogLift(lift, draftStore.snapshot(), allLifts)
         }
 
     val addSetCd = stringResource(R.string.workout_screen_add_set)
