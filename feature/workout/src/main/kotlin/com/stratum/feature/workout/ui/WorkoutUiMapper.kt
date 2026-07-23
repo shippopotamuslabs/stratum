@@ -1,7 +1,11 @@
 package com.stratum.feature.workout.ui
 
 import com.stratum.core.ui.component.formatWeightAmount
+import com.stratum.core.ui.component.formatWeightAmountForDisplay
+import com.stratum.core.ui.component.formatWeightForDisplay
 import com.stratum.domain.lift.LoadType
+import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlotId
 import kotlin.math.abs
@@ -14,6 +18,9 @@ import kotlin.math.abs
  * enum: bodyweight lifts hide the weight column; assisted lifts display weights as their
  * absolute value (the user types a positive assistance amount; the ViewModel negates it
  * before persisting); weighted lifts are unchanged.
+ *
+ * Weight amounts on the presentation model are expressed in [displayUnit].
+ * Live logging **persists Lb** (canonical storage); the ViewModel converts display → Lb on commit.
  */
 internal object WorkoutUiMapper {
     fun map(
@@ -22,6 +29,8 @@ internal object WorkoutUiMapper {
         hasIncompleteLifts: Boolean = false,
         hasDirtyEdits: Boolean = false,
         imageUrlByLiftId: Map<String, String?> = emptyMap(),
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+        displayUnitEpoch: Int = 0,
     ): WorkoutUiState.Loaded {
         val lifts = rendered.lifts.map { lift ->
             val showWeightColumn = lift.loadType != LoadType.Bodyweight
@@ -44,19 +53,37 @@ internal object WorkoutUiMapper {
                     val prevWeight = set.previousWeight
                     val prevReps = set.previousReps
                     val prevLabel = if (prevWeight != null && prevReps != null) {
-                        // Assisted "prev" is the absolute assistance amount (sign-stripped).
-                        val raw = if (assistMode) abs(prevWeight.amount) else prevWeight.amount
-                        val amtStr = if (raw % 1.0 == 0.0) raw.toInt().toString() else raw.toString()
-                        val unitStr = prevWeight.unit.name.lowercase()
-                        "$amtStr $unitStr × $prevReps"
+                        val displayWeight = formatWeightForDisplay(
+                            weight = prevWeight,
+                            displayUnit = displayUnit,
+                            assistMode = assistMode,
+                            includeUnit = true,
+                        )
+                        "$displayWeight × $prevReps"
                     } else {
                         "—"
                     }
 
-                    val recommendedWeightAmount = set.recommendedWeight.amount
+                    // Domain recs are in the recommended weight's unit (live path: Lb).
+                    val recSourceUnit = set.recommendedWeight.unit
+                    val recommendedWeightAmount =
+                        WeightConversion.convertAmount(
+                            if (assistMode) abs(set.recommendedWeight.amount)
+                            else set.recommendedWeight.amount,
+                            recSourceUnit,
+                            displayUnit,
+                        )
                     val recommendedWeightLabel =
-                        if (!showWeightColumn) ""
-                        else formatWeightAmount(recommendedWeightAmount, assistMode)
+                        if (!showWeightColumn) {
+                            ""
+                        } else {
+                            formatWeightAmountForDisplay(
+                                amount = set.recommendedWeight.amount,
+                                sourceUnit = recSourceUnit,
+                                displayUnit = displayUnit,
+                                assistMode = assistMode,
+                            )
+                        }
 
                     // Show a concrete rep count when either (a) a live overlay
                     // recommendation projected the next-set reps from the most recent
@@ -74,6 +101,14 @@ internal object WorkoutUiMapper {
                         if (set.repMin == 0 && set.repMax == 0) "" else "${set.repMin}-${set.repMax}"
                     }
 
+                    val loggedDisplayAmount = set.loggedValue?.let { logged ->
+                        WeightConversion.convertAmount(
+                            if (assistMode) abs(logged.weight.amount) else logged.weight.amount,
+                            logged.weight.unit,
+                            displayUnit,
+                        )
+                    }
+
                     RenderedSetUi(
                         slotKey = slotKey(set.slotId),
                         positionLabel = (set.position + 1).toString(),
@@ -82,13 +117,11 @@ internal object WorkoutUiMapper {
                         rirLabel = "RIR ${set.rirGoal}",
                         recommendedWeightLabel = recommendedWeightLabel,
                         recommendedRepsLabel = recommendedRepsLabel,
-                        loggedWeightLabel = set.loggedValue?.let {
-                            if (!showWeightColumn) "" else formatWeightAmount(it.weight.amount, assistMode)
+                        loggedWeightLabel = loggedDisplayAmount?.let {
+                            if (!showWeightColumn) "" else formatWeightAmount(it)
                         },
                         loggedRepsLabel = set.loggedValue?.reps?.toString(),
-                        loggedWeightAmount = set.loggedValue?.let {
-                            if (assistMode) kotlin.math.abs(it.weight.amount) else it.weight.amount
-                        },
+                        loggedWeightAmount = loggedDisplayAmount,
                         loggedReps = set.loggedValue?.reps,
                         isComplete = set.loggedValue != null,
                         previousWeightLabel = prevLabel,
@@ -116,6 +149,7 @@ internal object WorkoutUiMapper {
             sessionStartedAtEpochMilli = sessionStartedAtEpochMilli,
             hasIncompleteLifts = hasIncompleteLifts,
             hasDirtyEdits = hasDirtyEdits,
+            displayUnitEpoch = displayUnitEpoch,
         )
     }
 

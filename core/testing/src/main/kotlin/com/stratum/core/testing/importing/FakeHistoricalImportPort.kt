@@ -6,6 +6,7 @@ import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.RemoteImportJobStatus
 import com.stratum.domain.importing.UploadRefs
 import com.stratum.domain.importing.identity.ImportJobId
+import com.stratum.domain.lift.Weight
 
 class FakeHistoricalImportPort(
     var snapshotSequence: List<ImportJobSnapshot> = listOf(
@@ -23,6 +24,7 @@ class FakeHistoricalImportPort(
     var conversionJsonMap: Map<String, String> = emptyMap(),
 ) : HistoricalImportPort {
     val uploads = mutableListOf<Triple<ImportJobId, ByteArray, String>>()
+    val startImportFallbackUnits = mutableListOf<Weight.WeightUnit>()
     private var pollIndex = 0
     private var uploadCount = 0
 
@@ -45,8 +47,14 @@ class FakeHistoricalImportPort(
         )
     }
 
-    override suspend fun startImport(jobId: ImportJobId, refs: UploadRefs): Result<Unit> =
-        Result.success(Unit)
+    override suspend fun startImport(
+        jobId: ImportJobId,
+        refs: UploadRefs,
+        fallbackWeightUnit: Weight.WeightUnit,
+    ): Result<Unit> {
+        startImportFallbackUnits += fallbackWeightUnit
+        return Result.success(Unit)
+    }
 
     override suspend fun pollJobStatus(jobId: ImportJobId): Result<ImportJobSnapshot> {
         val snapshot = snapshotSequence[pollIndex.coerceAtMost(snapshotSequence.lastIndex)]

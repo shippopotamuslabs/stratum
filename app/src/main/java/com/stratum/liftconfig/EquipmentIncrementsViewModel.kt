@@ -7,9 +7,12 @@ import com.stratum.domain.lift.EquipmentAffectedLifts
 import com.stratum.domain.lift.IncrementTiersValidationResult
 import com.stratum.domain.lift.ObserveEquipmentAffectedLiftsUseCase
 import com.stratum.domain.lift.ObserveEquipmentCatalogUseCase
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentIncrementTiersUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
+import com.stratum.domain.lift.shortLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -33,6 +36,8 @@ data class EquipmentIncrementsUiState(
     val affectedLiftCount: Int = 0,
     /** Names of affected lifts, sorted; UI shows first 3 + "+M more". */
     val affectedLiftNames: List<String> = emptyList(),
+    /** Short unit label for field chrome (`lb` / `kg`) from Settings. */
+    val unitLabel: String = "lb",
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -42,6 +47,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val observeEquipmentAffectedLifts: ObserveEquipmentAffectedLiftsUseCase,
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
+    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
 
     private val equipmentId = MutableStateFlow<String?>(null)
@@ -49,6 +55,18 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val isSaving = MutableStateFlow(false)
     private val saveSucceeded = MutableStateFlow(false)
     private val validationOverride = MutableStateFlow<String?>(null)
+    private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
+
+    init {
+        viewModelScope.launch {
+            observeWeightDisplayPreferences().collect { prefs ->
+                if (displayUnit.value != prefs.displayUnit) {
+                    draftTiers.value = null
+                    displayUnit.value = prefs.displayUnit
+                }
+            }
+        }
+    }
 
     private data class Flags(
         val draft: List<IncrementTierDraft>?,
@@ -71,14 +89,16 @@ class EquipmentIncrementsViewModel @Inject constructor(
             equipmentId,
             observeEquipmentCatalog(),
             affectedLifts,
+            displayUnit,
             combine(draftTiers, isSaving, saveSucceeded, validationOverride) { draft, saving, saved, validation ->
                 Flags(draft, saving, saved, validation)
             },
-        ) { id, catalog, affected, flags ->
+        ) { id, catalog, affected, unit, flags ->
             buildState(
                 id = id,
                 catalog = catalog,
                 affected = affected,
+                unit = unit,
                 draft = flags.draft,
                 saving = flags.saving,
                 saved = flags.saved,
@@ -151,22 +171,27 @@ class EquipmentIncrementsViewModel @Inject constructor(
     }
 
     fun addTier() {
+        val unit = displayUnit.value
         updateDraft { tiers ->
             val last = tiers.lastOrNull()
             val splitAt =
                 last?.upperBound?.toDoubleOrNull()
-                    ?: last?.lowerBound?.toDoubleOrNull()?.plus(IncrementTierDraftOps.DEFAULT_TIER_SPLIT_SPAN)
-                    ?: IncrementTierDraftOps.DEFAULT_TIER_SPLIT_AT
+                    ?: last?.lowerBound?.toDoubleOrNull()?.plus(
+                        IncrementTierDraftOps.defaultSplitSpan(unit),
+                    )
+                    ?: IncrementTierDraftOps.defaultSplitAt(unit)
             val closedLast =
                 last?.copy(
                     openEnded = false,
-                    upperBound = IncrementTierDraftOps.formatAmount(splitAt),
+                    upperBound = IncrementTierDraftOps.formatDisplayAmount(splitAt),
                 )
             val next =
                 IncrementTierDraft(
-                    lowerBound = IncrementTierDraftOps.formatAmount(splitAt),
+                    lowerBound = IncrementTierDraftOps.formatDisplayAmount(splitAt),
                     upperBound = null,
-                    increment = last?.increment ?: IncrementTierDraftOps.DEFAULT_INCREMENT_TEXT,
+                    increment =
+                        last?.increment
+                            ?: IncrementTierDraftOps.defaultDraft(unit).increment,
                     openEnded = true,
                 )
             if (closedLast != null) {
@@ -189,7 +214,8 @@ class EquipmentIncrementsViewModel @Inject constructor(
 
     fun save() {
         val id = equipmentId.value ?: return
-        val domainTiers = IncrementTierDraftOps.toDomainOrNull(uiState.value.tiers)
+        val unit = displayUnit.value
+        val domainTiers = IncrementTierDraftOps.toDomainOrNull(uiState.value.tiers, unit)
         if (domainTiers == null) {
             validationOverride.value = "Enter valid numbers for all bands"
             return
@@ -219,6 +245,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
         id: String?,
         catalog: List<Equipment>,
         affected: EquipmentAffectedLifts,
+        unit: Weight.WeightUnit,
         draft: List<IncrementTierDraft>?,
         saving: Boolean,
         saved: Boolean,
@@ -227,17 +254,18 @@ class EquipmentIncrementsViewModel @Inject constructor(
         val equipment = catalog.firstOrNull { it.id.value == id }
         val tiers =
             draft
-                ?: equipment?.incrementTiers?.map { IncrementTierDraftOps.toDraft(it) }
-                ?: listOf(IncrementTierDraftOps.defaultDraft())
+                ?: equipment?.incrementTiers?.map { IncrementTierDraftOps.toDraft(it, unit) }
+                ?: listOf(IncrementTierDraftOps.defaultDraft(unit))
         return EquipmentIncrementsUiState(
             equipmentId = id.orEmpty(),
             equipmentName = equipment?.name.orEmpty(),
             tiers = tiers,
-            validationMessage = validation ?: liveValidationMessage(tiers),
+            validationMessage = validation ?: liveValidationMessage(tiers, unit),
             isSaving = saving,
             saveSucceeded = saved,
             affectedLiftCount = affected.count,
             affectedLiftNames = affected.lifts.map { it.name },
+            unitLabel = unit.shortLabel(),
         )
     }
 
@@ -248,8 +276,11 @@ class EquipmentIncrementsViewModel @Inject constructor(
         saveSucceeded.value = false
     }
 
-    private fun liveValidationMessage(tiers: List<IncrementTierDraft>): String? {
-        val domain = IncrementTierDraftOps.toDomainOrNull(tiers) ?: return null
+    private fun liveValidationMessage(
+        tiers: List<IncrementTierDraft>,
+        unit: Weight.WeightUnit,
+    ): String? {
+        val domain = IncrementTierDraftOps.toDomainOrNull(tiers, unit) ?: return null
         return when (val result = validateIncrementTiers(domain)) {
             is IncrementTiersValidationResult.Invalid ->
                 IncrementTierDraftOps.toUserMessage(result.errors)

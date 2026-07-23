@@ -4,6 +4,7 @@ import com.stratum.domain.importing.ImportHistoryTrainingMapper
 import com.stratum.domain.importing.ImportTimestamps
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -33,7 +34,8 @@ private data class ImportedSetDto(
     val liftId: String? = null,
     val setIndex: Int,
     val weightAmount: Double,
-    @SerialName("weightUnit") val weightUnitName: String = "Lb",
+    /** Null when the conversion omitted unit — caller supplies [fallbackWeightUnit]. */
+    @SerialName("weightUnit") val weightUnitName: String? = null,
     val reps: Int,
     val rir: Int? = null,
     val completedAt: String,
@@ -42,7 +44,14 @@ private data class ImportedSetDto(
 internal object ImportedHistoryJsonParser {
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun parse(payload: String): Pair<List<TrainingSession>, List<LoggedSet>> {
+    /**
+     * @param fallbackWeightUnit used only when a set omits `weightUnit`. Explicit values win.
+     * All sets are **normalized to Lb** before return (strict canonical training-load storage).
+     */
+    fun parse(
+        payload: String,
+        fallbackWeightUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): Pair<List<TrainingSession>, List<LoggedSet>> {
         val document = json.decodeFromString<ImportedHistoryDocument>(payload)
         val sessions =
             document.sessions.map { dto ->
@@ -55,12 +64,17 @@ internal object ImportedHistoryJsonParser {
             }
         val sets =
             document.sets.map { dto ->
+                val unit =
+                    dto.weightUnitName
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(Weight.WeightUnit::parse)
+                        ?: fallbackWeightUnit
                 ImportHistoryTrainingMapper.parseSet(
                     id = LoggedSetId(dto.id),
                     sessionId = TrainingSessionId(dto.sessionId),
                     exerciseNameRaw = dto.exerciseNameRaw,
                     setIndex = dto.setIndex,
-                    weight = Weight(dto.weightAmount, Weight.WeightUnit.parse(dto.weightUnitName)),
+                    weight = Weight(dto.weightAmount, unit).toStorageLb(),
                     reps = dto.reps,
                     rir = dto.rir,
                     completedAt = ImportTimestamps.parse(dto.completedAt),

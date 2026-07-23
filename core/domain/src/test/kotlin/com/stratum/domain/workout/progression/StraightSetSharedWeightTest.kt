@@ -376,12 +376,16 @@ class StraightSetSharedWeightTest {
         }
 
         @Test
-        @DisplayName("kg candidate uses kg unit on reduce")
-        fun kgUnitPreserved() {
-            val e1rm = EstimatedOneRm.calculate(20.0, 6)
+        @DisplayName("kg candidate reduces in canonical Lb lattice")
+        fun kgCandidateReducesInLb() {
+            val start = kg(20.0)
+            val e1rm = EstimatedOneRm.calculate(
+                com.stratum.domain.lift.WeightConversion.loadMagnitudeLb(start),
+                6,
+            )
             val reduced = reduceWeightForLastSetFloor(
                 e1rm = e1rm,
-                startFrom = kg(20.0),
+                startFrom = start,
                 lastSetIndex = 3,
                 rirGoal = 1,
                 perLiftSlope = -2.0,
@@ -389,9 +393,12 @@ class StraightSetSharedWeightTest {
                 incrementTiers = emptyList(),
                 loadType = LoadType.Weighted,
             )
-            assertEquals(Weight.WeightUnit.Kg, reduced.unit)
+            assertEquals(Weight.WeightUnit.Lb, reduced.unit)
             assertTrue(reduced.amount > 0.0)
-            assertTrue(reduced.amount <= 20.0)
+            assertTrue(
+                reduced.amount <=
+                    com.stratum.domain.lift.WeightConversion.loadMagnitudeLb(start) + 1e-6,
+            )
         }
 
         @Test

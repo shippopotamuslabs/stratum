@@ -10,6 +10,8 @@ import com.stratum.domain.importing.HistoricalImportOrchestrationEvent
 import com.stratum.domain.importing.HistoricalImportResumeState
 import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportHistoryPersistPolicy
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.domain.lift.Weight
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -28,6 +30,11 @@ data class ImportLogsUiState(
     /** Furthest timeline step reached this run (monotonic). */
     val maxTimelineIndex: Int = 0,
     val isImporting: Boolean = false,
+    /** Prefill for the import weight-unit gate (mirrors Settings display preference). */
+    val preferredWeightUnit: WeightUnitUi = WeightUnitUi.Lbs,
+    val showWeightUnitPrompt: Boolean = false,
+    /** After unit confirm, route should open the document picker once. */
+    val launchFilePicker: Boolean = false,
 )
 
 @HiltViewModel
@@ -35,6 +42,7 @@ class ImportLogsViewModel @Inject constructor(
     private val executeImport: ExecuteHistoricalImportUseCase,
     private val cancelImport: CancelHistoricalImportUseCase,
     private val authManager: AuthManager,
+    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportLogsUiState())
     val uiState: StateFlow<ImportLogsUiState> = _uiState.asStateFlow()
@@ -42,6 +50,8 @@ class ImportLogsViewModel @Inject constructor(
     private var importJob: Job? = null
     private var lastFiles: List<ImportFileInput> = emptyList()
     private var lastResume: HistoricalImportResumeState? = null
+    /** Fallback unit for the current import session (new pick or resume). */
+    private var sessionFallbackUnit: Weight.WeightUnit = Weight.WeightUnit.Lb
 
     init {
         viewModelScope.launch {
@@ -55,6 +65,48 @@ class ImportLogsViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            observeWeightDisplayPreferences().collect { prefs ->
+                _uiState.update {
+                    it.copy(preferredWeightUnit = prefs.displayUnit.toWeightUnitUi())
+                }
+            }
+        }
+    }
+
+    /** User tapped import — show unit gate before the file picker. */
+    fun onBeginImportClick() {
+        if (authManager.authState.value !is AuthState.Authenticated) {
+            _uiState.update {
+                it.copy(signedOutGuidanceVisible = true, errorMessage = null, progress = null)
+            }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                showWeightUnitPrompt = true,
+                signedOutGuidanceVisible = false,
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun onWeightUnitPromptDismissed() {
+        _uiState.update { it.copy(showWeightUnitPrompt = false) }
+    }
+
+    fun onWeightUnitConfirmed(unit: WeightUnitUi) {
+        sessionFallbackUnit = unit.toDomainWeightUnit()
+        _uiState.update {
+            it.copy(
+                showWeightUnitPrompt = false,
+                launchFilePicker = true,
+            )
+        }
+    }
+
+    fun onFilePickerLaunched() {
+        _uiState.update { it.copy(launchFilePicker = false) }
     }
 
     /**
@@ -75,7 +127,7 @@ class ImportLogsViewModel @Inject constructor(
         }
         lastFiles = inputs
         lastResume = null
-        startImport(files = inputs, resume = null)
+        startImport(files = inputs, resume = null, fallbackWeightUnit = sessionFallbackUnit)
     }
 
     /** Surfaces SAF permission/read failures from the UI layer (off main-thread load). */
@@ -113,15 +165,25 @@ class ImportLogsViewModel @Inject constructor(
         }
         val resume = lastResume
         if (resume != null) {
-            startImport(files = lastFiles, resume = resume)
+            sessionFallbackUnit = resume.fallbackWeightUnit
+            startImport(
+                files = lastFiles,
+                resume = resume,
+                fallbackWeightUnit = resume.fallbackWeightUnit,
+            )
         } else if (lastFiles.isNotEmpty()) {
-            startImport(files = lastFiles, resume = null)
+            startImport(
+                files = lastFiles,
+                resume = null,
+                fallbackWeightUnit = sessionFallbackUnit,
+            )
         }
     }
 
     private fun startImport(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
+        fallbackWeightUnit: Weight.WeightUnit,
     ) {
         importJob?.cancel()
         importJob =
@@ -143,6 +205,7 @@ class ImportLogsViewModel @Inject constructor(
                     files = files,
                     resume = resume,
                     persistPolicy = ImportHistoryPersistPolicy.MergeSkipDuplicates,
+                    fallbackWeightUnit = fallbackWeightUnit,
                 ).collect { event ->
                     when (event) {
                         is HistoricalImportOrchestrationEvent.Progress -> {

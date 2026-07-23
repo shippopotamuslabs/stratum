@@ -32,6 +32,12 @@ data class OnboardingUiState(
     val importMaxTimelineIndex: Int = 0,
     /** Transient snackbar for step-navigation I/O failures (not validation). */
     val navigationError: String? = null,
+    /** True when import weight-unit prompt should show (before file picker). */
+    val showImportWeightUnitPrompt: Boolean = false,
+    /** Prefill for import weight-unit segmented control. */
+    val appWeightUnitIsKg: Boolean = false,
+    /** One-shot: route should open the historical import document picker. */
+    val launchHistoricalImportPicker: Boolean = false,
 ) {
     val isFirst: Boolean get() = step.isFirst
     val isLast: Boolean get() = step.isLast
@@ -153,6 +159,8 @@ data class MinimumVolumeHandlers(
  */
 data class GymLiftsHandlers(
     val onPresetSelected: (String?) -> Unit,
+    /** App-wide display unit (Settings DataStore); not the import-file fallback. */
+    val onAppWeightUnitSelected: (useKg: Boolean) -> Unit = {},
 )
 
 /**

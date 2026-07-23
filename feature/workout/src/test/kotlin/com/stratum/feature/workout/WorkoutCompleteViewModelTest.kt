@@ -14,6 +14,7 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.workout.FakeRepRangeShiftProposalPreferences
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
@@ -25,6 +26,7 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.ValidateIncrementTiersUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.EquipmentId
@@ -583,6 +585,8 @@ class WorkoutCompleteViewModelTest {
                         loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
+                observeWeightDisplayPreferences =
+                    ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             )
         return RepRangeHarness(viewModel, programRepo, repRangePrefs, sessionId)
     }
@@ -694,6 +698,8 @@ class WorkoutCompleteViewModelTest {
                         loggingPort = logging,
                     ),
                 repRangeShiftProposalPreferences = repRangePrefs,
+                observeWeightDisplayPreferences =
+                    ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             )
         return CableHarness(viewModel, prefs, equipmentRepo, sessionId)
     }
@@ -800,6 +806,8 @@ class WorkoutCompleteViewModelTest {
                     loggingPort = logging,
                 ),
             repRangeShiftProposalPreferences = repRangePrefs,
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
         )
     }
 

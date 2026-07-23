@@ -3,6 +3,7 @@ package com.stratum.domain.workout.progression
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.training.EstimatedOneRm
@@ -215,7 +216,10 @@ private fun resolveSameWeightBaselineReps(
     val prevSet = baselineEntry.loggedSet
     if (prevSet.rir != null) {
         val capacity = prevSet.reps + prevSet.rir
-        val e1rm = EstimatedOneRm.calculate(prevSet.weight.amount, capacity)
+        val e1rm = EstimatedOneRm.calculate(
+            WeightConversion.loadMagnitudeLb(prevSet.weight),
+            capacity,
+        )
         val (w, r) = ensureRepFloorPreferWeightDrop(
             targetWeight = targetWeight,
             capacityRepsAt0Rir = capacity,
@@ -252,7 +256,8 @@ private fun resolveDifferentWeightBaselineReps(
 ): Pair<Weight, Int> {
     val advancedAboveHistory = slot.isTopSet &&
         policy.shouldAdvanceLoad(baselineEntry, slot) &&
-        targetWeight.amount > baselineEntry.loggedSet.weight.amount + AMOUNT_EPS
+        WeightConversion.amountInLb(targetWeight) >
+            WeightConversion.amountInLb(baselineEntry.loggedSet.weight) + AMOUNT_EPS
     if (advancedAboveHistory) {
         // Load lever advanced: rep lever resets. Shared look-ahead already ensured floor.
         return targetWeight to minRecommendedReps(slot)
@@ -348,8 +353,12 @@ fun projectBaselineAtTargetWeight(
 ): Pair<Weight, Int> {
     val prevSet = baselineEntry.loggedSet
     val failureReps = (prevSet.reps + (prevSet.rir ?: 0)).coerceAtLeast(1)
-    val e1rm = EstimatedOneRm.calculate(prevSet.weight.amount, failureReps)
-    val capacityAtTarget = EstimatedOneRm.repsForWeight(e1rm, targetWeight.amount)
+    val e1rm = EstimatedOneRm.calculate(
+        WeightConversion.loadMagnitudeLb(prevSet.weight),
+        failureReps,
+    )
+    val capacityAtTarget =
+        EstimatedOneRm.repsForWeight(e1rm, WeightConversion.loadMagnitudeLb(targetWeight))
     return ensureRepFloorPreferWeightDrop(
         targetWeight = targetWeight,
         capacityRepsAt0Rir = capacityAtTarget,
@@ -374,7 +383,7 @@ private fun floorFromPriorFatigue(
 ): Pair<Weight, Int> {
     val priorFailureReps = (priorRec.baselineExpectedReps + priorSlot.rirGoal).coerceAtLeast(1)
     val priorE1rm = EstimatedOneRm.calculate(
-        priorRec.recommendedWeight.amount,
+        WeightConversion.loadMagnitudeLb(priorRec.recommendedWeight),
         priorFailureReps,
     )
     val rawCapacityReps = projectReps(

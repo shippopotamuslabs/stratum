@@ -2,13 +2,13 @@ package com.stratum.domain.training
 
 import com.stratum.domain.di.ApplicationScope
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.response.ResponseModelingSchedulerPort
 import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.training.identity.TrainingSessionId
 import javax.inject.Inject
-import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -148,10 +148,10 @@ class UpdateCompletedSessionSetsUseCase @Inject constructor(
             sets.map { set ->
                 if (set.liftId != null && set.reps > 0) {
                     val effectiveReps = (set.reps + (set.rir ?: 0)).coerceAtLeast(1)
-                    val loadMagnitude = abs(set.weight.amount)
+                    val loadMagnitudeLb = WeightConversion.loadMagnitudeLb(set.weight)
                     val e1Rm =
-                        if (loadMagnitude > 0.0) {
-                            EstimatedOneRm.calculate(loadMagnitude, effectiveReps)
+                        if (loadMagnitudeLb > 0.0) {
+                            EstimatedOneRm.calculate(loadMagnitudeLb, effectiveReps)
                         } else {
                             null
                         }

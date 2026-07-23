@@ -38,6 +38,7 @@ fun EquipmentIncrementsRoute(
                 inheritanceBanner = null,
                 affectsBanner = formatAffectsBanner(state),
                 showResetToEquipment = false,
+                unitLabel = state.unitLabel,
             ),
         onBackClick = onBackClick,
         onTierLowerChanged = viewModel::onTierLowerChanged,

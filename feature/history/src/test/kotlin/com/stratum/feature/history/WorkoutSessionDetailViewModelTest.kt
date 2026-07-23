@@ -2,11 +2,13 @@ package com.stratum.feature.history
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.training.ComputeLoggedSessionMuscleVolumeUseCase
 import com.stratum.domain.training.GetWorkoutSessionDetailUseCase
@@ -64,6 +66,8 @@ class WorkoutSessionDetailViewModelTest {
                         computeLoggedSessionMuscleVolume = ComputeLoggedSessionMuscleVolumeUseCase(),
                         loggingPort = FakeLoggingPort(),
                     ),
+                observeWeightDisplayPreferences =
+                    ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             )
 
         vm.load("ts-1")

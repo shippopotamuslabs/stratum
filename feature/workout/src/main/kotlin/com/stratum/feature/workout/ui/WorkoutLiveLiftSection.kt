@@ -61,7 +61,7 @@ internal fun WorkoutLiftList(
     lifts: List<RenderedLiftUi>,
     listState: LazyListState,
     liftHeightsPx: MutableMap<String, Int>,
-    onLogSet: (slotKey: String, weightAmountLb: Double, reps: Int, rir: Int?) -> Unit,
+    onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onAddSet: (workoutLiftId: String) -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
@@ -71,6 +71,8 @@ internal fun WorkoutLiftList(
     modifier: Modifier = Modifier,
     failedLogSlotKey: String? = null,
     onFailedLogConsumed: () -> Unit = {},
+    /** Bumps when Settings weight unit flips — clears per-lift drafts. */
+    displayUnitEpoch: Int = 0,
 ) {
     var footerHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -126,6 +128,7 @@ internal fun WorkoutLiftList(
                     onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
                     failedLogSlotKey = failedLogSlotKey,
                     onFailedLogConsumed = onFailedLogConsumed,
+                    displayUnitEpoch = displayUnitEpoch,
                     modifier =
                         Modifier.onSizeChanged { size ->
                             liftHeightsPx[lift.workoutLiftId] = size.height
@@ -173,7 +176,7 @@ internal fun WorkoutLiftList(
 @Composable
 internal fun LiveLiftSection(
     lift: RenderedLiftUi,
-    onLogSet: (slotKey: String, weightAmountLb: Double, reps: Int, rir: Int?) -> Unit,
+    onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?) -> Unit,
     onUnlogSet: (String) -> Unit,
     onAddSet: () -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
@@ -182,13 +185,20 @@ internal fun LiveLiftSection(
     allLifts: List<RenderedLiftUi> = emptyList(),
     failedLogSlotKey: String? = null,
     onFailedLogConsumed: () -> Unit = {},
+    displayUnitEpoch: Int = 0,
 ) {
     val draftStore = remember(lift.workoutLiftId) { LiveSetLogDraftStore() }
     val keyboardHost = LocalSetLogKeyboardHost.current
     val focusedSetKey = keyboardHost?.session?.setKey
     val revision by draftStore.revision.collectAsStateWithLifecycle()
 
-    LaunchedEffect(lift.sets, focusedSetKey) {
+    LaunchedEffect(displayUnitEpoch) {
+        if (displayUnitEpoch > 0) {
+            draftStore.clearForDisplayUnitChange()
+        }
+    }
+
+    LaunchedEffect(lift.sets, focusedSetKey, displayUnitEpoch) {
         draftStore.syncFromRendered(lift.sets, focusedSetKey)
     }
 
@@ -237,7 +247,7 @@ internal fun LiveLiftSection(
                 // Materialize placeholders into draft text before/while VM persists so the row
                 // never sits empty+placeholder after confirm.
                 draftStore.applyResolvedCommit(source, commit)
-                onLogSet(commit.slotKey, commit.weightAmountLb, commit.reps, commit.rir)
+                onLogSet(commit.slotKey, commit.weightAmountDisplay, commit.reps, commit.rir)
             }
             WorkoutLogSetRowActions(
                 onWeightChange = { draftStore.setWeight(setUi.setKey, it) },

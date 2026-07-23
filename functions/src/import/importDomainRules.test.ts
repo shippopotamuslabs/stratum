@@ -14,7 +14,13 @@ describe("importDomainRules prompts", () => {
     assert.match(prompt, /reps=0/);
     assert.match(prompt, /zero validationErrors/);
     assert.match(prompt, /Do NOT name the source app unless/i);
+    assert.match(prompt, /weightUnit "Lb"/);
     assert.equal(prompt, IMPORT_AGENT_SYSTEM_PROMPT);
+  });
+
+  it("system prompt injects kg fallback when requested", () => {
+    const prompt = buildImportAgentSystemPrompt("Kg");
+    assert.match(prompt, /weightUnit "Kg"/);
   });
 
   it("user prompt repeats rules and includes example JSON", () => {

@@ -40,6 +40,10 @@ internal data class OnboardingEphemeralState(
      */
     val generationCycleLength: Int? = null,
     val generationRestSlotIndices: Set<Int>? = null,
+    /** Prefill for import weight-unit gate (mirrors Settings display preference). */
+    val appWeightUnitIsKg: Boolean = false,
+    val showImportWeightUnitPrompt: Boolean = false,
+    val launchHistoricalImportPicker: Boolean = false,
 ) {
     companion object {
         val Initial = OnboardingEphemeralState()

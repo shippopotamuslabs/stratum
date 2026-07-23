@@ -148,7 +148,15 @@ class ImportLogsViewModelTest {
                     ),
                 importJobRepository = com.stratum.core.testing.importing.FakeImportJobRepository(),
             )
-        return ImportLogsViewModel(execute, cancel, auth)
+        return ImportLogsViewModel(
+            executeImport = execute,
+            cancelImport = cancel,
+            authManager = auth,
+            observeWeightDisplayPreferences =
+                com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
+                    com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
+                ),
+        )
     }
 
     @Test

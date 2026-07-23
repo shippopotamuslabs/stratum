@@ -78,6 +78,9 @@ internal fun buildOnboardingUiState(
         importProgramState = ephemeral.importProgramState,
         importMaxTimelineIndex = ephemeral.importMaxTimelineIndex,
         navigationError = ephemeral.navigationError,
+        showImportWeightUnitPrompt = ephemeral.showImportWeightUnitPrompt,
+        appWeightUnitIsKg = ephemeral.appWeightUnitIsKg,
+        launchHistoricalImportPicker = ephemeral.launchHistoricalImportPicker,
     )
 }
 

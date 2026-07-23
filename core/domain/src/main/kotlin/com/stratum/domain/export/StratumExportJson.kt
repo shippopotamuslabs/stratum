@@ -6,6 +6,7 @@ import com.stratum.domain.json.jsonObject
 import com.stratum.domain.json.jsonString
 import com.stratum.domain.json.jsonStringOrNull
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.program.importing.NormalizedProgramTemplate
 import com.stratum.domain.program.importing.NormalizedProgramTemplateLift
 import com.stratum.domain.program.importing.NormalizedProgramTemplateSet
@@ -40,13 +41,15 @@ object StratumExportJson {
         val setsJson =
             jsonArray(
                 sets.map { set ->
+                    // Contract: training-log export always emits Lb (canonical storage unit).
+                    val weightLb = set.weight.toStorageLb()
                     val fields = mutableListOf(
                         "id" to jsonString(set.id.value),
                         "sessionId" to jsonString(set.sessionId.value),
                         "exerciseNameRaw" to jsonString(set.exerciseNameRaw),
                         "setIndex" to jsonNumber(set.setIndex),
-                        "weightAmount" to jsonNumber(set.weight.amount),
-                        "weightUnit" to jsonString(weightUnitLabel(set.weight.unit)),
+                        "weightAmount" to jsonNumber(weightLb.amount),
+                        "weightUnit" to jsonString(weightUnitLabel(Weight.WeightUnit.Lb)),
                         "reps" to jsonNumber(set.reps),
                         "completedAt" to jsonString(set.completedAt.toString()),
                     )

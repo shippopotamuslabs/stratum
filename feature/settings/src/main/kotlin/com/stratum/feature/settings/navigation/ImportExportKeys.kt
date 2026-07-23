@@ -54,6 +54,10 @@ fun EntryProviderScope<NavKey>.importLogsEntry(onBackClick: () -> Unit) {
         ImportLogsScreen(
             uiState = uiState,
             onBackClick = onBackClick,
+            onBeginImportClick = viewModel::onBeginImportClick,
+            onWeightUnitConfirmed = viewModel::onWeightUnitConfirmed,
+            onWeightUnitPromptDismissed = viewModel::onWeightUnitPromptDismissed,
+            onFilePickerLaunched = viewModel::onFilePickerLaunched,
             onFilesSelected = viewModel::onFilesSelected,
             onReadFilesFailed = viewModel::onReadFilesFailed,
             onCancelImport = viewModel::onCancelImport,
