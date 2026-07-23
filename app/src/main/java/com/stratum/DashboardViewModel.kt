@@ -27,7 +27,7 @@ import com.stratum.domain.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
 import java.time.Instant
-import java.time.ZoneOffset
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,13 +36,40 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class DashboardViewModel @Inject constructor(
+class DashboardViewModel(
     private val loadDashboard: LoadDashboardUseCase,
     private val loadGraphDetail: LoadGraphDetailUseCase,
     private val setDashboardBoardTab: SetDashboardBoardTabUseCase,
     observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
     observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
+    /**
+     * Device calendar zone for 7-Day buckets + labels. Captured once so load and presentation
+     * cannot drift. Unit tests pass a fixed zone via the primary constructor.
+     */
+    private val zone: ZoneId,
+    /** Wall clock for board/detail "as of"; tests pin a fixed Instant. */
+    private val clock: () -> Instant = Instant::now,
 ) : ViewModel() {
+    /**
+     * Hilt entry: device-local [ZoneId.systemDefault]. Tests use the primary constructor with a
+     * pinned zone (same pattern as [com.stratum.feature.settings.ExportLogsViewModel]).
+     */
+    @Inject
+    constructor(
+        loadDashboard: LoadDashboardUseCase,
+        loadGraphDetail: LoadGraphDetailUseCase,
+        setDashboardBoardTab: SetDashboardBoardTabUseCase,
+        observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
+        observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
+    ) : this(
+        loadDashboard,
+        loadGraphDetail,
+        setDashboardBoardTab,
+        observeDashboardPreferences,
+        observeCloudSyncStatus,
+        ZoneId.systemDefault(),
+        Instant::now,
+    )
 
     private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -116,7 +143,7 @@ class DashboardViewModel @Inject constructor(
             if (_uiState.value !is DashboardUiState.Loaded) {
                 _uiState.value = DashboardUiState.Loading
             }
-            val summary = loadDashboard()
+            val summary = loadDashboard(now = clock(), zone = zone)
             _uiState.value = summary?.toUiState() ?: DashboardUiState.Empty
         }
     }
@@ -159,20 +186,20 @@ class DashboardViewModel @Inject constructor(
         detailJob?.cancel()
         detailJob = viewModelScope.launch {
             _graphDetailState.value = GraphDetailUiState.Loading
-            val series = loadGraphDetail(subject)
+            val series = loadGraphDetail(subject, zone = zone)
             if (series == null) {
                 detailSession = null
                 _graphDetailState.value = GraphDetailUiState.Empty
                 return@launch
             }
-            detailSession = series.toSession()
+            detailSession = series.toSession(zone = zone)
             publishReady()
         }
     }
 
     private fun publishReady() {
         val session = detailSession ?: return
-        _graphDetailState.value = session.toReadyUi()
+        _graphDetailState.value = session.toReadyUi(now = clock())
     }
 }
 
@@ -184,7 +211,7 @@ sealed interface DashboardUiState {
         val windowWeeks: Int,
         val muscles: List<MuscleSeriesUi>,
         val liftSections: List<LiftSectionUi>,
-        /** 7-Day tab: per-muscle daily hard-set volume (zero-filled last 7 UTC days). */
+        /** 7-Day tab: per-muscle daily hard-set volume (zero-filled last 7 local days). */
         val runningDailyVolume: List<MuscleDailyVolumeUi> = emptyList(),
     ) : DashboardUiState
 }
@@ -218,7 +245,7 @@ data class MuscleDailyVolumeUi(
     val volumePoints: List<TrendPointUi>,
     /**
      * Short weekday labels aligned with [volumePoints] (rolling lookback, e.g. `M`…`Su`).
-     * Built from each day start in UTC to match volume bucketing.
+     * Built from each day start in the device zone to match volume bucketing.
      */
     val dayLabels: List<String>,
     val contributingLifts: Int,
@@ -255,11 +282,12 @@ private fun DashboardSummary.toUiState(): DashboardUiState.Loaded {
         windowWeeks = windowWeeks,
         muscles = muscles.map { it.toUi(highlight = muscleHighlights[it.displayName]) },
         liftSections = lifts.toLiftSections(highlights = liftHighlights),
-        runningDailyVolume = runningDailyVolume.map { it.toUi() },
+        // Use the zone that bucketed the series — never re-resolve systemDefault here.
+        runningDailyVolume = runningDailyVolume.map { it.toUi(zone = zone) },
     )
 }
 
-private fun MuscleDailyVolumeSeries.toUi(): MuscleDailyVolumeUi =
+private fun MuscleDailyVolumeSeries.toUi(zone: ZoneId): MuscleDailyVolumeUi =
     MuscleDailyVolumeUi(
         name = displayName,
         muscleKey = muscle.name,
@@ -267,7 +295,7 @@ private fun MuscleDailyVolumeSeries.toUi(): MuscleDailyVolumeUi =
         volumePoints = dailyVolume.mapIndexed { index, point ->
             TrendPointUi(weekIndex = index, value = point.value.toFloat())
         },
-        dayLabels = dailyVolume.map { shortWeekdayLabel(it.weekStart) },
+        dayLabels = dailyVolume.map { shortWeekdayLabel(it.weekStart, zone) },
         contributingLifts = contributingLiftCount,
     )
 
@@ -296,10 +324,10 @@ private const val HARD_SET_EPS = 1e-9
 
 /**
  * Compact weekday for mini-card X-axis. Thursday = R (avoids clashing with Tuesday T);
- * weekend = Sa / Su. [dayStart] is UTC midnight of the bucket day.
+ * weekend = Sa / Su. [dayStart] is local midnight of the bucket day in [zone].
  */
-internal fun shortWeekdayLabel(dayStart: Instant): String {
-    val day = dayStart.atZone(ZoneOffset.UTC).dayOfWeek
+internal fun shortWeekdayLabel(dayStart: Instant, zone: ZoneId): String {
+    val day = dayStart.atZone(zone).dayOfWeek
     return when (day) {
         DayOfWeek.MONDAY -> "M"
         DayOfWeek.TUESDAY -> "T"

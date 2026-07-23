@@ -2,7 +2,9 @@ package com.stratum
 
 import com.stratum.core.ui.component.DetailChartPoint
 import com.stratum.core.ui.component.DetailYScale
+import com.stratum.core.ui.component.dayStartToEpochDay
 import com.stratum.core.ui.component.formatChartNumber
+import com.stratum.core.ui.component.formatDayStartRangeLabel
 import com.stratum.core.ui.component.formatWeekStartRangeLabel
 import com.stratum.core.ui.component.weekStartToEpochDay
 import com.stratum.domain.dashboard.GraphDetailKind
@@ -17,6 +19,7 @@ import com.stratum.domain.dashboard.windowStart
 import com.stratum.domain.dashboard.zeroFillDailyTrendPoints
 import com.stratum.domain.response.modeling.MuscleDailyVolumeBuilder
 import java.time.Instant
+import java.time.ZoneId
 
 /** Fullscreen graph detail presentation state — no domain types reach composables. */
 sealed interface GraphDetailUiState {
@@ -32,7 +35,7 @@ sealed interface GraphDetailUiState {
         val selectedRange: GraphTimeRangeUi,
         val ranges: List<GraphTimeRangeUi>,
         val stats: GraphStatsUi,
-        /** Chart-ready points (UTC epoch day X) — no extra mapping in Compose. */
+        /** Chart-ready points (epoch day X — UTC for weekly, local for daily volume). */
         val primaryPoints: List<DetailChartPoint>,
         val secondaryPoints: List<DetailChartPoint>?,
         val primaryColorRole: GraphSeriesColorRole,
@@ -88,7 +91,11 @@ enum class GraphStatLabelKey {
     Progress,
 }
 
-/** Full-history session; filter client-side without reloading. */
+/**
+ * Full-history session; filter client-side without reloading.
+ * [zone] is the calendar zone used when daily volume was bucketed — reuse for 1W zero-fill,
+ * epoch-day X, and date-range labels so presentation cannot drift from load.
+ */
 internal data class GraphDetailSession(
     val title: String,
     val kind: GraphDetailKindUi,
@@ -96,9 +103,10 @@ internal data class GraphDetailSession(
     val volume: List<TrendPoint>,
     val selectedMode: GraphViewMode,
     val selectedRange: GraphTimeRangeUi,
+    val zone: ZoneId,
 )
 
-internal fun GraphDetailSeries.toSession(): GraphDetailSession {
+internal fun GraphDetailSeries.toSession(zone: ZoneId): GraphDetailSession {
     val kindUi = when (kind) {
         GraphDetailKind.Lift -> GraphDetailKindUi.Lift
         GraphDetailKind.Muscle -> GraphDetailKindUi.Muscle
@@ -125,6 +133,7 @@ internal fun GraphDetailSeries.toSession(): GraphDetailSession {
         },
         selectedMode = defaultMode,
         selectedRange = defaultRange,
+        zone = zone,
     )
 }
 
@@ -141,7 +150,9 @@ internal fun rangesFor(kind: GraphDetailKindUi): List<GraphTimeRangeUi> = when (
         GraphTimeRangeUi.entries.filter { it != GraphTimeRangeUi.OneWeek }
 }
 
-internal fun GraphDetailSession.toReadyUi(now: Instant = Instant.now()): GraphDetailUiState.Ready {
+internal fun GraphDetailSession.toReadyUi(
+    now: Instant = Instant.now(),
+): GraphDetailUiState.Ready {
     val modes = modesFor(kind)
     val mode = selectedMode.takeIf { it in modes } ?: modes.first()
     val availableRanges = rangesFor(kind)
@@ -150,9 +161,10 @@ internal fun GraphDetailSession.toReadyUi(now: Instant = Instant.now()): GraphDe
         ?: GraphTimeRangeUi.ThreeMonths
     val since = range.toDomain().windowStart(now)
     val dual = mode == GraphViewMode.Dual
+    val daily = kind == GraphDetailKindUi.MuscleDailyVolume
 
     val filteredPrimary = resolvePrimarySeries(mode, range, since, now)
-    val filteredSecondary = if (dual && kind != GraphDetailKindUi.MuscleDailyVolume) {
+    val filteredSecondary = if (dual && !daily) {
         filterTrendPointsByRange(volume, since)
     } else {
         emptyList()
@@ -161,12 +173,17 @@ internal fun GraphDetailSession.toReadyUi(now: Instant = Instant.now()): GraphDe
     val primaryScale = primaryYScaleFor(kind, mode)
     val primaryColor = primaryColorRoleFor(kind, mode)
     // Daily volume: avg over training days only so 1W zero-fill matches longer sparse ranges.
-    val statsDomain = if (kind == GraphDetailKindUi.MuscleDailyVolume) {
+    val statsDomain = if (daily) {
         graphDetailStatsNonZeroDays(filteredPrimary)
     } else {
         graphDetailStats(filteredPrimary)
     }
-    val stats = statsDomain.toUi(primaryScale, unitSuffixFor(primaryScale))
+    val stats = statsDomain.toUi(
+        scale = primaryScale,
+        unitSuffix = unitSuffixFor(primaryScale),
+        dailyVolume = daily,
+        zone = zone,
+    )
 
     return GraphDetailUiState.Ready(
         title = title,
@@ -176,8 +193,12 @@ internal fun GraphDetailSession.toReadyUi(now: Instant = Instant.now()): GraphDe
         selectedRange = range,
         ranges = availableRanges,
         stats = stats,
-        primaryPoints = filteredPrimary.toChartPoints(),
-        secondaryPoints = if (dual) filteredSecondary.toChartPoints() else null,
+        primaryPoints = filteredPrimary.toChartPoints(dailyVolume = daily, zone = zone),
+        secondaryPoints = if (dual) {
+            filteredSecondary.toChartPoints(dailyVolume = false, zone = zone)
+        } else {
+            null
+        },
         primaryColorRole = primaryColor,
         secondaryColorRole = if (dual) GraphSeriesColorRole.Volume else null,
         primaryYScale = primaryScale,
@@ -200,9 +221,10 @@ private fun GraphDetailSession.resolvePrimarySeries(
     // Rest-day bars for the 1W chip so the detail chart matches the board card.
     return if (kind == GraphDetailKindUi.MuscleDailyVolume && range == GraphTimeRangeUi.OneWeek) {
         zeroFillDailyTrendPoints(
-            filtered,
-            now,
+            points = filtered,
+            now = now,
             dayCount = MuscleDailyVolumeBuilder.RUNNING_VOLUME_DAY_COUNT,
+            zone = zone,
         )
     } else {
         filtered
@@ -229,26 +251,44 @@ private fun unitSuffixFor(scale: DetailYScale): String = when (scale) {
     DetailYScale.Progress -> ""
 }
 
-private fun List<TrendPoint>.toChartPoints(): List<DetailChartPoint> =
+private fun List<TrendPoint>.toChartPoints(
+    dailyVolume: Boolean,
+    zone: ZoneId,
+): List<DetailChartPoint> =
     map {
+        val epochDay = if (dailyVolume) {
+            dayStartToEpochDay(it.weekStart.toEpochMilli(), zone)
+        } else {
+            weekStartToEpochDay(it.weekStart.toEpochMilli())
+        }
         DetailChartPoint(
-            xEpochDay = weekStartToEpochDay(it.weekStart.toEpochMilli()),
+            xEpochDay = epochDay,
             value = it.value.toFloat(),
         )
     }
 
-private fun GraphDetailStats.toUi(scale: DetailYScale, unitSuffix: String): GraphStatsUi {
+private fun GraphDetailStats.toUi(
+    scale: DetailYScale,
+    unitSuffix: String,
+    dailyVolume: Boolean,
+    zone: ZoneId,
+): GraphStatsUi {
     val labelKey = when (scale) {
         DetailYScale.Weight -> GraphStatLabelKey.E1rm
         DetailYScale.Volume -> GraphStatLabelKey.Volume
         DetailYScale.Progress -> GraphStatLabelKey.Progress
+    }
+    val dateRangeText = if (dailyVolume) {
+        formatDayStartRangeLabel(from, to, zone)
+    } else {
+        formatWeekStartRangeLabel(from, to)
     }
     return GraphStatsUi(
         averageText = average?.let { formatChartNumber(it, scale) } ?: "—",
         bestText = best?.let { formatChartNumber(it, scale) } ?: "—",
         averageLabelKey = labelKey,
         bestLabelKey = labelKey,
-        dateRangeText = formatWeekStartRangeLabel(from, to),
+        dateRangeText = dateRangeText,
         unitSuffix = unitSuffix,
     )
 }

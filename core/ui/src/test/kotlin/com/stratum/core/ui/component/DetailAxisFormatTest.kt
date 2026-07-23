@@ -1,7 +1,10 @@
 package com.stratum.core.ui.component
 
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -36,6 +39,40 @@ class DetailAxisFormatTest {
         // Monday 2026-01-05 00:00 UTC
         val monday = Instant.parse("2026-01-05T00:00:00Z")
         assertEquals("Jan 5", formatWeekStartLabel(monday, "MMM d"))
+    }
+
+    @Test
+    @DisplayName("dayStartToEpochDay uses local calendar day (east-of-UTC Tokyo)")
+    fun dayStartEpochDayTokyo() {
+        val tokyo = ZoneId.of("Asia/Tokyo")
+        // Wed 2026-07-22 00:00 JST = Tue 2026-07-21 15:00 UTC
+        val wedLocalMidnight = LocalDate.of(2026, 7, 22).atStartOfDay(tokyo).toInstant()
+        val localEpochDay = dayStartToEpochDay(wedLocalMidnight.toEpochMilli(), tokyo)
+        val utcEpochDay = weekStartToEpochDay(wedLocalMidnight.toEpochMilli())
+        assertEquals(LocalDate.of(2026, 7, 22).toEpochDay(), localEpochDay)
+        assertEquals(LocalDate.of(2026, 7, 21).toEpochDay(), utcEpochDay)
+        assertNotEquals(
+            utcEpochDay,
+            localEpochDay,
+            "east-of-UTC local midnight must not use UTC epoch day",
+        )
+        assertEquals("Jul 22", formatDayStartLabel(wedLocalMidnight, tokyo, "MMM d"))
+    }
+
+    @Test
+    @DisplayName("dayStartToEpochDay keeps Wed evening NY on Wednesday after UTC flip")
+    fun dayStartEpochDayNewYorkEvening() {
+        val newYork = ZoneId.of("America/New_York")
+        val wedEvening = Instant.parse("2026-07-23T00:30:00Z") // Wed 20:30 EDT
+        val dayStart = LocalDate.of(2026, 7, 22).atStartOfDay(newYork).toInstant()
+        assertEquals(
+            LocalDate.of(2026, 7, 22).toEpochDay(),
+            dayStartToEpochDay(dayStart.toEpochMilli(), newYork),
+        )
+        assertEquals(
+            LocalDate.of(2026, 7, 22),
+            wedEvening.atZone(newYork).toLocalDate(),
+        )
     }
 
     @Test
