@@ -8,6 +8,7 @@ import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
+import com.stratum.domain.lift.Weight
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -29,6 +30,7 @@ class FakeHistoricalImportRunnerPort(
         val files: List<ImportFileInput>,
         val resume: HistoricalImportResumeState?,
         val persistPolicy: ImportHistoryPersistPolicy,
+        val fallbackWeightUnit: Weight.WeightUnit,
     )
 
     fun setEvents(newEvents: List<HistoricalImportEvent>) {
@@ -43,8 +45,9 @@ class FakeHistoricalImportRunnerPort(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
         persistPolicy: ImportHistoryPersistPolicy,
+        fallbackWeightUnit: Weight.WeightUnit,
     ): Flow<HistoricalImportEvent> = flow {
-        invocations += ImportInvocation(files, resume, persistPolicy)
+        invocations += ImportInvocation(files, resume, persistPolicy, fallbackWeightUnit)
         events.forEach { emit(it) }
     }
 }

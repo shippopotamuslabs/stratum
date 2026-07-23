@@ -3,8 +3,10 @@ package com.stratum.domain.workout.fatigue
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.incrementForAmount
 import com.stratum.domain.lift.roundToIncrement
+import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import kotlin.math.max
 
@@ -26,8 +28,10 @@ fun reduceWeightForLastSetFloor(
     capacityAtRir: (weightAmount: Double) -> Int,
     defaultBumpAmount: (Weight.WeightUnit) -> Double = ::defaultLoadBumpAmount,
 ): Weight {
-    val unit = startFrom.unit
-    val ceiling = startFrom.amount.coerceAtLeast(0.0)
+    // Tiers and capacity lattice are Lb; normalize input so mixed-unit callers stay coherent.
+    val startLb = startFrom.toStorageLb()
+    val unit = Weight.WeightUnit.Lb
+    val ceiling = startLb.amount.coerceAtLeast(0.0)
     if (ceiling <= 0.0) {
         return Weight(defaultBumpAmount(unit), unit)
     }
@@ -94,10 +98,10 @@ fun capacityAtRirWithProjectReps(
     perLiftSlope: Double?,
     perLiftIntercept: Double?,
 ): Int {
-    if (weight.amount <= 0.0) return Int.MIN_VALUE / 4
+    if (WeightConversion.loadMagnitudeLb(weight) <= 0.0) return Int.MIN_VALUE / 4
     val raw0Rir = projectReps(
         baselineOneRm = e1rm,
-        targetWeight = weight,
+        targetWeight = weight.toStorageLb(),
         nextSetIndex = setIndex,
         perLiftSlope = perLiftSlope,
         perLiftIntercept = perLiftIntercept,
@@ -121,10 +125,11 @@ fun reduceWeightForLastSetFloor(
     startFrom = startFrom,
     incrementTiers = incrementTiers,
     loadType = loadType,
-    capacityAtRir = { amount ->
+    capacityAtRir = { amountLb ->
+        // Lattice search runs in Lb; amount is always a pound magnitude.
         capacityAtRirWithProjectReps(
             e1rm = e1rm,
-            weight = Weight(amount, startFrom.unit),
+            weight = Weight(amountLb, Weight.WeightUnit.Lb),
             setIndex = lastSetIndex,
             rirGoal = rirGoal,
             perLiftSlope = perLiftSlope,
@@ -145,19 +150,26 @@ private fun stepDownAligned(
     loadType: LoadType,
     defaultBumpAmount: (Weight.WeightUnit) -> Double,
 ): Weight {
-    val step = incrementTiers.incrementForAmount(weight.amount).let { s ->
-        if (s > 0.0) s else defaultBumpAmount(weight.unit)
+    // Tiers are Lb magnitudes; lattice ops always run in canonical storage unit.
+    val weightLb = weight.toStorageLb()
+    val step = incrementTiers.incrementForAmount(weightLb.amount).let { s ->
+        if (s > 0.0) s else defaultBumpAmount(Weight.WeightUnit.Lb)
     }
-    val lowerAmount = max(0.0, weight.amount - step)
+    val lowerAmount = max(0.0, weightLb.amount - step)
     if (lowerAmount <= 0.0) {
-        return Weight(0.0, weight.unit)
+        return Weight(0.0, Weight.WeightUnit.Lb)
     }
-    val rounded = incrementTiers.roundToIncrement(Weight(lowerAmount, weight.unit), loadType)
+    val rounded =
+        incrementTiers.roundToIncrement(Weight(lowerAmount, Weight.WeightUnit.Lb), loadType)
     return if (rounded.amount <= lowerAmount + AMOUNT_EPS) {
         rounded
     } else {
         val forced = max(0.0, rounded.amount - step)
-        if (forced <= 0.0) Weight(0.0, weight.unit) else Weight(forced, weight.unit)
+        if (forced <= 0.0) {
+            Weight(0.0, Weight.WeightUnit.Lb)
+        } else {
+            Weight(forced, Weight.WeightUnit.Lb)
+        }
     }
 }
 
@@ -167,11 +179,14 @@ private fun minPositiveStep(
     unit: Weight.WeightUnit,
     defaultBumpAmount: (Weight.WeightUnit) -> Double,
 ): Double {
+    val ceilingLb =
+        WeightConversion.convertAmount(ceiling, unit, Weight.WeightUnit.Lb)
     if (incrementTiers.isEmpty()) {
-        return defaultBumpAmount(unit).coerceAtMost(ceiling.coerceAtLeast(defaultBumpAmount(unit)))
+        val bump = defaultBumpAmount(Weight.WeightUnit.Lb)
+        return bump.coerceAtMost(ceilingLb.coerceAtLeast(bump))
     }
-    val step = incrementTiers.incrementForAmount(ceiling.coerceAtLeast(1.0)).let { s ->
-        if (s > 0.0) s else defaultBumpAmount(unit)
+    val step = incrementTiers.incrementForAmount(ceilingLb.coerceAtLeast(1.0)).let { s ->
+        if (s > 0.0) s else defaultBumpAmount(Weight.WeightUnit.Lb)
     }
     return step
 }

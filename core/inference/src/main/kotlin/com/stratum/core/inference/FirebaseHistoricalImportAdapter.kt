@@ -33,13 +33,18 @@ class FirebaseHistoricalImportAdapter @Inject constructor() : HistoricalImportPo
         UploadRefs(rawStoragePath = rawPath, sampleStoragePath = samplePath)
     }
 
-    override suspend fun startImport(jobId: ImportJobId, refs: UploadRefs): Result<Unit> = runCatching {
+    override suspend fun startImport(
+        jobId: ImportJobId,
+        refs: UploadRefs,
+        fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit,
+    ): Result<Unit> = runCatching {
         val callable = functions.getHttpsCallable("startImport")
         callable.call(
             mapOf(
                 "jobId" to jobId.value,
                 "rawStoragePath" to refs.rawStoragePath,
                 "sampleStoragePath" to refs.sampleStoragePath,
+                "fallbackWeightUnit" to fallbackWeightUnit.name, // "Lb" | "Kg"
             ),
         ).await()
     }

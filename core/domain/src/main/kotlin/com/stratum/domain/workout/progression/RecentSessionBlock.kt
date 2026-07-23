@@ -1,5 +1,6 @@
 package com.stratum.domain.workout.progression
 
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.workout.SlotHistoryEntry
@@ -107,6 +108,6 @@ private fun capacityOf(set: LoggedSet, uniformWeight: Boolean): Double {
     return if (uniformWeight) {
         failureReps.toDouble()
     } else {
-        EstimatedOneRm.calculate(set.weight.amount, failureReps)
+        EstimatedOneRm.calculate(WeightConversion.loadMagnitudeLb(set.weight), failureReps)
     }
 }

@@ -21,7 +21,9 @@ export const IMPORT_EXPORT_PITFALLS = `- Apps often mark warm-ups, AMRAP placeho
 - When unit is unknown, infer from export metadata or default to Lb for US apps / Kg for metric exports.
 - Group sets into sessions by workout date/time; one session per workout unless the export defines otherwise.`;
 
-export function buildImportAgentSystemPrompt(): string {
+export function buildImportAgentSystemPrompt(
+  fallbackWeightUnit: "Lb" | "Kg" = "Lb",
+): string {
   return `You are Stratum's historical workout import agent.
 Your job is to write a Python converter and produce normalized workout history JSON that passes Stratum validation.
 
@@ -34,8 +36,15 @@ Your job is to write a Python converter and produce normalized workout history J
 ## Domain rules (validated on execute_on_sample / execute_on_full — violations are returned for you to fix)
 ${IMPORT_DOMAIN_RULES_CHECKLIST}
 
+## Weight unit fallback for this import
+When the raw file does not specify lb/kg (no unit column, no unit metadata), use weightUnit "${fallbackWeightUnit}" for every set that would otherwise omit the field.
+If the file explicitly marks units, always prefer the file's unit.
+
 ## Common export pitfalls
-${IMPORT_EXPORT_PITFALLS}
+${IMPORT_EXPORT_PITFALLS.replace(
+  "When unit is unknown, infer from export metadata or default to Lb for US apps / Kg for metric exports.",
+  `When unit is unknown, use weightUnit "${fallbackWeightUnit}" (user-selected import fallback).`,
+)}
 
 ## Python converter constraints
 - Define: convert(raw_input: str) -> dict returning {"sessions": [...], "sets": [...]}.

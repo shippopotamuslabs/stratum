@@ -11,7 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -24,6 +29,8 @@ import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.importing.ImportMimeTypes
+import com.stratum.core.ui.importing.ImportWeightUnitPrompt
+import com.stratum.core.ui.importing.ImportWeightUnitUi
 import com.stratum.core.ui.importing.StratumImportInfoCard
 import com.stratum.core.ui.importing.StratumImportProgressSection
 import com.stratum.core.ui.importing.StratumImportResultCard
@@ -33,6 +40,7 @@ import com.stratum.core.ui.importing.loadImportFiles
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.settings.ImportLogsUiState
 import com.stratum.feature.settings.R
+import com.stratum.feature.settings.WeightUnitUi
 import com.stratum.feature.settings.historicalImportTimelineIndex
 import kotlinx.coroutines.launch
 
@@ -40,6 +48,10 @@ import kotlinx.coroutines.launch
 fun ImportLogsScreen(
     uiState: ImportLogsUiState,
     onBackClick: () -> Unit,
+    onBeginImportClick: () -> Unit,
+    onWeightUnitConfirmed: (WeightUnitUi) -> Unit,
+    onWeightUnitPromptDismissed: () -> Unit,
+    onFilePickerLaunched: () -> Unit,
     onFilesSelected: (List<Pair<ByteArray, String>>) -> Unit,
     onReadFilesFailed: (String) -> Unit,
     onCancelImport: () -> Unit,
@@ -48,6 +60,9 @@ fun ImportLogsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var draftUnit by remember(uiState.preferredWeightUnit) {
+        mutableStateOf(uiState.preferredWeightUnit.toImportUi())
+    }
     val picker =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenMultipleDocuments(),
@@ -66,6 +81,22 @@ fun ImportLogsScreen(
                     }
             }
         }
+
+    LaunchedEffect(uiState.launchFilePicker) {
+        if (uiState.launchFilePicker) {
+            onFilePickerLaunched()
+            picker.launch(ImportMimeTypes.HISTORICAL)
+        }
+    }
+
+    if (uiState.showWeightUnitPrompt) {
+        ImportWeightUnitPrompt(
+            selected = draftUnit,
+            onSelectedChange = { draftUnit = it },
+            onContinue = { onWeightUnitConfirmed(draftUnit.toSettingsUi()) },
+            onDismiss = onWeightUnitPromptDismissed,
+        )
+    }
 
     val isBusy = uiState.isImporting || uiState.progress != null
     val timelineLabels =
@@ -171,7 +202,7 @@ fun ImportLogsScreen(
 
             StratumButton(
                 text = stringResource(R.string.import_logs_pick_files),
-                onClick = { picker.launch(ImportMimeTypes.HISTORICAL) },
+                onClick = onBeginImportClick,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isBusy && uiState.isAuthenticated,
             )
@@ -195,3 +226,15 @@ fun ImportLogsScreen(
         }
     }
 }
+
+private fun WeightUnitUi.toImportUi(): ImportWeightUnitUi =
+    when (this) {
+        WeightUnitUi.Lbs -> ImportWeightUnitUi.Lbs
+        WeightUnitUi.Kg -> ImportWeightUnitUi.Kg
+    }
+
+private fun ImportWeightUnitUi.toSettingsUi(): WeightUnitUi =
+    when (this) {
+        ImportWeightUnitUi.Lbs -> WeightUnitUi.Lbs
+        ImportWeightUnitUi.Kg -> WeightUnitUi.Kg
+    }

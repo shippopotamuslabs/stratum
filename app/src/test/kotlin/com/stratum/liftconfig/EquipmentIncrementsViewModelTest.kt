@@ -73,6 +73,10 @@ class EquipmentIncrementsViewModelTest {
                         FakeLoggingPort(),
                     ),
                 validateIncrementTiers = ValidateIncrementTiersUseCase(),
+                observeWeightDisplayPreferences =
+                    com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
+                        com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
+                    ),
             )
     }
 

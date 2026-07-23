@@ -4,13 +4,24 @@ import com.stratum.core.ui.component.formatIncrementAmount
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.IncrementTiersValidationError
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
+import com.stratum.domain.lift.shortLabel
 
 /**
  * Shared draft ↔ domain helpers for lift and equipment increment editors.
+ *
+ * **Storage convention:** Room `increment_tiers` has no unit column — magnitudes are always
+ * **pounds**. Domain [Weight] is tagged [Weight.WeightUnit.Lb] at the mapper boundary.
+ * [displayUnit] only affects draft strings shown in the editor; save always re-encodes Lb.
  */
 object IncrementTierDraftOps {
-    const val DEFAULT_TIER_SPLIT_SPAN = 50.0
-    const val DEFAULT_TIER_SPLIT_AT = 100.0
+    const val DEFAULT_TIER_SPLIT_SPAN_LB = 50.0
+    const val DEFAULT_TIER_SPLIT_AT_LB = 100.0
+    const val DEFAULT_INCREMENT_LB = 5.0
+
+    /** @deprecated Prefer *_LB constants; kept for call-site compatibility. */
+    const val DEFAULT_TIER_SPLIT_SPAN = DEFAULT_TIER_SPLIT_SPAN_LB
+    const val DEFAULT_TIER_SPLIT_AT = DEFAULT_TIER_SPLIT_AT_LB
     const val DEFAULT_INCREMENT_TEXT = "5"
 
     fun filterNumeric(value: String): String =
@@ -18,28 +29,53 @@ object IncrementTierDraftOps {
 
     fun formatAmount(amount: Double): String = formatIncrementAmount(amount)
 
-    fun defaultDraft(): IncrementTierDraft =
+    fun unitLabel(displayUnit: Weight.WeightUnit): String = displayUnit.shortLabel()
+
+    fun defaultDraft(displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb): IncrementTierDraft =
         IncrementTierDraft(
             lowerBound = "0",
             upperBound = null,
-            increment = DEFAULT_INCREMENT_TEXT,
+            increment =
+                formatAmount(
+                    WeightConversion.convertAmount(
+                        DEFAULT_INCREMENT_LB,
+                        Weight.WeightUnit.Lb,
+                        displayUnit,
+                    ),
+                ),
             openEnded = true,
         )
 
-    fun toDraft(tier: IncrementTier): IncrementTierDraft =
-        IncrementTierDraft(
-            lowerBound = formatAmount(tier.lowerBound.amount),
-            upperBound = tier.upperBound?.amount?.let { formatAmount(it) },
-            increment = formatAmount(tier.increment.amount),
+    /**
+     * Maps a domain tier into draft field strings in [displayUnit].
+     * Source amounts are treated as pounds (storage convention).
+     */
+    fun toDraft(
+        tier: IncrementTier,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): IncrementTierDraft {
+        fun convert(amount: Double): Double =
+            WeightConversion.convertAmount(amount, Weight.WeightUnit.Lb, displayUnit)
+        return IncrementTierDraft(
+            lowerBound = formatAmount(convert(tier.lowerBound.amount)),
+            upperBound = tier.upperBound?.amount?.let { formatAmount(convert(it)) },
+            increment = formatAmount(convert(tier.increment.amount)),
             openEnded = tier.upperBound == null,
         )
+    }
 
-    fun toDomainOrNull(tiers: List<IncrementTierDraft>): List<IncrementTier>? {
+    /**
+     * Parses draft fields as [displayUnit] magnitudes and returns domain tiers stamped as **Lb**
+     * for Room persistence. Null if any band fails to parse.
+     */
+    fun toDomainOrNull(
+        tiers: List<IncrementTierDraft>,
+        displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): List<IncrementTier>? {
         if (tiers.isEmpty()) return emptyList()
-        val unit = Weight.WeightUnit.Lb
         val result = ArrayList<IncrementTier>(tiers.size)
         for ((index, draft) in tiers.withIndex()) {
-            val tier = draft.toDomainTier(index == tiers.lastIndex, unit) ?: return null
+            val tier = draft.toDomainTier(index == tiers.lastIndex, displayUnit) ?: return null
             result += tier
         }
         return result
@@ -61,22 +97,42 @@ object IncrementTierDraftOps {
             }
         }
 
+    /** Formats a split-point amount that was computed in display units. */
+    fun formatDisplayAmount(amount: Double): String = formatAmount(amount)
+
+    fun defaultSplitSpan(displayUnit: Weight.WeightUnit): Double =
+        WeightConversion.convertAmount(
+            DEFAULT_TIER_SPLIT_SPAN_LB,
+            Weight.WeightUnit.Lb,
+            displayUnit,
+        )
+
+    fun defaultSplitAt(displayUnit: Weight.WeightUnit): Double =
+        WeightConversion.convertAmount(
+            DEFAULT_TIER_SPLIT_AT_LB,
+            Weight.WeightUnit.Lb,
+            displayUnit,
+        )
+
     private fun IncrementTierDraft.toDomainTier(
         isLast: Boolean,
-        unit: Weight.WeightUnit,
+        displayUnit: Weight.WeightUnit,
     ): IncrementTier? {
-        val lower = lowerBound.toDoubleOrNull() ?: return null
-        val inc = increment.toDoubleOrNull() ?: return null
-        if (inc <= 0.0) return null
-        val upperAmount =
+        val lowerDisplay = lowerBound.toDoubleOrNull() ?: return null
+        val incDisplay = increment.toDoubleOrNull() ?: return null
+        if (incDisplay <= 0.0) return null
+        val upperDisplay =
             when {
                 openEnded || (isLast && upperBound.isNullOrBlank()) -> null
                 else -> upperBound?.toDoubleOrNull() ?: return null
             }
+        fun toLb(amount: Double): Double =
+            WeightConversion.convertAmount(amount, displayUnit, Weight.WeightUnit.Lb)
+        val storage = Weight.WeightUnit.Lb
         return IncrementTier(
-            lowerBound = Weight(lower, unit),
-            upperBound = upperAmount?.let { Weight(it, unit) },
-            increment = Weight(inc, unit),
+            lowerBound = Weight(toLb(lowerDisplay), storage),
+            upperBound = upperDisplay?.let { Weight(toLb(it), storage) },
+            increment = Weight(toLb(incDisplay), storage),
         )
     }
 }

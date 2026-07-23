@@ -33,6 +33,7 @@ import com.stratum.feature.settings.SettingsAccountActions
 import com.stratum.feature.settings.SettingsDataActions
 import com.stratum.feature.settings.SettingsUiState
 import com.stratum.feature.settings.ThemeFamilyUi
+import com.stratum.feature.settings.WeightUnitUi
 
 @Composable
 fun SettingsScreen(
@@ -42,6 +43,7 @@ fun SettingsScreen(
     onThemeFamilySelected: (ThemeFamilyUi) -> Unit,
     onCheckInsEnabledChange: (Boolean) -> Unit = {},
     onPostWorkoutSuggestionEnabledChange: (PostWorkoutSuggestionUi, Boolean) -> Unit = { _, _ -> },
+    onWeightUnitSelected: (WeightUnitUi) -> Unit = {},
     onForceCheckInPending: () -> Unit = {},
     onLegalClick: () -> Unit = {},
     dataActions: SettingsDataActions = SettingsDataActions(),
@@ -112,6 +114,24 @@ fun SettingsScreen(
             }
 
             SettingsGroup(title = stringResource(R.string.settings_training_section)) {
+                SettingsControlBlock(
+                    label = stringResource(R.string.settings_weight_unit_title),
+                ) {
+                    val weightUnitOptions = listOf(
+                        WeightUnitUi.Lbs to stringResource(R.string.settings_weight_unit_lbs),
+                        WeightUnitUi.Kg to stringResource(R.string.settings_weight_unit_kg),
+                    )
+                    StratumSegmentedControl(
+                        modifier = Modifier.fillMaxWidth(),
+                        segments = weightUnitOptions.map { it.second },
+                        selectedIndex = weightUnitOptions.indexOfFirst { it.first == uiState.weightUnit }
+                            .takeIf { it >= 0 },
+                        onSelectedIndexChange = { index ->
+                            onWeightUnitSelected(weightUnitOptions[index].first)
+                        },
+                    )
+                }
+                SettingsGroupDivider()
                 StratumPreferenceRow(
                     title = stringResource(R.string.settings_checkin_enabled),
                     subtitle = stringResource(R.string.settings_checkin_subtitle),

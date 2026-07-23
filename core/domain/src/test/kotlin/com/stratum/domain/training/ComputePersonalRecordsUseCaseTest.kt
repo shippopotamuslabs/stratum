@@ -158,13 +158,60 @@ class ComputePersonalRecordsUseCaseTest {
         assertEquals(137.04, set1.estimatedOneRm!!, 0.05)
     }
 
+    @Test
+    @DisplayName("Compute PRs uses abs load for assisted (negative-stored) weights")
+    fun computePrs_assistedUsesAbsoluteLoad() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val useCase = ComputePersonalRecordsUseCase(repo)
+
+        val sets =
+            listOf(
+                createSet("assisted", weight = -50.0, reps = 5),
+            )
+
+        val result = useCase(sets).getOrThrow()
+        val set = result.updatedIncomingSets.first { it.id.value == "assisted" }
+
+        val expected = EstimatedOneRm.calculate(50.0, 5)
+        assertEquals(expected, set.estimatedOneRm!!, 0.01)
+        assertTrue(set.estimatedOneRm!! > 0.0)
+        assertTrue(set.isPersonalRecord)
+    }
+
+    @Test
+    @DisplayName("Compute PRs converts kg-tagged load to Lb before e1RM")
+    fun computePrs_kgLoadConvertedToLb() = runTest {
+        val repo = FakeTrainingLogRepository()
+        val useCase = ComputePersonalRecordsUseCase(repo)
+
+        val sets =
+            listOf(
+                createSet(
+                    "kg-set",
+                    weight = 100.0,
+                    reps = 5,
+                    unit = Weight.WeightUnit.Kg,
+                ),
+            )
+
+        val result = useCase(sets).getOrThrow()
+        val set = result.updatedIncomingSets.first { it.id.value == "kg-set" }
+
+        val loadLb = com.stratum.domain.lift.WeightConversion.amountInLb(
+            Weight(100.0, Weight.WeightUnit.Kg),
+        )
+        val expected = EstimatedOneRm.calculate(loadLb, 5)
+        assertEquals(expected, set.estimatedOneRm!!, 0.01)
+    }
+
     private fun createSet(
         id: String,
         weight: Double,
         reps: Int,
         isPr: Boolean = false,
         e1rm: Double? = null,
-        rir: Int? = null
+        rir: Int? = null,
+        unit: Weight.WeightUnit = Weight.WeightUnit.Lb,
     ): LoggedSet {
         return LoggedSet(
             id = LoggedSetId(id),
@@ -172,7 +219,7 @@ class ComputePersonalRecordsUseCaseTest {
             exerciseNameRaw = "Bench Press",
             liftId = liftId,
             setIndex = 1,
-            weight = Weight(weight, Weight.WeightUnit.Lb),
+            weight = Weight(weight, unit),
             reps = reps,
             rir = rir,
             completedAt = Instant.now(),

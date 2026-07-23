@@ -3,6 +3,7 @@ package com.stratum.domain.workout.progression
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SetSlot
@@ -84,7 +85,10 @@ private fun tightenForBaselineSlot(
 ): Weight {
     val set = performance.entry.loggedSet
     val failureReps = (set.reps + (set.rir ?: 0)).coerceAtLeast(1)
-    val e1rm = EstimatedOneRm.calculate(set.weight.amount, failureReps)
+    val e1rm = EstimatedOneRm.calculate(
+        WeightConversion.loadMagnitudeLb(set.weight),
+        failureReps,
+    )
     val atRir = capacityAtWeightNoFatigue(
         e1rm = e1rm,
         historyWeight = set.weight,
@@ -148,7 +152,10 @@ private fun anchorE1rm(recentBlock: RecentSessionBlock, coveredCount: Int): Doub
     if (coveredCount <= 0) return null
     val entry = recentBlock.performances[coveredCount - 1].entry.loggedSet
     val failureReps = (entry.reps + (entry.rir ?: 0)).coerceAtLeast(1)
-    return EstimatedOneRm.calculate(entry.weight.amount, failureReps)
+    return EstimatedOneRm.calculate(
+        WeightConversion.loadMagnitudeLb(entry.weight),
+        failureReps,
+    )
 }
 
 /** At-RIR capacity with no multi-set fatigue (set index 1 / same-set load change). */
@@ -159,14 +166,15 @@ private fun capacityAtWeightNoFatigue(
     targetWeight: Weight,
     rirGoal: Int,
 ): Int {
-    if (targetWeight.amount <= 0.0) return Int.MIN_VALUE / 4
+    val targetLb = WeightConversion.loadMagnitudeLb(targetWeight)
+    if (targetLb <= 0.0) return Int.MIN_VALUE / 4
+    val historyLb = WeightConversion.amountInLb(historyWeight)
+    val targetSignedLb = WeightConversion.amountInLb(targetWeight)
     val failureAtTarget =
-        if (historyWeight.amount == targetWeight.amount &&
-            historyWeight.unit == targetWeight.unit
-        ) {
+        if (WeightConversion.nearlyEqualLb(historyLb, targetSignedLb)) {
             historyFailureReps
         } else {
-            EstimatedOneRm.repsForWeight(e1rm, targetWeight.amount)
+            EstimatedOneRm.repsForWeight(e1rm, targetLb)
         }
     return failureAtTarget - rirGoal
 }

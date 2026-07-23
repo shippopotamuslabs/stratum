@@ -22,6 +22,11 @@ sealed interface WorkoutUiState {
          * Not raw overlay dirtiness — ad-hoc sessions always false (no template to update).
          */
         val hasDirtyEdits: Boolean = false,
+        /**
+         * Increments when Settings weight unit flips so live draft stores clear and reseed
+         * (avoids reinterpreting typed magnitudes under the new unit).
+         */
+        val displayUnitEpoch: Int = 0,
     ) : WorkoutUiState
 
     data class Error(val message: String) : WorkoutUiState

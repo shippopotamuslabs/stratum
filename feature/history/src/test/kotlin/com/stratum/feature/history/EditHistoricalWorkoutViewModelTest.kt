@@ -2,6 +2,7 @@ package com.stratum.feature.history
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
@@ -20,6 +21,7 @@ import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
 import com.stratum.domain.importing.identity.LoggedSetId
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.training.GetCompletedSessionForEditUseCase
@@ -155,6 +157,8 @@ class EditHistoricalWorkoutViewModelTest {
                         loggingPort = FakeLoggingPort(),
                     ),
                 updateCompletedSessionSets = update,
+                observeWeightDisplayPreferences =
+                    ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
             )
         return Env(vm, logRepo)
     }

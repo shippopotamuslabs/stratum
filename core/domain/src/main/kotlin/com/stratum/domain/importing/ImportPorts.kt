@@ -1,6 +1,7 @@
 package com.stratum.domain.importing
 
 import com.stratum.domain.importing.identity.ImportJobId
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import kotlinx.coroutines.flow.Flow
 
@@ -117,7 +118,12 @@ interface HistoricalImportPort {
         fileName: String,
     ): Result<UploadRefs>
 
-    suspend fun startImport(jobId: ImportJobId, refs: UploadRefs): Result<Unit>
+    suspend fun startImport(
+        jobId: ImportJobId,
+        refs: UploadRefs,
+        /** When conversion omits weightUnit, agent/server should stamp this unit. */
+        fallbackWeightUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
+    ): Result<Unit>
 
     suspend fun pollJobStatus(jobId: ImportJobId): Result<ImportJobSnapshot>
 
@@ -152,6 +158,11 @@ class UnsupportedImportFileException(
 data class HistoricalImportResumeState(
     val files: List<ImportFileInput>,
     val completedChunks: List<ImportedHistoryChunk>,
+    /**
+     * Unit applied when a converted set omits `weightUnit`. Carried across multi-file
+     * resume so the user is not re-prompted mid-import.
+     */
+    val fallbackWeightUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
 ) {
     val nextFileIndex: Int get() = completedChunks.size
 
@@ -169,6 +180,12 @@ interface HistoricalImportRunnerPort {
         resume: HistoricalImportResumeState? = null,
         /** Required — callers must choose Replace vs Merge; no default that could wipe history. */
         persistPolicy: ImportHistoryPersistPolicy,
+        /**
+         * When a converted set has no explicit weight unit, stamp this unit.
+         * Ignored for sets that already carry a unit. Prefer the user's import prompt choice;
+         * defaults to Lb only for test/legacy callers.
+         */
+        fallbackWeightUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
     ): Flow<HistoricalImportEvent>
 }
 

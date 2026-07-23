@@ -139,11 +139,7 @@ class MergeImportedHistoryUseCase @Inject constructor() {
 
     private fun setFingerprint(set: LoggedSet): String {
         val minuteBucket = ChronoUnit.MINUTES.between(Instant.EPOCH, set.completedAt)
-        val weightKg =
-            when (set.weight.unit) {
-                Weight.WeightUnit.Kg -> set.weight.amount
-                Weight.WeightUnit.Lb -> set.weight.amount * LB_TO_KG
-            }
+        val weightKg = com.stratum.domain.lift.WeightConversion.amountInKg(set.weight)
         val weightKey = (weightKg * 100).roundToInt()
         val exerciseKey = ImportExerciseNameNormalizer.normalizeForMatching(set.exerciseNameRaw)
         return "$minuteBucket|$exerciseKey|$weightKey|${set.reps}"
@@ -152,8 +148,4 @@ class MergeImportedHistoryUseCase @Inject constructor() {
     private fun fileSlug(index: Int): String = "f$index"
 
     private fun namespacedId(slug: String, originalId: String): String = "$slug::$originalId"
-
-    private companion object {
-        private const val LB_TO_KG = 0.45359237
-    }
 }

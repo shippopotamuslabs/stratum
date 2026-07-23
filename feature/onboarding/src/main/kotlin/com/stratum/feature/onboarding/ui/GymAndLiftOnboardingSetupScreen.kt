@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumIconButton
+import com.stratum.core.ui.component.StratumSegmentedControl
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.onboarding.GymLiftsDraftUi
@@ -44,6 +45,8 @@ import com.stratum.feature.onboarding.R as FeatureR
 
 /**
  * Step 5 of the wizard. Pick a gym preset or import historical training data (JSON/CSV).
+ * [appWeightUnitIsKg] is the app-wide display preference (Settings / live log stamp), not the
+ * import-file unit fallback.
  */
 @Composable
 fun GymAndLiftOnboardingSetupScreen(
@@ -52,6 +55,8 @@ fun GymAndLiftOnboardingSetupScreen(
     onPresetSelected: (String?) -> Unit,
     onImportClick: () -> Unit,
     onImportCancel: () -> Unit,
+    appWeightUnitIsKg: Boolean = false,
+    onAppWeightUnitSelected: (useKg: Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val importActive = draft.importInProgress
@@ -71,6 +76,31 @@ fun GymAndLiftOnboardingSetupScreen(
             text = stringResource(FeatureR.string.gym_lifts_intro),
             muted = true,
         )
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            StratumText(
+                text = stringResource(FeatureR.string.gym_lifts_weight_unit_title),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+            )
+            StratumText(
+                text = stringResource(FeatureR.string.gym_lifts_weight_unit_subtitle),
+                muted = true,
+            )
+            val unitOptions =
+                listOf(
+                    false to stringResource(FeatureR.string.gym_lifts_weight_unit_lbs),
+                    true to stringResource(FeatureR.string.gym_lifts_weight_unit_kg),
+                )
+            StratumSegmentedControl(
+                modifier = Modifier.fillMaxWidth(),
+                segments = unitOptions.map { it.second },
+                selectedIndex = if (appWeightUnitIsKg) 1 else 0,
+                onSelectedIndexChange = { index ->
+                    onAppWeightUnitSelected(unitOptions[index].first)
+                },
+            )
+        }
 
         presetOptions.forEach { preset ->
             AnimatedVisibility(

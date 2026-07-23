@@ -574,8 +574,8 @@ class ProgressionSnapshotEdgeCasesTest {
     }
 
     @Test
-    @DisplayName("kg units: partial thin block reduces and preserves kg unit")
-    fun kgPartialCoverageReducesPreservesUnit() = runTest {
+    @DisplayName("kg-tagged history: partial thin block reduces in canonical Lb")
+    fun kgPartialCoverageReducesInLb() = runTest {
         val history = FakeProgressionHistoryRepository()
         val recent = session("s-n1", "2026-07-01T10:00:00Z")
         val rt = Instant.parse("2026-07-01T10:30:00Z")
@@ -587,8 +587,12 @@ class ProgressionSnapshotEdgeCasesTest {
             SnapshotRequest(programId, workoutId, listOf(fiveSlotLift(ProgressionScheme.Double))),
         ).getOrThrow()
         val recs = recsFor(snapshot, 5)
-        assertEquals(Weight.WeightUnit.Kg, recs[0].recommendedWeight.unit)
-        assertTrue(recs[0].recommendedWeight.amount < 20.0)
+        val startLb =
+            com.stratum.domain.lift.WeightConversion.amountInLb(
+                Weight(20.0, Weight.WeightUnit.Kg),
+            )
+        assertEquals(Weight.WeightUnit.Lb, recs[0].recommendedWeight.unit)
+        assertTrue(recs[0].recommendedWeight.amount < startLb)
         assertTrue(recs[0].recommendedWeight.amount > 0.0)
         assertSharedAndMonotonic(recs)
     }

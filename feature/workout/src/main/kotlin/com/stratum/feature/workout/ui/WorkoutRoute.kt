@@ -161,10 +161,14 @@ fun WorkoutRoute(
                     onNavigateBack = onNavigateBack,
                     onCompleteWorkout = viewModel::completeWorkout,
                     onAbandon = viewModel::abandonSession,
-                    onLogSet = { slotKey, weightAmountLb, reps, rir ->
+                    onLogSet = { slotKey, weightAmountDisplay, reps, rir ->
+                        // UI magnitudes are display-unit; ViewModel converts to canonical Lb storage.
                         viewModel.logSet(
                             slotKey = slotKey,
-                            weight = Weight(weightAmountLb, Weight.WeightUnit.Lb),
+                            weight = Weight(
+                                weightAmountDisplay,
+                                viewModel.currentDisplayUnit(),
+                            ),
                             reps = reps,
                             rir = rir,
                         )

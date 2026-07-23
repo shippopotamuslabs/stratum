@@ -10,5 +10,13 @@ class RunHistoricalImportUseCase @Inject constructor(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
         persistPolicy: ImportHistoryPersistPolicy,
-    ): Flow<HistoricalImportEvent> = runner.run(files, resume, persistPolicy)
+        fallbackWeightUnit: com.stratum.domain.lift.Weight.WeightUnit =
+            com.stratum.domain.lift.Weight.WeightUnit.Lb,
+    ): Flow<HistoricalImportEvent> =
+        runner.run(
+            files = files,
+            resume = resume,
+            persistPolicy = persistPolicy,
+            fallbackWeightUnit = fallbackWeightUnit,
+        )
 }
