@@ -255,7 +255,7 @@ class LiveSetLogDraftsTest {
                     SetFieldDraft(weightText = "", repsText = "", rir = 2),
                 )
             assertEquals("s1", commit.slotKey)
-            assertEquals(135.0, commit.weightAmountLb)
+            assertEquals(135.0, commit.weightAmountDisplay)
             assertEquals(8, commit.reps)
             assertEquals(2, commit.rir)
         }
@@ -281,7 +281,7 @@ class LiveSetLogDraftsTest {
                     SetFieldDraft(weightText = "", repsText = "", rir = 0),
                     emptyFieldFallback = EmptyFieldFallback.KeepPreviousLogged,
                 )
-            assertEquals(275.0, commit.weightAmountLb)
+            assertEquals(275.0, commit.weightAmountDisplay)
             assertEquals(12, commit.reps)
             assertEquals(0, commit.rir)
         }
@@ -306,7 +306,7 @@ class LiveSetLogDraftsTest {
                     SetFieldDraft(weightText = "", repsText = "", rir = 2),
                     emptyFieldFallback = EmptyFieldFallback.AcceptPlaceholders,
                 )
-            assertEquals(135.0, commit.weightAmountLb)
+            assertEquals(135.0, commit.weightAmountDisplay)
             assertEquals(8, commit.reps)
         }
     }
@@ -327,7 +327,7 @@ class LiveSetLogDraftsTest {
             store.setReps("s1", "6")
             store.setRir("s1", 1)
             val commit = store.resolveCommit(sets.single())
-            assertEquals(100.0, commit.weightAmountLb)
+            assertEquals(100.0, commit.weightAmountDisplay)
             assertEquals(6, commit.reps)
             assertEquals(1, commit.rir)
         }

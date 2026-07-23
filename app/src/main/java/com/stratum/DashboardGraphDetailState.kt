@@ -17,6 +17,9 @@ import com.stratum.domain.dashboard.graphDetailStats
 import com.stratum.domain.dashboard.graphDetailStatsNonZeroDays
 import com.stratum.domain.dashboard.windowStart
 import com.stratum.domain.dashboard.zeroFillDailyTrendPoints
+import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
+import com.stratum.domain.lift.shortLabel
 import com.stratum.domain.response.modeling.MuscleDailyVolumeBuilder
 import java.time.Instant
 import java.time.ZoneId
@@ -152,6 +155,7 @@ internal fun rangesFor(kind: GraphDetailKindUi): List<GraphTimeRangeUi> = when (
 
 internal fun GraphDetailSession.toReadyUi(
     now: Instant = Instant.now(),
+    displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
 ): GraphDetailUiState.Ready {
     val modes = modesFor(kind)
     val mode = selectedMode.takeIf { it in modes } ?: modes.first()
@@ -172,15 +176,22 @@ internal fun GraphDetailSession.toReadyUi(
 
     val primaryScale = primaryYScaleFor(kind, mode)
     val primaryColor = primaryColorRoleFor(kind, mode)
+    // Lift e1RM series are kg in domain; convert for display when the primary scale is weight.
+    val displayPrimary =
+        if (primaryScale == DetailYScale.Weight) {
+            filteredPrimary.scaleWeightFromKg(displayUnit)
+        } else {
+            filteredPrimary
+        }
     // Daily volume: avg over training days only so 1W zero-fill matches longer sparse ranges.
     val statsDomain = if (daily) {
-        graphDetailStatsNonZeroDays(filteredPrimary)
+        graphDetailStatsNonZeroDays(displayPrimary)
     } else {
-        graphDetailStats(filteredPrimary)
+        graphDetailStats(displayPrimary)
     }
     val stats = statsDomain.toUi(
         scale = primaryScale,
-        unitSuffix = unitSuffixFor(primaryScale),
+        unitSuffix = unitSuffixFor(primaryScale, displayUnit),
         dailyVolume = daily,
         zone = zone,
     )
@@ -193,7 +204,7 @@ internal fun GraphDetailSession.toReadyUi(
         selectedRange = range,
         ranges = availableRanges,
         stats = stats,
-        primaryPoints = filteredPrimary.toChartPoints(dailyVolume = daily, zone = zone),
+        primaryPoints = displayPrimary.toChartPoints(dailyVolume = daily, zone = zone),
         secondaryPoints = if (dual) {
             filteredSecondary.toChartPoints(dailyVolume = false, zone = zone)
         } else {
@@ -205,6 +216,18 @@ internal fun GraphDetailSession.toReadyUi(
         secondaryYScale = if (dual) DetailYScale.Volume else null,
     )
 }
+
+/** Converts weekly peak-e1RM trend values from kg analytics units into [displayUnit]. */
+private fun List<TrendPoint>.scaleWeightFromKg(displayUnit: Weight.WeightUnit): List<TrendPoint> =
+    map { point ->
+        point.copy(
+            value = WeightConversion.convertAmount(
+                point.value,
+                Weight.WeightUnit.Kg,
+                displayUnit,
+            ),
+        )
+    }
 
 private fun GraphDetailSession.resolvePrimarySeries(
     mode: GraphViewMode,
@@ -245,8 +268,11 @@ private fun primaryColorRoleFor(kind: GraphDetailKindUi, mode: GraphViewMode): G
         else -> GraphSeriesColorRole.Progress
     }
 
-private fun unitSuffixFor(scale: DetailYScale): String = when (scale) {
-    DetailYScale.Weight -> "kg"
+private fun unitSuffixFor(
+    scale: DetailYScale,
+    displayUnit: Weight.WeightUnit,
+): String = when (scale) {
+    DetailYScale.Weight -> displayUnit.shortLabel()
     DetailYScale.Volume -> "sets"
     DetailYScale.Progress -> ""
 }

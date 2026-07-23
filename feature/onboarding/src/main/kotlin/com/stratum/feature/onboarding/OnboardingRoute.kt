@@ -15,14 +15,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -32,19 +33,21 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.importing.ImportWeightUnitPrompt
+import com.stratum.core.ui.importing.ImportWeightUnitUi
 import com.stratum.core.ui.importing.loadImportFile
 import com.stratum.core.ui.importing.loadImportFiles
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.onboarding.OnboardingPath
 import com.stratum.domain.program.importing.ProgramTemplateImportLimits
-import com.stratum.feature.onboarding.OnboardingPathUi
 import com.stratum.feature.onboarding.ui.ChoosePathScreen
 import com.stratum.feature.onboarding.ui.GymAndLiftOnboardingSetupScreen
+import com.stratum.feature.onboarding.ui.MinimumVolumeScreen
 import com.stratum.feature.onboarding.ui.ProfileScreen
 import com.stratum.feature.onboarding.ui.ReviewScreen
 import com.stratum.feature.onboarding.ui.ScheduleScreen
-import com.stratum.feature.onboarding.ui.MinimumVolumeScreen
 import com.stratum.feature.onboarding.ui.SpecializationScreen
+import kotlinx.coroutines.launch
 
 
 /**
@@ -76,6 +79,15 @@ fun OnboardingRoute(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var draftImportUnit by remember(state.appWeightUnitIsKg) {
+        mutableStateOf(
+            if (state.appWeightUnitIsKg) {
+                ImportWeightUnitUi.Kg
+            } else {
+                ImportWeightUnitUi.Lbs
+            },
+        )
+    }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris: List<Uri> ->
@@ -87,6 +99,24 @@ fun OnboardingRoute(
                 .onSuccess { files -> viewModel.onImportFilesSelected(files) }
             // Empty/all-failed stays silent on onboarding multi-file (prior behavior).
         }
+    }
+
+    LaunchedEffect(state.launchHistoricalImportPicker) {
+        if (state.launchHistoricalImportPicker) {
+            viewModel.onHistoricalImportPickerLaunched()
+            importLauncher.launch(HISTORICAL_IMPORT_MIME_TYPES)
+        }
+    }
+
+    if (state.showImportWeightUnitPrompt) {
+        ImportWeightUnitPrompt(
+            selected = draftImportUnit,
+            onSelectedChange = { draftImportUnit = it },
+            onContinue = {
+                viewModel.onImportWeightUnitConfirmed(useKg = draftImportUnit == ImportWeightUnitUi.Kg)
+            },
+            onDismiss = viewModel::onImportWeightUnitPromptDismissed,
+        )
     }
 
     // Single-file picker for the "Import Existing" program flow (CSV/XLSX).
@@ -146,12 +176,13 @@ fun OnboardingRoute(
         ),
         gymLifts = GymLiftsHandlers(
             onPresetSelected = viewModel::onPresetSelected,
+            onAppWeightUnitSelected = viewModel::onAppWeightUnitSelected,
         ),
         onImportClick = {
             if (state.gymLiftsDraft.importResumable) {
                 viewModel.onRetryImportFromFailedFile()
             } else {
-                importLauncher.launch(HISTORICAL_IMPORT_MIME_TYPES)
+                viewModel.onBeginHistoricalImportClick()
             }
         },
         onImportCancel = viewModel::onCancelImport,
@@ -228,6 +259,8 @@ private fun OnboardingWizard(
                         onPresetSelected = gymLifts.onPresetSelected,
                         onImportClick = onImportClick,
                         onImportCancel = onImportCancel,
+                        appWeightUnitIsKg = state.appWeightUnitIsKg,
+                        onAppWeightUnitSelected = gymLifts.onAppWeightUnitSelected,
                     )
                     WIZARD_STEP_REVIEW -> ReviewScreen(
                         draft = state.reviewDraft,

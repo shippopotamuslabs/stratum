@@ -107,7 +107,7 @@ class GetWorkoutSummaryUseCaseTest {
 
         assertEquals(1, summary.bestSets.size)
         val best = summary.bestSets[0]
-        assertEquals(185.0, best.weight)
+        assertEquals(185.0, best.weight.amount)
         assertEquals(3, best.reps)
     }
 

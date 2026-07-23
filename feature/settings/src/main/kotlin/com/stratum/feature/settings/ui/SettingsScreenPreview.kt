@@ -7,6 +7,7 @@ import com.stratum.core.ui.theme.StratumThemeId
 import com.stratum.feature.settings.AppearanceUi
 import com.stratum.feature.settings.SettingsUiState
 import com.stratum.feature.settings.ThemeFamilyUi
+import com.stratum.feature.settings.WeightUnitUi
 
 @PreviewLightDark
 @Composable
@@ -19,6 +20,7 @@ private fun SettingsScreenTonalPreview() {
                 checkInsEnabled = true,
                 equipmentProposalsEnabled = true,
                 repRangeProposalsEnabled = false,
+                weightUnit = WeightUnitUi.Lbs,
             ),
             onBackClick = {},
             onAppearanceSelected = {},
@@ -39,6 +41,7 @@ private fun SettingsScreenNeoPreview() {
                 checkInsEnabled = false,
                 equipmentProposalsEnabled = true,
                 repRangeProposalsEnabled = true,
+                weightUnit = WeightUnitUi.Kg,
                 showDebugTools = true,
                 debugStatusMessage = "Check-in forced for testing.",
                 isForceRefreshCooldown = true,

@@ -952,6 +952,32 @@ class RecommendationEngineRirMathTest {
                     ),
                 )
             }
+
+            @Test
+            @DisplayName("isOnTrackTopSet: kg performed equals lb prescribed after conversion")
+            fun kgPerformedMatchesLbPrescribed() {
+                val kg100 =
+                    LoggedSetValue(
+                        slotId,
+                        Weight(100.0, Weight.WeightUnit.Kg),
+                        reps = 8,
+                        rir = 2,
+                    )
+                val prescribedLb =
+                    Weight(
+                        com.stratum.domain.lift.WeightConversion.amountInLb(
+                            Weight(100.0, Weight.WeightUnit.Kg),
+                        ),
+                        Weight.WeightUnit.Lb,
+                    )
+                assertTrue(
+                    engine.isOnTrackTopSet(
+                        kg100,
+                        topSet(repMin = 4, repMax = 12, rirGoal = 2),
+                        prescribedLb,
+                    ),
+                )
+            }
         }
 
         @Nested

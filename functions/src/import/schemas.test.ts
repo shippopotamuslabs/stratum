@@ -144,4 +144,25 @@ describe("validateNormalizedHistory", () => {
     assert.equal(result.sessions[0]?.startedAt, "2025-12-28T00:00:00Z");
     assert.equal(result.sets[0]?.completedAt, "2025-12-28T00:00:00Z");
   });
+
+  it("applies fallbackWeightUnit when weightUnit omitted", () => {
+    const result = validateNormalizedHistory(
+      {
+        sessions: [{ id: "s1", startedAt: "2025-12-28" }],
+        sets: [
+          {
+            id: "set-1",
+            sessionId: "s1",
+            exerciseNameRaw: "Squat",
+            setIndex: 0,
+            weightAmount: 100,
+            reps: 5,
+            completedAt: "2025-12-28",
+          },
+        ],
+      },
+      "Kg",
+    );
+    assert.equal(result.sets[0]?.weightUnit, "Kg");
+  });
 });

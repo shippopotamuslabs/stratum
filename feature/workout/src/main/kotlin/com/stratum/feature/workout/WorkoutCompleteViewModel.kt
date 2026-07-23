@@ -4,12 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.RIR_NONE_LABEL
 import com.stratum.core.ui.component.formatSetPerformance
-import com.stratum.core.ui.component.formatWeightAmount
+import com.stratum.core.ui.component.formatWeightAmountForDisplay
 import com.stratum.core.ui.component.formatWorkoutDuration
 import com.stratum.domain.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.domain.lift.ApplyEquipmentIncrementProposalUseCase
 import com.stratum.domain.lift.EquipmentIncrementRemedy
 import com.stratum.domain.lift.EquipmentProposalPreferences
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.GetWorkoutSummaryUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
@@ -28,6 +30,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -47,6 +50,7 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val analyzeSessionRepRangeShiftProposals: AnalyzeSessionRepRangeShiftProposalsUseCase,
     private val applyRepRangeShift: ApplyRepRangeShiftUseCase,
     private val repRangeShiftProposalPreferences: RepRangeShiftProposalPreferences,
+    private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WorkoutCompleteUiState>(WorkoutCompleteUiState.Loading)
@@ -65,6 +69,8 @@ class WorkoutCompleteViewModel @Inject constructor(
         val generation = ++loadGeneration
         loadJob =
             viewModelScope.launch {
+                // Summary weights are canonical Lb; convert for display preference.
+                val displayUnit = observeWeightDisplayPreferences().first().displayUnit
                 val result = getWorkoutSummary(TrainingSessionId(sessionId))
                 if (generation != loadGeneration) return@launch
                 _uiState.value =
@@ -99,17 +105,27 @@ class WorkoutCompleteViewModel @Inject constructor(
                                         LiftBestSetUi(
                                             liftName = best.liftName,
                                             performanceLabel =
-                                                formatSetPerformance(best.weight, best.reps),
+                                                formatSetPerformance(
+                                                    weight = best.weight,
+                                                    reps = best.reps,
+                                                    displayUnit = displayUnit,
+                                                    includeUnit = false,
+                                                ),
                                             rirLabel =
                                                 best.rir?.toString() ?: RIR_NONE_LABEL,
                                             estimatedOneRmLabel =
-                                                best.estimatedOneRm?.let {
-                                                    formatWeightAmount(it).ifEmpty { "0" }
+                                                best.estimatedOneRm?.let { e1 ->
+                                                    formatWeightAmountForDisplay(
+                                                        amount = e1,
+                                                        sourceUnit = best.weight.unit,
+                                                        displayUnit = displayUnit,
+                                                    ).ifEmpty { "0" }
                                                 }
                                                     ?: formatEstimatedOneRm(
-                                                        best.weight,
-                                                        best.reps,
-                                                        best.rir,
+                                                        weight = best.weight,
+                                                        reps = best.reps,
+                                                        rir = best.rir,
+                                                        displayUnit = displayUnit,
                                                     ),
                                             isPersonalRecord = best.isPersonalRecord,
                                         )
@@ -328,9 +344,19 @@ class WorkoutCompleteViewModel @Inject constructor(
         }
     }
 
-    private fun formatEstimatedOneRm(weight: Double, reps: Int, rir: Int?): String {
+    private fun formatEstimatedOneRm(
+        weight: Weight,
+        reps: Int,
+        rir: Int?,
+        displayUnit: Weight.WeightUnit,
+    ): String {
         val effectiveReps = reps + (rir ?: 0)
-        val e1Rm = EstimatedOneRm.calculate(weight, effectiveReps)
-        return formatWeightAmount(e1Rm).ifEmpty { "0" }
+        // e1RM magnitude is in the same unit as the performed weight.
+        val e1Rm = EstimatedOneRm.calculate(weight.amount, effectiveReps)
+        return formatWeightAmountForDisplay(
+            amount = e1Rm,
+            sourceUnit = weight.unit,
+            displayUnit = displayUnit,
+        ).ifEmpty { "0" }
     }
 }

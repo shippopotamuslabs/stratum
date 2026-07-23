@@ -13,7 +13,10 @@ import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.RefreshPersistedImportStateUseCase
 import com.stratum.domain.lift.ApplyGymPresetUseCase
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetSelectedPresetUseCase
+import com.stratum.domain.lift.SetWeightDisplayUnitUseCase
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.AdvanceOnboardingStepResult
 import com.stratum.domain.onboarding.AdvanceOnboardingStepUseCase
@@ -75,6 +78,8 @@ class OnboardingViewModel @Inject constructor(
     private val completeOnboarding: CompleteOnboardingUseCase,
     private val importProgramTemplate: ImportProgramTemplateUseCase,
     private val logError: LogErrorUseCase,
+    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
 ) : ViewModel() {
 
     private val edits = MutableStateFlow(ProfileEdit())
@@ -84,6 +89,8 @@ class OnboardingViewModel @Inject constructor(
     private var importJob: Job? = null
     private var generateJob: Job? = null
     private var importProgramJob: Job? = null
+    /** Fallback unit for the current historical import session. */
+    private var sessionImportFallbackUnit: Weight.WeightUnit = Weight.WeightUnit.Lb
 
     private val wizardState: StateFlow<OnboardingWizardState> =
         getOnboardingWizardState().stateIn(
@@ -182,6 +189,16 @@ class OnboardingViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { applyRefreshPersistedImportState() }
+        viewModelScope.launch {
+            observeWeightDisplayPreferences().collect { prefs ->
+                ephemeral.update {
+                    it.copy(
+                        appWeightUnitIsKg =
+                            prefs.displayUnit == Weight.WeightUnit.Kg,
+                    )
+                }
+            }
+        }
     }
 
     fun onTrainingAgeSelected(label: String?) {
@@ -382,17 +399,67 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
+    /**
+     * App-wide weight unit (same DataStore as Settings). Independent of the import-file
+     * fallback prompt.
+     */
+    fun onAppWeightUnitSelected(useKg: Boolean) {
+        viewModelScope.launch {
+            setWeightDisplayUnit(
+                if (useKg) Weight.WeightUnit.Kg else Weight.WeightUnit.Lb,
+            )
+        }
+    }
+
+    /** User tapped Import history — show unit gate before the file picker (unless resuming). */
+    fun onBeginHistoricalImportClick() {
+        ephemeral.update {
+            it.copy(showImportWeightUnitPrompt = true, launchHistoricalImportPicker = false)
+        }
+    }
+
+    fun onImportWeightUnitPromptDismissed() {
+        ephemeral.update { it.copy(showImportWeightUnitPrompt = false) }
+    }
+
+    /**
+     * @param useKg true when the user selected kg in the import unit prompt.
+     */
+    fun onImportWeightUnitConfirmed(useKg: Boolean) {
+        sessionImportFallbackUnit =
+            if (useKg) Weight.WeightUnit.Kg else Weight.WeightUnit.Lb
+        ephemeral.update {
+            it.copy(
+                showImportWeightUnitPrompt = false,
+                launchHistoricalImportPicker = true,
+            )
+        }
+    }
+
+    fun onHistoricalImportPickerLaunched() {
+        ephemeral.update { it.copy(launchHistoricalImportPicker = false) }
+    }
+
     fun onImportFilesSelected(files: List<ImportFileInput>) {
         launchHistoricalImport {
             importResumeState.value = null
-            collectHistoricalImport(files = files, resume = null)
+            collectHistoricalImport(
+                files = files,
+                resume = null,
+                fallbackWeightUnit = sessionImportFallbackUnit,
+            )
         }
     }
 
     fun onRetryImportFromFailedFile() {
         launchHistoricalImport {
             val resume = importResumeState.value?.takeIf { it.isResumable() } ?: return@launchHistoricalImport
-            collectHistoricalImport(files = resume.files, resume = resume)
+            sessionImportFallbackUnit = resume.fallbackWeightUnit
+            collectHistoricalImport(
+                files = resume.files,
+                resume = resume,
+                fallbackWeightUnit = resume.fallbackWeightUnit,
+            )
         }
     }
 
@@ -430,6 +497,7 @@ class OnboardingViewModel @Inject constructor(
     private suspend fun collectHistoricalImport(
         files: List<ImportFileInput>,
         resume: HistoricalImportResumeState?,
+        fallbackWeightUnit: Weight.WeightUnit,
     ) {
         ephemeral.update {
             it.copy(
@@ -442,6 +510,7 @@ class OnboardingViewModel @Inject constructor(
             files = files,
             resume = resume,
             persistPolicy = ImportHistoryPersistPolicy.ReplaceImportOrigin,
+            fallbackWeightUnit = fallbackWeightUnit,
         ).collect { event ->
             when (event) {
                 is HistoricalImportOrchestrationEvent.ValidationFailed ->

@@ -135,6 +135,7 @@ fun LiftIncrementsScreen(
                     TierEditorCard(
                         index = index,
                         tier = tier,
+                        unitLabel = state.unitLabel,
                         isLast = index == state.tiers.lastIndex,
                         canRemove = state.tiers.size > 1,
                         onLowerChanged = { onTierLowerChanged(index, it) },
@@ -257,6 +258,7 @@ private fun IncrementsValidationBanner(message: String) {
 private fun TierEditorCard(
     index: Int,
     tier: IncrementTierDraft,
+    unitLabel: String,
     isLast: Boolean,
     canRemove: Boolean,
     onLowerChanged: (String) -> Unit,
@@ -267,7 +269,7 @@ private fun TierEditorCard(
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
-    val summary = tierSummaryText(tier)
+    val summary = tierSummaryText(tier, unitLabel)
 
     Column(
         modifier =
@@ -320,7 +322,7 @@ private fun TierEditorCard(
             StratumTextField(
                 value = tier.lowerBound,
                 onValueChange = onLowerChanged,
-                label = stringResource(UiR.string.lift_increments_lower),
+                label = "${stringResource(UiR.string.lift_increments_lower)} ($unitLabel)",
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             )
@@ -328,7 +330,7 @@ private fun TierEditorCard(
                 StratumTextField(
                     value = tier.upperBound.orEmpty(),
                     onValueChange = onUpperChanged,
-                    label = stringResource(UiR.string.lift_increments_upper),
+                    label = "${stringResource(UiR.string.lift_increments_upper)} ($unitLabel)",
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
@@ -336,7 +338,7 @@ private fun TierEditorCard(
                 StratumTextField(
                     value = stringResource(UiR.string.lift_increments_upper_open),
                     onValueChange = {},
-                    label = stringResource(UiR.string.lift_increments_upper),
+                    label = "${stringResource(UiR.string.lift_increments_upper)} ($unitLabel)",
                     modifier = Modifier.weight(1f),
                     enabled = false,
                 )
@@ -344,7 +346,7 @@ private fun TierEditorCard(
             StratumTextField(
                 value = tier.increment,
                 onValueChange = onIncrementChanged,
-                label = stringResource(UiR.string.lift_increments_step),
+                label = "${stringResource(UiR.string.lift_increments_step)} ($unitLabel)",
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             )
@@ -378,15 +380,17 @@ private fun TierEditorCard(
 }
 
 @Composable
-private fun tierSummaryText(tier: IncrementTierDraft): String? {
+private fun tierSummaryText(tier: IncrementTierDraft, unitLabel: String): String? {
     val lower = tier.lowerBound.trim()
     val step = tier.increment.trim()
     if (lower.isEmpty() || step.isEmpty()) return null
-    return if (tier.openEnded) {
-        stringResource(UiR.string.lift_increments_summary_open, lower, step)
-    } else {
-        val upper = tier.upperBound?.trim().orEmpty()
-        if (upper.isEmpty()) return null
-        stringResource(UiR.string.lift_increments_summary_closed, lower, upper, step)
-    }
+    val body =
+        if (tier.openEnded) {
+            stringResource(UiR.string.lift_increments_summary_open, lower, step)
+        } else {
+            val upper = tier.upperBound?.trim().orEmpty()
+            if (upper.isEmpty()) return null
+            stringResource(UiR.string.lift_increments_summary_closed, lower, upper, step)
+        }
+    return "$body $unitLabel"
 }

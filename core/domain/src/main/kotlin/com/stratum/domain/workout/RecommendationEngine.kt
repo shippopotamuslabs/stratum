@@ -4,8 +4,10 @@ import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.incrementForAmount
 import com.stratum.domain.lift.roundToIncrement
+import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.workout.fatigue.FatigueModel
 import com.stratum.domain.workout.fatigue.defaultLoadBumpAmount
 import com.stratum.domain.workout.fatigue.reduceWeightForLastSetFloor as sharedReduceWeightForLastSetFloor
@@ -81,7 +83,13 @@ class RecommendationEngine @Inject constructor(
 
         val effectiveRir = lastPerformed.rir ?: 0
         val reps = lastPerformed.reps + effectiveRir
-        val e1rm = if (reps > 0) EstimatedOneRm.calculate(lastPerformed.weight.amount, reps) else 0.0
+        val loadMagnitudeLb = WeightConversion.loadMagnitudeLb(lastPerformed.weight)
+        val e1rm =
+            if (reps > 0 && loadMagnitudeLb > 0.0) {
+                EstimatedOneRm.calculate(loadMagnitudeLb, reps)
+            } else {
+                0.0
+            }
         if (e1rm <= 0.0) return null
 
         val effectiveWeight = resolveWorkingWeight(
@@ -197,14 +205,16 @@ class RecommendationEngine @Inject constructor(
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
     ): Weight {
+        // Tiers are Lb magnitudes; lattice ops always run in Lb.
+        val weightLb = weight.toStorageLb()
         val step = when {
             incrementTiers.isNotEmpty() -> {
-                val band = incrementTiers.incrementForAmount(weight.amount)
-                if (band > 0.0) band else defaultBumpAmount(weight.unit)
+                val band = incrementTiers.incrementForAmount(weightLb.amount)
+                if (band > 0.0) band else defaultBumpAmount(Weight.WeightUnit.Lb)
             }
-            else -> defaultBumpAmount(weight.unit)
+            else -> defaultBumpAmount(Weight.WeightUnit.Lb)
         }
-        val raw = Weight(weight.amount + step, weight.unit)
+        val raw = Weight(weightLb.amount + step, Weight.WeightUnit.Lb)
         return incrementTiers.roundToIncrement(raw, loadType)
     }
 
@@ -215,7 +225,9 @@ class RecommendationEngine @Inject constructor(
     ): Boolean {
         if (completedSlot == null || !completedSlot.isTopSet) return false
         if (completedPrescribed == null || completedPrescribed.amount <= 0.0) return false
-        if (lastPerformed.weight.amount != completedPrescribed.amount) return false
+        val performedLb = WeightConversion.amountInLb(lastPerformed.weight)
+        val prescribedLb = WeightConversion.amountInLb(completedPrescribed)
+        if (!WeightConversion.nearlyEqualLb(performedLb, prescribedLb)) return false
         if (completedSlot.repMin <= 0 && completedSlot.repMax <= 0) return false
         val effectiveRir = lastPerformed.rir ?: 0
         val achieved = lastPerformed.reps + effectiveRir - completedSlot.rirGoal
@@ -229,14 +241,17 @@ class RecommendationEngine @Inject constructor(
         targetPrescribed: Weight,
         completedPrescribed: Weight?,
     ): Weight {
-        if (targetPrescribed.amount <= 0.0) return performed
-        val baselineAmount = completedPrescribed?.amount ?: return targetPrescribed
+        val performedLb = performed.toStorageLb()
+        val targetLb = targetPrescribed.toStorageLb()
+        if (targetLb.amount <= 0.0) return performedLb
+        val baselineAmount =
+            completedPrescribed?.let { WeightConversion.amountInLb(it) } ?: return targetLb
         return when {
-            performed.amount > maxOf(baselineAmount, targetPrescribed.amount) -> performed
-            performed.amount < baselineAmount -> {
-                if (targetPrescribed.amount < performed.amount) targetPrescribed else performed
+            performedLb.amount > maxOf(baselineAmount, targetLb.amount) -> performedLb
+            performedLb.amount < baselineAmount -> {
+                if (targetLb.amount < performedLb.amount) targetLb else performedLb
             }
-            else -> targetPrescribed
+            else -> targetLb
         }
     }
 
@@ -284,10 +299,10 @@ class RecommendationEngine @Inject constructor(
         startFrom = startFrom,
         incrementTiers = incrementTiers,
         loadType = loadType,
-        capacityAtRir = { amount ->
+        capacityAtRir = { amountLb ->
             capacityAtRir(
                 e1rm = e1rm,
-                weight = Weight(amount, startFrom.unit),
+                weight = Weight(amountLb, Weight.WeightUnit.Lb),
                 setIndex = lastSetIndex,
                 rirGoal = rirGoal,
                 perLiftSlope = perLiftSlope,

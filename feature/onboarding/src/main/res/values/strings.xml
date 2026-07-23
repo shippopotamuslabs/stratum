@@ -80,6 +80,10 @@
 
     <!-- Gym & Lifts -->
     <string name="gym_lifts_intro">Choose a gym preset, or import past logs instead. Import lets us mine your history for a sharper first program.</string>
+    <string name="gym_lifts_weight_unit_title">Weight unit</string>
+    <string name="gym_lifts_weight_unit_subtitle">Used across the app for weights. Separate from import file units.</string>
+    <string name="gym_lifts_weight_unit_lbs">lbs</string>
+    <string name="gym_lifts_weight_unit_kg">kg</string>
     <string name="gym_lifts_error_no_preset">Choose a gym preset or import your training data to continue.</string>
     <string name="gym_lifts_import_title">Import training data</string>
     <string name="gym_lifts_import_description">Upload workout exports (up to 5 files). MacroFactor, Alpha Progression, Hevy, and Strong are converted directly; other formats may use AI as a fallback. We then derive insights from your combined history.</string>

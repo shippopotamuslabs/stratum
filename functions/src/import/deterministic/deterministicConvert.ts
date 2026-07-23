@@ -1,5 +1,6 @@
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { validateNormalizedHistory } from "../schemas";
+import { parseFallbackWeightUnit } from "../weightUnit";
 import { detectAndParse } from "./formatDetector";
 import type { DeterministicResult } from "./types";
 
@@ -63,9 +64,10 @@ export async function deterministicConvert(
   // Validate before persisting. If a parser emits anything the contract
   // rejects, treat it as a miss and let the agent have a go — never persist
   // half-valid output.
+  const fallbackWeightUnit = parseFallbackWeightUnit(jobData?.fallbackWeightUnit);
   let history;
   try {
-    history = validateNormalizedHistory(detected.history);
+    history = validateNormalizedHistory(detected.history, fallbackWeightUnit);
   } catch {
     return null;
   }

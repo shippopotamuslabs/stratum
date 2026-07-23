@@ -174,6 +174,28 @@ class ExportTrainingLogsUseCaseTest {
     }
 
     @Test
+    @DisplayName("Export always emits weightUnit Lb and converts kg-tagged amounts")
+    fun exportAlwaysLb() = runTest {
+        // setB1 fixture is 60 kg; export must re-encode as Lb.
+        val repo = FakeTrainingLogRepository(
+            initialSessions = listOf(sessionB),
+            initialSets = listOf(setB1),
+        )
+        val result = useCase(repo)(ExportLogRange.AllTime)
+        assertTrue(result.isSuccess)
+        val root = decodeRoot(result.getOrThrow().bytes)
+        val sets = root.requireObject("history").requireArray("sets")
+        assertEquals(1, sets.values.size)
+        val setObj = sets.values.first() as JsonObject
+        assertEquals("Lb", setObj.requireString("weightUnit"))
+        val expectedLb =
+            com.stratum.domain.lift.WeightConversion.amountInLb(
+                com.stratum.domain.lift.Weight(60.0, com.stratum.domain.lift.Weight.WeightUnit.Kg),
+            )
+        assertEquals(expectedLb, setObj.requireDouble("weightAmount"), 1e-6)
+    }
+
+    @Test
     @DisplayName("IE-S1-008 Exported session and set ids match domain ids")
     fun ieS1_008_stableIds() = runTest {
         val sess = session("stable-sess-9", Instant.parse("2026-07-01T14:00:00Z"))

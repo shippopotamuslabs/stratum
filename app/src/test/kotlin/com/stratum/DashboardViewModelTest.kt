@@ -1,6 +1,7 @@
 package com.stratum
 
 import com.stratum.core.testing.dashboard.FakeDashboardPreferencesRepository
+import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 
 import com.stratum.core.testing.MainDispatcherRule
@@ -17,6 +18,7 @@ import com.stratum.domain.dashboard.DashboardPreferences
 import com.stratum.domain.dashboard.LoadDashboardUseCase
 import com.stratum.domain.dashboard.LoadGraphDetailUseCase
 import com.stratum.domain.dashboard.ObserveDashboardPreferencesUseCase
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.lift.Lift
@@ -172,7 +174,7 @@ class DashboardViewModelTest {
         val loaded = viewModel.uiState.value as DashboardUiState.Loaded
         assertEquals(listOf(SECTION_UPPER), loaded.liftSections.map { it.title })
         val liftUi = loaded.liftSections.single().lifts.single { it.name == "Bench Press" }
-        assertTrue(liftUi.e1rmText?.contains("kg") == true, "e1RM text includes unit")
+        assertTrue(liftUi.e1rmText?.contains("lb") == true, "e1RM text includes unit (default lbs)")
         assertEquals(TrendBadge.Up, liftUi.badge, "improving e1RM → Up badge (kg threshold)")
         assertEquals(3, liftUi.performancePoints.size)
         assertEquals(3, liftUi.sessions)
@@ -610,6 +612,8 @@ class DashboardViewModelTest {
         programLiftIds: Set<LiftId> = emptySet(),
         cloudSync: FakeCloudSyncPort = FakeCloudSyncPort(),
         dashboardPreferences: FakeDashboardPreferencesRepository = FakeDashboardPreferencesRepository(),
+        weightDisplayPreferences: FakeWeightDisplayPreferencesRepository =
+            FakeWeightDisplayPreferencesRepository(),
         zone: ZoneId = testZone,
         now: Instant? = null,
     ): DashboardViewModel {
@@ -659,6 +663,8 @@ class DashboardViewModelTest {
             ),
             observeDashboardPreferences = ObserveDashboardPreferencesUseCase(dashboardPreferences),
             observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(weightDisplayPreferences),
             zone = zone,
             clock = { now ?: Instant.now() },
         )

@@ -18,7 +18,8 @@ data class SetFieldDraft(
 /** Resolved payload for [com.stratum.feature.workout.WorkoutViewModel.logSet]. */
 data class SetLogCommit(
     val slotKey: String,
-    val weightAmountLb: Double,
+    /** UI/display magnitude (not yet converted to storage Lb). */
+    val weightAmountDisplay: Double,
     val reps: Int,
     val rir: Int?,
 )
@@ -212,7 +213,7 @@ internal fun resolveLiveSetLogCommit(
         )
     return SetLogCommit(
         slotKey = source.slotKey,
-        weightAmountLb = weight,
+        weightAmountDisplay = weight,
         reps = reps,
         rir = draft.rir,
     )
@@ -228,7 +229,7 @@ internal fun draftFromCommit(
             if (!showWeightInput) {
                 ""
             } else {
-                formatWeightAmount(commit.weightAmountLb, assistMode = assistMode)
+                formatWeightAmount(commit.weightAmountDisplay, assistMode = assistMode)
             },
         repsText = commit.reps.toString(),
         rir = commit.rir ?: 2,
@@ -247,6 +248,15 @@ class LiveSetLogDraftStore {
 
     fun draftFor(slotKey: String): SetFieldDraft =
         seedState.drafts[slotKey] ?: SetFieldDraft()
+
+    /**
+     * Clears all ephemeral drafts/pending commits when the display unit flips so typed
+     * magnitudes are not re-stamped under a different unit.
+     */
+    fun clearForDisplayUnitChange() {
+        seedState = LiveSetLogSeedState()
+        bump()
+    }
 
     fun syncFromRendered(
         sets: List<RenderedSetUi>,

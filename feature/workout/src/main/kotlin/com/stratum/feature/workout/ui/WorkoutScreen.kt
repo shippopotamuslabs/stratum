@@ -76,8 +76,8 @@ data class WorkoutScreenActions(
     val onNavigateBack: () -> Unit,
     val onCompleteWorkout: (saveTemplate: Boolean) -> Unit,
     val onAbandon: () -> Unit,
-    /** [weightAmountLb] is the UI magnitude; the ViewModel applies load-type sign rules. */
-    val onLogSet: (slotKey: String, weightAmountLb: Double, reps: Int, rir: Int?) -> Unit,
+    /** [weightAmountDisplay] is the UI magnitude; the ViewModel converts to storage Lb. */
+    val onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?) -> Unit,
     val onUnlogSet: (String) -> Unit,
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     val onLinkSupersetWithPrevious: (String) -> Unit,
@@ -170,8 +170,8 @@ fun WorkoutScreen(
 
     // Log only — rest timer, autoscroll, and complete sheet run after [pendingSetLoggedSlotKey]
     // is set by the route once the ViewModel confirms persistence (avoids optimistic chrome).
-    val handleLogSet: (String, Double, Int, Int?) -> Unit = { slotKey, weightAmountLb, reps, rir ->
-        actions.onLogSet(slotKey, weightAmountLb, reps, rir)
+    val handleLogSet: (String, Double, Int, Int?) -> Unit = { slotKey, weightAmountDisplay, reps, rir ->
+        actions.onLogSet(slotKey, weightAmountDisplay, reps, rir)
     }
 
     // Post-success side effects: rest (unless session done), focus next lift, complete sheet.
@@ -323,6 +323,7 @@ fun WorkoutScreen(
                 onDiscardClick = { showDiscardDialog = true },
                 failedLogSlotKey = failedLogSlotKey,
                 onFailedLogConsumed = onFailedLogConsumed,
+                displayUnitEpoch = state.displayUnitEpoch,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),

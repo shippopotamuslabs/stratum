@@ -10,7 +10,10 @@ import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.domain.checkin.SetCheckInEnabledUseCase
 import com.stratum.domain.lift.ObserveEquipmentProposalsEnabledUseCase
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentProposalsEnabledUseCase
+import com.stratum.domain.lift.SetWeightDisplayUnitUseCase
+import com.stratum.domain.lift.Weight
 import com.stratum.domain.theme.ColorMode
 import com.stratum.domain.theme.ObserveThemePreferencesUseCase
 import com.stratum.domain.theme.SetColorModeUseCase
@@ -38,11 +41,13 @@ class SettingsViewModel @Inject constructor(
     observeCheckInPreferences: ObserveCheckInPreferencesUseCase,
     observeEquipmentProposalsEnabled: ObserveEquipmentProposalsEnabledUseCase,
     observeRepRangeShiftProposalsEnabled: ObserveRepRangeShiftProposalsEnabledUseCase,
+    observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val setThemeFamily: SetThemeFamilyUseCase,
     private val setColorMode: SetColorModeUseCase,
     private val setCheckInEnabled: SetCheckInEnabledUseCase,
     private val setEquipmentProposalsEnabled: SetEquipmentProposalsEnabledUseCase,
     private val setRepRangeShiftProposalsEnabled: SetRepRangeShiftProposalsEnabledUseCase,
+    private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
     private val forceRefreshDerived: ForceRefreshDerivedTrainingData,
     private val logout: LogoutUseCase,
@@ -68,13 +73,15 @@ class SettingsViewModel @Inject constructor(
                 observeCheckInPreferences(),
                 observeEquipmentProposalsEnabled(),
                 observeRepRangeShiftProposalsEnabled(),
-            ) { theme, checkIn, equipmentEnabled, repRangeEnabled ->
+                observeWeightDisplayPreferences(),
+            ) { theme, checkIn, equipmentEnabled, repRangeEnabled, weightDisplay ->
                 PreferenceSnapshot(
                     appearance = theme.colorMode.toAppearanceUi(),
                     themeFamily = theme.family.toThemeFamilyUi(),
                     checkInsEnabled = checkIn.enabled,
                     equipmentProposalsEnabled = equipmentEnabled,
                     repRangeProposalsEnabled = repRangeEnabled,
+                    weightUnit = weightDisplay.displayUnit.toWeightUnitUi(),
                 )
             },
             debugStatusMessage,
@@ -87,6 +94,7 @@ class SettingsViewModel @Inject constructor(
                 checkInsEnabled = prefs.checkInsEnabled,
                 equipmentProposalsEnabled = prefs.equipmentProposalsEnabled,
                 repRangeProposalsEnabled = prefs.repRangeProposalsEnabled,
+                weightUnit = prefs.weightUnit,
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
                 isForceRefreshingDerived = rebuild.isRunning,
@@ -122,6 +130,14 @@ class SettingsViewModel @Inject constructor(
     fun onCheckInsEnabledChange(enabled: Boolean) {
         viewModelScope.launch {
             setCheckInEnabled(enabled).onFailure {
+                _userMessage.value = MSG_PREFS_FAILED
+            }
+        }
+    }
+
+    fun onWeightUnitSelected(unit: WeightUnitUi) {
+        viewModelScope.launch {
+            setWeightDisplayUnit(unit.toDomain()).onFailure {
                 _userMessage.value = MSG_PREFS_FAILED
             }
         }
@@ -294,6 +310,7 @@ class SettingsViewModel @Inject constructor(
         val checkInsEnabled: Boolean,
         val equipmentProposalsEnabled: Boolean,
         val repRangeProposalsEnabled: Boolean,
+        val weightUnit: WeightUnitUi,
     )
 
     private data class RebuildProgressUi(
@@ -337,6 +354,8 @@ data class SettingsUiState(
     val checkInsEnabled: Boolean = true,
     val equipmentProposalsEnabled: Boolean = true,
     val repRangeProposalsEnabled: Boolean = true,
+    /** Display weight unit; defaults to lbs. */
+    val weightUnit: WeightUnitUi = WeightUnitUi.Lbs,
     /** True only in debug builds; release UI never shows developer tools. */
     val showDebugTools: Boolean = false,
     val debugStatusMessage: String? = null,
@@ -393,6 +412,12 @@ enum class AppearanceUi {
     Dark,
 }
 
+/** Preferred weight display unit shown in Settings and used across the app. */
+enum class WeightUnitUi {
+    Lbs,
+    Kg,
+}
+
 /** Product chrome family labels shown in Settings. */
 enum class ThemeFamilyUi {
     /** Stratum Tonal — default ship target. */
@@ -415,6 +440,21 @@ private fun AppearanceUi.toDomain(): ColorMode =
         AppearanceUi.Light -> ColorMode.Light
         AppearanceUi.Dark -> ColorMode.Dark
     }
+
+internal fun Weight.WeightUnit.toWeightUnitUi(): WeightUnitUi =
+    when (this) {
+        Weight.WeightUnit.Lb -> WeightUnitUi.Lbs
+        Weight.WeightUnit.Kg -> WeightUnitUi.Kg
+    }
+
+internal fun WeightUnitUi.toDomain(): Weight.WeightUnit =
+    when (this) {
+        WeightUnitUi.Lbs -> Weight.WeightUnit.Lb
+        WeightUnitUi.Kg -> Weight.WeightUnit.Kg
+    }
+
+/** Alias used by import flows. */
+internal fun WeightUnitUi.toDomainWeightUnit(): Weight.WeightUnit = toDomain()
 
 private fun ThemeFamily.toThemeFamilyUi(): ThemeFamilyUi =
     when (this) {

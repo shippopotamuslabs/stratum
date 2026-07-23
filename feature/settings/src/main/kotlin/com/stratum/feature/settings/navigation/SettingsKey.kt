@@ -76,6 +76,7 @@ private fun SettingsRoute(
         onThemeFamilySelected = viewModel::onThemeFamilySelected,
         onCheckInsEnabledChange = viewModel::onCheckInsEnabledChange,
         onPostWorkoutSuggestionEnabledChange = viewModel::onPostWorkoutSuggestionEnabledChange,
+        onWeightUnitSelected = viewModel::onWeightUnitSelected,
         onForceCheckInPending = viewModel::forceCheckInPending,
         onLegalClick = onNavigateToLegal,
         dataActions =

@@ -14,10 +14,12 @@ import com.stratum.core.testing.importing.FakeImportAnalysisMetadataRepository
 import com.stratum.core.testing.importing.FakeLiftTrainingInsightsRepository
 import com.stratum.core.testing.importing.FakeMuscleVolumeBaselineRepository
 import com.stratum.core.testing.importing.FakeSupersetAffinityRepository
+import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
@@ -385,6 +387,8 @@ class WorkoutViewModelTest {
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
             workoutEditSession = workoutEditSession,
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
         )
     }
 
@@ -451,6 +455,8 @@ class WorkoutViewModelTest {
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
             workoutEditSession = workoutEditSession,
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
         )
     }
 
@@ -515,6 +521,8 @@ class WorkoutViewModelTest {
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
             workoutEditSession = workoutEditSession,
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
         )
     }
 
@@ -1149,6 +1157,8 @@ class WorkoutViewModelTest {
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
             workoutEditSession = WorkoutEditSession(),
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
         )
 
         localViewModel.startSession(workoutId)
@@ -1212,6 +1222,8 @@ class WorkoutViewModelTest {
             manageWorkoutOverlay = ManageWorkoutOverlayUseCase(overlayStore, FakeLoggingPort()),
             workoutEditSession = WorkoutEditSession(),
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
+            observeWeightDisplayPreferences =
+                ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
         )
 
         localViewModel.startSession(workoutId)

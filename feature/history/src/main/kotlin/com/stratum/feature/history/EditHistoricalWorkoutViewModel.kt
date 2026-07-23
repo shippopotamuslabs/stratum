@@ -2,13 +2,15 @@ package com.stratum.feature.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stratum.core.ui.component.formatWeightAmount
+import com.stratum.core.ui.component.formatWeightAmountForDisplay
 import com.stratum.core.ui.component.workoutlog.WorkoutLogLiftUi
 import com.stratum.core.ui.component.workoutlog.WorkoutLogSetUi
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.LoadType
+import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.SetType
 import com.stratum.domain.training.GetCompletedSessionForEditUseCase
 import com.stratum.domain.training.LoggedLiftContext
@@ -27,12 +29,14 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class EditHistoricalWorkoutViewModel @Inject constructor(
     private val getCompletedSessionForEdit: GetCompletedSessionForEditUseCase,
     private val updateCompletedSessionSets: UpdateCompletedSessionSetsUseCase,
+    private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
 
     private val _uiState =
@@ -50,17 +54,25 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
     private var baselineSignature: String = ""
     private var workoutName: String = ""
     private var isSaving: Boolean = false
+    /** Unit the draft weight fields are expressed in (matches Settings preference at load). */
+    private var displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb
 
     fun load(sessionIdValue: String) {
         viewModelScope.launch {
             _uiState.value = EditHistoricalWorkoutUiState.Loading
             val id = TrainingSessionId(sessionIdValue)
             sessionId = id
+            displayUnit = observeWeightDisplayPreferences().first().displayUnit
             val result = getCompletedSessionForEdit(id)
             result.fold(
                 onSuccess = { snapshot ->
                     workoutName = snapshot.workoutName
-                    draftLifts = mapSnapshotToDraft(snapshot.sets, snapshot.loadTypeByLiftId)
+                    draftLifts =
+                        mapSnapshotToDraft(
+                            snapshot.sets,
+                            snapshot.loadTypeByLiftId,
+                            displayUnit,
+                        )
                     baselineSignature = signature(draftLifts)
                     publishLoaded()
                 },
@@ -174,6 +186,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
     private fun mapSnapshotToDraft(
         sets: List<LoggedSet>,
         loadTypeByLiftId: Map<LiftId, LoadType>,
+        displayUnit: Weight.WeightUnit,
     ): List<DraftLift> =
         sets
             .groupBy { set ->
@@ -216,13 +229,19 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                                     if (!showWeight) {
                                         ""
                                     } else {
-                                        formatWeightAmount(set.weight.amount, assistMode)
+                                        formatWeightAmountForDisplay(
+                                            amount = set.weight.amount,
+                                            sourceUnit = set.weight.unit,
+                                            displayUnit = displayUnit,
+                                            assistMode = assistMode,
+                                        )
                                     },
                                 repsText = set.reps.toString(),
                                 rir = set.rir ?: set.liftContext.rirGoal ?: 2,
                                 completedAt = set.completedAt,
                                 exerciseNameRaw = set.exerciseNameRaw,
                                 liftContext = set.liftContext,
+                                // Persist original storage unit; draft fields are in displayUnit.
                                 weightUnit = set.weight.unit,
                                 positionLabel = (index + 1).toString(),
                             )
@@ -293,16 +312,22 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                     set.repsText.toIntOrNull()
                         ?: throw IllegalArgumentException("Enter reps for ${lift.liftName}")
                 require(reps > 0) { "Reps must be positive for ${lift.liftName}" }
-                val weightAmount =
+                val weight =
                     if (!lift.showWeightColumn) {
-                        0.0
+                        Weight(0.0, Weight.WeightUnit.Lb)
                     } else {
-                        val parsed =
+                        val parsedDisplay =
                             set.weightText.toDoubleOrNull()
                                 ?: throw IllegalArgumentException(
                                     "Enter weight for ${lift.liftName}",
                                 )
-                        if (lift.assistMode) -kotlin.math.abs(parsed) else parsed
+                        // Draft fields are in displayUnit; canonical storage is always Lb.
+                        storageWeightFromDisplay(
+                            displayAmount = parsedDisplay,
+                            displayUnit = displayUnit,
+                            loadType =
+                                if (lift.assistMode) LoadType.Assisted else LoadType.Weighted,
+                        )
                     }
                 result +=
                     LoggedSet(
@@ -311,7 +336,7 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                         exerciseNameRaw = set.exerciseNameRaw,
                         liftId = lift.liftId,
                         setIndex = set.setIndex,
-                        weight = Weight(weightAmount, set.weightUnit),
+                        weight = weight,
                         reps = reps,
                         rir = set.rir,
                         completedAt = set.completedAt,

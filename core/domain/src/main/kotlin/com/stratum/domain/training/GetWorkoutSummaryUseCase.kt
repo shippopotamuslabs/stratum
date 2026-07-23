@@ -1,7 +1,9 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.ProgramRepository
@@ -77,10 +79,15 @@ class GetWorkoutSummaryUseCase @Inject constructor(
 
         fun bestOf(sets: List<LoggedSet>): LiftBestSet {
             val liftId = sets.first().liftId!!
-            val best = sets.maxByOrNull { it.estimatedOneRm ?: it.weight.amount } ?: sets.first()
+            // Compare in Lb (canonical); e1RM when present is already Lb magnitude from PR path.
+            val best =
+                sets.maxByOrNull { set ->
+                    set.estimatedOneRm
+                        ?: WeightConversion.loadMagnitudeLb(set.weight)
+                } ?: sets.first()
             return LiftBestSet(
                 liftName = liftNamesById[liftId] ?: "Unknown",
-                weight = best.weight.amount,
+                weight = best.weight.toStorageLb(),
                 reps = best.reps,
                 rir = best.rir,
                 isPersonalRecord = best.isPersonalRecord,
