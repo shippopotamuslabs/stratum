@@ -239,7 +239,7 @@ internal fun ProgramsScreen(
         }
 
         pendingStartAction?.let { action ->
-            StartEnforcementDialog(
+            StartSessionDiscardDialog(
                 onDismiss = { pendingStartAction = null },
                 onConfirm = {
                     callbacks.onConfirmDiscardAndStart(action)
@@ -849,51 +849,4 @@ private fun UnskipWorkoutDialog(
     }
 }
 
-@Composable
-private fun StartEnforcementDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    color = StratumThemeAccessor.colors.surfaceRaised,
-                    shape = StratumThemeAccessor.shapes.panel,
-                )
-                .border(
-                    width = StratumThemeAccessor.shapes.borderWidth,
-                    color = StratumThemeAccessor.colors.borderStrong,
-                    shape = StratumThemeAccessor.shapes.panel,
-                )
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            StratumText(
-                text = stringResource(R.string.programs_start_discard_title),
-                style = StratumThemeAccessor.typography.titleLarge,
-            )
-            StratumText(
-                text = stringResource(R.string.programs_start_discard_body),
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-            )
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StratumButton(
-                    text = stringResource(R.string.programs_start_discard_confirm),
-                    onClick = onConfirm,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                StratumOutlinedButton(
-                    text = stringResource(R.string.programs_start_discard_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-    }
-}
+

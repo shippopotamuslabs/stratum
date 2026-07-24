@@ -335,6 +335,12 @@ fun StratumNavHost(
                 onReorderLiftsClick = { workoutId ->
                     backStack.add(ReorderLiftsKey(workoutId))
                 },
+                onNavigateToWorkout = { workoutId ->
+                    // Leave the template editor; avoid stacking Edit under live workout.
+                    backStack.removeAll { it is EditWorkoutKey }
+                    backStack.removeAll { it is WorkoutKey && it.workoutId == workoutId }
+                    backStack.add(WorkoutKey(workoutId))
+                },
             )
             workoutEntry(
                 onNavigateBack = onNavigateBack,

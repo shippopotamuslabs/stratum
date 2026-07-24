@@ -5,6 +5,8 @@ import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.training.FakeTrainingLogRepository
+import com.stratum.core.testing.workout.FakeWorkoutOverlayStore
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
@@ -25,11 +27,21 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.SaveWorkoutUseCase
-import com.stratum.domain.workout.WorkoutEditSession
-import com.stratum.core.ui.component.SupersetLinkDirection
-import com.stratum.feature.program.ui.EditWorkoutUiState
+import com.stratum.domain.training.AbandonTrainingSessionUseCase
+import com.stratum.domain.training.ObserveCycleProgressUseCase
 import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventType
+import com.stratum.domain.training.StartTrainingSessionUseCase
+import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.TrainingSessionKind
+import com.stratum.domain.training.TrainingSessionOrigin
+import com.stratum.domain.training.TrainingSessionStatus
+import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.workout.ManageWorkoutOverlayUseCase
+import com.stratum.domain.workout.WorkoutEditSession
+import com.stratum.core.ui.component.SupersetLinkDirection
+import com.stratum.feature.program.ui.EditWorkoutUiEvent
+import com.stratum.feature.program.ui.EditWorkoutUiState
 import com.stratum.feature.program.ui.PLACEHOLDER_LIFT_NAME
 import com.stratum.feature.program.ui.SaveBlockedReason
 import app.cash.turbine.ReceiveTurbine
@@ -42,17 +54,21 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MainDispatcherRule::class)
 class EditWorkoutViewModelTest {
     private lateinit var repository: FakeProgramRepository
+    private lateinit var trainingLog: FakeTrainingLogRepository
     private lateinit var workoutEditSession: WorkoutEditSession
+    private val logging = FakeLoggingPort()
 
     @BeforeEach
     fun setUp() {
         repository = FakeProgramRepository(PROGRAM)
+        trainingLog = FakeTrainingLogRepository(programRepository = repository)
         workoutEditSession = WorkoutEditSession()
     }
 
@@ -450,7 +466,257 @@ class EditWorkoutViewModelTest {
         return item
     }
 
-    private fun buildViewModel(): EditWorkoutViewModel {
+    @Nested
+    @DisplayName("Start workout from edit screen")
+    inner class StartWorkout {
+        @Test
+        fun `requestStartWorkout emits NavigateToWorkout after session is created`() = runTest {
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.requestStartWorkout()
+                assertEquals(EditWorkoutUiEvent.NavigateToWorkout(WORKOUT_ID), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        @Test
+        fun `startAfterDirtyResolution save persists then starts`() = runTest {
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                viewModel.addSet(WORKOUT_LIFT_ID)
+                val dirty = awaitItem() as EditWorkoutUiState.Loaded
+                assertTrue(dirty.isDirty)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.startAfterDirtyResolution(saveEdits = true)
+                assertEquals(EditWorkoutUiEvent.NavigateToWorkout(WORKOUT_ID), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            val persistedSets =
+                repository.getProgram()!!.workouts.first { it.id.value == WORKOUT_ID }
+                    .workoutLifts.first { it.id.value == WORKOUT_LIFT_ID }
+                    .sets
+            assertEquals(3, persistedSets.size)
+            assertFalse((viewModel.uiState.value as EditWorkoutUiState.Loaded).isDirty)
+        }
+
+        @Test
+        fun `startAfterDirtyResolution discard restores baseline then starts`() = runTest {
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                viewModel.addSet(WORKOUT_LIFT_ID)
+                val dirty = awaitItem() as EditWorkoutUiState.Loaded
+                assertTrue(dirty.isDirty)
+                assertEquals(3, dirty.lifts.first().sets.size)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.startAfterDirtyResolution(saveEdits = false)
+                assertEquals(EditWorkoutUiEvent.NavigateToWorkout(WORKOUT_ID), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            val loaded = viewModel.uiState.value as EditWorkoutUiState.Loaded
+            assertFalse(loaded.isDirty)
+            assertEquals(2, loaded.lifts.first().sets.size)
+            val persistedSets =
+                repository.getProgram()!!.workouts.first { it.id.value == WORKOUT_ID }
+                    .workoutLifts.first { it.id.value == WORKOUT_LIFT_ID }
+                    .sets
+            assertEquals(2, persistedSets.size)
+        }
+
+        @Test
+        fun `requestStartWorkout with dirty state does not navigate or start`() = runTest {
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                viewModel.addSet(WORKOUT_LIFT_ID)
+                assertTrue((awaitItem() as EditWorkoutUiState.Loaded).isDirty)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.requestStartWorkout()
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertNull(trainingLog.getActiveSession())
+            assertNotNull(viewModel.userMessage.value)
+        }
+
+        @Test
+        fun `requestStartWorkout with placeholder lift does not navigate`() = runTest {
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                workoutEditSession.selectLift(
+                    workoutId = WORKOUT_ID,
+                    workoutLiftId = null,
+                    liftId = "missing-lift",
+                )
+                val dirty = awaitItem() as EditWorkoutUiState.Loaded
+                assertTrue(dirty.lifts.any { it.name == PLACEHOLDER_LIFT_NAME })
+                assertEquals(SaveBlockedReason.PlaceholderLift, dirty.saveBlockedReason)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.requestStartWorkout()
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(
+                "Choose an exercise for each new lift before starting.",
+                viewModel.userMessage.value,
+            )
+        }
+
+        @Test
+        fun `requestStartWorkout with active session emits discard dialog event`() = runTest {
+            trainingLog.seedSession(activeOtherSession())
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.requestStartWorkout()
+                assertEquals(EditWorkoutUiEvent.ShowActiveSessionDiscardDialog, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            // Live session still the original — not started the edit workout yet.
+            assertEquals("w-other", trainingLog.getActiveSession()?.workoutId?.value)
+        }
+
+        @Test
+        fun `confirmDiscardActiveAndStart abandons then starts edited workout`() = runTest {
+            trainingLog.seedSession(activeOtherSession())
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.confirmDiscardActiveAndStart()
+                assertEquals(EditWorkoutUiEvent.NavigateToWorkout(WORKOUT_ID), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            val active = trainingLog.getActiveSession()
+            assertNotNull(active)
+            assertEquals(WORKOUT_ID, active?.workoutId?.value)
+        }
+
+        @Test
+        fun `dirty save then abandon fails leaves active session intact`() = runTest {
+            // Seed an active session; force abandon path with discard confirm after save.
+            trainingLog.seedSession(activeOtherSession())
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                viewModel.addSet(WORKOUT_LIFT_ID)
+                assertTrue((awaitItem() as EditWorkoutUiState.Loaded).isDirty)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            // Save succeeds first (before abandon) when resolving dirty with save.
+            viewModel.events.test {
+                viewModel.startAfterDirtyResolution(saveEdits = true)
+                // Active session → need discard dialog, session not abandoned yet.
+                assertEquals(EditWorkoutUiEvent.ShowActiveSessionDiscardDialog, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals("w-other", trainingLog.getActiveSession()?.workoutId?.value)
+            assertFalse((viewModel.uiState.value as EditWorkoutUiState.Loaded).isDirty)
+            // Template was saved before asking to discard live session.
+            assertEquals(
+                3,
+                repository.getProgram()!!.workouts.first { it.id.value == WORKOUT_ID }
+                    .workoutLifts.first { it.id.value == WORKOUT_LIFT_ID }
+                    .sets.size,
+            )
+        }
+
+        @Test
+        fun `second requestStartWorkout while first active is ignored with busy message`() = runTest {
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID)
+            viewModel.uiState.test {
+                awaitLoaded()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            // After a successful start, a second request sees the live session (not a double session).
+            viewModel.events.test {
+                viewModel.requestStartWorkout()
+                assertEquals(EditWorkoutUiEvent.NavigateToWorkout(WORKOUT_ID), awaitItem())
+
+                viewModel.requestStartWorkout()
+                assertEquals(EditWorkoutUiEvent.ShowActiveSessionDiscardDialog, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(WORKOUT_ID, trainingLog.getActiveSession()?.workoutId?.value)
+        }
+
+        @Test
+        fun `requestStartWorkout from library-scoped program does not navigate`() = runTest {
+            val viewModel = buildViewModel()
+            viewModel.initialize(WORKOUT_ID, programId = "p-1")
+            viewModel.uiState.test {
+                awaitLoaded()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            viewModel.events.test {
+                viewModel.requestStartWorkout()
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        private fun activeOtherSession() =
+            TrainingSession(
+                id = TrainingSessionId("ts-active"),
+                programId = ProgramId("p-1"),
+                workoutId = WorkoutId("w-other"),
+                status = TrainingSessionStatus.IN_PROGRESS,
+                kind = TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = TrainingSessionOrigin.LIVE,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = Weekday.Monday,
+                startedAt = Instant.parse("2026-06-26T12:00:00Z"),
+                endedAt = null,
+                sourceApp = null,
+                programNameSnapshot = "Push/Pull/Legs",
+                workoutNameSnapshot = "Other Day",
+            )
+    }
+
+    private fun buildViewModel(
+        programChangeEvents: com.stratum.domain.training.ProgramChangeEventRepository =
+            com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+    ): EditWorkoutViewModel {
         val liftRepository =
             FakeLiftRepository(
                 initialLifts =
@@ -463,11 +729,15 @@ class EditWorkoutViewModelTest {
             observeProgram = ObserveProgramUseCase(repository),
             observeProgramById = com.stratum.domain.program.ObserveProgramByIdUseCase(repository),
             observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, com.stratum.core.testing.training.NoOpProgramChangeEventRepository(), FakeLoggingPort()),
+            saveWorkoutUseCase = SaveWorkoutUseCase(repository, programChangeEvents, logging),
             computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
             estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
-            programChangeEventRepository = com.stratum.core.testing.training.NoOpProgramChangeEventRepository(),
+            programChangeEventRepository = programChangeEvents,
             workoutEditSession = workoutEditSession,
+            startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+            observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
+            abandonTrainingSession = AbandonTrainingSessionUseCase(trainingLog, logging),
+            manageWorkoutOverlay = ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
         )
     }
 
@@ -659,24 +929,7 @@ class EditWorkoutViewModelTest {
     @DisplayName("Given swapped lift in memory when saved then LIFT_SWAPPED event is recorded")
     fun saveSwappedLiftRecordsEvent() = runTest {
         val events = com.stratum.core.testing.training.FakeProgramChangeEventRepository()
-        val liftRepository =
-            FakeLiftRepository(
-                initialLifts =
-                    listOf(
-                        catalogLift(LiftId("bench-press"), "Barbell Bench Press"),
-                        catalogLift(LiftId("incline-press"), "Incline Press"),
-                    ),
-            )
-        val viewModel = EditWorkoutViewModel(
-            observeProgram = ObserveProgramUseCase(repository),
-            observeProgramById = com.stratum.domain.program.ObserveProgramByIdUseCase(repository),
-            observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
-            saveWorkoutUseCase = SaveWorkoutUseCase(repository, events, FakeLoggingPort()),
-            computeWorkoutMuscleVolume = ComputeWorkoutMuscleVolumeUseCase(),
-            estimateWorkoutDurationMinutes = EstimateWorkoutDurationMinutesUseCase(),
-            programChangeEventRepository = events,
-            workoutEditSession = workoutEditSession,
-        )
+        val viewModel = buildViewModel(programChangeEvents = events)
 
         viewModel.initialize(WORKOUT_ID)
         viewModel.uiState.test {
