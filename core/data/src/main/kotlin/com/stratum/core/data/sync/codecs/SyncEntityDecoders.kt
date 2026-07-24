@@ -253,6 +253,7 @@ class SyncEntityDecoders @Inject constructor() {
                 rirGoal = (data["rir_goal"] as? Number)?.toInt() ?: 0,
                 isTopSet = data["is_top_set"] as? Boolean ?: false,
                 restSeconds = (data["rest_seconds"] as? Number)?.toInt() ?: DEFAULT_LIFT_SET_REST_SECONDS,
+                myoRepKind = enumOrNull(data["myo_rep_kind"]),
                 updatedAtEpochMillis = remoteUpdatedAt(data),
                 pendingSync = SyncFlags.CLEAN,
             )

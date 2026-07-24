@@ -132,6 +132,7 @@ class SyncEntityEncoders @Inject constructor() {
             "rir_goal" to e.rirGoal,
             "is_top_set" to e.isTopSet,
             "rest_seconds" to e.restSeconds,
+            "myo_rep_kind" to e.myoRepKind?.name,
         )
 
     fun trainingSession(e: TrainingSessionEntity): Map<String, Any?> =

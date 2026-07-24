@@ -21,13 +21,13 @@ import org.robolectric.RuntimeEnvironment
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
- * Schema invariants and converter tests for the v1 database (pre-release: no migration file;
- * uninstall/reinstall to apply schema renames).
+ * Schema invariants and converter tests. Room v2 adds nullable `sets.myo_rep_kind`
+ * via AutoMigration(1→2).
  */
 @ExtendWith(RobolectricExtension::class)
 class ProgramSchemaContractTest {
     @Nested
-    @DisplayName("DB version is 1 and program tables exist")
+    @DisplayName("DB version is 2 and program tables exist")
     inner class SchemaInvariants {
         @Test
         fun `the four program tables exist in the database`() {
@@ -51,11 +51,18 @@ class ProgramSchemaContractTest {
         }
 
         @Test
-        fun `v1 schema export exists`() {
+        fun `v1 and v2 schema exports exist`() {
             val schemasDir = java.io.File("schemas/com.stratum.core.data.db.StratumDatabase")
             assertTrue(schemasDir.resolve("1.json").exists(), "1.json schema export missing")
-            assertFalse(schemasDir.resolve("2.json").exists(), "2.json schema export should not exist")
+            assertTrue(schemasDir.resolve("2.json").exists(), "2.json schema export missing")
             assertFalse(schemasDir.resolve("3.json").exists(), "3.json schema export should not exist")
+        }
+
+        @Test
+        fun `v2 schema includes myo_rep_kind on sets`() {
+            val schema = java.io.File("schemas/com.stratum.core.data.db.StratumDatabase/2.json").readText()
+            assertTrue(schema.contains("\"myo_rep_kind\""), "v2 schema must include myo_rep_kind")
+            assertTrue(schema.contains("\"version\": 2"), "schema file must declare version 2")
         }
     }
 
@@ -80,6 +87,20 @@ class ProgramSchemaContractTest {
             assertEquals(SetType.MyoRep, converters.toSetType("MyoRep"))
             assertEquals(SetType.DropSet, converters.toSetType("DropSet"))
             assertNull(converters.toSetType("Drop"))
+        }
+
+        @Test
+        fun `MyoRepKind round-trips and rejects unknown values`() {
+            assertEquals(
+                "RepFloor",
+                converters.fromMyoRepKind(com.stratum.domain.workout.myorep.MyoRepKind.RepFloor),
+            )
+            assertEquals(
+                com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+                converters.toMyoRepKind("RepMatching"),
+            )
+            assertNull(converters.toMyoRepKind("Match"))
+            assertNull(converters.toMyoRepKind(null))
         }
 
         @Test

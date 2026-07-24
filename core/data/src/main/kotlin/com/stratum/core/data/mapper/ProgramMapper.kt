@@ -61,6 +61,7 @@ internal fun LiftSetEntity.toDomain(): LiftSet = LiftSet(
     rirGoal = rirGoal,
     isTopSet = isTopSet,
     restSeconds = restSeconds,
+    myoRepKind = myoRepKind,
 )
 
 internal fun Program.toEntity(
@@ -118,6 +119,7 @@ internal fun LiftSet.toEntity(
     rirGoal = rirGoal,
     isTopSet = isTopSet,
     restSeconds = restSeconds,
+    myoRepKind = myoRepKind,
     updatedAtEpochMillis = nowMillis,
     pendingSync = SyncFlags.PENDING_UPSERT,
 )

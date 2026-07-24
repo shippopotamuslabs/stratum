@@ -16,6 +16,7 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.workout.myorep.MyoRepKind
 
 /**
  * Program hierarchy persistence (OS-7). Four normalized tables for the
@@ -129,6 +130,9 @@ data class LiftSetEntity(
     @ColumnInfo(name = "rir_goal") val rirGoal: Int,
     @ColumnInfo(name = "is_top_set") val isTopSet: Boolean,
     @ColumnInfo(name = "rest_seconds") val restSeconds: Int = DEFAULT_LIFT_SET_REST_SECONDS,
+    /** Null unless [setType] is MyoRep. Room v2. */
+    @ColumnInfo(name = "myo_rep_kind")
+    val myoRepKind: MyoRepKind? = null,
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")

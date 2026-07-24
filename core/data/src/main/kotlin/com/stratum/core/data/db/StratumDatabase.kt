@@ -1,5 +1,6 @@
 package com.stratum.core.data.db
 
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
@@ -38,8 +39,11 @@ import androidx.room.TypeConverters
         ProgramChangeEventEntity::class,
         PendingCloudDeleteEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2),
+    ],
 )
 @TypeConverters(WeekdaySetConverter::class, IntSetConverter::class, EnumConverters::class)
 @Suppress("TooManyFunctions")
