@@ -42,6 +42,7 @@ import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.coerceForCompound
 import com.stratum.domain.workout.ApplyOverlayToWorkoutUseCase
 import com.stratum.domain.workout.EstimateAddedSetRepsUseCase
 import com.stratum.domain.workout.GenerateProgressionSnapshotUseCase
@@ -311,6 +312,7 @@ class WorkoutViewModel @Inject constructor(
                                 workout,
                                 liftNamesById,
                                 loadTypesById = liftsById.mapValues { it.value.loadType },
+                                isCompoundById = liftsById.mapValues { it.value.isCompound },
                             )
                             structure = projected
                             val snapshotResult = generateSnapshot(
@@ -876,6 +878,89 @@ class WorkoutViewModel @Inject constructor(
     fun requiresCascadeDeleteConfirm(slotId: SetSlotId): Boolean =
         LiveIntensifierOverlayOps.requiresCascadeConfirm(structure, overlay, slotId)
 
+    /**
+     * True when changing [slotKey] to [kind] would delete auto-generated myo minis (and
+     * their logs). UI should confirm before calling [setSetKind].
+     */
+    fun requiresMyoMiniDiscardConfirm(
+        slotKey: String,
+        kind: LiveSetKind,
+    ): Boolean {
+        val slot = resolveSlotByKey(slotKey) ?: return false
+        return LiveSetTypeOverlayOps.requiresMyoMiniDiscardConfirm(
+            structure = structure,
+            overlay = overlay,
+            slotId = slot.slotId,
+            newKind = kind,
+        )
+    }
+
+    /**
+     * Changes the set type of [slotKey] (Standard / Myo floor / Myo match / Drop).
+     * Auto-generated myo minis are blocked. Demoting a myo activation deletes its minis.
+     */
+    fun setSetKind(slotKey: String, kind: LiveSetKind) {
+        viewModelScope.launch {
+            sessionStateMutex.withLock {
+                val slot = resolveSlotByKey(slotKey) ?: return@withLock
+                val scheme = progressionSchemeForLift(slot.workoutLiftId)
+                val loadType =
+                    liftsById[slot.liftId]?.loadType ?: LoadType.Weighted
+                val liftDefaultRest =
+                    liftsById[slot.liftId]?.resolvedDefaultRestSeconds()
+                        ?: DEFAULT_LIFT_REST_SECONDS
+
+                // Unlog minis from Room before dropping them from the overlay.
+                val minisToDrop =
+                    if (
+                        LiveSetTypeOverlayOps.requiresMyoMiniDiscardConfirm(
+                            structure,
+                            overlay,
+                            slot.slotId,
+                            kind,
+                        )
+                    ) {
+                        LiveSetTypeOverlayOps.miniSlotsDiscardedOnDemote(
+                            structure,
+                            overlay,
+                            slot.slotId,
+                        )
+                    } else {
+                        emptyList()
+                    }
+                val session = cachedSessionId
+                if (session != null && minisToDrop.isNotEmpty()) {
+                    for (miniId in minisToDrop) {
+                        val miniSlot = resolveSlot(miniId) ?: continue
+                        val dbSet = findLoggedSetForSlot(session, miniSlot)
+                        if (dbSet != null) {
+                            val deleteResult = deleteLoggedSet(dbSet.id)
+                            if (deleteResult.isFailure) {
+                                _userMessage.value = MSG_UNLOG_SET_FAILED
+                                return@withLock
+                            }
+                        }
+                    }
+                }
+
+                val next =
+                    LiveSetTypeOverlayOps.applySetKind(
+                        structure = structure,
+                        overlay = overlay,
+                        slotId = slot.slotId,
+                        newKind = kind,
+                        scheme = scheme,
+                        loadType = loadType,
+                        liftDefaultRestSeconds = liftDefaultRest,
+                    ) ?: return@withLock
+                commitOverlayLocked(next)
+                recomputeRecommendationsLocked()
+                renderLocked()
+                flushOverlayLocked()
+            }
+        }
+    }
+
     fun swapLift(workoutLiftId: WorkoutLiftId, newLiftId: LiftId) {
         viewModelScope.launch {
             sessionStateMutex.withLock {
@@ -1399,7 +1484,20 @@ class WorkoutViewModel @Inject constructor(
     private fun resolveSlotByKey(slotKey: String): SetSlot? =
         LiveWorkoutOverlayOps.resolveSlotByKey(structure, overlay, slotKey)
 
+    private fun progressionSchemeForLift(workoutLiftId: WorkoutLiftId): com.stratum.domain.program.ProgressionScheme {
+        // Structure projection already coerces isolation Linear → Double (D8).
+        structure?.lifts?.firstOrNull { it.workoutLiftId == workoutLiftId }?.progressionScheme
+            ?.let { return it }
+        val added = overlay.addedLifts.firstOrNull { it.workoutLiftId == workoutLiftId }
+        if (added != null) {
+            val isCompound = liftsById[added.liftId]?.isCompound ?: false
+            return added.progressionScheme.coerceForCompound(isCompound)
+        }
+        return com.stratum.domain.program.ProgressionScheme.Double
+    }
+
     private companion object {
+        const val DEFAULT_LIFT_REST_SECONDS = 120
         const val MSG_LOG_SET_FAILED = "Couldn't save that set. Try again."
         const val MSG_UNLOG_SET_FAILED = "Couldn't remove that set. Try again."
         const val MSG_COMPLETE_FAILED = "Couldn't finish the workout. Try again."

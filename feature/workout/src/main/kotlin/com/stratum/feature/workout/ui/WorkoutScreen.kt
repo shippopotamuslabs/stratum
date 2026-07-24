@@ -91,6 +91,8 @@ data class WorkoutScreenActions(
     val onAddLift: () -> Unit = {},
     /** Batch rest overrides for Configure Rest Times (slotKey → seconds). */
     val onSetRestSecondsForSlots: (Map<String, Int>) -> Unit = {},
+    /** Change a set's type (Standard / Myo / Drop). Minis are blocked in the ViewModel. */
+    val onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
 )
 
 @Composable
@@ -314,13 +316,17 @@ fun WorkoutScreen(
                 lifts = state.lifts,
                 listState = listState,
                 liftHeightsPx = liftHeightsPx,
-                onLogSet = handleLogSet,
-                onUnlogSet = actions.onUnlogSet,
-                onAddSet = actions.onAddSet,
-                onDeleteSet = actions.onDeleteSet,
-                onShowLiftActions = { liftActionsLiftId = it },
-                onAddLift = actions.onAddLift,
-                onDiscardClick = { showDiscardDialog = true },
+                actions =
+                    WorkoutLiftListActions(
+                        onLogSet = handleLogSet,
+                        onUnlogSet = actions.onUnlogSet,
+                        onAddSet = actions.onAddSet,
+                        onDeleteSet = actions.onDeleteSet,
+                        onSetSetKind = actions.onSetSetKind,
+                        onShowLiftActions = { liftActionsLiftId = it },
+                        onAddLift = actions.onAddLift,
+                        onDiscardClick = { showDiscardDialog = true },
+                    ),
                 failedLogSlotKey = failedLogSlotKey,
                 onFailedLogConsumed = onFailedLogConsumed,
                 displayUnitEpoch = state.displayUnitEpoch,

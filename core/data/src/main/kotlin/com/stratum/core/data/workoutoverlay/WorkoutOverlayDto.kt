@@ -154,6 +154,24 @@ data class RestSecondsOverrideEntryDto(
     val restSeconds: Int,
 )
 
+/** DTO mirror of [com.stratum.domain.workout.SlotShapeOverride]. */
+@Serializable
+data class SlotShapeOverrideDto(
+    val setType: SetType,
+    val myoRepKind: MyoRepKind? = null,
+    val isTopSet: Boolean,
+    val repMin: Int,
+    val repMax: Int,
+    val rirGoal: Int,
+)
+
+/** One entry of the `slotShapeOverrides` map. */
+@Serializable
+data class SlotShapeOverrideEntryDto(
+    val slotId: SetSlotIdDto,
+    val shape: SlotShapeOverrideDto,
+)
+
 /** DTO mirror of [com.stratum.domain.workout.OverlayAddedLift]. */
 @Serializable
 data class OverlayAddedLiftDto(
@@ -181,6 +199,7 @@ data class WorkoutOverlayDto(
     val supersetGroupIdOverrides: List<SupersetGroupOverrideEntryDto> = emptyList(),
     val useRestTimerBetweenLiftsOverrides: List<RestTimerOverrideEntryDto> = emptyList(),
     val restSecondsOverrides: List<RestSecondsOverrideEntryDto> = emptyList(),
+    val slotShapeOverrides: List<SlotShapeOverrideEntryDto> = emptyList(),
     val orderedLiftIds: List<String>? = null,
 )
 

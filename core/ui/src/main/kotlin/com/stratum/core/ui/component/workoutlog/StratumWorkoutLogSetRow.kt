@@ -126,7 +126,10 @@ fun StratumWorkoutLogSetRow(
         ) {
             Box(modifier = Modifier.weight(weights.label), contentAlignment = Alignment.CenterStart) {
                 // Same 32.dp circle as the add-set + so the Set column lines up (Edit Workout pattern).
-                WorkoutLogSetColumnBadge(backgroundColor = setChip.background) {
+                WorkoutLogSetColumnBadge(
+                    backgroundColor = setChip.background,
+                    onClick = actions.onSetTypeClick,
+                ) {
                     val labelStyle =
                         if (setChip.label.length > 1) {
                             StratumThemeAccessor.typography.sectionLabel.copy(

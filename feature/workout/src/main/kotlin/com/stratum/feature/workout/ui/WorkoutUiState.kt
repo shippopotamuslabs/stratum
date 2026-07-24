@@ -61,10 +61,36 @@ data class RenderedLiftUi(
     override val name: String get() = liftName
 }
 
+/**
+ * Presentation set type for the live workout set-type chip (S / M / MM / D).
+ * Mapped from domain [com.stratum.domain.program.SetType] + MyoRepKind — no domain types
+ * in UI state (ARCHITECTURE.md §4.3).
+ */
+enum class WorkoutSetKind {
+    Standard,
+    MyoRepFloor,
+    MyoRepMatch,
+    DropSet,
+}
+
 data class RenderedSetUi(
     val slotKey: String,
     val positionLabel: String,
     val setTypeLabel: String,
+    /** Current set type for the picker; drives chip letter via [setTypeLabel]. */
+    val setKind: WorkoutSetKind = WorkoutSetKind.Standard,
+    /**
+     * Kinds the user may pick for this set (placement rules). Empty when the set cannot
+     * change type (auto-generated myo minis).
+     */
+    val allowedSetKinds: List<WorkoutSetKind> = listOf(WorkoutSetKind.Standard),
+    /** False for auto-generated myo mini-sets — badge is display-only. */
+    val canChangeSetType: Boolean = true,
+    /**
+     * True when this set is a myo activation that currently has auto-generated minis.
+     * Used to prompt before demoting the activation off MyoRep.
+     */
+    val hasGeneratedMyoMinis: Boolean = false,
     val repRangeLabel: String?,
     val rirLabel: String,
     val recommendedWeightLabel: String,

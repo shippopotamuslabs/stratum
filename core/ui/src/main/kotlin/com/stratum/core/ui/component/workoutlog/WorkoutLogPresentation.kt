@@ -58,4 +58,9 @@ data class WorkoutLogSetRowActions(
      */
     val onDelete: (() -> Unit)? = null,
     val deleteContentDescription: String = "Delete set",
+    /**
+     * When non-null, the set-type badge is clickable (live workout / template-style type
+     * picker). Null keeps the badge display-only (history, minis).
+     */
+    val onSetTypeClick: (() -> Unit)? = null,
 )
