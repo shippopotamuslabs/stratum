@@ -47,6 +47,17 @@ data class EditLiftState(
     val progressionScheme: ProgressionScheme = ProgressionScheme.Double,
 ) : SupersetLinkableLift
 
+/**
+ * Presentation set type for the EditWorkout set-type chip (S / M / MM / D).
+ * Mapped to domain [com.stratum.domain.program.SetType] + [com.stratum.domain.workout.myorep.MyoRepKind].
+ */
+enum class EditSetKind {
+    Standard,
+    MyoRepFloor,
+    MyoRepMatch,
+    DropSet,
+}
+
 data class EditSetState(
     val setId: String,
     val setNumber: Int,
@@ -56,6 +67,7 @@ data class EditSetState(
     val rirGoal: Int,
     /** Default false so omitted flags do not accidentally mark every set as top. */
     val isTopSet: Boolean = false,
+    val setKind: EditSetKind = EditSetKind.Standard,
 )
 
 internal const val DEFAULT_REST_SECONDS = 120

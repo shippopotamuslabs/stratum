@@ -215,6 +215,15 @@
     <string name="edit_workout_progression_scheme_double_body">Double progression holds weight until you reach the top of your rep range at the RIR target, then adds load. The default for experienced lifters.</string>
     <string name="edit_workout_progression_scheme_eligibility_body">Only compound lifts can use Linear. Isolation lifts always use Double progression.</string>
     <string name="edit_workout_progression_scheme_graduation_body">After two reset cycles on Linear, Stratum automatically moves the lift to Double progression.</string>
+
+    <!-- Set type picker (intensifier sets) -->
+    <string name="edit_workout_set_type_sheet_title">Set type</string>
+    <string name="edit_workout_set_type_standard">Standard</string>
+    <string name="edit_workout_set_type_myo_rep">Myo-Rep</string>
+    <string name="edit_workout_set_type_myo_rep_match">Myo-Rep Match</string>
+    <string name="edit_workout_set_type_drop_set">Drop Set</string>
+    <string name="edit_workout_set_type_selected">Selected</string>
+
     <string name="confirm_discard_dialog_body_text">This will permanently delete the current training session and all logged sets. Are you sure?</string>
 
     <!-- Un-skip workout warning -->

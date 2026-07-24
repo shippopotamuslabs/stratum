@@ -149,6 +149,7 @@ fun EditWorkoutRoute(
                 onSetRirGoal = viewModel::setRirGoal,
                 onSetUseRestTimerBetweenLifts = viewModel::setUseRestTimerBetweenLifts,
                 onSetProgressionScheme = viewModel::setProgressionScheme,
+                onSetSetKind = viewModel::setSetKind,
                 onSaveWorkout = {
                     viewModel.saveWorkout(onComplete = onBackClick)
                 },
@@ -407,14 +408,12 @@ private fun EditWorkoutTopBar(
             )
         },
         actions = {
-            if (state is EditWorkoutUiState.Loaded && state.isDirty) {
+            // Keep "Confirm" stable while saving: switching to "Saving…" flashes for a
+            // frame or two before navigate-away and looks like a glitch. Show the same
+            // label (disabled) until dirty/saving both clear, then the action disappears.
+            if (state is EditWorkoutUiState.Loaded && (state.isDirty || state.isSaving)) {
                 StratumTopBarTextButton(
-                    text =
-                        if (state.isSaving) {
-                            stringResource(R.string.edit_workout_saving)
-                        } else {
-                            stringResource(R.string.edit_workout_confirm)
-                        },
+                    text = stringResource(R.string.edit_workout_confirm),
                     onClick = onSaveWorkout,
                     enabled = !state.isSaving && state.saveBlockedReason == null,
                 )
@@ -590,6 +589,7 @@ internal fun EditWorkoutContent(
                     onSetRestSecondsForAllSetsOnLift = callbacks.onSetRestSecondsForAllSetsOnLift,
                     onSetProgressionScheme = callbacks.onSetProgressionScheme,
                     onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
+                    onSetKind = callbacks.onSetSetKind,
                 )
             }
         item {
@@ -657,6 +657,7 @@ private fun EditLiftPanel(
     onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
+    onSetKind: (setId: String, kind: EditSetKind) -> Unit = { _, _ -> },
 ) {
     StratumEdgeToEdgeCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -714,6 +715,13 @@ private fun EditLiftPanel(
             onSetRestSeconds = onSetRestSeconds,
             onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
             onRirClick = onRirClick,
+            onSetKind = onSetKind,
+            setKindEnabled = { index, kind ->
+                com.stratum.feature.program.canSelectSetKind(lift, index, kind)
+            },
+            showRestForSet = { index ->
+                com.stratum.feature.program.showRestForSet(lift, index)
+            },
         )
     }
 }
