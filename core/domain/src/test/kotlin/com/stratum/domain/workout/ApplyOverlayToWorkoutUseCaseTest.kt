@@ -12,6 +12,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
+import com.stratum.domain.workout.myorep.MyoRepKind
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -22,6 +23,59 @@ import org.junit.jupiter.api.Test
 class ApplyOverlayToWorkoutUseCaseTest {
 
     private val useCase = ApplyOverlayToWorkoutUseCase()
+
+    @Test
+    @DisplayName("Slot shape overrides update template set type and myo kind")
+    fun slotShapeOverridesAppliedToTemplate() {
+        val baseline = sampleWorkout()
+        val overlay =
+            WorkoutOverlay(
+                slotShapeOverrides =
+                    mapOf(
+                        SetSlotId.Template(LiftSetId("ls-1")) to
+                            SlotShapeOverride(
+                                setType = SetType.MyoRep,
+                                myoRepKind = MyoRepKind.RepFloor,
+                                isTopSet = true,
+                                repMin = 8,
+                                repMax = 12,
+                                rirGoal = 1,
+                            ),
+                    ),
+            )
+
+        val result = useCase(baseline, overlay)
+        val set = result.workoutLifts[0].sets.first { it.id.value == "ls-1" }
+        assertEquals(SetType.MyoRep, set.setType)
+        assertEquals(MyoRepKind.RepFloor, set.myoRepKind)
+        assertEquals(1, set.rirGoal)
+    }
+
+    @Test
+    @DisplayName("Auto-generated myo minis are not written to the template")
+    fun myoMinisExcludedFromTemplate() {
+        val baseline = sampleWorkout()
+        val mini =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("mini-ls-1-1-xyz")),
+                workoutLiftId = WorkoutLiftId("wl-1"),
+                liftId = LiftId("lift-bench"),
+                position = 2,
+                setType = SetType.MyoRep,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+                restSeconds = 15,
+                myoRepKind = MyoRepKind.RepFloor,
+            )
+        val overlay = WorkoutOverlay(addedSlots = listOf(mini))
+
+        val result = useCase(baseline, overlay)
+
+        assertEquals(2, result.workoutLifts[0].sets.size)
+        assertTrue(result.workoutLifts[0].sets.none { it.setType == SetType.MyoRep })
+    }
 
     @Test
     @DisplayName("Overlay with no edits returns the baseline workout unchanged")

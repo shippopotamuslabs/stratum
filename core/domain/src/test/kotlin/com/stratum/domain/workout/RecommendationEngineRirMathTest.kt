@@ -576,9 +576,9 @@ class RecommendationEngineRirMathTest {
     inner class EdgeCases {
 
         @Test
-        @DisplayName("M1: RIR mismatch — 75x10@4 (target 2 RIR) -> Hold (not too easy)")
-        fun `M1 RIR mismatch holds`() {
-            // achieved = 10+4-2 = 12 (at ceiling, not ≥2 over). rem=1 so last-set capacity clears floor.
+        @DisplayName("M1: RIR surplus — 75x10@4 (target 2 RIR) -> too easy, bump Hold")
+        fun `M1 RIR surplus bumps weight`() {
+            // Logged RIR is 2 above goal → too easy even if failure-capacity sits in band.
             val outcome = engine.recommendNextSet(
                 lastPerformed = performed(75.0, 10, 4),
                 completedSlot = topSet(),
@@ -587,7 +587,49 @@ class RecommendationEngineRirMathTest {
                 remainingCount = 1,
             )
             assertTrue(outcome is RecommendationOutcome.Hold)
-            assertEquals(75.0, (outcome as RecommendationOutcome.Hold).weight.amount, 0.05)
+            assertEquals(80.0, (outcome as RecommendationOutcome.Hold).weight.amount, 0.05)
+        }
+
+        @Test
+        @DisplayName(
+            "Screenshot: 120×10@3 when goal was RIR 1 on prescribed 120 → bump, never cut",
+        )
+        fun `too easy via RIR surplus bumps remaining shared weight`() {
+            // Logged prescribed load with +2 RIR vs goal. Old on-track math treated
+            // achieved 12 as in-band 8–12 and returned null; worse paths could Reduce.
+            val outcome = engine.recommendNextSet(
+                lastPerformed = performed(120.0, 10, 3),
+                completedSlot = topSet(repMin = 8, repMax = 12, rirGoal = 1),
+                targetSlot = backoffSlot(rirGoal = 1),
+                currentWeight = lb(120.0),
+                remainingCount = 3,
+                completedSetPrescribedWeight = lb(120.0),
+            )
+            assertTrue(outcome is RecommendationOutcome.Hold, "got $outcome")
+            val w = (outcome as RecommendationOutcome.Hold).weight.amount
+            assertTrue(w > 120.0, "too-easy must raise load, got $w")
+            assertTrue(w < 140.0, "single increment step, got $w")
+        }
+
+        @Test
+        @DisplayName("Too easy never falls through to Reduce below performed")
+        fun `too easy bump floor miss holds performed not reduce`() {
+            // Many remaining sets: bumped load fails last-set floor → Hold(performed), not cut.
+            val outcome = engine.recommendNextSet(
+                lastPerformed = performed(120.0, 10, 3),
+                completedSlot = topSet(repMin = 8, repMax = 12, rirGoal = 1),
+                targetSlot = backoffSlot(rirGoal = 1),
+                currentWeight = lb(120.0),
+                remainingCount = 8,
+                completedSetPrescribedWeight = lb(120.0),
+            )
+            assertTrue(outcome is RecommendationOutcome.Hold, "got $outcome")
+            assertEquals(
+                120.0,
+                (outcome as RecommendationOutcome.Hold).weight.amount,
+                0.05,
+                "must not drop below performed after a too-easy top set",
+            )
         }
 
         @Test
@@ -1407,3 +1449,4 @@ class RecommendationEngineRirMathTest {
         }
     }
 }
+// --- Screenshot: too-easy via RIR surplus must not drop weight ---

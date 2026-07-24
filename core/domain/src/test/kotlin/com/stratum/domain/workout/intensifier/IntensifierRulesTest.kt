@@ -27,7 +27,7 @@ class IntensifierRulesTest {
     }
 
     @Test
-    fun `myo top set with later drops is valid`() {
+    fun `myo then standard then drop is valid`() {
         val sets = listOf(
             IntensifierPlacementRules.SetSpec(
                 SetType.MyoRep,
@@ -43,6 +43,26 @@ class IntensifierRulesTest {
             scheme = ProgressionScheme.Double,
         )
         assertTrue(reasons.isEmpty(), "Myo → Standard → Drop → Drop should be valid: $reasons")
+    }
+
+    @Test
+    fun `drop immediately after myo is invalid`() {
+        val sets = listOf(
+            IntensifierPlacementRules.SetSpec(
+                SetType.MyoRep,
+                isTopSet = true,
+                myoRepKind = MyoRepKind.RepFloor,
+            ),
+            IntensifierPlacementRules.SetSpec(SetType.DropSet, isTopSet = false),
+        )
+        val reasons = IntensifierPlacementRules.validateTemplate(
+            sets = sets,
+            scheme = ProgressionScheme.Double,
+        )
+        assertTrue(
+            IntensifierPlacementRules.Violation.DropSetMustFollowStandardOrDrop in reasons,
+            "Myo → Drop should be invalid: $reasons",
+        )
     }
 
     @Test
@@ -76,7 +96,7 @@ class IntensifierRulesTest {
     }
 
     @Test
-    fun `myo allowed at any position`() {
+    fun `myo allowed at any position including when other myo exists`() {
         assertTrue(
             IntensifierPlacementRules.isMyoAllowed(
                 position = 0,
@@ -91,12 +111,11 @@ class IntensifierRulesTest {
                 scheme = ProgressionScheme.Double,
             ),
         )
-        assertFalse(
+        assertTrue(
             IntensifierPlacementRules.isMyoAllowed(
-                position = 0,
+                position = 2,
                 setCount = 3,
                 scheme = ProgressionScheme.Double,
-                liftAlreadyHasMyoAtOtherPosition = true,
             ),
         )
         assertFalse(
@@ -109,10 +128,27 @@ class IntensifierRulesTest {
     }
 
     @Test
-    fun `drop allowed after myo when weighted double`() {
+    fun `drop allowed only after standard or drop`() {
         assertTrue(
             IntensifierPlacementRules.isDropAllowed(
                 position = 1,
+                previousType = SetType.Standard,
+                scheme = ProgressionScheme.Double,
+                loadType = LoadType.Weighted,
+            ),
+        )
+        assertTrue(
+            IntensifierPlacementRules.isDropAllowed(
+                position = 2,
+                previousType = SetType.DropSet,
+                scheme = ProgressionScheme.Double,
+                loadType = LoadType.Weighted,
+            ),
+        )
+        assertFalse(
+            IntensifierPlacementRules.isDropAllowed(
+                position = 1,
+                previousType = SetType.MyoRep,
                 scheme = ProgressionScheme.Double,
                 loadType = LoadType.Weighted,
             ),
@@ -120,6 +156,7 @@ class IntensifierRulesTest {
         assertFalse(
             IntensifierPlacementRules.isDropAllowed(
                 position = 0,
+                previousType = null,
                 scheme = ProgressionScheme.Double,
                 loadType = LoadType.Weighted,
             ),
@@ -127,6 +164,7 @@ class IntensifierRulesTest {
         assertFalse(
             IntensifierPlacementRules.isDropAllowed(
                 position = 1,
+                previousType = SetType.Standard,
                 scheme = ProgressionScheme.Linear,
                 loadType = LoadType.Weighted,
             ),
@@ -134,7 +172,7 @@ class IntensifierRulesTest {
     }
 
     @Test
-    fun `multiple myo activations invalid`() {
+    fun `multiple myo activations are valid`() {
         val sets = listOf(
             IntensifierPlacementRules.SetSpec(
                 SetType.MyoRep,
@@ -146,12 +184,36 @@ class IntensifierRulesTest {
                 isTopSet = false,
                 myoRepKind = MyoRepKind.RepMatching,
             ),
+            IntensifierPlacementRules.SetSpec(SetType.Standard, isTopSet = false),
+            IntensifierPlacementRules.SetSpec(
+                SetType.MyoRep,
+                isTopSet = false,
+                myoRepKind = MyoRepKind.RepFloor,
+            ),
         )
         val reasons = IntensifierPlacementRules.validateTemplate(
             sets = sets,
             scheme = ProgressionScheme.Double,
         )
-        assertTrue(IntensifierPlacementRules.Violation.MyoMultipleActivations in reasons)
+        assertTrue(reasons.isEmpty(), "multiple myo clusters should be valid: $reasons")
+    }
+
+    @Test
+    fun `myo after drop is valid`() {
+        val sets = listOf(
+            IntensifierPlacementRules.SetSpec(SetType.Standard, isTopSet = true),
+            IntensifierPlacementRules.SetSpec(SetType.DropSet, isTopSet = false),
+            IntensifierPlacementRules.SetSpec(
+                SetType.MyoRep,
+                isTopSet = false,
+                myoRepKind = MyoRepKind.RepFloor,
+            ),
+        )
+        val reasons = IntensifierPlacementRules.validateTemplate(
+            sets = sets,
+            scheme = ProgressionScheme.Double,
+        )
+        assertTrue(reasons.isEmpty(), "Standard → Drop → Myo should be valid: $reasons")
     }
 
     @Test

@@ -8,22 +8,24 @@ import com.stratum.domain.workout.myorep.MyoRepKind
 /**
  * Pure placement / authoring rules for drop sets and myo-reps (intensifier sets).
  *
- * Linear scheme bans both intensifiers. Drops cannot be top/first and require a weighted
- * load type (they need an anchor set above them). Myo activation may sit at any template
- * position (including the top set) and may be followed by straight sets and/or drop sets;
- * only **one** MyoRep activation is allowed per lift. Mini-sets are live-only suffixes of
- * the activation and are not authored as template slots.
+ * Linear scheme bans both intensifiers.
  *
- * Myo and drop may coexist on the same lift (e.g. myo top set + later drop backoffs).
+ * **Drop sets** must immediately follow a Standard set (or another Drop in a multi-drop
+ * chain). They cannot follow MyoRep, cannot be first, and require a weighted load type.
+ *
+ * **Myo activations** may sit at any index, including after drops and after other myo
+ * activations (multiple clusters per lift are allowed). Live mini-sets are session-only
+ * suffixes and are not authored as template slots.
  */
 object IntensifierPlacementRules {
 
     enum class Violation {
         LinearSchemeBansIntensifiers,
         DropSetNotFollowingAnotherSet,
+        /** Drop's previous set must be Standard or Drop — never MyoRep. */
+        DropSetMustFollowStandardOrDrop,
         DropSetCannotBeTopSet,
         DropSetBodyweightOrAssisted,
-        MyoMultipleActivations,
         MyoKindRequired,
         MyoKindMustBeNullForNonMyo,
     }
@@ -46,15 +48,11 @@ object IntensifierPlacementRules {
         if (sets.isEmpty()) return emptySet()
         val reasons = linkedSetOf<Violation>()
 
-        val myoCount = sets.count { it.setType == SetType.MyoRep }
         val hasDrop = sets.any { it.setType == SetType.DropSet }
-        val hasMyo = myoCount > 0
+        val hasMyo = sets.any { it.setType == SetType.MyoRep }
 
         if (scheme == ProgressionScheme.Linear && (hasDrop || hasMyo)) {
             reasons += Violation.LinearSchemeBansIntensifiers
-        }
-        if (myoCount > 1) {
-            reasons += Violation.MyoMultipleActivations
         }
         if (hasDrop && (loadType == LoadType.Bodyweight || loadType == LoadType.Assisted)) {
             reasons += Violation.DropSetBodyweightOrAssisted
@@ -66,6 +64,10 @@ object IntensifierPlacementRules {
                     if (index == 0) reasons += Violation.DropSetNotFollowingAnotherSet
                     if (set.isTopSet) reasons += Violation.DropSetCannotBeTopSet
                     if (set.myoRepKind != null) reasons += Violation.MyoKindMustBeNullForNonMyo
+                    val previous = sets.getOrNull(index - 1)?.setType
+                    if (index > 0 && !isValidDropPredecessor(previous)) {
+                        reasons += Violation.DropSetMustFollowStandardOrDrop
+                    }
                 }
                 SetType.MyoRep -> {
                     if (set.myoRepKind == null) reasons += Violation.MyoKindRequired
@@ -78,28 +80,35 @@ object IntensifierPlacementRules {
         return reasons
     }
 
+    /**
+     * Whether a Drop set may be placed at [position] given the type of the previous set.
+     * [previousType] is null when [position] is 0 (or unknown).
+     */
     fun isDropAllowed(
         position: Int,
+        previousType: SetType?,
         scheme: ProgressionScheme,
         loadType: LoadType,
     ): Boolean =
         scheme != ProgressionScheme.Linear &&
             loadType == LoadType.Weighted &&
-            position > 0
+            position > 0 &&
+            isValidDropPredecessor(previousType)
 
     /**
      * Whether a Myo activation may be placed at [position] on a lift with [setCount] sets.
-     * Position is unrestricted (top / mid / last) as long as the lift does not already have
-     * a myo at another position and is not on Linear.
+     * Multiple myo activations per lift are allowed (back-to-back clusters, after drops, etc.).
      */
     fun isMyoAllowed(
         position: Int,
         setCount: Int,
         scheme: ProgressionScheme,
-        liftAlreadyHasMyoAtOtherPosition: Boolean = false,
     ): Boolean =
         scheme != ProgressionScheme.Linear &&
-            !liftAlreadyHasMyoAtOtherPosition &&
             setCount >= 1 &&
             position in 0 until setCount
+
+    /** Drop may trail a Standard working set or continue a multi-drop chain. */
+    fun isValidDropPredecessor(previousType: SetType?): Boolean =
+        previousType == SetType.Standard || previousType == SetType.DropSet
 }
