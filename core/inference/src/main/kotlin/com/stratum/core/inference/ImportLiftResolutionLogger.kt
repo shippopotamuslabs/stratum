@@ -21,12 +21,12 @@ class ImportLiftResolutionLogger @Inject constructor(
                 append("distinctNamesNormalized=${summary.distinctInputExerciseNamesNormalized} ")
                 append("seedCatalog=${summary.seedCatalogLiftCount} ")
                 append("preexistingCustom=${summary.preexistingCustomLiftCount} ")
-                append("firstPassCatalogSetMatches=${summary.firstPassCatalogMatches} ")
-                append("distinctCatalogEnabledFirstPass=${summary.distinctCatalogLiftsEnabledInFirstPass} ")
-                append("distinctNamesMatchedCatalog=${summary.distinctExerciseNamesMatchedCatalogInFirstPass} ")
+                append("preCustomCatalogSetMatches=${summary.preCustomCatalogSetMatches} ")
+                append("distinctPreCustomCatalogEnabled=${summary.distinctPreCustomCatalogLiftsEnabled} ")
+                append("distinctNamesMatchedPreCustom=${summary.distinctExerciseNamesMatchedPreCustom} ")
                 append("unmatchedNames=${summary.distinctUnmatchedExerciseNames} ")
                 append("customCreated=${summary.customLiftsCreated} ")
-                append("secondPassMatches=${summary.secondPassAdditionalMatches} ")
+                append("postCustomMatches=${summary.postCustomAdditionalMatches} ")
                 append("enabledSeed=${summary.finalEnabledSeedLiftCount} ")
                 append("enabledCustom=${summary.finalEnabledCustomLiftCount} ")
                 append("enabledTotal=${summary.finalEnabledTotal} ")
@@ -69,7 +69,7 @@ class ImportLiftResolutionLogger @Inject constructor(
         }
 
         if (summary.finalEnabledTotal <= summary.finalEnabledCustomLiftCount &&
-            summary.distinctCatalogLiftsEnabledInFirstPass == 0
+            summary.distinctPreCustomCatalogLiftsEnabled == 0
         ) {
             loggingPort.warning(
                 TAG,

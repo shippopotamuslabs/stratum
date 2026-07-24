@@ -1,7 +1,11 @@
 package com.stratum.domain.program.importing
 
+import com.stratum.core.testing.importing.FakeLiftEmbeddingCatalog
+import com.stratum.core.testing.importing.FakeLiftNameEmbeddingPort
 import com.stratum.core.testing.importing.FakeLiftNameResolverPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
+import com.stratum.domain.importing.Bm25LiftNameResolver
+import com.stratum.domain.importing.HybridLiftNameResolver
 import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
@@ -102,6 +106,191 @@ class ResolveProgramTemplateLiftsUseCaseTest {
         val catalogAfter = liftRepo.observeLifts().first()
         assertEquals(2, catalogAfter.size)
         assertTrue(catalogAfter.any { it.id == customLiftId && it.isCustom })
+    }
+
+    @Test
+    fun `all exact catalog names skip embedding prepareBatch`() = runTest {
+        val squatId = LiftId("squat")
+        val benchId = LiftId("bench")
+        val catalog =
+            listOf(
+                Lift(
+                    id = squatId,
+                    name = "Barbell Squat",
+                    movementPatterns = emptySet(),
+                    primaryMuscles = emptySet(),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = emptyList(),
+                    presetTags = emptySet(),
+                    enabled = true,
+                ),
+                Lift(
+                    id = benchId,
+                    name = "Barbell Bench Press",
+                    movementPatterns = emptySet(),
+                    primaryMuscles = emptySet(),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = emptyList(),
+                    presetTags = emptySet(),
+                    enabled = true,
+                ),
+            )
+        val liftRepo = FakeLiftRepository(initialLifts = catalog)
+        val embeddingPort = FakeLiftNameEmbeddingPort()
+        val hybrid =
+            HybridLiftNameResolver(
+                bm25 = Bm25LiftNameResolver(),
+                catalogEmbeddings = FakeLiftEmbeddingCatalog(),
+                nameEmbedding = embeddingPort,
+            )
+        val useCase = ResolveProgramTemplateLiftsUseCase(liftRepo, hybrid)
+
+        val template =
+            NormalizedProgramTemplate(
+                programName = "Exact",
+                cycleLength = 1,
+                workouts =
+                    listOf(
+                        NormalizedProgramTemplateWorkout(
+                            name = "Day 1",
+                            weekday = null,
+                            position = 0,
+                            lifts =
+                                listOf(
+                                    NormalizedProgramTemplateLift(
+                                        name = "Barbell Squat",
+                                        position = 0,
+                                        sets =
+                                            listOf(
+                                                NormalizedProgramTemplateSet(
+                                                    position = 0,
+                                                    setTypeLabel = null,
+                                                    repMin = 5,
+                                                    repMax = 5,
+                                                    rirGoal = 2,
+                                                    restSeconds = null,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                        supersetGroupKey = null,
+                                    ),
+                                    NormalizedProgramTemplateLift(
+                                        name = "Barbell Bench Press",
+                                        position = 1,
+                                        sets =
+                                            listOf(
+                                                NormalizedProgramTemplateSet(
+                                                    position = 0,
+                                                    setTypeLabel = null,
+                                                    repMin = 8,
+                                                    repMax = 10,
+                                                    rirGoal = 2,
+                                                    restSeconds = null,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                        supersetGroupKey = null,
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+
+        val program = useCase.invoke(template)
+
+        assertTrue(embeddingPort.lastRequestedNames.isEmpty())
+        assertEquals(squatId, program.workouts.single().workoutLifts[0].liftId)
+        assertEquals(benchId, program.workouts.single().workoutLifts[1].liftId)
+        assertEquals(2, liftRepo.observeLifts().first().size)
+    }
+
+    @Test
+    fun `residual embedding rescue matches gray zone program lift to catalog`() = runTest {
+        val seatedId = LiftId("seated-leg")
+        val ballId = LiftId("ball-leg")
+        val catalog =
+            listOf(
+                Lift(
+                    id = ballId,
+                    name = "Ball Leg Curl",
+                    movementPatterns = emptySet(),
+                    primaryMuscles = emptySet(),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = emptyList(),
+                    presetTags = emptySet(),
+                    enabled = true,
+                ),
+                Lift(
+                    id = seatedId,
+                    name = "Seated Leg Curl",
+                    movementPatterns = emptySet(),
+                    primaryMuscles = emptySet(),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = emptyList(),
+                    presetTags = emptySet(),
+                    enabled = true,
+                ),
+            )
+        val liftRepo = FakeLiftRepository(initialLifts = catalog)
+        val embeddingPort =
+            FakeLiftNameEmbeddingPort(
+                vectorsByName = mapOf("Hamstring Curl" to floatArrayOf(1f, 0f)),
+            )
+        val hybrid =
+            HybridLiftNameResolver(
+                bm25 = Bm25LiftNameResolver(),
+                catalogEmbeddings =
+                    FakeLiftEmbeddingCatalog(
+                        vectorsByLiftId =
+                            mapOf(
+                                seatedId to floatArrayOf(0.95f, 0.31f),
+                                ballId to floatArrayOf(0.2f, 0.98f),
+                            ),
+                        dimensions = 2,
+                    ),
+                nameEmbedding = embeddingPort,
+            )
+        val useCase = ResolveProgramTemplateLiftsUseCase(liftRepo, hybrid)
+
+        val template =
+            NormalizedProgramTemplate(
+                programName = "Gray",
+                cycleLength = 1,
+                workouts =
+                    listOf(
+                        NormalizedProgramTemplateWorkout(
+                            name = "Day 1",
+                            weekday = null,
+                            position = 0,
+                            lifts =
+                                listOf(
+                                    NormalizedProgramTemplateLift(
+                                        name = "Hamstring Curl",
+                                        position = 0,
+                                        sets =
+                                            listOf(
+                                                NormalizedProgramTemplateSet(
+                                                    position = 0,
+                                                    setTypeLabel = null,
+                                                    repMin = 10,
+                                                    repMax = 12,
+                                                    rirGoal = 2,
+                                                    restSeconds = null,
+                                                    isTopSet = true,
+                                                ),
+                                            ),
+                                        supersetGroupKey = null,
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+
+        val program = useCase.invoke(template)
+
+        assertEquals(listOf("Hamstring Curl"), embeddingPort.lastRequestedNames)
+        assertEquals(seatedId, program.workouts.single().workoutLifts.single().liftId)
+        assertEquals(2, liftRepo.observeLifts().first().size)
     }
 
     @Test
