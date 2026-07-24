@@ -9,14 +9,13 @@ import com.stratum.domain.workout.dropset.DropSetConstraintResult
 import com.stratum.domain.workout.dropset.DropSetConstraintValidator
 import com.stratum.domain.workout.dropset.DropSetConstraintViolation
 import com.stratum.domain.workout.dropset.EstimateDropSetWeightUseCase
-import com.stratum.core.testing.workout.FakeFatigueModel
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 /**
- * Slice 6 — Drop sets. 4 scenarios (S6-*).
+ * Slice 6 — Drop sets. Fixed 20% reduction + must-follow constraint.
  */
 @DisplayName("Slice 6: Drop sets")
 class Slice6DropSetTest {
@@ -49,7 +48,7 @@ class Slice6DropSetTest {
         repMin = 0,
         repMax = 0,
         rirGoal = 0,
-        restSeconds = 60,
+        restSeconds = 0,
     )
 
     private fun projection(slots: List<SetSlot>) = WorkoutLiftProjection(
@@ -59,8 +58,6 @@ class Slice6DropSetTest {
         progressionScheme = com.stratum.domain.program.ProgressionScheme.Double,
         slots = slots,
     )
-
-    // --- Constraint validator (2 scenarios) ---
 
     @Test
     @DisplayName("S6-drop-set-follows-another-set-valid")
@@ -83,33 +80,24 @@ class Slice6DropSetTest {
         assertTrue(DropSetConstraintViolation.DropSetNotFollowingAnotherSet in reasons)
     }
 
-    // --- Weight estimation (2 scenarios) ---
-
     @Test
-    @DisplayName("S6-drop-set-fatigue-reduction-applied")
-    fun `S6-drop-set-fatigue-reduction-applied`() {
-        val useCase = EstimateDropSetWeightUseCase(FakeFatigueModel(populationReductionFraction = 0.10))
-        val result = useCase.invoke(
-            precedingWeight = lb(100.0),
-            nextSetIndex = 1,
-            perLiftSlope = null,
-            perLiftIntercept = null,
-        )
-        // 100.0 reduced by population fatigue projection (10%) → 90.0
-        assertEquals(lb(90.0), result)
+    @DisplayName("S6-drop-set-20-percent-reduction")
+    fun `S6-drop-set-20-percent-reduction`() {
+        val useCase = EstimateDropSetWeightUseCase()
+        val result = useCase.invoke(precedingWeight = lb(100.0))
+        assertEquals(lb(80.0), result)
     }
 
     @Test
-    @DisplayName("S6-drop-set-per-lift-slope-vs-population")
-    fun `S6-drop-set-per-lift-slope-vs-population`() {
-        val useCase = EstimateDropSetWeightUseCase(FakeFatigueModel(perLiftReductionFraction = 0.15))
+    @DisplayName("S6-drop-set-floor-repair-when-capacity-low")
+    fun `S6-drop-set-floor-repair-when-capacity-low`() {
+        val useCase = EstimateDropSetWeightUseCase()
+        // Capacity fails at 80 lb and above; succeeds at lower loads → further reduce.
         val result = useCase.invoke(
             precedingWeight = lb(100.0),
-            nextSetIndex = 1,
-            perLiftSlope = -3.0,
-            perLiftIntercept = null,
+            capacityAtRir = { amountLb -> if (amountLb <= 60.0) 6 else 3 },
         )
-        // 15% reduction (per-lift), not 10% → 85.0
-        assertEquals(lb(85.0), result)
+        assertTrue(result.amount <= 60.0 + 1e-6, "must reduce below 80 when capacity fails floor")
+        assertTrue(result.amount > 0.0)
     }
 }
