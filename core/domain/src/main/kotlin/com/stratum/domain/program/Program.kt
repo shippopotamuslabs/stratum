@@ -7,6 +7,7 @@ import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.workout.myorep.MyoRepKind
 import java.time.Instant
 
 /** Default inter-set rest (seconds) for generated and legacy persisted sets. */
@@ -101,4 +102,9 @@ data class LiftSet(
     val rirGoal: Int,
     val isTopSet: Boolean,
     val restSeconds: Int = DEFAULT_LIFT_SET_REST_SECONDS,
+    /**
+     * Myo-rep sub-type when [setType] is [SetType.MyoRep]; null for Standard/Drop.
+     * Persisted on the program template (Room v2).
+     */
+    val myoRepKind: MyoRepKind? = null,
 )
