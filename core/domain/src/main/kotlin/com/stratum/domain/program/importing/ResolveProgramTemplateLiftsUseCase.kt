@@ -20,6 +20,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.program.schedule.restSlotIndicesForSevenDayWeek
+import com.stratum.domain.workout.myorep.MyoRepKind
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -131,6 +132,7 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
                             workoutLiftId = workoutLiftId,
                             position = templateSet.position.coerceAtLeast(setIndex),
                             setType = mapSetType(templateSet.setTypeLabel),
+                            myoRepKind = mapMyoRepKind(templateSet.setTypeLabel),
                             repMin = templateSet.repMin ?: DEFAULT_REP_MIN,
                             repMax = templateSet.repMax ?: DEFAULT_REP_MAX,
                             rirGoal = templateSet.rirGoal ?: DEFAULT_RIR_GOAL,
@@ -217,6 +219,14 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
             normalized.contains("drop") -> SetType.DropSet
             else -> SetType.Standard
         }
+    }
+
+    /** Defaults imported myo labels to [MyoRepKind.RepFloor]; match when label mentions match. */
+    private fun mapMyoRepKind(label: String?): MyoRepKind? {
+        if (label == null) return null
+        val normalized = label.trim().lowercase()
+        if (!normalized.contains("myo")) return null
+        return if (normalized.contains("match")) MyoRepKind.RepMatching else MyoRepKind.RepFloor
     }
 
     /** Loose weekday parse; null when the source label is not a recognizable weekday. */

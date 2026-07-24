@@ -41,6 +41,7 @@ class ProjectWorkoutStructureUseCase @javax.inject.Inject constructor() {
                         repMax = liftSet.repMax,
                         rirGoal = liftSet.rirGoal,
                         restSeconds = liftSet.restSeconds,
+                        myoRepKind = liftSet.myoRepKind,
                     )
                 },
             )

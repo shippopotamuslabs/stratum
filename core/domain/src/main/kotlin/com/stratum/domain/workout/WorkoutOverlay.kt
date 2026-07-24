@@ -128,9 +128,17 @@ data class WorkoutOverlay(
                 // Rest overrides are not restored (never pushed on the undo stack).
                 copy(deletedSlotIds = deletedSlotIds - last.slotId, undoStack = remaining)
             is StructuralMutation.GenerateMyoRepMiniSet ->
-                copy(addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId }, undoStack = remaining)
+                copy(
+                    addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId },
+                    dynamicBaselines = dynamicBaselines - last.newSlot.slotId,
+                    undoStack = remaining,
+                )
             is StructuralMutation.AddDropSet ->
-                copy(addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId }, undoStack = remaining)
+                copy(
+                    addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId },
+                    dynamicBaselines = dynamicBaselines - last.newSlot.slotId,
+                    undoStack = remaining,
+                )
         }
     }
 
