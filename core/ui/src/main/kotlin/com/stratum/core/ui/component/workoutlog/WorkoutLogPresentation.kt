@@ -16,7 +16,10 @@ data class WorkoutLogLiftUi(
 data class WorkoutLogSetUi(
     val setKey: String,
     val positionLabel: String,
-    /** Domain set type name for W/D labels — e.g. `"Warmup"`, `"DropSet"`, `"Working"`. */
+    /**
+     * Set-column chip key. Prefer short chips (`S` / `M` / `MM` / `D` / `W`); longer enum
+     * names (`Standard`, `MyoRep`, `DropSet`, `Warmup`) are still accepted by the row badge.
+     */
     val setTypeLabel: String,
     val previousLabel: String = "—",
     val weightText: String = "",

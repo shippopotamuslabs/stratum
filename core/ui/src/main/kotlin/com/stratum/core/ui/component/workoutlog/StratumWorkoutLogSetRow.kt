@@ -16,11 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.component.RirTargetBadge
 import com.stratum.core.ui.component.RirTargetBottomSheet
 import com.stratum.core.ui.component.StratumCheckbox
+import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
+import com.stratum.core.ui.theme.StratumSetTypeColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
 @Composable
@@ -39,12 +42,7 @@ fun StratumWorkoutLogSetRow(
         } else {
             Color.Transparent
         }
-    val setLabel =
-        when (set.setTypeLabel) {
-            "Warmup" -> "W"
-            "DropSet" -> "D"
-            else -> set.positionLabel
-        }
+    val setChip = resolveSetTypeChip(set.setTypeLabel, set.positionLabel)
 
     // Keep host drafts live while this row is composed (row may scroll but host stays mounted).
     // Also recompute live canComplete from current drafts (buffers may diverge mid-key).
@@ -128,10 +126,22 @@ fun StratumWorkoutLogSetRow(
         ) {
             Box(modifier = Modifier.weight(weights.label), contentAlignment = Alignment.CenterStart) {
                 // Same 32.dp circle as the add-set + so the Set column lines up (Edit Workout pattern).
-                WorkoutLogSetColumnBadge {
-                    StratumText(
-                        text = setLabel,
-                        style = StratumThemeAccessor.typography.sectionLabel,
+                WorkoutLogSetColumnBadge(backgroundColor = setChip.background) {
+                    val labelStyle =
+                        if (setChip.label.length > 1) {
+                            StratumThemeAccessor.typography.sectionLabel.copy(
+                                color = setChip.contentColor,
+                                fontSize = 11.sp,
+                                lineHeight = 12.sp,
+                            )
+                        } else {
+                            StratumThemeAccessor.typography.sectionLabel.copy(
+                                color = setChip.contentColor,
+                            )
+                        }
+                    StratumNumber(
+                        text = setChip.label,
+                        style = labelStyle,
                     )
                 }
             }
@@ -259,5 +269,47 @@ fun StratumWorkoutLogSetRow(
             },
             onDismiss = { showRirSheet = false },
         )
+    }
+}
+
+/**
+ * Resolves the Set-column chip letter + color from [setTypeLabel].
+ * Live workout maps domain types to `S` / `M` / `MM` / `D`; older history paths may still
+ * pass enum names (`Standard`, `MyoRep`, `DropSet`) or `Warmup`.
+ */
+private data class SetTypeChip(
+    val label: String,
+    val background: Color,
+    val contentColor: Color,
+)
+
+@Composable
+private fun resolveSetTypeChip(
+    setTypeLabel: String,
+    positionFallback: String,
+): SetTypeChip {
+    val normalized = setTypeLabel.trim()
+    return when (normalized) {
+        "S", "Standard", "Working", "Work" ->
+            SetTypeChip("S", StratumSetTypeColors.standard, StratumSetTypeColors.contentColor)
+        "M", "MyoRep", "MyoRepFloor" ->
+            SetTypeChip("M", StratumSetTypeColors.myoRep, StratumSetTypeColors.contentColor)
+        "MM", "MyoRepMatch" ->
+            SetTypeChip("MM", StratumSetTypeColors.myoRepMatch, StratumSetTypeColors.contentColor)
+        "D", "DropSet" ->
+            SetTypeChip("D", StratumSetTypeColors.dropSet, StratumSetTypeColors.contentColor)
+        "W", "Warmup" ->
+            SetTypeChip(
+                "W",
+                StratumThemeAccessor.colors.surfaceInset,
+                StratumThemeAccessor.colors.textPrimary,
+            )
+        else ->
+            // Unknown labels (or plain ordinals) fall back to position text.
+            SetTypeChip(
+                label = positionFallback.ifBlank { normalized }.ifBlank { "—" },
+                background = StratumThemeAccessor.colors.surfaceInset,
+                contentColor = StratumThemeAccessor.colors.textPrimary,
+            )
     }
 }
