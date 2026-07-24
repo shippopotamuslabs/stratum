@@ -60,6 +60,7 @@ internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =
         restSeconds = restSeconds,
         rirGoal = rirGoal,
         isTopSet = isTopSet,
+        setKind = domainToEditSetKind(setType, myoRepKind),
     )
 
 internal fun renumberSets(sets: List<EditSetState>): List<EditSetState> =

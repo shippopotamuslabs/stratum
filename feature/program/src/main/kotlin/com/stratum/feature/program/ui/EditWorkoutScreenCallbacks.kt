@@ -20,6 +20,8 @@ data class EditWorkoutScreenCallbacks(
     val onSetRirGoal: (setId: String, rirGoal: Int) -> Unit = { _, _ -> },
     val onSetUseRestTimerBetweenLifts: (workoutLiftId: String, enabled: Boolean) -> Unit = { _, _ -> },
     val onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit = { _, _ -> },
+    /** Change set intensifier kind (S / M / MM / D). */
+    val onSetSetKind: (setId: String, kind: EditSetKind) -> Unit = { _, _ -> },
     val onSaveWorkout: () -> Unit = {},
     val onStartWorkout: () -> Unit = {},
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },

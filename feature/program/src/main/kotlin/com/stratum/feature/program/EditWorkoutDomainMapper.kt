@@ -18,13 +18,8 @@ import com.stratum.core.ui.component.isLastInSupersetChain
 internal fun List<EditLiftState>.toWorkout(
     baseline: Workout,
     workoutId: WorkoutId,
-): Workout {
-    val baselineSetsById =
-        baseline.workoutLifts
-            .flatMap { lift -> lift.sets }
-            .associateBy { set -> set.id.value }
-
-    return baseline.copy(
+): Workout =
+    baseline.copy(
         workoutLifts =
             sortedBy { lift -> lift.position }
                 .map { editLift ->
@@ -40,17 +35,17 @@ internal fun List<EditLiftState>.toWorkout(
                         position = editLift.position,
                         sets =
                             normalizedSets.map { editSet ->
-                                val baselineSet = baselineSetsById[editSet.setId]
                                 LiftSet(
                                     id = LiftSetId(editSet.setId),
                                     workoutLiftId = WorkoutLiftId(editLift.workoutLiftId),
                                     position = editSet.setNumber - 1,
-                                    setType = baselineSet?.setType ?: SetType.Standard,
+                                    setType = editSet.setKind.toDomainSetType(),
                                     repMin = editSet.repMin,
                                     repMax = editSet.repMax,
                                     rirGoal = editSet.rirGoal,
                                     isTopSet = editSet.isTopSet,
                                     restSeconds = editSet.restSeconds,
+                                    myoRepKind = editSet.setKind.toMyoRepKind(),
                                 )
                             },
                         supersetGroupId = editLift.supersetGroupId?.let { WorkoutSupersetGroupId(it) },
@@ -58,7 +53,6 @@ internal fun List<EditLiftState>.toWorkout(
                     )
                 },
     )
-}
 
 internal fun persistUseRestTimerBetweenLifts(
     lift: EditLiftState,
