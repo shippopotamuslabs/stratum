@@ -405,4 +405,319 @@ class LiveWorkoutOverlayOpsTest {
         assertEquals(false, rest[WorkoutLiftId("wl-2")])
         assertFalse(rest.containsKey(WorkoutLiftId("wl-3")))
     }
+
+    @Test
+    @DisplayName("orderLiftSlots inserts myo minis after activation before trailing standards")
+    fun orderLiftSlotsInsertsMinisAfterMyoActivation() {
+        val myoAct =
+            SetSlot(
+                slotId = SetSlotId.Template(LiftSetId("ls-myo")),
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 0,
+                setType = SetType.MyoRep,
+                isTopSet = true,
+                repMin = 10,
+                repMax = 15,
+                rirGoal = 1,
+                restSeconds = 120,
+            )
+        val std1 =
+            SetSlot(
+                slotId = SetSlotId.Template(LiftSetId("ls-s1")),
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 1,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 2,
+                restSeconds = 120,
+            )
+        val std2 =
+            SetSlot(
+                slotId = SetSlotId.Template(LiftSetId("ls-s2")),
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 2,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 2,
+                restSeconds = 120,
+            )
+        val mini1 =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("mini-1")),
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 1,
+                setType = SetType.MyoRep,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+                restSeconds = 15,
+            )
+        val mini2 =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("mini-2")),
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 2,
+                setType = SetType.MyoRep,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+                restSeconds = 15,
+            )
+
+        val ordered =
+            LiveIntensifierOverlayOps.orderLiftSlots(
+                templateSlots = listOf(myoAct, std1, std2),
+                addedSlots = listOf(mini1, mini2),
+            )
+
+        assertEquals(
+            listOf(
+                SetType.MyoRep,
+                SetType.MyoRep,
+                SetType.MyoRep,
+                SetType.Standard,
+                SetType.Standard,
+            ),
+            ordered.map { it.setType },
+        )
+        assertEquals(
+            listOf("ls-myo", "mini-1", "mini-2", "ls-s1", "ls-s2"),
+            ordered.map { LiveWorkoutOverlayOps.slotKey(it.slotId) },
+        )
+        assertEquals(listOf(0, 1, 2, 3, 4), ordered.map { it.position })
+    }
+
+    @Test
+    @DisplayName("cascade delete activation removes minis but keeps trailing standards")
+    fun cascadeDeleteMyoActivationKeepsTrailingStandards() {
+        val myoActId = SetSlotId.Template(LiftSetId("ls-myo"))
+        val stdId = SetSlotId.Template(LiftSetId("ls-s1"))
+        val miniId = SetSlotId.Overlay(OverlaySetInstanceId("mini-1"))
+        val myoStruct =
+            WorkoutStructureProjection(
+                workoutId = WorkoutId("w-1"),
+                workoutName = "Test",
+                lifts =
+                    listOf(
+                        WorkoutLiftProjection(
+                            workoutLiftId = workoutLiftId,
+                            liftId = originalLiftId,
+                            liftName = "Lift",
+                            progressionScheme = ProgressionScheme.Double,
+                            slots =
+                                listOf(
+                                    SetSlot(
+                                        slotId = myoActId,
+                                        workoutLiftId = workoutLiftId,
+                                        liftId = originalLiftId,
+                                        position = 0,
+                                        setType = SetType.MyoRep,
+                                        isTopSet = true,
+                                        repMin = 10,
+                                        repMax = 15,
+                                        rirGoal = 1,
+                                        restSeconds = 120,
+                                    ),
+                                    SetSlot(
+                                        slotId = stdId,
+                                        workoutLiftId = workoutLiftId,
+                                        liftId = originalLiftId,
+                                        position = 1,
+                                        setType = SetType.Standard,
+                                        isTopSet = false,
+                                        repMin = 8,
+                                        repMax = 12,
+                                        rirGoal = 2,
+                                        restSeconds = 120,
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val overlay =
+            WorkoutOverlay(
+                addedSlots =
+                    listOf(
+                        SetSlot(
+                            slotId = miniId,
+                            workoutLiftId = workoutLiftId,
+                            liftId = originalLiftId,
+                            position = 1,
+                            setType = SetType.MyoRep,
+                            isTopSet = false,
+                            repMin = 0,
+                            repMax = 0,
+                            rirGoal = 0,
+                            restSeconds = 15,
+                        ),
+                    ),
+            )
+
+        val targets =
+            LiveIntensifierOverlayOps.cascadeDeleteTargets(
+                structure = myoStruct,
+                overlay = overlay,
+                slotId = myoActId,
+            )
+
+        assertEquals(setOf(myoActId, miniId), targets.toSet())
+        assertFalse(targets.contains(stdId))
+    }
+
+    @Test
+    @DisplayName("myo lifecycle spawns mini after activation even when standards follow")
+    fun myoLifecycleSpawnsMiniWithTrailingStandards() {
+        val myoActId = SetSlotId.Template(LiftSetId("ls-myo"))
+        val stdId = SetSlotId.Template(LiftSetId("ls-s1"))
+        val myoStruct =
+            WorkoutStructureProjection(
+                workoutId = WorkoutId("w-1"),
+                workoutName = "Test",
+                lifts =
+                    listOf(
+                        WorkoutLiftProjection(
+                            workoutLiftId = workoutLiftId,
+                            liftId = originalLiftId,
+                            liftName = "Lift",
+                            progressionScheme = ProgressionScheme.Double,
+                            slots =
+                                listOf(
+                                    SetSlot(
+                                        slotId = myoActId,
+                                        workoutLiftId = workoutLiftId,
+                                        liftId = originalLiftId,
+                                        position = 0,
+                                        setType = SetType.MyoRep,
+                                        isTopSet = true,
+                                        repMin = 10,
+                                        repMax = 15,
+                                        rirGoal = 1,
+                                        restSeconds = 120,
+                                        myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepFloor,
+                                    ),
+                                    SetSlot(
+                                        slotId = stdId,
+                                        workoutLiftId = workoutLiftId,
+                                        liftId = originalLiftId,
+                                        position = 1,
+                                        setType = SetType.Standard,
+                                        isTopSet = false,
+                                        repMin = 8,
+                                        repMax = 12,
+                                        rirGoal = 2,
+                                        restSeconds = 120,
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val overlay =
+            WorkoutOverlay(
+                loggedSets =
+                    mapOf(
+                        myoActId to
+                            com.stratum.domain.workout.LoggedSetValue(
+                                slotId = myoActId,
+                                weight = com.stratum.domain.lift.Weight(65.0, com.stratum.domain.lift.Weight.WeightUnit.Lb),
+                                reps = 11,
+                                rir = 1,
+                            ),
+                    ),
+            )
+
+        val next =
+            LiveIntensifierOverlayOps.applyMyoLifecycleAfterLog(
+                structure = myoStruct,
+                overlay = overlay,
+                loggedSlotId = myoActId,
+            )
+
+        assertEquals(1, next.addedSlots.size, "expected one mini after activation")
+        val mini = next.addedSlots.single()
+        assertEquals(SetType.MyoRep, mini.setType)
+        assertFalse(mini.isTopSet)
+        // Mini inherits the activation set's programmed rest (120 here).
+        assertEquals(120, mini.restSeconds)
+        assertTrue(next.dynamicBaselines.containsKey(mini.slotId), "mini needs baseline to render")
+
+        val ordered =
+            LiveIntensifierOverlayOps.orderLiftSlots(
+                templateSlots = myoStruct.lifts.single().slots,
+                addedSlots = next.addedSlots,
+            )
+        assertEquals(
+            listOf(SetType.MyoRep, SetType.MyoRep, SetType.Standard),
+            ordered.map { it.setType },
+        )
+    }
+
+    @Test
+    @DisplayName("myo mini inherits custom activation rest (not hard-coded 15s)")
+    fun myoMiniInheritsCustomActivationRest() {
+        val myoActId = SetSlotId.Template(LiftSetId("ls-myo"))
+        val myoStruct =
+            WorkoutStructureProjection(
+                workoutId = WorkoutId("w-1"),
+                workoutName = "Test",
+                lifts =
+                    listOf(
+                        WorkoutLiftProjection(
+                            workoutLiftId = workoutLiftId,
+                            liftId = originalLiftId,
+                            liftName = "Lift",
+                            progressionScheme = ProgressionScheme.Double,
+                            slots =
+                                listOf(
+                                    SetSlot(
+                                        slotId = myoActId,
+                                        workoutLiftId = workoutLiftId,
+                                        liftId = originalLiftId,
+                                        position = 0,
+                                        setType = SetType.MyoRep,
+                                        isTopSet = true,
+                                        repMin = 10,
+                                        repMax = 15,
+                                        rirGoal = 1,
+                                        restSeconds = 30,
+                                        myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepFloor,
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        val overlay =
+            WorkoutOverlay(
+                loggedSets =
+                    mapOf(
+                        myoActId to
+                            com.stratum.domain.workout.LoggedSetValue(
+                                slotId = myoActId,
+                                weight = com.stratum.domain.lift.Weight(65.0, com.stratum.domain.lift.Weight.WeightUnit.Lb),
+                                reps = 11,
+                                rir = 1,
+                            ),
+                    ),
+            )
+
+        val next =
+            LiveIntensifierOverlayOps.applyMyoLifecycleAfterLog(
+                structure = myoStruct,
+                overlay = overlay,
+                loggedSlotId = myoActId,
+            )
+
+        assertEquals(1, next.addedSlots.size)
+        assertEquals(30, next.addedSlots.single().restSeconds)
+    }
 }

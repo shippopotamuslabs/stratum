@@ -6,8 +6,11 @@ import com.stratum.core.ui.component.formatWeightForDisplay
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
+import com.stratum.domain.program.SetType
+import com.stratum.domain.workout.RenderedSet
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlotId
+import com.stratum.domain.workout.myorep.MyoRepKind
 import kotlin.math.abs
 
 /**
@@ -112,7 +115,8 @@ internal object WorkoutUiMapper {
                     RenderedSetUi(
                         slotKey = slotKey(set.slotId),
                         positionLabel = (set.position + 1).toString(),
-                        setTypeLabel = set.setType.name,
+                        // Chip letter for the Set column (matches Edit Workout: S / M / MM / D).
+                        setTypeLabel = setTypeChipLabel(set),
                         repRangeLabel = if (set.repMin == 0 && set.repMax == 0) null else "${set.repMin}–${set.repMax}",
                         rirLabel = "RIR ${set.rirGoal}",
                         recommendedWeightLabel = recommendedWeightLabel,
@@ -157,6 +161,18 @@ internal object WorkoutUiMapper {
         is SetSlotId.Template -> slotId.liftSetId.value
         is SetSlotId.Overlay -> slotId.instanceId.value
     }
+
+    /** Set-column chip text — same vocabulary as template Edit Workout badges. */
+    internal fun setTypeChipLabel(set: RenderedSet): String =
+        when (set.setType) {
+            SetType.DropSet -> "D"
+            SetType.MyoRep ->
+                when (set.myoRepKind) {
+                    MyoRepKind.RepMatching -> "MM"
+                    MyoRepKind.RepFloor, null -> "M"
+                }
+            SetType.Standard -> "S"
+        }
 
     /**
      * Navigator initials: first letter of first two words, or first two letters of one word.
