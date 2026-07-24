@@ -3,6 +3,7 @@ package com.stratum.feature.program
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
+import com.stratum.domain.workout.intensifier.IntensifierPlacementRules
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
 import com.stratum.domain.workout.myorep.MyoRepKind
 import com.stratum.feature.program.ui.EditLiftState
@@ -41,16 +42,12 @@ internal fun EditSetKind.chipLabel(): String =
         EditSetKind.DropSet -> "D"
     }
 
-private fun EditSetKind.isMyo(): Boolean =
-    this == EditSetKind.MyoRepFloor || this == EditSetKind.MyoRepMatch
-
 /**
  * Whether [kind] can be selected for [setIndex] (0-based) on [lift].
  *
- * Myo activation may sit at any index (including the top set) and may be followed by
- * straight sets and/or drop sets. Only one myo activation per lift. Drop sets need an
- * anchor set above them (index > 0) and a weighted load type. Myo and drop may coexist
- * (e.g. myo top set + later drop backoffs). Linear bans both intensifiers.
+ * Mirrors [IntensifierPlacementRules]: Myo may sit at any index (including after drops and
+ * other myo activations — multiple clusters OK). Drop must immediately follow Standard or
+ * Drop (never Myo). Linear bans both intensifiers.
  */
 internal fun canSelectSetKind(
     lift: EditLiftState,
@@ -59,16 +56,24 @@ internal fun canSelectSetKind(
     loadType: LoadType = LoadType.Weighted,
 ): Boolean {
     if (kind == EditSetKind.Standard) return true
-    if (lift.progressionScheme == ProgressionScheme.Linear) return false
-
-    val others = lift.sets.withIndex().filter { it.index != setIndex }.map { it.value }
-    val othersHaveMyo = others.any { it.setKind.isMyo() }
+    if (setIndex !in lift.sets.indices) return false
 
     return when (kind) {
-        EditSetKind.DropSet ->
-            loadType == LoadType.Weighted && setIndex > 0
+        EditSetKind.DropSet -> {
+            val previousType = lift.sets.getOrNull(setIndex - 1)?.setKind?.toDomainSetType()
+            IntensifierPlacementRules.isDropAllowed(
+                position = setIndex,
+                previousType = previousType,
+                scheme = lift.progressionScheme,
+                loadType = loadType,
+            )
+        }
         EditSetKind.MyoRepFloor, EditSetKind.MyoRepMatch ->
-            !othersHaveMyo
+            IntensifierPlacementRules.isMyoAllowed(
+                position = setIndex,
+                setCount = lift.sets.size,
+                scheme = lift.progressionScheme,
+            )
         EditSetKind.Standard -> true
     }
 }

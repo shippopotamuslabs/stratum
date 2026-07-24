@@ -38,20 +38,33 @@ class EditWorkoutSetTypeTest {
     }
 
     @Test
-    fun `only one myo activation per lift`() {
+    fun `myo and drop allowed on isolation double`() {
+        // Accessories always Double (D8); intensifiers must not be gated on isCompound toggle.
+        val lift = lift(
+            scheme = ProgressionScheme.Double,
+            kinds = listOf(EditSetKind.Standard, EditSetKind.Standard, EditSetKind.Standard),
+            isCompound = false,
+        )
+        assertTrue(canSelectSetKind(lift, setIndex = 0, kind = EditSetKind.MyoRepFloor))
+        assertTrue(canSelectSetKind(lift, setIndex = 1, kind = EditSetKind.DropSet))
+        assertTrue(canSelectSetKind(lift, setIndex = 2, kind = EditSetKind.MyoRepMatch))
+    }
+
+    @Test
+    fun `multiple myo activations per lift are allowed`() {
         val lift = lift(
             scheme = ProgressionScheme.Double,
             kinds = listOf(EditSetKind.MyoRepFloor, EditSetKind.Standard, EditSetKind.Standard),
         )
-        assertFalse(canSelectSetKind(lift, setIndex = 1, kind = EditSetKind.MyoRepMatch))
-        assertFalse(canSelectSetKind(lift, setIndex = 2, kind = EditSetKind.MyoRepFloor))
+        assertTrue(canSelectSetKind(lift, setIndex = 1, kind = EditSetKind.MyoRepMatch))
+        assertTrue(canSelectSetKind(lift, setIndex = 2, kind = EditSetKind.MyoRepFloor))
         // Switching kind on the existing myo row is still allowed.
         assertTrue(canSelectSetKind(lift, setIndex = 0, kind = EditSetKind.MyoRepMatch))
     }
 
     @Test
-    fun `drop allowed on later sets when lift has myo top set`() {
-        // Myo top set + straight work; drop needs an anchor above (index > 0).
+    fun `drop after standard allowed including after myo then standard`() {
+        // Myo top set + straight work; drop needs a Standard (or Drop) predecessor.
         val lift = lift(
             scheme = ProgressionScheme.Double,
             kinds = listOf(
@@ -62,9 +75,34 @@ class EditWorkoutSetTypeTest {
             ),
         )
         assertFalse(canSelectSetKind(lift, setIndex = 0, kind = EditSetKind.DropSet))
-        assertTrue(canSelectSetKind(lift, setIndex = 1, kind = EditSetKind.DropSet))
+        // Index 1 follows Myo → not allowed.
+        assertFalse(canSelectSetKind(lift, setIndex = 1, kind = EditSetKind.DropSet))
+        // Index 2+ follow Standard → allowed.
         assertTrue(canSelectSetKind(lift, setIndex = 2, kind = EditSetKind.DropSet))
         assertTrue(canSelectSetKind(lift, setIndex = 3, kind = EditSetKind.DropSet))
+    }
+
+    @Test
+    fun `drop immediately after myo banned`() {
+        val lift = lift(
+            scheme = ProgressionScheme.Double,
+            kinds = listOf(EditSetKind.MyoRepFloor, EditSetKind.Standard, EditSetKind.Standard),
+        )
+        assertFalse(canSelectSetKind(lift, setIndex = 1, kind = EditSetKind.DropSet))
+    }
+
+    @Test
+    fun `drop chain after standard allowed`() {
+        val lift = lift(
+            scheme = ProgressionScheme.Double,
+            kinds = listOf(
+                EditSetKind.Standard,
+                EditSetKind.DropSet,
+                EditSetKind.Standard,
+            ),
+        )
+        // Continue multi-drop after existing Drop.
+        assertTrue(canSelectSetKind(lift, setIndex = 2, kind = EditSetKind.DropSet))
     }
 
     @Test
@@ -74,6 +112,7 @@ class EditWorkoutSetTypeTest {
             kinds = listOf(EditSetKind.Standard, EditSetKind.DropSet, EditSetKind.Standard),
         )
         assertTrue(canSelectSetKind(lift, setIndex = 0, kind = EditSetKind.MyoRepFloor))
+        assertTrue(canSelectSetKind(lift, setIndex = 1, kind = EditSetKind.MyoRepMatch))
         assertTrue(canSelectSetKind(lift, setIndex = 2, kind = EditSetKind.MyoRepMatch))
     }
 
@@ -140,12 +179,14 @@ class EditWorkoutSetTypeTest {
     private fun lift(
         scheme: ProgressionScheme,
         kinds: List<EditSetKind>,
+        isCompound: Boolean = true,
     ): EditLiftState =
         EditLiftState(
             workoutLiftId = "wl-1",
             liftId = "lift-1",
             name = "Bench",
             position = 0,
+            isCompound = isCompound,
             progressionScheme = scheme,
             sets =
                 kinds.mapIndexed { index, kind ->
