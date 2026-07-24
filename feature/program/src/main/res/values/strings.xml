@@ -197,6 +197,11 @@
     <string name="edit_workout_discard_message">You have unsaved edits to this workout.</string>
     <string name="edit_workout_discard_confirm">Discard</string>
     <string name="edit_workout_discard_cancel">Keep editing</string>
+    <string name="edit_workout_start_dirty_title">Unsaved changes</string>
+    <string name="edit_workout_start_dirty_body">Save your edits before starting, or discard them and start from the last saved workout.</string>
+    <string name="edit_workout_start_dirty_confirm">Save and Start</string>
+    <string name="edit_workout_start_dirty_discard">Discard and Start</string>
+    <string name="edit_workout_start_dirty_cancel">Cancel</string>
     <string name="edit_workout_use_rest_timer_between_lifts">Use rest timer between lifts</string>
     <string name="edit_workout_save_blocked_placeholder_lift">Choose an exercise for each new lift before saving.</string>
 

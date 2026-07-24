@@ -31,6 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.activity.compose.BackHandler
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,6 +75,7 @@ fun EditWorkoutRoute(
     onBackClick: () -> Unit,
     onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit,
     onReorderLiftsClick: (workoutId: String) -> Unit,
+    onNavigateToWorkout: (workoutId: String) -> Unit = {},
     modifier: Modifier = Modifier,
     programId: String? = null,
     viewModel: EditWorkoutViewModel = hiltViewModel(),
@@ -89,8 +91,21 @@ fun EditWorkoutRoute(
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val isStarting by viewModel.isStarting.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showDiscardDialog by remember { mutableStateOf(false) }
+    var showLeaveDiscardDialog by remember { mutableStateOf(false) }
+    var showDirtyStartDialog by remember { mutableStateOf(false) }
+    var showActiveSessionDiscardDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(viewModel, onNavigateToWorkout) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is EditWorkoutUiEvent.NavigateToWorkout -> onNavigateToWorkout(event.workoutId)
+                EditWorkoutUiEvent.ShowActiveSessionDiscardDialog ->
+                    showActiveSessionDiscardDialog = true
+            }
+        }
+    }
 
     UserMessageEffect(
         userMessage = userMessage,
@@ -100,10 +115,10 @@ fun EditWorkoutRoute(
 
     EditWorkoutScreen(
         state = state,
-        showDiscardDialog = showDiscardDialog,
-        onDismissDiscardDialog = { showDiscardDialog = false },
+        showDiscardDialog = showLeaveDiscardDialog,
+        onDismissDiscardDialog = { showLeaveDiscardDialog = false },
         onConfirmDiscard = {
-            showDiscardDialog = false
+            showLeaveDiscardDialog = false
             onBackClick()
         },
         // Fresh read after dock commit so back sees newly dirtied state.
@@ -111,7 +126,10 @@ fun EditWorkoutRoute(
             (viewModel.uiState.value as? EditWorkoutUiState.Loaded)?.isDirty == true
         },
         onLeave = onBackClick,
-        onRequestDiscardDialog = { showDiscardDialog = true },
+        onRequestDiscardDialog = { showLeaveDiscardDialog = true },
+        // Library edits pass programId; only active-program templates can start a session.
+        showStartWorkout = programId == null,
+        isStarting = isStarting,
         callbacks =
             EditWorkoutScreenCallbacks(
                 onAddSet = viewModel::addSet,
@@ -134,6 +152,16 @@ fun EditWorkoutRoute(
                 onSaveWorkout = {
                     viewModel.saveWorkout(onComplete = onBackClick)
                 },
+                onStartWorkout = {
+                    val loaded = viewModel.uiState.value as? EditWorkoutUiState.Loaded
+                    if (loaded != null) {
+                        if (loaded.isDirty) {
+                            showDirtyStartDialog = true
+                        } else {
+                            viewModel.requestStartWorkout()
+                        }
+                    }
+                },
                 onSwapLiftClick = onSwapLiftClick,
                 onReorderLiftsClick = {
                     viewModel.startReorderLifts()
@@ -143,6 +171,30 @@ fun EditWorkoutRoute(
         snackbarHostState = snackbarHostState,
         modifier = modifier,
     )
+
+    if (showDirtyStartDialog) {
+        EditWorkoutDirtyStartDialog(
+            onConfirmSaveAndStart = {
+                showDirtyStartDialog = false
+                viewModel.startAfterDirtyResolution(saveEdits = true)
+            },
+            onDiscardAndStart = {
+                showDirtyStartDialog = false
+                viewModel.startAfterDirtyResolution(saveEdits = false)
+            },
+            onDismiss = { showDirtyStartDialog = false },
+        )
+    }
+
+    if (showActiveSessionDiscardDialog) {
+        StartSessionDiscardDialog(
+            onDismiss = { showActiveSessionDiscardDialog = false },
+            onConfirm = {
+                showActiveSessionDiscardDialog = false
+                viewModel.confirmDiscardActiveAndStart()
+            },
+        )
+    }
 }
 
 @Composable
@@ -160,6 +212,9 @@ fun EditWorkoutScreen(
     /** Navigate away after clean leave or confirmed discard. */
     onLeave: () -> Unit = {},
     onRequestDiscardDialog: () -> Unit = {},
+    /** Active-program edit only; hidden for library edits and create-program embed. */
+    showStartWorkout: Boolean = false,
+    isStarting: Boolean = false,
     snackbarHostState: SnackbarHostState? = null,
 ) {
     var rirSheetSet by remember { mutableStateOf<EditSetState?>(null) }
@@ -180,6 +235,12 @@ fun EditWorkoutScreen(
     fun attemptSave() {
         if (!dockHost.tryCommitPendingOrBlock()) return
         callbacks.onSaveWorkout()
+    }
+
+    fun attemptStart() {
+        if (isStarting) return
+        if (!dockHost.tryCommitPendingOrBlock()) return
+        callbacks.onStartWorkout()
     }
 
     // Dock open: system back tries commit/block first (also registered inside ProvideEditWorkoutDock).
@@ -241,6 +302,9 @@ fun EditWorkoutScreen(
                         onShowProgressionSchemeInfo = { showProgressionSchemeExplainer = true },
                         modifier = Modifier.padding(padding),
                         dockHost = dockHost,
+                        showStartWorkout = showStartWorkout,
+                        isStarting = isStarting,
+                        onStartWorkout = { attemptStart() },
                     )
             }
         }
@@ -440,6 +504,9 @@ internal fun EditWorkoutContent(
     dockHost: EditWorkoutDockHostState,
     modifier: Modifier = Modifier,
     showVolume: Boolean = true,
+    showStartWorkout: Boolean = false,
+    isStarting: Boolean = false,
+    onStartWorkout: () -> Unit = callbacks.onStartWorkout,
 ) {
     // Horizontal padding only on inset chrome; lift cards are full-bleed like live workout.
     val listInset = Modifier.padding(horizontal = 12.dp)
@@ -462,6 +529,16 @@ internal fun EditWorkoutContent(
             ),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+            if (showStartWorkout) {
+                item {
+                    StratumButton(
+                        text = stringResource(R.string.programs_start_workout),
+                        onClick = onStartWorkout,
+                        enabled = !isStarting && !state.isSaving,
+                        modifier = listInset.fillMaxWidth(),
+                    )
+                }
+            }
             if (showVolume) {
                 val workoutVolumeCards = state.upperVolumeByMuscle + state.lowerVolumeByMuscle
                 val programVolumeCards =
@@ -715,13 +792,69 @@ private fun EditWorkoutDiscardBottomSheet(
     }
 }
 
-
+/** Confirm / discard unsaved template edits before starting a live session. */
+@Composable
+private fun EditWorkoutDirtyStartDialog(
+    onConfirmSaveAndStart: () -> Unit,
+    onDiscardAndStart: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = StratumThemeAccessor.colors.surfaceRaised,
+                        shape = StratumThemeAccessor.shapes.panel,
+                    )
+                    .border(
+                        width = StratumThemeAccessor.shapes.borderWidth,
+                        color = StratumThemeAccessor.colors.borderStrong,
+                        shape = StratumThemeAccessor.shapes.panel,
+                    )
+                    .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            StratumText(
+                text = stringResource(R.string.edit_workout_start_dirty_title),
+                style = StratumThemeAccessor.typography.titleLarge,
+            )
+            StratumText(
+                text = stringResource(R.string.edit_workout_start_dirty_body),
+                style = StratumThemeAccessor.typography.bodyLarge,
+                muted = true,
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StratumButton(
+                    text = stringResource(R.string.edit_workout_start_dirty_confirm),
+                    onClick = onConfirmSaveAndStart,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                StratumOutlinedButton(
+                    text = stringResource(R.string.edit_workout_start_dirty_discard),
+                    onClick = onDiscardAndStart,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                StratumOutlinedButton(
+                    text = stringResource(R.string.edit_workout_start_dirty_cancel),
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
 
 @Preview(name = "Edit workout loaded light")
 @Composable
 fun EditWorkoutScreenLoadedPreview() {
     StratumTheme {
         EditWorkoutScreen(
+            showStartWorkout = true,
             state =
                 EditWorkoutUiState.Loaded(
                     workoutId = "w-1",
