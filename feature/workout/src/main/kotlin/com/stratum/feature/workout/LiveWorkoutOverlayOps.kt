@@ -269,8 +269,9 @@ internal object LiveWorkoutOverlayOps {
         val added = overlay.addedSlots
             .filter { it.workoutLiftId == workoutLiftId }
             .filterNot { it.slotId in overlay.deletedSlotIds }
-        // Apply swaps + rest overrides so callers see live-session values.
-        return (templateSlots + added).map { applyOverlaySlotFields(it, overlay) }
+        // Minis insert after activation (not always appended); renumber positions.
+        return LiveIntensifierOverlayOps.orderLiftSlots(templateSlots, added)
+            .map { applyOverlaySlotFields(it, overlay) }
     }
 
     fun slotKey(slotId: SetSlotId): String = when (slotId) {
@@ -372,9 +373,11 @@ internal object LiveWorkoutOverlayOps {
                 lift.supersetGroupId
             }
 
-            val baseSlots = lift.slots.map { applyOverlaySlotFields(it, overlay) }
-            val appended = overlay.addedSlots
+            val templateSlots = lift.slots.filterNot { it.slotId in overlay.deletedSlotIds }
+            val added = overlay.addedSlots
                 .filter { it.workoutLiftId == lift.workoutLiftId }
+                .filterNot { it.slotId in overlay.deletedSlotIds }
+            val orderedSlots = LiveIntensifierOverlayOps.orderLiftSlots(templateSlots, added)
                 .map { applyOverlaySlotFields(it, overlay) }
 
             lift.copy(
@@ -382,7 +385,7 @@ internal object LiveWorkoutOverlayOps {
                 liftName = currentLiftName,
                 loadType = currentLoadType,
                 supersetGroupId = currentSupersetGroupId,
-                slots = baseSlots + appended,
+                slots = orderedSlots,
                 useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[lift.workoutLiftId]
                     ?: lift.useRestTimerBetweenLifts,
             )
