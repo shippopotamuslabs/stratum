@@ -66,9 +66,15 @@ interface MyoRepLifecycle {
             MyoRepKind.RepMatching -> nextMiniSetRepMatching(state)
         }
 
-    private fun miniSet(state: MyoRepBlockState): SetSlot =
-        SetSlot(
-            slotId = SetSlotId.Overlay(OverlaySetInstanceId("mini-${state.generatedSlots.size + 1}")),
+    private fun miniSet(state: MyoRepBlockState): SetSlot {
+        val activationKey = when (val id = state.activationSlotId) {
+            is SetSlotId.Template -> id.liftSetId.value
+            is SetSlotId.Overlay -> id.instanceId.value
+        }
+        val ordinal = state.generatedSlots.size + 1
+        return SetSlot(
+            // Live path may re-stamp uniqueness; activation key is required for multi-cluster order.
+            slotId = SetSlotId.Overlay(OverlaySetInstanceId("mini-$activationKey-$ordinal")),
             workoutLiftId = state.workoutLiftId,
             liftId = state.liftId,
             position = state.activationPosition + state.generatedSlots.size + 1,
@@ -81,6 +87,7 @@ interface MyoRepLifecycle {
             restSeconds = state.restSeconds.coerceAtLeast(0),
             myoRepKind = state.kind,
         )
+    }
 
     companion object {
         const val DEFAULT_REP_FLOOR: Int = 5

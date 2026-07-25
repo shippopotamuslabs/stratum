@@ -15,6 +15,7 @@ import com.stratum.domain.workout.dropset.EstimateDropSetWeightUseCase
 import com.stratum.domain.workout.fatigue.PopulationFatigueModel
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -84,6 +85,35 @@ class RecomputeIntensifierRecommendationsTest {
         recommendedReps = repMin.coerceAtLeast(1),
         loggedValue = logged,
     )
+
+    @Test
+    @DisplayName(
+        "DROP-COLD-OPEN: nothing logged — drop still 20% off prior snapshot weight " +
+            "(not shared straight-set load)",
+    )
+    fun coldOpenDropUsesTwentyPercentOffPriorPrescription() {
+        // Screenshot: all incomplete S 150×11 + D showing 150 — must be 120 before any log.
+        val workout = rendered(
+            listOf(
+                set("s1", 0, SetType.Standard, true, 150.0, repMin = 8, repMax = 12, rirGoal = 1)
+                    .copy(recommendedReps = 11),
+                set("s2", 1, SetType.Standard, false, 150.0, repMin = 8, repMax = 12, rirGoal = 1)
+                    .copy(recommendedReps = 11),
+                set("d1", 2, SetType.DropSet, false, 150.0, rirGoal = 0)
+                    .copy(recommendedReps = 11),
+                set("s3", 3, SetType.Standard, false, 150.0, repMin = 6, repMax = 10, rirGoal = 2)
+                    .copy(recommendedReps = 8),
+            ),
+        )
+        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val drop = recs[SetSlotId.Template(LiftSetId("d1"))]
+        assertNotNull(drop, "cold open must still prescribe drops")
+        assertEquals(120.0, drop!!.weight.amount, 0.01, "20% off prior 150")
+        assertTrue(drop.reps > 0)
+        // Straights stay on snapshot — no live straight recs without a performed set.
+        assertNull(recs[SetSlotId.Template(LiftSetId("s1"))])
+        assertNull(recs[SetSlotId.Template(LiftSetId("s2"))])
+    }
 
     @Test
     @DisplayName("DROP-W20: drop rec is 80% of performed prior")
@@ -159,6 +189,189 @@ class RecomputeIntensifierRecommendationsTest {
         assertEquals(64.0, second!!.weight.amount, 0.01)
         // From 80×6 → 64: fresh ~12 × 0.5 → 6
         assertEquals(6, second.reps)
+    }
+
+    @Test
+    @DisplayName(
+        "DROP-PRIOR-AS-PRESCRIBED: drop reps stable when parent is logged exactly as " +
+            "the open-row prescription (must use parent rirGoal, not RIR 0)",
+    )
+    fun dropRepsUnchangedWhenPriorLoggedAsPrescribed() {
+        // Screenshot: myo cluster done → open standard 65×7@1 + drop 50×7; user checks
+        // the standard exactly as shown. Drop reps must not jump (was 7 → 8 when RIR was
+        // hardcoded 0 on the unlogged-parent path while live rec was 7 at rirGoal 1).
+        val act = "act"
+        val mini = "mini"
+        val parentId = "s1"
+        val dropId = "d1"
+        val openParent = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 65.0,
+                    LoggedSetValue(SetSlotId.Template(LiftSetId(act)), lb(65.0), 11, 1),
+                    repMin = 8, repMax = 12, rirGoal = 1,
+                ),
+                overlayMyo(
+                    mini, 1,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini)),
+                        lb(65.0),
+                        5,
+                        0,
+                    ),
+                ),
+                set(
+                    parentId, 2, SetType.Standard, false, 65.0,
+                    logged = null,
+                    repMin = 6, repMax = 10, rirGoal = 1,
+                ),
+                set(dropId, 3, SetType.DropSet, false, 65.0, rirGoal = 1),
+            ),
+        )
+        val before = useCase(openParent, mapOf(liftId to catalogLift()))
+        val parentRec = before[SetSlotId.Template(LiftSetId(parentId))]
+        assertNotNull(parentRec, "parent needs a live rec to act as the open prescription")
+        val dropBefore = before[SetSlotId.Template(LiftSetId(dropId))]
+        assertNotNull(dropBefore)
+
+        val loggedAsPrescribed = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 65.0,
+                    LoggedSetValue(SetSlotId.Template(LiftSetId(act)), lb(65.0), 11, 1),
+                    repMin = 8, repMax = 12, rirGoal = 1,
+                ),
+                overlayMyo(
+                    mini, 1,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini)),
+                        lb(65.0),
+                        5,
+                        0,
+                    ),
+                ),
+                set(
+                    parentId, 2, SetType.Standard, false, 65.0,
+                    LoggedSetValue(
+                        SetSlotId.Template(LiftSetId(parentId)),
+                        parentRec!!.weight,
+                        parentRec.reps,
+                        rir = 1,
+                    ),
+                    repMin = 6, repMax = 10, rirGoal = 1,
+                ),
+                set(dropId, 3, SetType.DropSet, false, 65.0, rirGoal = 1),
+            ),
+        )
+        val dropAfter = useCase(loggedAsPrescribed, mapOf(liftId to catalogLift()))[
+            SetSlotId.Template(LiftSetId(dropId)),
+        ]
+        assertNotNull(dropAfter)
+        assertEquals(
+            dropBefore!!.weight.amount,
+            dropAfter!!.weight.amount,
+            0.01,
+            "drop weight should match when parent logged as prescribed",
+        )
+        assertEquals(
+            dropBefore.reps,
+            dropAfter.reps,
+            "drop reps must not jump when parent is logged exactly as the open prescription " +
+                "(before=${dropBefore.reps}, after=${dropAfter.reps}, parentRec=${parentRec.reps})",
+        )
+    }
+
+    @Test
+    @DisplayName(
+        "DROP-CHAIN-PRIOR-AS-PRESCRIBED: second drop stable when first drop is logged " +
+            "exactly as open rec at its rirGoal (0) — not a higher logged RIR",
+    )
+    fun dropChainSecondStableWhenFirstLoggedAsPrescribedAtRirGoal() {
+        // Screenshot: S×3 open → D 15×11 / D 10×11; logging first drop 15×11@0 keeps second
+        // at 10×11. Logging 15×11@1 (stale badge) was jumping second to 10×12.
+        val s1 = "s1"
+        val s2 = "s2"
+        val s3 = "s3"
+        val d1 = "d1"
+        val d2 = "d2"
+        val open = rendered(
+            listOf(
+                set(s1, 0, SetType.Standard, true, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(s2, 1, SetType.Standard, false, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(s3, 2, SetType.Standard, false, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(d1, 3, SetType.DropSet, false, 20.0, rirGoal = 0),
+                set(d2, 4, SetType.DropSet, false, 20.0, rirGoal = 0),
+            ),
+        )
+        val before = useCase(open, mapOf(liftId to catalogLift()))
+        val firstBefore = before[SetSlotId.Template(LiftSetId(d1))]
+        val secondBefore = before[SetSlotId.Template(LiftSetId(d2))]
+        assertNotNull(firstBefore)
+        assertNotNull(secondBefore)
+
+        val loggedAtGoal = rendered(
+            listOf(
+                set(s1, 0, SetType.Standard, true, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(s2, 1, SetType.Standard, false, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(s3, 2, SetType.Standard, false, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(
+                    d1, 3, SetType.DropSet, false, 20.0,
+                    LoggedSetValue(
+                        SetSlotId.Template(LiftSetId(d1)),
+                        firstBefore!!.weight,
+                        firstBefore.reps,
+                        rir = 0,
+                    ),
+                    rirGoal = 0,
+                ),
+                set(d2, 4, SetType.DropSet, false, 20.0, rirGoal = 0),
+            ),
+        )
+        val secondAfter = useCase(loggedAtGoal, mapOf(liftId to catalogLift()))[
+            SetSlotId.Template(LiftSetId(d2)),
+        ]
+        assertNotNull(secondAfter)
+        assertEquals(
+            secondBefore!!.weight.amount,
+            secondAfter!!.weight.amount,
+            0.01,
+        )
+        assertEquals(
+            secondBefore.reps,
+            secondAfter.reps,
+            "second drop must not jump when first is logged as open rec @ rirGoal " +
+                "(before=${secondBefore.reps}, after=${secondAfter.reps}, " +
+                "firstRec=${firstBefore.reps})",
+        )
+
+        // Contrast: logging the same weight/reps with a higher RIR *should* raise capacity.
+        val loggedWithHigherRir = rendered(
+            listOf(
+                set(s1, 0, SetType.Standard, true, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(s2, 1, SetType.Standard, false, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(s3, 2, SetType.Standard, false, 20.0, repMin = 10, repMax = 18, rirGoal = 1),
+                set(
+                    d1, 3, SetType.DropSet, false, 20.0,
+                    LoggedSetValue(
+                        SetSlotId.Template(LiftSetId(d1)),
+                        firstBefore.weight,
+                        firstBefore.reps,
+                        rir = 1,
+                    ),
+                    rirGoal = 0,
+                ),
+                set(d2, 4, SetType.DropSet, false, 20.0, rirGoal = 0),
+            ),
+        )
+        val secondHigherRir = useCase(loggedWithHigherRir, mapOf(liftId to catalogLift()))[
+            SetSlotId.Template(LiftSetId(d2)),
+        ]
+        assertNotNull(secondHigherRir)
+        assertTrue(
+            secondHigherRir!!.reps >= secondAfter.reps,
+            "logging prior drop with higher RIR may raise next-drop capacity " +
+                "(atGoal=${secondAfter.reps}, higherRir=${secondHigherRir.reps})",
+        )
     }
 
     @Test
@@ -359,6 +572,232 @@ class RecomputeIntensifierRecommendationsTest {
     }
 
     @Test
+    @DisplayName(
+        "MYO-MULTI-CLUSTER-OOO: open mini under earlier activation still gets recs " +
+            "after a later cluster is fully logged",
+    )
+    fun earlierClusterOpenMiniGetsRecsWhenLaterClusterDone() {
+        // Screenshot regression: user finishes 2nd myo cluster first, then logs 1st activation.
+        // Global last-performed is the last mini of cluster 2; the open mini under cluster 1
+        // sits before that anchor and must still receive weight + short-rest reps from act1.
+        val act1 = "act1"
+        val mini1 = "mini-act1-1"
+        val act2 = "act2"
+        val mini2a = "mini-act2-1"
+        val mini2b = "mini-act2-2"
+        val workout = rendered(
+            listOf(
+                set(
+                    act1, 0, SetType.MyoRep, true, 65.0,
+                    LoggedSetValue(SetSlotId.Template(LiftSetId(act1)), lb(65.0), 11, 1),
+                    repMin = 8, repMax = 12, rirGoal = 1,
+                ),
+                overlayMyo(mini1, 1, weight = 65.0, logged = null),
+                set(
+                    act2, 2, SetType.MyoRep, true, 65.0,
+                    LoggedSetValue(SetSlotId.Template(LiftSetId(act2)), lb(65.0), 11, 1),
+                    repMin = 8, repMax = 12, rirGoal = 1,
+                ),
+                overlayMyo(
+                    mini2a, 3,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini2a)),
+                        lb(65.0),
+                        8,
+                        0,
+                    ),
+                ),
+                overlayMyo(
+                    mini2b, 4,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini2b)),
+                        lb(65.0),
+                        5,
+                        0,
+                    ),
+                ),
+            ),
+        )
+        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val openMini = recs[SetSlotId.Overlay(OverlaySetInstanceId(mini1))]
+        assertNotNull(openMini, "open mini under earlier activation must get a live rec")
+        assertEquals(65.0, openMini!!.weight.amount, 0.01, "copies activation load")
+        // First mini from 65×11@1 → failure capacity 12 × 0.45 ≈ 5
+        assertEquals(5, openMini.reps, "short-rest first-mini projection from act1, not blank")
+        assertTrue(openMini.reps > 0)
+    }
+
+    @Test
+    @DisplayName(
+        "POST-MYO-STRAIGHT-FLOOR: long mini chain must drop shared weight rather than " +
+            "sub-floor reps on following standards",
+    )
+    fun postMyoStraightDropsWeightInsteadOfSubFloorReps() {
+        // Screenshot: act 65×11@1 + three minis (6/6/3) → standards showed 65×5/4/2.
+        // Last-set floor (5) must cut load; never prescribe 4 or 2 at 65.
+        val act = "act"
+        val mini1 = "mini1"
+        val mini2 = "mini2"
+        val mini3 = "mini3"
+        val s1 = "s1"
+        val s2 = "s2"
+        val s3 = "s3"
+        val workout = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 65.0,
+                    LoggedSetValue(SetSlotId.Template(LiftSetId(act)), lb(65.0), 11, 1),
+                    repMin = 8, repMax = 12, rirGoal = 1,
+                ),
+                overlayMyo(
+                    mini1, 1,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini1)),
+                        lb(65.0),
+                        6,
+                        0,
+                    ),
+                ),
+                overlayMyo(
+                    mini2, 2,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini2)),
+                        lb(65.0),
+                        6,
+                        0,
+                    ),
+                ),
+                overlayMyo(
+                    mini3, 3,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini3)),
+                        lb(65.0),
+                        3,
+                        0,
+                    ),
+                ),
+                set(s1, 4, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+                set(s2, 5, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+                set(s3, 6, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+            ),
+        )
+        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val first = recs[SetSlotId.Template(LiftSetId(s1))]
+        val mid = recs[SetSlotId.Template(LiftSetId(s2))]
+        val last = recs[SetSlotId.Template(LiftSetId(s3))]
+        assertNotNull(first)
+        assertNotNull(mid)
+        assertNotNull(last)
+        assertTrue(
+            first!!.weight.amount < 65.0,
+            "shared weight must drop when last-set capacity at 65 is sub-floor; got ${first.weight.amount}",
+        )
+        assertEquals(first.weight.amount, last!!.weight.amount, 0.01, "shared straight weight")
+        assertTrue(first.reps >= BACKOFF_REP_FLOOR, "got ${first.reps}")
+        assertTrue(mid!!.reps >= BACKOFF_REP_FLOOR, "got ${mid.reps}")
+        assertTrue(last.reps >= BACKOFF_REP_FLOOR, "got ${last.reps}")
+        assertTrue(first.reps >= last.reps, "set-index fatigue: ${first.reps} then ${last.reps}")
+    }
+
+    @Test
+    @DisplayName(
+        "POST-MYO-STRAIGHT-OPEN-MINI: after activation log, standards re-project while mini " +
+            "is still open (not only after mini is completed)",
+    )
+    fun postMyoStraightUpdatesWhileMiniStillOpen() {
+        // Screenshot: act 65×11@1 → mini spawns 65×5@0; standards still showed snapshot
+        // 11/9/6 until mini was logged, then jumped to 8/7/5. Must live-project with the
+        // open mini occupying a set-index step as soon as the activation is logged.
+        val act = "act"
+        val mini = "mini"
+        val s1 = "s1"
+        val s2 = "s2"
+        val s3 = "s3"
+        val withOpenMini = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 65.0,
+                    LoggedSetValue(SetSlotId.Template(LiftSetId(act)), lb(65.0), 11, 1),
+                    repMin = 8, repMax = 12, rirGoal = 1,
+                ),
+                overlayMyo(mini, 1, weight = 65.0, logged = null),
+                set(s1, 2, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+                set(s2, 3, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+                set(s3, 4, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+            ),
+        )
+        val openRecs = useCase(withOpenMini, mapOf(liftId to catalogLift()))
+        val openS1 = openRecs[SetSlotId.Template(LiftSetId(s1))]
+        val openS2 = openRecs[SetSlotId.Template(LiftSetId(s2))]
+        val openS3 = openRecs[SetSlotId.Template(LiftSetId(s3))]
+        assertNotNull(openS1, "standards must get live recs while mini is still open")
+        assertNotNull(openS2)
+        assertNotNull(openS3)
+
+        // Control: no mini slot — first standard is only one step after activation.
+        val noMini = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 65.0,
+                    LoggedSetValue(SetSlotId.Template(LiftSetId(act)), lb(65.0), 11, 1),
+                    repMin = 8, repMax = 12, rirGoal = 1,
+                ),
+                set(s1, 1, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+                set(s2, 2, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+                set(s3, 3, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+            ),
+        )
+        val noMiniS1 = useCase(noMini, mapOf(liftId to catalogLift()))[
+            SetSlotId.Template(LiftSetId(s1)),
+        ]
+        // Without a mini, engine-null may leave snapshot (no live rec). If both live,
+        // open-mini first standard is further set-index → fewer or equal reps.
+        if (noMiniS1 != null) {
+            assertTrue(
+                openS1!!.reps <= noMiniS1.reps,
+                "open mini must count as fatigue step for following standards " +
+                    "(openMini=${openS1.reps}, noMini=${noMiniS1.reps})",
+            )
+        }
+
+        // Logging mini exactly as its open rec must not jump standards further.
+        val miniRec = openRecs[SetSlotId.Overlay(OverlaySetInstanceId(mini))]
+        assertNotNull(miniRec)
+        val miniLogged = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 65.0,
+                    LoggedSetValue(SetSlotId.Template(LiftSetId(act)), lb(65.0), 11, 1),
+                    repMin = 8, repMax = 12, rirGoal = 1,
+                ),
+                overlayMyo(
+                    mini, 1, weight = 65.0,
+                    logged = LoggedSetValue(
+                        SetSlotId.Overlay(OverlaySetInstanceId(mini)),
+                        miniRec!!.weight,
+                        miniRec.reps,
+                        rir = 0,
+                    ),
+                ),
+                set(s1, 2, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+                set(s2, 3, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+                set(s3, 4, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
+            ),
+        )
+        val afterMini = useCase(miniLogged, mapOf(liftId to catalogLift()))
+        val afterS1 = afterMini[SetSlotId.Template(LiftSetId(s1))]
+        assertNotNull(afterS1)
+        assertEquals(
+            openS1!!.reps,
+            afterS1!!.reps,
+            "logging mini as prescribed must not change first-standard reps " +
+                "(open=${openS1.reps}, afterMini=${afterS1.reps})",
+        )
+        assertEquals(openS2!!.reps, afterMini[SetSlotId.Template(LiftSetId(s2))]!!.reps)
+        assertEquals(openS3!!.reps, afterMini[SetSlotId.Template(LiftSetId(s3))]!!.reps)
+    }
+
+    @Test
     @DisplayName("POST-MYO-STRAIGHT: standards after completed minis anchor on activation, not last mini")
     fun postMyoStraightAnchorsOnActivationNotLastMini() {
         // Screenshot regression: activation 65×11@1, minis 65×6@0 / 65×3@0, then standards.
@@ -405,15 +844,17 @@ class RecomputeIntensifierRecommendationsTest {
         val lastStd = recs[SetSlotId.Template(LiftSetId(s3))]
         assertNotNull(firstStd)
         assertNotNull(lastStd)
-        // Shared straight weight must not collapse to the mini-anchored ~50 lb band.
+        // Shared load is activation-anchored then last-set floor reduced — may sit below 65
+        // but must not collapse to a last-mini e1RM crush (~50).
         assertTrue(
-            firstStd!!.weight.amount >= 60.0,
-            "post-myo straight weight must track activation (~65), not last mini crush; got ${firstStd.weight.amount}",
+            firstStd!!.weight.amount >= 55.0,
+            "post-myo straight weight must stay near activation/floor path; got ${firstStd.weight.amount}",
         )
         assertEquals(firstStd.weight.amount, lastStd!!.weight.amount, 0.01, "shared straight weight")
         // First remaining standard is set-index 4 after activation (2 minis + itself).
-        // Last mini alone (set-index 2 from 65×3) would project far fewer reps at the same load.
-        assertTrue(firstStd.reps >= 5, "honest capacity at activation e1RM; got ${firstStd.reps}")
+        // All standards clear BACKOFF_REP_FLOOR after shared reduce.
+        assertTrue(firstStd.reps >= BACKOFF_REP_FLOOR, "honest capacity; got ${firstStd.reps}")
+        assertTrue(lastStd.reps >= BACKOFF_REP_FLOOR, "last set must clear floor; got ${lastStd.reps}")
         assertTrue(
             firstStd.reps >= lastStd.reps,
             "reps should step down with set index: ${firstStd.reps} then ${lastStd.reps}",

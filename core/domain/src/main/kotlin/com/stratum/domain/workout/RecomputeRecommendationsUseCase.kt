@@ -27,16 +27,24 @@ import javax.inject.Inject
  * Performance is anchored on the latest logged **straight-working** set (Standard or
  * Myo activation) — never a myo mini or drop, whose short-rest / reduced-load logs
  * understate e1RM. Completed minis/drops after that anchor count as fatigue sets
- * (set-index + remainingCount) so the engine still sees the cluster volume; unlogged
- * intensifiers stay excluded from remainingCount so planned minis/drops do not
- * over-cut shared straight load.
+ * so the engine still sees cluster volume. Open minis/drops between the performance
+ * anchor and the last standard share one ordinal geometry ([fatigueSetIndex] /
+ * [remainingCountAfterPerformanceAnchor]) for floor + reps. Post-cluster uses the
+ * same [RecommendationEngine.recommendNextSet] with `keepSnapshotWhenOnTrack = false`
+ * so last-set floor reduce always runs (no second weight path).
  * **Drop sets** use 20% off the immediate prior (performed, else prior live rec, else
  * snapshot prescription) and project reps with zero-rest [DropSetRepProjection] from
  * that prior — not normal-rest population fatigue. **Myo minis** copy activation load
  * (reduced when activation was way too heavy) and project reps with short-rest
  * [MyoMiniRepProjection] from the last logged set in the myo chain.
  *
- * **Post-anchor only:** unlogged sets before the last performed set do not receive live recs.
+ * **Post-anchor (straights + drops when something is logged):** unlogged straight/drop
+ * sets before the last performed set do not receive live recs (user skipped ahead).
+ * **Cold open (nothing logged yet):** unlogged drops still get 20%-off recs from the
+ * prior slot's snapshot prescription — engines leave drops at shared straight-set load.
+ * **Myo minis exception:** unlogged auto-minis still get recs when their activation is
+ * logged, even if a later cluster was completed first — multi-cluster out-of-order work
+ * must not blank the earlier open mini.
  */
 class RecomputeRecommendationsUseCase @Inject constructor(
     private val recommendationEngine: RecommendationEngine,
@@ -57,22 +65,41 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         liftsById: Map<LiftId, Lift>,
         fatigueByLiftId: Map<LiftId, FatigueDecay>,
     ): Map<SetSlotId, LiveSetRecommendation> {
+        val setsByPosition = lift.sets.sortedBy { it.position }
+        val incrementTiers = liftsById[lift.liftId]?.incrementTiers ?: emptyList()
         val lastPerformedSet = lift.sets
             .filter { it.loggedValue != null }
             .maxByOrNull { it.position }
         val lastPerformed = lastPerformedSet?.loggedValue
-        if (lastPerformedSet == null || lastPerformed == null) return emptyMap()
 
-        val setsByPosition = lift.sets.sortedBy { it.position }
+        // Cold open: no logs yet — still prescribe drops from prior snapshot weights so
+        // incomplete parents do not leave drops at the shared straight-set load (150→120).
+        if (lastPerformedSet == null || lastPerformed == null) {
+            val unloggedDrops = setsByPosition.filter {
+                it.loggedValue == null && it.setType == SetType.DropSet
+            }
+            if (unloggedDrops.isEmpty()) return emptyMap()
+            return dropRecommendations(
+                drops = unloggedDrops,
+                setsByPosition = setsByPosition,
+                lastPerformed = null,
+                incrementTiers = incrementTiers,
+                loadType = lift.loadType,
+                priorResults = emptyMap(),
+            )
+        }
+
         val anchorOrdinal = setsByPosition.indexOfFirst { it.slotId == lastPerformedSet.slotId }
         val postAnchorUpcoming = if (anchorOrdinal < 0) {
             emptyList()
         } else {
             setsByPosition.drop(anchorOrdinal + 1).filter { it.loggedValue == null }
         }
-        if (postAnchorUpcoming.isEmpty()) return emptyMap()
+        // Open myo minis anywhere in the lift (not only post-anchor) — cluster order of work
+        // can leave an earlier activation's mini still open after a later cluster is done.
+        val unloggedMyoMinis = setsByPosition.filter { it.loggedValue == null && isMyoMini(it) }
+        if (postAnchorUpcoming.isEmpty() && unloggedMyoMinis.isEmpty()) return emptyMap()
 
-        val incrementTiers = liftsById[lift.liftId]?.incrementTiers ?: emptyList()
         val fatigue = fatigueByLiftId[lift.liftId] ?: FatigueDecay(null, null)
         val results = linkedMapOf<SetSlotId, LiveSetRecommendation>()
 
@@ -91,7 +118,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         }
 
         results += dropRecommendations(
-            postAnchorUpcoming = postAnchorUpcoming,
+            drops = postAnchorUpcoming.filter { it.setType == SetType.DropSet },
             setsByPosition = setsByPosition,
             lastPerformed = lastPerformed,
             incrementTiers = incrementTiers,
@@ -99,12 +126,10 @@ class RecomputeRecommendationsUseCase @Inject constructor(
             priorResults = results,
         )
         results += myoMiniRecommendations(
-            postAnchorUpcoming = postAnchorUpcoming,
+            unloggedMinis = unloggedMyoMinis,
             setsByPosition = setsByPosition,
-            lastPerformed = lastPerformed,
             incrementTiers = incrementTiers,
             loadType = lift.loadType,
-            priorResults = results,
         )
 
         return results
@@ -117,9 +142,9 @@ class RecomputeRecommendationsUseCase @Inject constructor(
      * the last performed parent set.
      */
     private fun dropRecommendations(
-        postAnchorUpcoming: List<RenderedSet>,
+        drops: List<RenderedSet>,
         setsByPosition: List<RenderedSet>,
-        lastPerformed: LoggedSetValue,
+        lastPerformed: LoggedSetValue?,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
         priorResults: Map<SetSlotId, LiveSetRecommendation>,
@@ -127,7 +152,7 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         val out = linkedMapOf<SetSlotId, LiveSetRecommendation>()
         // Merge live drop recs as we go so multi-drop chains resolve prior weight/reps.
         val resolved = priorResults.toMutableMap()
-        for (set in postAnchorUpcoming.filter { it.setType == SetType.DropSet }) {
+        for (set in drops) {
             val rec = recommendDropSet(
                 set = set,
                 setsByPosition = setsByPosition,
@@ -145,18 +170,19 @@ class RecomputeRecommendationsUseCase @Inject constructor(
     private fun recommendDropSet(
         set: RenderedSet,
         setsByPosition: List<RenderedSet>,
-        lastPerformed: LoggedSetValue,
+        lastPerformed: LoggedSetValue?,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
         resolved: Map<SetSlotId, LiveSetRecommendation>,
     ): LiveSetRecommendation? {
         val prior = priorSet(setsByPosition, set) ?: return null
         val priorWeight = resolvePriorWeight(prior, resolved) ?: return null
-        val (priorReps, priorRir) = resolvePriorRepsAndRir(
+        val priorRepsAndRir = resolvePriorRepsAndRir(
             prior = prior,
             lastPerformed = lastPerformed,
             resolved = resolved,
-        )
+        ) ?: return null
+        val (priorReps, priorRir) = priorRepsAndRir
         val dropWeight = estimateDropSetWeight(
             precedingWeight = priorWeight,
             incrementTiers = incrementTiers,
@@ -181,46 +207,56 @@ class RecomputeRecommendationsUseCase @Inject constructor(
     }
 
     /**
-     * Immediate prior set's performed reps/RIR when logged; otherwise the live rec for
-     * that prior (chained drop); else the lift's last performed set.
+     * Immediate prior set's performed reps/RIR when logged; otherwise the **prescribed**
+     * assumption for that prior (live rec or baseline) at [RenderedSet.rirGoal].
+     *
+     * Must not hardcode RIR 0 on an unlogged prior — live recs are already the working
+     * reps at the slot's RIR goal. Using RIR 0 understates failure capacity and makes the
+     * drop rec jump when the prior is logged exactly as prescribed (e.g. 7@1 → was treated
+     * as 7@0 before log, 7@1 after).
      */
     private fun resolvePriorRepsAndRir(
         prior: RenderedSet,
-        lastPerformed: LoggedSetValue,
+        lastPerformed: LoggedSetValue?,
         resolved: Map<SetSlotId, LiveSetRecommendation>,
-    ): Pair<Int, Int?> {
+    ): Pair<Int, Int?>? {
         prior.loggedValue?.let { return it.reps to it.rir }
-        resolved[prior.slotId]?.reps?.takeIf { it > 0 }?.let { return it to 0 }
-        return lastPerformed.reps to lastPerformed.rir
+        val assumedRir = prior.rirGoal.coerceAtLeast(0)
+        resolved[prior.slotId]?.reps?.takeIf { it > 0 }?.let { return it to assumedRir }
+        // Baseline / display prescription on the prior row (no live rec yet).
+        if (prior.recommendedReps > 0) {
+            return prior.recommendedReps to assumedRir
+        }
+        lastPerformed?.let { return it.reps to it.rir }
+        return null
     }
 
     /**
      * Myo mini load copies activation (with too-heavy reduce). Reps use short-rest
      * [MyoMiniRepProjection] from the last logged set in the myo chain — not normal-rest
      * [FatigueDecay] (that slope is multi-set rest, not ~15s minis).
+     *
+     * Considers **all** unlogged minis (not only post-global-anchor) so an earlier cluster's
+     * open mini still gets a rec after a later cluster is finished.
      */
     private fun myoMiniRecommendations(
-        postAnchorUpcoming: List<RenderedSet>,
+        unloggedMinis: List<RenderedSet>,
         setsByPosition: List<RenderedSet>,
-        lastPerformed: LoggedSetValue,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
-        priorResults: Map<SetSlotId, LiveSetRecommendation>,
     ): Map<SetSlotId, LiveSetRecommendation> =
-        postAnchorUpcoming
-            .filter { isMyoMini(it) }
+        unloggedMinis
             .mapNotNull { set ->
                 val activation = findActivation(setsByPosition, set) ?: return@mapNotNull null
-                val activationLogged = activation.loggedValue
-                var miniWeight = activationLogged?.weight
-                    ?: priorResults[activation.slotId]?.weight
-                    ?: activation.recommendedWeight
+                // No activation log yet → cannot seed mini from this cluster (wait for log).
+                val activationLogged = activation.loggedValue ?: return@mapNotNull null
+                var miniWeight = activationLogged.weight
                 if (miniWeight.amount <= 0.0) return@mapNotNull null
-                if (activationLogged != null && isActivationTooHeavy(activationLogged, activation)) {
+                if (isActivationTooHeavy(activationLogged, activation)) {
                     miniWeight = reduceOneStep(miniWeight, incrementTiers, loadType)
                 }
                 val priorInChain = lastLoggedMyoBefore(setsByPosition, set)
-                val priorLogged = priorInChain?.loggedValue ?: activationLogged ?: lastPerformed
+                val priorLogged = priorInChain?.loggedValue ?: activationLogged
                 val isFirstMini = priorInChain == null || priorInChain.slotId == activation.slotId
                 val reps = MyoMiniRepProjection.expectedReps(
                     priorReps = priorLogged.reps,
@@ -257,76 +293,142 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         incrementTiers: List<IncrementTier>,
         fatigue: FatigueDecay,
     ): Map<SetSlotId, LiveSetRecommendation> {
-        // Prefer activation / last standard over a mini or drop as the e1RM source.
-        val performanceAnchor = resolveStraightPerformanceAnchor(setsByPosition, lastPerformedSet)
-        val performanceLogged = performanceAnchor.loggedValue ?: lastPerformed
-        val performanceOrdinal = setsByPosition
-            .indexOfFirst { it.slotId == performanceAnchor.slotId }
-            .let { if (it < 0) anchorOrdinal else it }
+        val block =
+            resolveStraightBlock(
+                setsByPosition = setsByPosition,
+                lastPerformedSet = lastPerformedSet,
+                lastPerformed = lastPerformed,
+                anchorOrdinal = anchorOrdinal,
+                straightUpcoming = straightUpcoming,
+            ) ?: return emptyMap()
 
-        // Completed intensifiers (and any other logged slots) after the performance
-        // anchor already spent fatigue; count them so Hold/Reduce targets the real
-        // last remaining set, not "activation + N straights" as if the cluster never ran.
-        val lastPerfOrdinal = setsByPosition
-            .indexOfFirst { it.slotId == lastPerformedSet.slotId }
-            .let { if (it < 0) performanceOrdinal else it }
-        val completedFatigueAfterAnchor = setsByPosition
-            .filterIndexed { i, s ->
-                i > performanceOrdinal && i <= lastPerfOrdinal && s.loggedValue != null
-            }
-            .size
-        val remainingCount = completedFatigueAfterAnchor + straightUpcoming.size
-        val lastUpcoming = straightUpcoming.last()
-        val reanchoredPastIntensifiers = performanceAnchor.slotId != lastPerformedSet.slotId
-        val sharedOutcome = recommendationEngine.recommendNextSet(
-            lastPerformed = performanceLogged,
-            completedSlot = toSlot(performanceAnchor),
-            targetSlot = toSlot(lastUpcoming),
-            currentWeight = lastUpcoming.recommendedWeight,
-            remainingCount = remainingCount,
-            incrementTiers = incrementTiers,
-            perLiftSlope = fatigue.slope,
-            perLiftIntercept = fatigue.intercept,
-            loadType = lift.loadType,
-            completedSetPrescribedWeight = performanceAnchor.recommendedWeight,
-        )
-        // Engine null = on-track top set → leave snapshot weight alone for normal
-        // straight blocks. After a completed myo/drop cluster we still need live
-        // recs so minis/drops contribute set-index fatigue; keep activation load.
-        val sharedWeight = when (sharedOutcome) {
-            is RecommendationOutcome.Hold -> sharedOutcome.weight
-            is RecommendationOutcome.Reduce -> sharedOutcome.weight
-            null -> if (reanchoredPastIntensifiers) {
-                recommendationEngine.resolveWorkingWeight(
-                    performed = performanceLogged.weight,
-                    targetPrescribed = lastUpcoming.recommendedWeight,
-                    completedPrescribed = performanceAnchor.recommendedWeight,
-                )
-            } else {
-                null
-            }
-        }
-        if (sharedWeight == null || sharedWeight.amount <= 0.0) return emptyMap()
+        // One engine entry: pure straights may keep snapshot on-track; post-cluster always
+        // runs Hold/Reduce + last-set floor (keepSnapshotWhenOnTrack = !forceLive).
+        val sharedOutcome =
+            recommendationEngine.recommendNextSet(
+                lastPerformed = block.performanceLogged,
+                completedSlot = toSlot(block.performanceAnchor),
+                targetSlot = toSlot(block.lastUpcoming),
+                currentWeight = block.lastUpcoming.recommendedWeight,
+                remainingCount = block.remainingCount,
+                incrementTiers = incrementTiers,
+                perLiftSlope = fatigue.slope,
+                perLiftIntercept = fatigue.intercept,
+                loadType = lift.loadType,
+                completedSetPrescribedWeight = block.performanceAnchor.recommendedWeight,
+                keepSnapshotWhenOnTrack = !block.forceLiveWeight,
+            ) ?: return emptyMap()
+        val sharedWeight = recommendationEngine.weightOf(sharedOutcome)
+        if (sharedWeight.amount <= 0.0) return emptyMap()
 
         return straightUpcoming.associate { set ->
             val targetOrdinal = setsByPosition.indexOfFirst { it.slotId == set.slotId }
-            // Set index walks from the performance anchor so logged minis/drops between
-            // activation and this standard contribute normal-rest fatigue decay steps.
-            val stepsAhead = (targetOrdinal - performanceOrdinal).coerceAtLeast(1)
-            val upcomingSetIndex = (1 + stepsAhead).coerceAtLeast(1)
-            val recommendedReps = projectNextSetReps(
-                lastPerformed = performanceLogged,
-                targetWeight = sharedWeight,
-                upcomingSetIndex = upcomingSetIndex,
-                repMax = set.repMax,
-                rirGoal = set.rirGoal,
-                perLiftSlope = fatigue.slope,
-                perLiftIntercept = fatigue.intercept,
+            val recommendedReps =
+                projectNextSetReps(
+                    lastPerformed = block.performanceLogged,
+                    targetWeight = sharedWeight,
+                    upcomingSetIndex =
+                        fatigueSetIndex(
+                            performanceOrdinal = block.performanceOrdinal,
+                            targetOrdinal = targetOrdinal,
+                        ),
+                    repMax = set.repMax,
+                    rirGoal = set.rirGoal,
+                    perLiftSlope = fatigue.slope,
+                    perLiftIntercept = fatigue.intercept,
+                )
+            set.slotId to
+                LiveSetRecommendation(
+                    weight = sharedWeight,
+                    reps = recommendedReps.coerceAtLeast(BACKOFF_REP_FLOOR),
+                )
+        }
+    }
+
+    /**
+     * Shared straight-block geometry for weight + rep projection.
+     * [remainingCount] and [fatigueSetIndex] both use ordinals so open minis/drops
+     * between activation and the last standard count the same way.
+     */
+    private data class StraightBlock(
+        val performanceAnchor: RenderedSet,
+        val performanceLogged: LoggedSetValue,
+        val performanceOrdinal: Int,
+        val lastUpcoming: RenderedSet,
+        val remainingCount: Int,
+        /** True when a mini/drop sits after the e1RM anchor (open or completed). */
+        val forceLiveWeight: Boolean,
+    )
+
+    private fun resolveStraightBlock(
+        setsByPosition: List<RenderedSet>,
+        lastPerformedSet: RenderedSet,
+        lastPerformed: LoggedSetValue,
+        anchorOrdinal: Int,
+        straightUpcoming: List<RenderedSet>,
+    ): StraightBlock? {
+        if (straightUpcoming.isEmpty()) return null
+        val performanceAnchor =
+            resolveStraightPerformanceAnchor(setsByPosition, lastPerformedSet)
+        val performanceLogged = performanceAnchor.loggedValue ?: lastPerformed
+        val performanceOrdinal =
+            setsByPosition
+                .indexOfFirst { it.slotId == performanceAnchor.slotId }
+                .let { if (it < 0) anchorOrdinal else it }
+        val lastUpcoming = straightUpcoming.last()
+        val lastUpcomingOrdinal =
+            setsByPosition
+                .indexOfFirst { it.slotId == lastUpcoming.slotId }
+                .let { if (it < 0) performanceOrdinal + straightUpcoming.size else it }
+        val remainingCount =
+            remainingCountAfterPerformanceAnchor(
+                performanceOrdinal = performanceOrdinal,
+                lastUpcomingOrdinal = lastUpcomingOrdinal,
             )
-            set.slotId to LiveSetRecommendation(
-                weight = sharedWeight,
-                reps = recommendedReps.coerceAtLeast(1),
+        val forceLiveWeight =
+            mustForceLiveStraightWeight(
+                performanceAnchor = performanceAnchor,
+                lastPerformedSet = lastPerformedSet,
+                setsByPosition = setsByPosition,
+                performanceOrdinal = performanceOrdinal,
             )
+        return StraightBlock(
+            performanceAnchor = performanceAnchor,
+            performanceLogged = performanceLogged,
+            performanceOrdinal = performanceOrdinal,
+            lastUpcoming = lastUpcoming,
+            remainingCount = remainingCount,
+            forceLiveWeight = forceLiveWeight,
+        )
+    }
+
+    /**
+     * Fatigue set-index of [targetOrdinal] when the performance anchor is set-index 1
+     * at [performanceOrdinal] (includes intermediate minis/drops).
+     */
+    private fun fatigueSetIndex(performanceOrdinal: Int, targetOrdinal: Int): Int =
+        (targetOrdinal - performanceOrdinal + 1).coerceAtLeast(1)
+
+    /** Engine remainingCount so last set index matches [fatigueSetIndex] for last upcoming. */
+    private fun remainingCountAfterPerformanceAnchor(
+        performanceOrdinal: Int,
+        lastUpcomingOrdinal: Int,
+    ): Int =
+        (fatigueSetIndex(performanceOrdinal, lastUpcomingOrdinal) - 1).coerceAtLeast(0)
+
+    /**
+     * Post-myo/drop standards must not keep pure on-track snapshot: either last log is an
+     * intensifier (re-anchor past it) or a mini/drop still sits after the e1RM anchor.
+     */
+    private fun mustForceLiveStraightWeight(
+        performanceAnchor: RenderedSet,
+        lastPerformedSet: RenderedSet,
+        setsByPosition: List<RenderedSet>,
+        performanceOrdinal: Int,
+    ): Boolean {
+        if (performanceAnchor.slotId != lastPerformedSet.slotId) return true
+        return setsByPosition.withIndex().any { (index, set) ->
+            index > performanceOrdinal && isIntensifierSlot(set)
         }
     }
 
@@ -361,12 +463,16 @@ class RecomputeRecommendationsUseCase @Inject constructor(
         return sets[idx - 1]
     }
 
+    /**
+     * Owning activation for [mini] = nearest prior **non-mini** MyoRep.
+     * Must not prefer [RenderedSet.isTopSet] alone — multi-cluster second activations are
+     * often not the lift top set, and would incorrectly inherit the first cluster's load.
+     */
     private fun findActivation(sets: List<RenderedSet>, mini: RenderedSet): RenderedSet? {
         val miniIdx = sets.indexOfFirst { it.slotId == mini.slotId }
         if (miniIdx < 0) return null
         val prior = sets.take(miniIdx)
-        return prior.lastOrNull { it.setType == SetType.MyoRep && it.isTopSet }
-            ?: prior.lastOrNull { it.setType == SetType.MyoRep && it.slotId is SetSlotId.Template }
+        return prior.lastOrNull { it.setType == SetType.MyoRep && !isMyoMini(it) }
             ?: prior.lastOrNull { it.setType == SetType.MyoRep }
     }
 
@@ -437,6 +543,9 @@ class RecomputeRecommendationsUseCase @Inject constructor(
     /** Live-generated minis are overlay slots; template MyoRep is always the activation. */
     private fun isMyoMini(set: RenderedSet): Boolean =
         set.setType == SetType.MyoRep && set.slotId is SetSlotId.Overlay
+
+    private fun isIntensifierSlot(set: RenderedSet): Boolean =
+        isMyoMini(set) || set.setType == SetType.DropSet
 
     /**
      * Activation is way too heavy when logged reps hit the myo floor or landed ≥2 below
