@@ -120,6 +120,27 @@ class EditWorkoutDomainMapperTest {
     }
 
     @Test
+    @DisplayName("toWorkout coerces isolation Linear to Double on save")
+    fun isolationLinearCoercesToDoubleOnSave() {
+        val baseline = baselineWorkout()
+        val edited =
+            listOf(
+                editLift(
+                    workoutLiftId = "wl-1",
+                    position = 0,
+                    setId = "ls-1",
+                    restSeconds = 120,
+                ).copy(
+                    isCompound = false,
+                    progressionScheme = ProgressionScheme.Linear,
+                ),
+            )
+
+        val workout = edited.toWorkout(baseline, WorkoutId("w-1"))
+        assertEquals(ProgressionScheme.Double, workout.workoutLifts.single().progressionScheme)
+    }
+
+    @Test
     @DisplayName("toWorkout Linear: every working set keeps the shared rep range")
     fun linearPersistsSharedRepRangeOnAllSets() {
         val baseline = baselineWorkout()
@@ -258,6 +279,8 @@ class EditWorkoutDomainMapperTest {
                 ),
             supersetGroupId = groupId,
             useRestTimerBetweenLifts = useRestBetween,
+            // Linear only legal on compounds (D8); isolation would coerce to Double on save.
+            isCompound = true,
             progressionScheme = ProgressionScheme.Linear,
         )
 }

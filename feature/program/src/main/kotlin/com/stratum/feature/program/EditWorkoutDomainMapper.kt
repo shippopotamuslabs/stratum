@@ -6,6 +6,7 @@ import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.coerceForCompound
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -23,7 +24,9 @@ internal fun List<EditLiftState>.toWorkout(
         workoutLifts =
             sortedBy { lift -> lift.position }
                 .map { editLift ->
-                    val progressionScheme = editLift.progressionScheme
+                    // Isolation never Linear (D8) — persist Double even if UI state was stale.
+                    val progressionScheme =
+                        editLift.progressionScheme.coerceForCompound(editLift.isCompound)
                     // Re-assert scheme invariants via ProgressionRepRangePolicy; field copy only.
                     val normalizedSets =
                         applyProgressionSchemeToSets(editLift.sets, progressionScheme)
