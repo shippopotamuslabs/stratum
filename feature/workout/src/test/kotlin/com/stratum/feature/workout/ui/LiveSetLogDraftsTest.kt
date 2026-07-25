@@ -71,11 +71,56 @@ class LiveSetLogDraftsTest {
                     drafts =
                         first.drafts +
                             ("s1" to SetFieldDraft(weightText = "140", repsText = "5", rir = 1)),
+                    // Explicit RIR edit — seed must not force back to rirGoal.
+                    userEditedRirSlots = setOf("s1"),
                 )
             val second = seedLiveSetLogDrafts(typed, sets, focusedSetKey = null)
             assertEquals("140", second.drafts.getValue("s1").weightText)
             assertEquals("5", second.drafts.getValue("s1").repsText)
             assertEquals(1, second.drafts.getValue("s1").rir)
+        }
+
+        @Test
+        @DisplayName("incomplete draft RIR tracks rirGoal after set-type change unless user edited RIR")
+        fun incompleteRirTracksRirGoalUnlessUserEdited() {
+            val asStandard = listOf(set("s1", isComplete = false, rirGoal = 1))
+            var state = seedLiveSetLogDrafts(LiveSetLogSeedState(), asStandard, focusedSetKey = null)
+            assertEquals(1, state.drafts.getValue("s1").rir)
+
+            // Live Standard → Drop forces rirGoal 0; weight/reps drafts may already exist.
+            state =
+                state.copy(
+                    drafts =
+                        state.drafts +
+                            ("s1" to SetFieldDraft(weightText = "", repsText = "", rir = 1)),
+                )
+            val asDrop = listOf(set("s1", isComplete = false, rirGoal = 0))
+            state = seedLiveSetLogDrafts(state, asDrop, focusedSetKey = null)
+            assertEquals(0, state.drafts.getValue("s1").rir, "stale RIR 1 must clear for Drop")
+
+            // Explicit override sticks across further rirGoal-stable seeds.
+            state =
+                state.copy(
+                    drafts =
+                        state.drafts +
+                            ("s1" to state.drafts.getValue("s1").copy(rir = 2)),
+                    userEditedRirSlots = setOf("s1"),
+                )
+            state = seedLiveSetLogDrafts(state, asDrop, focusedSetKey = null)
+            assertEquals(2, state.drafts.getValue("s1").rir)
+        }
+
+        @Test
+        @DisplayName("LiveSetLogDraftStore.setRir marks slot user-edited")
+        fun setRirMarksUserEdited() {
+            val store = LiveSetLogDraftStore()
+            val sets = listOf(set("s1", isComplete = false, rirGoal = 1))
+            store.syncFromRendered(sets, focusedSetKey = null)
+            assertEquals(1, store.draftFor("s1").rir)
+
+            store.setRir("s1", 2)
+            store.syncFromRendered(listOf(set("s1", isComplete = false, rirGoal = 0)), null)
+            assertEquals(2, store.draftFor("s1").rir, "user RIR must survive rirGoal change")
         }
 
         @Test

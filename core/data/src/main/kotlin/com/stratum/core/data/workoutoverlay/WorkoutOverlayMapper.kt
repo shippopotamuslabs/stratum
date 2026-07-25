@@ -11,6 +11,7 @@ import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.SlotRecommendation
+import com.stratum.domain.workout.SlotShapeOverride
 import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 
@@ -49,6 +50,9 @@ fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
     restSecondsOverrides = restSecondsOverrides.entries.map { (slotId, restSeconds) ->
         RestSecondsOverrideEntryDto(slotId.toDto(), restSeconds)
     },
+    slotShapeOverrides = slotShapeOverrides.entries.map { (slotId, shape) ->
+        SlotShapeOverrideEntryDto(slotId.toDto(), shape.toDto())
+    },
     orderedLiftIds = orderedLiftIds,
 )
 
@@ -82,6 +86,12 @@ fun WorkoutOverlayDto.toDomain(): WorkoutOverlay = WorkoutOverlay(
         for (entry in restSecondsOverrides) {
             val key = entry.slotId.toDomain() ?: continue
             put(key, entry.restSeconds)
+        }
+    },
+    slotShapeOverrides = buildMap {
+        for (entry in slotShapeOverrides) {
+            val key = entry.slotId.toDomain() ?: continue
+            put(key, entry.shape.toDomain())
         }
     },
     orderedLiftIds = orderedLiftIds,
@@ -182,6 +192,24 @@ private fun SlotRecommendationDto.toDomain(slotId: SetSlotId): SlotRecommendatio
         previousReps = previousReps,
     )
 }
+
+private fun SlotShapeOverride.toDto(): SlotShapeOverrideDto = SlotShapeOverrideDto(
+    setType = setType,
+    myoRepKind = myoRepKind,
+    isTopSet = isTopSet,
+    repMin = repMin,
+    repMax = repMax,
+    rirGoal = rirGoal,
+)
+
+private fun SlotShapeOverrideDto.toDomain(): SlotShapeOverride = SlotShapeOverride(
+    setType = setType,
+    myoRepKind = myoRepKind,
+    isTopSet = isTopSet,
+    repMin = repMin,
+    repMax = repMax,
+    rirGoal = rirGoal,
+)
 
 private fun OverlayAddedLift.toDto(): OverlayAddedLiftDto = OverlayAddedLiftDto(
     workoutLiftId = workoutLiftId.value,

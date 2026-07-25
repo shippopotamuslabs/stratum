@@ -35,6 +35,7 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
+import com.stratum.feature.workout.LiveSetKind
 import com.stratum.feature.workout.WorkoutViewModel
 import com.stratum.feature.workout.notification.RestTimerDefaults
 import com.stratum.feature.workout.notification.RestTimerState
@@ -198,12 +199,23 @@ fun WorkoutRoute(
                         onSwapLiftClick(state.workoutId, null, null, null)
                     },
                     onSetRestSecondsForSlots = viewModel::setRestSecondsForSlots,
+                    onSetSetKind = { slotKey, kind ->
+                        viewModel.setSetKind(slotKey, kind.toLiveSetKind())
+                    },
                 ),
                 modifier = modifier,
             )
         }
     }
 }
+
+private fun WorkoutSetKind.toLiveSetKind(): LiveSetKind =
+    when (this) {
+        WorkoutSetKind.Standard -> LiveSetKind.Standard
+        WorkoutSetKind.MyoRepFloor -> LiveSetKind.MyoRepFloor
+        WorkoutSetKind.MyoRepMatch -> LiveSetKind.MyoRepMatch
+        WorkoutSetKind.DropSet -> LiveSetKind.DropSet
+    }
 
 @Composable
 private fun LoadingContent(snackbarHostState: SnackbarHostState) {

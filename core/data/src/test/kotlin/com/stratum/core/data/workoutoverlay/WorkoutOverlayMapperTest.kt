@@ -13,6 +13,7 @@ import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.SlotRecommendation
+import com.stratum.domain.workout.SlotShapeOverride
 import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.myorep.MyoRepKind
@@ -100,6 +101,16 @@ class WorkoutOverlayMapperTest {
             ),
             useRestTimerBetweenLiftsOverrides = mapOf(workoutLiftId to false),
             restSecondsOverrides = mapOf(templateSlotId to 45, overlaySlotId to 75),
+            slotShapeOverrides = mapOf(
+                templateSlotId to SlotShapeOverride(
+                    setType = SetType.MyoRep,
+                    myoRepKind = MyoRepKind.RepMatching,
+                    isTopSet = true,
+                    repMin = 8,
+                    repMax = 12,
+                    rirGoal = 1,
+                ),
+            ),
             orderedLiftIds = listOf("wl-1", "wl-2"),
         )
 
