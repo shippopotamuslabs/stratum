@@ -15,6 +15,8 @@ import com.stratum.domain.training.ProgramChangeEventPayload
 import com.stratum.domain.training.ProgramChangeEventRepository
 import com.stratum.domain.training.ProgramChangeEventType
 import com.stratum.domain.training.identity.ProgramChangeEventId
+import com.stratum.domain.workout.dropset.EstimateDropSetWeightUseCase
+import com.stratum.domain.workout.dropset.applyDropSetPrescriptions
 import com.stratum.domain.workout.progression.DoubleProgressionEngine
 import com.stratum.domain.workout.progression.LinearProgressionEngine
 import com.stratum.domain.workout.progression.ProgressionBaseline
@@ -80,6 +82,7 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
     private val programChangeEventRepository: ProgramChangeEventRepository,
     private val liftTrainingInsightsRepository: LiftTrainingInsightsRepository,
     private val programRepository: ProgramRepository,
+    private val estimateDropSetWeight: EstimateDropSetWeightUseCase = EstimateDropSetWeightUseCase(),
 ) {
     suspend operator fun invoke(request: SnapshotRequest): Result<ProgressionSnapshot> {
         val bySlot = mutableMapOf<SetSlotId, SlotRecommendation>()
@@ -195,7 +198,17 @@ class GenerateProgressionSnapshotUseCase @Inject constructor(
             }
             // Guard against at-RIR asymmetry (e.g. top rirGoal 2 vs backoff 1 on tied
             // failure capacity) producing a positively-sloped rep curve.
-            for (rec in clampRepsMonotonicNonIncreasing(orderedRecs)) {
+            // Then rewrite DropSet rows: engines emit shared straight-set load for every
+            // slot; drops must be 20% off the immediate prior with zero-rest rep projection.
+            val monotonic = clampRepsMonotonicNonIncreasing(orderedRecs)
+            val withDrops = applyDropSetPrescriptions(
+                slots = slots,
+                recs = monotonic,
+                estimateDropSetWeight = estimateDropSetWeight,
+                incrementTiers = liftTiers,
+                loadType = liftLoadType,
+            )
+            for (rec in withDrops) {
                 bySlot[rec.slotId] = rec
             }
         }
