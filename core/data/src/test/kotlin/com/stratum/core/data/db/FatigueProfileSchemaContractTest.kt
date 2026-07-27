@@ -39,10 +39,20 @@ class FatigueProfileSchemaContractTest {
     }
 
     @Test
-    @DisplayName("FPR-S2-006 schema export forbids 2.json and 3.json")
-    fun fprS2006_forbidsVersion2And3() {
+    @DisplayName("FPR-S2-006 schema export has v1+v2 (myo) and forbids 3.json")
+    fun fprS2006_allowsVersion2Forbids3() {
         assertTrue(schemasDir.resolve("1.json").exists(), "1.json must exist")
-        assertFalse(schemasDir.resolve("2.json").exists(), "2.json must not exist")
+        // Room v2 exports myoRepKind (intensifier sets); 2.json is required.
+        assertTrue(schemasDir.resolve("2.json").exists(), "2.json schema export missing")
         assertFalse(schemasDir.resolve("3.json").exists(), "3.json must not exist")
+        val v2 = schemasDir.resolve("2.json").readText()
+        assertTrue(
+            v2.contains("\"fatigueProfile\""),
+            "2.json must retain fatigueProfile column identity",
+        )
+        assertFalse(
+            v2.contains("\"kinematicProfile\""),
+            "2.json must not contain kinematicProfile column identity",
+        )
     }
 }

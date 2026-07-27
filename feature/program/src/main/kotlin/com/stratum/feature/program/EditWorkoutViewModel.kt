@@ -565,6 +565,28 @@ class EditWorkoutViewModel @Inject constructor(
     }
 
     /**
+     * Changes the intensifier kind for a set (S / M / MM / D) and re-defaults rest edges.
+     */
+    fun setSetKind(setId: String, kind: com.stratum.feature.program.ui.EditSetKind) {
+        updateLoaded { loaded ->
+            loaded.copy(
+                lifts = loaded.lifts.map { lift ->
+                    val setIndex = lift.sets.indexOfFirst { it.setId == setId }
+                    if (setIndex < 0) return@map lift
+                    val catalog = catalogLifts.firstOrNull { it.id.value == lift.liftId }
+                    val defaultRest = catalog?.resolvedDefaultRestSeconds() ?: DEFAULT_REST_SECONDS
+                    applySetKindToLift(
+                        lift = lift,
+                        setIndex = setIndex,
+                        newKind = kind,
+                        liftDefaultRestSeconds = defaultRest,
+                    )
+                },
+            )
+        }
+    }
+
+    /**
      * Updates the rep range for a set that may edit ranges under the lift's scheme.
      *
      * - **Double:** only the top set; backoff sets are RIR-only (no-op).

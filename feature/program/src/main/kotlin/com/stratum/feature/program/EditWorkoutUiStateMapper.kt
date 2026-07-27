@@ -3,6 +3,7 @@ package com.stratum.feature.program
 import com.stratum.domain.program.LiftSet
 import com.stratum.domain.program.Workout
 import com.stratum.domain.program.WorkoutLift
+import com.stratum.domain.program.coerceForCompound
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.feature.program.ui.DEFAULT_REP_MAX
@@ -31,13 +32,16 @@ internal fun WorkoutLift.toEditLiftState(
     liftNamesById: Map<String, String>,
     compoundByLiftId: Map<String, Boolean> = emptyMap(),
 ): EditLiftState {
+    val isCompound = compoundByLiftId[liftId.value] ?: false
+    // Isolation never Linear (D8); heal import-stamped Linear isolation so intensifiers unlock.
+    val scheme = progressionScheme.coerceForCompound(isCompound)
     val mappedSets =
         sets
             .sortedBy { set -> set.position }
             .mapIndexed { index, set -> set.toEditSetState(index + 1) }
     // Heal legacy / import shapes so the editor always opens on canonical scheme form
     // (Linear shared band, Double RIR-only backoffs, single top).
-    val normalizedSets = applyProgressionSchemeToSets(mappedSets, progressionScheme)
+    val normalizedSets = applyProgressionSchemeToSets(mappedSets, scheme)
     return EditLiftState(
         workoutLiftId = id.value,
         liftId = liftId.value,
@@ -46,8 +50,8 @@ internal fun WorkoutLift.toEditLiftState(
         sets = normalizedSets,
         supersetGroupId = supersetGroupId?.value,
         useRestTimerBetweenLifts = useRestTimerBetweenLifts,
-        isCompound = compoundByLiftId[liftId.value] ?: false,
-        progressionScheme = progressionScheme,
+        isCompound = isCompound,
+        progressionScheme = scheme,
     )
 }
 
@@ -60,6 +64,7 @@ internal fun LiftSet.toEditSetState(setNumber: Int): EditSetState =
         restSeconds = restSeconds,
         rirGoal = rirGoal,
         isTopSet = isTopSet,
+        setKind = domainToEditSetKind(setType, myoRepKind),
     )
 
 internal fun renumberSets(sets: List<EditSetState>): List<EditSetState> =

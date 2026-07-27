@@ -17,7 +17,8 @@ const val BACKOFF_REP_FLOOR: Int = 5
  *
  * - [Hold]: use this load (prescribed, re-anchored, or a successful too-easy bump).
  * - [Reduce]: use this lighter load so the last remaining set clears [BACKOFF_REP_FLOOR].
- * - Engine `null`: keep snapshot (on-track top set, bodyweight/assisted, or no e1RM).
+ * - Engine `null`: keep snapshot **weight** (on-track straight set, bodyweight/assisted,
+ *   or no e1RM). [RecomputeRecommendationsUseCase] may still emit live **reps** at that weight.
  */
 sealed interface RecommendationOutcome {
     data class Hold(val weight: Weight) : RecommendationOutcome
@@ -28,8 +29,9 @@ sealed interface RecommendationOutcome {
  * Overlay-only live recommendation for an upcoming unlogged set (D4). Weight and reps are
  * derived from one [com.stratum.domain.workout.fatigue.FatigueModel] capacity story
  * ([RecommendationEngine] + [RecomputeRecommendationsUseCase]). Stored in
- * `WorkoutOverlay.recommendations`; never written back into the snapshot. Absent when the
- * lifter is on-track on a top set (snapshot prescriptions stay put).
+ * `WorkoutOverlay.recommendations` and persisted with the session overlay so minimize/reopen
+ * can restore mid-block freeze; never written back into the progression snapshot. On-track
+ * performances keep snapshot weight but still receive fatigue-projected reps.
  */
 data class LiveSetRecommendation(
     val weight: Weight,

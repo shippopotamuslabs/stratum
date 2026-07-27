@@ -23,24 +23,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetBadge
+import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.workoutlog.DockCellRevealEffect
 import com.stratum.core.ui.component.workoutlog.RepRangeKeyboardField
 import com.stratum.core.ui.component.workoutlog.StratumInlineNumericCell
+import com.stratum.core.ui.theme.StratumSetTypeColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.feature.program.R
+import com.stratum.feature.program.chipLabel
 import com.stratum.feature.program.showsRepRange
 
 private val SetTableRowHeight = 48.dp
@@ -56,8 +62,15 @@ internal fun EditWorkoutSetTable(
     onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit,
     onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     onRirClick: (EditSetState) -> Unit,
+    onSetKind: (setId: String, kind: EditSetKind) -> Unit = { _, _ -> },
+    setKindEnabled: (setIndex: Int, kind: EditSetKind) -> Boolean = { _, _ -> true },
+    showRestForSet: (setIndex: Int) -> Boolean = { true },
     modifier: Modifier = Modifier,
 ) {
+    var setKindPickerSetId by remember { mutableStateOf<String?>(null) }
+    val pickerSet = sets.firstOrNull { it.setId == setKindPickerSetId }
+    val pickerIndex = sets.indexOfFirst { it.setId == setKindPickerSetId }
+
     Column(
         // Match live workout log table inset; panel itself is edge-to-edge.
         modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp),
@@ -69,20 +82,35 @@ internal fun EditWorkoutSetTable(
             EditWorkoutSetTableHeader()
             SetTableHeaderDivider()
         }
-        sets.forEach { set ->
+        sets.forEachIndexed { index, set ->
             EditWorkoutSetTableRow(
                 workoutLiftId = workoutLiftId,
                 set = set,
-                showRepRange = showsRepRange(progressionScheme, set),
+                showRepRange = showsRepRange(progressionScheme, set) &&
+                    set.setKind != EditSetKind.DropSet,
+                showRest = showRestForSet(index),
                 canRemove = sets.size > 1,
                 onRemoveSet = { onRemoveSet(set.setId) },
                 onRepBandChange = { min, max -> onRepBandChange(set.setId, min, max) },
                 onSetRestSeconds = onSetRestSeconds,
                 onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
                 onRirClick = { onRirClick(set) },
+                onSetKindClick = { setKindPickerSetId = set.setId },
             )
         }
         EditWorkoutAddSetRow(onAddSet = onAddSet)
+    }
+
+    if (pickerSet != null && pickerIndex >= 0) {
+        SetKindPickerSheet(
+            selected = pickerSet.setKind,
+            enabledFor = { kind -> setKindEnabled(pickerIndex, kind) },
+            onSelect = { kind ->
+                onSetKind(pickerSet.setId, kind)
+                setKindPickerSetId = null
+            },
+            onDismiss = { setKindPickerSetId = null },
+        )
     }
 }
 
@@ -154,12 +182,14 @@ private fun EditWorkoutSetTableRow(
     workoutLiftId: String,
     set: EditSetState,
     showRepRange: Boolean,
+    showRest: Boolean = true,
     canRemove: Boolean,
     onRemoveSet: () -> Unit,
     onRepBandChange: (repMin: Int, repMax: Int) -> Unit,
     onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit,
     onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     onRirClick: () -> Unit,
+    onSetKindClick: () -> Unit = {},
 ) {
     val committedMinText = if (set.repMin > 0) set.repMin.toString() else ""
     val committedMaxText = if (set.repMax > 0) set.repMax.toString() else ""
@@ -181,7 +211,10 @@ private fun EditWorkoutSetTableRow(
                 modifier = Modifier.weight(SET_COLUMN_WEIGHT),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                SetNumberBadge(number = set.setNumber)
+                SetKindBadge(
+                    kind = set.setKind,
+                    onClick = onSetKindClick,
+                )
             }
             // Linear: every set shows the shared band. Double: top set only (RIR-only backoffs).
             if (showRepRange) {
@@ -197,14 +230,21 @@ private fun EditWorkoutSetTableRow(
                     modifier = Modifier.weight(REP_RANGE_COLUMN_WEIGHT),
                 )
             }
-            RestTimeCell(
-                setId = set.setId,
-                workoutLiftId = workoutLiftId,
-                restSeconds = set.restSeconds,
-                onSetRestSeconds = onSetRestSeconds,
-                onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
-                modifier = Modifier.weight(REST_COLUMN_WEIGHT),
-            )
+            if (showRest) {
+                RestTimeCell(
+                    setId = set.setId,
+                    workoutLiftId = workoutLiftId,
+                    restSeconds = set.restSeconds,
+                    isMiniRest =
+                        set.setKind == EditSetKind.MyoRepFloor ||
+                            set.setKind == EditSetKind.MyoRepMatch,
+                    onSetRestSeconds = onSetRestSeconds,
+                    onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
+                    modifier = Modifier.weight(REST_COLUMN_WEIGHT),
+                )
+            } else {
+                Box(modifier = Modifier.weight(REST_COLUMN_WEIGHT))
+            }
             Box(
                 modifier = Modifier.weight(RIR_COLUMN_WEIGHT),
                 contentAlignment = Alignment.Center,
@@ -247,11 +287,134 @@ private fun EditWorkoutAddSetRow(onAddSet: () -> Unit) {
 }
 
 @Composable
-private fun SetNumberBadge(number: Int) {
-    SetColumnCircleBadge {
+private fun SetKindBadge(
+    kind: EditSetKind,
+    onClick: () -> Unit,
+) {
+    SetTypeLetterBadge(
+        kind = kind,
+        onClick = onClick,
+        size = SetTypeBadgeTableSize,
+    )
+}
+
+@Composable
+private fun SetKindPickerSheet(
+    selected: EditSetKind,
+    enabledFor: (EditSetKind) -> Boolean,
+    onSelect: (EditSetKind) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    StratumBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.edit_workout_set_type_sheet_title),
+    ) {
+        // Only list kinds valid for this set (e.g. Myo/Drop hidden on Linear or wrong index).
+        EditSetKind.entries
+            .filter(enabledFor)
+            .forEach { kind ->
+                SetTypeOptionRow(
+                    kind = kind,
+                    selected = kind == selected,
+                    onClick = { onSelect(kind) },
+                )
+            }
+    }
+}
+
+@Composable
+private fun SetTypeOptionRow(
+    kind: EditSetKind,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = StratumThemeAccessor.colors
+    val shapes = StratumThemeAccessor.shapes
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colors.surfaceRaised, shape = shapes.panel)
+                .border(width = shapes.borderWidth, color = colors.borderSubtle, shape = shapes.panel)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SetTypeLetterBadge(
+            kind = kind,
+            selected = selected,
+            size = SetTypeBadgeSheetSize,
+        )
+        StratumText(
+            text = stringResource(kind.displayNameRes()),
+            style = StratumThemeAccessor.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            Icon(
+                painter = painterResource(CoreUiR.drawable.ic_check),
+                contentDescription = stringResource(R.string.edit_workout_set_type_selected),
+                tint = colors.textPrimary,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SetTypeLetterBadge(
+    kind: EditSetKind,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    size: Dp = SetTypeBadgeTableSize,
+) {
+    val label = kind.chipLabel()
+    val background = kind.badgeBackground()
+    val contentColor = StratumSetTypeColors.contentColor
+    // Two-letter "MM" needs a tighter face so it stays readable in a small circle.
+    val labelStyle =
+        if (label.length > 1) {
+            StratumThemeAccessor.typography.sectionLabel.copy(
+                color = contentColor,
+                fontSize = CompactSetTypeBadgeFontSize,
+                lineHeight = CompactSetTypeBadgeLineHeight,
+            )
+        } else {
+            StratumThemeAccessor.typography.sectionLabel.copy(
+                color = contentColor,
+            )
+        }
+    Box(
+        modifier =
+            modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(background)
+                .then(
+                    if (selected) {
+                        Modifier.border(
+                            width = 2.dp,
+                            color = StratumThemeAccessor.colors.textPrimary,
+                            shape = CircleShape,
+                        )
+                    } else {
+                        Modifier
+                    },
+                )
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
         StratumNumber(
-            text = number.toString(),
-            style = StratumThemeAccessor.typography.sectionLabel,
+            text = label,
+            style = labelStyle,
         )
     }
 }
@@ -259,14 +422,15 @@ private fun SetNumberBadge(number: Int) {
 @Composable
 private fun SetColumnCircleBadge(
     onClick: (() -> Unit)? = null,
+    backgroundColor: Color = StratumThemeAccessor.colors.surfaceInset,
     content: @Composable () -> Unit,
 ) {
     Box(
         modifier =
             Modifier
-                .size(32.dp)
+                .size(SetTypeBadgeTableSize)
                 .clip(CircleShape)
-                .background(StratumThemeAccessor.colors.surfaceInset)
+                .background(backgroundColor)
                 .border(
                     width = StratumThemeAccessor.shapes.borderWidth,
                     color = StratumThemeAccessor.colors.borderSubtle,
@@ -284,6 +448,27 @@ private fun SetColumnCircleBadge(
         content()
     }
 }
+
+private fun EditSetKind.badgeBackground(): Color =
+    when (this) {
+        EditSetKind.Standard -> StratumSetTypeColors.standard
+        EditSetKind.MyoRepFloor -> StratumSetTypeColors.myoRep
+        EditSetKind.MyoRepMatch -> StratumSetTypeColors.myoRepMatch
+        EditSetKind.DropSet -> StratumSetTypeColors.dropSet
+    }
+
+private fun EditSetKind.displayNameRes(): Int =
+    when (this) {
+        EditSetKind.Standard -> R.string.edit_workout_set_type_standard
+        EditSetKind.MyoRepFloor -> R.string.edit_workout_set_type_myo_rep
+        EditSetKind.MyoRepMatch -> R.string.edit_workout_set_type_myo_rep_match
+        EditSetKind.DropSet -> R.string.edit_workout_set_type_drop_set
+    }
+
+private val SetTypeBadgeTableSize = 32.dp
+private val SetTypeBadgeSheetSize = 40.dp
+private val CompactSetTypeBadgeFontSize = 11.sp
+private val CompactSetTypeBadgeLineHeight = 12.sp
 
 @Composable
 private fun RepRangeCell(
@@ -384,6 +569,7 @@ private fun RestTimeCell(
     setId: String,
     workoutLiftId: String,
     restSeconds: Int,
+    isMiniRest: Boolean = false,
     onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit,
     onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -428,6 +614,7 @@ private fun RestTimeCell(
                             onApplyToAllSets = { seconds ->
                                 onSetRestSecondsForAllSetsOnLift(workoutLiftId, seconds)
                             },
+                            isMiniRest = isMiniRest,
                         )
                     },
                 )

@@ -1791,9 +1791,10 @@ class WorkoutViewModelTest {
     @Test
     @DisplayName("Given no persisted overlay when startSession then DB-resumed logged sets are used")
     fun noOverlayFallsBackToDbResume() = runTest {
-        // With nothing persisted, startSession must fall back to the existing DB-resume path
-        // (template-slot logged sets recovered from Room). No persisted overlay means the
-        // store returns null and the resumedLoggedSets branch runs unchanged.
+        // With nothing persisted, startSession falls back to the DB-resume path
+        // (template-slot logged sets recovered from Room). After recompute, the session
+        // flushes live recs so minimize/reopen can restore the freeze — that is a save,
+        // not a structural overlay adopt.
         val viewModel = buildViewModel()
         viewModel.startSession(workoutId)
         advanceUntilIdle()
@@ -1801,7 +1802,14 @@ class WorkoutViewModelTest {
         val loaded = viewModel.uiState.value as WorkoutUiState.Loaded
         // First set starts unlogged (no logged sets in the seeded session).
         assertNull(loaded.lifts.first().sets.first().loggedWeightLabel)
-        assertEquals(0, overlayStore.saveCallCount)
+        assertTrue(
+            overlayStore.saveCallCount >= 1,
+            "initial recompute flushes live recommendations for restore",
+        )
+        assertTrue(
+            overlayStore.storedOverlay().loggedSets.isEmpty(),
+            "DB-resume with no Room logs must not invent logged sets in the overlay",
+        )
     }
 
     @Test
@@ -2399,6 +2407,150 @@ class WorkoutViewModelTest {
         assertEquals(1, loaded.lifts.size)
         assertEquals("Bench Press", loaded.lifts.single().liftName)
         assertTrue(loaded.lifts.single().sets.any { it.isComplete })
+    }
+
+    @Test
+    @DisplayName(
+        "Actor regression: myo activation with trailing Standards keeps minis after cycle re-emit",
+    )
+    fun myoMinisSurviveCatalogCycleReEmit() = runTest {
+        val myoActivationId = LiftSetId("ls-myo-act")
+        val trailingStdId = LiftSetId("ls-myo-std")
+        val myoProgram =
+            Program(
+                id = programId,
+                name = "Myo Program",
+                createdAt = Instant.parse("2026-06-26T00:00:00Z"),
+                cycleLength = 1,
+                trainingWeekdays = setOf(Weekday.Monday),
+                workouts =
+                    listOf(
+                        Workout(
+                            id = workoutId,
+                            programId = programId,
+                            name = "Myo Day",
+                            weekday = Weekday.Monday,
+                            position = 0,
+                            workoutLifts =
+                                listOf(
+                                    WorkoutLift(
+                                        id = workoutLiftId,
+                                        workoutId = workoutId,
+                                        liftId = liftId,
+                                        progressionScheme = ProgressionScheme.Double,
+                                        position = 0,
+                                        sets =
+                                            listOf(
+                                                LiftSet(
+                                                    id = myoActivationId,
+                                                    workoutLiftId = workoutLiftId,
+                                                    position = 0,
+                                                    setType = SetType.MyoRep,
+                                                    repMin = 10,
+                                                    repMax = 15,
+                                                    rirGoal = 1,
+                                                    isTopSet = true,
+                                                    myoRepKind =
+                                                        com.stratum.domain.workout.myorep.MyoRepKind.RepFloor,
+                                                ),
+                                                LiftSet(
+                                                    id = trailingStdId,
+                                                    workoutLiftId = workoutLiftId,
+                                                    position = 1,
+                                                    setType = SetType.Standard,
+                                                    repMin = 0,
+                                                    repMax = 0,
+                                                    rirGoal = 2,
+                                                    isTopSet = false,
+                                                ),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        // Empty history so snapshot does not require prior top-set data.
+        programRepository = FakeProgramRepository(myoProgram)
+        progressionHistory = FakeProgressionHistoryRepository()
+        trainingLogRepository =
+            FakeTrainingLogRepository(
+                initialSessions =
+                    listOf(
+                        TrainingSession(
+                            id = TrainingSessionId("ts-active"),
+                            programId = programId,
+                            workoutId = workoutId,
+                            status = TrainingSessionStatus.IN_PROGRESS,
+                            kind = TrainingSessionKind.PROGRAM_WORKOUT,
+                            origin = TrainingSessionOrigin.LIVE,
+                            cycleNumberSnapshot = 1,
+                            weekdaySnapshot = Weekday.Monday,
+                            startedAt = Instant.parse("2026-07-05T10:00:00Z"),
+                            endedAt = null,
+                            sourceApp = null,
+                        ),
+                    ),
+            )
+        val viewModel = buildViewModelWithProgram(myoProgram)
+        viewModel.startSession(workoutId)
+        advanceUntilIdle()
+
+        val beforeLog = viewModel.uiState.value as WorkoutUiState.Loaded
+        assertEquals(2, beforeLog.lifts.single().sets.size, "activation + trailing standard")
+        val activationKey = beforeLog.lifts.single().sets.first().slotKey
+
+        viewModel.logSet(
+            slotKey = activationKey,
+            weight = lb(65.0),
+            reps = 12,
+            rir = 1,
+        )
+        advanceUntilIdle()
+
+        val afterLog = viewModel.uiState.value as WorkoutUiState.Loaded
+        val setsAfterLog = afterLog.lifts.single().sets
+        assertTrue(
+            setsAfterLog.size >= 3,
+            "myo mini should spawn between activation and Standards; was ${setsAfterLog.size}",
+        )
+        val miniKeys =
+            setsAfterLog
+                .map { it.slotKey }
+                .filter { it.startsWith("mini-") }
+        assertTrue(miniKeys.isNotEmpty(), "expected overlay mini slot keys")
+
+        // Stale store without minis (pre-actor race would adopt this over unflushed memory).
+        // After actor log flush, memory is flushed; re-emit still must not drop minis when
+        // the store is force-staled then a cycle emission reloads.
+        overlayStore.seed(
+            TrainingSessionId("ts-active"),
+            WorkoutOverlay(
+                loggedSets =
+                    mapOf(
+                        SetSlotId.Template(myoActivationId) to
+                            com.stratum.domain.workout.LoggedSetValue(
+                                slotId = SetSlotId.Template(myoActivationId),
+                                weight = lb(65.0),
+                                reps = 12,
+                                rir = 1,
+                            ),
+                    ),
+            ),
+        )
+        // Force ObserveCycleProgress to re-emit (program flow).
+        programRepository.saveProgram(myoProgram)
+        advanceUntilIdle()
+
+        val afterRefresh = viewModel.uiState.value as WorkoutUiState.Loaded
+        val setsAfterRefresh = afterRefresh.lifts.single().sets
+        assertTrue(
+            setsAfterRefresh.size >= 3,
+            "minis must survive cycle re-emit; was ${setsAfterRefresh.size}",
+        )
+        assertTrue(
+            setsAfterRefresh.any { it.slotKey.startsWith("mini-") },
+            "mini slot must remain after cycle re-emit",
+        )
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<WorkoutUiState>.awaitLoaded(): WorkoutUiState.Loaded {

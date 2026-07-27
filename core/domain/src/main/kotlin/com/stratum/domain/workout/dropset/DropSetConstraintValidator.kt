@@ -1,12 +1,20 @@
 package com.stratum.domain.workout.dropset
 
+import com.stratum.domain.lift.IncrementTier
+import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.incrementForAmount
+import com.stratum.domain.lift.roundToIncrement
+import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.program.SetType
+import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.WorkoutLiftProjection
-import com.stratum.domain.workout.fatigue.FatigueModel
+import com.stratum.domain.workout.fatigue.defaultLoadBumpAmount
+import com.stratum.domain.workout.fatigue.reduceWeightForLastSetFloor
 import javax.inject.Inject
+import kotlin.math.floor
 
-/** Constraint violation for an invalid drop-set placement (D7). */
+/** Constraint violation for an invalid drop-set placement. */
 enum class DropSetConstraintViolation { DropSetNotFollowingAnotherSet }
 
 sealed interface DropSetConstraintResult {
@@ -15,7 +23,7 @@ sealed interface DropSetConstraintResult {
 }
 
 /**
- * Enforces the must-follow constraint (D7). A drop set MUST immediately follow another
+ * Enforces the must-follow constraint. A drop set MUST immediately follow another
  * set of the same lift — i.e. a `DropSet` slot may not occupy position 0. Pure.
  */
 class DropSetConstraintValidator @Inject constructor() {
@@ -30,32 +38,79 @@ class DropSetConstraintValidator @Inject constructor() {
 }
 
 /**
- * Drop-set weight reduction (D7). The preceding set's weight is reduced by the
- * fatigue-model projection. The use case queries the [FatigueModel] with a 1:1
- * `baselineOneRm`-to-`targetWeight` marker (both equal to [precedingWeight]) to select
- * the drop-set reduction pathway; the model returns the **effective load percent** of
- * the preceding weight (an integer 1..100), which the use case scales the preceding
- * weight by. Per-lift slope/intercept override the population default when supplied.
+ * Drop-set weight: **20% off** [precedingWeight], rounded **down** onto the load lattice
+ * so the result is ≤ 80% of prior. Optionally further reduces when [capacityAtRir] reports
+ * last-set capacity below [BACKOFF_REP_FLOOR] (5) at RIR 0.
  *
- * Pure.
+ * Replaces the old fatigue-percent primary formula.
  */
-class EstimateDropSetWeightUseCase @Inject constructor(
-    private val fatigueModel: FatigueModel,
-) {
+class EstimateDropSetWeightUseCase @Inject constructor() {
     operator fun invoke(
         precedingWeight: Weight,
-        nextSetIndex: Int,
-        perLiftSlope: Double?,
-        perLiftIntercept: Double?,
+        incrementTiers: List<IncrementTier> = emptyList(),
+        loadType: LoadType = LoadType.Weighted,
+        capacityAtRir: ((weightAmountLb: Double) -> Int)? = null,
     ): Weight {
-        val loadPercent = fatigueModel.expectedRepsForAddedSet(
-            baselineOneRm = precedingWeight.amount,
-            targetWeight = precedingWeight,
-            nextSetIndex = nextSetIndex,
-            perLiftSlope = perLiftSlope,
-            perLiftIntercept = perLiftIntercept,
+        if (loadType == LoadType.Bodyweight || loadType == LoadType.Assisted) {
+            return precedingWeight
+        }
+        if (precedingWeight.amount <= 0.0) return precedingWeight
+
+        val raw = Weight(precedingWeight.amount * DROP_FRACTION, precedingWeight.unit)
+        val roundedDown = roundDownToIncrement(raw, incrementTiers, loadType)
+        val capped = if (roundedDown.amount > raw.amount) {
+            stepDown(roundedDown, incrementTiers, loadType)
+        } else {
+            roundedDown
+        }
+
+        if (capacityAtRir == null) return capped
+
+        val capacity = capacityAtRir(capped.toStorageLb().amount)
+        if (capacity >= BACKOFF_REP_FLOOR) return capped
+
+        return reduceWeightForLastSetFloor(
+            startFrom = capped,
+            incrementTiers = incrementTiers,
+            loadType = loadType,
+            capacityAtRir = capacityAtRir,
+            defaultBumpAmount = ::defaultLoadBumpAmount,
         )
-        val dropAmount = precedingWeight.amount * loadPercent / 100.0
-        return Weight(dropAmount, precedingWeight.unit)
+    }
+
+    private fun roundDownToIncrement(
+        weight: Weight,
+        incrementTiers: List<IncrementTier>,
+        loadType: LoadType,
+    ): Weight {
+        if (incrementTiers.isEmpty() || loadType == LoadType.Bodyweight) return weight
+        val amount = weight.amount
+        val inc = incrementTiers.incrementForAmount(amount)
+        if (inc <= 0.0) return weight
+        val floored = floor(amount / inc) * inc
+        val candidate = Weight(floored.coerceAtLeast(0.0), weight.unit)
+        // Guard: nearest-round helpers can land above target; enforce ≤ raw.
+        val nearest = incrementTiers.roundToIncrement(candidate, loadType)
+        return if (nearest.amount <= weight.amount) nearest else candidate
+    }
+
+    private fun stepDown(
+        weight: Weight,
+        incrementTiers: List<IncrementTier>,
+        loadType: LoadType,
+    ): Weight {
+        if (incrementTiers.isEmpty()) {
+            val step = defaultLoadBumpAmount(weight.unit)
+            return Weight((weight.amount - step).coerceAtLeast(step), weight.unit)
+        }
+        val inc = incrementTiers.incrementForAmount(weight.amount).takeIf { it > 0.0 }
+            ?: defaultLoadBumpAmount(weight.unit)
+        val lowered = Weight((weight.amount - inc).coerceAtLeast(0.0), weight.unit)
+        return incrementTiers.roundToIncrement(lowered, loadType)
+    }
+
+    companion object {
+        /** Fraction of prior load retained after a drop (20% reduction → 80% load). */
+        const val DROP_FRACTION: Double = 0.80
     }
 }

@@ -326,9 +326,29 @@ class ResolveProgramTemplateLiftsUseCaseTest {
     }
 
     @Test
-    fun `defaults progression scheme to Linear and maps set-type labels`() = runTest {
-        val liftRepo = FakeLiftRepository()
-        val useCase = ResolveProgramTemplateLiftsUseCase(liftRepo, FakeLiftNameResolverPort())
+    fun `defaults all lifts to Double and maps set-type labels`() = runTest {
+        // Import has no training-age signal; Linear is opt-in later for compounds only.
+        val compoundId = LiftId("bench")
+        val catalog =
+            listOf(
+                Lift(
+                    id = compoundId,
+                    name = "Barbell Bench Press",
+                    movementPatterns = setOf(
+                        com.stratum.domain.lift.MovementPattern.HorizontalPress,
+                        com.stratum.domain.lift.MovementPattern.ElbowExtension,
+                    ),
+                    primaryMuscles = emptySet(),
+                    secondaryMuscles = emptySet(),
+                    incrementTiers = emptyList(),
+                    presetTags = emptySet(),
+                    enabled = true,
+                    fatigueProfile = com.stratum.domain.lift.FatigueProfile.High,
+                ),
+            )
+        val liftRepo = FakeLiftRepository(initialLifts = catalog)
+        val resolver = FakeLiftNameResolverPort(matches = mapOf("Barbell Bench Press" to compoundId))
+        val useCase = ResolveProgramTemplateLiftsUseCase(liftRepo, resolver)
 
         val template = NormalizedProgramTemplate(
             programName = null,
@@ -340,8 +360,24 @@ class ResolveProgramTemplateLiftsUseCaseTest {
                     position = 0,
                     lifts = listOf(
                         NormalizedProgramTemplateLift(
-                            name = "Myo Move",
+                            name = "Barbell Bench Press",
                             position = 0,
+                            sets = listOf(
+                                NormalizedProgramTemplateSet(
+                                    position = 0,
+                                    setTypeLabel = "Standard Set",
+                                    repMin = 5,
+                                    repMax = 5,
+                                    rirGoal = 2,
+                                    restSeconds = 180,
+                                    isTopSet = true,
+                                ),
+                            ),
+                            supersetGroupKey = null,
+                        ),
+                        NormalizedProgramTemplateLift(
+                            name = "Myo Move",
+                            position = 1,
                             sets = listOf(
                                 NormalizedProgramTemplateSet(
                                     position = 0,
@@ -361,12 +397,13 @@ class ResolveProgramTemplateLiftsUseCaseTest {
         )
 
         val program = useCase.invoke(template)
-        val lift = program.workouts[0].workoutLifts[0]
-        assertEquals(ProgressionScheme.Linear, lift.progressionScheme)
-        assertEquals(SetType.MyoRep, lift.sets[0].setType)
+        val lifts = program.workouts[0].workoutLifts
+        assertEquals(ProgressionScheme.Double, lifts[0].progressionScheme)
+        assertEquals(ProgressionScheme.Double, lifts[1].progressionScheme)
+        assertEquals(SetType.MyoRep, lifts[1].sets[0].setType)
         // Null reps default to the safe 8-12 range.
-        assertEquals(8, lift.sets[0].repMin)
-        assertEquals(12, lift.sets[0].repMax)
+        assertEquals(8, lifts[1].sets[0].repMin)
+        assertEquals(12, lifts[1].sets[0].repMax)
     }
 
     @Test

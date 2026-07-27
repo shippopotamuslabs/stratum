@@ -93,6 +93,7 @@
     <string name="edit_workout_rest_decrement">Decrease rest time</string>
     <string name="edit_workout_rest_confirm">Confirm</string>
     <string name="edit_workout_rest_set_label">Set %1$d</string>
+    <string name="edit_workout_rest_mini_set_label">Mini rest · Set %1$d</string>
     <string name="edit_workout_rest_discard_title">Discard rest changes?</string>
     <string name="edit_workout_rest_discard_message">You have unsaved rest time edits for this lift.</string>
     <string name="edit_workout_rest_discard_confirm">Discard</string>

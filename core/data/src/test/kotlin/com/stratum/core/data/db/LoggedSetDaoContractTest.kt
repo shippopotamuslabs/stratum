@@ -369,6 +369,70 @@ class LoggedSetDaoContractTest {
         assertEquals(LoggedSetId("import-set"), results[1].id)
     }
 
+    @Test
+    @DisplayName("getHistoryForSlot excludes IN_PROGRESS session logs (resume must not steal Prev)")
+    fun getHistoryForSlotExcludesInProgress() = runTest {
+        val workout = WorkoutId("live-w-1")
+        val completedId = TrainingSessionId("completed-session")
+        val inProgressId = TrainingSessionId("in-progress-session")
+
+        sessionDao.upsert(
+            TrainingSessionEntity(
+                id = completedId,
+                programId = ProgramId("p-1"),
+                workoutId = workout,
+                status = com.stratum.domain.training.TrainingSessionStatus.COMPLETED,
+                kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 1_000L,
+                endedAtEpochMillis = 2_000L,
+                sourceApp = null,
+            ),
+        )
+        sessionDao.upsert(
+            TrainingSessionEntity(
+                id = inProgressId,
+                programId = ProgramId("p-1"),
+                workoutId = workout,
+                status = com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+                kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                origin = com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+                cycleNumberSnapshot = 1,
+                weekdaySnapshot = null,
+                startedAtEpochMillis = 9_000L,
+                endedAtEpochMillis = null,
+                sourceApp = null,
+            ),
+        )
+        setDao.upsert(
+            loggedSet("prev-session-set", completedId, completedAtEpochMillis = 1_500L).copy(
+                liftId = LiftId("bench-press"),
+                weightAmount = 215.0,
+                reps = 18,
+            ),
+        )
+        setDao.upsert(
+            loggedSet("live-session-set", inProgressId, completedAtEpochMillis = 9_500L).copy(
+                liftId = LiftId("bench-press"),
+                weightAmount = 230.0,
+                reps = 12,
+            ),
+        )
+
+        val results =
+            setDao.getHistoryForSlot(
+                workoutId = workout,
+                liftId = LiftId("bench-press"),
+                setIndex = 0,
+            )
+        assertEquals(1, results.size)
+        assertEquals(LoggedSetId("prev-session-set"), results.single().id)
+        assertEquals(215.0, results.single().weightAmount, 0.0)
+        assertEquals(18, results.single().reps)
+    }
+
     private fun loggedSet(
         id: String,
         sessionId: TrainingSessionId,

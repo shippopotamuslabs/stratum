@@ -13,6 +13,7 @@ import com.stratum.domain.workout.OverlaySetInstanceId
 import com.stratum.domain.workout.SetSlot
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.SlotRecommendation
+import com.stratum.domain.workout.SlotShapeOverride
 import com.stratum.domain.workout.StructuralMutation
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.myorep.MyoRepKind
@@ -24,10 +25,10 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 /**
- * Round-trip tests for [WorkoutOverlay] ↔ [WorkoutOverlayDto]. `recommendations` is dropped
- * on the DTO round-trip (recomputed by the ViewModel); every other field — including the
- * polymorphic [SetSlotId] keys, the sealed [StructuralMutation] undo stack, nullable superset
- * overrides, and nullable `orderedLiftIds` — must survive intact.
+ * Round-trip tests for [WorkoutOverlay] ↔ [WorkoutOverlayDto]. Live `recommendations`
+ * persist for session restore freeze; every field — including polymorphic [SetSlotId]
+ * keys, the sealed [StructuralMutation] undo stack, nullable superset overrides, and
+ * nullable `orderedLiftIds` — must survive intact.
  */
 @DisplayName("WorkoutOverlay ↔ DTO mapper")
 class WorkoutOverlayMapperTest {
@@ -100,13 +101,21 @@ class WorkoutOverlayMapperTest {
             ),
             useRestTimerBetweenLiftsOverrides = mapOf(workoutLiftId to false),
             restSecondsOverrides = mapOf(templateSlotId to 45, overlaySlotId to 75),
+            slotShapeOverrides = mapOf(
+                templateSlotId to SlotShapeOverride(
+                    setType = SetType.MyoRep,
+                    myoRepKind = MyoRepKind.RepMatching,
+                    isTopSet = true,
+                    repMin = 8,
+                    repMax = 12,
+                    rirGoal = 1,
+                ),
+            ),
             orderedLiftIds = listOf("wl-1", "wl-2"),
         )
 
         val restored = overlay.toDto().toDomain()
-
-        // recommendations is intentionally not persisted — restored must be empty.
-        assertEquals(overlay.copy(recommendations = emptyMap()), restored)
+        assertEquals(overlay, restored)
     }
 
     @Test
@@ -118,14 +127,19 @@ class WorkoutOverlayMapperTest {
     }
 
     @Test
-    @DisplayName("recommendations are dropped on round-trip")
-    fun recommendationsDropped() {
+    @DisplayName("recommendations round-trip for session restore freeze")
+    fun recommendationsRoundTrip() {
         val slotId = SetSlotId.Template(LiftSetId("ls-1"))
         val overlay = WorkoutOverlay(
-            recommendations = mapOf(slotId to com.stratum.domain.workout.LiveSetRecommendation(Weight(100.0, Weight.WeightUnit.Lb), reps = 5)),
+            recommendations = mapOf(
+                slotId to com.stratum.domain.workout.LiveSetRecommendation(
+                    Weight(315.0, Weight.WeightUnit.Lb),
+                    reps = 5,
+                ),
+            ),
         )
         val restored = overlay.toDto().toDomain()
-        assertTrue(restored.recommendations.isEmpty())
+        assertEquals(overlay.recommendations, restored.recommendations)
     }
 
     @Test

@@ -23,6 +23,7 @@ import com.stratum.domain.workout.WorkoutLiftProjection
 import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import com.stratum.domain.workout.applyRestOverride
+import com.stratum.domain.workout.applyShapeOverride
 import java.util.UUID
 
 /**
@@ -266,11 +267,15 @@ internal object LiveWorkoutOverlayOps {
             ?.slots
             .orEmpty()
             .filterNot { it.slotId in overlay.deletedSlotIds }
+            // Shape overrides (e.g. retyped Myo) must be visible before mini re-homing.
+            .map { applyShapeOverrideToSlot(it, overlay) }
         val added = overlay.addedSlots
             .filter { it.workoutLiftId == workoutLiftId }
             .filterNot { it.slotId in overlay.deletedSlotIds }
-        // Apply swaps + rest overrides so callers see live-session values.
-        return (templateSlots + added).map { applyOverlaySlotFields(it, overlay) }
+            .map { applyShapeOverrideToSlot(it, overlay) }
+        // Minis insert at activationIndex + 1; renumber positions.
+        return LiveIntensifierOverlayOps.orderLiftSlots(templateSlots, added)
+            .map { applyOverlaySlotFields(it, overlay) }
     }
 
     fun slotKey(slotId: SetSlotId): String = when (slotId) {
@@ -317,8 +322,15 @@ internal object LiveWorkoutOverlayOps {
     internal fun applyRestOverrideToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot =
         slot.applyRestOverride(overlay)
 
+    /** Applies [WorkoutOverlay.slotShapeOverrides] onto a resolved slot. */
+    internal fun applyShapeOverrideToSlot(slot: SetSlot, overlay: WorkoutOverlay): SetSlot =
+        slot.applyShapeOverride(overlay)
+
     private fun applyOverlaySlotFields(slot: SetSlot, overlay: WorkoutOverlay): SetSlot =
-        applyRestOverrideToSlot(applySwapToSlot(slot, overlay), overlay)
+        applyRestOverrideToSlot(
+            applyShapeOverrideToSlot(applySwapToSlot(slot, overlay), overlay),
+            overlay,
+        )
 
     /**
      * Merges presentation slotKey → restSeconds updates into the overlay override map.
@@ -372,9 +384,14 @@ internal object LiveWorkoutOverlayOps {
                 lift.supersetGroupId
             }
 
-            val baseSlots = lift.slots.map { applyOverlaySlotFields(it, overlay) }
-            val appended = overlay.addedSlots
+            val templateSlots = lift.slots
+                .filterNot { it.slotId in overlay.deletedSlotIds }
+                .map { applyShapeOverrideToSlot(it, overlay) }
+            val added = overlay.addedSlots
                 .filter { it.workoutLiftId == lift.workoutLiftId }
+                .filterNot { it.slotId in overlay.deletedSlotIds }
+                .map { applyShapeOverrideToSlot(it, overlay) }
+            val orderedSlots = LiveIntensifierOverlayOps.orderLiftSlots(templateSlots, added)
                 .map { applyOverlaySlotFields(it, overlay) }
 
             lift.copy(
@@ -382,7 +399,7 @@ internal object LiveWorkoutOverlayOps {
                 liftName = currentLiftName,
                 loadType = currentLoadType,
                 supersetGroupId = currentSupersetGroupId,
-                slots = baseSlots + appended,
+                slots = orderedSlots,
                 useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[lift.workoutLiftId]
                     ?: lift.useRestTimerBetweenLifts,
             )

@@ -3,8 +3,10 @@ package com.stratum.domain.workout
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.workout.myorep.MyoRepKind
 
 /** A logged value for a single slot (D2). Overlay layer — the only mutable layer. */
 data class LoggedSetValue(
@@ -36,6 +38,20 @@ sealed interface StructuralMutation {
     data class GenerateMyoRepMiniSet(val activationSlotId: SetSlotId, val newSlot: SetSlot) : StructuralMutation
     data class AddDropSet(val afterSlotId: SetSlotId, val newSlot: SetSlot) : StructuralMutation
 }
+
+/**
+ * Session-only structural shape for a slot (set type / myo kind / rep band / top-set).
+ * Applied on merge and when saving the overlay back to the program template.
+ * Rest seconds stay on [WorkoutOverlay.restSecondsOverrides].
+ */
+data class SlotShapeOverride(
+    val setType: SetType,
+    val myoRepKind: MyoRepKind? = null,
+    val isTopSet: Boolean,
+    val repMin: Int,
+    val repMax: Int,
+    val rirGoal: Int,
+)
 
 /**
  * The overlay layer (D2, D9). Owned by the `WorkoutViewModel` as in-memory session
@@ -70,6 +86,11 @@ data class WorkoutOverlay(
      * slots and written back to the template when save-template applies the overlay.
      */
     val restSecondsOverrides: Map<SetSlotId, Int> = emptyMap(),
+    /**
+     * Per-slot set-type / shape overrides for the live session (template Edit Workout
+     * parity). Applied on merge and written back when save-template applies the overlay.
+     */
+    val slotShapeOverrides: Map<SetSlotId, SlotShapeOverride> = emptyMap(),
     val orderedLiftIds: List<String>? = null,
 ) {
     /**
@@ -88,6 +109,7 @@ data class WorkoutOverlay(
                 supersetGroupIdOverrides.isNotEmpty() ||
                 useRestTimerBetweenLiftsOverrides.isNotEmpty() ||
                 restSecondsOverrides.isNotEmpty() ||
+                slotShapeOverrides.isNotEmpty() ||
                 orderedLiftIds != null
 
     fun apply(mutation: StructuralMutation): WorkoutOverlay {
@@ -99,12 +121,13 @@ data class WorkoutOverlay(
                     undoStack = nextUndoStack,
                 )
             is StructuralMutation.DeleteSet ->
-                // Drop any rest override for the deleted slot. Undo restores the slot
-                // identity only — restSecondsOverrides are not on the undo stack, so a
-                // DeleteSet → undo path intentionally does not re-apply a prior rest override.
+                // Drop rest/shape overrides for the deleted slot. Undo restores the slot
+                // identity only — those override maps are not on the undo stack, so a
+                // DeleteSet → undo path intentionally does not re-apply prior overrides.
                 copy(
                     deletedSlotIds = deletedSlotIds + mutation.slotId,
                     restSecondsOverrides = restSecondsOverrides - mutation.slotId,
+                    slotShapeOverrides = slotShapeOverrides - mutation.slotId,
                     undoStack = nextUndoStack,
                 )
             is StructuralMutation.GenerateMyoRepMiniSet ->
@@ -128,9 +151,17 @@ data class WorkoutOverlay(
                 // Rest overrides are not restored (never pushed on the undo stack).
                 copy(deletedSlotIds = deletedSlotIds - last.slotId, undoStack = remaining)
             is StructuralMutation.GenerateMyoRepMiniSet ->
-                copy(addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId }, undoStack = remaining)
+                copy(
+                    addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId },
+                    dynamicBaselines = dynamicBaselines - last.newSlot.slotId,
+                    undoStack = remaining,
+                )
             is StructuralMutation.AddDropSet ->
-                copy(addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId }, undoStack = remaining)
+                copy(
+                    addedSlots = addedSlots.filterNot { it.slotId == last.newSlot.slotId },
+                    dynamicBaselines = dynamicBaselines - last.newSlot.slotId,
+                    undoStack = remaining,
+                )
         }
     }
 
@@ -181,5 +212,21 @@ data class WorkoutOverlay(
 fun SetSlot.applyRestOverride(overlay: WorkoutOverlay): SetSlot {
     val override = overlay.restSecondsOverrides[slotId] ?: return this
     return if (restSeconds == override) this else copy(restSeconds = override)
+}
+
+/**
+ * Applies [WorkoutOverlay.slotShapeOverrides] onto this slot when present.
+ * Canonical shape-override apply path for merge, live session resolve, and template save.
+ */
+fun SetSlot.applyShapeOverride(overlay: WorkoutOverlay): SetSlot {
+    val override = overlay.slotShapeOverrides[slotId] ?: return this
+    return copy(
+        setType = override.setType,
+        myoRepKind = override.myoRepKind,
+        isTopSet = override.isTopSet,
+        repMin = override.repMin,
+        repMax = override.repMax,
+        rirGoal = override.rirGoal,
+    )
 }
 

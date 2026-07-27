@@ -91,6 +91,8 @@ data class WorkoutScreenActions(
     val onAddLift: () -> Unit = {},
     /** Batch rest overrides for Configure Rest Times (slotKey → seconds). */
     val onSetRestSecondsForSlots: (Map<String, Int>) -> Unit = {},
+    /** Change a set's type (Standard / Myo / Drop). Minis are blocked in the ViewModel. */
+    val onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
 )
 
 @Composable
@@ -183,6 +185,8 @@ fun WorkoutScreen(
         val lift = state.lifts.firstOrNull { it.sets.any { set -> set.slotKey == slotKey } }
         val set = lift?.sets?.firstOrNull { it.slotKey == slotKey }
         if (lift != null && set != null) {
+            val setIndex = lift.sets.indexOfFirst { it.slotKey == slotKey }
+            val nextSet = lift.sets.getOrNull(setIndex + 1)
             val restSeconds =
                 restSecondsAfterLoggingSet(
                     setRestSeconds = set.restSeconds,
@@ -190,6 +194,10 @@ fun WorkoutScreen(
                     useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
                     isLastInSupersetChain = isLastInSupersetChain(lift, state.lifts),
                     workoutFullyComplete = fullyComplete,
+                    isMyoSet = set.setKind.isMyoRepKind(),
+                    nextIsMyoSet = nextSet?.setKind?.isMyoRepKind() == true,
+                    nextIsDropSet = nextSet?.setKind == WorkoutSetKind.DropSet,
+                    liftDefaultRestSeconds = lift.defaultRestSeconds,
                 )
             if (restSeconds != null) {
                 restTimer.onStart(restSeconds)
@@ -314,13 +322,17 @@ fun WorkoutScreen(
                 lifts = state.lifts,
                 listState = listState,
                 liftHeightsPx = liftHeightsPx,
-                onLogSet = handleLogSet,
-                onUnlogSet = actions.onUnlogSet,
-                onAddSet = actions.onAddSet,
-                onDeleteSet = actions.onDeleteSet,
-                onShowLiftActions = { liftActionsLiftId = it },
-                onAddLift = actions.onAddLift,
-                onDiscardClick = { showDiscardDialog = true },
+                actions =
+                    WorkoutLiftListActions(
+                        onLogSet = handleLogSet,
+                        onUnlogSet = actions.onUnlogSet,
+                        onAddSet = actions.onAddSet,
+                        onDeleteSet = actions.onDeleteSet,
+                        onSetSetKind = actions.onSetSetKind,
+                        onShowLiftActions = { liftActionsLiftId = it },
+                        onAddLift = actions.onAddLift,
+                        onDiscardClick = { showDiscardDialog = true },
+                    ),
                 failedLogSlotKey = failedLogSlotKey,
                 onFailedLogConsumed = onFailedLogConsumed,
                 displayUnitEpoch = state.displayUnitEpoch,

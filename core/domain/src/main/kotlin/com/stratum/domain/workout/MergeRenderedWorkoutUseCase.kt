@@ -31,13 +31,17 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 //  - if the slot is upcoming (no logged value) and a recommendation exists, the
                 //    recommendation supersedes the snapshot baseline;
                 //  - otherwise the snapshot baseline or overlay dynamic baseline is used.
+                // Prefer logged → live rec → snapshot/dynamic baseline. Overlay-generated slots
+                // (myo minis, drops) may briefly lack a baseline; keep them visible with a zero
+                // seed so recompute can attach real recs on the next pass.
                 val recommendedWeight = when {
                     logged != null ->
                         baseline?.recommendedWeight
                             ?: recommendation?.weight
                             ?: Weight(0.0, logged.weight.unit)
                     recommendation != null -> recommendation.weight
-                    else -> baseline?.recommendedWeight ?: return@mapNotNull null
+                    baseline != null -> baseline.recommendedWeight
+                    else -> Weight(0.0, Weight.WeightUnit.Lb)
                 }
                 // recommendedReps: a live overlay recommendation projects expected reps one
                 // set-index forward from the most recent performed set (D4). When no live
@@ -70,6 +74,7 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                     previousWeight = baseline?.previousWeight,
                     previousReps = baseline?.previousReps,
                     isProjected = baseline?.isProjected ?: false,
+                    myoRepKind = slot.myoRepKind,
                 )
             }
             RenderedWorkoutLift(
