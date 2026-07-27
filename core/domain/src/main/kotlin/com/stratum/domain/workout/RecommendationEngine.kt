@@ -19,10 +19,13 @@ import javax.inject.Inject
  * same [FatigueModel] oracle as rep projection in [RecomputeRecommendationsUseCase].
  *
  * Decision tree (in order):
- * 1. **On-track top set** — prescribed load, in-band at target RIR, and **not** a large
- *    RIR surplus → `null` when [keepSnapshotWhenOnTrack] is true. Large RIR surplus
- *    (logged RIR ≥ goal + 2) is never on-track (load was too light). When
- *    [keepSnapshotWhenOnTrack] is false (post-myo/drop), fall through so last-set floor runs.
+ * 1. **On-track performance** — prescribed load hit and not too hard / not a large RIR
+ *    surplus → `null` when [keepSnapshotWhenOnTrack] is true (caller keeps snapshot **weight**
+ *    and still projects fatigue reps). Applies to **any** straight set (top or backoff),
+ *    not only the program top set — completing exact prescriptions mid-block must not
+ *    re-run last-set floor Reduce (that would drop weight the snapshot already committed
+ *    for the whole straight set). When [keepSnapshotWhenOnTrack] is false (post-myo/drop),
+ *    fall through so last-set floor runs.
  * 2. **Working weight** — re-anchor heavier/lighter vs intentional backoff
  *    ([resolveWorkingWeight]). Callers must pass **snapshot / program** prescriptions as
  *    [currentWeight] / [completedSetPrescribedWeight], never prior live overlay weights
@@ -92,7 +95,7 @@ class RecommendationEngine @Inject constructor(
         keepSnapshotWhenOnTrack: Boolean,
     ): RecommendationOutcome? {
         val onTrack =
-            isOnTrackTopSet(lastPerformed, completedSlot, completedSetPrescribedWeight)
+            isOnTrackPerformance(lastPerformed, completedSlot, completedSetPrescribedWeight)
         if (onTrack && keepSnapshotWhenOnTrack) return null
 
         val effectiveRir = lastPerformed.rir ?: 0
@@ -245,37 +248,42 @@ class RecommendationEngine @Inject constructor(
         return incrementTiers.roundToIncrement(raw, loadType)
     }
 
-    internal fun isOnTrackTopSet(
+    /**
+     * True when the lifter hit the **prescribed load** without under- or over-shooting enough
+     * to warrant a live weight rewrite. Used to keep the snapshot's shared straight-set weight.
+     *
+     * - Top / ranged slots: RIR-adjusted achieved reps in [repMin, repMax].
+     * - Backoff (0/0 RIR-only): effective capacity at goal RIR ≥ [BACKOFF_REP_FLOOR]
+     *   (same floor the reduce path protects).
+     *
+     * Too-easy top sets (large RIR surplus) are never on-track so the bump path can run.
+     */
+    internal fun isOnTrackPerformance(
         lastPerformed: LoggedSetValue,
         completedSlot: SetSlot?,
         completedPrescribed: Weight?,
     ): Boolean {
         val slot = completedSlot
         val prescribed = completedPrescribed
-        if (slot == null || prescribed == null) return false
-        if (!isEligibleOnTrackTopSlot(slot, prescribed, lastPerformed)) return false
-        val effectiveRir = lastPerformed.rir ?: 0
-        val achieved = lastPerformed.reps + effectiveRir - slot.rirGoal
-        val lo = slot.repMin
-        val hi = if (slot.repMax > 0) slot.repMax else Int.MAX_VALUE
-        return achieved in lo..hi
-    }
-
-    private fun isEligibleOnTrackTopSlot(
-        slot: SetSlot,
-        prescribed: Weight,
-        lastPerformed: LoggedSetValue,
-    ): Boolean {
-        if (!slot.isTopSet || prescribed.amount <= 0.0) return false
-        if (slot.repMin <= 0 && slot.repMax <= 0) return false
+        if (slot == null || prescribed == null || prescribed.amount <= 0.0) return false
         val weightMatches =
             WeightConversion.nearlyEqualLb(
                 WeightConversion.amountInLb(lastPerformed.weight),
                 WeightConversion.amountInLb(prescribed),
             )
-        // Extra RIR beyond the goal means the load was too light even if failure-capacity
-        // still maps into the rep band (e.g. 10@3 vs goal RIR 1 → achieved 12 in 8–12).
-        return weightMatches && !isTooEasyTopSet(lastPerformed, slot)
+        // Extra RIR on a top set means the load was too light.
+        if (!weightMatches || isTooEasyTopSet(lastPerformed, slot)) return false
+
+        val effectiveRir = lastPerformed.rir ?: 0
+        val achieved = lastPerformed.reps + effectiveRir - slot.rirGoal
+        return if (slot.repMin > 0 || slot.repMax > 0) {
+            val lo = slot.repMin
+            val hi = if (slot.repMax > 0) slot.repMax else Int.MAX_VALUE
+            achieved in lo..hi
+        } else {
+            // RIR-only backoff: on-track if not "too hard" vs the global floor.
+            achieved >= BACKOFF_REP_FLOOR
+        }
     }
 
     internal fun resolveWorkingWeight(

@@ -972,10 +972,10 @@ class RecommendationEngineRirMathTest {
             }
 
             @Test
-            @DisplayName("isOnTrackTopSet: blank prescribed weight is false")
+            @DisplayName("isOnTrackPerformance: blank prescribed weight is false")
             fun blankPrescribedNotOnTrack() {
                 assertTrue(
-                    !engine.isOnTrackTopSet(
+                    !engine.isOnTrackPerformance(
                         performed(100.0, 8, 2),
                         topSet(),
                         lb(0.0),
@@ -984,10 +984,11 @@ class RecommendationEngineRirMathTest {
             }
 
             @Test
-            @DisplayName("isOnTrackTopSet: non-top completed slot is false")
-            fun backoffCompletedNotOnTrack() {
+            @DisplayName("isOnTrackPerformance: matching-weight backoff at floor is on-track")
+            fun backoffCompletedMatchingWeightOnTrack() {
+                // 10@2 at rirGoal 2 → achieved 10 ≥ BACKOFF_REP_FLOOR — keep snapshot weight.
                 assertTrue(
-                    !engine.isOnTrackTopSet(
+                    engine.isOnTrackPerformance(
                         performed(100.0, 10, 2),
                         backoffSlot(),
                         lb(100.0),
@@ -996,7 +997,20 @@ class RecommendationEngineRirMathTest {
             }
 
             @Test
-            @DisplayName("isOnTrackTopSet: kg performed equals lb prescribed after conversion")
+            @DisplayName("isOnTrackPerformance: weak backoff below floor is not on-track")
+            fun backoffCompletedTooHardNotOnTrack() {
+                // 2@0 at rirGoal 2 → achieved 0 < floor — live Reduce may run.
+                assertTrue(
+                    !engine.isOnTrackPerformance(
+                        performed(100.0, 2, 0),
+                        backoffSlot(),
+                        lb(100.0),
+                    ),
+                )
+            }
+
+            @Test
+            @DisplayName("isOnTrackPerformance: kg performed equals lb prescribed after conversion")
             fun kgPerformedMatchesLbPrescribed() {
                 val kg100 =
                     LoggedSetValue(
@@ -1013,7 +1027,7 @@ class RecommendationEngineRirMathTest {
                         Weight.WeightUnit.Lb,
                     )
                 assertTrue(
-                    engine.isOnTrackTopSet(
+                    engine.isOnTrackPerformance(
                         kg100,
                         topSet(repMin = 4, repMax = 12, rirGoal = 2),
                         prescribedLb,
@@ -1426,7 +1440,9 @@ class RecommendationEngineRirMathTest {
                 incrementTiers = tiers,
                 completedSetPrescribedWeight = lb(weight),
             )
-            // Matched baseline on backoff completed is not "on-track top set" — live path runs.
+            // Matched prescription + not-too-hard backoff is on-track → null (keep snapshot
+            // weight; last-set floor is a session-start snapshot concern, not mid-block Reduce).
+            if (outcome == null) return
             assertTrue(outcome is RecommendationOutcome.Hold || outcome is RecommendationOutcome.Reduce)
             val recommended = when (outcome) {
                 is RecommendationOutcome.Hold -> outcome.weight

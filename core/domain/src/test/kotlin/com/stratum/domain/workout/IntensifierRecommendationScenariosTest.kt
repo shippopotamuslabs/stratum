@@ -158,7 +158,7 @@ class IntensifierRecommendationScenariosTest {
                     overlayMyo("mini-act2-1", 3, weight = 50.0, logged = null),
                 ),
             )
-            val rec = useCase(workout, mapOf(liftId to catalogLift()))[
+            val rec = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
                 SetSlotId.Overlay(OverlaySetInstanceId("mini-act2-1")),
             ]
             assertNotNull(rec)
@@ -176,7 +176,7 @@ class IntensifierRecommendationScenariosTest {
                     overlayMyo("mini-orphan", 2, weight = 65.0, logged = null),
                 ),
             )
-            val recs = useCase(workout, mapOf(liftId to catalogLift()))
+            val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
             assertNull(
                 recs[SetSlotId.Overlay(OverlaySetInstanceId("mini-orphan"))],
                 "cannot project mini load/reps until activation is logged",
@@ -198,7 +198,7 @@ class IntensifierRecommendationScenariosTest {
                     overlayMyo("m3", 3, logged = null),
                 ),
             )
-            val rec = useCase(workout, mapOf(liftId to catalogLift()))[
+            val rec = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
                 SetSlotId.Overlay(OverlaySetInstanceId("m3")),
             ]
             assertNotNull(rec)
@@ -255,7 +255,7 @@ class IntensifierRecommendationScenariosTest {
                     overlayMyo("mini", 1, weight = 70.0),
                 ),
             )
-            val rec = useCase(workout, mapOf(liftId to catalogLift()))[
+            val rec = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
                 SetSlotId.Overlay(OverlaySetInstanceId("mini")),
             ]
             assertNotNull(rec)
@@ -293,7 +293,7 @@ class IntensifierRecommendationScenariosTest {
                     set("drop", 3, SetType.DropSet, false, 65.0, rirGoal = 1),
                 ),
             )
-            val recs = useCase(workout, mapOf(liftId to catalogLift()))
+            val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
             val drop = recs[SetSlotId.Template(LiftSetId("drop"))]
             assertNotNull(drop)
             // From parent prescription 65×7@1 (failure 8) → 52 lb drop, not from mini 3@0
@@ -327,8 +327,8 @@ class IntensifierRecommendationScenariosTest {
                     set("d1", 1, SetType.DropSet, false, 100.0, rirGoal = 1),
                 ),
             )
-            val r0 = useCase(at0, mapOf(liftId to catalogLift()))[SetSlotId.Template(LiftSetId("d0"))]
-            val r1 = useCase(at1, mapOf(liftId to catalogLift()))[SetSlotId.Template(LiftSetId("d1"))]
+            val r0 = useCase(at0, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[SetSlotId.Template(LiftSetId("d0"))]
+            val r1 = useCase(at1, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[SetSlotId.Template(LiftSetId("d1"))]
             assertNotNull(r0)
             assertNotNull(r1)
             assertEquals(r0!!.weight.amount, r1!!.weight.amount, 0.01)
@@ -346,7 +346,7 @@ class IntensifierRecommendationScenariosTest {
                     set("s2", 2, SetType.Standard, false, 100.0, log("s2", 100.0, 7, 1), repMin = 6, repMax = 10, rirGoal = 1),
                 ),
             )
-            val recs = useCase(workout, mapOf(liftId to catalogLift()))
+            val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
             assertNull(
                 recs[SetSlotId.Template(LiftSetId("d1"))],
                 "pre-anchor drop stays blank (post-anchor-only for drops)",
@@ -364,7 +364,7 @@ class IntensifierRecommendationScenariosTest {
                     set("d3", 3, SetType.DropSet, false, 100.0),
                 ),
             )
-            val recs = useCase(workout, mapOf(liftId to catalogLift()))
+            val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
             val d1 = recs[SetSlotId.Template(LiftSetId("d1"))]
             val d2 = recs[SetSlotId.Template(LiftSetId("d2"))]
             val d3 = recs[SetSlotId.Template(LiftSetId("d3"))]
@@ -402,7 +402,7 @@ class IntensifierRecommendationScenariosTest {
                     set("d1", 3, SetType.DropSet, false, 65.0, rirGoal = 1),
                 ),
             )
-            val recs = useCase(workout, mapOf(liftId to catalogLift()))
+            val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
             val std = recs[SetSlotId.Template(LiftSetId("s1"))]
             val drop = recs[SetSlotId.Template(LiftSetId("d1"))]
             assertNotNull(std, "post-myo standard needs live rec")
@@ -434,7 +434,7 @@ class IntensifierRecommendationScenariosTest {
                     set("d1", 3, SetType.DropSet, false, 100.0, rirGoal = 0),
                 ),
             )
-            val drop = useCase(workout, mapOf(liftId to catalogLift()))[
+            val drop = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
                 SetSlotId.Template(LiftSetId("d1")),
             ]
             assertNotNull(drop)
@@ -470,7 +470,7 @@ class IntensifierRecommendationScenariosTest {
                     set("s4", 3, SetType.Standard, false, 100.0, logged = null, repMin = 6, repMax = 10, rirGoal = 1),
                 ),
             )
-            val recs = useCase(workout, mapOf(liftId to catalogLift()))
+            val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
             assertNull(recs[SetSlotId.Template(LiftSetId("s2"))], "skipped set stays blank")
             assertNotNull(recs[SetSlotId.Template(LiftSetId("s4"))], "post-anchor set still recommended")
         }
