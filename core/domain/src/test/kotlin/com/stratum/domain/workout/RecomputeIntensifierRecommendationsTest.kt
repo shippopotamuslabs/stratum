@@ -105,14 +105,17 @@ class RecomputeIntensifierRecommendationsTest {
                     .copy(recommendedReps = 8),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val drop = recs[SetSlotId.Template(LiftSetId("d1"))]
         assertNotNull(drop, "cold open must still prescribe drops")
         assertEquals(120.0, drop!!.weight.amount, 0.01, "20% off prior 150")
         assertTrue(drop.reps > 0)
-        // Straights stay on snapshot — no live straight recs without a performed set.
+        // First straight stays on snapshot (no live row); later straights get cold-open fatigue reps.
         assertNull(recs[SetSlotId.Template(LiftSetId("s1"))])
-        assertNull(recs[SetSlotId.Template(LiftSetId("s2"))])
+        val s2 = recs[SetSlotId.Template(LiftSetId("s2"))]
+        assertNotNull(s2, "cold open projects fatigue reps for set 2+")
+        assertEquals(150.0, s2!!.weight.amount, 0.01, "cold-open weight stays snapshot")
+        assertTrue(s2.reps > 0)
     }
 
     @Test
@@ -132,7 +135,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(dropId, 1, SetType.DropSet, false, 100.0),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val drop = recs[SetSlotId.Template(LiftSetId(dropId))]
         assertNotNull(drop)
         assertEquals(80.0, drop!!.weight.amount, 0.01)
@@ -154,7 +157,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(dropId, 1, SetType.DropSet, false, 100.0),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val drop = recs[SetSlotId.Template(LiftSetId(dropId))]
         assertNotNull(drop)
         assertEquals(80.0, drop!!.weight.amount, 0.01)
@@ -183,7 +186,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(d2, 2, SetType.DropSet, false, 80.0),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val second = recs[SetSlotId.Template(LiftSetId(d2))]
         assertNotNull(second)
         assertEquals(64.0, second!!.weight.amount, 0.01)
@@ -228,7 +231,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(dropId, 3, SetType.DropSet, false, 65.0, rirGoal = 1),
             ),
         )
-        val before = useCase(openParent, mapOf(liftId to catalogLift()))
+        val before = useCase(openParent, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val parentRec = before[SetSlotId.Template(LiftSetId(parentId))]
         assertNotNull(parentRec, "parent needs a live rec to act as the open prescription")
         val dropBefore = before[SetSlotId.Template(LiftSetId(dropId))]
@@ -263,7 +266,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(dropId, 3, SetType.DropSet, false, 65.0, rirGoal = 1),
             ),
         )
-        val dropAfter = useCase(loggedAsPrescribed, mapOf(liftId to catalogLift()))[
+        val dropAfter = useCase(loggedAsPrescribed, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
             SetSlotId.Template(LiftSetId(dropId)),
         ]
         assertNotNull(dropAfter)
@@ -303,7 +306,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(d2, 4, SetType.DropSet, false, 20.0, rirGoal = 0),
             ),
         )
-        val before = useCase(open, mapOf(liftId to catalogLift()))
+        val before = useCase(open, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val firstBefore = before[SetSlotId.Template(LiftSetId(d1))]
         val secondBefore = before[SetSlotId.Template(LiftSetId(d2))]
         assertNotNull(firstBefore)
@@ -327,7 +330,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(d2, 4, SetType.DropSet, false, 20.0, rirGoal = 0),
             ),
         )
-        val secondAfter = useCase(loggedAtGoal, mapOf(liftId to catalogLift()))[
+        val secondAfter = useCase(loggedAtGoal, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
             SetSlotId.Template(LiftSetId(d2)),
         ]
         assertNotNull(secondAfter)
@@ -363,7 +366,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(d2, 4, SetType.DropSet, false, 20.0, rirGoal = 0),
             ),
         )
-        val secondHigherRir = useCase(loggedWithHigherRir, mapOf(liftId to catalogLift()))[
+        val secondHigherRir = useCase(loggedWithHigherRir, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
             SetSlotId.Template(LiftSetId(d2)),
         ]
         assertNotNull(secondHigherRir)
@@ -391,7 +394,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(d2, 2, SetType.DropSet, false, 100.0),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val first = recs[SetSlotId.Template(LiftSetId(d1))]
         val second = recs[SetSlotId.Template(LiftSetId(d2))]
         assertNotNull(first)
@@ -435,7 +438,7 @@ class RecomputeIntensifierRecommendationsTest {
                 ),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val miniRec = recs[SetSlotId.Overlay(OverlaySetInstanceId(mini))]
         assertNotNull(miniRec)
         assertTrue(miniRec!!.weight.amount < 50.0, "mini should be lighter than crushing activation")
@@ -470,7 +473,7 @@ class RecomputeIntensifierRecommendationsTest {
                 ),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val miniRec = recs[SetSlotId.Overlay(OverlaySetInstanceId(mini))]
         assertNotNull(miniRec)
         assertEquals(40.0, miniRec!!.weight.amount, 0.01)
@@ -505,7 +508,7 @@ class RecomputeIntensifierRecommendationsTest {
                 ),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val miniRec = recs[SetSlotId.Overlay(OverlaySetInstanceId(mini))]
         assertNotNull(miniRec)
         assertEquals(65.0, miniRec!!.weight.amount, 0.01)
@@ -563,7 +566,7 @@ class RecomputeIntensifierRecommendationsTest {
                 ),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val miniRec = recs[SetSlotId.Overlay(OverlaySetInstanceId(mini2))]
         assertNotNull(miniRec)
         // From last mini 9, not activation 12: 9 − 3 = 6
@@ -618,7 +621,7 @@ class RecomputeIntensifierRecommendationsTest {
                 ),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val openMini = recs[SetSlotId.Overlay(OverlaySetInstanceId(mini1))]
         assertNotNull(openMini, "open mini under earlier activation must get a live rec")
         assertEquals(65.0, openMini!!.weight.amount, 0.01, "copies activation load")
@@ -681,7 +684,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(s3, 6, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val first = recs[SetSlotId.Template(LiftSetId(s1))]
         val mid = recs[SetSlotId.Template(LiftSetId(s2))]
         val last = recs[SetSlotId.Template(LiftSetId(s3))]
@@ -726,7 +729,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(s3, 4, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
             ),
         )
-        val openRecs = useCase(withOpenMini, mapOf(liftId to catalogLift()))
+        val openRecs = useCase(withOpenMini, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val openS1 = openRecs[SetSlotId.Template(LiftSetId(s1))]
         val openS2 = openRecs[SetSlotId.Template(LiftSetId(s2))]
         val openS3 = openRecs[SetSlotId.Template(LiftSetId(s3))]
@@ -747,7 +750,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(s3, 3, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
             ),
         )
-        val noMiniS1 = useCase(noMini, mapOf(liftId to catalogLift()))[
+        val noMiniS1 = useCase(noMini, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
             SetSlotId.Template(LiftSetId(s1)),
         ]
         // Without a mini, engine-null may leave snapshot (no live rec). If both live,
@@ -784,7 +787,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(s3, 4, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
             ),
         )
-        val afterMini = useCase(miniLogged, mapOf(liftId to catalogLift()))
+        val afterMini = useCase(miniLogged, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val afterS1 = afterMini[SetSlotId.Template(LiftSetId(s1))]
         assertNotNull(afterS1)
         assertEquals(
@@ -839,7 +842,7 @@ class RecomputeIntensifierRecommendationsTest {
                 set(s3, 5, SetType.Standard, false, 65.0, repMin = 6, repMax = 10, rirGoal = 1),
             ),
         )
-        val recs = useCase(workout, mapOf(liftId to catalogLift()))
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val firstStd = recs[SetSlotId.Template(LiftSetId(s1))]
         val lastStd = recs[SetSlotId.Template(LiftSetId(s3))]
         assertNotNull(firstStd)
@@ -898,11 +901,10 @@ class RecomputeIntensifierRecommendationsTest {
                 set(std, 1, SetType.Standard, false, 100.0, repMin = 6, repMax = 10, rirGoal = 1),
             ),
         )
-        val myoRec = useCase(withMyo, mapOf(liftId to catalogLift()))[SetSlotId.Template(LiftSetId(std))]
+        val myoRec = useCase(withMyo, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[SetSlotId.Template(LiftSetId(std))]
         val crushedRec = useCase(
             miniAsStandardOnly,
-            mapOf(liftId to catalogLift()),
-        )[SetSlotId.Template(LiftSetId(std))]
+            mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[SetSlotId.Template(LiftSetId(std))]
         assertNotNull(myoRec)
         assertNotNull(crushedRec)
         assertTrue(
@@ -947,11 +949,10 @@ class RecomputeIntensifierRecommendationsTest {
                 set(std, 1, SetType.Standard, false, 100.0, repMin = 6, repMax = 10, rirGoal = 1),
             ),
         )
-        val postDrop = useCase(workout, mapOf(liftId to catalogLift()))[SetSlotId.Template(LiftSetId(std))]
+        val postDrop = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[SetSlotId.Template(LiftSetId(std))]
         val crushed = useCase(
             dropAsTopOnly,
-            mapOf(liftId to catalogLift()),
-        )[SetSlotId.Template(LiftSetId(std))]
+            mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[SetSlotId.Template(LiftSetId(std))]
         assertNotNull(postDrop)
         assertNotNull(crushed)
         assertTrue(

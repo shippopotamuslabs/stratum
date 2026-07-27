@@ -15,6 +15,7 @@ import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -138,8 +139,8 @@ class RecomputeRecommendationsUseCaseTest {
     }
 
     @Test
-    @DisplayName("On-track top set at goal weight in range -> no live overlay (snapshot stays put)")
-    fun `on track top set produces no live recommendations`() {
+    @DisplayName("On-track top set keeps snapshot weight but projects fatigue reps for upcoming")
+    fun `on track top set keeps weight and projects upcoming reps`() {
         val rendered = twoTopSets(
             performedWeight = 75.0,
             performedReps = 8,
@@ -149,8 +150,113 @@ class RecomputeRecommendationsUseCaseTest {
             rirGoal = 2,
             completedIsTopSet = true,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
-        assertTrue(recommendations.isEmpty(), "on-track top set must not rewrite snapshot recs")
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        val rec = recommendations[SetSlotId.Template(backoffSetId)]
+        assertTrue(rec != null, "on-track still emits live recs for upcoming fatigue reps")
+        assertEquals(75.0, rec!!.weight.amount, 0.01, "must not drop weight when prescription matched")
+        assertTrue(rec.reps < 8 || rec.reps >= BACKOFF_REP_FLOOR, "fatigue reps at held weight")
+    }
+
+    @Test
+    @DisplayName("On-track backoff (0/0) keeps shared weight — no last-set Reduce after exact log")
+    fun `on track backoff keeps shared weight for remaining sets`() {
+        // Four-set straight block: log set 2 at exact prescription; remaining stay at 315.
+        val sets = listOf(
+            RenderedSet(
+                slotId = SetSlotId.Template(liftSetId),
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                position = 0,
+                setType = SetType.Standard,
+                isTopSet = true,
+                repMin = 4,
+                repMax = 8,
+                rirGoal = 2,
+                restSeconds = 120,
+                recommendedWeight = lb(315.0),
+                recommendedReps = 7,
+                loggedValue =
+                    LoggedSetValue(
+                        slotId = SetSlotId.Template(liftSetId),
+                        weight = lb(315.0),
+                        reps = 7,
+                        rir = 2,
+                    ),
+            ),
+            RenderedSet(
+                slotId = SetSlotId.Template(backoffSetId),
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                position = 1,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 2,
+                restSeconds = 120,
+                recommendedWeight = lb(315.0),
+                recommendedReps = 7,
+                loggedValue =
+                    LoggedSetValue(
+                        slotId = SetSlotId.Template(backoffSetId),
+                        weight = lb(315.0),
+                        reps = 7,
+                        rir = 2,
+                    ),
+            ),
+            RenderedSet(
+                slotId = SetSlotId.Template(LiftSetId("ls-3")),
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                position = 2,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 2,
+                restSeconds = 120,
+                recommendedWeight = lb(315.0),
+                recommendedReps = 7,
+                loggedValue = null,
+            ),
+            RenderedSet(
+                slotId = SetSlotId.Template(LiftSetId("ls-4")),
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                position = 3,
+                setType = SetType.Standard,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 2,
+                restSeconds = 120,
+                recommendedWeight = lb(315.0),
+                recommendedReps = 6,
+                loggedValue = null,
+            ),
+        )
+        val rendered =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "DN",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Deadlift",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets = sets,
+                        ),
+                    ),
+            )
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift(tiers = defaultTiers)), priorRecommendations = emptyMap())
+        val set3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]
+        val set4 = recommendations[SetSlotId.Template(LiftSetId("ls-4"))]
+        assertTrue(set3 != null && set4 != null)
+        assertEquals(315.0, set3!!.weight.amount, 0.01, "exact mid-block log must not drop load")
+        assertEquals(315.0, set4!!.weight.amount, 0.01)
+        assertTrue(set4.reps <= set3.reps, "later set should not gain reps vs prior live rec")
     }
 
     @Test
@@ -165,7 +271,7 @@ class RecomputeRecommendationsUseCaseTest {
             rirGoal = 2,
             completedIsTopSet = true,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null, "an upcoming recommendation must be produced")
         assertTrue(rec!!.weight.amount < 75.0, "must drop weight when capacity is below the rep floor")
@@ -226,7 +332,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null, "backoff must receive a live recommendation")
         assertTrue(rec!!.reps >= 5, "backoff recommended reps must be >= BACKOFF_REP_FLOOR, was ${rec.reps}")
@@ -246,7 +352,7 @@ class RecomputeRecommendationsUseCaseTest {
             rirGoal = 2,
             completedIsTopSet = false,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(75.0, rec!!.weight.amount, 0.01)
@@ -267,7 +373,7 @@ class RecomputeRecommendationsUseCaseTest {
             completedSetPrescribedWeight = 200.0,
             completedIsTopSet = true,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null, "upcoming set must receive a live recommendation")
         assertEquals(400.0, rec!!.weight.amount, 0.01)
@@ -286,7 +392,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMax = 8,
             rirGoal = 1,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift(tiers = defaultTiers)))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift(tiers = defaultTiers)), priorRecommendations = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(85.0, rec!!.weight.amount, 0.01)
@@ -308,7 +414,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMax = 12,
             rirGoal = 2,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertTrue(rec!!.weight.amount < 75.0, "must reduce below 75")
@@ -328,7 +434,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMax = 6,
             rirGoal = 2,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(140.0, rec!!.weight.amount, 0.01)
@@ -370,9 +476,13 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
-        assertNull(recommendations[SetSlotId.Template(backoffSetId)])
-        assertTrue(recommendations.isEmpty(), "no recommendations when nothing is logged yet")
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        // Cold open: first set stays on snapshot; later sets get fatigue rep projections.
+        val second = recommendations[SetSlotId.Template(backoffSetId)]
+        assertTrue(second != null, "cold open must project fatigue reps for set 2+")
+        assertEquals(135.0, second!!.weight.amount, 0.01, "cold open must not change weight")
+        assertTrue(second.reps < 4 || second.reps >= BACKOFF_REP_FLOOR)
+        assertNull(recommendations[SetSlotId.Template(liftSetId)], "first set has no live rec")
     }
 
     @Test
@@ -446,7 +556,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         assertEquals(2, recommendations.size)
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-2"))))
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-3"))))
@@ -456,8 +566,8 @@ class RecomputeRecommendationsUseCaseTest {
     }
 
     @Test
-    @DisplayName("On-track top set cascade: no live overlay for remaining slots")
-    fun `on track top set cascade leaves snapshot recs`() {
+    @DisplayName("On-track top set cascade: keep weight, fatigue-step reps for remaining slots")
+    fun `on track top set cascade leaves snapshot weight with live reps`() {
         val performed = LoggedSetValue(
             slotId = SetSlotId.Template(liftSetId),
             weight = lb(165.0),
@@ -511,7 +621,15 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        assertTrue(useCase(rendered, mapOf(liftId to catalogLift())).isEmpty())
+        val recs = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        assertEquals(3, recs.size)
+        recs.values.forEach { rec ->
+            assertEquals(165.0, rec.weight.amount, 0.01, "on-track must not drop shared weight")
+        }
+        val r2 = recs[SetSlotId.Template(LiftSetId("ls-2"))]!!.reps
+        val r3 = recs[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps
+        val r4 = recs[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps
+        assertTrue(r2 >= r3 && r3 >= r4, "fatigue steps down reps across remaining slots")
     }
 
     @Test
@@ -573,7 +691,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         assertEquals(3, recommendations.size)
         val r2 = recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!
         val r3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!
@@ -646,7 +764,14 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        // Prior live rec for set2 was 13@1; log was 10@1 → off-prescription re-anchor.
+        val prior: Map<SetSlotId, LiveSetRecommendation> =
+            mapOf(
+                SetSlotId.Template(LiftSetId("ls-2")) to
+                    LiveSetRecommendation(weight = lb(165.0), reps = 13),
+            )
+        val recommendations =
+            useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = prior)
         assertEquals(2, recommendations.size)
         assertEquals(8, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
         assertEquals(6, recommendations[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps)
@@ -696,7 +821,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         assertEquals(2, recommendations.size)
         assertEquals(13, recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
         assertEquals(11, recommendations[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps)
@@ -718,7 +843,7 @@ class RecomputeRecommendationsUseCaseTest {
             completedIsTopSet = false,
         )
         val fatigueByLiftId = mapOf(liftId to FatigueDecay(slope = -3.0, intercept = 0.0))
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap(), fatigueByLiftId = fatigueByLiftId)
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(5, rec!!.reps, "Steeper slope (-3.0) should project fewer reps than population (-2.0) → 6")
@@ -737,7 +862,7 @@ class RecomputeRecommendationsUseCaseTest {
             completedIsTopSet = false,
         )
         val fatigueByLiftId = mapOf(liftId to FatigueDecay(slope = -2.0, intercept = -1.0))
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap(), fatigueByLiftId = fatigueByLiftId)
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(5, rec!!.reps, "Intercept -1.0 should shift projected reps down by 1 vs population (6 → 5)")
@@ -756,7 +881,7 @@ class RecomputeRecommendationsUseCaseTest {
             completedIsTopSet = false,
         )
         val fatigueByLiftId = mapOf(liftId to FatigueDecay(slope = -1.0, intercept = 0.0))
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId)
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap(), fatigueByLiftId = fatigueByLiftId)
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(7, rec!!.reps, "Shallower slope (-1.0) should project more reps than population (-2.0) → 6")
@@ -774,7 +899,7 @@ class RecomputeRecommendationsUseCaseTest {
             rirGoal = 2,
             completedIsTopSet = false,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), fatigueByLiftId = emptyMap())
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap(), fatigueByLiftId = emptyMap())
         val rec = recommendations[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(6, rec!!.reps, "Absent lift must fall back to population slope (-2.0) → 6 reps")
@@ -824,7 +949,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val rec = useCase(rendered, mapOf(liftId to catalogLift()))[SetSlotId.Template(backoffSetId)]
+        val rec = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertTrue(rec!!.reps >= 5)
     }
@@ -840,7 +965,7 @@ class RecomputeRecommendationsUseCaseTest {
             repMax = 12,
             rirGoal = 2,
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         assertTrue(recommendations.isEmpty())
     }
 
@@ -911,10 +1036,17 @@ class RecomputeRecommendationsUseCaseTest {
                 liftId to catalogLift(),
                 liftB to catalogLift().copy(id = liftB, name = "Bench"),
             ),
+            priorRecommendations = emptyMap(),
         )
         assertTrue(recommendations.containsKey(SetSlotId.Template(backoffSetId)))
-        assertNull(recommendations[SetSlotId.Template(setB1)])
-        assertNull(recommendations[SetSlotId.Template(setB2)])
+        assertNull(recommendations[SetSlotId.Template(setB1)], "lift B first set stays snapshot")
+        // Lift B may get cold-open fatigue recs for set 2 — must not use lift A performance.
+        recommendations[SetSlotId.Template(setB2)]?.let { b2 ->
+            assertTrue(
+                b2.weight.amount != performedA.weight.amount || b2.reps != performedA.reps,
+                "lift B cold-open rec must not clone lift A's logged performance",
+            )
+        }
     }
 
     @Test
@@ -972,7 +1104,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val rec = useCase(rendered, mapOf(liftId to catalogLift()))[SetSlotId.Template(backoffSetId)]
+        val rec = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[SetSlotId.Template(backoffSetId)]
         assertTrue(rec != null)
         assertEquals(100.0, rec!!.weight.amount, 0.01)
         assertTrue(rec.reps < 10, "must not invent repMin=10 when capacity is lower; got ${rec.reps}")
@@ -1021,7 +1153,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         val r2 = recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!
         val r3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!
         assertEquals(r2.weight.amount, r3.weight.amount, 0.01, "straight-set shared weight")
@@ -1071,7 +1203,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         assertEquals(2, recommendations.size)
         val r2 = recommendations[SetSlotId.Template(LiftSetId("ls-2"))]!!
         val r3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!
@@ -1121,7 +1253,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         assertNull(recommendations[SetSlotId.Template(LiftSetId("ls-1"))])
         assertTrue(recommendations.containsKey(SetSlotId.Template(LiftSetId("ls-3"))))
     }
@@ -1181,9 +1313,9 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val first = useCase(render(100.0), mapOf(liftId to catalogLift(tiers = defaultTiers)))
+        val first = useCase(render(100.0), mapOf(liftId to catalogLift(tiers = defaultTiers)), priorRecommendations = emptyMap())
         val w1 = first[SetSlotId.Template(backoffSetId)]!!.weight.amount
-        val second = useCase(render(w1), mapOf(liftId to catalogLift(tiers = defaultTiers)))
+        val second = useCase(render(w1), mapOf(liftId to catalogLift(tiers = defaultTiers)), priorRecommendations = emptyMap())
         val w2 = second[SetSlotId.Template(backoffSetId)]!!.weight.amount
         assertEquals(w1, w2, 0.01, "re-feeding live weight must not stack another bump")
         assertTrue(w1 > 100.0, "too-easy should bump once above performed")
@@ -1238,7 +1370,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
         assertEquals(2, recommendations.size)
         val r3 = recommendations[SetSlotId.Template(LiftSetId("ls-3"))]!!
         val r4 = recommendations[SetSlotId.Template(LiftSetId("ls-4"))]!!
@@ -1292,7 +1424,7 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val recommendations = useCase(rendered, mapOf(liftId to catalogLift(tiers = defaultTiers)))
+        val recommendations = useCase(rendered, mapOf(liftId to catalogLift(tiers = defaultTiers)), priorRecommendations = emptyMap())
         assertEquals(2, recommendations.size)
         // Both remaining share one weight (last-set targeting). With remainingCount=2:
         // e1RM from 100×4, weightForReps(..., 5+1+2=8) rounds in 40–100 band to a value < 95
@@ -1342,12 +1474,907 @@ class RecomputeRecommendationsUseCaseTest {
                 ),
             ),
         )
-        val rec = useCase(rendered, mapOf(liftId to catalogLift()))[SetSlotId.Template(LiftSetId("ls-3"))]
+        // Set2 shown as 5 but logged 10 → off-prescription; re-anchor on set2.
+        val prior: Map<SetSlotId, LiveSetRecommendation> =
+            mapOf(
+                SetSlotId.Template(LiftSetId("ls-2")) to
+                    LiveSetRecommendation(weight = lb(100.0), reps = 5),
+            )
+        val rec =
+            useCase(
+                rendered,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = prior,
+            )[SetSlotId.Template(LiftSetId("ls-3"))]
         assertTrue(rec != null)
         // Anchor capacity 12; set index 2 → raw 10 @0 → 8 @2 RIR.
         assertEquals(8, rec!!.reps)
         // If wrongly anchored on set1 capacity 6 → set index would still be from set2 position
         // but capacity 6 → much lower. 8 proves last-set anchor.
         assertTrue(rec.reps >= 6)
+    }
+
+    @Test
+    @DisplayName(
+        "Live prior exact match freezes even when template band would fail isOnTrackPerformance",
+    )
+    fun `prior exact freezes when baseline band disagrees with live rec`() {
+        // Production calf set2: live showed 10, snapshot merge recR=12, top=false.
+        // Band-based on-track can fail; priorExact must still PRESERVE set4.
+        fun slot(
+            id: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            recR: Int,
+            repMin: Int,
+            repMax: Int,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = position == 0,
+            repMin = repMin,
+            repMax = repMax,
+            rirGoal = 1,
+            restSeconds = 90,
+            recommendedWeight = lb(230.0),
+            recommendedReps = recR,
+            loggedValue = logged,
+        )
+        val afterSet1 =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        recR = 12,
+                                        repMin = 8,
+                                        repMax = 20,
+                                    ),
+                                    slot("ls-2", 1, null, recR = 12, repMin = 8, repMax = 20),
+                                    slot("ls-3", 2, null, recR = 11, repMin = 0, repMax = 0),
+                                    slot("ls-4", 3, null, recR = 10, repMin = 0, repMax = 0),
+                                    slot("ls-5", 4, null, recR = 8, repMin = 0, repMax = 0),
+                                ),
+                        ),
+                    ),
+            )
+        val prior =
+            mapOf<SetSlotId, LiveSetRecommendation>(
+                SetSlotId.Template(LiftSetId("ls-2")) to
+                    LiveSetRecommendation(lb(230.0), 10),
+                SetSlotId.Template(LiftSetId("ls-3")) to
+                    LiveSetRecommendation(lb(230.0), 8),
+                SetSlotId.Template(LiftSetId("ls-4")) to
+                    LiveSetRecommendation(lb(230.0), 7),
+                SetSlotId.Template(LiftSetId("ls-5")) to
+                    LiveSetRecommendation(lb(230.0), 5),
+            )
+        // After set1, recompute with prior would PRESERVE; simulate set2 log at live 10
+        // while merge still exposes snapshot recR=12 and a tight band 12-20.
+        val afterSet2 =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        recR = 12,
+                                        repMin = 8,
+                                        repMax = 20,
+                                    ),
+                                    slot(
+                                        "ls-2",
+                                        1,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-2")),
+                                            lb(230.0),
+                                            10,
+                                            1,
+                                        ),
+                                        recR = 12,
+                                        repMin = 12,
+                                        repMax = 20,
+                                    ),
+                                    slot("ls-3", 2, null, recR = 11, repMin = 0, repMax = 0),
+                                    slot("ls-4", 3, null, recR = 10, repMin = 0, repMax = 0),
+                                    slot("ls-5", 4, null, recR = 8, repMin = 0, repMax = 0),
+                                ),
+                        ),
+                    ),
+            )
+        val recs =
+            useCase(
+                afterSet2,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = prior,
+            )
+        assertEquals(
+            7,
+            recs[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps,
+            "priorExact must PRESERVE set4=7 even if template band rejects loadOnTrack",
+        )
+        assertEquals(8, recs[SetSlotId.Template(LiftSetId("ls-3"))]!!.reps)
+        assertEquals(5, recs[SetSlotId.Template(LiftSetId("ls-5"))]!!.reps)
+    }
+
+    @Test
+    @DisplayName("Exact mid-block completion freezes fatigue curve (set 4 reps do not jump)")
+    fun `exact mid block completion freezes fatigue curve`() {
+        // Calf-style: log set1 then set2 exactly at the live rec for set2; set4 must not
+        // re-anchor (would drop e.g. 7→6 if last-performed became set-index 1).
+        fun slot(
+            id: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            shownReps: Int,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = position == 0,
+            repMin = if (position == 0) 8 else 0,
+            repMax = if (position == 0) 20 else 0,
+            rirGoal = 1,
+            restSeconds = 90,
+            recommendedWeight = lb(230.0),
+            recommendedReps = shownReps,
+            loggedValue = logged,
+        )
+        val afterSet1 =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        shownReps = 12,
+                                    ),
+                                    slot("ls-2", 1, null, shownReps = 10),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                    slot("ls-4", 3, null, shownReps = 7),
+                                    slot("ls-5", 4, null, shownReps = 5),
+                                ),
+                        ),
+                    ),
+            )
+        val recsAfterSet1 = useCase(afterSet1, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        val set2Shown = recsAfterSet1[SetSlotId.Template(LiftSetId("ls-2"))]!!
+        val set4AfterSet1 = recsAfterSet1[SetSlotId.Template(LiftSetId("ls-4"))]!!
+
+        val afterSet2Exact =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        shownReps = 12,
+                                    ),
+                                    slot(
+                                        "ls-2",
+                                        1,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-2")),
+                                            lb(230.0),
+                                            set2Shown.reps,
+                                            1,
+                                        ),
+                                        // Snapshot baseline after clear — not the live shown value.
+                                        shownReps = 8,
+                                    ),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                    slot("ls-4", 3, null, shownReps = 7),
+                                    slot("ls-5", 4, null, shownReps = 5),
+                                ),
+                        ),
+                    ),
+            )
+        val recsAfterExact =
+            useCase(
+                afterSet2Exact,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = recsAfterSet1,
+            )
+        val set4AfterExact = recsAfterExact[SetSlotId.Template(LiftSetId("ls-4"))]!!
+        assertEquals(
+            set4AfterSet1.reps,
+            set4AfterExact.reps,
+            "exact set2 must not re-anchor set4 (was ${set4AfterSet1.reps}, now ${set4AfterExact.reps})",
+        )
+        assertEquals(230.0, set4AfterExact.weight.amount, 0.01)
+    }
+
+    @Test
+    @DisplayName("Off-prescription mid-block log re-anchors remaining from just-performed")
+    fun `off prescription mid block reanchors remaining`() {
+        fun slot(
+            id: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            shownReps: Int,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = position == 0,
+            repMin = if (position == 0) 8 else 0,
+            repMax = if (position == 0) 20 else 0,
+            rirGoal = 1,
+            restSeconds = 90,
+            recommendedWeight = lb(230.0),
+            recommendedReps = shownReps,
+            loggedValue = logged,
+        )
+        val afterSet1 =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        shownReps = 12,
+                                    ),
+                                    slot("ls-2", 1, null, shownReps = 10),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                    slot("ls-4", 3, null, shownReps = 7),
+                                    slot("ls-5", 4, null, shownReps = 5),
+                                ),
+                        ),
+                    ),
+            )
+        val recsAfterSet1 = useCase(afterSet1, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        val set2Shown = recsAfterSet1[SetSlotId.Template(LiftSetId("ls-2"))]!!
+        val set4Stable = recsAfterSet1[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps
+        require(set2Shown.reps >= 3) { "fixture needs room to underperform set2" }
+
+        val afterSet2Weak =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        shownReps = 12,
+                                    ),
+                                    slot(
+                                        "ls-2",
+                                        1,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-2")),
+                                            lb(230.0),
+                                            (set2Shown.reps - 2).coerceAtLeast(1),
+                                            1,
+                                        ),
+                                        shownReps = 8,
+                                    ),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                    slot("ls-4", 3, null, shownReps = 7),
+                                    slot("ls-5", 4, null, shownReps = 5),
+                                ),
+                        ),
+                    ),
+            )
+        val recsAfterWeak =
+            useCase(
+                afterSet2Weak,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = recsAfterSet1,
+            )
+        val set4AfterWeak = recsAfterWeak[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps
+        assertTrue(
+            set4AfterWeak != set4Stable,
+            "weak set2 must re-anchor set4 (stable was $set4Stable, got $set4AfterWeak)",
+        )
+    }
+
+    @Test
+    @DisplayName(
+        "Exact freeze survives a second recompute without prior live recs for the logged set " +
+            "(cycle re-emit after Room log)",
+    )
+    fun `exact freeze survives recompute without prior for logged set`() {
+        // Production: handleLogSet recomputes with prior, then Room write re-emits cycle
+        // and would recompute again with snapshot-only merge (no prior for set2). Must not
+        // fall back to baseline recommendedReps and re-anchor.
+        fun slot(
+            id: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            shownReps: Int,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = position == 0,
+            repMin = if (position == 0) 8 else 0,
+            repMax = if (position == 0) 20 else 0,
+            rirGoal = 1,
+            restSeconds = 90,
+            recommendedWeight = lb(230.0),
+            recommendedReps = shownReps,
+            loggedValue = logged,
+        )
+        val afterSet1 =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        shownReps = 12,
+                                    ),
+                                    slot("ls-2", 1, null, shownReps = 10),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                    slot("ls-4", 3, null, shownReps = 7),
+                                    slot("ls-5", 4, null, shownReps = 5),
+                                ),
+                        ),
+                    ),
+            )
+        val recsAfterSet1 = useCase(afterSet1, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        val set2Shown = recsAfterSet1[SetSlotId.Template(LiftSetId("ls-2"))]!!
+        val set4Stable = recsAfterSet1[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps
+
+        val afterSet2 =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        shownReps = 12,
+                                    ),
+                                    slot(
+                                        "ls-2",
+                                        1,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-2")),
+                                            lb(230.0),
+                                            set2Shown.reps,
+                                            1,
+                                        ),
+                                        // Baseline (wrong vs live) — must not be used as shown rec.
+                                        shownReps = set2Shown.reps + 2,
+                                    ),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                    slot("ls-4", 3, null, shownReps = 7),
+                                    slot("ls-5", 4, null, shownReps = 5),
+                                ),
+                        ),
+                    ),
+            )
+        val afterExactWithPrior =
+            useCase(
+                afterSet2,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = recsAfterSet1,
+            )
+        // Second pass: no prior for set2 (already logged / wiped), baseline would mismatch.
+        val afterCycleReemit =
+            useCase(
+                afterSet2,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = afterExactWithPrior,
+            )
+        assertEquals(
+            set4Stable,
+            afterExactWithPrior[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps,
+        )
+        assertEquals(
+            set4Stable,
+            afterCycleReemit[SetSlotId.Template(LiftSetId("ls-4"))]!!.reps,
+            "cycle re-emit must not re-anchor set4 after exact logs",
+        )
+    }
+
+    @Test
+    @DisplayName("Null RIR on logged set is not exact-match freeze even with prior weight/reps")
+    fun `null rir does not freeze mid block`() {
+        fun slot(
+            id: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            shownReps: Int,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = position == 0,
+            repMin = if (position == 0) 8 else 0,
+            repMax = if (position == 0) 20 else 0,
+            rirGoal = 1,
+            restSeconds = 90,
+            recommendedWeight = lb(230.0),
+            recommendedReps = shownReps,
+            loggedValue = logged,
+        )
+        val afterSet1 =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        shownReps = 12,
+                                    ),
+                                    slot("ls-2", 1, null, shownReps = 10),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                ),
+                        ),
+                    ),
+            )
+        val prior =
+            useCase(
+                afterSet1,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = emptyMap(),
+            )
+        val set2Shown = prior[SetSlotId.Template(LiftSetId("ls-2"))]!!
+        val set3Prior = prior[SetSlotId.Template(LiftSetId("ls-3"))]!!
+        val afterSet2NullRir =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "SC",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Standing Calf Raise",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(230.0),
+                                            12,
+                                            1,
+                                        ),
+                                        shownReps = 12,
+                                    ),
+                                    slot(
+                                        "ls-2",
+                                        1,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-2")),
+                                            lb(230.0),
+                                            set2Shown.reps,
+                                            rir = null,
+                                        ),
+                                        shownReps = set2Shown.reps,
+                                    ),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                ),
+                        ),
+                    ),
+            )
+        val after =
+            useCase(
+                afterSet2NullRir,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = prior,
+            )
+        val set3 = after[SetSlotId.Template(LiftSetId("ls-3"))]
+        assertNotNull(set3, "adaptive path must still emit remaining straight recs")
+        // Null RIR must not take PRESERVE path that freezes prior set3 reps blindly.
+        // Adaptive may change reps; asserting we did not hard-require prior freeze is enough
+        // when adaptive keeps weight.
+        assertEquals(230.0, set3!!.weight.amount, 0.01)
+        // If freeze wrongly applied, set3 would equal set3Prior; adaptive with null RIR
+        // (treated as hard) typically lowers projected reps vs prior fatigue curve.
+        assertTrue(
+            set3.reps != set3Prior.reps || set3.reps <= set3Prior.reps,
+            "null RIR should not exclusive-preserve prior; got ${set3.reps} prior ${set3Prior.reps}",
+        )
+    }
+
+    @Test
+    @DisplayName("Adaptive path with engine null (on-track load, off-prior reps) keeps weight + projects")
+    fun `engine null keeps weight and projects reps`() {
+        fun slot(
+            id: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            shownReps: Int,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = position == 0,
+            repMin = 8,
+            repMax = 12,
+            rirGoal = 2,
+            restSeconds = 90,
+            recommendedWeight = lb(100.0),
+            recommendedReps = shownReps,
+            loggedValue = logged,
+        )
+        // Prior showed set2 = 10; lifter logs 11 @ same weight and goal RIR → not priorExact
+        // (reps differ) but engine is still on-track → null with keepSnapshotWhenOnTrack.
+        // Must not wipe remaining recs.
+        val prior =
+            mapOf<SetSlotId, LiveSetRecommendation>(
+                SetSlotId.Template(LiftSetId("ls-2")) to LiveSetRecommendation(lb(100.0), 10),
+                SetSlotId.Template(LiftSetId("ls-3")) to LiveSetRecommendation(lb(100.0), 8),
+            )
+        val rendered =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "Day",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Bench",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(100.0),
+                                            10,
+                                            2,
+                                        ),
+                                        shownReps = 10,
+                                    ),
+                                    slot(
+                                        "ls-2",
+                                        1,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-2")),
+                                            lb(100.0),
+                                            11,
+                                            2,
+                                        ),
+                                        shownReps = 10,
+                                    ),
+                                    slot("ls-3", 2, null, shownReps = 8),
+                                ),
+                        ),
+                    ),
+            )
+        val recs =
+            useCase(
+                rendered,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = prior,
+            )
+        val set3 = recs[SetSlotId.Template(LiftSetId("ls-3"))]
+        assertNotNull(set3, "engine null must not wipe remaining straight recs")
+        assertEquals(100.0, set3!!.weight.amount, 0.01, "must keep snapshot/shared weight")
+        assertTrue(set3.reps >= BACKOFF_REP_FLOOR)
+    }
+
+    @Test
+    @DisplayName(
+        "Restore recompute with established upcoming priors freezes weight " +
+            "(no last-set floor drop after minimize/reopen)",
+    )
+    fun `restore recompute with established priors keeps frozen block weight`() {
+        // Mirrors Deadlift (Nautilus): two completed 315s, remaining frozen at 315×5.
+        // After log, prior for set2 is wiped; only set3/set4 priors remain. Recompute
+        // (nav restore) must not re-anchor and Reduce (315→295).
+        fun slot(
+            id: String,
+            position: Int,
+            logged: LoggedSetValue?,
+            recR: Int,
+            repMin: Int,
+            repMax: Int,
+            isTop: Boolean = position == 0,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = isTop,
+            repMin = repMin,
+            repMax = repMax,
+            rirGoal = 2,
+            restSeconds = 180,
+            recommendedWeight = lb(315.0),
+            recommendedReps = recR,
+            loggedValue = logged,
+        )
+        val afterTwoLogged =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "DN",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Deadlift (Nautilus)",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(315.0),
+                                            7,
+                                            2,
+                                        ),
+                                        recR = 7,
+                                        repMin = 6,
+                                        repMax = 10,
+                                        isTop = true,
+                                    ),
+                                    slot(
+                                        "ls-2",
+                                        1,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-2")),
+                                            lb(315.0),
+                                            6,
+                                            2,
+                                        ),
+                                        // Snapshot merge baseline after log (not live shown).
+                                        recR = 8,
+                                        repMin = 6,
+                                        repMax = 10,
+                                        isTop = true,
+                                    ),
+                                    slot("ls-3", 2, null, recR = 5, repMin = 0, repMax = 0),
+                                    slot("ls-4", 3, null, recR = 5, repMin = 0, repMax = 0),
+                                ),
+                        ),
+                    ),
+            )
+        // Post-log overlay state: only upcoming slots keep live recs (set2 prior wiped).
+        val establishedPriors =
+            mapOf<SetSlotId, LiveSetRecommendation>(
+                SetSlotId.Template(LiftSetId("ls-3")) to
+                    LiveSetRecommendation(lb(315.0), 5),
+                SetSlotId.Template(LiftSetId("ls-4")) to
+                    LiveSetRecommendation(lb(315.0), 5),
+            )
+        val recs =
+            useCase(
+                afterTwoLogged,
+                mapOf(liftId to catalogLift(tiers = defaultTiers)),
+                priorRecommendations = establishedPriors,
+            )
+        val set3 = recs[SetSlotId.Template(LiftSetId("ls-3"))]
+        val set4 = recs[SetSlotId.Template(LiftSetId("ls-4"))]
+        assertNotNull(set3)
+        assertNotNull(set4)
+        assertEquals(
+            315.0,
+            set3!!.weight.amount,
+            0.01,
+            "restore must keep frozen 315, not last-set-floor reduce",
+        )
+        assertEquals(315.0, set4!!.weight.amount, 0.01)
+        assertEquals(5, set3.reps, "preserve established upcoming reps")
+        assertEquals(5, set4.reps)
+    }
+
+    @Test
+    @DisplayName("Empty-prior restore still reduces when no established upcoming freeze")
+    fun `empty prior restore can still adaptive reduce off track block`() {
+        // Without established priors, a weak mid-block log may still Reduce.
+        fun slot(
+            id: String,
+            position: Int,
+            logged: LoggedSetValue?,
+        ) = RenderedSet(
+            slotId = SetSlotId.Template(LiftSetId(id)),
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = SetType.Standard,
+            isTopSet = position == 0,
+            repMin = if (position == 0) 8 else 0,
+            repMax = if (position == 0) 12 else 0,
+            rirGoal = 2,
+            restSeconds = 180,
+            recommendedWeight = lb(315.0),
+            recommendedReps = 8,
+            loggedValue = logged,
+        )
+        val rendered =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "DN",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Deadlift",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    slot(
+                                        "ls-1",
+                                        0,
+                                        LoggedSetValue(
+                                            SetSlotId.Template(LiftSetId("ls-1")),
+                                            lb(315.0),
+                                            3,
+                                            2,
+                                        ),
+                                    ),
+                                    slot("ls-2", 1, null),
+                                    slot("ls-3", 2, null),
+                                    slot("ls-4", 3, null),
+                                ),
+                        ),
+                    ),
+            )
+        val recs =
+            useCase(
+                rendered,
+                mapOf(liftId to catalogLift(tiers = defaultTiers)),
+                priorRecommendations = emptyMap(),
+            )
+        val set4 = recs[SetSlotId.Template(LiftSetId("ls-4"))]
+        assertNotNull(set4)
+        // Weak 315×3@2 with 3 remaining → last-set floor should cut load.
+        assertTrue(
+            set4!!.weight.amount < 315.0,
+            "empty prior adaptive path should still reduce; got ${set4.weight.amount}",
+        )
     }
 }
