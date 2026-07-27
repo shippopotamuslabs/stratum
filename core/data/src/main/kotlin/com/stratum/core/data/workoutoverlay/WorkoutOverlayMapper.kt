@@ -5,6 +5,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.workout.LiveSetRecommendation
 import com.stratum.domain.workout.LoggedSetValue
 import com.stratum.domain.workout.OverlayAddedLift
 import com.stratum.domain.workout.OverlaySetInstanceId
@@ -25,10 +26,13 @@ import com.stratum.domain.workout.WorkoutOverlay
  * hand-edited or partially-corrupt record) rather than throwing.
  */
 
-/** `WorkoutOverlay → DTO`. `recommendations` is dropped (recomputed on restore). */
+/** `WorkoutOverlay → DTO`. Live recommendations round-trip for session restore. */
 fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
     loggedSets = loggedSets.entries.map { (slotId, value) ->
         LoggedSetEntryDto(slotId.toDto(), value.toDto())
+    },
+    recommendations = recommendations.entries.map { (slotId, rec) ->
+        LiveSetRecommendationEntryDto(slotId.toDto(), rec.weight.toDto(), rec.reps)
     },
     addedSlots = addedSlots.map { it.toDto() },
     deletedSlotIds = deletedSlotIds.map { it.toDto() },
@@ -56,10 +60,10 @@ fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
     orderedLiftIds = orderedLiftIds,
 )
 
-/** `DTO → WorkoutOverlay`. Blank-id entries are skipped. Returns an overlay with an empty
- *  `recommendations` map (recomputed by the ViewModel after restore). */
+/** `DTO → WorkoutOverlay`. Blank-id entries are skipped. */
 fun WorkoutOverlayDto.toDomain(): WorkoutOverlay = WorkoutOverlay(
     loggedSets = loggedSets.toLoggedSetMap(),
+    recommendations = recommendations.toRecommendationMap(),
     addedSlots = addedSlots.mapNotNull { it.toDomain() },
     deletedSlotIds = deletedSlotIds.mapNotNull { it.toDomain() }.toSet(),
     undoStack = undoStack.mapNotNull { it.toDomain() },
@@ -102,6 +106,16 @@ private fun List<LoggedSetEntryDto>.toLoggedSetMap(): Map<SetSlotId, LoggedSetVa
         val key = entry.slotId.toDomain() ?: continue
         put(key, entry.value.toDomain(key))
     }
+}
+
+private fun List<LiveSetRecommendationEntryDto>.toRecommendationMap(): Map<SetSlotId, LiveSetRecommendation> =
+    mapNotNull { entry -> entry.toDomainPairOrNull() }.toMap()
+
+private fun LiveSetRecommendationEntryDto.toDomainPairOrNull(): Pair<SetSlotId, LiveSetRecommendation>? {
+    val key = slotId.toDomain() ?: return null
+    val weight = weight.toDomainOrNull() ?: return null
+    if (reps <= 0) return null
+    return key to LiveSetRecommendation(weight = weight, reps = reps)
 }
 
 private fun List<DynamicBaselineEntryDto>.toBaselineMap(): Map<SetSlotId, SlotRecommendation> = buildMap {

@@ -25,10 +25,10 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 /**
- * Round-trip tests for [WorkoutOverlay] ↔ [WorkoutOverlayDto]. `recommendations` is dropped
- * on the DTO round-trip (recomputed by the ViewModel); every other field — including the
- * polymorphic [SetSlotId] keys, the sealed [StructuralMutation] undo stack, nullable superset
- * overrides, and nullable `orderedLiftIds` — must survive intact.
+ * Round-trip tests for [WorkoutOverlay] ↔ [WorkoutOverlayDto]. Live `recommendations`
+ * persist for session restore freeze; every field — including polymorphic [SetSlotId]
+ * keys, the sealed [StructuralMutation] undo stack, nullable superset overrides, and
+ * nullable `orderedLiftIds` — must survive intact.
  */
 @DisplayName("WorkoutOverlay ↔ DTO mapper")
 class WorkoutOverlayMapperTest {
@@ -115,9 +115,7 @@ class WorkoutOverlayMapperTest {
         )
 
         val restored = overlay.toDto().toDomain()
-
-        // recommendations is intentionally not persisted — restored must be empty.
-        assertEquals(overlay.copy(recommendations = emptyMap()), restored)
+        assertEquals(overlay, restored)
     }
 
     @Test
@@ -129,14 +127,19 @@ class WorkoutOverlayMapperTest {
     }
 
     @Test
-    @DisplayName("recommendations are dropped on round-trip")
-    fun recommendationsDropped() {
+    @DisplayName("recommendations round-trip for session restore freeze")
+    fun recommendationsRoundTrip() {
         val slotId = SetSlotId.Template(LiftSetId("ls-1"))
         val overlay = WorkoutOverlay(
-            recommendations = mapOf(slotId to com.stratum.domain.workout.LiveSetRecommendation(Weight(100.0, Weight.WeightUnit.Lb), reps = 5)),
+            recommendations = mapOf(
+                slotId to com.stratum.domain.workout.LiveSetRecommendation(
+                    Weight(315.0, Weight.WeightUnit.Lb),
+                    reps = 5,
+                ),
+            ),
         )
         val restored = overlay.toDto().toDomain()
-        assertTrue(restored.recommendations.isEmpty())
+        assertEquals(overlay.recommendations, restored.recommendations)
     }
 
     @Test
