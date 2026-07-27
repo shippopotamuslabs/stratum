@@ -100,4 +100,53 @@ class RestTimerAfterLogTest {
             )
         assertNull(seconds)
     }
+
+    @Test
+    @DisplayName("myo while cluster continues uses mini rest")
+    fun myoClusterContinuesUsesMiniRest() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = 15,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+                isMyoSet = true,
+                nextIsMyoSet = true,
+                liftDefaultRestSeconds = 180,
+            )
+        assertEquals(15, seconds)
+    }
+
+    @Test
+    @DisplayName("myo when cluster ends uses lift default rest")
+    fun myoClusterEndsUsesLiftDefault() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = 15,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+                isMyoSet = true,
+                nextIsMyoSet = false,
+                liftDefaultRestSeconds = 180,
+            )
+        assertEquals(180, seconds)
+    }
+
+    @Test
+    @DisplayName("myo into drop skips timer (zero rest)")
+    fun myoIntoDropSkipsTimer() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = 15,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+                isMyoSet = true,
+                nextIsMyoSet = false,
+                nextIsDropSet = true,
+                liftDefaultRestSeconds = 180,
+            )
+        assertNull(seconds)
+    }
 }

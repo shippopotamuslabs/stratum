@@ -6,6 +6,7 @@ import com.stratum.core.ui.component.formatWeightForDisplay
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
+import com.stratum.domain.program.DEFAULT_LIFT_SET_REST_SECONDS
 import com.stratum.domain.program.SetType
 import com.stratum.domain.workout.RenderedSet
 import com.stratum.domain.workout.RenderedWorkout
@@ -38,6 +39,8 @@ internal object WorkoutUiMapper {
         imageUrlByLiftId: Map<String, String?> = emptyMap(),
         displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
         displayUnitEpoch: Int = 0,
+        /** Lift id → catalog/default inter-set rest (seconds) for myo cluster exit. */
+        defaultRestSecondsByLiftId: Map<String, Int> = emptyMap(),
     ): WorkoutUiState.Loaded {
         val lifts = rendered.lifts.map { lift ->
             val showWeightColumn = lift.loadType != LoadType.Bodyweight
@@ -47,6 +50,10 @@ internal object WorkoutUiMapper {
                 LoadType.Weighted -> "Weight"
             }
             val assistMode = lift.loadType == LoadType.Assisted
+            val liftDefaultRest =
+                defaultRestSecondsByLiftId[lift.liftId.value]
+                    ?.coerceAtLeast(0)
+                    ?: DEFAULT_LIFT_SET_REST_SECONDS
             RenderedLiftUi(
                 workoutLiftId = lift.workoutLiftId.value,
                 liftId = lift.liftId.value,
@@ -56,6 +63,7 @@ internal object WorkoutUiMapper {
                 useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
                 imageUrl = imageUrlByLiftId[lift.liftId.value],
                 navigatorInitials = liftNavigatorInitials(lift.liftName),
+                defaultRestSeconds = liftDefaultRest,
                 sets = lift.sets.mapIndexed { setIndex, set ->
                     val prevWeight = set.previousWeight
                     val prevReps = set.previousReps

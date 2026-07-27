@@ -512,7 +512,11 @@ private fun ConfigureRestTimesBottomSheet(
                 ) {
                     StratumText(
                         text = stringResource(
-                            CoreUiR.string.edit_workout_rest_set_label,
+                            if (set.setKind.isMyoRepKind()) {
+                                CoreUiR.string.edit_workout_rest_mini_set_label
+                            } else {
+                                CoreUiR.string.edit_workout_rest_set_label
+                            },
                             set.positionLabel.toIntOrNull() ?: (lift.sets.indexOf(set) + 1),
                         ),
                         style = StratumThemeAccessor.typography.bodyLarge,
