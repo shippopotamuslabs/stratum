@@ -1,5 +1,6 @@
 package com.stratum.core.testing.workout
 
+import com.stratum.domain.training.TrainingSessionStatus
 import com.stratum.domain.workout.ProgressionHistoryPort
 import com.stratum.domain.workout.SlotHistoryEntry
 import com.stratum.domain.workout.SlotHistoryRequest
@@ -16,6 +17,8 @@ import com.stratum.domain.workout.SlotHistoryRequest
  * imported history (sentinel program `import-history`) is visible to live program sessions
  * — mirrors [com.stratum.core.data.repository.ProgressionHistoryRepository].
  *
+ * Only [TrainingSessionStatus.COMPLETED] entries are returned (matches Room history query).
+ *
  * The seed request's `workoutId` is carried onto the returned session so callers can
  * distinguish same- vs other-workout entries by `session.workoutId` — mirroring what a
  * real repository query returns (the session belongs to the workout identified by the
@@ -30,9 +33,10 @@ class FakeProgressionHistoryRepository : ProgressionHistoryPort {
     }
 
     override suspend fun historyForSlot(request: SlotHistoryRequest): List<SlotHistoryEntry> {
-        val matched = seeded.filter { (req, _) ->
+        val matched = seeded.filter { (req, entry) ->
             req.liftId == request.liftId &&
-                req.setIndex == request.setIndex
+                req.setIndex == request.setIndex &&
+                entry.session.status == TrainingSessionStatus.COMPLETED
         }
 
         val byStartedDesc = compareByDescending<SlotHistoryEntry> { it.session.startedAt }

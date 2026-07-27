@@ -177,12 +177,18 @@ interface TrainingLoggedSetDao {
      * soft-unlinked sessions may have a null program id after template delete. Ordering is
      * applied in [com.stratum.core.data.repository.ProgressionHistoryRepository].
      */
+    /**
+     * Completed sessions only — in-progress live logs must not appear as "previous"
+     * or seed progression math (resume mid-session would otherwise overwrite Prev
+     * with this session's sets).
+     */
     @Query(
         """
         SELECT ls.* FROM logged_sets ls
         INNER JOIN training_sessions ts ON ls.sessionId = ts.id
         WHERE ls.liftId = :liftId
           AND ls.setIndex = :setIndex
+          AND ts.status = 'COMPLETED'
         ORDER BY
           CASE WHEN ts.workout_id = :workoutId THEN 0 ELSE 1 END,
           ts.started_at_epoch_millis DESC
