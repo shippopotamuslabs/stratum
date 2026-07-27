@@ -12,10 +12,13 @@ import javax.inject.Singleton
 
 /**
  * Historical-priority read implementation (D3, research Gap 4). Returns sets for a slot
- * across sessions (including imported history and other programs): same-workout entries
- * first (n−1, n−2, … by recency), then same-lift / same-position from other workouts or
- * imports. Program id is not a hard filter — imports use sentinel `import-history` and
+ * across **completed** sessions (including imported history and other programs): same-workout
+ * entries first (n−1, n−2, … by recency), then same-lift / same-position from other workouts
+ * or imports. Program id is not a hard filter — imports use sentinel `import-history` and
  * soft-unlinked sessions may have a null program id.
+ *
+ * **In-progress sessions are excluded** so live logs never become "previous" or progression
+ * baselines when the lifter leaves and re-enters mid-workout.
  */
 @Singleton
 class ProgressionHistoryRepository @Inject constructor(
@@ -32,6 +35,10 @@ class ProgressionHistoryRepository @Inject constructor(
         val entries =
             sets.mapNotNull { entity ->
                 val session = sessionDao.getById(entity.sessionId)?.toDomain() ?: return@mapNotNull null
+                // Defense in depth — DAO already filters COMPLETED.
+                if (session.status != com.stratum.domain.training.TrainingSessionStatus.COMPLETED) {
+                    return@mapNotNull null
+                }
                 SlotHistoryEntry(session, entity.toTrainingDomain())
             }
         val byStartedDesc = compareByDescending<SlotHistoryEntry> { it.session.startedAt }
