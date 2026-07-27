@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.StratumButton
+import com.stratum.core.ui.component.StratumConfirmDialog
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.workoutlog.LocalSetLogKeyboardHost
@@ -47,6 +49,18 @@ internal const val WORKOUT_SESSION_FOOTER_KEY = "session-footer"
 /** Extra gap kept between focused cell bottom and keyboard top when revealing. */
 private val KeyboardRevealMargin = 8.dp
 
+/** Set-log callbacks for [WorkoutLiftList] — bag avoids Detekt LongParameterList. */
+internal data class WorkoutLiftListActions(
+    val onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?) -> Unit,
+    val onUnlogSet: (String) -> Unit,
+    val onAddSet: (workoutLiftId: String) -> Unit,
+    val onDeleteSet: (slotKey: String) -> Unit,
+    val onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
+    val onShowLiftActions: (workoutLiftId: String) -> Unit,
+    val onAddLift: () -> Unit,
+    val onDiscardClick: () -> Unit,
+)
+
 /**
  * Scrollable lift panels + session footer (Add Lift, Discard). Bottom [contentPadding] is sized
  * so max scroll pins the last lift under the navigator — only the shortfall after last-lift +
@@ -61,13 +75,7 @@ internal fun WorkoutLiftList(
     lifts: List<RenderedLiftUi>,
     listState: LazyListState,
     liftHeightsPx: MutableMap<String, Int>,
-    onLogSet: (slotKey: String, weightAmountDisplay: Double, reps: Int, rir: Int?) -> Unit,
-    onUnlogSet: (String) -> Unit,
-    onAddSet: (workoutLiftId: String) -> Unit,
-    onDeleteSet: (slotKey: String) -> Unit,
-    onShowLiftActions: (workoutLiftId: String) -> Unit,
-    onAddLift: () -> Unit,
-    onDiscardClick: () -> Unit,
+    actions: WorkoutLiftListActions,
     modifier: Modifier = Modifier,
     failedLogSlotKey: String? = null,
     onFailedLogConsumed: () -> Unit = {},
@@ -121,11 +129,12 @@ internal fun WorkoutLiftList(
                 LiveLiftSection(
                     lift = lift,
                     allLifts = lifts,
-                    onLogSet = onLogSet,
-                    onUnlogSet = onUnlogSet,
-                    onAddSet = { onAddSet(lift.workoutLiftId) },
-                    onDeleteSet = onDeleteSet,
-                    onShowLiftActions = { onShowLiftActions(lift.workoutLiftId) },
+                    onLogSet = actions.onLogSet,
+                    onUnlogSet = actions.onUnlogSet,
+                    onAddSet = { actions.onAddSet(lift.workoutLiftId) },
+                    onDeleteSet = actions.onDeleteSet,
+                    onSetSetKind = actions.onSetSetKind,
+                    onShowLiftActions = { actions.onShowLiftActions(lift.workoutLiftId) },
                     failedLogSlotKey = failedLogSlotKey,
                     onFailedLogConsumed = onFailedLogConsumed,
                     displayUnitEpoch = displayUnitEpoch,
@@ -148,12 +157,12 @@ internal fun WorkoutLiftList(
                 ) {
                     StratumButton(
                         text = stringResource(R.string.workout_screen_add_lift),
-                        onClick = onAddLift,
+                        onClick = actions.onAddLift,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     StratumOutlinedButton(
                         text = stringResource(R.string.workout_screen_discard_workout_action),
-                        onClick = onDiscardClick,
+                        onClick = actions.onDiscardClick,
                         modifier = Modifier.fillMaxWidth(),
                         destructive = true,
                     )
@@ -180,6 +189,7 @@ internal fun LiveLiftSection(
     onUnlogSet: (String) -> Unit,
     onAddSet: () -> Unit,
     onDeleteSet: (slotKey: String) -> Unit,
+    onSetSetKind: (slotKey: String, kind: WorkoutSetKind) -> Unit = { _, _ -> },
     onShowLiftActions: () -> Unit,
     modifier: Modifier = Modifier,
     allLifts: List<RenderedLiftUi> = emptyList(),
@@ -191,6 +201,11 @@ internal fun LiveLiftSection(
     val keyboardHost = LocalSetLogKeyboardHost.current
     val focusedSetKey = keyboardHost?.session?.setKey
     val revision by draftStore.revision.collectAsStateWithLifecycle()
+
+    var setKindPickerSlotKey by remember { mutableStateOf<String?>(null) }
+    var pendingMyoDemote by remember {
+        mutableStateOf<Pair<String, WorkoutSetKind>?>(null)
+    }
 
     LaunchedEffect(displayUnitEpoch) {
         if (displayUnitEpoch > 0) {
@@ -222,6 +237,15 @@ internal fun LiveLiftSection(
     val addSetCd = stringResource(R.string.workout_screen_add_set)
     val deleteSetCd = stringResource(R.string.workout_screen_delete_set)
     val canDeleteSets = lift.sets.size > 1
+
+    val applySetKind: (String, WorkoutSetKind) -> Unit = { slotKey, kind ->
+        val source = lift.sets.firstOrNull { it.slotKey == slotKey }
+        if (source != null && source.hasGeneratedMyoMinis && !kind.isMyo()) {
+            pendingMyoDemote = slotKey to kind
+        } else {
+            onSetSetKind(slotKey, kind)
+        }
+    }
 
     StratumWorkoutLogLiftPanel(
         lift = logLift,
@@ -273,10 +297,51 @@ internal fun LiveLiftSection(
                     null
                 },
                 deleteContentDescription = deleteSetCd,
+                onSetTypeClick =
+                    if (source.canChangeSetType) {
+                        { setKindPickerSlotKey = source.slotKey }
+                    } else {
+                        null
+                    },
             )
         },
     )
+
+    val pickerSource = lift.sets.firstOrNull { it.slotKey == setKindPickerSlotKey }
+    if (pickerSource != null) {
+        WorkoutSetTypePickerSheet(
+            selected = pickerSource.setKind,
+            allowedKinds = pickerSource.allowedSetKinds.ifEmpty {
+                listOf(pickerSource.setKind)
+            },
+            onSelect = { kind ->
+                setKindPickerSlotKey = null
+                if (kind != pickerSource.setKind) {
+                    applySetKind(pickerSource.slotKey, kind)
+                }
+            },
+            onDismiss = { setKindPickerSlotKey = null },
+        )
+    }
+
+    pendingMyoDemote?.let { (slotKey, kind) ->
+        StratumConfirmDialog(
+            title = stringResource(R.string.workout_set_type_change_myo_title),
+            body = stringResource(R.string.workout_set_type_change_myo_body),
+            confirmLabel = stringResource(R.string.workout_set_type_change_myo_confirm),
+            dismissLabel = stringResource(R.string.workout_set_type_change_myo_cancel),
+            onConfirm = {
+                pendingMyoDemote = null
+                onSetSetKind(slotKey, kind)
+            },
+            onDismiss = { pendingMyoDemote = null },
+            destructiveConfirm = true,
+        )
+    }
 }
+
+private fun WorkoutSetKind.isMyo(): Boolean =
+    this == WorkoutSetKind.MyoRepFloor || this == WorkoutSetKind.MyoRepMatch
 
 /**
  * Among visible lift list items, select the one whose top edge is closest to [threshold]

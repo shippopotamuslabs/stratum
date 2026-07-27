@@ -179,12 +179,15 @@
     <string name="edit_workout_rir_info_close">Close RIR description</string>
     <string name="edit_workout_rir_info_body">RIR stands for Reps in Reserve — how many additional reps you think you could have done. This is a way to track how challenging a set felt to you.\n\nA lower RIR means you were closer to failure and pushed your limit. A higher one means it felt easier and you had a lot left in the tank.</string>
     <string name="edit_workout_rest_sheet_title">Rest time</string>
+    <string name="edit_workout_mini_rest_title">Mini rest</string>
+    <string name="edit_workout_mini_rest_hint">Rest between myo mini-sets. After the last mini, the timer uses the lift default rest.</string>
     <string name="edit_workout_rest_dismiss">Close rest time</string>
     <string name="edit_workout_rest_minutes_label">Minutes</string>
     <string name="edit_workout_rest_seconds_label">Seconds</string>
     <string name="edit_workout_rest_increment">Increase rest time</string>
     <string name="edit_workout_rest_decrement">Decrease rest time</string>
     <string name="edit_workout_rest_apply_to_set">Apply to Set</string>
+    <string name="edit_workout_rest_apply_mini_rest">Apply mini rest</string>
     <string name="edit_workout_rest_apply_to_all_sets">Apply to All Sets</string>
     <string name="edit_workout_exercise_count_header">%1$d Lifts</string>
     <string name="edit_workout_estimated_duration">Estimated workout time: %1$s</string>
@@ -215,6 +218,15 @@
     <string name="edit_workout_progression_scheme_double_body">Double progression holds weight until you reach the top of your rep range at the RIR target, then adds load. The default for experienced lifters.</string>
     <string name="edit_workout_progression_scheme_eligibility_body">Only compound lifts can use Linear. Isolation lifts always use Double progression.</string>
     <string name="edit_workout_progression_scheme_graduation_body">After two reset cycles on Linear, Stratum automatically moves the lift to Double progression.</string>
+
+    <!-- Set type picker (intensifier sets) -->
+    <string name="edit_workout_set_type_sheet_title">Set type</string>
+    <string name="edit_workout_set_type_standard">Standard</string>
+    <string name="edit_workout_set_type_myo_rep">Myo-Rep</string>
+    <string name="edit_workout_set_type_myo_rep_match">Myo-Rep Match</string>
+    <string name="edit_workout_set_type_drop_set">Drop Set</string>
+    <string name="edit_workout_set_type_selected">Selected</string>
+
     <string name="confirm_discard_dialog_body_text">This will permanently delete the current training session and all logged sets. Are you sure?</string>
 
     <!-- Un-skip workout warning -->

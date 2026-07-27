@@ -16,7 +16,10 @@ data class WorkoutLogLiftUi(
 data class WorkoutLogSetUi(
     val setKey: String,
     val positionLabel: String,
-    /** Domain set type name for W/D labels — e.g. `"Warmup"`, `"DropSet"`, `"Working"`. */
+    /**
+     * Set-column chip key. Prefer short chips (`S` / `M` / `MM` / `D` / `W`); longer enum
+     * names (`Standard`, `MyoRep`, `DropSet`, `Warmup`) are still accepted by the row badge.
+     */
     val setTypeLabel: String,
     val previousLabel: String = "—",
     val weightText: String = "",
@@ -55,4 +58,9 @@ data class WorkoutLogSetRowActions(
      */
     val onDelete: (() -> Unit)? = null,
     val deleteContentDescription: String = "Delete set",
+    /**
+     * When non-null, the set-type badge is clickable (live workout / template-style type
+     * picker). Null keeps the badge display-only (history, minis).
+     */
+    val onSetTypeClick: (() -> Unit)? = null,
 )

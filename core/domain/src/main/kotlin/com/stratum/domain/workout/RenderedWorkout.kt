@@ -8,6 +8,7 @@ import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
+import com.stratum.domain.workout.myorep.MyoRepKind
 
 /** Merge-result read model for a single set (D1). */
 data class RenderedSet(
@@ -34,6 +35,8 @@ data class RenderedSet(
     val previousWeight: Weight? = null,
     val previousReps: Int? = null,
     val isProjected: Boolean = false,
+    /** Present for MyoRep slots so UI can distinguish floor (M) vs match (MM). */
+    val myoRepKind: MyoRepKind? = null,
 )
 
 /** Merge-result read model for a single lift (D1). */

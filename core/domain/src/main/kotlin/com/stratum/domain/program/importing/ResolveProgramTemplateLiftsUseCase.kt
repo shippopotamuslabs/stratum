@@ -20,6 +20,7 @@ import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.program.identity.WorkoutSupersetGroupId
 import com.stratum.domain.program.schedule.restSlotIndicesForSevenDayWeek
+import com.stratum.domain.workout.myorep.MyoRepKind
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -46,10 +47,11 @@ import kotlinx.coroutines.flow.first
  *  - When the template has no rest markers but training rows carry weekdays that fit a classic
  *    7-day week, rests are derived via [restSlotIndicesForSevenDayWeek].
  *
- * The resulting [Program] uses [ProgressionScheme.Linear] as a safe default for every lift (the
- * imported template carries no training-age signal to assign [ProgressionScheme.Double]), and maps
- * source set-type labels onto [SetType] where recognizable. MacroFactor superset group keys are
- * preserved as [WorkoutLift.supersetGroupId] within each workout.
+ * Progression scheme: every imported lift gets [ProgressionScheme.Double]. Linear is a rare
+ * compound-only case the user can enable later in Edit Workout; the template carries no
+ * training-age signal that would justify Linear. Source set-type labels map onto [SetType]
+ * where recognizable. MacroFactor superset group keys are preserved as
+ * [WorkoutLift.supersetGroupId] within each workout.
  */
 class ResolveProgramTemplateLiftsUseCase @Inject constructor(
     private val liftRepository: LiftRepository,
@@ -123,7 +125,7 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
                     id = workoutLiftId,
                     workoutId = workoutId,
                     liftId = liftId,
-                    progressionScheme = ProgressionScheme.Linear,
+                    progressionScheme = ProgressionScheme.Double,
                     position = templateLift.position,
                     sets = templateLift.sets.mapIndexed { setIndex, templateSet ->
                         LiftSet(
@@ -131,6 +133,7 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
                             workoutLiftId = workoutLiftId,
                             position = templateSet.position.coerceAtLeast(setIndex),
                             setType = mapSetType(templateSet.setTypeLabel),
+                            myoRepKind = mapMyoRepKind(templateSet.setTypeLabel),
                             repMin = templateSet.repMin ?: DEFAULT_REP_MIN,
                             repMax = templateSet.repMax ?: DEFAULT_REP_MAX,
                             rirGoal = templateSet.rirGoal ?: DEFAULT_RIR_GOAL,
@@ -217,6 +220,14 @@ class ResolveProgramTemplateLiftsUseCase @Inject constructor(
             normalized.contains("drop") -> SetType.DropSet
             else -> SetType.Standard
         }
+    }
+
+    /** Defaults imported myo labels to [MyoRepKind.RepFloor]; match when label mentions match. */
+    private fun mapMyoRepKind(label: String?): MyoRepKind? {
+        if (label == null) return null
+        val normalized = label.trim().lowercase()
+        if (!normalized.contains("myo")) return null
+        return if (normalized.contains("match")) MyoRepKind.RepMatching else MyoRepKind.RepFloor
     }
 
     /** Loose weekday parse; null when the source label is not a recognizable weekday. */

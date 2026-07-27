@@ -17,6 +17,7 @@ import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
 import com.stratum.domain.program.identity.LiftSetId
+import com.stratum.domain.workout.myorep.MyoRepKind
 import com.stratum.domain.program.identity.ProgramId
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -317,6 +318,13 @@ class EnumConverters {
     @TypeConverter
     fun toSetType(value: String?): SetType? =
         value?.let { runCatching { SetType.valueOf(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromMyoRepKind(kind: MyoRepKind?): String? = kind?.name
+
+    @TypeConverter
+    fun toMyoRepKind(value: String?): MyoRepKind? =
+        value?.let { runCatching { MyoRepKind.valueOf(it) }.getOrNull() }
 
     @TypeConverter
     fun fromProgramId(id: ProgramId?): String? = id?.value

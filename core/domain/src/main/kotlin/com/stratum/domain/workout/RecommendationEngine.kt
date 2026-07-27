@@ -14,24 +14,32 @@ import com.stratum.domain.workout.fatigue.reduceWeightForLastSetFloor as sharedR
 import javax.inject.Inject
 
 /**
- * Overlay-only recommendation engine (D4). Hold-vs-reduce decision for remaining sets,
- * computed from the most recent performed set. **Weight selection uses the same
- * [FatigueModel] oracle as rep projection** in [RecomputeRecommendationsUseCase].
+ * Overlay-only recommendation engine (D4). **Single** Hold-vs-reduce path for remaining
+ * straight-set load (Standard block or post-myo/drop standards). Weight selection uses the
+ * same [FatigueModel] oracle as rep projection in [RecomputeRecommendationsUseCase].
  *
  * Decision tree (in order):
- * 1. **On-track top set** — goal weight in RIR-adjusted range → `null` (snapshot stays put).
+ * 1. **On-track performance** — prescribed load hit and not too hard / not a large RIR
+ *    surplus → `null` when [keepSnapshotWhenOnTrack] is true (caller keeps snapshot **weight**
+ *    and still projects fatigue reps). Applies to **any** straight set (top or backoff),
+ *    not only the program top set — completing exact prescriptions mid-block must not
+ *    re-run last-set floor Reduce (that would drop weight the snapshot already committed
+ *    for the whole straight set). When [keepSnapshotWhenOnTrack] is false (post-myo/drop),
+ *    fall through so last-set floor runs.
  * 2. **Working weight** — re-anchor heavier/lighter vs intentional backoff
  *    ([resolveWorkingWeight]). Callers must pass **snapshot / program** prescriptions as
  *    [currentWeight] / [completedSetPrescribedWeight], never prior live overlay weights
  *    (avoids too-easy bump ratcheting on every recompute).
- * 3. **Too easy** — ceiling exceeded by ≥ 2 RIR-adjusted reps → try one increment step
- *    (tier step, or 5 lb / 2.5 kg default). If bump fails last-set floor → keep current.
- *    Only reduce when even current fails the floor.
+ * 3. **Too easy** — ceiling exceeded by ≥ 2 RIR-adjusted reps **or** RIR surplus ≥ 2 on a
+ *    top set that still hit the work → try one increment above **performed**. If the bump
+ *    fails last-set floor → **Hold performed** (never Reduce after a too-easy top set).
  * 4. **Hold vs Reduce** — last remaining set capacity ≥ [BACKOFF_REP_FLOOR] → Hold;
- *    else Reduce via oracle search.
+ *    else Reduce via oracle search (hard / under-performed paths only).
  *
  * Last-set index: performed = 1; with [remainingCount] upcoming slots after the anchor,
- * last index = `remainingCount + 1`.
+ * last index = `remainingCount + 1`. Callers must count open minis/drops between the
+ * performance anchor and the last remaining standard in [remainingCount] so floor index
+ * matches fatigue set-index for rep projection.
  *
  * [loadType]: Bodyweight / Assisted → `null`.
  */
@@ -49,6 +57,11 @@ class RecommendationEngine @Inject constructor(
         perLiftIntercept: Double? = null,
         loadType: LoadType = LoadType.Weighted,
         completedSetPrescribedWeight: Weight? = null,
+        /**
+         * Pure straight blocks: on-track top set → `null` (keep snapshot).
+         * Post-myo/drop: `false` so the same Hold/Reduce + last-set floor still runs.
+         */
+        keepSnapshotWhenOnTrack: Boolean = true,
     ): RecommendationOutcome? {
         if (loadType == LoadType.Bodyweight || loadType == LoadType.Assisted) return null
         if (lastPerformed == null || lastPerformed.weight.amount <= 0.0) return null
@@ -64,6 +77,7 @@ class RecommendationEngine @Inject constructor(
             perLiftIntercept = perLiftIntercept,
             loadType = loadType,
             completedSetPrescribedWeight = completedSetPrescribedWeight,
+            keepSnapshotWhenOnTrack = keepSnapshotWhenOnTrack,
         )
     }
 
@@ -78,8 +92,11 @@ class RecommendationEngine @Inject constructor(
         perLiftIntercept: Double?,
         loadType: LoadType,
         completedSetPrescribedWeight: Weight?,
+        keepSnapshotWhenOnTrack: Boolean,
     ): RecommendationOutcome? {
-        if (isOnTrackTopSet(lastPerformed, completedSlot, completedSetPrescribedWeight)) return null
+        val onTrack =
+            isOnTrackPerformance(lastPerformed, completedSlot, completedSetPrescribedWeight)
+        if (onTrack && keepSnapshotWhenOnTrack) return null
 
         val effectiveRir = lastPerformed.rir ?: 0
         val reps = lastPerformed.reps + effectiveRir
@@ -98,18 +115,21 @@ class RecommendationEngine @Inject constructor(
             completedPrescribed = completedSetPrescribedWeight,
         )
         val lastSetIndex = lastRemainingSetIndex(remainingCount)
-        val tooEasyHold = tryTooEasyHold(
-            lastPerformed = lastPerformed,
-            completedSlot = completedSlot,
-            e1rm = e1rm,
-            lastSetIndex = lastSetIndex,
-            targetRirGoal = targetSlot.rirGoal,
-            perLiftSlope = perLiftSlope,
-            perLiftIntercept = perLiftIntercept,
-            incrementTiers = incrementTiers,
-            loadType = loadType,
-        )
-        return tooEasyHold ?: holdOrReduce(
+        val tooEasy = isTooEasyTopSet(lastPerformed, completedSlot)
+        // Post-cluster on-track fall-through skips too-easy (load already matched prescription).
+        if (!onTrack && tooEasy) {
+            return tooEasyOutcome(
+                lastPerformed = lastPerformed,
+                e1rm = e1rm,
+                lastSetIndex = lastSetIndex,
+                targetRirGoal = targetSlot.rirGoal,
+                perLiftSlope = perLiftSlope,
+                perLiftIntercept = perLiftIntercept,
+                incrementTiers = incrementTiers,
+                loadType = loadType,
+            )
+        }
+        return holdOrReduce(
             e1rm = e1rm,
             effectiveWeight = effectiveWeight,
             lastSetIndex = lastSetIndex,
@@ -122,13 +142,29 @@ class RecommendationEngine @Inject constructor(
     }
 
     /**
-     * When the completed top set was too easy, try one increment above the performed load.
-     * Returns Hold(bumped) if the last set still clears the floor; otherwise null so the
-     * caller falls through to current-load Hold/Reduce (never force a cut for a failed bump).
+     * Top set left ≥2 RIR above goal (with real work done) and/or cleared the rep ceiling
+     * by ≥2 RIR-adjusted reps.
      */
-    private fun tryTooEasyHold(
+    internal fun isTooEasyTopSet(
         lastPerformed: LoggedSetValue,
         completedSlot: SetSlot?,
+    ): Boolean {
+        if (completedSlot == null || !completedSlot.isTopSet) return false
+        val effectiveRir = lastPerformed.rir ?: 0
+        val rirSurplus = effectiveRir - completedSlot.rirGoal
+        // Hit meaningful work with much more left in the tank (e.g. 10@3 when goal was 1).
+        if (rirSurplus >= 2 && lastPerformed.reps >= 1) return true
+        if (completedSlot.repMax <= 0) return false
+        val achieved = lastPerformed.reps + effectiveRir - completedSlot.rirGoal
+        return achieved - completedSlot.repMax >= 2
+    }
+
+    /**
+     * One increment above performed when last-set still clears the floor; otherwise
+     * **Hold performed** — never Reduce after a too-easy top set.
+     */
+    private fun tooEasyOutcome(
+        lastPerformed: LoggedSetValue,
         e1rm: Double,
         lastSetIndex: Int,
         targetRirGoal: Int,
@@ -136,15 +172,9 @@ class RecommendationEngine @Inject constructor(
         perLiftIntercept: Double?,
         incrementTiers: List<IncrementTier>,
         loadType: LoadType,
-    ): RecommendationOutcome.Hold? {
-        val effectiveRir = lastPerformed.rir ?: 0
-        val achieved = lastPerformed.reps + effectiveRir - (completedSlot?.rirGoal ?: 0)
-        val isTooEasy = completedSlot != null && completedSlot.isTopSet &&
-            completedSlot.repMax > 0 &&
-            (achieved - completedSlot.repMax >= 2)
-        if (!isTooEasy) return null
-
-        val bumped = tooEasyBump(lastPerformed.weight, incrementTiers, loadType)
+    ): RecommendationOutcome {
+        val performed = lastPerformed.weight
+        val bumped = tooEasyBump(performed, incrementTiers, loadType)
         val bumpedCapacity = capacityAtRir(
             e1rm = e1rm,
             weight = bumped,
@@ -156,7 +186,7 @@ class RecommendationEngine @Inject constructor(
         return if (bumpedCapacity >= BACKOFF_REP_FLOOR) {
             RecommendationOutcome.Hold(bumped)
         } else {
-            null
+            RecommendationOutcome.Hold(performed)
         }
     }
 
@@ -218,22 +248,42 @@ class RecommendationEngine @Inject constructor(
         return incrementTiers.roundToIncrement(raw, loadType)
     }
 
-    internal fun isOnTrackTopSet(
+    /**
+     * True when the lifter hit the **prescribed load** without under- or over-shooting enough
+     * to warrant a live weight rewrite. Used to keep the snapshot's shared straight-set weight.
+     *
+     * - Top / ranged slots: RIR-adjusted achieved reps in [repMin, repMax].
+     * - Backoff (0/0 RIR-only): effective capacity at goal RIR ≥ [BACKOFF_REP_FLOOR]
+     *   (same floor the reduce path protects).
+     *
+     * Too-easy top sets (large RIR surplus) are never on-track so the bump path can run.
+     */
+    internal fun isOnTrackPerformance(
         lastPerformed: LoggedSetValue,
         completedSlot: SetSlot?,
         completedPrescribed: Weight?,
     ): Boolean {
-        if (completedSlot == null || !completedSlot.isTopSet) return false
-        if (completedPrescribed == null || completedPrescribed.amount <= 0.0) return false
-        val performedLb = WeightConversion.amountInLb(lastPerformed.weight)
-        val prescribedLb = WeightConversion.amountInLb(completedPrescribed)
-        if (!WeightConversion.nearlyEqualLb(performedLb, prescribedLb)) return false
-        if (completedSlot.repMin <= 0 && completedSlot.repMax <= 0) return false
+        val slot = completedSlot
+        val prescribed = completedPrescribed
+        if (slot == null || prescribed == null || prescribed.amount <= 0.0) return false
+        val weightMatches =
+            WeightConversion.nearlyEqualLb(
+                WeightConversion.amountInLb(lastPerformed.weight),
+                WeightConversion.amountInLb(prescribed),
+            )
+        // Extra RIR on a top set means the load was too light.
+        if (!weightMatches || isTooEasyTopSet(lastPerformed, slot)) return false
+
         val effectiveRir = lastPerformed.rir ?: 0
-        val achieved = lastPerformed.reps + effectiveRir - completedSlot.rirGoal
-        val lo = completedSlot.repMin
-        val hi = if (completedSlot.repMax > 0) completedSlot.repMax else Int.MAX_VALUE
-        return achieved in lo..hi
+        val achieved = lastPerformed.reps + effectiveRir - slot.rirGoal
+        return if (slot.repMin > 0 || slot.repMax > 0) {
+            val lo = slot.repMin
+            val hi = if (slot.repMax > 0) slot.repMax else Int.MAX_VALUE
+            achieved in lo..hi
+        } else {
+            // RIR-only backoff: on-track if not "too hard" vs the global floor.
+            achieved >= BACKOFF_REP_FLOOR
+        }
     }
 
     internal fun resolveWorkingWeight(
@@ -258,6 +308,13 @@ class RecommendationEngine @Inject constructor(
     /** Performed anchor = 1; last of [remainingCount] post-anchor upcoming = remainingCount + 1. */
     internal fun lastRemainingSetIndex(remainingCount: Int): Int =
         (remainingCount + 1).coerceAtLeast(1)
+
+    /** Weight from a non-null [recommendNextSet] outcome. */
+    fun weightOf(outcome: RecommendationOutcome): Weight =
+        when (outcome) {
+            is RecommendationOutcome.Hold -> outcome.weight
+            is RecommendationOutcome.Reduce -> outcome.weight
+        }
 
     /**
      * Capacity at slot RIR. Non-positive loads are treated as failing the floor

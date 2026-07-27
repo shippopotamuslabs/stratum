@@ -29,6 +29,7 @@ import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumDurationStepper
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumOutlinedButton
+import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.workoutlog.ProvideStratumOverlayDock
 import com.stratum.core.ui.component.workoutlog.RepRangeDraftIssue
 import com.stratum.core.ui.component.workoutlog.RepRangeDraftValidation
@@ -62,6 +63,8 @@ sealed class EditWorkoutDockSession {
         val setId: String,
         val onApplyToSet: (restSeconds: Int) -> Unit,
         val onApplyToAllSets: (restSeconds: Int) -> Unit,
+        /** Myo rows edit intra-cluster mini rest only (exit rest is lift default). */
+        val isMiniRest: Boolean = false,
     ) : EditWorkoutDockSession()
 }
 
@@ -167,6 +170,7 @@ class EditWorkoutDockHostState(
         restSeconds: Int,
         onApplyToSet: (Int) -> Unit,
         onApplyToAllSets: (Int) -> Unit,
+        isMiniRest: Boolean = false,
     ): Boolean {
         val currentRest = session as? EditWorkoutDockSession.Rest
         if (currentRest != null && currentRest.setId == setId) {
@@ -175,6 +179,7 @@ class EditWorkoutDockHostState(
                 currentRest.copy(
                     onApplyToSet = onApplyToSet,
                     onApplyToAllSets = onApplyToAllSets,
+                    isMiniRest = isMiniRest,
                 )
             overlay.requestReveal()
             return true
@@ -187,6 +192,7 @@ class EditWorkoutDockHostState(
                 setId = setId,
                 onApplyToSet = onApplyToSet,
                 onApplyToAllSets = onApplyToAllSets,
+                isMiniRest = isMiniRest,
             )
         overlay.requestReveal()
         return true
@@ -449,6 +455,8 @@ private fun EditWorkoutRepRangeDock(
 @Composable
 private fun EditWorkoutRestDock(host: EditWorkoutDockHostState) {
     val sheetColor = StratumThemeAccessor.colors.surfaceRaised
+    val restSession = host.session as? EditWorkoutDockSession.Rest
+    val isMiniRest = restSession?.isMiniRest == true
     Column(
         modifier =
             Modifier
@@ -458,11 +466,18 @@ private fun EditWorkoutRestDock(host: EditWorkoutDockHostState) {
     ) {
         Box(
             modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd,
         ) {
+            if (isMiniRest) {
+                StratumText(
+                    text = stringResource(R.string.edit_workout_mini_rest_title),
+                    style = StratumThemeAccessor.typography.titleMedium,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
+            }
             StratumIconButton(
                 onClick = host::dismiss,
                 containerColor = StratumThemeAccessor.colors.surfaceInset,
+                modifier = Modifier.align(Alignment.CenterEnd),
             ) {
                 Icon(
                     painter = painterResource(CoreUiR.drawable.ic_close),
@@ -470,6 +485,13 @@ private fun EditWorkoutRestDock(host: EditWorkoutDockHostState) {
                     tint = StratumThemeAccessor.colors.textPrimary,
                 )
             }
+        }
+        if (isMiniRest) {
+            StratumText(
+                text = stringResource(R.string.edit_workout_mini_rest_hint),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+            )
         }
         StratumDurationStepper(
             totalMinutes = host.restSeconds,
@@ -484,7 +506,13 @@ private fun EditWorkoutRestDock(host: EditWorkoutDockHostState) {
             modifier = Modifier.fillMaxWidth(),
         )
         StratumButton(
-            text = stringResource(R.string.edit_workout_rest_apply_to_set),
+            text = stringResource(
+                if (isMiniRest) {
+                    R.string.edit_workout_rest_apply_mini_rest
+                } else {
+                    R.string.edit_workout_rest_apply_to_set
+                },
+            ),
             onClick = host::applyRestToSet,
             modifier = Modifier.fillMaxWidth(),
         )

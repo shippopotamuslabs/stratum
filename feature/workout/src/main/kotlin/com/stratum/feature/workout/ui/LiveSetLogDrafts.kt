@@ -36,11 +36,16 @@ data class LoggedFieldSnapshot(
  *
  * @param pendingCommittedSlots slots that optimistically materialised a commit and are
  *   waiting for durable labels to catch up (or a failure rollback).
+ * @param userEditedRirSlots slots where the lifter explicitly changed RIR this session.
+ *   Incomplete drafts on other slots always track durable [RenderedSetUi.rirGoal] so a
+ *   Standard→Drop type change (rirGoal → 0) cannot leave a stale RIR 1 that jumps the
+ *   next drop rec after "log as shown".
  */
 data class LiveSetLogSeedState(
     val drafts: Map<String, SetFieldDraft> = emptyMap(),
     val lastSyncedLogged: Map<String, LoggedFieldSnapshot> = emptyMap(),
     val pendingCommittedSlots: Set<String> = emptySet(),
+    val userEditedRirSlots: Set<String> = emptySet(),
 )
 
 private fun RenderedSetUi.durableSnapshot(): LoggedFieldSnapshot =
@@ -68,7 +73,8 @@ private fun draftMatchesDurable(
 /**
  * Seeds / re-seeds drafts from durable presentation sets.
  *
- * - Incomplete: seed once when the slot appears.
+ * - Incomplete: seed once when the slot appears; keep draft RIR on [RenderedSetUi.rirGoal]
+ *   unless the lifter explicitly edited RIR (see [LiveSetLogSeedState.userEditedRirSlots]).
  * - Complete + keyboard focused: leave drafts alone.
  * - Complete + pending commit: keep materialised draft until durable matches (or failure).
  * - Complete + unfocused + not pending: always reseed from durable (discards uncommitted edits).
@@ -81,6 +87,7 @@ internal fun seedLiveSetLogDrafts(
     val drafts = previous.drafts.toMutableMap()
     val lastSynced = previous.lastSyncedLogged.toMutableMap()
     val pending = previous.pendingCommittedSlots.toMutableSet()
+    val userEditedRir = previous.userEditedRirSlots.toMutableSet()
 
     for (set in sets) {
         applySeedForSet(
@@ -89,6 +96,7 @@ internal fun seedLiveSetLogDrafts(
             drafts = drafts,
             lastSynced = lastSynced,
             pending = pending,
+            userEditedRir = userEditedRir,
         )
     }
 
@@ -96,11 +104,13 @@ internal fun seedLiveSetLogDrafts(
     drafts.keys.retainAll(liveKeys)
     lastSynced.keys.retainAll(liveKeys)
     pending.retainAll(liveKeys)
+    userEditedRir.retainAll(liveKeys)
 
     return LiveSetLogSeedState(
         drafts = drafts,
         lastSyncedLogged = lastSynced,
         pendingCommittedSlots = pending,
+        userEditedRirSlots = userEditedRir,
     )
 }
 
@@ -110,13 +120,21 @@ private fun applySeedForSet(
     drafts: MutableMap<String, SetFieldDraft>,
     lastSynced: MutableMap<String, LoggedFieldSnapshot>,
     pending: MutableSet<String>,
+    userEditedRir: MutableSet<String>,
 ) {
     val durable = set.durableSnapshot()
     if (!set.isComplete) {
         lastSynced.remove(set.slotKey)
         pending.remove(set.slotKey)
-        if (set.slotKey !in drafts) {
+        val existing = drafts[set.slotKey]
+        if (existing == null) {
             drafts[set.slotKey] = set.draftFromDurable()
+            userEditedRir.remove(set.slotKey)
+        } else if (set.slotKey !in userEditedRir && existing.rir != set.rirGoal) {
+            // Set-type / template rirGoal changed (Standard→Drop → 0). Keep projection,
+            // badge, and checkbox log on the same RIR so chain drops do not jump after
+            // logging the prior drop exactly as shown.
+            drafts[set.slotKey] = existing.copy(rir = set.rirGoal)
         }
         return
     }
@@ -134,6 +152,7 @@ private fun applySeedForSet(
     // Unfocused, not pending: durable wins (blur discards dirty complete edits).
     drafts[set.slotKey] = set.draftFromDurable()
     lastSynced[set.slotKey] = durable
+    userEditedRir.remove(set.slotKey)
 }
 
 /**
@@ -287,7 +306,14 @@ class LiveSetLogDraftStore {
         slotKey: String,
         rir: Int,
     ) {
-        updateDraft(slotKey) { it.copy(rir = rir) }
+        val current = draftFor(slotKey)
+        if (current.rir == rir && slotKey in seedState.userEditedRirSlots) return
+        seedState =
+            seedState.copy(
+                drafts = seedState.drafts + (slotKey to current.copy(rir = rir)),
+                userEditedRirSlots = seedState.userEditedRirSlots + slotKey,
+            )
+        bump()
     }
 
     fun resolveCommit(
@@ -332,6 +358,7 @@ class LiveSetLogDraftStore {
                 drafts = seedState.drafts + (source.slotKey to source.draftFromDurable()),
                 lastSyncedLogged = seedState.lastSyncedLogged + (source.slotKey to durable),
                 pendingCommittedSlots = seedState.pendingCommittedSlots - source.slotKey,
+                userEditedRirSlots = seedState.userEditedRirSlots - source.slotKey,
             )
         bump()
     }

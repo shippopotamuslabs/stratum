@@ -4,6 +4,7 @@ import com.stratum.domain.lift.IncrementTier
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
+import com.stratum.domain.program.SetType
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.BACKOFF_REP_FLOOR
 import com.stratum.domain.workout.SetSlot
@@ -23,7 +24,9 @@ import com.stratum.domain.workout.fatigue.reduceWeightForLastSetFloor
  * weakest covered performance (sequential fatigue). If the last program set would fall
  * under the floor, drops further.
  *
- * Callers then re-emit **all** slot recommendations at that single weight.
+ * **Drop sets are excluded** from the floor gate — their reduced load / zero-rest history
+ * must not crush the shared straight-set prescription. Callers re-emit slots at the shared
+ * weight, then [com.stratum.domain.workout.dropset.applyDropSetPrescriptions] rewrites drops.
  */
 fun resolveStraightSetSharedWeight(
     candidateWeight: Weight,
@@ -45,6 +48,7 @@ fun resolveStraightSetSharedWeight(
     if (recentBlock != null && m > 0) {
         val covered = minOf(m, n)
         for (i in 0 until covered) {
+            if (slots[i].setType == SetType.DropSet) continue
             shared = tightenForBaselineSlot(
                 candidateWeight = shared,
                 performance = recentBlock.performances[i],
@@ -55,7 +59,7 @@ fun resolveStraightSetSharedWeight(
         }
     }
 
-    // Missing tail: project from last covered anchor through last program set.
+    // Missing tail: project from last covered anchor through last *straight* program set.
     if (m < n && recentBlock != null && m > 0) {
         shared = tightenForPartialTail(
             candidateWeight = shared,
@@ -119,9 +123,11 @@ private fun tightenForPartialTail(
     incrementTiers: List<IncrementTier>,
     loadType: LoadType,
 ): Weight {
-    val n = slots.size
-    val lastSlot = slots.last()
-    val missingCount = n - coveredCount
+    // Gate on the last non-drop program set so a trailing drop does not own shared load.
+    val lastStraightIndex = slots.indexOfLast { it.setType != SetType.DropSet }
+    if (lastStraightIndex < 0 || lastStraightIndex < coveredCount) return candidateWeight
+    val lastSlot = slots[lastStraightIndex]
+    val missingCount = lastStraightIndex + 1 - coveredCount
     val lastSetRelativeIndex = RELATIVE_SET_INDEX_BASELINE + missingCount
 
     val e1rm = anchorE1rm(recentBlock, coveredCount) ?: return candidateWeight

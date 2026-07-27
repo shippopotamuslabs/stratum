@@ -21,8 +21,8 @@ import kotlinx.serialization.Serializable
  * - **Domain enums ([SetType], [MyoRepKind], [WeightDto.WeightUnitDto]) are referenced
  *   directly** — kotlinx-serialization serializes enums by name natively (matches the
  *   `LiftSeedDto` convention in `:core:data`).
- * - **`recommendations` is intentionally absent** — it is recomputed by
- *   `RecomputeRecommendationsUseCase` on the first render after restore.
+ * - **`recommendations` are persisted** so minimize/reopen does not re-run last-set
+ *   floor Reduce without the mid-session freeze priors (would drop e.g. 315→295).
  *
  * All DTOs live in `:core:data`; the domain `WorkoutOverlay` stays annotation-free
  * (ARCHITECTURE.md §5).
@@ -154,6 +154,24 @@ data class RestSecondsOverrideEntryDto(
     val restSeconds: Int,
 )
 
+/** DTO mirror of [com.stratum.domain.workout.SlotShapeOverride]. */
+@Serializable
+data class SlotShapeOverrideDto(
+    val setType: SetType,
+    val myoRepKind: MyoRepKind? = null,
+    val isTopSet: Boolean,
+    val repMin: Int,
+    val repMax: Int,
+    val rirGoal: Int,
+)
+
+/** One entry of the `slotShapeOverrides` map. */
+@Serializable
+data class SlotShapeOverrideEntryDto(
+    val slotId: SetSlotIdDto,
+    val shape: SlotShapeOverrideDto,
+)
+
 /** DTO mirror of [com.stratum.domain.workout.OverlayAddedLift]. */
 @Serializable
 data class OverlayAddedLiftDto(
@@ -165,12 +183,13 @@ data class OverlayAddedLiftDto(
 )
 
 /**
- * DTO mirror of [com.stratum.domain.workout.WorkoutOverlay] minus `recommendations`.
+ * DTO mirror of [com.stratum.domain.workout.WorkoutOverlay].
  * All collection-typed domain fields become entry lists / nullable lists.
  */
 @Serializable
 data class WorkoutOverlayDto(
     val loggedSets: List<LoggedSetEntryDto> = emptyList(),
+    val recommendations: List<LiveSetRecommendationEntryDto> = emptyList(),
     val addedSlots: List<SetSlotDto> = emptyList(),
     val deletedSlotIds: List<SetSlotIdDto> = emptyList(),
     val undoStack: List<StructuralMutationDto> = emptyList(),
@@ -181,7 +200,16 @@ data class WorkoutOverlayDto(
     val supersetGroupIdOverrides: List<SupersetGroupOverrideEntryDto> = emptyList(),
     val useRestTimerBetweenLiftsOverrides: List<RestTimerOverrideEntryDto> = emptyList(),
     val restSecondsOverrides: List<RestSecondsOverrideEntryDto> = emptyList(),
+    val slotShapeOverrides: List<SlotShapeOverrideEntryDto> = emptyList(),
     val orderedLiftIds: List<String>? = null,
+)
+
+/** Entry list element for [WorkoutOverlayDto.recommendations]. */
+@Serializable
+data class LiveSetRecommendationEntryDto(
+    val slotId: SetSlotIdDto,
+    val weight: WeightDto,
+    val reps: Int,
 )
 
 /**

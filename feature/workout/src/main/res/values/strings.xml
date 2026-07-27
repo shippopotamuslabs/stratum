@@ -10,6 +10,18 @@
     <string name="workout_screen_add_set">Add set</string>
     <string name="workout_screen_delete_set">Delete set</string>
     <string name="workout_screen_add_lift">Add Lift</string>
+
+    <!-- Live set type picker (mirrors template Edit Workout) -->
+    <string name="workout_set_type_sheet_title">Set type</string>
+    <string name="workout_set_type_standard">Standard</string>
+    <string name="workout_set_type_myo_rep">Myo-Rep</string>
+    <string name="workout_set_type_myo_rep_match">Myo-Rep Match</string>
+    <string name="workout_set_type_drop_set">Drop Set</string>
+    <string name="workout_set_type_selected">Selected</string>
+    <string name="workout_set_type_change_myo_title">Change set type?</string>
+    <string name="workout_set_type_change_myo_body">This will delete all myo-rep mini-sets logged for this block and keep only the anchor set\'s values.</string>
+    <string name="workout_set_type_change_myo_confirm">Change type</string>
+    <string name="workout_set_type_change_myo_cancel">Cancel</string>
     <string name="workout_screen_discard_workout_action">Discard Workout</string>
     <string name="workout_sheet_incomplete_title">Incomplete Lifts</string>
     <string name="workout_sheet_incomplete_message">You haven\'t completed all of your lifts.</string>

@@ -5,6 +5,7 @@ import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.program.identity.LiftSetId
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.domain.workout.LiveSetRecommendation
 import com.stratum.domain.workout.LoggedSetValue
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.WorkoutOverlay
@@ -57,8 +58,23 @@ class DataStoreWorkoutOverlayStoreTest {
         val restored = store.load(sessionId)
 
         assertNotNull(restored)
-        // recommendations is not persisted (recomputed by the ViewModel after restore).
-        assertEquals(overlay.copy(recommendations = emptyMap()), restored)
+        assertEquals(overlay, restored)
+    }
+
+    @Test
+    @DisplayName("save then load preserves live recommendations")
+    fun saveLoadPreservesRecommendations() = runTest {
+        val sessionId = TrainingSessionId("session-recs")
+        val slotId = SetSlotId.Template(LiftSetId("ls-3"))
+        val overlay = WorkoutOverlay(
+            recommendations = mapOf(
+                slotId to LiveSetRecommendation(Weight(315.0, Weight.WeightUnit.Lb), reps = 5),
+            ),
+        )
+        store.save(sessionId, overlay)
+        val restored = store.load(sessionId)
+        assertNotNull(restored)
+        assertEquals(overlay.recommendations, restored!!.recommendations)
     }
 
     @Test
