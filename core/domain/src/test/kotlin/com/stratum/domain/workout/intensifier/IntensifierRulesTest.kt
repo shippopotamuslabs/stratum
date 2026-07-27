@@ -308,6 +308,62 @@ class IntensifierRulesTest {
     }
 
     @Test
+    fun `rest after myo log uses mini rest while cluster continues`() {
+        assertEquals(
+            15,
+            RestDefaultForTransition.restAfterMyoLog(
+                miniRestSeconds = 15,
+                clusterContinues = true,
+                liftDefaultRestSeconds = 180,
+            ),
+        )
+        assertEquals(
+            20,
+            RestDefaultForTransition.restAfterMyoLog(
+                miniRestSeconds = 20,
+                clusterContinues = true,
+                liftDefaultRestSeconds = 180,
+                nextType = SetType.MyoRep,
+            ),
+        )
+    }
+
+    @Test
+    fun `rest after myo log uses lift default when cluster ends`() {
+        assertEquals(
+            180,
+            RestDefaultForTransition.restAfterMyoLog(
+                miniRestSeconds = 15,
+                clusterContinues = false,
+                liftDefaultRestSeconds = 180,
+                nextType = SetType.Standard,
+            ),
+        )
+        assertEquals(
+            120,
+            RestDefaultForTransition.restAfterMyoLog(
+                miniRestSeconds = 15,
+                clusterContinues = false,
+                liftDefaultRestSeconds = 120,
+                nextType = null,
+            ),
+        )
+    }
+
+    @Test
+    fun `rest after myo log into drop is zero even when cluster would continue`() {
+        assertEquals(
+            0,
+            RestDefaultForTransition.restAfterMyoLog(
+                miniRestSeconds = 15,
+                clusterContinues = true,
+                liftDefaultRestSeconds = 180,
+                nextType = SetType.DropSet,
+            ),
+        )
+    }
+
+    @Test
     fun `show rest control false into drop`() {
         assertFalse(RestDefaultForTransition.showRestControl(SetType.DropSet))
         assertTrue(RestDefaultForTransition.showRestControl(SetType.Standard))

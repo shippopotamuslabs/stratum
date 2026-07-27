@@ -57,6 +57,11 @@ data class RenderedLiftUi(
      * first two letters of a single word (e.g. "Barbell Bench Press" → `BB`, "Squat" → `SQ`).
      */
     val navigatorInitials: String = "",
+    /**
+     * Catalog/default inter-set rest for this lift (seconds). Used when a myo cluster
+     * **exits** so the rest timer is not stuck on the short mini-rest value.
+     */
+    val defaultRestSeconds: Int = 120,
 ) : SupersetLinkableLift {
     override val name: String get() = liftName
 }
@@ -72,6 +77,10 @@ enum class WorkoutSetKind {
     MyoRepMatch,
     DropSet,
 }
+
+/** True for either myo-rep subtype (floor or match). */
+fun WorkoutSetKind.isMyoRepKind(): Boolean =
+    this == WorkoutSetKind.MyoRepFloor || this == WorkoutSetKind.MyoRepMatch
 
 data class RenderedSetUi(
     val slotKey: String,

@@ -235,6 +235,9 @@ private fun EditWorkoutSetTableRow(
                     setId = set.setId,
                     workoutLiftId = workoutLiftId,
                     restSeconds = set.restSeconds,
+                    isMiniRest =
+                        set.setKind == EditSetKind.MyoRepFloor ||
+                            set.setKind == EditSetKind.MyoRepMatch,
                     onSetRestSeconds = onSetRestSeconds,
                     onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
                     modifier = Modifier.weight(REST_COLUMN_WEIGHT),
@@ -566,6 +569,7 @@ private fun RestTimeCell(
     setId: String,
     workoutLiftId: String,
     restSeconds: Int,
+    isMiniRest: Boolean = false,
     onSetRestSeconds: (setId: String, restSeconds: Int) -> Unit,
     onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -610,6 +614,7 @@ private fun RestTimeCell(
                             onApplyToAllSets = { seconds ->
                                 onSetRestSecondsForAllSetsOnLift(workoutLiftId, seconds)
                             },
+                            isMiniRest = isMiniRest,
                         )
                     },
                 )

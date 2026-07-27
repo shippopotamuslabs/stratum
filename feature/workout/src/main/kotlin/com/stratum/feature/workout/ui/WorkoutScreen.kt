@@ -185,6 +185,8 @@ fun WorkoutScreen(
         val lift = state.lifts.firstOrNull { it.sets.any { set -> set.slotKey == slotKey } }
         val set = lift?.sets?.firstOrNull { it.slotKey == slotKey }
         if (lift != null && set != null) {
+            val setIndex = lift.sets.indexOfFirst { it.slotKey == slotKey }
+            val nextSet = lift.sets.getOrNull(setIndex + 1)
             val restSeconds =
                 restSecondsAfterLoggingSet(
                     setRestSeconds = set.restSeconds,
@@ -192,6 +194,10 @@ fun WorkoutScreen(
                     useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
                     isLastInSupersetChain = isLastInSupersetChain(lift, state.lifts),
                     workoutFullyComplete = fullyComplete,
+                    isMyoSet = set.setKind.isMyoRepKind(),
+                    nextIsMyoSet = nextSet?.setKind?.isMyoRepKind() == true,
+                    nextIsDropSet = nextSet?.setKind == WorkoutSetKind.DropSet,
+                    liftDefaultRestSeconds = lift.defaultRestSeconds,
                 )
             if (restSeconds != null) {
                 restTimer.onStart(restSeconds)

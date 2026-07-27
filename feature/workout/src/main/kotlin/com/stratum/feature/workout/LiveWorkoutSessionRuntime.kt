@@ -276,6 +276,10 @@ internal class LiveWorkoutSessionRuntime(
         val imageUrlByLiftId =
             liftsById.mapValues { (_, lift) -> lift.imageUris.firstOrNull() }
                 .mapKeys { (id, _) -> id.value }
+        val defaultRestSecondsByLiftId =
+            liftsById.mapKeys { (id, _) -> id.value }.mapValues { (_, lift) ->
+                lift.resolvedDefaultRestSeconds()
+            }
         val mapped =
             WorkoutUiMapper.map(
                 rendered,
@@ -285,6 +289,7 @@ internal class LiveWorkoutSessionRuntime(
                 imageUrlByLiftId = imageUrlByLiftId,
                 displayUnit = effects.displayUnit(),
                 displayUnitEpoch = effects.displayUnitEpoch(),
+                defaultRestSecondsByLiftId = defaultRestSecondsByLiftId,
             )
         // Active-workout notification snapshot is derived from domain session by
         // DomainActiveSessionSurfaceSync — do not dual-publish from render().

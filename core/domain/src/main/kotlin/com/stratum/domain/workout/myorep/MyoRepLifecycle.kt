@@ -12,8 +12,9 @@ import com.stratum.domain.workout.intensifier.RestDefaultForTransition
 /**
  * Runtime state of a Myo-rep block.
  *
- * [restSeconds] is the programmed rest on the activation set (template or override).
- * Minis inherit it so the live rest timer matches Edit Workout.
+ * [restSeconds] is the programmed **intra-cluster** mini rest on the activation set
+ * (template or override). Minis inherit it between minis; after the last mini the live
+ * rest timer uses lift default via [RestDefaultForTransition.restAfterMyoLog].
  */
 data class MyoRepBlockState(
     val workoutLiftId: WorkoutLiftId,
