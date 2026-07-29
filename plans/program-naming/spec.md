@@ -1,8 +1,8 @@
-# LLM Program & Workout Naming — Spec
+# Heuristic Program & Workout Naming — Spec
 
-**Model:** `OPENROUTER_MODEL_SMALL` (`deepseek/deepseek-v4-flash` via Firebase Secret Manager)  
-**When:** After deterministic synthesis, lift selection, volume repair, and lift swap (PRO)  
-**Why:** Synthesized splits have no stable `SessionTypeId` labels. Names are presentation-only.
+**Status:** Implemented (replaces LLM `nameGeneratedProgram` / `ProgramNamingPort`)  
+**When:** After volume repair and optional lift swap, before normalize/validate  
+**Why:** Synthesized splits have no stable session labels. Names are presentation-only polish.
 
 ---
 
@@ -14,125 +14,95 @@ planWeeklyVolume
   → selectLiftForSlot
   → assembleWorkouts
   → repairWeeklyVolume
-  → liftSwapPort.swapLifts()              # OPENROUTER_MODEL (pro)
-  → programNamingPort.nameProgram()       # OPENROUTER_MODEL_SMALL (flash)  ← this spec
+  → liftSwapPort.swapLifts()              # optional OPENROUTER pro (bounded)
+  → applyHeuristicProgramNames(...)       # pure domain — this spec
   → parseAndNormalizeProgram
   → validateProgramMetrics
 ```
 
 Placeholder names during synthesis: `Session 1`, `Session 2`, … and `Generated Program`.
-Never shown to the user if naming succeeds.
+Always overwritten by heuristics (no network, no skip flag).
 
 ---
 
-## Firebase callable
+## Rules
 
-**Name:** `nameGeneratedProgram`
+### Program name
 
-**Secrets:** `OPENROUTER_API_KEY`, `OPENROUTER_MODEL_SMALL`
+Local device date/time via `java.time.Clock` (default `systemDefaultZone()`):
 
-**Auth:** Firebase Auth required (same as `swapProgramLifts`)
-
-**Timeout:** 30s (flash model, small JSON output)
-
-### Request
-
-```typescript
-interface NameProgramRequest {
-  intent: {
-    trainingAge: string;
-    sessionLengthMinutes: number | null;
-    trainingDaysPerWeek: number;
-    cycleLength: number;
-    specialization: Record<string, string>;
-    specializedMuscles: string[];
-    trainingWeekdays: string[];  // user order, e.g. ["Sunday","Monday","Wednesday",...]
-  };
-  program: {
-    workouts: Array<{
-      position: number;
-      weekday: string | null;
-      workoutLifts: Array<{
-        name: string;
-        movementPattern: string;
-        primaryMuscles: string[];
-        setCount: number;
-      }>;
-    }>;
-  };
-}
+```text
+yyyy-MM-dd HH:mm:ss
 ```
 
-### Response (strict JSON schema)
+Example: `2026-07-28 14:03:05`
 
-```typescript
-interface NameProgramResponse {
-  programName: string;       // e.g. "5-Day Arm & Calf Focus"
-  workouts: Array<{
-    position: number;
-    name: string;            // e.g. "Upper — Arms & Chest"
-  }>;
-}
+### Workout titles
+
+For each workout, classify every lift’s **title contribution**:
+
+1. Any primary ∈ `LOWER_BODY_MUSCLE_GROUPS` → Lower  
+2. Else any primary outside `CORE_MUSCLE_GROUPS` → Upper  
+3. Else any movement pattern with `categoryRegion == Lower` → Lower  
+   (covers LowerBack-primary hinges / deadlifts)  
+4. Else any upper pattern → Upper  
+5. Else Neither (core-only, empty, missing metadata)
+
+Share is by **lift count** (not set volume). Neither still counts in the denominator.
+
+```text
+if upperShare > 0.70 → Upper
+else if lowerShare > 0.70 → Lower
+else → Full Body
 ```
 
-### System prompt (summary)
+Strict `>` so exactly 70% is Full Body.
 
-Coach naming a finished program for a lifter. Use specialization intent, weekday, and
-exercise list. Short, human names (2–5 words per workout). No set/rep counts in names.
-Program name reflects split shape + specialization emphasis. Do not invent exercises.
+### Letter suffixes
+
+Independent counters per prefix (`Upper`, `Lower`, `Full Body`), assigned in workout
+`position` order: `A`…`Z`, then `AA`, `AB`, … (never throws).
+
+Examples: `Upper A`, `Lower A`, `Upper B`, `Full Body A`.
 
 ---
 
-## Domain
+## API
 
 ```kotlin
-interface ProgramNamingPort {
-    suspend fun nameProgram(request: ProgramNamingRequest): Result<ProgramNamingResult>
-}
-
-data class ProgramNamingResult(
-    val programName: String,
-    val workoutNamesByPosition: Map<Int, String>,
-)
+fun applyHeuristicProgramNames(
+    program: ProgramDraft,
+    liftsById: Map<String, LiftContext>,
+    clock: Clock = Clock.systemDefaultZone(),
+): ProgramDraft
 ```
 
-- `buildProgramNamingRequest(draft, context)` — maps `ProgramDraft` after swap pass
-- `applyProgramNames(draft, result)` — copies names onto draft by `position`
-- `IntegrateAndValidateOptions.skipProgramNaming` — tests (default false in prod)
-
-**Fake:** `FakeProgramNamingPort` returns empty → keep placeholders (tests).
+No port, no Firebase Callable, no Hilt binding.
 
 ---
 
-## Inference
+## Deleted (do not reintroduce)
 
-`FirebaseProgramNamingAdapter` in `:core:inference` — mirrors `FirebaseLiftSwapAdapter`.
-
----
-
-## Removed from synthesis path
-
-| Deleted / demoted | Replacement |
-|-------------------|-------------|
-| `inferSessionTypeFromSlots` | Not needed for UX |
-| `inferSplitLabel` | `programName` from LLM |
-| `displayNameForSessionType` in synthesis materialization | `Session N` placeholder |
-| `relabelWorkoutNamesByWeekday` for generated programs | LLM names already calendar-aware |
-
-`relabelWorkoutNamesByWeekday` may remain for non-generated schedule edits.
-
----
-
-## Failure behavior
-
-- Naming failure: log warning, keep placeholder names (same pattern as swap `getOrElse { empty }`)
-- Never block program delivery on naming failure
-- Swap failure + naming success: still name the program
+- `ProgramNamingPort` / LLM payloads
+- `FirebaseProgramNamingAdapter` / `nameGeneratedProgram` Callable
+- `FakeProgramNamingPort` / `skipProgramNaming`
+- `OPENROUTER_MODEL_SMALL` for naming (flash may still exist for other import assists)
 
 ---
 
 ## Tests
 
-- `parseNameProgramResponse` unit test (`:core:inference`)
-- `applyProgramNames` unit test (`:core:domain`)
-- Pipeline tests: `skipProgramNaming = true` (alongside `skipLiftSwap`)
+`:core:domain` — `HeuristicProgramNamingTest`:
+
+- Threshold strict `>` 70%, empty/unknown → Full Body  
+- Deadlift (LowerBack + HipHinge) → Lower; near-threshold with DL still Lower  
+- Letter counters + position order + `AA` after `Z`  
+- Fixed clock program name format  
+
+---
+
+## Non-goals
+
+- Names must not gate recovery, variety, or volume  
+- Not free-form program generation  
+- Not set-volume-weighted titles (product: lift-count share)
