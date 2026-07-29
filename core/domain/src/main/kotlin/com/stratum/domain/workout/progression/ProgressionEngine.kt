@@ -29,8 +29,8 @@ data class SlotProgressionRequest(
      * capacity-ordered recent-session block. `null` = cold start (no history for this
      * lift at all). See [ProgressionBaseline] for the two production modes.
      *
-     * [history] is retained for `previousWeight`/`previousReps` (UI display of what was
-     * actually done at this slot position last time) — it is NOT used for math.
+     * [history] is retained for `previousWeight`/`previousReps`/`previousRir` (UI display
+     * of what was actually done at this slot position last time) — it is NOT used for math.
      */
     val progressionBaseline: ProgressionBaseline? = null,
     /**
@@ -82,6 +82,7 @@ fun recommendShared(
     val latest = request.history.firstOrNull()
     val prevWeight = latest?.loggedSet?.weight
     val prevReps = latest?.loggedSet?.reps
+    val prevRir = latest?.loggedSet?.rir
     val baselineEntry = baselineEntryFor(request.progressionBaseline)
 
     if (request.loadType == LoadType.Bodyweight) {
@@ -93,6 +94,7 @@ fun recommendShared(
             baselineExpectedReps = baselineReps,
             previousWeight = prevWeight,
             previousReps = prevReps,
+            previousRir = prevRir,
         )
     }
 
@@ -128,6 +130,7 @@ fun recommendShared(
         baselineExpectedReps = recommendedReps,
         previousWeight = prevWeight,
         previousReps = prevReps,
+        previousRir = prevRir,
         isProjected = isProjected,
     )
 }

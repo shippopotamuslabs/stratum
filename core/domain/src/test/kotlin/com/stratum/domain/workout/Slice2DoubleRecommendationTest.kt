@@ -626,8 +626,11 @@ class Slice2DoubleRecommendationTest {
         assertTrue(rec1.baselineExpectedReps >= rec2.baselineExpectedReps, "rec1 (${rec1.baselineExpectedReps}) >= rec2 (${rec2.baselineExpectedReps})")
         // UI previous* stays honest to positional actuals
         assertEquals(12, rec0.previousReps)
+        assertEquals(1, rec0.previousRir)
         assertEquals(13, rec1.previousReps)
+        assertEquals(1, rec1.previousRir)
         assertEquals(15, rec2.previousReps)
+        assertEquals(0, rec2.previousRir)
     }
 
     // --- Sequential prior (engine-level; orchestrator mirrors this wiring) ---

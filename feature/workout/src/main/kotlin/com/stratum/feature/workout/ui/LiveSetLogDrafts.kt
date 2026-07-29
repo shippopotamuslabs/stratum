@@ -195,6 +195,7 @@ internal fun mergeLiveLogLift(
                     positionLabel = set.positionLabel,
                     setTypeLabel = set.setTypeLabel,
                     previousLabel = set.previousWeightLabel ?: "—",
+                    previousRirLabel = set.previousRirLabel,
                     weightText = draft.weightText,
                     weightPlaceholder = set.recommendedWeightLabel,
                     repsText = draft.repsText,
