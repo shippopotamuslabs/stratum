@@ -114,6 +114,8 @@ data class RenderedSetUi(
     val loggedReps: Int? = null,
     val isComplete: Boolean,
     val previousWeightLabel: String? = null,
+    /** Second line under prev weight×reps, e.g. `"2 RIR"`; null when no prior RIR. */
+    val previousRirLabel: String? = null,
     val rirGoal: Int,
     val repMin: Int,
     val repMax: Int,

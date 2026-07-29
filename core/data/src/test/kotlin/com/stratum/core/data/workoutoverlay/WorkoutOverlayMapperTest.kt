@@ -82,6 +82,7 @@ class WorkoutOverlayMapperTest {
                     baselineExpectedReps = 5,
                     previousWeight = Weight(90.0, Weight.WeightUnit.Kg),
                     previousReps = 6,
+                    previousRir = 2,
                 ),
             ),
             swappedLifts = mapOf(workoutLiftId to LiftId("front-squat")),
