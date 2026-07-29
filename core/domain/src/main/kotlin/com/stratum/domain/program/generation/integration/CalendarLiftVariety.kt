@@ -303,7 +303,7 @@ private fun workoutMetadataMuscleVolume(
  * Whether [lift] is an appropriate collision/exposure replacement for [workout].
  *
  * Uses **existing lift metadata** (primary-muscle training domain), not workout names.
- * Names are polish (LLM rename) and must not gate recovery/variety behavior.
+ * Names are polish (heuristic titles) and must not gate recovery/variety behavior.
  */
 private fun isReplacementAppropriateForWorkout(
     workout: Workout,

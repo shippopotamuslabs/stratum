@@ -123,7 +123,7 @@ program synthesis is deterministic domain logic, but the solver **runs server-si
 |---------|--------|-------|
 | Progression math, volume accounting, session construction, set logging | Deterministic (`:core:domain`) | Runs offline on device; no network |
 | Program synthesis (CP-SAT / structured program build) | Deterministic domain logic; **executed in cloud** (Firebase / Cloud Run) | Client calls via `:core:inference`; not on-device OR-Tools |
-| Bounded LLM tasks (lift swap, naming, import assist) | **OpenRouter** via Firebase Callable Function | Secrets `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` in Secret Manager (**provisioned**) |
+| Bounded LLM tasks (lift swap, import assist) | **OpenRouter** via Firebase Callable Function | Secrets `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` in Secret Manager (**provisioned**) |
 
 **Cloud execution and fair use:**
 
@@ -150,7 +150,8 @@ program synthesis is deterministic domain logic, but the solver **runs server-si
   Unit tests use fakes and recorded fixtures — **no live API in CI**.
 - Keep deterministic and LLM responsibilities clearly separated: program synthesis is
   deterministic (domain rules + server solver); the cloud LLM is limited to bounded assist
-  (e.g. `swapProgramLifts`, naming, import assist) — not free-form program generation.
+  (e.g. `swapProgramLifts`, import assist) — not free-form program generation.
+  Program/workout titles are deterministic domain heuristics (`applyHeuristicProgramNames`), not LLM.
 
 **Reference:** `~/Code/pocket-crew` (`OpenRouterInferenceServiceImpl`); `docs/onboarding-vertical-slices.md` §2.3 (progression), §2.7 (credentials).
 

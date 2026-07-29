@@ -6,7 +6,6 @@ import { processImportJob } from "./import/processImportJob";
 import { inferCustomLifts } from "./import/inferCustomLifts";
 import { inferImportEquipment } from "./import/inferImportEquipment";
 import { swapProgramLifts } from "./program-swap/swapProgramLifts";
-import { nameGeneratedProgram } from "./program-naming/nameGeneratedProgram";
 import { startProgramTemplateImport } from "./program-import/startProgramTemplateImport";
 import { getProgramTemplateJobStatus } from "./program-import/getProgramTemplateJobStatus";
 import { processProgramTemplateJob } from "./program-import/processProgramTemplateJob";
@@ -25,7 +24,6 @@ export {
   inferCustomLifts,
   inferImportEquipment,
   swapProgramLifts,
-  nameGeneratedProgram,
   startProgramTemplateImport,
   getProgramTemplateJobStatus,
   processProgramTemplateJob,

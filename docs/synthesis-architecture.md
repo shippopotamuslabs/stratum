@@ -17,7 +17,7 @@ slot library  →  universe  →  SessionRegionFilter  →  solve  →  realize 
 | **SessionRegionFilter** | Per-session CP-SAT domain: which body-region filter applies to session position *i* | `SessionRegionFilter`, `regionFiltersBySessionPosition`, structure constraints |
 | **Solve** | Joint CP-SAT: activation, set counts, weekdays, region filters, recovery, aims | `CpSatProgramSynthesizer`, `ProgramSynthesisModel` |
 | **Realize** | Map solver solution → plans/sessions; lift selection; drafts. Region filter is structure; `SessionTypeId` on plans is a legacy display label only | `materializeSynthesisResult`, lift selection, pipeline |
-| **Polish** | Naming, swap assist, validation, integration — **names are polish only** (LLM renames must not change recovery/variety) | pipeline options, cloud LLM assists |
+| **Polish** | Naming, swap assist, validation, integration — **names are polish only** (deterministic titles must not change recovery/variety) | `applyHeuristicProgramNames`, optional lift-swap Callable |
 
 Cloud path: Android `:core:inference` encodes request via `ProgramSynthesisWire` → Firebase /
 Cloud Run `solver-service` runs OR-Tools → result wire decoded back to domain.
@@ -77,9 +77,10 @@ Fallback (region filter list short/missing — should not happen on the real sol
 **Realize vs polish:**
 
 - **Structure** — `regionFilterBySession`, active slots, set counts, weekday indices.
-- **Polish** — workout/program names (including LLM `nameGeneratedProgram`), optional display
-  labels. Downstream recovery/variety repairs (`CalendarLiftVariety`, schedule muscle exposures)
-  use lift metadata and muscle doses — they do **not** parse workout names for structure.
+- **Polish** — deterministic workout/program names (local date/time program title; Upper/Lower/
+  Full Body session labels from lift-region heuristics), optional display labels. Downstream
+  recovery/variety repairs (`CalendarLiftVariety`, schedule muscle exposures) use lift metadata
+  and muscle doses — they do **not** parse workout names for structure.
 
 ### Calendar policy (per training weekday)
 
@@ -95,7 +96,7 @@ day *i*. Policy:
 
 Helper: `regionFiltersBySessionPosition(weekdays): List<Set<SessionRegionFilter>>`.
 
-## Anti-glossary: three meanings of “Upper”
+## Anti-glossary: meanings of “Upper”
 
 Do not conflate these:
 
@@ -105,6 +106,8 @@ Do not conflate these:
    slot libraries, volume accounting, and legacy plan labels. Not the solver decision variable.
 3. **Natural-language “upper day”** — coaching / UI copy. May describe an emergent session that
    happens to be upper-heavy even under `Unrestricted`, or a post-hoc `SessionTypeId.Upper`.
+4. **Workout title region (`Upper A`)** — polish-only heuristic from lift primary muscles +
+   pattern fallback (`applyHeuristicProgramNames`). Never used for recovery, variety, or volume.
 
 When debugging synthesis, prefer logging `regionFilterBySession` and active slot ids over
 session-type names alone.
