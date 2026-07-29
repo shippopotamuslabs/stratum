@@ -1,6 +1,5 @@
 package com.stratum.core.inference
 
-import com.stratum.domain.program.generation.naming.ProgramNamingPayload
 import com.stratum.domain.program.generation.swap.LiftSwapReviewPayload
 
 /**
@@ -8,41 +7,6 @@ import com.stratum.domain.program.generation.swap.LiftSwapReviewPayload
  * rejects kotlinx [JsonElement] values — only plain maps, lists, and primitives are valid.
  */
 internal object FirebaseCallablePayloadEncoder {
-    fun encodeNamingPayload(payload: ProgramNamingPayload): Map<String, Any?> =
-        mapOf(
-            "promptVersion" to payload.promptVersion,
-            "intent" to
-                buildMap {
-                    put("trainingAge", payload.intent.trainingAge)
-                    payload.intent.sessionLengthMinutes?.let { put("sessionLengthMinutes", it) }
-                    put("trainingDaysPerWeek", payload.intent.trainingDaysPerWeek)
-                    put("cycleLength", payload.intent.cycleLength)
-                    put("specialization", payload.intent.specialization)
-                    put("specializedMuscles", payload.intent.specializedMuscles)
-                },
-            "program" to
-                mapOf(
-                    "workouts" to
-                        payload.program.workouts.map { workout ->
-                            buildMap {
-                                put("position", workout.position)
-                                workout.weekday?.let { put("weekday", it) }
-                                put(
-                                    "workoutLifts",
-                                    workout.workoutLifts.map { lift ->
-                                        mapOf(
-                                            "name" to lift.name,
-                                            "movementPattern" to lift.movementPattern,
-                                            "primaryMuscles" to lift.primaryMuscles,
-                                            "setCount" to lift.setCount,
-                                        )
-                                    },
-                                )
-                            }
-                        },
-                ),
-        )
-
     fun encodeSwapReviewPayload(payload: LiftSwapReviewPayload): Map<String, Any?> =
         mapOf(
             "promptVersion" to payload.promptVersion,

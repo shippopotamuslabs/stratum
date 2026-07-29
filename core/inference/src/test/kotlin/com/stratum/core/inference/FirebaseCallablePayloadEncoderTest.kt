@@ -1,17 +1,23 @@
 package com.stratum.core.inference
 
+import com.stratum.domain.program.generation.swap.LiftSwapCandidatePayload
+import com.stratum.domain.program.generation.swap.LiftSwapExercisePayload
+import com.stratum.domain.program.generation.swap.LiftSwapProgramIntentPayload
+import com.stratum.domain.program.generation.swap.LiftSwapProgramPayload
+import com.stratum.domain.program.generation.swap.LiftSwapReviewPayload
+import com.stratum.domain.program.generation.swap.LiftSwapWorkoutPayload
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class FirebaseCallablePayloadEncoderTest {
     @Test
-    fun `encodeNamingPayload uses firebase-compatible primitive maps`() {
+    fun `encodeSwapReviewPayload uses firebase-compatible primitive maps`() {
         val payload =
-            FirebaseCallablePayloadEncoder.encodeNamingPayload(
-                com.stratum.domain.program.generation.naming.ProgramNamingPayload(
+            FirebaseCallablePayloadEncoder.encodeSwapReviewPayload(
+                LiftSwapReviewPayload(
                     promptVersion = 1,
                     intent =
-                        com.stratum.domain.program.generation.naming.ProgramNamingIntentPayload(
+                        LiftSwapProgramIntentPayload(
                             trainingAge = "Intermediate",
                             sessionLengthMinutes = 75,
                             trainingDaysPerWeek = 5,
@@ -20,19 +26,34 @@ class FirebaseCallablePayloadEncoderTest {
                             specializedMuscles = listOf("Bicep"),
                         ),
                     program =
-                        com.stratum.domain.program.generation.naming.ProgramNamingProgramPayload(
+                        LiftSwapProgramPayload(
+                            cycleLength = 5,
                             workouts =
                                 listOf(
-                                    com.stratum.domain.program.generation.naming.ProgramNamingWorkoutPayload(
+                                    LiftSwapWorkoutPayload(
                                         position = 0,
-                                        weekday = "Monday",
+                                        name = "Upper A",
                                         workoutLifts =
                                             listOf(
-                                                com.stratum.domain.program.generation.naming.ProgramNamingLiftPayload(
+                                                LiftSwapExercisePayload(
+                                                    position = 0,
+                                                    liftId = "bench-press",
                                                     name = "Bench Press",
                                                     movementPattern = "HorizontalPress",
                                                     primaryMuscles = listOf("Chest"),
+                                                    secondaryMuscles = listOf("Tricep"),
                                                     setCount = 3,
+                                                    repMin = 6,
+                                                    repMax = 10,
+                                                    candidates =
+                                                        listOf(
+                                                            LiftSwapCandidatePayload(
+                                                                liftId = "db-press",
+                                                                name = "DB Press",
+                                                                movementPattern = "HorizontalPress",
+                                                                primaryMuscles = listOf("Chest"),
+                                                            ),
+                                                        ),
                                                 ),
                                             ),
                                     ),

@@ -114,7 +114,7 @@ internal fun relabelWorkoutNamesByWeekday(workouts: List<Workout>): List<Workout
  * Builds per-muscle calendar exposures for recovery streak analysis.
  *
  * Prefer passing [workoutMuscleExposures] (metadata / dose truth). Structure is **not** inferred
- * from workout names — names are polish (including LLM renames) and [MuscleSessionExposure.sessionType]
+ * from workout names — names are polish (heuristic titles) and [MuscleSessionExposure.sessionType]
  * is left null on the dose path. The no-dose branch is a legacy estimated fallback only
  * (FullBody template muscles); it does not parse names.
  */
