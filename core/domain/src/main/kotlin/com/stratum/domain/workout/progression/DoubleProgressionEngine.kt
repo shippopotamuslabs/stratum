@@ -22,7 +22,7 @@ import javax.inject.Inject
  * [SlotProgressionRequest.progressionBaseline] — the orchestrator builds a
  * capacity-ordered recent-session block per lift, so recommendations are monotonically
  * non-increasing across slots even when prior-set RIR was misreported ("reps going up"
- * history). `history` is used only for `previousWeight`/`previousReps` (UI display).
+ * history). `history` is used only for `previousWeight`/`previousReps`/`previousRir` (UI display).
  */
 class DoubleProgressionEngine @Inject constructor() : ProgressionEngine {
     override val scheme: ProgressionScheme = ProgressionScheme.Double

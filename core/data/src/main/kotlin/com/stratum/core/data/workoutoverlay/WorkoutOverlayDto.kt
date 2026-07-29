@@ -85,6 +85,7 @@ data class SlotRecommendationDto(
     val baselineExpectedReps: Int,
     val previousWeight: WeightDto? = null,
     val previousReps: Int? = null,
+    val previousRir: Int? = null,
 )
 
 /** One entry of the `dynamicBaselines` map (slot key + baseline). */

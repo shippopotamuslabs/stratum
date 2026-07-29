@@ -78,6 +78,10 @@ internal object WorkoutUiMapper {
                     } else {
                         "—"
                     }
+                    // Only show prior RIR when there is a prior performance to anchor it.
+                    val prevRirLabel =
+                        set.previousRir?.takeIf { prevWeight != null && prevReps != null }
+                            ?.let { "$it RIR" }
 
                     // Domain recs are in the recommended weight's unit (live path: Lb).
                     val recSourceUnit = set.recommendedWeight.unit
@@ -172,6 +176,7 @@ internal object WorkoutUiMapper {
                         loggedReps = set.loggedValue?.reps,
                         isComplete = set.loggedValue != null,
                         previousWeightLabel = prevLabel,
+                        previousRirLabel = prevRirLabel,
                         rirGoal = set.rirGoal,
                         repMin = set.repMin,
                         repMax = set.repMax,

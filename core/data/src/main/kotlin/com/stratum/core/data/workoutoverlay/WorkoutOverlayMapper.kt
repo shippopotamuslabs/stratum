@@ -193,6 +193,7 @@ private fun SlotRecommendation.toDto(): SlotRecommendationDto = SlotRecommendati
     baselineExpectedReps = baselineExpectedReps,
     previousWeight = previousWeight?.toDto(),
     previousReps = previousReps,
+    previousRir = previousRir,
 )
 
 private fun SlotRecommendationDto.toDomain(slotId: SetSlotId): SlotRecommendation {
@@ -204,6 +205,7 @@ private fun SlotRecommendationDto.toDomain(slotId: SetSlotId): SlotRecommendatio
         baselineExpectedReps = baselineExpectedReps,
         previousWeight = prev,
         previousReps = previousReps,
+        previousRir = previousRir,
     )
 }
 

@@ -34,6 +34,8 @@ data class RenderedSet(
     val loggedValue: LoggedSetValue?,
     val previousWeight: Weight? = null,
     val previousReps: Int? = null,
+    /** Prior session RIR for this slot position (UI prev column); null when unlogged. */
+    val previousRir: Int? = null,
     val isProjected: Boolean = false,
     /** Present for MyoRep slots so UI can distinguish floor (M) vs match (MM). */
     val myoRepKind: MyoRepKind? = null,
