@@ -73,6 +73,7 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                     loggedValue = logged,
                     previousWeight = baseline?.previousWeight,
                     previousReps = baseline?.previousReps,
+                    previousRir = baseline?.previousRir,
                     isProjected = baseline?.isProjected ?: false,
                     myoRepKind = slot.myoRepKind,
                 )

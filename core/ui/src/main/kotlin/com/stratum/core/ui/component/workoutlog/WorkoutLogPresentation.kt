@@ -22,6 +22,10 @@ data class WorkoutLogSetUi(
      */
     val setTypeLabel: String,
     val previousLabel: String = "—",
+    /**
+     * Optional second line under [previousLabel] (e.g. `"2 RIR"`). Null hides the line.
+     */
+    val previousRirLabel: String? = null,
     val weightText: String = "",
     val weightPlaceholder: String = "",
     val repsText: String = "",

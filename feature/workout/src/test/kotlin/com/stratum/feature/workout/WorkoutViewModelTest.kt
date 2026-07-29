@@ -780,8 +780,9 @@ class WorkoutViewModelTest {
         // History: slot 0 (top, 4–6 RIR 2) did 135×5 RIR 2; slot 1 (backoff) did 135×8 RIR 2.
         // Capacity reorder uses the stronger 8@2 for math → scheme gate increments +5 lb, then
         // straight-set shared-weight floor may drop slightly so last-set capacity clears the floor.
-        // previous* stays positional (what you did last time on this set index) → 135×5.
+        // previous* stays positional (what you did last time on this set index) → 135×5 @ 2 RIR.
         assertEquals("135 lb × 5", firstSet.previousWeightLabel)
+        assertEquals("2 RIR", firstSet.previousRirLabel)
         assertTrue(
             firstSet.recommendedWeightAmount > 135.0,
             "expected increment from capacity-reordered baseline, got ${firstSet.recommendedWeightAmount}",

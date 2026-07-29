@@ -27,7 +27,7 @@ import javax.inject.Inject
  * [SlotProgressionRequest.progressionBaseline] (capacity-ordered recent block built by
  * the orchestrator), so recommendations are monotonically non-increasing across slots
  * even when prior-set RIR was misreported. `history` is used only for
- * `previousWeight`/`previousReps` (UI display).
+ * `previousWeight`/`previousReps`/`previousRir` (UI display).
  */
 class LinearProgressionEngine @Inject constructor(
     private val config: LinearProgressionConfig,

@@ -2,6 +2,7 @@ package com.stratum.core.ui.component.workoutlog
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.component.RirTargetBadge
@@ -150,11 +152,25 @@ fun StratumWorkoutLogSetRow(
             }
 
             Box(modifier = Modifier.weight(weights.prev), contentAlignment = Alignment.Center) {
-                StratumText(
-                    text = set.previousLabel,
-                    style = StratumThemeAccessor.typography.bodyLarge,
-                    muted = true,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    StratumText(
+                        text = set.previousLabel,
+                        style = StratumThemeAccessor.typography.bodyLarge,
+                        muted = true,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                    )
+                    val previousRirLabel = set.previousRirLabel
+                    if (previousRirLabel != null) {
+                        StratumText(
+                            text = previousRirLabel,
+                            style = StratumThemeAccessor.typography.sectionLabel,
+                            muted = true,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
 
             // While this set's pad is open, host drafts are SoT for both fields (not just the

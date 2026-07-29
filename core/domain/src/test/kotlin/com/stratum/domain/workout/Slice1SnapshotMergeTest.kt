@@ -328,6 +328,7 @@ class Slice1SnapshotMergeTest {
         assertNotNull(rec)
         assertEquals(lb(185.0), rec!!.previousWeight, "Previous column must show imported weight")
         assertEquals(8, rec.previousReps, "Previous column must show imported reps")
+        assertEquals(2, rec.previousRir, "Previous column must show imported RIR")
         assertTrue(
             rec.recommendedWeight.amount > 0.0,
             "Weight recommendation must be derived from imported history",
