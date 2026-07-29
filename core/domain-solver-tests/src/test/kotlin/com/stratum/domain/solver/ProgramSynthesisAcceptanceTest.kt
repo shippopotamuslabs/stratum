@@ -521,7 +521,7 @@ class ProgramSynthesisAcceptanceTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+                options = PipelineOptions(skipLiftSwap = true),
             )
         return normalized.toDraft()
     }

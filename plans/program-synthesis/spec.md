@@ -48,8 +48,8 @@ planWeeklyVolume
   → selectLiftForSlot
   → assembleWorkouts
   → repairWeeklyVolume
-  → liftSwapPort.swapLifts()          # OPENROUTER_MODEL (pro)
-  → programNamingPort.nameProgram()   # OPENROUTER_MODEL_SMALL — see plans/program-naming/spec.md
+  → liftSwapPort.swapLifts()          # OPENROUTER_MODEL (pro), optional
+  → applyHeuristicProgramNames()      # pure domain — see plans/program-naming/spec.md
   → integrateAndValidate
 ```
 
@@ -258,10 +258,10 @@ After `OPTIMAL` or `FEASIBLE`:
 4. Placeholder workout names: `Session 1` … `Session N` (position-based)
 5. Placeholder program name: `Generated Program`
 
-**Naming is not synthesized.** `ProgramNamingPort` (OpenRouter `OPENROUTER_MODEL_SMALL` via
-`nameGeneratedProgram` callable) assigns human program and workout names after lift swap.
-See `plans/program-naming/spec.md`. No `SessionTypeId` inference, no `inferSplitLabel`, no
-`relabelWorkoutNamesByWeekday` on the generation path.
+**Naming is not synthesized.** `applyHeuristicProgramNames` (pure domain; see
+`plans/program-naming/spec.md`) assigns a local date/time program title and Upper/Lower/
+Full Body workout labels after optional lift swap. No LLM, no `SessionTypeId` inference,
+no `inferSplitLabel` on the generation path.
 
 `SessionTypeId` may still be used internally for slot vocabulary migration from
 `SESSION_SLOTS`; it is never shown to the user and not a synthesis decision variable.
@@ -305,7 +305,7 @@ Optional: run quick presolve (frequency vs session count) before CP-SAT to fail 
 - [ ] Remove `resolveBestSplit` from build path
 - [ ] Update Hilt wiring (`ProgramGenerationPipeline`)
 - [ ] Migrate tests off template IDs
-- [ ] `ProgramNamingPort` + `nameGeneratedProgram` callable (`plans/program-naming/spec.md`)
+- [x] Heuristic naming after swap (`plans/program-naming/spec.md`)
 
 ### Phase 4 — Delete legacy synthesis
 
@@ -382,13 +382,13 @@ coeff(u,m) = SCALE   if primary(u) == m
 
 - Sibling variants: separate universe entries, mutex constraint per session
 - Full-body: keep `Full` domain for 2-day tier-2 cases; optimizer free to select elsewhere
-- **Naming:** LLM via `OPENROUTER_MODEL_SMALL` after lift swap — not deterministic inference
+- **Naming:** deterministic heuristics after optional lift swap (`applyHeuristicProgramNames`)
 
 ---
 
 ## 13. Non-goals
 
 - Lift selection (stays deterministic post-solve)
-- LLM for structure or volume (naming + lift swap only)
+- LLM for structure, volume, or naming (lift swap + import assist only)
 - Database schema changes
 - Onboarding UI changes (except error messages for infeasibility; optional naming progress copy)

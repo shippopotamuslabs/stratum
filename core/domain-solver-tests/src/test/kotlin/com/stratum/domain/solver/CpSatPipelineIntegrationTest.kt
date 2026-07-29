@@ -35,7 +35,7 @@ class CpSatPipelineIntegrationTest {
         val program = pipeline.generate(
             context = context,
             normalizationRequest = context.toProgramNormalizationRequest(),
-            options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+            options = PipelineOptions(skipLiftSwap = true),
         )
         val draft = program.toDraft()
 

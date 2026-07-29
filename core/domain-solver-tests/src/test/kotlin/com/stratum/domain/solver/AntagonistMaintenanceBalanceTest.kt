@@ -46,7 +46,7 @@ class AntagonistMaintenanceBalanceTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = normalized.toDraft()
         val weekly = weeklyMuscleVolume(draft, context)
@@ -87,7 +87,7 @@ class AntagonistMaintenanceBalanceTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = normalized.toDraft()
 
@@ -145,7 +145,7 @@ class AntagonistMaintenanceBalanceTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = normalized.toDraft()
         val weekly = weeklyMuscleVolume(draft, context)
@@ -260,7 +260,7 @@ class AntagonistMaintenanceBalanceTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = normalized.toDraft()
         val weekly = weeklyMuscleVolume(draft, context)
@@ -292,7 +292,7 @@ class AntagonistMaintenanceBalanceTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = normalized.toDraft()
         val weekly = weeklyMuscleVolume(draft, context)
@@ -352,7 +352,7 @@ class AntagonistMaintenanceBalanceTest {
             pipeline.generate(
                 context = context,
                 normalizationRequest = context.toProgramNormalizationRequest(),
-                options = PipelineOptions(skipLiftSwap = true, skipProgramNaming = true),
+                options = PipelineOptions(skipLiftSwap = true),
             )
         val draft = normalized.toDraft()
         val weekly = weeklyMuscleVolume(draft, context)
