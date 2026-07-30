@@ -440,6 +440,201 @@ class RecomputeRecommendationsUseCaseTest {
         assertEquals(140.0, rec!!.weight.amount, 0.01)
     }
 
+    /**
+     * Production path: cold open already wrote live recs for set 2+ at snapshot weight.
+     * Completing the top set with matching weight but off-track reps/RIR must re-anchor
+     * (not freeze those cold-open priors via EstablishedUpcoming).
+     */
+    @Test
+    @DisplayName(
+        "Top set with wild reps re-anchors remaining recs even when cold-open priors share weight",
+    )
+    fun `top set wild reps recomputes remaining with cold open priors`() {
+        fun openSlot(id: String, position: Int, recR: Int, isTop: Boolean = position == 0) =
+            RenderedSet(
+                slotId = SetSlotId.Template(LiftSetId(id)),
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                position = position,
+                setType = SetType.Standard,
+                isTopSet = isTop,
+                repMin = if (isTop) 4 else 0,
+                repMax = if (isTop) 6 else 0,
+                rirGoal = 2,
+                restSeconds = 120,
+                recommendedWeight = lb(135.0),
+                recommendedReps = recR,
+                loggedValue = null,
+            )
+        val coldOpen =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "W",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Squat",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    openSlot("ls-1", 0, recR = 5, isTop = true),
+                                    openSlot("ls-2", 1, recR = 5),
+                                    openSlot("ls-3", 2, recR = 5),
+                                    openSlot("ls-4", 3, recR = 5),
+                                ),
+                        ),
+                    ),
+            )
+        val coldOpenPriors =
+            useCase(coldOpen, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        assertTrue(coldOpenPriors.isNotEmpty(), "cold open must seed upcoming live recs")
+        val frozenReps = coldOpenPriors[SetSlotId.Template(LiftSetId("ls-2"))]!!.reps
+
+        val afterWildTop =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "W",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Squat",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    openSlot("ls-1", 0, recR = 5, isTop = true).copy(
+                                        loggedValue =
+                                            LoggedSetValue(
+                                                slotId = SetSlotId.Template(LiftSetId("ls-1")),
+                                                weight = lb(135.0),
+                                                reps = 500,
+                                                rir = 2,
+                                            ),
+                                    ),
+                                    openSlot("ls-2", 1, recR = 5),
+                                    openSlot("ls-3", 2, recR = 5),
+                                    openSlot("ls-4", 3, recR = 5),
+                                ),
+                        ),
+                    ),
+            )
+        val after =
+            useCase(
+                afterWildTop,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = coldOpenPriors,
+            )
+        val set2 = after[SetSlotId.Template(LiftSetId("ls-2"))]
+        assertNotNull(set2, "must still emit remaining straight recs")
+        // Too-easy top → bump shared weight; must not preserve cold-open 135×frozenReps.
+        assertTrue(
+            set2!!.weight.amount > 135.0 || set2.reps != frozenReps,
+            "wild top must re-anchor weight and/or reps; got w=${set2.weight.amount} r=${set2.reps} " +
+                "frozen r=$frozenReps",
+        )
+        assertTrue(
+            set2.weight.amount > 135.0,
+            "too-easy 500-rep top must bump remaining weight; got ${set2.weight.amount}",
+        )
+    }
+
+    @Test
+    @DisplayName(
+        "Top set with different RIR re-anchors remaining recs even when cold-open priors share weight",
+    )
+    fun `top set different rir recomputes remaining with cold open priors`() {
+        fun openSlot(id: String, position: Int, recR: Int, isTop: Boolean = position == 0) =
+            RenderedSet(
+                slotId = SetSlotId.Template(LiftSetId(id)),
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                position = position,
+                setType = SetType.Standard,
+                isTopSet = isTop,
+                repMin = if (isTop) 6 else 0,
+                repMax = if (isTop) 10 else 0,
+                rirGoal = 2,
+                restSeconds = 120,
+                recommendedWeight = lb(225.0),
+                recommendedReps = recR,
+                loggedValue = null,
+            )
+        val coldOpen =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "W",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Squat",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    openSlot("ls-1", 0, recR = 8, isTop = true),
+                                    openSlot("ls-2", 1, recR = 7),
+                                    openSlot("ls-3", 2, recR = 6),
+                                ),
+                        ),
+                    ),
+            )
+        val coldOpenPriors =
+            useCase(coldOpen, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        val frozenSet2 = coldOpenPriors[SetSlotId.Template(LiftSetId("ls-2"))]!!
+
+        // Same weight and exact recommended reps, but RIR 4 vs goal 2 (surplus ≥ 2 → too easy).
+        val afterHighRir =
+            RenderedWorkout(
+                workoutId = workoutId,
+                workoutName = "W",
+                lifts =
+                    listOf(
+                        RenderedWorkoutLift(
+                            workoutLiftId = workoutLiftId,
+                            liftId = liftId,
+                            liftName = "Squat",
+                            progressionScheme = ProgressionScheme.Double,
+                            sets =
+                                listOf(
+                                    openSlot("ls-1", 0, recR = 8, isTop = true).copy(
+                                        loggedValue =
+                                            LoggedSetValue(
+                                                slotId = SetSlotId.Template(LiftSetId("ls-1")),
+                                                weight = lb(225.0),
+                                                reps = 8,
+                                                rir = 4,
+                                            ),
+                                    ),
+                                    openSlot("ls-2", 1, recR = 7),
+                                    openSlot("ls-3", 2, recR = 6),
+                                ),
+                        ),
+                    ),
+            )
+        val after =
+            useCase(
+                afterHighRir,
+                mapOf(liftId to catalogLift()),
+                priorRecommendations = coldOpenPriors,
+            )
+        val set2 = after[SetSlotId.Template(LiftSetId("ls-2"))]
+        assertNotNull(set2)
+        assertTrue(
+            set2!!.weight.amount != frozenSet2.weight.amount || set2.reps != frozenSet2.reps,
+            "RIR surplus must not freeze cold-open priors; got w=${set2.weight.amount} " +
+                "r=${set2.reps} prior w=${frozenSet2.weight.amount} r=${frozenSet2.reps}",
+        )
+        // RIR surplus ≥ 2 on top set is too-easy → bump path.
+        assertTrue(
+            set2.weight.amount > 225.0,
+            "too-easy RIR surplus should bump remaining weight; got ${set2.weight.amount}",
+        )
+    }
+
     @Test
     @DisplayName("No performed set -> no recommendation (first set of the session)")
     fun `no performed set produces no recommendation`() {
