@@ -57,6 +57,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
                 completedPrescribedWeight = completedPrescribedWeight,
                 straightUpcoming = straightUpcoming,
                 priorRecommendations = priorRecommendations,
+                setsByPosition = setsByPosition,
             )
         if (freeze != null) {
             return freezeStraightUpcoming(
@@ -110,6 +111,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
         completedPrescribedWeight: Weight,
         straightUpcoming: List<RenderedSet>,
         priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
+        setsByPosition: List<RenderedSet>,
     ): FreezeDecision? {
         if (block.forceLiveWeight) return null
         // Primary freeze: logged exactly what the live overlay showed (weight + reps + RIR).
@@ -143,11 +145,28 @@ class StraightSetRecommendationPolicy @Inject constructor(
                     priorRecommendations = priorRecommendations,
                 )
             if (loadOnTrack && shownMatch) return FreezeDecision.Exact
-            if (isEstablishedUpcomingFreeze(straightUpcoming, priorRecommendations, lastPerformed)) {
+            // Restore / cycle re-emit: upcoming priors already share the performed load after
+            // a prior freeze (or adaptive reduce). Never apply this for the first straight
+            // set of the lift — cold-open priors share snapshot weight with that set, so an
+            // off-track top (wild reps / different RIR) would freeze stale fatigue reps.
+            // Weight-only mismatch still goes adaptive because established freeze fails.
+            if (
+                !isFirstStraightWorking(setsByPosition, lastPerformedSet) &&
+                isEstablishedUpcomingFreeze(straightUpcoming, priorRecommendations, lastPerformed)
+            ) {
                 return FreezeDecision.EstablishedUpcoming
             }
         }
         return null
+    }
+
+    /** True when [set] is the earliest straight-working slot in the lift. */
+    private fun isFirstStraightWorking(
+        setsByPosition: List<RenderedSet>,
+        set: RenderedSet,
+    ): Boolean {
+        val first = setsByPosition.firstOrNull { isStraightWorking(it) } ?: return false
+        return first.slotId == set.slotId
     }
 
     /**
@@ -320,7 +339,11 @@ class StraightSetRecommendationPolicy @Inject constructor(
         priorRecommendations: Map<SetSlotId, LiveSetRecommendation>,
     ): Boolean {
         val prior = priorRecommendations[set.slotId]
-        val shownReps = prior?.reps?.takeIf { it > 0 }
+        // Top set never has a live prior row — fall back to snapshot recommendedReps so
+        // "exact prescription" still requires matching the shown rep target, not only RIR.
+        val shownReps =
+            prior?.reps?.takeIf { it > 0 }
+                ?: set.recommendedReps.takeIf { it > 0 }
         if (shownReps != null && logged.reps != shownReps) return false
         // Null RIR is never "as prescribed" — adaptive path re-evaluates.
         if (logged.rir != set.rirGoal) return false
