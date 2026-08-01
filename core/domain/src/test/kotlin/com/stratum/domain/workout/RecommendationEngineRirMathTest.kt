@@ -740,9 +740,10 @@ class RecommendationEngineRirMathTest {
         }
 
         @Test
-        @DisplayName("too-easy bump + rounding — 100x10@1, top 3-6@1 -> Hold 110 when floor clears")
+        @DisplayName("too-easy bump with tiers — 100x10@1, top 3-6@1 -> Hold 110 (band step 10)")
         fun `too-easy bump with tiers stays at 110 when capacity allows`() {
-            // 100+5=105 → 10 lb band → 110. 100×10@1 has headroom for last-set floor at 110.
+            // At 100 lb the open band is +10 (not default +5). Exact step, no re-round.
+            // 100×10@1 has headroom for last-set floor at 110.
             val outcome = engine.recommendNextSet(
                 lastPerformed = performed(100.0, 10, 1),
                 completedSlot = topSet(repMin = 3, repMax = 6, rirGoal = 1),
@@ -753,6 +754,17 @@ class RecommendationEngineRirMathTest {
             )
             assertTrue(outcome is RecommendationOutcome.Hold)
             assertEquals(110.0, (outcome as RecommendationOutcome.Hold).weight.amount, 0.0)
+        }
+
+        @Test
+        @DisplayName("tooEasyBump micro-plate base: 2.5 + 5 lb band = 7.5 (not zero-anchored 10)")
+        fun `tooEasyBump does not re-snap micro plate sum onto zero lattice`() {
+            val tiers = listOf(
+                IncrementTier(lb(0.0), lb(2.5), lb(2.5)),
+                IncrementTier(lb(2.5), null, lb(5.0)),
+            )
+            val bumped = engine.tooEasyBump(lb(2.5), tiers, LoadType.Weighted)
+            assertEquals(7.5, bumped.amount, 0.0)
         }
     }
 

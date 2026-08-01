@@ -30,21 +30,83 @@ data class IncrementTier(
 }
 
 /**
- * Rounds [amount] to the nearest increment step for the band it falls into. Used by the
- * recommendation engine so live weight suggestions land on realistic load jumps (e.g.
- * `61.35` → `60`, `93.93` → `95`). An empty tier list is a passthrough — no rounding.
+ * Rounds [amount] to the nearest point on the **multi-band lattice** defined by these tiers.
  *
- * The matching band is the first tier whose `[lowerBound, upperBound)` range contains the
- * amount; if none matches (the amount is below the lowest band), the first tier is used.
- * Rounding is half-away-from-zero via [roundToLong]. The amount is treated as a magnitude
- * — callers wrap it with the appropriate sign.
+ * Lattice construction (walk every band): for each tier `[lowerBound, upperBound)` with step
+ * `S`, legal loads are `lowerBound + k·S` for integers `k ≥ 0` that stay inside the half-open
+ * band. Contiguous default tiers starting at 0 with steps that divide the boundaries
+ * (e.g. 0–40 @ 2.5, 40–100 @ 5) match zero-anchored multiples; **shifted** open bands do
+ * not — e.g. `[2.5, ∞) @ 5` yields `2.5, 7.5, 12.5…`, not `0, 5, 10…`.
+ *
+ * Nearest-point ties break half-away-from-zero (prefer the larger magnitude). Empty tiers
+ * are a passthrough. Sign is preserved so assisted negatives round in magnitude space.
  */
 private fun List<IncrementTier>.roundMagnitude(amount: Double): Double {
     if (isEmpty()) return amount
-    val inc = incrementForAmount(amount)
-    if (inc <= 0.0) return amount
-    return (amount / inc).roundToLong() * inc
+    if (amount == 0.0) return 0.0
+    val sign = if (amount < 0.0) -1.0 else 1.0
+    return sign * nearestLatticePoint(abs(amount))
 }
+
+/**
+ * Nearest non-negative lattice point under the full tier walk. See [roundMagnitude].
+ */
+private fun List<IncrementTier>.nearestLatticePoint(amount: Double): Double {
+    var best: Double? = null
+    var bestDist = Double.POSITIVE_INFINITY
+
+    for (tier in this) {
+        val lo = tier.lowerBound.amount
+        val hi = tier.upperBound?.amount
+        val step = tier.increment.amount
+        if (step <= 0.0) continue
+
+        val kNearest = ((amount - lo) / step).roundToLong()
+        // Window around the analytic nearest, plus band endpoints (k = 0 and last in-band k).
+        val kMaxInBand =
+            if (hi != null) {
+                kotlin.math.floor((hi - lo - LATTICE_BOUND_EPS) / step).toLong().coerceAtLeast(0L)
+            } else {
+                null
+            }
+        val ks = buildList {
+            for (dk in -2L..2L) add(kNearest + dk)
+            add(0L)
+            if (kMaxInBand != null) add(kMaxInBand)
+        }
+        for (k in ks) {
+            if (k < 0L) continue
+            val candidate = lo + k * step
+            if (candidate < lo - LATTICE_BOUND_EPS) continue
+            if (hi != null && candidate >= hi - LATTICE_BOUND_EPS) continue
+
+            val dist = abs(amount - candidate)
+            when {
+                best == null || dist < bestDist - LATTICE_BOUND_EPS -> {
+                    best = candidate
+                    bestDist = dist
+                }
+                abs(dist - bestDist) <= LATTICE_BOUND_EPS && candidate > best -> {
+                    // Tie → half-away-from-zero (larger magnitude).
+                    best = candidate
+                    bestDist = dist
+                }
+            }
+        }
+    }
+
+    // No in-band candidate (should not happen for valid contiguous tiers from 0); fall back
+    // to first-tier zero-anchored step so callers never get a NaN/null path.
+    if (best == null) {
+        val step = first().increment.amount
+        if (step <= 0.0) return amount
+        return (amount / step).roundToLong() * step
+    }
+    return best
+}
+
+/** Epsilon for half-open band membership and distance ties (same order as [LATTICE_EPSILON]). */
+private const val LATTICE_BOUND_EPS: Double = 1e-9
 
 /**
  * Resolves the increment step (in raw amount) for the band [amount] falls into. The matching
@@ -73,13 +135,14 @@ fun List<IncrementTier>.incrementFor(weight: Weight): Weight? {
 }
 
 /**
- * Rounds [weight] to the nearest increment step for the band it falls into. Used by the
- * recommendation engine so live weight suggestions land on realistic load jumps (e.g.
- * `61.35` → `60`, `93.93` → `95`). An empty tier list is a passthrough — no rounding.
+ * Rounds [weight] to the nearest multi-band lattice point (see [roundMagnitude]). Used so
+ * soft/e1RM loads land on realistic jumps (e.g. `61.35` → `60`, `93.93` → `95`). An empty
+ * tier list is a passthrough — no rounding.
  *
- * The matching band is the first tier whose `[lowerBound, upperBound)` range contains the
- * weight; if none matches (the weight is below the lowest band), the first tier is used.
- * Rounding is half-away-from-zero via [roundToLong].
+ * Prefer **not** re-applying this after a deliberate `base + band step` progression add:
+ * logged bases can sit off-lattice (e.g. 135 on a 10 lb band), and re-snapping
+ * `base + step` can half-step again (`145` → `150`). Use this for continuous estimates;
+ * use [incrementFor] + raw add for session-to-session / too-easy advances.
  */
 fun List<IncrementTier>.roundToIncrement(weight: Weight): Weight =
     Weight(roundMagnitude(weight.amount), weight.unit)
