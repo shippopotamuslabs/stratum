@@ -6,7 +6,6 @@ import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.incrementForAmount
-import com.stratum.domain.lift.roundToIncrement
 import com.stratum.domain.lift.toStorageLb
 import com.stratum.domain.workout.fatigue.FatigueModel
 import com.stratum.domain.workout.fatigue.defaultLoadBumpAmount
@@ -228,14 +227,16 @@ class RecommendationEngine @Inject constructor(
 
     /**
      * One product increment above [weight]: the lift's band step when tiers exist, else
-     * 5 lb / 2.5 kg. Then tier-round so the suggestion lands on plates.
+     * 5 lb / 2.5 kg. Returns the exact sum — does **not** re-snap via [roundToIncrement],
+     * which zero-anchors to multiples of the band step and can double-jump micro-plate
+     * bases (e.g. 2.5 + 5 → 7.5 → nearest 5s = 10).
      */
     internal fun tooEasyBump(
         weight: Weight,
         incrementTiers: List<IncrementTier>,
-        loadType: LoadType,
+        @Suppress("UNUSED_PARAMETER") loadType: LoadType,
     ): Weight {
-        // Tiers are Lb magnitudes; lattice ops always run in Lb.
+        // Tiers are Lb magnitudes; step math always runs in Lb.
         val weightLb = weight.toStorageLb()
         val step = when {
             incrementTiers.isNotEmpty() -> {
@@ -244,8 +245,7 @@ class RecommendationEngine @Inject constructor(
             }
             else -> defaultBumpAmount(Weight.WeightUnit.Lb)
         }
-        val raw = Weight(weightLb.amount + step, Weight.WeightUnit.Lb)
-        return incrementTiers.roundToIncrement(raw, loadType)
+        return Weight(weightLb.amount + step, Weight.WeightUnit.Lb)
     }
 
     /**
