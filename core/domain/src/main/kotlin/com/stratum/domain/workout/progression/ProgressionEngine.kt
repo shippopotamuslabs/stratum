@@ -56,8 +56,8 @@ interface ProgressionEngine {
  */
 data class ProgressionLoadPolicy(
     /**
-     * Whether the top-set load lever advances from [baseline] (Double: top-at-RIR;
-     * Linear: bottom-at-RIR).
+     * Whether the top-set load lever advances from [baseline] (Double: capacity
+     * `(reps + rir) >= (repMax + rirGoal)`; Linear: bottom-at-RIR).
      */
     val shouldAdvanceLoad: (baseline: SlotHistoryEntry?, slot: SetSlot) -> Boolean,
     /** Increment magnitude when [shouldAdvanceLoad] is true. */
