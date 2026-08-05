@@ -56,8 +56,8 @@ interface ProgressionEngine {
  */
 data class ProgressionLoadPolicy(
     /**
-     * Whether the top-set load lever advances from [baseline] (Double: top-at-RIR;
-     * Linear: bottom-at-RIR).
+     * Whether the top-set load lever advances from [baseline] (Double: capacity
+     * `(reps + rir) >= (repMax + rirGoal)`; Linear: bottom-at-RIR).
      */
     val shouldAdvanceLoad: (baseline: SlotHistoryEntry?, slot: SetSlot) -> Boolean,
     /** Increment magnitude when [shouldAdvanceLoad] is true. */
@@ -143,6 +143,10 @@ private fun selectTopOrBaseWeight(
     baseWeight: Weight,
 ): Weight {
     if (!slot.isTopSet) return baseWeight
+    // Hold or add one band step from the real baseline — do **not** re-run
+    // [roundToIncrement]. Zero-anchored nearest-plate rounding after a deliberate
+    // step double-jumps micro-plate bases (e.g. 2.5 + 5 → 7.5 → 10 on a 5 lb band).
+    // Soft e1RM loads still round in floor-drop paths.
     val raw =
         if (policy.shouldAdvanceLoad(baselineEntry, slot)) {
             val increment = policy.incrementFor(request, baseWeight)
@@ -150,9 +154,7 @@ private fun selectTopOrBaseWeight(
         } else {
             baseWeight
         }
-    return request.incrementTiers
-        .roundToIncrement(raw, request.loadType)
-        .capAssistedAtZero(request.loadType)
+    return raw.capAssistedAtZero(request.loadType)
 }
 
 /**
