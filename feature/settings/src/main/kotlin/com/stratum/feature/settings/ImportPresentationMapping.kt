@@ -1,6 +1,7 @@
 package com.stratum.feature.settings
 
 import com.stratum.domain.export.ExportLogPreview
+import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.ImportFileValidationResult
 import com.stratum.domain.importing.ImportProgress
 import com.stratum.domain.importing.ImportProgressPhase
@@ -56,7 +57,22 @@ internal fun ProgramTemplateImportPhase.toUi(): ImportProgramPhaseUi =
         ProgramTemplateImportPhase.Failed -> ImportProgramPhaseUi.Failed
     }
 
-// ── User-facing validation copy (domain-free strings for VM errorMessage) ──
+// ── User-facing copy (domain-free strings for VM errorMessage) ─────────────
+// Technical / provider diagnostics stay in logs only — never put in UI state.
+
+/** Log tag for historical import failures surfaced from [ImportLogsViewModel]. */
+internal const val IMPORT_LOGS_LOG_TAG = "ImportLogs"
+
+/** Generic infra/agent failure — never include server/provider text. */
+internal const val IMPORT_LOGS_GENERIC_ERROR =
+    "Something went wrong importing your logs. Please try again."
+
+/** Server rejected the file as not a training log. */
+internal const val IMPORT_LOGS_UNSUPPORTED_FILE_ERROR =
+    "This file doesn't look like a training log. Try a different export."
+
+/** SAF / local file materialization failure. */
+internal const val IMPORT_LOGS_READ_FILES_ERROR = "Could not read the selected files."
 
 internal fun ImportFileValidationResult.Invalid.toUserMessage(): String =
     when (this) {
@@ -64,6 +80,13 @@ internal fun ImportFileValidationResult.Invalid.toUserMessage(): String =
         is ImportFileValidationResult.Invalid.TooManyFiles -> "Select at most $max files."
         is ImportFileValidationResult.Invalid.FileTooLarge ->
             "$fileName exceeds the $maxMb MB limit."
+    }
+
+/** Maps [ImportFailureKind] to safe UI copy. Technical [message] must be logged separately. */
+internal fun ImportFailureKind.toUserMessage(): String =
+    when (this) {
+        ImportFailureKind.UnsupportedFile -> IMPORT_LOGS_UNSUPPORTED_FILE_ERROR
+        ImportFailureKind.Generic -> IMPORT_LOGS_GENERIC_ERROR
     }
 
 // ── Timeline indices (shared by VMs + screens; presentation types only) ────

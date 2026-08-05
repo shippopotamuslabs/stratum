@@ -1,6 +1,7 @@
 package com.stratum.feature.settings
 
 import com.stratum.domain.export.ExportLogPreview
+import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.ImportFileValidationResult
 import com.stratum.domain.importing.ImportProgressPhase
 import com.stratum.domain.importing.MergeImportStats
@@ -102,6 +103,16 @@ class ImportPresentationMappingTest {
         assertEquals(
             "big.csv exceeds the 20 MB limit.",
             ImportFileValidationResult.Invalid.FileTooLarge("big.csv", 20).toUserMessage(),
+        )
+    }
+
+    @Test
+    @DisplayName("Import failure kinds map to generic user-safe copy")
+    fun failureKindToUserMessage() {
+        assertEquals(IMPORT_LOGS_GENERIC_ERROR, ImportFailureKind.Generic.toUserMessage())
+        assertEquals(
+            IMPORT_LOGS_UNSUPPORTED_FILE_ERROR,
+            ImportFailureKind.UnsupportedFile.toUserMessage(),
         )
     }
 }
