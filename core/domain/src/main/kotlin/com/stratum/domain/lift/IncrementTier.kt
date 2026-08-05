@@ -70,15 +70,19 @@ private fun List<IncrementTier>.nearestLatticePoint(amount: Double): Double {
                 null
             }
         val ks = buildList {
-            for (dk in -2L..2L) add(kNearest + dk)
+            for (dk in -LATTICE_K_NEIGHBOR_RADIUS..LATTICE_K_NEIGHBOR_RADIUS) {
+                add(kNearest + dk)
+            }
             add(0L)
             if (kMaxInBand != null) add(kMaxInBand)
         }
         for (k in ks) {
-            if (k < 0L) continue
             val candidate = lo + k * step
-            if (candidate < lo - LATTICE_BOUND_EPS) continue
-            if (hi != null && candidate >= hi - LATTICE_BOUND_EPS) continue
+            val inBand =
+                k >= 0L &&
+                    candidate >= lo - LATTICE_BOUND_EPS &&
+                    (hi == null || candidate < hi - LATTICE_BOUND_EPS)
+            if (!inBand) continue
 
             val dist = abs(amount - candidate)
             when {
@@ -107,6 +111,12 @@ private fun List<IncrementTier>.nearestLatticePoint(amount: Double): Double {
 
 /** Epsilon for half-open band membership and distance ties (same order as [LATTICE_EPSILON]). */
 private const val LATTICE_BOUND_EPS: Double = 1e-9
+
+/**
+ * Inclusive step-index radius around the analytic nearest `k` to sample when searching
+ * for the nearest in-band lattice point (e.g. 2 → evaluate kNearest−2 … kNearest+2).
+ */
+private const val LATTICE_K_NEIGHBOR_RADIUS: Long = 2L
 
 /**
  * Resolves the increment step (in raw amount) for the band [amount] falls into. The matching

@@ -3,9 +3,11 @@ package com.stratum.feature.workout.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,12 +15,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumConfirmDialog
+import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumOutlinedButton
 import com.stratum.core.ui.component.StratumScaffold
@@ -33,6 +42,8 @@ import com.stratum.core.ui.component.StratumStatCard
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
+import com.stratum.core.ui.share.SHARE_CAPTURE_DEFAULT_PIXEL_SIZE
+import com.stratum.core.ui.share.ShareCaptureHost
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.feature.workout.R
@@ -43,6 +54,9 @@ fun WorkoutCompleteScreen(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
+    onShareImage: (ImageBitmap) -> Unit = {},
+    onShareCaptureFailed: () -> Unit = {},
+    isSharing: Boolean = false,
     onAcceptProposal: (String) -> Unit = {},
     onAcceptAlternative: (String) -> Unit = {},
     onAcceptRepRangeShift: (String) -> Unit = {},
@@ -51,58 +65,104 @@ fun WorkoutCompleteScreen(
     onConfirmBlastRadius: () -> Unit = {},
     onDismissBlastRadius: () -> Unit = {},
 ) {
-    StratumScaffold(
-        modifier = modifier,
-        snackbarHostState = snackbarHostState,
-        topBar = {
-            StratumTopBar(
-                title = state.workoutName,
-                actions = {
-                    StratumTextButton(
-                        text = stringResource(R.string.workout_complete_close),
-                        onClick = onClose,
+    val shareContent =
+        remember(state.workoutName, state.durationFormatted, state.bestSets) {
+            state.toShareContent()
+        }
+    // Local busy covers the on-demand capture phase before the route sets isSharing.
+    var captureActive by remember { mutableStateOf(false) }
+    val actionsBusy = isSharing || captureActive
+
+    Box(modifier = modifier.fillMaxSize()) {
+        StratumScaffold(
+            modifier = Modifier.fillMaxSize(),
+            snackbarHostState = snackbarHostState,
+            topBar = {
+                StratumTopBar(
+                    title = state.workoutName,
+                    actions = {
+                        StratumIconButton(
+                            onClick = {
+                                if (!actionsBusy) {
+                                    captureActive = true
+                                }
+                            },
+                            enabled = !actionsBusy,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription =
+                                    stringResource(R.string.workout_complete_share_cd),
+                                tint = StratumThemeAccessor.colors.textPrimary,
+                            )
+                        }
+                        StratumTextButton(
+                            text = stringResource(R.string.workout_complete_close),
+                            onClick = onClose,
+                            enabled = !actionsBusy,
+                        )
+                    },
+                )
+            },
+        ) { padding ->
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                StratumText(
+                    text = stringResource(R.string.workout_complete_title),
+                    style = StratumThemeAccessor.typography.titleLarge,
+                )
+
+                SummaryStatCards(state)
+
+                if (state.bestSets.isNotEmpty()) {
+                    PerformanceTable(state.bestSets)
+                }
+
+                if (state.repRangeProposals.isNotEmpty()) {
+                    RepRangeProposalsSection(
+                        proposals = state.repRangeProposals,
+                        onAccept = onAcceptRepRangeShift,
+                        onSkip = onSkipProposal,
+                        onNotNow = onNotNowProposal,
                     )
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                }
+
+                if (state.equipmentProposals.isNotEmpty()) {
+                    EquipmentProposalsSection(
+                        proposals = state.equipmentProposals,
+                        onAccept = onAcceptProposal,
+                        onAcceptAlternative = onAcceptAlternative,
+                        onSkip = onSkipProposal,
+                        onNotNow = onNotNowProposal,
+                    )
+                }
+            }
+        }
+
+        // On-demand capture only — no permanent 1080² tax while proposals are open.
+        ShareCaptureHost(
+            active = captureActive,
+            pixelSize = SHARE_CAPTURE_DEFAULT_PIXEL_SIZE,
+            onCaptured = { image ->
+                captureActive = false
+                onShareImage(image)
+            },
+            onCaptureFailed = {
+                captureActive = false
+                onShareCaptureFailed()
+            },
         ) {
-            StratumText(
-                text = stringResource(R.string.workout_complete_title),
-                style = StratumThemeAccessor.typography.titleLarge,
+            WorkoutShareCard(
+                content = shareContent,
+                modifier = Modifier.fillMaxSize(),
             )
-
-            SummaryStatCards(state)
-
-            if (state.bestSets.isNotEmpty()) {
-                PerformanceTable(state.bestSets)
-            }
-
-            if (state.repRangeProposals.isNotEmpty()) {
-                RepRangeProposalsSection(
-                    proposals = state.repRangeProposals,
-                    onAccept = onAcceptRepRangeShift,
-                    onSkip = onSkipProposal,
-                    onNotNow = onNotNowProposal,
-                )
-            }
-
-            if (state.equipmentProposals.isNotEmpty()) {
-                EquipmentProposalsSection(
-                    proposals = state.equipmentProposals,
-                    onAccept = onAcceptProposal,
-                    onAcceptAlternative = onAcceptAlternative,
-                    onSkip = onSkipProposal,
-                    onNotNow = onNotNowProposal,
-                )
-            }
         }
     }
 
