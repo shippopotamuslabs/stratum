@@ -48,7 +48,7 @@ class DoubleProgressionTierTest {
                 rirGoal = 2,
                 restSeconds = 120,
             )
-        // On-plate base so +10 lands cleanly (130 → 140), proving tiers beat the 5 lb default.
+        // 130 + 10 lb open-band step → 140 (proves tiers beat the 5 lb default).
         val history = listOf(historyEntry(reps = 6, rir = 2, weight = 130.0))
         val tiers =
             listOf(
@@ -76,6 +76,56 @@ class DoubleProgressionTierTest {
             )
 
         assertEquals(140.0, rec.recommendedWeight.amount)
+    }
+
+    @Test
+    @DisplayName(
+        "Given micro-plate base and 5 lb open band when top met then adds step without " +
+            "zero-anchored re-round (2.5 + 5 = 7.5, not 10)",
+    )
+    fun microPlateBaseAddsExactStepWithoutReRound() {
+        val slot =
+            SetSlot(
+                slotId = SetSlotId.Template(LiftSetId("ls-1")),
+                workoutLiftId = workoutLiftId,
+                liftId = liftId,
+                position = 0,
+                setType = SetType.Standard,
+                isTopSet = true,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 2,
+                restSeconds = 90,
+            )
+        // User tiers: [0, 2.5) → 2.5 lb; [2.5, ∞) → 5 lb. At 2.5 the open band steps +5.
+        val history = listOf(historyEntry(reps = 12, rir = 2, weight = 2.5))
+        val tiers =
+            listOf(
+                IncrementTier(
+                    lowerBound = Weight(0.0, Weight.WeightUnit.Lb),
+                    upperBound = Weight(2.5, Weight.WeightUnit.Lb),
+                    increment = Weight(2.5, Weight.WeightUnit.Lb),
+                ),
+                IncrementTier(
+                    lowerBound = Weight(2.5, Weight.WeightUnit.Lb),
+                    upperBound = null,
+                    increment = Weight(5.0, Weight.WeightUnit.Lb),
+                ),
+            )
+
+        val rec =
+            engine.recommend(
+                SlotProgressionRequest(
+                    slot = slot,
+                    history = history,
+                    fallbackOneRm = null,
+                    progressionBaseline = ProgressionBaseline.FromRecent(history.first()),
+                    incrementTiers = tiers,
+                ),
+            )
+
+        // Must not re-snap 7.5 onto a zero-anchored 5 lb lattice (→ 10).
+        assertEquals(7.5, rec.recommendedWeight.amount)
     }
 
     private fun historyEntry(reps: Int, rir: Int?, weight: Double): SlotHistoryEntry {
