@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
+    <!-- JSON export staging (settings). -->
+    <cache-path name="export_json" path="exports/json/" />
+    <!-- Image share staging (workout complete, future share surfaces). -->
+    <cache-path name="export_images" path="exports/images/" />
+    <!-- Parent path retained so older staged files remain grantable until pruned. -->
     <cache-path name="export_cache" path="exports/" />
 </paths>

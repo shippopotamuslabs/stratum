@@ -1,5 +1,6 @@
 package com.stratum.feature.workout.ui
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,15 +12,31 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.core.ui.share.launchShareSheet
+import com.stratum.core.ui.share.sanitizeShareFileName
+import com.stratum.core.ui.share.stageSharePng
+import com.stratum.feature.workout.R
 import com.stratum.feature.workout.WorkoutCompleteViewModel
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private const val SHARE_LOG_TAG = "WorkoutShare"
 
 @Composable
 fun WorkoutCompleteRoute(
@@ -30,6 +47,11 @@ fun WorkoutCompleteRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isSharing by remember { mutableStateOf(false) }
+    val shareFailedMessage = stringResource(R.string.workout_complete_share_failed)
+    val chooserTitle = stringResource(R.string.workout_complete_share_cd)
 
     LaunchedEffect(sessionId) {
         viewModel.loadSummary(sessionId)
@@ -64,6 +86,44 @@ fun WorkoutCompleteRoute(
                 onClose = onClose,
                 modifier = modifier,
                 snackbarHostState = snackbarHostState,
+                isSharing = isSharing,
+                onShareCaptureFailed = {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(shareFailedMessage)
+                    }
+                },
+                onShareImage = { imageBitmap ->
+                    if (isSharing) return@WorkoutCompleteScreen
+                    isSharing = true
+                    scope.launch {
+                        try {
+                            val androidBitmap = imageBitmap.asAndroidBitmap()
+                            val fileName =
+                                "workout_share_${sanitizeShareFileName(sessionId)}.png"
+                            val staged =
+                                withContext(Dispatchers.IO) {
+                                    stageSharePng(
+                                        context = context,
+                                        bitmap = androidBitmap,
+                                        fileName = fileName,
+                                    )
+                                }
+                            launchShareSheet(
+                                context = context,
+                                file = staged,
+                                mimeType = "image/png",
+                                chooserTitle = chooserTitle,
+                            )
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.e(SHARE_LOG_TAG, "Workout share failed", e)
+                            snackbarHostState.showSnackbar(shareFailedMessage)
+                        } finally {
+                            isSharing = false
+                        }
+                    }
+                },
                 onAcceptProposal = viewModel::onAcceptPrimary,
                 onAcceptAlternative = viewModel::onAcceptAlternative,
                 onAcceptRepRangeShift = viewModel::onAcceptRepRangeShift,

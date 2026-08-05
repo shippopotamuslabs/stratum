@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Brand -->
+    <string name="stratum_brand_cd">Stratum</string>
+    <string name="share_chooser_title">Share</string>
+
     <!-- StratumLiftSwapBottomSheet — shared lift swap UI -->
     <string name="lift_swap_title">Swapping %1$s</string>
     <string name="lift_add_title">Add Lift</string>

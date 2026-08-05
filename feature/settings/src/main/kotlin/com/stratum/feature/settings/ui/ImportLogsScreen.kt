@@ -53,7 +53,7 @@ fun ImportLogsScreen(
     onWeightUnitPromptDismissed: () -> Unit,
     onFilePickerLaunched: () -> Unit,
     onFilesSelected: (List<Pair<ByteArray, String>>) -> Unit,
-    onReadFilesFailed: (String) -> Unit,
+    onReadFilesFailed: (logDetail: String?) -> Unit,
     onCancelImport: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -74,10 +74,8 @@ fun ImportLogsScreen(
                         onFilesSelected(files.map { it.bytes to it.fileName })
                     }
                     .onFailure { error ->
-                        onReadFilesFailed(
-                            error.message?.takeIf { it.isNotBlank() }
-                                ?: "Could not read the selected files.",
-                        )
+                        // Raw IO / OS messages stay in logs only — UI uses generic copy.
+                        onReadFilesFailed(error.message)
                     }
             }
         }
