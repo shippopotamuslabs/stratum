@@ -3,6 +3,7 @@ package com.stratum.feature.settings
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
 import com.stratum.core.testing.importing.FakeHistoricalImportRunnerPort
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.response.FakeLiftEffectivenessObservationRepository
 import com.stratum.core.testing.response.FakeMuscleVolumeResponseSnapshotRepository
@@ -17,6 +18,7 @@ import com.stratum.domain.importing.ExtractTrainingInsightsSummary
 import com.stratum.domain.importing.HistoricalImportEvent
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
+import com.stratum.domain.importing.ImportFailureKind
 import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.importing.LiftTrainingInsights
 import com.stratum.domain.importing.LiftTrainingInsightsRepository
@@ -32,10 +34,12 @@ import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
 import com.stratum.domain.importing.ValidateImportFilesUseCase
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LogErrorUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -102,6 +106,8 @@ class ImportLogsViewModelTest {
         )
     }
 
+    private val loggingPort = FakeLoggingPort()
+
     private fun buildVm(
         auth: FakeAuthManager,
         runner: FakeHistoricalImportRunnerPort,
@@ -152,6 +158,7 @@ class ImportLogsViewModelTest {
             executeImport = execute,
             cancelImport = cancel,
             authManager = auth,
+            logError = LogErrorUseCase(loggingPort),
             observeWeightDisplayPreferences =
                 com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase(
                     com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository(),
@@ -237,7 +244,7 @@ class ImportLogsViewModelTest {
     }
 
     @Test
-    @DisplayName("IE-S7-008 Read files failed surfaces error without starting import")
+    @DisplayName("IE-S7-008 Read files failed surfaces generic error and logs detail")
     fun ieS7_008_readFilesFailed() = runTest {
         val runner = FakeHistoricalImportRunnerPort()
         val auth =
@@ -245,9 +252,10 @@ class ImportLogsViewModelTest {
         val vm = buildVm(auth, runner)
         vm.onReadFilesFailed("Could not open document")
         advanceUntilIdle()
-        assertEquals("Could not open document", vm.uiState.value.errorMessage)
+        assertEquals(IMPORT_LOGS_READ_FILES_ERROR, vm.uiState.value.errorMessage)
         assertEquals(0, runner.invocations.size)
         assertEquals(false, vm.uiState.value.isImporting)
+        assertTrue(loggingPort.errors.any { it.message.contains("Could not open document") })
     }
 
     @Test
@@ -276,5 +284,56 @@ class ImportLogsViewModelTest {
         advanceUntilIdle()
         assertEquals("No files selected.", vm.uiState.value.errorMessage)
         assertEquals(0, runner.invocations.size)
+    }
+
+    @Test
+    @DisplayName("IE-S7-010 Failed import hides technical provider message; logs detail")
+    fun ieS7_010_failedHidesTechnicalMessage() = runTest {
+        val technical =
+            "Your request was for 57300 tokens but you only have enough credits " +
+                "for 38042. Please refresh them at the OpenRouter console."
+        val runner =
+            FakeHistoricalImportRunnerPort(
+                events =
+                    listOf(
+                        HistoricalImportEvent.Failed(
+                            message = technical,
+                            kind = ImportFailureKind.Generic,
+                        ),
+                    ),
+            )
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val vm = buildVm(auth, runner)
+        vm.onFilesSelected(listOf("x".toByteArray() to "export.csv"))
+        advanceUntilIdle()
+        assertEquals(IMPORT_LOGS_GENERIC_ERROR, vm.uiState.value.errorMessage)
+        assertFalse(vm.uiState.value.errorMessage!!.contains("OpenRouter"))
+        assertFalse(vm.uiState.value.errorMessage!!.contains("tokens"))
+        assertTrue(loggingPort.errors.any { it.message.contains(technical) })
+        assertEquals(false, vm.uiState.value.isImporting)
+    }
+
+    @Test
+    @DisplayName("IE-S7-011 Unsupported file uses dedicated user-safe copy")
+    fun ieS7_011_unsupportedFileMessage() = runTest {
+        val technical = "agent rejected: schema mismatch sessionId"
+        val runner =
+            FakeHistoricalImportRunnerPort(
+                events =
+                    listOf(
+                        HistoricalImportEvent.Failed(
+                            message = technical,
+                            kind = ImportFailureKind.UnsupportedFile,
+                        ),
+                    ),
+            )
+        val auth =
+            FakeAuthManager(AuthState.Authenticated(UserProfile("u1", "U", "u@e.com", null)))
+        val vm = buildVm(auth, runner)
+        vm.onFilesSelected(listOf("x".toByteArray() to "export.csv"))
+        advanceUntilIdle()
+        assertEquals(IMPORT_LOGS_UNSUPPORTED_FILE_ERROR, vm.uiState.value.errorMessage)
+        assertTrue(loggingPort.errors.any { it.message.contains(technical) })
     }
 }

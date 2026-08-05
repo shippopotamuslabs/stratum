@@ -12,6 +12,7 @@ import com.stratum.domain.importing.ImportFileInput
 import com.stratum.domain.importing.ImportHistoryPersistPolicy
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.logging.LogErrorUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -42,6 +43,7 @@ class ImportLogsViewModel @Inject constructor(
     private val executeImport: ExecuteHistoricalImportUseCase,
     private val cancelImport: CancelHistoricalImportUseCase,
     private val authManager: AuthManager,
+    private val logError: LogErrorUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ImportLogsUiState())
@@ -130,14 +132,21 @@ class ImportLogsViewModel @Inject constructor(
         startImport(files = inputs, resume = null, fallbackWeightUnit = sessionFallbackUnit)
     }
 
-    /** Surfaces SAF permission/read failures from the UI layer (off main-thread load). */
-    fun onReadFilesFailed(message: String) {
+    /**
+     * Surfaces SAF permission/read failures from the UI layer (off main-thread load).
+     * [logDetail] is for logs only — UI always gets [IMPORT_LOGS_READ_FILES_ERROR].
+     */
+    fun onReadFilesFailed(logDetail: String? = null) {
+        logError(
+            IMPORT_LOGS_LOG_TAG,
+            "Could not read import files: ${logDetail?.takeIf { it.isNotBlank() } ?: "(no detail)"}",
+        )
         _uiState.update {
             it.copy(
                 progress = null,
                 isImporting = false,
                 mergeStats = null,
-                errorMessage = message.ifBlank { "Could not read the selected files." },
+                errorMessage = IMPORT_LOGS_READ_FILES_ERROR,
             )
         }
     }
@@ -232,11 +241,16 @@ class ImportLogsViewModel @Inject constructor(
                         }
                         is HistoricalImportOrchestrationEvent.Failed -> {
                             lastResume = event.resume
+                            // Provider/server diagnostics (e.g. OpenRouter credits) stay in logs only.
+                            logError(
+                                IMPORT_LOGS_LOG_TAG,
+                                "Historical import failed (kind=${event.kind}): ${event.message}",
+                            )
                             _uiState.update {
                                 it.copy(
                                     progress = null,
                                     isImporting = false,
-                                    errorMessage = event.message,
+                                    errorMessage = event.kind.toUserMessage(),
                                 )
                             }
                         }
