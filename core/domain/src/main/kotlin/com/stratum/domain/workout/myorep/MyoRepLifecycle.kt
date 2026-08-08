@@ -10,11 +10,15 @@ import com.stratum.domain.workout.WorkoutLiftProjection
 import com.stratum.domain.workout.intensifier.RestDefaultForTransition
 
 /**
- * Runtime state of a Myo-rep block.
+ * Runtime state of a Myo-rep mini-generation decision.
  *
- * [restSeconds] is the programmed **intra-cluster** mini rest on the activation set
- * (template or override). Minis inherit it between minis; after the last mini the live
- * rest timer uses lift default via [RestDefaultForTransition.restAfterMyoLog].
+ * **RepFloor:** [activationSlotId] is the floor activation; [generatedSlots] are minis after it;
+ * [lastMiniSetReps] drives the floor end-condition. [cumulativeClusterReps] is unused.
+ *
+ * **RepMatching:** minis belong to a **match backoff** cluster, not the activation.
+ * [clusterAnchorSlotId] is the match backoff; [cumulativeClusterReps] =
+ * backoff logged reps + mini reps in that cluster; stop when ≥ [activationReps].
+ * [restSeconds] is unused for match minis (always [RestDefaultForTransition.MYO_MINI_DEFAULT_REST_SECONDS]).
  */
 data class MyoRepBlockState(
     val workoutLiftId: WorkoutLiftId,
@@ -22,22 +26,38 @@ data class MyoRepBlockState(
     val kind: MyoRepKind,
     val activationReps: Int,
     val repFloor: Int,
+    /**
+     * Floor path: sum of mini reps (historical field name kept for callers).
+     * Match path: prefer [cumulativeClusterReps].
+     */
     val cumulativeMiniSetReps: Int,
     val lastMiniSetReps: Int?,
     val generatedSlots: List<SetSlot>,
     val liftId: LiftId,
     val activationPosition: Int,
     val restSeconds: Int = RestDefaultForTransition.MYO_MINI_DEFAULT_REST_SECONDS,
+    /**
+     * Match: the match-backoff slot that owns this mini chain.
+     * Floor: null (parent key falls back to [activationSlotId]).
+     */
+    val clusterAnchorSlotId: SetSlotId? = null,
+    val clusterAnchorPosition: Int = activationPosition,
+    /**
+     * Match: backoff performed reps + minis in this cluster.
+     * Floor: unused (0).
+     */
+    val cumulativeClusterReps: Int = 0,
 )
 
 /**
  * Adaptive end-condition mini-set generation.
  * - Type A (rep floor): mini-sets until one hits reps ≤ floor (default 5).
- * - Type B (rep matching): mini-sets until cumulative mini-set reps ≥ activation reps.
+ * - Type B (rep matching): mini-sets under a **match backoff** until
+ *   (backoff reps + mini reps) ≥ activation reps. No mini after the activation itself;
+ *   no rep floor on match minis.
  *
  * Implementations are stateless: [nextMiniSet] returns the next mini-set [SetSlot] or
- * `null` when the block's end condition is met. After activation completes, callers
- * should generate the first mini even when activation reps ≤ floor.
+ * `null` when the block's end condition is met.
  */
 interface MyoRepLifecycle {
     /**
@@ -51,13 +71,13 @@ interface MyoRepLifecycle {
     }
 
     /**
-     * Type B — generate while cumulative mini-set reps are below activation reps.
-     * Always generate the first mini after activation; stop when cumulative ≥ activation
-     * after at least one mini exists.
+     * Type B — generate while cluster total (backoff + minis) is below activation reps.
+     * No automatic first mini: if the backoff alone already matched, returns null.
+     * No rep floor — 1-rep minis are allowed until parity.
      */
     fun nextMiniSetRepMatching(state: MyoRepBlockState): SetSlot? {
-        if (state.generatedSlots.isEmpty()) return miniSet(state)
-        if (state.cumulativeMiniSetReps >= state.activationReps) return null
+        if (state.activationReps <= 0) return null
+        if (state.cumulativeClusterReps >= state.activationReps) return null
         return miniSet(state)
     }
 
@@ -68,30 +88,49 @@ interface MyoRepLifecycle {
         }
 
     private fun miniSet(state: MyoRepBlockState): SetSlot {
-        val activationKey = when (val id = state.activationSlotId) {
+        // Match minis parent to the backoff anchor so multi-backoff clusters re-home correctly.
+        val parentId = state.clusterAnchorSlotId ?: state.activationSlotId
+        val parentKey = when (val id = parentId) {
             is SetSlotId.Template -> id.liftSetId.value
             is SetSlotId.Overlay -> id.instanceId.value
         }
+        val parentPosition =
+            if (state.clusterAnchorSlotId != null) {
+                state.clusterAnchorPosition
+            } else {
+                state.activationPosition
+            }
         val ordinal = state.generatedSlots.size + 1
+        val miniRest =
+            when (state.kind) {
+                MyoRepKind.RepMatching ->
+                    RestDefaultForTransition.MYO_MINI_DEFAULT_REST_SECONDS
+                MyoRepKind.RepFloor ->
+                    state.restSeconds.coerceAtLeast(0)
+            }
         return SetSlot(
-            // Live path may re-stamp uniqueness; activation key is required for multi-cluster order.
-            slotId = SetSlotId.Overlay(OverlaySetInstanceId("mini-$activationKey-$ordinal")),
+            // Live path may re-stamp uniqueness; parent key is required for multi-cluster order.
+            slotId = SetSlotId.Overlay(OverlaySetInstanceId("mini-$parentKey-$ordinal")),
             workoutLiftId = state.workoutLiftId,
             liftId = state.liftId,
-            position = state.activationPosition + state.generatedSlots.size + 1,
+            position = parentPosition + state.generatedSlots.size + 1,
             setType = SetType.MyoRep,
             isTopSet = false,
             repMin = 0,
             repMax = 0,
             rirGoal = 0,
-            // Inherit programmed activation rest (Edit Workout / overrides); default is 15s.
-            restSeconds = state.restSeconds.coerceAtLeast(0),
+            restSeconds = miniRest,
             myoRepKind = state.kind,
         )
     }
 
     companion object {
         const val DEFAULT_REP_FLOOR: Int = 5
+        /** Default number of match backoff template sets when authoring MM. */
+        const val DEFAULT_MATCH_BACKOFF_COUNT: Int = 2
+        /** At least one match backoff is required for a match block. */
+        const val MIN_MATCH_BACKOFF_COUNT: Int = 1
+        const val MAX_MATCH_BACKOFF_COUNT: Int = 6
     }
 }
 
@@ -117,9 +156,9 @@ sealed interface MyoRepConstraintResult {
 }
 
 /**
- * Enforces that Myo-rep slots form a **single contiguous block** (activation ± generated
- * minis). The block may appear at any position in the lift — top, middle, or end — and
- * straight sets may follow (Myo → Standard → Standard is valid).
+ * Enforces that Myo-rep slots form a **single contiguous block** (activation ± match
+ * backoffs ± generated minis). The block may appear at any position in the lift — top,
+ * middle, or end — and straight sets may follow (Myo → Standard → Standard is valid).
  *
  * Invalid when MyoRep slots are split by non-myo sets (two separate myo blocks).
  */

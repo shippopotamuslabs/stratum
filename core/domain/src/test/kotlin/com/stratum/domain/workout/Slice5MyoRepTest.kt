@@ -18,7 +18,9 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 /**
- * Slice 5 — Myo-reps Type A + Type B. End conditions: floor ≤5; match cumulative ≥ activation.
+ * Slice 5 — Myo-reps Type A + Type B.
+ * Floor: minis until last ≤ floor.
+ * Match: per-backoff cluster total (backoff + minis) ≥ activation reps; no mini on activation.
  */
 @DisplayName("Slice 5: Myo-reps Type A + Type B")
 class Slice5MyoRepTest {
@@ -80,20 +82,25 @@ class Slice5MyoRepTest {
     )
 
     private fun matchState(
-        cumulative: Int,
+        clusterTotal: Int,
         generated: List<SetSlot>,
         activationReps: Int = 12,
+        clusterAnchorSlotId: SetSlotId = SetSlotId.Template(LiftSetId("ls-bo-1")),
+        clusterAnchorPosition: Int = 1,
     ) = MyoRepBlockState(
         workoutLiftId = workoutLiftId,
         activationSlotId = activationSlotId,
         kind = MyoRepKind.RepMatching,
         activationReps = activationReps,
         repFloor = 0,
-        cumulativeMiniSetReps = cumulative,
+        cumulativeMiniSetReps = 0,
         lastMiniSetReps = null,
         generatedSlots = generated,
         liftId = liftId,
         activationPosition = 0,
+        clusterAnchorSlotId = clusterAnchorSlotId,
+        clusterAnchorPosition = clusterAnchorPosition,
+        cumulativeClusterReps = clusterTotal,
     )
 
     @Test
@@ -136,10 +143,11 @@ class Slice5MyoRepTest {
     @DisplayName("S5-myo-rep-type-b-rep-matching-generates-until-parity")
     fun `S5-myo-rep-type-b-rep-matching-generates-until-parity`() {
         val lifecycle = object : MyoRepLifecycle {}
+        // Backoff did 5 + one mini 3 = 8 < 12 → still short
         val next = lifecycle.nextMiniSetRepMatching(
-            matchState(cumulative = 8, generated = listOf(myoRepSlot(1))),
+            matchState(clusterTotal = 8, generated = listOf(myoRepSlot(1))),
         )
-        assertNotNull(next, "must generate a mini-set while cumulative < activation reps")
+        assertNotNull(next, "must generate a mini while cluster total < activation reps")
     }
 
     @Test
@@ -147,9 +155,9 @@ class Slice5MyoRepTest {
     fun `S5-myo-rep-type-b-block-ends-on-parity`() {
         val lifecycle = object : MyoRepLifecycle {}
         val next = lifecycle.nextMiniSetRepMatching(
-            matchState(cumulative = 12, generated = listOf(myoRepSlot(1), myoRepSlot(2))),
+            matchState(clusterTotal = 12, generated = listOf(myoRepSlot(1), myoRepSlot(2))),
         )
-        assertNull(next, "block must end when cumulative mini-set reps >= activation reps")
+        assertNull(next, "block must end when cluster total >= activation reps")
     }
 
     @Test
@@ -157,9 +165,54 @@ class Slice5MyoRepTest {
     fun `S5-myo-rep-type-b-overshoot-ends`() {
         val lifecycle = object : MyoRepLifecycle {}
         val next = lifecycle.nextMiniSetRepMatching(
-            matchState(cumulative = 15, generated = listOf(myoRepSlot(1))),
+            matchState(clusterTotal = 15, generated = listOf(myoRepSlot(1))),
         )
         assertNull(next, "overshoot (>=) ends the block")
+    }
+
+    @Test
+    @DisplayName("S5-myo-rep-type-b-backoff-alone-hits-target-no-mini")
+    fun `S5-myo-rep-type-b-backoff-alone-hits-target-no-mini`() {
+        val lifecycle = object : MyoRepLifecycle {}
+        val next = lifecycle.nextMiniSetRepMatching(
+            matchState(clusterTotal = 12, generated = emptyList()),
+        )
+        assertNull(next, "backoff alone matching activation must not spawn a mini")
+    }
+
+    @Test
+    @DisplayName("S5-myo-rep-type-b-backoff-short-spawns-first-mini")
+    fun `S5-myo-rep-type-b-backoff-short-spawns-first-mini`() {
+        val lifecycle = object : MyoRepLifecycle {}
+        val next = lifecycle.nextMiniSetRepMatching(
+            matchState(clusterTotal = 7, generated = emptyList(), activationReps = 12),
+        )
+        assertNotNull(next, "short backoff must spawn first mini")
+        // Parent key is the match backoff, not the activation.
+        val id = (next!!.slotId as SetSlotId.Overlay).instanceId.value
+        assertTrue(id.startsWith("mini-ls-bo-1-"), "mini parents to backoff: $id")
+    }
+
+    @Test
+    @DisplayName("S5-myo-rep-type-b-one-rep-minis-allowed")
+    fun `S5-myo-rep-type-b-one-rep-minis-allowed`() {
+        val lifecycle = object : MyoRepLifecycle {}
+        // 11 of 12 — still short by 1; no floor end-condition on match.
+        val next = lifecycle.nextMiniSetRepMatching(
+            matchState(clusterTotal = 11, generated = listOf(myoRepSlot(1), myoRepSlot(2))),
+        )
+        assertNotNull(next, "match has no rep floor — continue until parity")
+    }
+
+    @Test
+    @DisplayName("S5-myo-rep-type-b-match-minis-use-15s-rest")
+    fun `S5-myo-rep-type-b-match-minis-use-15s-rest`() {
+        val lifecycle = object : MyoRepLifecycle {}
+        val next = lifecycle.nextMiniSetRepMatching(
+            matchState(clusterTotal = 5, generated = emptyList()).copy(restSeconds = 180),
+        )
+        assertNotNull(next)
+        assertEquals(15, next!!.restSeconds)
     }
 
     @Test

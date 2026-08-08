@@ -20,8 +20,15 @@ sealed interface WorkoutUiEvent {
      * Emitted only after a set is successfully persisted for the **first** time and the UI
      * state has been re-rendered. Drive rest timer + autoscroll + complete-sheet from this
      * event so failed logs do not advance the session chrome optimistically.
+     *
+     * [restSeconds] is the **fully resolved** timer duration from post-lifecycle structure
+     * (null = do not start the timer). Computed in the session runtime so Compose does not
+     * re-derive rest from a possibly stale set list.
      */
-    data class SetLogged(val slotKey: String) : WorkoutUiEvent
+    data class SetLogged(
+        val slotKey: String,
+        val restSeconds: Int? = null,
+    ) : WorkoutUiEvent
 
     /**
      * Emitted after a successful amend of an already-logged set (no rest/focus side effects).

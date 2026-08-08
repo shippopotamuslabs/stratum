@@ -283,7 +283,56 @@ internal object LiveWorkoutOverlayOps {
         is SetSlotId.Overlay -> slotId.instanceId.value
     }
 
+    /**
+     * Room rows that need [com.stratum.domain.training.LoggedSet.setIndex] updated so they
+     * match the current visible order after minis / deletes renumber slots.
+     *
+     * Matching is by [LoggedSetValue.persistedLoggedSetId] (stable), never by stale setIndex.
+     * Returns updated [LoggedSet] copies ready for [UpdateLoggedSetUseCase] / bulk update.
+     */
+    fun roomSetIndexUpdates(
+        orderedSlots: List<SetSlot>,
+        loggedSets: Map<SetSlotId, LoggedSetValue>,
+        dbSets: List<com.stratum.domain.training.LoggedSet>,
+    ): List<com.stratum.domain.training.LoggedSet> {
+        if (orderedSlots.isEmpty() || loggedSets.isEmpty() || dbSets.isEmpty()) return emptyList()
+        val dbById = dbSets.associateBy { it.id.value }
+        return orderedSlots.mapNotNull { slot ->
+            val persistedId = loggedSets[slot.slotId]?.persistedLoggedSetId ?: return@mapNotNull null
+            val db = dbById[persistedId] ?: return@mapNotNull null
+            if (db.setIndex == slot.position) null else db.copy(setIndex = slot.position)
+        }
+    }
+
+    /**
+     * Resolves [slotId] with **renumbered visible position** (template + overlay order).
+     * Room [LoggedSet.setIndex] must use this position so minis between match backoffs
+     * do not collide with later template indices.
+     */
     fun resolveSlot(
+        structure: WorkoutStructureProjection?,
+        overlay: WorkoutOverlay,
+        slotId: SetSlotId,
+    ): SetSlot? {
+        val raw = rawSlot(structure, overlay, slotId) ?: return null
+        return visibleSlotsForLift(structure, overlay, raw.workoutLiftId)
+            .firstOrNull { it.slotId == slotId }
+            ?: applyOverlaySlotFields(raw, overlay)
+    }
+
+    fun resolveSlotByKey(
+        structure: WorkoutStructureProjection?,
+        overlay: WorkoutOverlay,
+        slotKey: String,
+    ): SetSlot? {
+        val raw = rawSlotByKey(structure, overlay, slotKey) ?: return null
+        return visibleSlotsForLift(structure, overlay, raw.workoutLiftId)
+            .firstOrNull { slotKey(it.slotId) == slotKey }
+            ?: applyOverlaySlotFields(raw, overlay)
+    }
+
+    /** Identity lookup without renumbering (shape/rest/swap only). */
+    fun rawSlot(
         structure: WorkoutStructureProjection?,
         overlay: WorkoutOverlay,
         slotId: SetSlotId,
@@ -295,7 +344,7 @@ internal object LiveWorkoutOverlayOps {
         return applyOverlaySlotFields(slot, overlay)
     }
 
-    fun resolveSlotByKey(
+    fun rawSlotByKey(
         structure: WorkoutStructureProjection?,
         overlay: WorkoutOverlay,
         slotKey: String,
@@ -513,6 +562,7 @@ internal object LiveWorkoutOverlayOps {
                         weight = logged.weight,
                         reps = logged.reps,
                         rir = logged.rir,
+                        persistedLoggedSetId = logged.id.value,
                     )
                 }
             }
