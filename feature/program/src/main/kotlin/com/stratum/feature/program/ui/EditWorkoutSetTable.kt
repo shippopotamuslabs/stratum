@@ -1,5 +1,6 @@
 package com.stratum.feature.program.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,10 +9,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -22,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
@@ -36,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetBadge
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumSwipeToRevealRow
 import com.stratum.core.ui.component.StratumText
@@ -45,9 +50,14 @@ import com.stratum.core.ui.component.workoutlog.StratumInlineNumericCell
 import com.stratum.core.ui.theme.StratumSetTypeColors
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.domain.workout.myorep.MyoRepLifecycle
 import com.stratum.feature.program.R
 import com.stratum.feature.program.chipLabel
+import com.stratum.feature.program.editMatchBackoffCount
+import com.stratum.feature.program.isEditMatchActivation
+import com.stratum.feature.program.isMiniRestKind
 import com.stratum.feature.program.showsRepRange
+import com.stratum.feature.program.visibleEditSets
 
 private val SetTableRowHeight = 48.dp
 
@@ -63,13 +73,14 @@ internal fun EditWorkoutSetTable(
     onSetRestSecondsForAllSetsOnLift: (workoutLiftId: String, restSeconds: Int) -> Unit,
     onRirClick: (EditSetState) -> Unit,
     onSetKind: (setId: String, kind: EditSetKind) -> Unit = { _, _ -> },
-    setKindEnabled: (setIndex: Int, kind: EditSetKind) -> Boolean = { _, _ -> true },
-    showRestForSet: (setIndex: Int) -> Boolean = { true },
+    onSetMatchBackoffCount: (activationSetId: String, count: Int) -> Unit = { _, _ -> },
+    setKindEnabled: (setId: String, kind: EditSetKind) -> Boolean = { _, _ -> true },
+    showRestForSet: (setId: String) -> Boolean = { true },
     modifier: Modifier = Modifier,
 ) {
     var setKindPickerSetId by remember { mutableStateOf<String?>(null) }
     val pickerSet = sets.firstOrNull { it.setId == setKindPickerSetId }
-    val pickerIndex = sets.indexOfFirst { it.setId == setKindPickerSetId }
+    val visibleSets = visibleEditSets(sets)
 
     Column(
         // Match live workout log table inset; panel itself is edge-to-edge.
@@ -82,29 +93,41 @@ internal fun EditWorkoutSetTable(
             EditWorkoutSetTableHeader()
             SetTableHeaderDivider()
         }
-        sets.forEachIndexed { index, set ->
-            EditWorkoutSetTableRow(
-                workoutLiftId = workoutLiftId,
-                set = set,
-                showRepRange = showsRepRange(progressionScheme, set) &&
-                    set.setKind != EditSetKind.DropSet,
-                showRest = showRestForSet(index),
-                canRemove = sets.size > 1,
-                onRemoveSet = { onRemoveSet(set.setId) },
-                onRepBandChange = { min, max -> onRepBandChange(set.setId, min, max) },
-                onSetRestSeconds = onSetRestSeconds,
-                onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
-                onRirClick = { onRirClick(set) },
-                onSetKindClick = { setKindPickerSetId = set.setId },
-            )
+        visibleSets.forEach { set ->
+            val fullIndex = sets.indexOfFirst { it.setId == set.setId }
+            val matchActivation = isEditMatchActivation(sets, fullIndex)
+            val matchBackoffCount =
+                if (matchActivation) editMatchBackoffCount(sets, fullIndex) else 0
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                EditWorkoutSetTableRow(
+                    workoutLiftId = workoutLiftId,
+                    set = set,
+                    showRepRange = showsRepRange(progressionScheme, set) &&
+                        set.setKind != EditSetKind.DropSet,
+                    showRest = showRestForSet(set.setId),
+                    canRemove = visibleSets.size > 1,
+                    onRemoveSet = { onRemoveSet(set.setId) },
+                    onRepBandChange = { min, max -> onRepBandChange(set.setId, min, max) },
+                    onSetRestSeconds = onSetRestSeconds,
+                    onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
+                    onRirClick = { onRirClick(set) },
+                    onSetKindClick = { setKindPickerSetId = set.setId },
+                )
+                if (matchActivation) {
+                    MatchBackoffCountRow(
+                        count = matchBackoffCount,
+                        onCountChange = { onSetMatchBackoffCount(set.setId, it) },
+                    )
+                }
+            }
         }
         EditWorkoutAddSetRow(onAddSet = onAddSet)
     }
 
-    if (pickerSet != null && pickerIndex >= 0) {
+    if (pickerSet != null) {
         SetKindPickerSheet(
             selected = pickerSet.setKind,
-            enabledFor = { kind -> setKindEnabled(pickerIndex, kind) },
+            enabledFor = { kind -> setKindEnabled(pickerSet.setId, kind) },
             onSelect = { kind ->
                 onSetKind(pickerSet.setId, kind)
                 setKindPickerSetId = null
@@ -235,9 +258,7 @@ private fun EditWorkoutSetTableRow(
                     setId = set.setId,
                     workoutLiftId = workoutLiftId,
                     restSeconds = set.restSeconds,
-                    isMiniRest =
-                        set.setKind == EditSetKind.MyoRepFloor ||
-                            set.setKind == EditSetKind.MyoRepMatch,
+                    isMiniRest = isMiniRestKind(set.setKind),
                     onSetRestSeconds = onSetRestSeconds,
                     onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
                     modifier = Modifier.weight(REST_COLUMN_WEIGHT),
@@ -253,6 +274,152 @@ private fun EditWorkoutSetTableRow(
                     rirGoal = set.rirGoal,
                     onClick = onRirClick,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MatchBackoffCountRow(
+    count: Int,
+    onCountChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val treeLineColor = StratumThemeAccessor.colors.borderStrong
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(28.dp)
+                    .height(44.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val badgeCenterX = 16.dp.toPx()
+                val centerY = size.height / 2f
+                val strokeWidth = 2.dp.toPx()
+
+                // Vertical stem from top of container to center
+                drawLine(
+                    color = treeLineColor,
+                    start = Offset(badgeCenterX, 0f),
+                    end = Offset(badgeCenterX, centerY),
+                    strokeWidth = strokeWidth,
+                )
+                // Horizontal branch from stem to right boundary
+                drawLine(
+                    color = treeLineColor,
+                    start = Offset(badgeCenterX, centerY),
+                    end = Offset(size.width, centerY),
+                    strokeWidth = strokeWidth,
+                )
+            }
+        }
+        Row(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .background(
+                        color = StratumThemeAccessor.colors.surfaceSunken,
+                        shape = StratumThemeAccessor.shapes.panel,
+                    )
+                    .border(
+                        width = StratumThemeAccessor.shapes.borderWidth,
+                        color = StratumThemeAccessor.colors.borderSubtle,
+                        shape = StratumThemeAccessor.shapes.panel,
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(StratumSetTypeColors.myoRepMatch),
+                )
+                StratumText(
+                    text = stringResource(R.string.edit_workout_match_backoffs_label),
+                    style = StratumThemeAccessor.typography.sectionLabel,
+                    muted = true,
+                )
+            }
+            Row(
+                modifier =
+                    Modifier
+                        .background(
+                            color = StratumThemeAccessor.colors.surfaceInset,
+                            shape = StratumThemeAccessor.shapes.chip,
+                        )
+                        .border(
+                            width = StratumThemeAccessor.shapes.borderWidth,
+                            color = StratumThemeAccessor.colors.borderSubtle,
+                            shape = StratumThemeAccessor.shapes.chip,
+                        )
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                val minReached = count <= MyoRepLifecycle.MIN_MATCH_BACKOFF_COUNT
+                val maxReached = count >= MyoRepLifecycle.MAX_MATCH_BACKOFF_COUNT
+
+                StratumIconButton(
+                    onClick = {
+                        onCountChange(
+                            (count - 1).coerceAtLeast(MyoRepLifecycle.MIN_MATCH_BACKOFF_COUNT),
+                        )
+                    },
+                    enabled = !minReached,
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(CoreUiR.drawable.ic_remove),
+                        contentDescription = stringResource(R.string.edit_workout_match_backoffs_decrement),
+                        tint =
+                            if (minReached) {
+                                StratumThemeAccessor.colors.textMuted.copy(alpha = 0.4f)
+                            } else {
+                                StratumThemeAccessor.colors.textPrimary
+                            },
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+                StratumNumber(
+                    text = count.toString(),
+                    style = StratumThemeAccessor.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+                StratumIconButton(
+                    onClick = {
+                        onCountChange(
+                            (count + 1).coerceAtMost(MyoRepLifecycle.MAX_MATCH_BACKOFF_COUNT),
+                        )
+                    },
+                    enabled = !maxReached,
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(CoreUiR.drawable.ic_add),
+                        contentDescription = stringResource(R.string.edit_workout_match_backoffs_increment),
+                        tint =
+                            if (maxReached) {
+                                StratumThemeAccessor.colors.textMuted.copy(alpha = 0.4f)
+                            } else {
+                                StratumThemeAccessor.colors.textPrimary
+                            },
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
             }
         }
     }

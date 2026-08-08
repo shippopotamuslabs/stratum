@@ -14,6 +14,12 @@ data class LoggedSetValue(
     val weight: Weight,
     val reps: Int,
     val rir: Int?,
+    /**
+     * Stable Room [com.stratum.domain.importing.identity.LoggedSetId] for this slot when known.
+     * Used so amend/unlog/find survive position renumber (e.g. myo minis inserted between
+     * match backoffs). [LoggedSet.setIndex] is kept in sync via reindex after structure changes.
+     */
+    val persistedLoggedSetId: String? = null,
 )
 
 /**

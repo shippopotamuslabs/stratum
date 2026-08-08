@@ -204,7 +204,7 @@ class RecomputeIntensifierRecommendationsTest {
         // the standard exactly as shown. Drop reps must not jump (was 7 → 8 when RIR was
         // hardcoded 0 on the unlogged-parent path while live rec was 7 at rirGoal 1).
         val act = "act"
-        val mini = "mini"
+        val mini = "mini-act-1"
         val parentId = "s1"
         val dropId = "d1"
         val openParent = rendered(
@@ -413,7 +413,7 @@ class RecomputeIntensifierRecommendationsTest {
     @DisplayName("MYO-HEAVY: activation way under floor lowers mini weight")
     fun myoMiniReducesWhenActivationTooHeavy() {
         val act = "act"
-        val mini = "mini"
+        val mini = "mini-act-1"
         val workout = rendered(
             listOf(
                 set(
@@ -448,7 +448,7 @@ class RecomputeIntensifierRecommendationsTest {
     @DisplayName("MYO-COPY: normal activation keeps same mini weight")
     fun myoMiniCopiesActivationWhenOnTrack() {
         val act = "act"
-        val mini = "mini"
+        val mini = "mini-act-1"
         val workout = rendered(
             listOf(
                 set(
@@ -480,10 +480,62 @@ class RecomputeIntensifierRecommendationsTest {
     }
 
     @Test
+    @DisplayName("MATCH-MINI: weight seeds from activation even when backoff weight differs; no too-heavy reduce")
+    fun matchMiniWeightFromActivationNotBackoff() {
+        val act = "act"
+        val bo = "bo1"
+        val mini = "mini-bo1-1-aaaaaaaa"
+        val actId = SetSlotId.Template(LiftSetId(act))
+        val boId = SetSlotId.Template(LiftSetId(bo))
+        val miniId = SetSlotId.Overlay(OverlaySetInstanceId(mini))
+        val workout = rendered(
+            listOf(
+                set(
+                    act, 0, SetType.MyoRep, true, 100.0,
+                    LoggedSetValue(actId, lb(100.0), 12, 1),
+                    repMin = 10, repMax = 15, rirGoal = 1,
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+                set(
+                    bo, 1, SetType.MyoRep, false, 90.0,
+                    LoggedSetValue(boId, lb(90.0), 6, 1),
+                    repMin = 0, repMax = 0, rirGoal = 1,
+                ).copy(myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching),
+                RenderedSet(
+                    slotId = miniId,
+                    workoutLiftId = workoutLiftId,
+                    liftId = liftId,
+                    position = 2,
+                    setType = SetType.MyoRep,
+                    isTopSet = false,
+                    repMin = 0,
+                    repMax = 0,
+                    rirGoal = 0,
+                    restSeconds = 15,
+                    recommendedWeight = lb(90.0),
+                    recommendedReps = 0,
+                    loggedValue = null,
+                    myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+                ),
+            ),
+        )
+        val recs = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())
+        val miniRec = recs[miniId]
+        assertNotNull(miniRec)
+        assertEquals(
+            100.0,
+            miniRec!!.weight.amount,
+            0.01,
+            "match mini weight must come from activation load, not backoff",
+        )
+        // Activation under floor would reduce for floor myo; match must not.
+        assertTrue(miniRec.weight.amount >= 100.0 - 0.01)
+    }
+
+    @Test
     @DisplayName("MYO-FATIGUE-1: first mini after 65×9 is well below 9 (short-rest default)")
     fun firstMiniAppliesAggressiveShortRestFatigue() {
         val act = "act"
-        val mini = "mini"
+        val mini = "mini-act-1"
         val workout = rendered(
             listOf(
                 set(
@@ -520,8 +572,8 @@ class RecomputeIntensifierRecommendationsTest {
     @DisplayName("MYO-FATIGUE-2: second mini re-anchors on last mini, not activation")
     fun subsequentMiniDropsFromLastMiniNotActivation() {
         val act = "act"
-        val mini1 = "mini1"
-        val mini2 = "mini2"
+        val mini1 = "mini-act-1"
+        val mini2 = "mini-act-2"
         val workout = rendered(
             listOf(
                 set(
@@ -639,9 +691,9 @@ class RecomputeIntensifierRecommendationsTest {
         // Screenshot: act 65×11@1 + three minis (6/6/3) → standards showed 65×5/4/2.
         // Last-set floor (5) must cut load; never prescribe 4 or 2 at 65.
         val act = "act"
-        val mini1 = "mini1"
-        val mini2 = "mini2"
-        val mini3 = "mini3"
+        val mini1 = "mini-act-1"
+        val mini2 = "mini-act-2"
+        val mini3 = "mini-act-3"
         val s1 = "s1"
         val s2 = "s2"
         val s3 = "s3"
@@ -712,7 +764,7 @@ class RecomputeIntensifierRecommendationsTest {
         // 11/9/6 until mini was logged, then jumped to 8/7/5. Must live-project with the
         // open mini occupying a set-index step as soon as the activation is logged.
         val act = "act"
-        val mini = "mini"
+        val mini = "mini-act-1"
         val s1 = "s1"
         val s2 = "s2"
         val s3 = "s3"
@@ -807,8 +859,8 @@ class RecomputeIntensifierRecommendationsTest {
         // Re-anchoring on the 3-rep mini understates e1RM and crushed load (~50). Must use
         // activation capacity and still count the two minis as fatigue steps.
         val act = "act"
-        val mini1 = "mini1"
-        val mini2 = "mini2"
+        val mini1 = "mini-act-1"
+        val mini2 = "mini-act-2"
         val s1 = "s1"
         val s2 = "s2"
         val s3 = "s3"
@@ -868,7 +920,7 @@ class RecomputeIntensifierRecommendationsTest {
     @DisplayName("POST-MYO-STRAIGHT: mini-only anchor would reduce harder than activation anchor")
     fun postMyoActivationAnchorBeatsMiniOnlyBaseline() {
         val act = "act"
-        val mini = "mini"
+        val mini = "mini-act-1"
         val std = "std"
         val withMyo = rendered(
             listOf(

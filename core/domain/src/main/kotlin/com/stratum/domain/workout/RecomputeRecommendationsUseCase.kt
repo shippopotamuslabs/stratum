@@ -14,7 +14,9 @@ import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.workout.dropset.DropSetRepProjection
 import com.stratum.domain.workout.dropset.EstimateDropSetWeightUseCase
 import com.stratum.domain.workout.fatigue.FatigueModel
+import com.stratum.domain.workout.myorep.MyoMatchStructure
 import com.stratum.domain.workout.myorep.MyoMiniRepProjection
+import com.stratum.domain.workout.myorep.MyoRepKind
 import com.stratum.domain.workout.myorep.MyoRepLifecycle
 import javax.inject.Inject
 
@@ -281,17 +283,26 @@ class RecomputeRecommendationsUseCase @Inject constructor(
     ): Map<SetSlotId, LiveSetRecommendation> =
         unloggedMinis
             .mapNotNull { set ->
-                val activation = findActivation(setsByPosition, set) ?: return@mapNotNull null
-                // No activation log yet → cannot seed mini from this cluster (wait for log).
-                val activationLogged = activation.loggedValue ?: return@mapNotNull null
-                var miniWeight = activationLogged.weight
+                val clusterAnchor = findClusterAnchor(setsByPosition, set) ?: return@mapNotNull null
+                // Weight seed: match uses true match activation (not the backoff); floor uses activation.
+                val weightSource = resolveMyoWeightSource(setsByPosition, set, clusterAnchor)
+                val weightLogged = weightSource.loggedValue ?: return@mapNotNull null
+                var miniWeight = weightLogged.weight
                 if (miniWeight.amount <= 0.0) return@mapNotNull null
-                if (isActivationTooHeavy(activationLogged, activation)) {
+                // Floor too-heavy only — match minis have no rep floor product rule.
+                val isMatch =
+                    set.myoRepKind == MyoRepKind.RepMatching ||
+                        weightSource.myoRepKind == MyoRepKind.RepMatching ||
+                        clusterAnchor.myoRepKind == MyoRepKind.RepMatching
+                if (!isMatch && isActivationTooHeavy(weightLogged, weightSource)) {
                     miniWeight = reduceOneStep(miniWeight, incrementTiers, loadType)
                 }
                 val priorInChain = lastLoggedMyoBefore(setsByPosition, set)
-                val priorLogged = priorInChain?.loggedValue ?: activationLogged
-                val isFirstMini = priorInChain == null || priorInChain.slotId == activation.slotId
+                val priorLogged = priorInChain?.loggedValue ?: weightLogged
+                val isFirstMini =
+                    priorInChain == null ||
+                        priorInChain.slotId == clusterAnchor.slotId ||
+                        priorInChain.slotId == weightSource.slotId
                 val reps = MyoMiniRepProjection.expectedReps(
                     priorReps = priorLogged.reps,
                     priorRir = priorLogged.rir,
@@ -333,17 +344,49 @@ class RecomputeRecommendationsUseCase @Inject constructor(
     }
 
     /**
-     * Owning activation for [mini] = nearest prior **non-mini** MyoRep.
-     * Must not prefer [RenderedSet.isTopSet] alone — multi-cluster second activations are
-     * often not the lift top set, and would incorrectly inherit the first cluster's load.
+     * Owning cluster anchor for [mini] via [MyoMatchStructure] (floor activation or match backoff).
      */
-    private fun findActivation(sets: List<RenderedSet>, mini: RenderedSet): RenderedSet? {
-        val miniIdx = sets.indexOfFirst { it.slotId == mini.slotId }
-        if (miniIdx < 0) return null
-        val prior = sets.take(miniIdx)
-        return prior.lastOrNull { it.setType == SetType.MyoRep && !straightSetPolicy.isMyoMini(it) }
-            ?: prior.lastOrNull { it.setType == SetType.MyoRep }
+    private fun findClusterAnchor(sets: List<RenderedSet>, mini: RenderedSet): RenderedSet? {
+        val structureSlots = sets.map { it.toStructureSlot() }
+        val miniSlot = mini.toStructureSlot()
+        val anchor = MyoMatchStructure.resolveClusterAnchor(structureSlots, miniSlot) ?: return null
+        return sets.firstOrNull { it.slotId == anchor.slotId }
     }
+
+    /**
+     * Load seed for a mini: match → [MyoMatchStructure.resolveMatchActivation]; floor → anchor.
+     */
+    private fun resolveMyoWeightSource(
+        sets: List<RenderedSet>,
+        mini: RenderedSet,
+        clusterAnchor: RenderedSet,
+    ): RenderedSet {
+        val isMatch =
+            mini.myoRepKind == MyoRepKind.RepMatching ||
+                clusterAnchor.myoRepKind == MyoRepKind.RepMatching
+        if (!isMatch) return clusterAnchor
+        val structureSlots = sets.map { it.toStructureSlot() }
+        val activation =
+            MyoMatchStructure.resolveMatchActivation(structureSlots, mini.toStructureSlot())
+                ?: return clusterAnchor
+        return sets.firstOrNull { it.slotId == activation.slotId } ?: clusterAnchor
+    }
+
+    /** Minimal [SetSlot] projection so recompute shares [MyoMatchStructure] with live/edit. */
+    private fun RenderedSet.toStructureSlot(): SetSlot =
+        SetSlot(
+            slotId = slotId,
+            workoutLiftId = workoutLiftId,
+            liftId = liftId,
+            position = position,
+            setType = setType,
+            isTopSet = isTopSet,
+            repMin = repMin,
+            repMax = repMax,
+            rirGoal = rirGoal,
+            restSeconds = restSeconds,
+            myoRepKind = myoRepKind,
+        )
 
     internal fun isActivationTooHeavy(logged: LoggedSetValue, activation: RenderedSet): Boolean {
         if (logged.reps <= MyoRepLifecycle.DEFAULT_REP_FLOOR) return true

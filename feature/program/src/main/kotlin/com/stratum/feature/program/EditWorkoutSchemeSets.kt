@@ -2,6 +2,7 @@ package com.stratum.feature.program
 
 import com.stratum.domain.program.ProgressionRepRangePolicy
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.feature.program.ui.EditSetKind
 import com.stratum.feature.program.ui.EditSetState
 
 /**
@@ -42,13 +43,29 @@ internal fun applyProgressionSchemeToSets(
             fallbackRepMin = fallbackRepMin,
             fallbackRepMax = fallbackRepMax,
         )
-    return ordered.zip(normalized).map { (set, spec) ->
-        set.copy(
-            repMin = spec.repMin,
-            repMax = spec.repMax,
-            isTopSet = spec.isTopSet,
-        )
-    }.let(::renumberSets)
+    val withScheme =
+        ordered.zip(normalized).map { (set, spec) ->
+            set.copy(
+                repMin = spec.repMin,
+                repMax = spec.repMax,
+                isTopSet = spec.isTopSet,
+            )
+        }
+    // Match backoffs stay RIR-only non-top regardless of Double/Linear scheme normalize.
+    val shaped =
+        withScheme.mapIndexed { index, set ->
+            if (isEditMatchBackoff(withScheme, index)) {
+                set.copy(
+                    isTopSet = false,
+                    repMin = 0,
+                    repMax = 0,
+                    setKind = EditSetKind.MyoRepMatch,
+                )
+            } else {
+                set
+            }
+        }
+    return renumberSets(shaped)
 }
 
 /**

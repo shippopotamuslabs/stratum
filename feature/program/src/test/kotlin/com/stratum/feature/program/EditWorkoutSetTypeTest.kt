@@ -157,7 +157,7 @@ class EditWorkoutSetTypeTest {
     }
 
     @Test
-    fun `applying myo match kind also defaults rest to 15 seconds`() {
+    fun `applying myo match kind uses main rest and default backoffs`() {
         val lift = lift(
             scheme = ProgressionScheme.Double,
             kinds = listOf(EditSetKind.Standard, EditSetKind.Standard),
@@ -169,11 +169,91 @@ class EditWorkoutSetTypeTest {
             liftDefaultRestSeconds = 180,
         )
         assertEquals(EditSetKind.MyoRepMatch, updated.sets[0].setKind)
-        assertEquals(
-            RestDefaultForTransition.MYO_MINI_DEFAULT_REST_SECONDS,
-            updated.sets[0].restSeconds,
+        // Activation + 2 default match backoffs + original remaining standard
+        assertEquals(1 + 2 + 1, updated.sets.size)
+        assertEquals(180, updated.sets[0].restSeconds, "match uses main rest")
+        assertTrue(isEditMatchActivation(updated.sets, 0))
+        assertEquals(2, editMatchBackoffCount(updated.sets, 0))
+        assertTrue(isEditMatchBackoff(updated.sets, 1))
+        assertTrue(isEditMatchBackoff(updated.sets, 2))
+        // Original second standard shifted after match backoffs
+        assertEquals(EditSetKind.Standard, updated.sets[3].setKind)
+    }
+
+    @Test
+    fun `match backoff count can increase and decrease`() {
+        val lift = lift(
+            scheme = ProgressionScheme.Double,
+            kinds = listOf(EditSetKind.Standard),
         )
-        assertEquals(180, updated.sets[1].restSeconds)
+        val withMatch = applySetKindToLift(
+            lift = lift,
+            setIndex = 0,
+            newKind = EditSetKind.MyoRepMatch,
+            liftDefaultRestSeconds = 120,
+        )
+        val three = applyMatchBackoffCount(
+            lift = withMatch,
+            activationSetId = withMatch.sets[0].setId,
+            count = 3,
+            liftDefaultRestSeconds = 120,
+        )
+        assertEquals(3, editMatchBackoffCount(three.sets, 0))
+        val one = applyMatchBackoffCount(
+            lift = three,
+            activationSetId = three.sets[0].setId,
+            count = 1,
+            liftDefaultRestSeconds = 120,
+        )
+        assertEquals(1, editMatchBackoffCount(one.sets, 0))
+        assertEquals(2, one.sets.size) // activation + 1 backoff
+        // Min clamp is 1 — cannot drop to zero match backoffs.
+        val zeroAttempt = applyMatchBackoffCount(
+            lift = one,
+            activationSetId = one.sets[0].setId,
+            count = 0,
+            liftDefaultRestSeconds = 120,
+        )
+        assertEquals(1, editMatchBackoffCount(zeroAttempt.sets, 0))
+    }
+
+    @Test
+    fun `demoting match strips backoffs`() {
+        val lift = lift(
+            scheme = ProgressionScheme.Double,
+            kinds = listOf(EditSetKind.Standard, EditSetKind.Standard),
+        )
+        val withMatch = applySetKindToLift(
+            lift = lift,
+            setIndex = 0,
+            newKind = EditSetKind.MyoRepMatch,
+            liftDefaultRestSeconds = 120,
+        )
+        val demoted = applySetKindToLift(
+            lift = withMatch,
+            setIndex = 0,
+            newKind = EditSetKind.Standard,
+            liftDefaultRestSeconds = 120,
+        )
+        assertEquals(EditSetKind.Standard, demoted.sets[0].setKind)
+        assertTrue(demoted.sets.none { isEditMatchBackoff(demoted.sets, demoted.sets.indexOf(it)) })
+        assertEquals(2, demoted.sets.size)
+    }
+
+    @Test
+    fun `remove match activation cascades backoffs`() {
+        val lift = lift(
+            scheme = ProgressionScheme.Double,
+            kinds = listOf(EditSetKind.Standard, EditSetKind.Standard),
+        )
+        val withMatch = applySetKindToLift(
+            lift = lift,
+            setIndex = 0,
+            newKind = EditSetKind.MyoRepMatch,
+            liftDefaultRestSeconds = 120,
+        )
+        val cascade = removeSetCascadeIds(withMatch.sets, withMatch.sets[0].setId)
+        assertEquals(3, cascade.size) // activation + 2 backoffs
     }
 
     private fun lift(

@@ -260,13 +260,14 @@ class IntensifierRulesTest {
     }
 
     @Test
-    fun `myo sets default to short rest`() {
+    fun `myo floor sets default to short rest`() {
         assertEquals(
             RestDefaultForTransition.MYO_MINI_DEFAULT_REST_SECONDS,
             RestDefaultForTransition.restAfter(
                 nextType = SetType.Standard,
                 liftDefaultRestSeconds = 180,
                 currentType = SetType.MyoRep,
+                currentMyoKind = com.stratum.domain.workout.myorep.MyoRepKind.RepFloor,
             ),
         )
         assertEquals(
@@ -275,6 +276,19 @@ class IntensifierRulesTest {
                 nextType = null,
                 liftDefaultRestSeconds = 120,
                 currentType = SetType.MyoRep,
+            ),
+        )
+    }
+
+    @Test
+    fun `myo match sets default to main rest`() {
+        assertEquals(
+            180,
+            RestDefaultForTransition.restAfter(
+                nextType = SetType.MyoRep,
+                liftDefaultRestSeconds = 180,
+                currentType = SetType.MyoRep,
+                currentMyoKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
             ),
         )
     }
@@ -292,7 +306,7 @@ class IntensifierRulesTest {
     }
 
     @Test
-    fun `redefault myo top then standards uses 15s on myo only`() {
+    fun `redefault myo floor top then standards uses 15s on myo only`() {
         val rests = RestDefaultForTransition.redefaultAll(
             setTypes = listOf(SetType.MyoRep, SetType.Standard, SetType.Standard),
             liftDefaultRestSeconds = 120,
@@ -305,6 +319,22 @@ class IntensifierRulesTest {
             ),
             rests,
         )
+    }
+
+    @Test
+    fun `redefault myo match activation and backoffs use main rest`() {
+        val kinds = listOf(
+            com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            null,
+        )
+        val rests = RestDefaultForTransition.redefaultAll(
+            setTypes = listOf(SetType.MyoRep, SetType.MyoRep, SetType.MyoRep, SetType.Standard),
+            liftDefaultRestSeconds = 120,
+            myoKinds = kinds,
+        )
+        assertEquals(listOf(120, 120, 120, 120), rests)
     }
 
     @Test

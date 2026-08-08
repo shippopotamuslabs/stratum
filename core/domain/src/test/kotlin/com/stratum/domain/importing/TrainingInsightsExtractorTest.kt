@@ -7,11 +7,13 @@ import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.onboarding.MuscleGroup
+import com.stratum.domain.program.SetType
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 class TrainingInsightsExtractorTest {
@@ -128,6 +130,80 @@ class TrainingInsightsExtractorTest {
         assertEquals(null, squatInsights.fatigueDecaySlope, "Positive slope must be discarded")
         assertEquals(null, squatInsights.fatigueDecayIntercept, "Intercept must be discarded with the slope")
         assertEquals(3, squatInsights.sessionCount)
+    }
+
+    @Test
+    @DisplayName("myo minis do not steepen fatigue slope used for rep-range planning")
+    fun myoMinisExcludedFromFatigueSlope() {
+        // Main block: 12, 10, 8 → mild slope. Trailing minis at 3/2/1 would force ~−4+ if included.
+        val curlId = LiftId("curl")
+        val lifts = listOf(lift(curlId, "Curl", MovementPattern.ElbowFlexion, MuscleGroup.Bicep))
+        val t0 = Instant.parse("2025-01-01T10:00:00Z")
+        val sessions = (1..3).map { index ->
+            WorkoutLoggingFixtures.importTrainingSession(
+                id = "session-$index",
+                startedAt = t0.plusSeconds(index * 86_400L),
+                endedAt = null,
+            )
+        }
+        val sets = buildList {
+            sessions.forEach { session ->
+                listOf(12, 10, 8).forEachIndexed { i, reps ->
+                    add(
+                        importSet(
+                            id = "${session.id.value}-main-$i",
+                            session = session,
+                            exerciseNameRaw = "Curl",
+                            liftId = curlId,
+                            setIndex = i,
+                            weight = Weight(40.0, Weight.WeightUnit.Lb),
+                            reps = reps,
+                            rir = 1,
+                            completedAt = session.startedAt.plusSeconds(1 + i * 60L),
+                        ).let { set ->
+                            set.copy(
+                                liftContext = set.liftContext.copy(
+                                    setType = SetType.Standard,
+                                    repMin = 10,
+                                    repMax = 12,
+                                    rirGoal = 1,
+                                ),
+                            )
+                        },
+                    )
+                }
+                listOf(3, 2, 1).forEachIndexed { i, reps ->
+                    add(
+                        importSet(
+                            id = "${session.id.value}-mini-$i",
+                            session = session,
+                            exerciseNameRaw = "Curl",
+                            liftId = curlId,
+                            setIndex = 3 + i,
+                            weight = Weight(40.0, Weight.WeightUnit.Lb),
+                            reps = reps,
+                            rir = 0,
+                            completedAt = session.startedAt.plusSeconds(200 + i * 20L),
+                        ).let { set ->
+                            set.copy(
+                                liftContext = set.liftContext.copy(
+                                    setType = SetType.MyoRep,
+                                    repMin = 0,
+                                    repMax = 0,
+                                    rirGoal = 0,
+                                ),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+        val output = TrainingInsightsExtractor.analyze(
+            TrainingInsightsExtractor.AnalysisInput(sessions, sets, lifts),
+        )
+        val slope = output.liftInsights.first { it.liftId == curlId }.fatigueDecaySlope
+        // Main-only failure-reps ~13, 11, 9 → slope ≈ −2. With minis included would be far steeper.
+        assertEquals(-2.0, slope!!, 0.2, "slope should reflect main block only, not mini collapse")
     }
 
     @Test

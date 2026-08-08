@@ -155,8 +155,8 @@ class LiveSetTypeOverlayOpsTest {
     }
 
     @Test
-    @DisplayName("floor to match updates activation without deleting minis")
-    fun floorToMatchKeepsMinis() {
+    @DisplayName("floor to match discards floor minis and materializes match backoffs")
+    fun floorToMatchDiscardsMinisAndAddsBackoffs() {
         val activation = slot(activationId, 0, SetType.MyoRep, isTopSet = true)
         val mini = slot(miniId, 1, SetType.MyoRep, isTopSet = false)
         val overlay = WorkoutOverlay(addedSlots = listOf(mini))
@@ -172,16 +172,73 @@ class LiveSetTypeOverlayOpsTest {
             )
         assertNotNull(next)
         requireNotNull(next)
-        assertFalse(miniId in next.deletedSlotIds)
+        assertTrue(miniId in next.deletedSlotIds, "floor minis must not become match minis")
         assertEquals(MyoRepKind.RepMatching, next.slotShapeOverrides[activationId]?.myoRepKind)
-        assertEquals(MyoRepKind.RepMatching, next.addedSlots.single().myoRepKind)
-        assertFalse(
+        // Default 2 match backoffs as overlay adds (mini removed).
+        val matchBackoffs =
+            next.addedSlots.filter {
+                it.myoRepKind == MyoRepKind.RepMatching && !it.slotId.let { id ->
+                    id is SetSlotId.Overlay && id.instanceId.value.startsWith("mini-")
+                }
+            }
+        assertEquals(2, matchBackoffs.size, "default match backoffs materialize")
+        // Floor → Match discards floor minis (confirm when open minis exist).
+        assertTrue(
             LiveSetTypeOverlayOps.requiresMyoMiniDiscardConfirm(
                 structure = structure(listOf(activation)),
                 overlay = overlay,
                 slotId = activationId,
                 newKind = LiveSetKind.MyoRepMatch,
             ),
+        )
+        assertEquals(
+            listOf(miniId),
+            LiveSetTypeOverlayOps.slotsDiscardedOnSetKindChange(
+                structure = structure(listOf(activation)),
+                overlay = overlay,
+                slotId = activationId,
+                newKind = LiveSetKind.MyoRepMatch,
+            ),
+        )
+    }
+
+    @Test
+    @DisplayName("enter Match with trailing Standard keeps backoffs contiguous after activation")
+    fun enterMatchWithTrailingStandardInsertsBackoffsBeforeStandard() {
+        val activation = slot(activationId, 0, SetType.Standard, isTopSet = true)
+        val trailing = slot(standardId, 1, SetType.Standard, isTopSet = false)
+        val next =
+            LiveSetTypeOverlayOps.applySetKind(
+                structure = structure(listOf(activation, trailing)),
+                overlay = WorkoutOverlay(),
+                slotId = activationId,
+                newKind = LiveSetKind.MyoRepMatch,
+                scheme = ProgressionScheme.Double,
+                loadType = LoadType.Weighted,
+                liftDefaultRestSeconds = 120,
+            )
+        assertNotNull(next)
+        requireNotNull(next)
+        val ordered =
+            LiveWorkoutOverlayOps.visibleSlotsForLift(
+                structure(listOf(activation, trailing)),
+                next,
+                workoutLiftId,
+            )
+        assertEquals(4, ordered.size, "act + 2 backoffs + trailing standard")
+        assertEquals(activationId, ordered[0].slotId)
+        assertTrue(
+            ordered[1].slotId is SetSlotId.Overlay &&
+                (ordered[1].slotId as SetSlotId.Overlay).instanceId.value.startsWith("match-bo-"),
+        )
+        assertTrue(
+            ordered[2].slotId is SetSlotId.Overlay &&
+                (ordered[2].slotId as SetSlotId.Overlay).instanceId.value.startsWith("match-bo-"),
+        )
+        assertEquals(standardId, ordered[3].slotId)
+        assertEquals(
+            2,
+            com.stratum.domain.workout.myorep.MyoMatchStructure.matchBackoffCount(ordered, 0),
         )
     }
 

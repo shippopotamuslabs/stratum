@@ -69,6 +69,8 @@ data class LoggedSetValueDto(
     val weight: WeightDto,
     val reps: Int,
     val rir: Int? = null,
+    /** Room LoggedSetId.value when known (optional for older overlay JSON). */
+    val persistedLoggedSetId: String? = null,
 )
 
 /** One entry of the `loggedSets` map (slot key + value). */

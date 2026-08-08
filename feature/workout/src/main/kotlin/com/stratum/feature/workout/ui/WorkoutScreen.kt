@@ -47,15 +47,10 @@ import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarTextButton
-import com.stratum.core.ui.component.isLastInSupersetChain
-import com.stratum.core.ui.component.isSupersetPairMember
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.AfterSetLoggedDecision
 import com.stratum.feature.workout.decideAfterSetLogged
-import com.stratum.feature.workout.isWorkoutFullyComplete
-import com.stratum.feature.workout.projectSetComplete
-import com.stratum.feature.workout.restSecondsAfterLoggingSet
 
 /**
  * Rest-timer chrome + actions passed as one bag so [WorkoutScreen] stays under Detekt's
@@ -102,8 +97,8 @@ fun WorkoutScreen(
     actions: WorkoutScreenActions,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
-    /** Slot key from [WorkoutUiEvent.SetLogged]; cleared via [onSetLoggedConsumed]. */
-    pendingSetLoggedSlotKey: String? = null,
+    /** Post-lifecycle [WorkoutUiEvent.SetLogged]; cleared via [onSetLoggedConsumed]. */
+    pendingSetLogged: WorkoutUiEvent.SetLogged? = null,
     onSetLoggedConsumed: () -> Unit = {},
     /** Persist failed after optimistic draft materialise — reseed that slot. */
     failedLogSlotKey: String? = null,
@@ -170,39 +165,19 @@ fun WorkoutScreen(
         }
     }
 
-    // Log only — rest timer, autoscroll, and complete sheet run after [pendingSetLoggedSlotKey]
+    // Log only — rest timer, autoscroll, and complete sheet run after [pendingSetLogged]
     // is set by the route once the ViewModel confirms persistence (avoids optimistic chrome).
     val handleLogSet: (String, Double, Int, Int?) -> Unit = { slotKey, weightAmountDisplay, reps, rir ->
         actions.onLogSet(slotKey, weightAmountDisplay, reps, rir)
     }
 
     // Post-success side effects: rest (unless session done), focus next lift, complete sheet.
-    // Clear the pending key only after work finishes so restarting this effect does not cancel mid-run.
-    LaunchedEffect(pendingSetLoggedSlotKey) {
-        val slotKey = pendingSetLoggedSlotKey ?: return@LaunchedEffect
-        val projected = projectSetComplete(state.lifts, slotKey)
-        val fullyComplete = isWorkoutFullyComplete(projected)
-        val lift = state.lifts.firstOrNull { it.sets.any { set -> set.slotKey == slotKey } }
-        val set = lift?.sets?.firstOrNull { it.slotKey == slotKey }
-        if (lift != null && set != null) {
-            val setIndex = lift.sets.indexOfFirst { it.slotKey == slotKey }
-            val nextSet = lift.sets.getOrNull(setIndex + 1)
-            val restSeconds =
-                restSecondsAfterLoggingSet(
-                    setRestSeconds = set.restSeconds,
-                    isSupersetMember = isSupersetPairMember(lift, state.lifts),
-                    useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
-                    isLastInSupersetChain = isLastInSupersetChain(lift, state.lifts),
-                    workoutFullyComplete = fullyComplete,
-                    isMyoSet = set.setKind.isMyoRepKind(),
-                    nextIsMyoSet = nextSet?.setKind?.isMyoRepKind() == true,
-                    nextIsDropSet = nextSet?.setKind == WorkoutSetKind.DropSet,
-                    liftDefaultRestSeconds = lift.defaultRestSeconds,
-                )
-            if (restSeconds != null) {
-                restTimer.onStart(restSeconds)
-            }
-        }
+    // Clear pending only after work finishes so restarting this effect does not cancel mid-run.
+    LaunchedEffect(pendingSetLogged) {
+        val loggedEvent = pendingSetLogged ?: return@LaunchedEffect
+        val slotKey = loggedEvent.slotKey
+        // Rest duration is fully resolved in the session runtime (post-lifecycle).
+        loggedEvent.restSeconds?.let { restTimer.onStart(it) }
         val decision =
             decideAfterSetLogged(
                 lifts = state.lifts,
