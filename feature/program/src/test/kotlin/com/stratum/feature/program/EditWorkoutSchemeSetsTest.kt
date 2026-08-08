@@ -1,6 +1,7 @@
 package com.stratum.feature.program
 
 import com.stratum.domain.program.ProgressionScheme
+import com.stratum.feature.program.ui.EditSetKind
 import com.stratum.feature.program.ui.EditSetState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -68,6 +69,41 @@ class EditWorkoutSchemeSetsTest {
             )
         val result = applyUserRepBand(sets, ProgressionScheme.Linear, repMin = 6, repMax = 6)
         assertTrue(result.all { it.repMin == 6 && it.repMax == 6 })
+    }
+
+    @Test
+    @DisplayName("applyProgressionSchemeToSets keeps match backoffs RIR-only non-top")
+    fun matchBackoffsStayRirOnlyUnderDouble() {
+        val sets =
+            listOf(
+                EditSetState(
+                    setId = "act",
+                    setNumber = 1,
+                    repMin = 8,
+                    repMax = 12,
+                    restSeconds = 120,
+                    rirGoal = 1,
+                    isTopSet = true,
+                    setKind = EditSetKind.MyoRepMatch,
+                ),
+                EditSetState(
+                    setId = "bo1",
+                    setNumber = 2,
+                    repMin = 8,
+                    repMax = 12,
+                    restSeconds = 120,
+                    rirGoal = 1,
+                    isTopSet = false,
+                    setKind = EditSetKind.MyoRepMatch,
+                ),
+            )
+        val result = applyProgressionSchemeToSets(sets, ProgressionScheme.Double)
+        assertTrue(result[0].isTopSet)
+        assertEquals(8, result[0].repMin)
+        assertFalse(result[1].isTopSet)
+        assertEquals(0, result[1].repMin)
+        assertEquals(0, result[1].repMax)
+        assertEquals(EditSetKind.MyoRepMatch, result[1].setKind)
     }
 
     @Test

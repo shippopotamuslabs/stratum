@@ -8,6 +8,7 @@ import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.training.EstimatedOneRm
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingSession
+import com.stratum.domain.training.countsTowardMainBlockFatigue
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -123,7 +124,13 @@ object TrainingInsightsExtractor {
             val sessionPeaks = mutableListOf<Pair<Instant, Double>>()
 
             bySession.forEach { (_, sessionSets) ->
-                val ordered = sessionSets.filter { it.reps > 0 }.sortedBy { it.setIndex }
+                // Main-block sets only — myo minis / drops intentionally tank reps under
+                // short rest and must not steepen the per-lift fatigue slope used for
+                // rep-range planning and post-workout band shift proposals.
+                val ordered =
+                    sessionSets
+                        .filter { it.reps > 0 && it.countsTowardMainBlockFatigue() }
+                        .sortedBy { it.setIndex }
                 if (ordered.isEmpty()) return@forEach
                 // e1RM in Lb magnitude (canonical; abs for assisted negatives).
                 val e1rms =

@@ -17,6 +17,7 @@ import com.stratum.domain.workout.WorkoutOverlay
 import com.stratum.domain.workout.WorkoutStructureProjection
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -1218,6 +1219,363 @@ class LiveWorkoutOverlayOpsTest {
             )
 
         assertEquals(listOf(miniId), targets)
+    }
+
+    // -------------------------------------------------------------------------
+    // Myo-Rep Match: activation + pre-authored backoffs + per-cluster minis
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("match: logging activation does not spawn a mini")
+    fun matchActivationLogDoesNotSpawnMini() {
+        val actId = SetSlotId.Template(LiftSetId("ls-mm-act"))
+        val boId = SetSlotId.Template(LiftSetId("ls-mm-bo1"))
+        val struct = matchStructure(actId, listOf(boId))
+        val overlay =
+            WorkoutOverlay(
+                loggedSets = mapOf(actId to log(actId, 65.0, 12, 1)),
+            )
+        val next =
+            LiveIntensifierOverlayOps.applyMyoLifecycleAfterLog(
+                structure = struct,
+                overlay = overlay,
+                loggedSlotId = actId,
+            )
+        assertTrue(next.addedSlots.isEmpty(), "match activation must not mint minis")
+    }
+
+    @Test
+    @DisplayName("match: short backoff spawns mini under that backoff")
+    fun matchShortBackoffSpawnsMini() {
+        val actId = SetSlotId.Template(LiftSetId("ls-mm-act"))
+        val boId = SetSlotId.Template(LiftSetId("ls-mm-bo1"))
+        val struct = matchStructure(actId, listOf(boId))
+        val overlay =
+            WorkoutOverlay(
+                loggedSets =
+                    mapOf(
+                        actId to log(actId, 65.0, 12, 1),
+                        boId to log(boId, 65.0, 7, 1),
+                    ),
+            )
+        val next =
+            LiveIntensifierOverlayOps.applyMyoLifecycleAfterLog(
+                structure = struct,
+                overlay = overlay,
+                loggedSlotId = boId,
+            )
+        assertEquals(1, next.addedSlots.size)
+        val miniKey = LiveWorkoutOverlayOps.slotKey(next.addedSlots.single().slotId)
+        assertTrue(miniKey.startsWith("mini-ls-mm-bo1-"), "mini parents to backoff: $miniKey")
+        assertEquals(15, next.addedSlots.single().restSeconds)
+    }
+
+    @Test
+    @DisplayName("match: backoff that hits activation reps spawns no mini")
+    fun matchBackoffHitsTargetNoMini() {
+        val actId = SetSlotId.Template(LiftSetId("ls-mm-act"))
+        val boId = SetSlotId.Template(LiftSetId("ls-mm-bo1"))
+        val struct = matchStructure(actId, listOf(boId))
+        val overlay =
+            WorkoutOverlay(
+                loggedSets =
+                    mapOf(
+                        actId to log(actId, 65.0, 12, 1),
+                        boId to log(boId, 65.0, 12, 1),
+                    ),
+            )
+        val next =
+            LiveIntensifierOverlayOps.applyMyoLifecycleAfterLog(
+                structure = struct,
+                overlay = overlay,
+                loggedSlotId = boId,
+            )
+        assertTrue(next.addedSlots.isEmpty())
+    }
+
+    @Test
+    @DisplayName("match: minis continue until cluster total matches activation")
+    fun matchMinisUntilClusterParity() {
+        val actId = SetSlotId.Template(LiftSetId("ls-mm-act"))
+        val boId = SetSlotId.Template(LiftSetId("ls-mm-bo1"))
+        val miniId = SetSlotId.Overlay(OverlaySetInstanceId("mini-ls-mm-bo1-1-aaaaaaaa"))
+        val struct = matchStructure(actId, listOf(boId))
+        val mini =
+            SetSlot(
+                slotId = miniId,
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 2,
+                setType = SetType.MyoRep,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+                restSeconds = 15,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            )
+        // 7 + 4 = 11 < 12 → still short
+        val overlay =
+            WorkoutOverlay(
+                addedSlots = listOf(mini),
+                loggedSets =
+                    mapOf(
+                        actId to log(actId, 65.0, 12, 1),
+                        boId to log(boId, 65.0, 7, 1),
+                        miniId to log(miniId, 65.0, 4, 0),
+                    ),
+            )
+        val next =
+            LiveIntensifierOverlayOps.applyMyoLifecycleAfterLog(
+                structure = struct,
+                overlay = overlay,
+                loggedSlotId = miniId,
+            )
+        assertEquals(2, next.addedSlots.size, "still short → second mini")
+    }
+
+    @Test
+    @DisplayName("match: resolveSlot renumbers mini between backoffs for Room setIndex")
+    fun matchResolveSlotRenumbersMiniBetweenBackoffs() {
+        val actId = SetSlotId.Template(LiftSetId("ls-mm-act"))
+        val bo1 = SetSlotId.Template(LiftSetId("ls-mm-bo1"))
+        val bo2 = SetSlotId.Template(LiftSetId("ls-mm-bo2"))
+        val miniId = SetSlotId.Overlay(OverlaySetInstanceId("mini-ls-mm-bo1-1-aaaaaaaa"))
+        val struct = matchStructure(actId, listOf(bo1, bo2))
+        val mini =
+            SetSlot(
+                slotId = miniId,
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                // Raw insert position collides with template bo2 (position 2).
+                position = 2,
+                setType = SetType.MyoRep,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+                restSeconds = 15,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            )
+        val overlay = WorkoutOverlay(addedSlots = listOf(mini))
+        val resolvedMini =
+            LiveWorkoutOverlayOps.resolveSlot(struct, overlay, miniId)
+        val resolvedBo2 =
+            LiveWorkoutOverlayOps.resolveSlot(struct, overlay, bo2)
+        assertNotNull(resolvedMini)
+        assertNotNull(resolvedBo2)
+        assertEquals(2, resolvedMini!!.position, "mini is index 2 after renumber")
+        assertEquals(3, resolvedBo2!!.position, "bo2 shifts past mini")
+        assertTrue(
+            resolvedMini.position != resolvedBo2.position,
+            "Room setIndex must not collide",
+        )
+    }
+
+    @Test
+    @DisplayName("match: roomSetIndexUpdates rewrites stale bo2 index after mini insert renumber")
+    fun matchRoomSetIndexUpdatesShiftsLoggedBackoffPastMini() {
+        val actId = SetSlotId.Template(LiftSetId("ls-mm-act"))
+        val bo1 = SetSlotId.Template(LiftSetId("ls-mm-bo1"))
+        val bo2 = SetSlotId.Template(LiftSetId("ls-mm-bo2"))
+        val miniId = SetSlotId.Overlay(OverlaySetInstanceId("mini-ls-mm-bo1-1-aaaaaaaa"))
+        val struct = matchStructure(actId, listOf(bo1, bo2))
+        val mini =
+            SetSlot(
+                slotId = miniId,
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 2,
+                setType = SetType.MyoRep,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+                restSeconds = 15,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            )
+        val ordered =
+            LiveWorkoutOverlayOps.visibleSlotsForLift(
+                struct,
+                WorkoutOverlay(addedSlots = listOf(mini)),
+                workoutLiftId,
+            )
+        // Simulate Room rows written before mini existed (bo2 still at setIndex 2).
+        val actRoomId = com.stratum.domain.importing.identity.LoggedSetId("db-act")
+        val bo2RoomId = com.stratum.domain.importing.identity.LoggedSetId("db-bo2")
+        val weight = com.stratum.domain.lift.Weight(100.0, com.stratum.domain.lift.Weight.WeightUnit.Lb)
+        val context =
+            com.stratum.domain.training.LoggedLiftContext(
+                liftName = "Curl",
+                workoutLiftId = workoutLiftId,
+            )
+        val dbSets =
+            listOf(
+                com.stratum.domain.training.LoggedSet(
+                    id = actRoomId,
+                    sessionId = com.stratum.domain.training.identity.TrainingSessionId("s1"),
+                    exerciseNameRaw = "Curl",
+                    liftId = originalLiftId,
+                    setIndex = 0,
+                    weight = weight,
+                    reps = 12,
+                    rir = 1,
+                    completedAt = java.time.Instant.EPOCH,
+                    liftContext = context,
+                ),
+                com.stratum.domain.training.LoggedSet(
+                    id = bo2RoomId,
+                    sessionId = com.stratum.domain.training.identity.TrainingSessionId("s1"),
+                    exerciseNameRaw = "Curl",
+                    liftId = originalLiftId,
+                    setIndex = 2, // stale — mini now occupies visible position 2
+                    weight = weight,
+                    reps = 5,
+                    rir = 1,
+                    completedAt = java.time.Instant.EPOCH.plusSeconds(60),
+                    liftContext = context,
+                ),
+            )
+        val logged: Map<SetSlotId, com.stratum.domain.workout.LoggedSetValue> =
+            mapOf(
+                actId to
+                    com.stratum.domain.workout.LoggedSetValue(
+                        actId, weight, 12, 1, persistedLoggedSetId = actRoomId.value,
+                    ),
+                bo2 to
+                    com.stratum.domain.workout.LoggedSetValue(
+                        bo2, weight, 5, 1, persistedLoggedSetId = bo2RoomId.value,
+                    ),
+            )
+        val updates =
+            LiveWorkoutOverlayOps.roomSetIndexUpdates(
+                orderedSlots = ordered,
+                loggedSets = logged,
+                dbSets = dbSets,
+            )
+        assertEquals(1, updates.size, "only bo2 needs reindex")
+        assertEquals(bo2RoomId, updates.single().id)
+        assertEquals(3, updates.single().setIndex, "bo2 moves to 3 so mini can own setIndex 2")
+        // After reindex, mini can insert at 2 without colliding with bo2's durable row.
+        assertTrue(updates.none { it.setIndex == 2 })
+        assertEquals(0, ordered.first { it.slotId == actId }.position)
+        assertEquals(2, ordered.first { it.slotId == miniId }.position)
+        assertEquals(3, ordered.first { it.slotId == bo2 }.position)
+    }
+
+    @Test
+    @DisplayName("match: unlog activation clears minis under all backoffs but keeps backoff rows")
+    fun matchUnlogActivationClearsBackoffMinis() {
+        val actId = SetSlotId.Template(LiftSetId("ls-mm-act"))
+        val bo1 = SetSlotId.Template(LiftSetId("ls-mm-bo1"))
+        val bo2 = SetSlotId.Template(LiftSetId("ls-mm-bo2"))
+        val miniBo1 = SetSlotId.Overlay(OverlaySetInstanceId("mini-ls-mm-bo1-1-aaaaaaaa"))
+        val miniBo2 = SetSlotId.Overlay(OverlaySetInstanceId("mini-ls-mm-bo2-1-bbbbbbbb"))
+        val struct = matchStructure(actId, listOf(bo1, bo2))
+        fun mini(id: SetSlotId.Overlay, pos: Int) =
+            SetSlot(
+                slotId = id,
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = pos,
+                setType = SetType.MyoRep,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+                restSeconds = 15,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            )
+        val overlay =
+            WorkoutOverlay(addedSlots = listOf(mini(miniBo1, 2), mini(miniBo2, 4)))
+        val cascade =
+            LiveIntensifierOverlayOps.unlogCascadeTargets(struct, overlay, actId)
+        assertEquals(setOf(actId, miniBo1, miniBo2), cascade.logTargets.toSet())
+        assertEquals(setOf(miniBo1, miniBo2), cascade.minisToDelete.toSet())
+        assertFalse(bo1 in cascade.logTargets)
+        assertFalse(bo2 in cascade.minisToDelete)
+    }
+
+    @Test
+    @DisplayName("match: cascade delete activation removes backoffs and minis")
+    fun matchCascadeDeleteActivationRemovesBackoffs() {
+        val actId = SetSlotId.Template(LiftSetId("ls-mm-act"))
+        val bo1 = SetSlotId.Template(LiftSetId("ls-mm-bo1"))
+        val bo2 = SetSlotId.Template(LiftSetId("ls-mm-bo2"))
+        val miniId = SetSlotId.Overlay(OverlaySetInstanceId("mini-ls-mm-bo1-1-aaaaaaaa"))
+        val struct = matchStructure(actId, listOf(bo1, bo2))
+        val mini =
+            SetSlot(
+                slotId = miniId,
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 2,
+                setType = SetType.MyoRep,
+                isTopSet = false,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+                restSeconds = 15,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            )
+        val targets =
+            LiveIntensifierOverlayOps.cascadeDeleteTargets(
+                structure = struct,
+                overlay = WorkoutOverlay(addedSlots = listOf(mini)),
+                slotId = actId,
+            )
+        assertEquals(setOf(actId, bo1, bo2, miniId), targets.toSet())
+    }
+
+    private fun matchStructure(
+        actId: SetSlotId,
+        backoffIds: List<SetSlotId>,
+    ): WorkoutStructureProjection {
+        val slots = mutableListOf(
+            SetSlot(
+                slotId = actId,
+                workoutLiftId = workoutLiftId,
+                liftId = originalLiftId,
+                position = 0,
+                setType = SetType.MyoRep,
+                isTopSet = true,
+                repMin = 10,
+                repMax = 15,
+                rirGoal = 1,
+                restSeconds = 120,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+            ),
+        )
+        backoffIds.forEachIndexed { i, id ->
+            slots +=
+                SetSlot(
+                    slotId = id,
+                    workoutLiftId = workoutLiftId,
+                    liftId = originalLiftId,
+                    position = i + 1,
+                    setType = SetType.MyoRep,
+                    isTopSet = false,
+                    repMin = 0,
+                    repMax = 0,
+                    rirGoal = 1,
+                    restSeconds = 120,
+                    myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+                )
+        }
+        return WorkoutStructureProjection(
+            workoutId = WorkoutId("w-1"),
+            workoutName = "Test",
+            lifts =
+                listOf(
+                    WorkoutLiftProjection(
+                        workoutLiftId = workoutLiftId,
+                        liftId = originalLiftId,
+                        liftName = "Lift",
+                        progressionScheme = ProgressionScheme.Double,
+                        slots = slots,
+                    ),
+                ),
+        )
     }
 
     private fun log(

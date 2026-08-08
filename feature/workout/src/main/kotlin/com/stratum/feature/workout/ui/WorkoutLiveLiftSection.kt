@@ -240,7 +240,9 @@ internal fun LiveLiftSection(
 
     val applySetKind: (String, WorkoutSetKind) -> Unit = { slotKey, kind ->
         val source = lift.sets.firstOrNull { it.slotKey == slotKey }
-        if (source != null && source.hasGeneratedMyoMinis && !kind.isMyo()) {
+        // Confirm whenever structure would be discarded — including Floor ↔ Match
+        // (minis/backoffs strip), not only demote to Standard/Drop.
+        if (source != null && source.hasGeneratedMyoMinis && kind != source.setKind) {
             pendingMyoDemote = slotKey to kind
         } else {
             onSetSetKind(slotKey, kind)
@@ -339,9 +341,6 @@ internal fun LiveLiftSection(
         )
     }
 }
-
-private fun WorkoutSetKind.isMyo(): Boolean =
-    this == WorkoutSetKind.MyoRepFloor || this == WorkoutSetKind.MyoRepMatch
 
 /**
  * Among visible lift list items, select the one whose top edge is closest to [threshold]

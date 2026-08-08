@@ -70,7 +70,21 @@ class LogSetUseCase @Inject constructor(
 
         return if (workoutLift != null) {
             val templateSet = workoutLift.sets.firstOrNull { it.position == command.setIndex }
-            loggedLiftContextFactory.fromLiveTemplate(lift, workoutLift, templateSet)
+            val base = loggedLiftContextFactory.fromLiveTemplate(lift, workoutLift, templateSet)
+            // Prefer live slot shape when the session path stamped it. Template lookup by
+            // setIndex is wrong after renumber (minis between match backoffs) and would
+            // mis-label auto minis as the trailing template row — which then pollutes
+            // fatigue slope + post-workout rep-range gates.
+            if (command.setType != null) {
+                base.copy(
+                    setType = command.setType,
+                    repMin = command.repMin,
+                    repMax = command.repMax,
+                    rirGoal = command.rirGoal,
+                )
+            } else {
+                base
+            }
         } else {
             // Overlay/ad-hoc lift: default Double matches LiveWorkoutOverlayOps.addLifts.
             loggedLiftContextFactory.fromLiveSessionLift(

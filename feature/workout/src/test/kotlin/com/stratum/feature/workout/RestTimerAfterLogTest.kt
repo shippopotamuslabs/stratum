@@ -111,7 +111,7 @@ class RestTimerAfterLogTest {
                 useRestTimerBetweenLifts = false,
                 isLastInSupersetChain = true,
                 isMyoSet = true,
-                nextIsMyoSet = true,
+                nextIsMyoMini = true,
                 liftDefaultRestSeconds = 180,
             )
         assertEquals(15, seconds)
@@ -127,7 +127,76 @@ class RestTimerAfterLogTest {
                 useRestTimerBetweenLifts = false,
                 isLastInSupersetChain = true,
                 isMyoSet = true,
-                nextIsMyoSet = false,
+                nextIsMyoMini = false,
+                liftDefaultRestSeconds = 180,
+            )
+        assertEquals(180, seconds)
+    }
+
+    @Test
+    @DisplayName("match activation to backoff uses main rest on the set")
+    fun matchActivationToBackoffUsesMainRest() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = 120,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+                isMyoSet = true,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+                nextIsMyoMini = false,
+                liftDefaultRestSeconds = 180,
+            )
+        assertEquals(120, seconds)
+    }
+
+    @Test
+    @DisplayName("match with short programmed main rest (45s) is not misread as mini rest")
+    fun matchShortMainRestUsesProgrammedValue() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = 45,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+                isMyoSet = true,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+                nextIsMyoMini = false,
+                liftDefaultRestSeconds = 180,
+            )
+        assertEquals(45, seconds)
+    }
+
+    @Test
+    @DisplayName("match backoff into mini uses 15s not main rest")
+    fun matchBackoffIntoMiniUsesFifteen() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = 120,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+                isMyoSet = true,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+                nextIsMyoMini = true,
+                liftDefaultRestSeconds = 180,
+            )
+        assertEquals(15, seconds)
+    }
+
+    @Test
+    @DisplayName("last match mini uses lift default main rest not 15")
+    fun lastMatchMiniUsesLiftDefault() {
+        val seconds =
+            restSecondsAfterLoggingSet(
+                setRestSeconds = 15,
+                isSupersetMember = false,
+                useRestTimerBetweenLifts = false,
+                isLastInSupersetChain = true,
+                isMyoSet = true,
+                isMyoMini = true,
+                myoRepKind = com.stratum.domain.workout.myorep.MyoRepKind.RepMatching,
+                nextIsMyoMini = false,
                 liftDefaultRestSeconds = 180,
             )
         assertEquals(180, seconds)
@@ -143,7 +212,7 @@ class RestTimerAfterLogTest {
                 useRestTimerBetweenLifts = false,
                 isLastInSupersetChain = true,
                 isMyoSet = true,
-                nextIsMyoSet = false,
+                nextIsMyoMini = false,
                 nextIsDropSet = true,
                 liftDefaultRestSeconds = 180,
             )

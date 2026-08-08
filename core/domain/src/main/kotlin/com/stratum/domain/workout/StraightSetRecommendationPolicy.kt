@@ -560,7 +560,7 @@ class StraightSetRecommendationPolicy @Inject constructor(
             repMax = rendered.repMax,
             rirGoal = rendered.rirGoal,
             restSeconds = rendered.restSeconds,
-            myoRepKind = null,
+            myoRepKind = rendered.myoRepKind,
         )
 
     fun isStraightWorking(set: RenderedSet): Boolean =
@@ -572,8 +572,11 @@ class StraightSetRecommendationPolicy @Inject constructor(
             SetType.DropSet -> false
         }
 
-    fun isMyoMini(set: RenderedSet): Boolean =
-        set.setType == SetType.MyoRep && set.slotId is SetSlotId.Overlay
+    fun isMyoMini(set: RenderedSet): Boolean {
+        if (set.setType != SetType.MyoRep) return false
+        val overlayId = set.slotId as? SetSlotId.Overlay ?: return false
+        return overlayId.instanceId.value.startsWith("mini-")
+    }
 
     private fun isIntensifierSlot(set: RenderedSet): Boolean =
         isMyoMini(set) || set.setType == SetType.DropSet

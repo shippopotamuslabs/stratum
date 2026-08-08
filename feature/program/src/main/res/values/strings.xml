@@ -171,6 +171,9 @@
     <string name="edit_workout_column_rep_range">Rep range</string>
     <string name="edit_workout_column_rest">Rest</string>
     <string name="edit_workout_column_rir">RIR</string>
+    <string name="edit_workout_match_backoffs_label">Matching sets</string>
+    <string name="edit_workout_match_backoffs_increment">Increase match backoffs</string>
+    <string name="edit_workout_match_backoffs_decrement">Decrease match backoffs</string>
     <string name="edit_workout_rep_range_to">to</string>
     <string name="edit_workout_rep_range_max_placeholder">-</string>
     <string name="edit_workout_rep_range_backoff_placeholder">—</string>

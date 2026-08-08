@@ -112,6 +112,34 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
     }
 
     @Test
+    @DisplayName("low-rep myo mini after strong main block does not trigger rep-range proposal")
+    fun myoMiniAfterStrongMainsSilent() = runTest {
+        seedFatigueHistorySessionsOnly()
+        logRepo.seedSession(currentSession())
+        // Main block stays above floor; trailing mini at 3 reps must not open the gate.
+        logRepo.seedSet(loggedSet(sessionId, 0, reps = 10, id = "cur-0"))
+        logRepo.seedSet(loggedSet(sessionId, 1, reps = 8, id = "cur-1"))
+        logRepo.seedSet(loggedSet(sessionId, 2, reps = 7, id = "cur-2"))
+        logRepo.seedSet(
+            loggedSet(
+                sessionId = sessionId,
+                setIndex = 3,
+                reps = 3,
+                id = "cur-mini",
+                rir = 0,
+                setType = SetType.MyoRep,
+                repMin = 0,
+                repMax = 0,
+                rirGoal = 0,
+            ),
+        )
+        assertTrue(
+            subject(sessionId).isEmpty(),
+            "mini cluster reps must not drive rep-range shift",
+        )
+    }
+
+    @Test
     @DisplayName("dismissed fingerprint is filtered")
     fun dismissedFiltered() = runTest {
         seedFatigueHistoryAndCurrentSession(lastSetReps = 3)
@@ -255,6 +283,10 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
         id: String,
         rir: Int? = 2,
         workoutLiftId: WorkoutLiftId? = wlId,
+        setType: SetType? = SetType.Standard,
+        repMin: Int? = 8,
+        repMax: Int? = 10,
+        rirGoal: Int? = 2,
     ): LoggedSet =
         LoggedSet(
             id = LoggedSetId(id),
@@ -271,9 +303,10 @@ class AnalyzeSessionRepRangeShiftProposalsUseCaseTest {
                     liftName = "Barbell Bench Press",
                     workoutLiftId = workoutLiftId,
                     progressionScheme = ProgressionScheme.Double,
-                    repMin = 8,
-                    repMax = 10,
-                    rirGoal = 2,
+                    setType = setType,
+                    repMin = repMin,
+                    repMax = repMax,
+                    rirGoal = rirGoal,
                 ),
         )
 
