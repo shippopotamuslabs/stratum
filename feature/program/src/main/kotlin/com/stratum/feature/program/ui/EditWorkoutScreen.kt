@@ -150,6 +150,7 @@ fun EditWorkoutRoute(
                 onSetUseRestTimerBetweenLifts = viewModel::setUseRestTimerBetweenLifts,
                 onSetProgressionScheme = viewModel::setProgressionScheme,
                 onSetSetKind = viewModel::setSetKind,
+                onSetMatchBackoffCount = viewModel::setMatchBackoffCount,
                 onSaveWorkout = {
                     viewModel.saveWorkout(onComplete = onBackClick)
                 },
@@ -590,6 +591,7 @@ internal fun EditWorkoutContent(
                     onSetProgressionScheme = callbacks.onSetProgressionScheme,
                     onShowProgressionSchemeInfo = onShowProgressionSchemeInfo,
                     onSetKind = callbacks.onSetSetKind,
+                    onSetMatchBackoffCount = callbacks.onSetMatchBackoffCount,
                 )
             }
         item {
@@ -658,6 +660,7 @@ private fun EditLiftPanel(
     onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit,
     onShowProgressionSchemeInfo: () -> Unit,
     onSetKind: (setId: String, kind: EditSetKind) -> Unit = { _, _ -> },
+    onSetMatchBackoffCount: (activationSetId: String, count: Int) -> Unit = { _, _ -> },
 ) {
     StratumEdgeToEdgeCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -716,11 +719,14 @@ private fun EditLiftPanel(
             onSetRestSecondsForAllSetsOnLift = onSetRestSecondsForAllSetsOnLift,
             onRirClick = onRirClick,
             onSetKind = onSetKind,
-            setKindEnabled = { index, kind ->
-                com.stratum.feature.program.canSelectSetKind(lift, index, kind)
+            onSetMatchBackoffCount = onSetMatchBackoffCount,
+            setKindEnabled = { setId, kind ->
+                val index = lift.sets.indexOfFirst { it.setId == setId }
+                index >= 0 && com.stratum.feature.program.canSelectSetKind(lift, index, kind)
             },
-            showRestForSet = { index ->
-                com.stratum.feature.program.showRestForSet(lift, index)
+            showRestForSet = { setId ->
+                val index = lift.sets.indexOfFirst { it.setId == setId }
+                index >= 0 && com.stratum.feature.program.showRestForSet(lift, index)
             },
         )
     }

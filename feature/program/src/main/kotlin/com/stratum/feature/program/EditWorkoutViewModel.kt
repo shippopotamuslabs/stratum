@@ -518,7 +518,8 @@ class EditWorkoutViewModel @Inject constructor(
                 lifts =
                     loaded.lifts.map { lift ->
                         val removed = lift.sets.firstOrNull { set -> set.setId == setId }
-                        val updatedSets = lift.sets.filterNot { set -> set.setId == setId }
+                        val cascadeIds = removeSetCascadeIds(lift.sets, setId)
+                        val updatedSets = lift.sets.filterNot { set -> set.setId in cascadeIds }
                         if (removed == null || updatedSets.size == lift.sets.size) {
                             lift
                         } else {
@@ -566,6 +567,7 @@ class EditWorkoutViewModel @Inject constructor(
 
     /**
      * Changes the intensifier kind for a set (S / M / MM / D) and re-defaults rest edges.
+     * Selecting MyoRepMatch materializes default match backoff template rows.
      */
     fun setSetKind(setId: String, kind: com.stratum.feature.program.ui.EditSetKind) {
         updateLoaded { loaded ->
@@ -579,6 +581,27 @@ class EditWorkoutViewModel @Inject constructor(
                         lift = lift,
                         setIndex = setIndex,
                         newKind = kind,
+                        liftDefaultRestSeconds = defaultRest,
+                    )
+                },
+            )
+        }
+    }
+
+    /**
+     * Sets how many match-backoff template rows follow a Myo-Rep Match activation.
+     */
+    fun setMatchBackoffCount(activationSetId: String, count: Int) {
+        updateLoaded { loaded ->
+            loaded.copy(
+                lifts = loaded.lifts.map { lift ->
+                    if (lift.sets.none { it.setId == activationSetId }) return@map lift
+                    val catalog = catalogLifts.firstOrNull { it.id.value == lift.liftId }
+                    val defaultRest = catalog?.resolvedDefaultRestSeconds() ?: DEFAULT_REST_SECONDS
+                    applyMatchBackoffCount(
+                        lift = lift,
+                        activationSetId = activationSetId,
+                        count = count,
                         liftDefaultRestSeconds = defaultRest,
                     )
                 },

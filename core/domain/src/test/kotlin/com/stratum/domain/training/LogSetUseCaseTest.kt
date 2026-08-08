@@ -109,6 +109,32 @@ class LogSetUseCaseTest {
     }
 
     @Test
+    @DisplayName("live command shape preferred over template setIndex for myo minis")
+    fun liveCommandShapeOverridesTemplateLookup() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        val useCase = buildUseCase(repo)
+
+        // setIndex 0 would match the template top set, but live mini shape must win.
+        val set =
+            useCase(
+                command(workoutLiftId = WorkoutLiftId("wl-1")).copy(
+                    setIndex = 0,
+                    setType = SetType.MyoRep,
+                    repMin = 0,
+                    repMax = 0,
+                    rirGoal = 0,
+                ),
+            ).getOrThrow()
+
+        assertEquals(SetType.MyoRep, set.liftContext.setType)
+        assertEquals(0, set.liftContext.repMin)
+        assertEquals(0, set.liftContext.repMax)
+        assertEquals(0, set.liftContext.rirGoal)
+        assertTrue(set.countsTowardMainBlockFatigue().not())
+    }
+
+    @Test
     @DisplayName("WL-036 ad-hoc session with null program still logs overlay lift")
     fun wl036_nullProgramSessionOnlyLift() = runTest {
         val repo = FakeTrainingLogRepository()

@@ -24,9 +24,10 @@ data class LogSetCommand(
     val rir: Int?,
     val completedAt: Instant,
     /**
-     * Live overlay slot fields. Used when [workoutLiftId] is not on the program template
-     * (mid-session add / ad-hoc empty workout) so [LoggedLiftContext] still snapshots
-     * set shape. Ignored when the template lift resolves successfully.
+     * Live overlay slot fields. Always preferred for [LoggedLiftContext] when non-null so
+     * auto-generated myo minis / retyped rows stamp correctly even when [workoutLiftId]
+     * resolves to a template lift (setIndex may not match a template row after renumber).
+     * When null, template lookup by setIndex is used as a fallback.
      */
     val setType: SetType? = null,
     val repMin: Int? = null,

@@ -22,6 +22,8 @@ data class EditWorkoutScreenCallbacks(
     val onSetProgressionScheme: (workoutLiftId: String, scheme: ProgressionScheme) -> Unit = { _, _ -> },
     /** Change set intensifier kind (S / M / MM / D). */
     val onSetSetKind: (setId: String, kind: EditSetKind) -> Unit = { _, _ -> },
+    /** Myo-Rep Match activation: number of match-backoff template rows. */
+    val onSetMatchBackoffCount: (activationSetId: String, count: Int) -> Unit = { _, _ -> },
     val onSaveWorkout: () -> Unit = {},
     val onStartWorkout: () -> Unit = {},
     val onSwapLiftClick: (workoutId: String, workoutLiftId: String?, liftId: String?, liftName: String?) -> Unit = { _, _, _, _ -> },

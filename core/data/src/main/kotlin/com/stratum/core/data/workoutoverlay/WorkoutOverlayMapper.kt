@@ -180,11 +180,18 @@ private fun LoggedSetValue.toDto(): LoggedSetValueDto = LoggedSetValueDto(
     weight = weight.toDto(),
     reps = reps,
     rir = rir,
+    persistedLoggedSetId = persistedLoggedSetId,
 )
 
 private fun LoggedSetValueDto.toDomain(slotId: SetSlotId): LoggedSetValue {
     val weight = weight.toDomainOrNull() ?: Weight(0.0, Weight.WeightUnit.Lb)
-    return LoggedSetValue(slotId = slotId, weight = weight, reps = reps, rir = rir)
+    return LoggedSetValue(
+        slotId = slotId,
+        weight = weight,
+        reps = reps,
+        rir = rir,
+        persistedLoggedSetId = persistedLoggedSetId,
+    )
 }
 
 private fun SlotRecommendation.toDto(): SlotRecommendationDto = SlotRecommendationDto(

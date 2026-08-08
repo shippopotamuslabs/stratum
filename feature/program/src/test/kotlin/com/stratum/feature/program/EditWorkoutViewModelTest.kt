@@ -750,6 +750,7 @@ class EditWorkoutViewModelTest {
             secondaryMuscles = emptySet(),
             incrementTiers = emptyList(),
             presetTags = emptySet(),
+            fatigueProfile = com.stratum.domain.lift.FatigueProfile.High,
             enabled = true,
         )
 

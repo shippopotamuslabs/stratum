@@ -18,6 +18,7 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
+import com.stratum.domain.training.countsTowardMainBlockFatigue
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.domain.training.isEligibleCompletedLiveSession
 import com.stratum.domain.workout.fatigue.LAST_SET_REP_FLOOR
@@ -30,8 +31,9 @@ import kotlinx.coroutines.flow.first
  * floor at the current band min.
  *
  * Signal is **historical insights** (refreshed at the start of analysis so the just-finished
- * session is included). A session-local gate still requires the last logged set for that
- * template lift to have been under [LAST_SET_REP_FLOOR] reps so strong sessions stay quiet.
+ * session is included). A session-local gate still requires the last **main-block** logged
+ * set (not myo minis / drops) for that template lift to have been under [LAST_SET_REP_FLOOR]
+ * reps so strong sessions stay quiet.
  *
  * Only lifts with a stamped [com.stratum.domain.training.LoggedLiftContext.workoutLiftId]
  * are considered (no ambiguous catalog-id first-match). Failures log and return empty.
@@ -187,9 +189,17 @@ class AnalyzeSessionRepRangeShiftProposalsUseCase @Inject constructor(
         )
     }
 
+    /**
+     * Last main-block set (by [LoggedSet.setIndex]) under the floor.
+     * Myo minis and drops are ignored — their low reps are protocol, not band failure.
+     */
     private fun sessionLastSetUnderFloor(sessionSets: List<LoggedSet>): Boolean {
-        val last = sessionSets.maxByOrNull { it.setIndex } ?: return false
-        return last.reps < LAST_SET_REP_FLOOR
+        val lastMain =
+            sessionSets
+                .filter { it.countsTowardMainBlockFatigue() }
+                .maxByOrNull { it.setIndex }
+                ?: return false
+        return lastMain.reps < LAST_SET_REP_FLOOR
     }
 
     private fun currentBand(workoutLift: WorkoutLift): Pair<Int, Int> {
