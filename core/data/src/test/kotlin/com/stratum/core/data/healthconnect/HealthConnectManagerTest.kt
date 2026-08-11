@@ -70,4 +70,41 @@ class HealthConnectManagerTest {
         assertTrue(notes.contains("Set 1: 205.0 lb × 8 reps @ 2 RIR (PR)"))
         assertTrue(notes.contains("Set 2: 205.0 lb × 8 reps @ 1 RIR"))
     }
+
+    @Test
+    @DisplayName("formatSessionNotes still carries lift names when segments omit them")
+    fun formatSessionNotesKeepsUnmappedLiftNames() {
+        val session = TrainingSession(
+            id = TrainingSessionId("session-2"),
+            programId = null,
+            workoutId = null,
+            status = TrainingSessionStatus.COMPLETED,
+            kind = TrainingSessionKind.PROGRAM_WORKOUT,
+            origin = TrainingSessionOrigin.LIVE,
+            cycleNumberSnapshot = 1,
+            weekdaySnapshot = null,
+            startedAt = Instant.parse("2026-08-10T10:00:00Z"),
+            endedAt = Instant.parse("2026-08-10T11:00:00Z"),
+            sourceApp = null,
+            workoutNameSnapshot = "Accessories",
+        )
+        val set = LoggedSet(
+            id = LoggedSetId("set-face"),
+            sessionId = session.id,
+            exerciseNameRaw = "Cable Face Pull",
+            liftId = LiftId("lift-face"),
+            setIndex = 0,
+            weight = Weight(40.0, Weight.WeightUnit.Lb),
+            reps = 15,
+            rir = 3,
+            completedAt = Instant.now(),
+            liftContext = LoggedLiftContext("Cable Face Pull"),
+            isPersonalRecord = false,
+        )
+
+        val notes = HealthConnectManager.formatSessionNotes(session, listOf(set))
+
+        assertTrue(notes.contains("Cable Face Pull:"))
+        assertTrue(notes.contains("15 reps @ 3 RIR"))
+    }
 }

@@ -5,6 +5,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import com.stratum.domain.healthconnect.HealthConnectPermissionDeniedException
 import com.stratum.domain.healthconnect.HealthConnectSyncPort
@@ -14,6 +15,7 @@ import com.stratum.domain.training.TrainingSession
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -54,34 +56,66 @@ class HealthConnectManager @Inject constructor(
 
         val title = session.workoutNameSnapshot ?: session.programNameSnapshot ?: "Stratum Workout"
         val notes = formatSessionNotes(session, sets)
+        val segments = HealthConnectExerciseMapper.buildSegments(
+            session = session,
+            sets = sets,
+            sessionEndFallback = endTime,
+        )
 
-        val segments = if (sets.isNotEmpty()) {
-            listOf(
-                ExerciseSegment(
-                    startTime = startTime,
-                    endTime = endTime,
-                    segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_WEIGHTLIFTING,
-                ),
-            )
-        } else {
-            emptyList()
-        }
-
-        val record = ExerciseSessionRecord(
+        val record = buildSessionRecord(
             startTime = startTime,
-            startZoneOffset = startOffset,
+            startOffset = startOffset,
             endTime = endTime,
-            endZoneOffset = endOffset,
-            exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_WEIGHTLIFTING,
+            endOffset = endOffset,
             title = title,
             notes = notes,
             segments = segments,
-            metadata = Metadata(
-                clientRecordId = session.id.value,
-            ),
+            clientRecordId = session.id.value,
         )
 
         client.insertRecords(listOf(record))
+    }
+
+    private fun buildSessionRecord(
+        startTime: Instant,
+        startOffset: ZoneOffset,
+        endTime: Instant,
+        endOffset: ZoneOffset,
+        title: String,
+        notes: String,
+        segments: List<ExerciseSegment>,
+        clientRecordId: String,
+    ): ExerciseSessionRecord {
+        val metadata = Metadata.activelyRecorded(
+            device = Device(type = Device.TYPE_PHONE),
+            clientRecordId = clientRecordId,
+        )
+        return try {
+            ExerciseSessionRecord(
+                startTime = startTime,
+                startZoneOffset = startOffset,
+                endTime = endTime,
+                endZoneOffset = endOffset,
+                exerciseType = HealthConnectExerciseMapper.SESSION_EXERCISE_TYPE,
+                title = title,
+                notes = notes,
+                segments = segments,
+                metadata = metadata,
+            )
+        } catch (_: IllegalArgumentException) {
+            // Prefer a valid session+notes write over failing the entire sync.
+            ExerciseSessionRecord(
+                startTime = startTime,
+                startZoneOffset = startOffset,
+                endTime = endTime,
+                endZoneOffset = endOffset,
+                exerciseType = HealthConnectExerciseMapper.SESSION_EXERCISE_TYPE,
+                title = title,
+                notes = notes,
+                segments = emptyList(),
+                metadata = metadata,
+            )
+        }
     }
 
     companion object {

@@ -36,7 +36,7 @@ work = "2.11.2"
 hiltAndroidx = "1.4.0"
 shadow = "9.0.2"
 firebaseAdmin = "9.4.3"
-healthConnect = "1.1.0-alpha11"
+healthConnect = "1.2.0-alpha04"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
