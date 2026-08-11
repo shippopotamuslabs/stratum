@@ -9,6 +9,10 @@ import com.stratum.domain.auth.LogoutUseCase
 import com.stratum.domain.checkin.MarkCheckInPendingUseCase
 import com.stratum.domain.checkin.ObserveCheckInPreferencesUseCase
 import com.stratum.domain.checkin.SetCheckInEnabledUseCase
+import com.stratum.domain.healthconnect.ClearHealthConnectSyncErrorUseCase
+import com.stratum.domain.healthconnect.ObserveHealthConnectPreferencesUseCase
+import com.stratum.domain.healthconnect.ObserveHealthConnectSyncErrorsUseCase
+import com.stratum.domain.healthconnect.SetHealthConnectEnabledUseCase
 import com.stratum.domain.lift.ObserveEquipmentProposalsEnabledUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentProposalsEnabledUseCase
@@ -30,6 +34,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
@@ -42,12 +48,16 @@ class SettingsViewModel @Inject constructor(
     observeEquipmentProposalsEnabled: ObserveEquipmentProposalsEnabledUseCase,
     observeRepRangeShiftProposalsEnabled: ObserveRepRangeShiftProposalsEnabledUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
+    observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
     private val setThemeFamily: SetThemeFamilyUseCase,
     private val setColorMode: SetColorModeUseCase,
     private val setCheckInEnabled: SetCheckInEnabledUseCase,
     private val setEquipmentProposalsEnabled: SetEquipmentProposalsEnabledUseCase,
     private val setRepRangeShiftProposalsEnabled: SetRepRangeShiftProposalsEnabledUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
+    private val setHealthConnectEnabled: SetHealthConnectEnabledUseCase,
+    private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
     private val markCheckInPending: MarkCheckInPendingUseCase,
     private val forceRefreshDerived: ForceRefreshDerivedTrainingData,
     private val logout: LogoutUseCase,
@@ -62,6 +72,15 @@ class SettingsViewModel @Inject constructor(
     /** Exclusive account lifecycle UI — only one dialog or in-flight op at a time. */
     private val accountUi = MutableStateFlow<AccountUi>(AccountUi.Idle)
 
+    init {
+        observeHealthConnectSyncErrors()
+            .onEach { error ->
+                _userMessage.value = error
+                clearHealthConnectSyncError()
+            }
+            .launchIn(viewModelScope)
+    }
+
     fun userMessageShown() {
         _userMessage.value = null
     }
@@ -69,12 +88,17 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> =
         combine(
             combine(
-                observeThemePreferences(),
-                observeCheckInPreferences(),
-                observeEquipmentProposalsEnabled(),
-                observeRepRangeShiftProposalsEnabled(),
-                observeWeightDisplayPreferences(),
-            ) { theme, checkIn, equipmentEnabled, repRangeEnabled, weightDisplay ->
+                combine(
+                    observeThemePreferences(),
+                    observeCheckInPreferences(),
+                    observeEquipmentProposalsEnabled(),
+                ) { theme, checkIn, equipment -> Triple(theme, checkIn, equipment) },
+                combine(
+                    observeRepRangeShiftProposalsEnabled(),
+                    observeWeightDisplayPreferences(),
+                    observeHealthConnectPreferences(),
+                ) { repRange, weightDisplay, healthConnect -> Triple(repRange, weightDisplay, healthConnect) },
+            ) { (theme, checkIn, equipmentEnabled), (repRangeEnabled, weightDisplay, healthConnect) ->
                 PreferenceSnapshot(
                     appearance = theme.colorMode.toAppearanceUi(),
                     themeFamily = theme.family.toThemeFamilyUi(),
@@ -82,6 +106,7 @@ class SettingsViewModel @Inject constructor(
                     equipmentProposalsEnabled = equipmentEnabled,
                     repRangeProposalsEnabled = repRangeEnabled,
                     weightUnit = weightDisplay.displayUnit.toWeightUnitUi(),
+                    healthConnectEnabled = healthConnect.enabled,
                 )
             },
             debugStatusMessage,
@@ -95,6 +120,7 @@ class SettingsViewModel @Inject constructor(
                 equipmentProposalsEnabled = prefs.equipmentProposalsEnabled,
                 repRangeProposalsEnabled = prefs.repRangeProposalsEnabled,
                 weightUnit = prefs.weightUnit,
+                healthConnectEnabled = prefs.healthConnectEnabled,
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
                 isForceRefreshingDerived = rebuild.isRunning,
@@ -110,6 +136,14 @@ class SettingsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = SettingsUiState(showDebugTools = BuildConfig.DEBUG),
         )
+
+    fun onHealthConnectEnabledChange(enabled: Boolean) {
+        viewModelScope.launch {
+            setHealthConnectEnabled(enabled).onFailure { error ->
+                _userMessage.value = error.message ?: MSG_PREFS_FAILED
+            }
+        }
+    }
 
     fun onAppearanceSelected(appearance: AppearanceUi) {
         viewModelScope.launch {
@@ -311,6 +345,7 @@ class SettingsViewModel @Inject constructor(
         val equipmentProposalsEnabled: Boolean,
         val repRangeProposalsEnabled: Boolean,
         val weightUnit: WeightUnitUi,
+        val healthConnectEnabled: Boolean,
     )
 
     private data class RebuildProgressUi(
@@ -356,6 +391,7 @@ data class SettingsUiState(
     val repRangeProposalsEnabled: Boolean = true,
     /** Display weight unit; defaults to lbs. */
     val weightUnit: WeightUnitUi = WeightUnitUi.Lbs,
+    val healthConnectEnabled: Boolean = false,
     /** True only in debug builds; release UI never shows developer tools. */
     val showDebugTools: Boolean = false,
     val debugStatusMessage: String? = null,

@@ -6,6 +6,8 @@ import com.stratum.core.ui.component.RIR_NONE_LABEL
 import com.stratum.core.ui.component.formatSetPerformance
 import com.stratum.core.ui.component.formatWeightAmountForDisplay
 import com.stratum.core.ui.component.formatWorkoutDuration
+import com.stratum.domain.healthconnect.ClearHealthConnectSyncErrorUseCase
+import com.stratum.domain.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.lift.AnalyzeSessionEquipmentProposalsUseCase
 import com.stratum.domain.lift.ApplyEquipmentIncrementProposalUseCase
 import com.stratum.domain.lift.EquipmentIncrementRemedy
@@ -31,6 +33,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -51,6 +55,8 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val applyRepRangeShift: ApplyRepRangeShiftUseCase,
     private val repRangeShiftProposalPreferences: RepRangeShiftProposalPreferences,
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
+    private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<WorkoutCompleteUiState>(WorkoutCompleteUiState.Loading)
@@ -63,6 +69,16 @@ class WorkoutCompleteViewModel @Inject constructor(
     private var loadGeneration: Long = 0L
     private val repRangeApplyMutex = Mutex()
     private val pendingUserMessages = ArrayDeque<String>()
+
+    init {
+        observeHealthConnectSyncErrors()
+            .onEach { error ->
+                enqueueUserMessage(error)
+                publishNextUserMessage()
+                clearHealthConnectSyncError()
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun loadSummary(sessionId: String) {
         loadJob?.cancel()

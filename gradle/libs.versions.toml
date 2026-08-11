@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.0-alpha07"
+agp = "9.4.0-alpha08"
 coreKtx = "1.15.0"
 detekt = "1.23.8"
 junit = "4.13.2"
@@ -36,6 +36,7 @@ work = "2.11.2"
 hiltAndroidx = "1.4.0"
 shadow = "9.0.2"
 firebaseAdmin = "9.4.3"
+healthConnect = "1.2.0-alpha04"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -105,6 +106,7 @@ googleid = { group = "com.google.android.libraries.identity.googleid", name = "g
 androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "androidxDataStore" }
 vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
 vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
+androidx-health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
