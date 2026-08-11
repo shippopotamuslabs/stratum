@@ -80,6 +80,14 @@ import com.stratum.core.data.repository.RoomMuscleWeeklyOutcomeIndexRepository
 import com.stratum.core.data.repository.RoomMuscleWeeklyStimulusRepository
 import com.stratum.core.data.repository.RoomMuscleVolumeBaselineRepository
 import com.stratum.core.data.repository.RoomSupersetAffinityRepository
+import com.stratum.core.data.repository.DataStoreHealthConnectPreferencesRepository
+import com.stratum.core.data.repository.HealthConnectSyncStatusRepository
+import com.stratum.core.data.healthconnect.HealthConnectManager
+import com.stratum.core.data.work.WorkManagerHealthConnectScheduler
+import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
+import com.stratum.domain.healthconnect.HealthConnectSchedulerPort
+import com.stratum.domain.healthconnect.HealthConnectSyncPort
+import com.stratum.domain.healthconnect.HealthConnectSyncStatusPort
 import com.stratum.domain.importing.Bm25LiftNameResolver
 import com.stratum.domain.importing.HybridLiftNameResolver
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
@@ -562,4 +570,28 @@ abstract class RepositoryModule {
     abstract fun bindRepRangeShiftProposalPreferences(
         impl: DataStoreRepRangeShiftProposalPreferences,
     ): RepRangeShiftProposalPreferences
+
+    @Binds
+    @Singleton
+    abstract fun bindHealthConnectPreferencesPort(
+        impl: DataStoreHealthConnectPreferencesRepository,
+    ): HealthConnectPreferencesPort
+
+    @Binds
+    @Singleton
+    abstract fun bindHealthConnectSyncPort(
+        impl: HealthConnectManager,
+    ): HealthConnectSyncPort
+
+    @Binds
+    @Singleton
+    abstract fun bindHealthConnectSchedulerPort(
+        impl: WorkManagerHealthConnectScheduler,
+    ): HealthConnectSchedulerPort
+
+    @Binds
+    @Singleton
+    abstract fun bindHealthConnectSyncStatusPort(
+        impl: HealthConnectSyncStatusRepository,
+    ): HealthConnectSyncStatusPort
 }
