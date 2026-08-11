@@ -1,9 +1,13 @@
 package com.stratum.feature.settings.navigation
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
@@ -64,6 +68,15 @@ private fun SettingsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val healthConnectWritePermission =
+        remember { HealthPermission.getWritePermission(ExerciseSessionRecord::class) }
+    val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract(),
+    ) { grantedPermissions ->
+        viewModel.onHealthConnectEnabledChange(
+            grantedPermissions.contains(healthConnectWritePermission),
+        )
+    }
     UserMessageEffect(
         userMessage = userMessage,
         snackbarHostState = snackbarHostState,
@@ -77,6 +90,10 @@ private fun SettingsRoute(
         onCheckInsEnabledChange = viewModel::onCheckInsEnabledChange,
         onPostWorkoutSuggestionEnabledChange = viewModel::onPostWorkoutSuggestionEnabledChange,
         onWeightUnitSelected = viewModel::onWeightUnitSelected,
+        onHealthConnectEnabledChange = viewModel::onHealthConnectEnabledChange,
+        onRequestHealthConnectEnable = {
+            healthConnectPermissionLauncher.launch(setOf(healthConnectWritePermission))
+        },
         onForceCheckInPending = viewModel::forceCheckInPending,
         onLegalClick = onNavigateToLegal,
         dataActions =

@@ -44,6 +44,8 @@ fun SettingsScreen(
     onCheckInsEnabledChange: (Boolean) -> Unit = {},
     onPostWorkoutSuggestionEnabledChange: (PostWorkoutSuggestionUi, Boolean) -> Unit = { _, _ -> },
     onWeightUnitSelected: (WeightUnitUi) -> Unit = {},
+    onHealthConnectEnabledChange: (Boolean) -> Unit = {},
+    onRequestHealthConnectEnable: () -> Unit = {},
     onForceCheckInPending: () -> Unit = {},
     onLegalClick: () -> Unit = {},
     dataActions: SettingsDataActions = SettingsDataActions(),
@@ -51,6 +53,7 @@ fun SettingsScreen(
     snackbarHostState: SnackbarHostState? = null,
 ) {
     val accountBusy = uiState.isLoggingOut || uiState.isDeletingAccount
+
     StratumScaffold(
         snackbarHostState = snackbarHostState,
         topBar = {
@@ -139,6 +142,23 @@ fun SettingsScreen(
                         StratumSwitch(
                             checked = uiState.checkInsEnabled,
                             onCheckedChange = onCheckInsEnabledChange,
+                        )
+                    },
+                )
+                SettingsGroupDivider()
+                StratumPreferenceRow(
+                    title = stringResource(R.string.settings_health_connect_enabled),
+                    subtitle = stringResource(R.string.settings_health_connect_subtitle),
+                    trailing = {
+                        StratumSwitch(
+                            checked = uiState.healthConnectEnabled,
+                            onCheckedChange = { enabled ->
+                                if (enabled) {
+                                    onRequestHealthConnectEnable()
+                                } else {
+                                    onHealthConnectEnabledChange(false)
+                                }
+                            },
                         )
                     },
                 )

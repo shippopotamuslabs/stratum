@@ -1,10 +1,15 @@
 package com.stratum.domain.training
 
+import com.stratum.core.testing.healthconnect.FakeHealthConnectSchedulerPort
+import com.stratum.core.testing.logging.FakeLoggingPort
+import com.stratum.core.testing.onboarding.FakeLiftRepository
 import com.stratum.core.testing.program.FakeProgramRepository
+import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
+import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
-import com.stratum.domain.training.identity.TrainingSessionId
+import com.stratum.core.testing.training.localDerivedTrainingStages
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.ImportAnalysisMetadata
 import com.stratum.domain.importing.ImportAnalysisMetadataRepository
@@ -15,11 +20,7 @@ import com.stratum.domain.importing.MuscleVolumeBaselineRepository
 import com.stratum.domain.importing.SupersetAffinity
 import com.stratum.domain.importing.SupersetAffinityRepository
 import com.stratum.domain.importing.identity.LoggedSetId
-import com.stratum.core.testing.logging.FakeLoggingPort
-import com.stratum.core.testing.onboarding.FakeLiftRepository
-import com.stratum.core.testing.response.FakeResponseModelingSchedulerPort
-import com.stratum.core.testing.training.localDerivedTrainingStages
-import com.stratum.core.testing.response.FakeResponseProfilePersistencePort
+import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import kotlin.coroutines.ContinuationInterceptor
 import kotlinx.coroutines.CoroutineDispatcher
@@ -82,6 +83,70 @@ class FinalizeTrainingSessionUseCaseTest {
         useCase(TrainingSessionId("ts-live-1")).getOrThrow()
 
         assertEquals(0, events.getEventsForProgram(WorkoutLoggingFixtures.programId).size)
+    }
+
+    @Test
+    @DisplayName("Finalizing session triggers Health Connect sync enqueue")
+    fun finalizeTriggersHealthConnectSync() = runTest {
+        val scheduler = FakeHealthConnectSchedulerPort()
+
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val events = FakeProgramChangeEventRepository()
+        val repo = FakeTrainingLogRepository(programRepository = programRepo, programChangeEventRepository = events)
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-hc"))
+
+        val computePersonalRecords = ComputePersonalRecordsUseCase(repo)
+        val useCase = FinalizeTrainingSessionUseCase(
+            trainingLogRepository = repo,
+            programRepository = programRepo,
+            computePersonalRecords = computePersonalRecords,
+            localDerivedStages = localDerivedTrainingStages(
+                trainingLog = repo,
+                extractTrainingInsights = buildInsightsComponents(repo).useCase,
+                refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), FakeResponseProfilePersistencePort()),
+            ),
+            loggingPort = FakeLoggingPort(),
+            healthConnectScheduler = scheduler,
+            refreshScope = CoroutineScope(Dispatchers.Unconfined),
+        )
+
+        useCase(TrainingSessionId("ts-live-hc")).getOrThrow()
+
+        assertEquals(1, scheduler.enqueuedSessionIds.size)
+        assertEquals(TrainingSessionId("ts-live-hc"), scheduler.enqueuedSessionIds.first())
+    }
+
+    @Test
+    @DisplayName("Finalize still succeeds when Health Connect enqueue throws")
+    fun finalizeSucceedsWhenHealthConnectEnqueueThrows() = runTest {
+        val scheduler = FakeHealthConnectSchedulerPort().apply {
+            throwOnEnqueue = IllegalStateException("DataStore boom")
+        }
+
+        val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
+        val events = FakeProgramChangeEventRepository()
+        val repo = FakeTrainingLogRepository(programRepository = programRepo, programChangeEventRepository = events)
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-hc-fail"))
+
+        val computePersonalRecords = ComputePersonalRecordsUseCase(repo)
+        val useCase = FinalizeTrainingSessionUseCase(
+            trainingLogRepository = repo,
+            programRepository = programRepo,
+            computePersonalRecords = computePersonalRecords,
+            localDerivedStages = localDerivedTrainingStages(
+                trainingLog = repo,
+                extractTrainingInsights = buildInsightsComponents(repo).useCase,
+                refreshWeeklySeries = RefreshWeeklySeriesUseCase(repo, FakeLiftRepository(), FakeResponseProfilePersistencePort()),
+            ),
+            loggingPort = FakeLoggingPort(),
+            healthConnectScheduler = scheduler,
+            refreshScope = CoroutineScope(Dispatchers.Unconfined),
+        )
+
+        val result = useCase(TrainingSessionId("ts-live-hc-fail"))
+
+        assertTrue(result.isSuccess)
+        assertEquals(TrainingSessionStatus.COMPLETED, result.getOrThrow().status)
     }
 
     @Test

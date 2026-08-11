@@ -14,8 +14,11 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeProgramChangeEventRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
+import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.workout.FakeRepRangeShiftProposalPreferences
+import com.stratum.domain.healthconnect.ClearHealthConnectSyncErrorUseCase
+import com.stratum.domain.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.importing.ExtractTrainingInsightsUseCase
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.lift.AnalyzeSessionEquipmentProposalsUseCase
@@ -533,6 +536,7 @@ class WorkoutCompleteViewModelTest {
         val repRangePrefs = FakeRepRangeShiftProposalPreferences()
         val logging = FakeLoggingPort()
         val insightsRepo = FakeLiftTrainingInsightsRepository()
+        val healthConnectSyncStatus = FakeHealthConnectSyncStatusPort()
         val viewModel =
             WorkoutCompleteViewModel(
                 getWorkoutSummary =
@@ -587,6 +591,10 @@ class WorkoutCompleteViewModelTest {
                 repRangeShiftProposalPreferences = repRangePrefs,
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+                observeHealthConnectSyncErrors =
+                    ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
+                clearHealthConnectSyncError =
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
             )
         return RepRangeHarness(viewModel, programRepo, repRangePrefs, sessionId)
     }
@@ -646,6 +654,7 @@ class WorkoutCompleteViewModelTest {
         val repRangePrefs = FakeRepRangeShiftProposalPreferences()
         val logging = FakeLoggingPort()
         val insightsRepo = FakeLiftTrainingInsightsRepository()
+        val healthConnectSyncStatus = FakeHealthConnectSyncStatusPort()
         val viewModel =
             WorkoutCompleteViewModel(
                 getWorkoutSummary =
@@ -700,6 +709,10 @@ class WorkoutCompleteViewModelTest {
                 repRangeShiftProposalPreferences = repRangePrefs,
                 observeWeightDisplayPreferences =
                     ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+                observeHealthConnectSyncErrors =
+                    ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
+                clearHealthConnectSyncError =
+                    ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
             )
         return CableHarness(viewModel, prefs, equipmentRepo, sessionId)
     }
@@ -756,6 +769,7 @@ class WorkoutCompleteViewModelTest {
         val repRangePrefs = FakeRepRangeShiftProposalPreferences()
         val logging = FakeLoggingPort()
         val insightsRepo = FakeLiftTrainingInsightsRepository()
+        val healthConnectSyncStatus = FakeHealthConnectSyncStatusPort()
         return WorkoutCompleteViewModel(
             getWorkoutSummary =
                 GetWorkoutSummaryUseCase(
@@ -808,6 +822,10 @@ class WorkoutCompleteViewModelTest {
             repRangeShiftProposalPreferences = repRangePrefs,
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+            observeHealthConnectSyncErrors =
+                ObserveHealthConnectSyncErrorsUseCase(healthConnectSyncStatus),
+            clearHealthConnectSyncError =
+                ClearHealthConnectSyncErrorUseCase(healthConnectSyncStatus),
         )
     }
 

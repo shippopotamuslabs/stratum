@@ -1,6 +1,7 @@
 package com.stratum.domain.training
 
 import com.stratum.domain.di.ApplicationScope
+import com.stratum.domain.healthconnect.HealthConnectSchedulerPort
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.ProgramRepository
@@ -8,6 +9,7 @@ import com.stratum.domain.response.ResponseModelingSchedulerPort
 import com.stratum.domain.training.identity.TrainingSessionId
 import java.time.Instant
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,6 +22,8 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
     private val loggingPort: LoggingPort,
     private val responseModelingScheduler: ResponseModelingSchedulerPort =
         NoOpResponseModelingScheduler,
+    private val healthConnectScheduler: HealthConnectSchedulerPort =
+        NoOpHealthConnectScheduler,
     // Process-lifetime scope (SupervisorJob) so the post-completion derived-data refresh outlives
     // the ViewModel that triggered completion. Defaulted to a Main.immediate scope so JVM tests
     // can construct the use case without Hilt. Stage work hops to Default inside localDerivedStages.
@@ -109,6 +113,19 @@ class FinalizeTrainingSessionUseCase @Inject constructor(
             // delay this return.
             responseModelingScheduler.enqueueRefresh()
 
+            // Best-effort Health Connect enqueue — never fail finalize after Room persist.
+            try {
+                healthConnectScheduler.enqueueSync(completed.id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                loggingPort.error(
+                    TAG,
+                    "Health Connect sync enqueue failed for ${completed.id.value}",
+                    error,
+                )
+            }
+
             completed
         }
 
@@ -122,4 +139,9 @@ private object NoOpResponseModelingScheduler : ResponseModelingSchedulerPort {
     override fun enqueueRefresh() = Unit
 
     override fun enqueueForceExtract(replaceExisting: Boolean) = Unit
+}
+
+/** Default no-op for JVM unit tests that construct finalize without Hilt. */
+private object NoOpHealthConnectScheduler : HealthConnectSchedulerPort {
+    override suspend fun enqueueSync(sessionId: TrainingSessionId) = Unit
 }
