@@ -840,8 +840,8 @@ class WorkoutViewModelTest {
                 assertEquals(1, trainingLogRepository.insertSetCallCount)
                 val firstEvent = awaitItem()
                 assertEquals(
-                    com.stratum.feature.workout.ui.WorkoutUiEvent.SetLogged(liftSetId.value),
-                    firstEvent,
+                    liftSetId.value,
+                    (firstEvent as com.stratum.feature.workout.ui.WorkoutUiEvent.SetLogged).slotKey,
                 )
 
                 viewModel.logSet(

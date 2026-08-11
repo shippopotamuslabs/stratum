@@ -52,6 +52,14 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
+import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
+import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncPort
+import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
+import com.stratum.domain.healthconnect.ClearHealthConnectSyncErrorUseCase
+import com.stratum.domain.healthconnect.ObserveHealthConnectPreferencesUseCase
+import com.stratum.domain.healthconnect.ObserveHealthConnectSyncErrorsUseCase
+import com.stratum.domain.healthconnect.SetHealthConnectEnabledUseCase
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
 class SettingsViewModelTest {
@@ -61,6 +69,9 @@ class SettingsViewModelTest {
     private val fakeEquipmentProposals = FakeEquipmentProposalPreferences()
     private val fakeRepRangeProposals = FakeRepRangeShiftProposalPreferences()
     private val fakeWeightDisplayPreferences = FakeWeightDisplayPreferencesRepository()
+    private val fakeHealthConnectPreferences = FakeHealthConnectPreferencesRepository()
+    private val fakeHealthConnectSync = FakeHealthConnectSyncPort()
+    private val fakeHealthConnectSyncStatus = FakeHealthConnectSyncStatusPort()
     private lateinit var fakeAuth: FakeAuthManager
     private lateinit var fakeCloudSync: FakeCloudSyncPort
     private lateinit var fakeAccountDeletion: FakeAccountDeletionPort
@@ -104,6 +115,10 @@ class SettingsViewModelTest {
                 ObserveRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(fakeWeightDisplayPreferences),
+            observeHealthConnectPreferences =
+                ObserveHealthConnectPreferencesUseCase(fakeHealthConnectPreferences),
+            observeHealthConnectSyncErrors =
+                ObserveHealthConnectSyncErrorsUseCase(fakeHealthConnectSyncStatus),
             setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences, FakeLoggingPort()),
             setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
             setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
@@ -113,6 +128,10 @@ class SettingsViewModelTest {
                 SetRepRangeShiftProposalsEnabledUseCase(fakeRepRangeProposals, FakeLoggingPort()),
             setWeightDisplayUnit =
                 SetWeightDisplayUnitUseCase(fakeWeightDisplayPreferences, FakeLoggingPort()),
+            setHealthConnectEnabled =
+                SetHealthConnectEnabledUseCase(fakeHealthConnectPreferences, fakeHealthConnectSync),
+            clearHealthConnectSyncError =
+                ClearHealthConnectSyncErrorUseCase(fakeHealthConnectSyncStatus),
             markCheckInPending = MarkCheckInPendingUseCase(fakeCheckInPreferences, FakeLoggingPort()),
             forceRefreshDerived = forceRefresh,
             logout = LogoutUseCase(
@@ -540,5 +559,30 @@ class SettingsViewModelTest {
 
         assertFalse(subject.uiState.value.showDeleteConfirm)
         assertEquals(0, fakeAccountDeletion.deleteCount)
+    }
+
+    @Test
+    @DisplayName("When Health Connect toggle changed then state updates")
+    fun healthConnectToggleUpdatesState() = runTest {
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("When sticky Health Connect sync error is reported then userMessage surfaces it")
+    fun healthConnectSyncErrorSurfacesInUserMessage() = runTest {
+        subject.userMessage.test {
+            assertEquals(null, awaitItem())
+            fakeHealthConnectSyncStatus.reportSyncError("Health Connect write failed")
+            advanceUntilIdle()
+            assertEquals("Health Connect write failed", awaitItem())
+            assertEquals(null, fakeHealthConnectSyncStatus.currentPendingError)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }
