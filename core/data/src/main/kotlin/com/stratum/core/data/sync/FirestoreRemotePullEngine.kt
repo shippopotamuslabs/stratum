@@ -45,10 +45,22 @@ class FirestoreRemotePullEngine @Inject constructor(
         try {
             val deviceId = stateStore.deviceId()
             var anyFailures = false
+            val failedCollections = mutableSetOf<SyncCollection>()
             for (handler in handlers.inHydrateOrder()) {
+                if (handler.collection.hydrateParents.any { it in failedCollections }) {
+                    loggingPort.info(
+                        TAG,
+                        "skip ${handler.collection.firestorePath}; parent pull incomplete",
+                    )
+                    anyFailures = true
+                    continue
+                }
                 val since = stateStore.lastPullCursor(userId, handler.collection)
                 val result = pullCollection(userId, handler.collection, deviceId, since)
-                if (result.hadFailures) anyFailures = true
+                if (result.hadFailures) {
+                    anyFailures = true
+                    failedCollections.add(handler.collection)
+                }
                 if (result.cursorAdvanced) {
                     stateStore.setLastPullCursor(userId, handler.collection, result.nextCursor)
                 }

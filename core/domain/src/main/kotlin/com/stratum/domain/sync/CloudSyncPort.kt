@@ -16,7 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
  *   and pull cursors are retained for same-user re-login **unless** [endSessionAndWipe] ran.
  * - [requestSync]: multi-pass upload of residual dirty + incremental pull while started.
  * - [endSessionAndWipe]: atomic logout teardown — stop session + wipe Room + durable
- *   hydrate/cursors so next [start] full-hydrates from cloud. Call before Firebase sign-out.
+ *   hydrate/cursors so next [start] full-hydrates from cloud. Last-account ownership is
+ *   retained so a different uid on the next [start] still triggers a wipe. Call before
+ *   Firebase sign-out.
  * - [sessionState]: shell gate for account-scoped local readiness (not merely Firebase auth).
  *
  * Incomplete surface (not synced by design): response-modeling tables, import job metadata,
@@ -46,7 +48,8 @@ interface CloudSyncPort {
 
     /**
      * Atomic logout teardown: cancel workers, clear active uid, wipe Room user data and
-     * durable hydrate/cursors for [userId]. Safe to call without a prior [stop].
+     * durable hydrate/cursors for [userId]. Last-account ownership is retained so a different
+     * uid on the next [start] still triggers a wipe. Safe to call without a prior [stop].
      */
     suspend fun endSessionAndWipe(userId: String): Result<Unit>
 }
