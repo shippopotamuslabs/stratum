@@ -44,4 +44,27 @@ class HealthConnectUseCasesTest {
         assertTrue(result.exceptionOrNull() is HealthConnectUnavailableException)
         assertEquals(false, preferencesRepo.getPreferences().enabled)
     }
+
+    @Test
+    @DisplayName("applyGrantedPermissions enables when any requested grant is present")
+    fun applyGrantedPermissionsEnablesFromReads() = runTest {
+        syncPort.granted = setOf("read_steps")
+
+        val result = setEnabledUseCase.applyGrantedPermissions(setOf("write", "read_steps"))
+
+        assertTrue(result.isSuccess)
+        assertEquals(true, preferencesRepo.getPreferences().enabled)
+    }
+
+    @Test
+    @DisplayName("applyGrantedPermissions leaves prefs unchanged when the grant query fails")
+    fun applyGrantedPermissionsQueryFailureKeepsState() = runTest {
+        preferencesRepo.setPreferences(HealthConnectPreferences(enabled = true))
+        syncPort.grantedPermissionsFailure = IllegalStateException("sdk blip")
+
+        val result = setEnabledUseCase.applyGrantedPermissions(setOf("write"))
+
+        assertTrue(result.isSuccess)
+        assertEquals(true, preferencesRepo.getPreferences().enabled)
+    }
 }

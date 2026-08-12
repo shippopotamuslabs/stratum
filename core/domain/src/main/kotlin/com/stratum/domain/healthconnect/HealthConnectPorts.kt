@@ -17,6 +17,8 @@ interface HealthConnectPreferencesPort {
 interface HealthConnectSyncPort {
     suspend fun isAvailable(): Boolean
     suspend fun hasWritePermission(): Boolean
+    /** Currently granted Health Connect permissions, or a failure if the SDK cannot be queried. */
+    suspend fun grantedPermissions(): Result<Set<String>>
     suspend fun pushSession(session: TrainingSession, sets: List<LoggedSet>): Result<Unit>
 }
 
@@ -34,4 +36,11 @@ interface HealthConnectSyncStatusPort {
     fun observePendingSyncErrors(): Flow<String>
     suspend fun reportSyncError(message: String)
     suspend fun clearPendingSyncError()
+}
+
+/** Port for reading Health Connect metrics for the dashboard pager. */
+interface HealthConnectMetricsPort {
+    suspend fun isAvailable(): Boolean
+    suspend fun grantedReadTypes(): Set<HealthMetricType>
+    suspend fun readSnapshot(request: HealthMetricsRequest): HealthMetricsSnapshot
 }

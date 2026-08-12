@@ -1,0 +1,92 @@
+package com.stratum.core.data.healthconnect
+
+import androidx.health.connect.client.records.SleepSessionRecord
+import com.stratum.domain.healthconnect.SleepStageType
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+
+class HealthConnectMetricsMapperTest {
+
+    @Nested
+    @DisplayName("sleepStageType")
+    inner class SleepStageTypeMapping {
+        @Test
+        fun mapsKnownStages() {
+            assertEquals(
+                SleepStageType.Awake,
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_AWAKE),
+            )
+            assertEquals(
+                SleepStageType.Awake,
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED),
+            )
+            assertEquals(
+                SleepStageType.Light,
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_LIGHT),
+            )
+            assertEquals(
+                SleepStageType.Deep,
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_DEEP),
+            )
+            assertEquals(
+                SleepStageType.Rem,
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_REM),
+            )
+            assertEquals(
+                SleepStageType.Sleeping,
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_SLEEPING),
+            )
+            assertEquals(
+                SleepStageType.OutOfBed,
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_OUT_OF_BED),
+            )
+            assertEquals(
+                SleepStageType.Unknown,
+                HealthConnectMetricsMapper.sleepStageType(SleepSessionRecord.STAGE_TYPE_UNKNOWN),
+            )
+            assertEquals(SleepStageType.Unknown, HealthConnectMetricsMapper.sleepStageType(99))
+        }
+    }
+
+    @Nested
+    @DisplayName("weightSample")
+    inner class WeightSampleMapping {
+        @Test
+        fun storesKilograms() {
+            val time = java.time.Instant.parse("2026-08-12T12:00:00Z")
+            val sample = HealthConnectMetricsMapper.weightSample(time, 81.4)
+            assertEquals(time, sample.time)
+            assertEquals(81.4, sample.weight.amount)
+            assertEquals(com.stratum.domain.lift.Weight.WeightUnit.Kg, sample.weight.unit)
+        }
+    }
+
+    @Nested
+    @DisplayName("dailyStepCount")
+    inner class DailyStepMapping {
+        @Test
+        fun mapsLocalStartToZoneInstant() {
+            val local = LocalDateTime.of(2026, 8, 12, 0, 0)
+            val count = HealthConnectMetricsMapper.dailyStepCount(local, ZoneOffset.UTC, 1_234L)
+            assertEquals(1_234L, count.count)
+            assertEquals(java.time.Instant.parse("2026-08-12T00:00:00Z"), count.dayStart)
+        }
+    }
+
+    @Test
+    @DisplayName("grantedTypes maps only read permissions that were granted")
+    fun grantedTypesFilters() {
+        val granted = setOf(
+            HealthConnectRequestedPermissions.readSteps,
+            HealthConnectRequestedPermissions.writeExercise,
+        )
+        assertEquals(
+            setOf(com.stratum.domain.healthconnect.HealthMetricType.Steps),
+            HealthConnectRequestedPermissions.grantedTypes(granted),
+        )
+    }
+}

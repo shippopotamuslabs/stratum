@@ -149,6 +149,11 @@ fun SettingsScreen(
                 StratumPreferenceRow(
                     title = stringResource(R.string.settings_health_connect_enabled),
                     subtitle = stringResource(R.string.settings_health_connect_subtitle),
+                    onClick = if (uiState.healthConnectEnabled) {
+                        onRequestHealthConnectEnable
+                    } else {
+                        null
+                    },
                     trailing = {
                         StratumSwitch(
                             checked = uiState.healthConnectEnabled,

@@ -26,7 +26,7 @@
     <string name="settings_weight_unit_lbs">lbs</string>
     <string name="settings_weight_unit_kg">kg</string>
     <string name="settings_health_connect_enabled">Health Connect sync</string>
-    <string name="settings_health_connect_subtitle">Automatically push completed workouts and exercise details to Health Connect</string>
+    <string name="settings_health_connect_subtitle">Push completed workouts, and show steps, sleep, weight, and recovery on the dashboard. Tap this row to update permissions.</string>
 
     <string name="settings_debug_title">Developer tools</string>
     <string name="settings_debug_force_checkin">Force coach check-in</string>

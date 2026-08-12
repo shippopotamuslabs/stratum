@@ -100,8 +100,54 @@ private fun DashboardScreenLoadingPreview() {
     }
 }
 
+@Preview(name = "Dashboard health pager light", showBackground = true)
 @Composable
-private fun DashboardScreenPreviewContent() {
+private fun DashboardScreenHealthLightPreview() {
+    StratumTheme {
+        DashboardScreenPreviewContent(health = previewHealthState())
+    }
+}
+
+@Preview(name = "Dashboard health pager dark", showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun DashboardScreenHealthDarkPreview() {
+    StratumTheme(darkTheme = true) {
+        DashboardScreenPreviewContent(health = previewHealthState())
+    }
+}
+
+@Preview(name = "Dashboard health weight page", showBackground = true)
+@Composable
+private fun DashboardScreenHealthWeightPreview() {
+    StratumTheme {
+        DashboardScreenPreviewContent(health = previewHealthState(selectedPage = 1))
+    }
+}
+
+@Preview(name = "Dashboard health recovery page", showBackground = true)
+@Composable
+private fun DashboardScreenHealthRecoveryPreview() {
+    StratumTheme {
+        DashboardScreenPreviewContent(health = previewHealthState(selectedPage = 2))
+    }
+}
+
+@Preview(name = "Dashboard health empty pages", showBackground = true)
+@Composable
+private fun DashboardScreenHealthEmptyPreview() {
+    StratumTheme {
+        DashboardScreen(
+            state = DashboardUiState.Empty,
+            health = DashboardHealthUiState(visible = true),
+            onNavigateToSettings = {},
+        )
+    }
+}
+
+@Composable
+private fun DashboardScreenPreviewContent(
+    health: DashboardHealthUiState = DashboardHealthUiState(),
+) {
     DashboardScreen(
         state = DashboardUiState.Loaded(
             windowWeeks = 13,
@@ -215,6 +261,7 @@ private fun DashboardScreenPreviewContent() {
                 ),
             ),
         ),
+        health = health,
         onNavigateToSettings = {},
     )
 }
@@ -232,6 +279,42 @@ private fun sevenDayVolumeSeries(peakDay: Int): List<TrendPointUi> =
 
 /** Sample rolling week ending Sunday for previews. */
 private val PREVIEW_DAY_LABELS = listOf("M", "T", "W", "R", "F", "Sa", "Su")
+
+private fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
+    DashboardHealthUiState(
+        visible = true,
+        selectedPage = selectedPage,
+        activity = ActivityHealthPageUi(
+            todayStepsText = "8,432",
+            sevenDayAverageText = "7,210",
+            dailyPoints = listOf(5_200f, 6_100f, 4_800f, 7_400f, 8_100f, 9_000f, 8_432f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            dayLabels = PREVIEW_DAY_LABELS,
+        ),
+        weight = WeightHealthPageUi(
+            latestText = "176.4 lb",
+            latestDateText = "Aug 12",
+            sevenDayMeanText = "177.1 lb",
+            deltaText = "−0.7 lb",
+            trendPoints = listOf(178.2f, 177.8f, 177.4f, 177.0f, 176.6f, 176.5f, 176.4f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+        ),
+        recovery = RecoveryHealthPageUi(
+            lastNightDurationText = "7h 12m",
+            zones = SleepZonesUi(
+                lightFraction = 0.45f,
+                deepFraction = 0.22f,
+                remFraction = 0.23f,
+                awakeFraction = 0.10f,
+            ),
+            restingHrText = "52 bpm",
+            restingHrAverageText = "54 bpm",
+            hrvText = "48 ms",
+            nightlyPoints = listOf(6.8f, 7.1f, 5.9f, 7.4f, 7.0f, 8.1f, 7.2f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            dayLabels = PREVIEW_DAY_LABELS,
+        ),
+    )
 
 /** Lift e1RM-scale series for strength sparklines. */
 private fun ascendingSeries(): List<TrendPointUi> =
