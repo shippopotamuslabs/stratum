@@ -69,8 +69,25 @@ class FirestoreSyncStateStore @Inject constructor(
     fun currentTimeMillis(): Long = System.currentTimeMillis()
 
     /**
-     * Drop hydrate/cursor + account ownership for a user (account switch / explicit wipe only).
-     * Do not call on ordinary sign-out — session teardown should keep durable state.
+     * Drop hydrate/cursor state for [userId] without clearing [lastSyncedUserId].
+     *
+     * Logout uses this so the next [FirestoreCloudSyncAdapter.start] can still detect an
+     * account switch when Room rows survived the wipe. Same-user re-login full-hydrates
+     * because cursors are gone.
+     */
+    suspend fun clearHydrateState(userId: String) {
+        store.updateData { prefs ->
+            prefs.copy(
+                hydratedUserIds = prefs.hydratedUserIds - userId,
+                collectionPullCursors = prefs.collectionPullCursors - userId,
+            )
+        }
+    }
+
+    /**
+     * Drop hydrate/cursor + account ownership for a user (account switch only).
+     * Do not call on logout — session teardown should keep [lastSyncedUserId] (see
+     * [clearHydrateState]).
      */
     suspend fun clearUser(userId: String) {
         store.updateData { prefs ->

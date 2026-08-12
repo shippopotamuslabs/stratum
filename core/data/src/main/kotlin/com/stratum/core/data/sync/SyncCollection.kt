@@ -27,6 +27,30 @@ enum class SyncCollection(
     ProgramChangeEvents("program_change_events"),
     ;
 
+    /**
+     * Collections that must hydrate successfully before this one (Room FKs / logical parents).
+     * A failed parent pull skips this collection so child cursors stay put for retry.
+     */
+    val hydrateParents: List<SyncCollection>
+        get() =
+            when (this) {
+                Lifts -> listOf(Equipment)
+                IncrementTiers -> listOf(Equipment, Lifts)
+                Workouts -> listOf(Programs)
+                WorkoutLifts -> listOf(Workouts, Lifts)
+                LiftSets -> listOf(WorkoutLifts)
+                LoggedSets -> listOf(TrainingSessions)
+                ProgramChangeEvents -> listOf(Programs)
+                UserProfile,
+                OnboardingProgress,
+                GymPreference,
+                SpecializationPreference,
+                Equipment,
+                Programs,
+                TrainingSessions,
+                -> emptyList()
+            }
+
     companion object {
         /** Parents before children for Room FK-safe hydrate. */
         val HYDRATE_ORDER: List<SyncCollection> = entries.toList()
