@@ -48,9 +48,7 @@ import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumIndexVolumeChart
 import com.stratum.core.ui.component.StratumSegmentedControl
-import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
-import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -71,11 +69,13 @@ fun DashboardScreen(
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
+    val health by viewModel.healthUiState.collectAsStateWithLifecycle()
     val graphDetail by viewModel.graphDetailState.collectAsStateWithLifecycle()
 
     DashboardScreen(
         state = state,
         selectedTab = selectedTab,
+        health = health,
         onSelectedTabChange = viewModel::selectTab,
         onNavigateToSettings = onNavigateToSettings,
         onOpenLiftGraph = viewModel::openLiftGraph,
@@ -98,37 +98,37 @@ internal fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
     selectedTab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
+    health: DashboardHealthUiState = DashboardHealthUiState(),
     onSelectedTabChange: (DashboardBoardTabUi) -> Unit = {},
     onOpenLiftGraph: (String) -> Unit = {},
     onOpenMuscleGraph: (String) -> Unit = {},
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
 ) {
-    StratumTabScaffold(
-        modifier = modifier,
-        topBar = {
-            StratumTopBar(
-                titleContent = {
-                    DashboardTabToggle(
-                        labels = listOf(
-                            stringResource(R.string.dashboard_tab_muscles),
-                            stringResource(R.string.dashboard_tab_seven_day),
-                            stringResource(R.string.dashboard_tab_lifts),
-                        ),
-                        selectedIndex = selectedTab.index,
-                        onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
-                    )
-                },
-                actions = {
-                    StratumIconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            painter = painterResource(UiR.drawable.ic_settings),
-                            contentDescription = stringResource(R.string.settings_title),
-                            tint = StratumThemeAccessor.colors.textPrimary,
-                        )
-                    }
-                },
+    val boardTabLabels = listOf(
+        stringResource(R.string.dashboard_tab_muscles),
+        stringResource(R.string.dashboard_tab_seven_day),
+        stringResource(R.string.dashboard_tab_lifts),
+    )
+    val settingsAction: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {
+        StratumIconButton(onClick = onNavigateToSettings) {
+            Icon(
+                painter = painterResource(UiR.drawable.ic_settings),
+                contentDescription = stringResource(R.string.settings_title),
+                tint = StratumThemeAccessor.colors.textPrimary,
+            )
+        }
+    }
+    DashboardHealthScaffold(
+        health = health,
+        settingsAction = settingsAction,
+        boardTabs = {
+            DashboardTabToggle(
+                labels = boardTabLabels,
+                selectedIndex = selectedTab.index,
+                onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
             )
         },
+        modifier = modifier,
     ) {
         when (state) {
             DashboardUiState.Loading -> LoadingState()

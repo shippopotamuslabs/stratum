@@ -6,13 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.health.connect.client.PermissionController
-import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stratum.core.ui.component.UserMessageEffect
+import com.stratum.feature.settings.HealthConnectLaunchPermissions
 import com.stratum.feature.settings.SettingsAccountActions
 import com.stratum.feature.settings.SettingsDataActions
 import com.stratum.feature.settings.SettingsViewModel
@@ -68,14 +67,11 @@ private fun SettingsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val healthConnectWritePermission =
-        remember { HealthPermission.getWritePermission(ExerciseSessionRecord::class) }
+    val healthConnectRequestedPermissions = remember { HealthConnectLaunchPermissions.all }
     val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract(),
-    ) { grantedPermissions ->
-        viewModel.onHealthConnectEnabledChange(
-            grantedPermissions.contains(healthConnectWritePermission),
-        )
+    ) {
+        viewModel.onHealthConnectPermissionSheetClosed()
     }
     UserMessageEffect(
         userMessage = userMessage,
@@ -92,7 +88,7 @@ private fun SettingsRoute(
         onWeightUnitSelected = viewModel::onWeightUnitSelected,
         onHealthConnectEnabledChange = viewModel::onHealthConnectEnabledChange,
         onRequestHealthConnectEnable = {
-            healthConnectPermissionLauncher.launch(setOf(healthConnectWritePermission))
+            healthConnectPermissionLauncher.launch(healthConnectRequestedPermissions)
         },
         onForceCheckInPending = viewModel::forceCheckInPending,
         onLegalClick = onNavigateToLegal,

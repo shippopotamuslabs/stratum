@@ -145,6 +145,19 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Permission sheet closed. Opt-in from the SDK grant set, not the activity result, so Back /
+     * cancel cannot turn an already-enabled switch off.
+     */
+    fun onHealthConnectPermissionSheetClosed() {
+        viewModelScope.launch {
+            setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all)
+                .onFailure { error ->
+                    _userMessage.value = error.message ?: MSG_PREFS_FAILED
+                }
+        }
+    }
+
     fun onAppearanceSelected(appearance: AppearanceUi) {
         viewModelScope.launch {
             setColorMode(appearance.toDomain()).onFailure {

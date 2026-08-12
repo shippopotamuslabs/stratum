@@ -574,6 +574,85 @@ class SettingsViewModelTest {
     }
 
     @Test
+    @DisplayName("Health Connect enable succeeds when available even without write permission")
+    fun healthConnectEnableSucceedsWithoutWrite() = runTest {
+        fakeHealthConnectSync.hasPermission = false
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Health Connect disable still works after a dashboard-only opt-in")
+    fun healthConnectDisableStillWorks() = runTest {
+        fakeHealthConnectSync.hasPermission = false
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+            subject.onHealthConnectEnabledChange(false)
+            advanceUntilIdle()
+            assertFalse(awaitItem().healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("permission sheet uses current grants so cancel does not disable")
+    fun permissionSheetCancelKeepsEnabledWhenGrantsRemain() = runTest {
+        fakeHealthConnectSync.granted = setOf(HealthConnectLaunchPermissions.writeExercise)
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+
+            subject.onHealthConnectPermissionSheetClosed()
+            advanceUntilIdle()
+            expectNoEvents()
+            assertTrue(subject.uiState.value.healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("permission sheet enables from read-only grants")
+    fun permissionSheetEnablesFromReads() = runTest {
+        fakeHealthConnectSync.hasPermission = false
+        fakeHealthConnectSync.granted = setOf(HealthConnectLaunchPermissions.readSteps)
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectPermissionSheetClosed()
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("permission sheet query failure leaves the current enabled state")
+    fun permissionSheetQueryFailureKeepsEnabled() = runTest {
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+
+            fakeHealthConnectSync.grantedPermissionsFailure = IllegalStateException("sdk blip")
+            subject.onHealthConnectPermissionSheetClosed()
+            advanceUntilIdle()
+            expectNoEvents()
+            assertTrue(subject.uiState.value.healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     @DisplayName("When sticky Health Connect sync error is reported then userMessage surfaces it")
     fun healthConnectSyncErrorSurfacesInUserMessage() = runTest {
         subject.userMessage.test {
