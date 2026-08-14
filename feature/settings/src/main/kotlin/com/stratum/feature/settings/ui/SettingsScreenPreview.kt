@@ -42,9 +42,32 @@ private fun SettingsScreenNeoPreview() {
                 equipmentProposalsEnabled = true,
                 repRangeProposalsEnabled = true,
                 weightUnit = WeightUnitUi.Kg,
+                healthConnectEnabled = true,
+                healthConnectWriteGranted = true,
+                healthConnectReadsGranted = false,
                 showDebugTools = true,
                 debugStatusMessage = "Check-in forced for testing.",
                 isForceRefreshCooldown = true,
+            ),
+            onBackClick = {},
+            onAppearanceSelected = {},
+            onThemeFamilySelected = {},
+            onCheckInsEnabledChange = {},
+        )
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun SettingsScreenHealthConnectBothPreview() {
+    StratumTheme(themeId = StratumThemeId.Tonal, darkTheme = true) {
+        SettingsScreen(
+            uiState = SettingsUiState(
+                appearance = AppearanceUi.Dark,
+                themeFamily = ThemeFamilyUi.Stratum,
+                healthConnectEnabled = true,
+                healthConnectWriteGranted = true,
+                healthConnectReadsGranted = true,
             ),
             onBackClick = {},
             onAppearanceSelected = {},

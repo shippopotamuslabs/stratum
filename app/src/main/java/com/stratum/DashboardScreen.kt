@@ -17,11 +17,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -40,6 +46,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -48,9 +55,7 @@ import com.stratum.core.ui.R as UiR
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumIndexVolumeChart
 import com.stratum.core.ui.component.StratumSegmentedControl
-import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
-import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumThemeAccessor
@@ -71,11 +76,16 @@ fun DashboardScreen(
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
+    val health by viewModel.healthUiState.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val graphDetail by viewModel.graphDetailState.collectAsStateWithLifecycle()
 
     DashboardScreen(
         state = state,
         selectedTab = selectedTab,
+        health = health,
+        isRefreshing = isRefreshing,
+        onRefresh = if (health.visible) viewModel::refresh else null,
         onSelectedTabChange = viewModel::selectTab,
         onNavigateToSettings = onNavigateToSettings,
         onOpenLiftGraph = viewModel::openLiftGraph,
@@ -98,44 +108,60 @@ internal fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
     selectedTab: DashboardBoardTabUi = DashboardBoardTabUi.Muscles,
+    health: DashboardHealthUiState = DashboardHealthUiState(),
+    isRefreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     onSelectedTabChange: (DashboardBoardTabUi) -> Unit = {},
     onOpenLiftGraph: (String) -> Unit = {},
     onOpenMuscleGraph: (String) -> Unit = {},
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
 ) {
-    StratumTabScaffold(
-        modifier = modifier,
-        topBar = {
-            StratumTopBar(
-                titleContent = {
-                    DashboardTabToggle(
-                        labels = listOf(
-                            stringResource(R.string.dashboard_tab_muscles),
-                            stringResource(R.string.dashboard_tab_seven_day),
-                            stringResource(R.string.dashboard_tab_lifts),
-                        ),
-                        selectedIndex = selectedTab.index,
-                        onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
-                    )
-                },
-                actions = {
-                    StratumIconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            painter = painterResource(UiR.drawable.ic_settings),
-                            contentDescription = stringResource(R.string.settings_title),
-                            tint = StratumThemeAccessor.colors.textPrimary,
-                        )
-                    }
-                },
+    val boardTabLabels = listOf(
+        stringResource(R.string.dashboard_tab_muscles),
+        stringResource(R.string.dashboard_tab_seven_day),
+        stringResource(R.string.dashboard_tab_lifts),
+    )
+    val healthPagerState = rememberPagerState(
+        initialPage = health.selectedPage.coerceIn(0, HEALTH_PAGER_PAGE_COUNT - 1),
+        pageCount = { HEALTH_PAGER_PAGE_COUNT },
+    )
+    val settingsAction: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {
+        StratumIconButton(onClick = onNavigateToSettings) {
+            Icon(
+                painter = painterResource(UiR.drawable.ic_settings),
+                contentDescription = stringResource(R.string.settings_title),
+                tint = StratumThemeAccessor.colors.textPrimary,
+            )
+        }
+    }
+    DashboardHealthScaffold(
+        healthVisible = health.visible,
+        settingsAction = settingsAction,
+        boardTabs = {
+            DashboardTabToggle(
+                labels = boardTabLabels,
+                selectedIndex = selectedTab.index,
+                onSelectedIndexChange = { onSelectedTabChange(DashboardBoardTabUi.fromIndex(it)) },
             )
         },
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = modifier,
     ) {
         when (state) {
-            DashboardUiState.Loading -> LoadingState()
-            DashboardUiState.Empty -> EmptyState()
+            DashboardUiState.Loading -> LoadingState(
+                health = health,
+                pagerState = healthPagerState,
+            )
+            DashboardUiState.Empty -> EmptyState(
+                health = health,
+                pagerState = healthPagerState,
+            )
             is DashboardUiState.Loaded -> LoadedContent(
                 state = state,
                 tab = selectedTab,
+                health = health,
+                pagerState = healthPagerState,
                 onOpenLiftGraph = onOpenLiftGraph,
                 onOpenMuscleGraph = onOpenMuscleGraph,
                 onOpenMuscleDailyVolumeGraph = onOpenMuscleDailyVolumeGraph,
@@ -145,36 +171,71 @@ internal fun DashboardScreen(
 }
 
 @Composable
-private fun LoadingState() {
-    StratumText(
-        text = stringResource(R.string.dashboard_loading),
-        muted = true,
-        textAlign = TextAlign.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 48.dp),
-    )
+private fun ColumnScope.LoadingState(
+    health: DashboardHealthUiState,
+    pagerState: PagerState,
+) {
+    DashboardStatusColumn(health = health, pagerState = pagerState) {
+        StratumText(
+            text = stringResource(R.string.dashboard_loading),
+            muted = true,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 48.dp, horizontal = BOARD_HORIZONTAL_PADDING_DP.dp),
+        )
+    }
 }
 
 @Composable
-private fun EmptyState() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 48.dp, horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        StratumText(
-            text = stringResource(R.string.dashboard_empty_title),
-            style = StratumThemeAccessor.typography.titleMedium,
-            textAlign = TextAlign.Center,
-        )
-        StratumText(
-            text = stringResource(R.string.dashboard_empty_subtitle),
-            muted = true,
-            textAlign = TextAlign.Center,
-        )
+private fun ColumnScope.EmptyState(
+    health: DashboardHealthUiState,
+    pagerState: PagerState,
+) {
+    DashboardStatusColumn(health = health, pagerState = pagerState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 48.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StratumText(
+                text = stringResource(R.string.dashboard_empty_title),
+                style = StratumThemeAccessor.typography.titleMedium,
+                textAlign = TextAlign.Center,
+            )
+            StratumText(
+                text = stringResource(R.string.dashboard_empty_subtitle),
+                muted = true,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.DashboardStatusColumn(
+    health: DashboardHealthUiState,
+    pagerState: PagerState,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    if (health.visible) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            DashboardHealthPager(
+                state = health,
+                pagerState = pagerState,
+                modifier = Modifier.padding(bottom = HealthChromeSpacing),
+            )
+            content()
+        }
+    } else {
+        content()
     }
 }
 
@@ -182,6 +243,8 @@ private fun EmptyState() {
 private fun ColumnScope.LoadedContent(
     state: DashboardUiState.Loaded,
     tab: DashboardBoardTabUi,
+    health: DashboardHealthUiState,
+    pagerState: PagerState,
     onOpenLiftGraph: (String) -> Unit,
     onOpenMuscleGraph: (String) -> Unit,
     onOpenMuscleDailyVolumeGraph: (String) -> Unit,
@@ -191,114 +254,12 @@ private fun ColumnScope.LoadedContent(
         DashboardBoardTabUi.SevenDay -> state.runningDailyVolume.isNotEmpty()
         DashboardBoardTabUi.Lifts -> state.liftSections.any { it.lifts.isNotEmpty() }
     }
-    if (hasItems) {
-        val showStatusLegend = when (tab) {
-            DashboardBoardTabUi.Muscles -> state.muscles.any { it.highlight != null }
-            DashboardBoardTabUi.Lifts ->
-                state.liftSections.any { section -> section.lifts.any { it.highlight != null } }
-            DashboardBoardTabUi.SevenDay -> false
-        }
-        when (tab) {
-            DashboardBoardTabUi.SevenDay -> DashboardLegend(
-                primaryLabel = stringResource(R.string.dashboard_legend_volume),
-                primaryColor = StratumThemeAccessor.colors.accent,
-                primaryStyle = LegendSwatchStyle.Bar,
-                secondaryLabel = null,
-                secondaryColor = Color.Unspecified,
-                caption = stringResource(R.string.dashboard_legend_seven_day_caption),
-                showStatusLegend = false,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
-            )
-            DashboardBoardTabUi.Muscles -> DashboardLegend(
-                primaryLabel = stringResource(R.string.dashboard_legend_progress),
-                primaryColor = StratumThemeAccessor.colors.setComplete,
-                primaryStyle = LegendSwatchStyle.Bar,
-                secondaryLabel = stringResource(R.string.dashboard_legend_volume),
-                secondaryColor = StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA),
-                caption = stringResource(R.string.dashboard_legend_baseline_caption),
-                showStatusLegend = showStatusLegend,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
-            )
-            DashboardBoardTabUi.Lifts -> DashboardLegend(
-                primaryLabel = stringResource(R.string.dashboard_legend_strength),
-                primaryColor = StratumThemeAccessor.colors.textData,
-                primaryStyle = LegendSwatchStyle.Line,
-                secondaryLabel = stringResource(R.string.dashboard_legend_volume),
-                secondaryColor = StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA),
-                caption = stringResource(
-                    R.string.dashboard_legend_lifts_window_caption,
-                    state.windowWeeks,
-                ),
-                showStatusLegend = showStatusLegend,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2),
-            )
-        }
+    val showStatusLegend = when (tab) {
+        DashboardBoardTabUi.Muscles -> state.muscles.any { it.highlight != null }
+        DashboardBoardTabUi.Lifts ->
+            state.liftSections.any { section -> section.lifts.any { it.highlight != null } }
+        DashboardBoardTabUi.SevenDay -> false
     }
-    when (tab) {
-        DashboardBoardTabUi.Muscles -> {
-            if (state.muscles.isEmpty()) {
-                EmptyTabMessage(stringResource(R.string.dashboard_empty_muscles_window))
-            } else {
-                TrendCardGrid(items = state.muscles, key = { "muscle-${it.name}" }) { muscle ->
-                    MuscleTrendCard(
-                        muscle = muscle,
-                        onClick = { onOpenMuscleGraph(muscle.muscleKey) },
-                    )
-                }
-            }
-        }
-        DashboardBoardTabUi.SevenDay -> {
-            if (state.runningDailyVolume.isEmpty()) {
-                EmptyTabMessage(stringResource(R.string.dashboard_empty_seven_day_window))
-            } else {
-                TrendCardGrid(
-                    items = state.runningDailyVolume,
-                    key = { "daily-${it.name}" },
-                ) { muscle ->
-                    SevenDayVolumeCard(
-                        muscle = muscle,
-                        onClick = { onOpenMuscleDailyVolumeGraph(muscle.muscleKey) },
-                    )
-                }
-            }
-        }
-        DashboardBoardTabUi.Lifts -> {
-            if (state.liftSections.isEmpty()) {
-                EmptyTabMessage(stringResource(R.string.dashboard_empty_lifts_program))
-            } else {
-                LiftSectionGrid(
-                    sections = state.liftSections,
-                    onOpenLiftGraph = onOpenLiftGraph,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ColumnScope.EmptyTabMessage(text: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .weight(1f),
-        contentAlignment = Alignment.Center,
-    ) {
-        StratumText(text = text, muted = true, textAlign = TextAlign.Center)
-    }
-}
-
-@Composable
-private fun <T> ColumnScope.TrendCardGrid(
-    items: List<T>,
-    key: (T) -> Any,
-    cardContent: @Composable (T) -> Unit,
-) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(CARDS_PER_ROW),
         modifier = Modifier
@@ -306,11 +267,142 @@ private fun <T> ColumnScope.TrendCardGrid(
             .weight(1f),
         horizontalArrangement = Arrangement.spacedBy(CARD_SPACING_DP.dp),
         verticalArrangement = Arrangement.spacedBy(CARD_SPACING_DP.dp),
-        contentPadding = PaddingValues(bottom = 16.dp),
+        contentPadding = PaddingValues(
+            start = BOARD_HORIZONTAL_PADDING_DP.dp,
+            end = BOARD_HORIZONTAL_PADDING_DP.dp,
+            bottom = 16.dp,
+        ),
     ) {
-        items(items, key = key) { item ->
-            cardContent(item)
+        if (health.visible) {
+            item(
+                key = "health-pager",
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
+                DashboardHealthPager(
+                    state = health,
+                    pagerState = pagerState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .breakoutHorizontal(BOARD_HORIZONTAL_PADDING_DP.dp),
+                )
+            }
         }
+        if (hasItems) {
+            item(
+                key = "legend",
+                span = { GridItemSpan(maxLineSpan) },
+            ) {
+                BoardLegend(
+                    tab = tab,
+                    windowWeeks = state.windowWeeks,
+                    showStatusLegend = showStatusLegend,
+                )
+            }
+        }
+        when (tab) {
+            DashboardBoardTabUi.Muscles -> {
+                if (state.muscles.isEmpty()) {
+                    emptyTabItem(R.string.dashboard_empty_muscles_window)
+                } else {
+                    items(
+                        items = state.muscles,
+                        key = { muscle -> "muscle-${muscle.name}" },
+                    ) { muscle ->
+                        MuscleTrendCard(
+                            muscle = muscle,
+                            onClick = { onOpenMuscleGraph(muscle.muscleKey) },
+                        )
+                    }
+                }
+            }
+            DashboardBoardTabUi.SevenDay -> {
+                if (state.runningDailyVolume.isEmpty()) {
+                    emptyTabItem(R.string.dashboard_empty_seven_day_window)
+                } else {
+                    items(
+                        items = state.runningDailyVolume,
+                        key = { muscle -> "daily-${muscle.name}" },
+                    ) { muscle ->
+                        SevenDayVolumeCard(
+                            muscle = muscle,
+                            onClick = { onOpenMuscleDailyVolumeGraph(muscle.muscleKey) },
+                        )
+                    }
+                }
+            }
+            DashboardBoardTabUi.Lifts -> {
+                if (state.liftSections.isEmpty()) {
+                    emptyTabItem(R.string.dashboard_empty_lifts_program)
+                } else {
+                    liftSectionItems(
+                        sections = state.liftSections,
+                        onOpenLiftGraph = onOpenLiftGraph,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BoardLegend(
+    tab: DashboardBoardTabUi,
+    windowWeeks: Int,
+    showStatusLegend: Boolean,
+) {
+    val legendModifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = CARD_PADDING_DP.dp, vertical = CARD_SPACING_DP.dp / 2)
+    when (tab) {
+        DashboardBoardTabUi.SevenDay -> DashboardLegend(
+            primaryLabel = stringResource(R.string.dashboard_legend_volume),
+            primaryColor = StratumThemeAccessor.colors.accent,
+            primaryStyle = LegendSwatchStyle.Bar,
+            secondaryLabel = null,
+            secondaryColor = Color.Unspecified,
+            caption = stringResource(R.string.dashboard_legend_seven_day_caption),
+            showStatusLegend = false,
+            modifier = legendModifier,
+        )
+        DashboardBoardTabUi.Muscles -> DashboardLegend(
+            primaryLabel = stringResource(R.string.dashboard_legend_progress),
+            primaryColor = StratumThemeAccessor.colors.setComplete,
+            primaryStyle = LegendSwatchStyle.Bar,
+            secondaryLabel = stringResource(R.string.dashboard_legend_volume),
+            secondaryColor = StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA),
+            caption = stringResource(R.string.dashboard_legend_baseline_caption),
+            showStatusLegend = showStatusLegend,
+            modifier = legendModifier,
+        )
+        DashboardBoardTabUi.Lifts -> DashboardLegend(
+            primaryLabel = stringResource(R.string.dashboard_legend_strength),
+            primaryColor = StratumThemeAccessor.colors.textData,
+            primaryStyle = LegendSwatchStyle.Line,
+            secondaryLabel = stringResource(R.string.dashboard_legend_volume),
+            secondaryColor = StratumThemeAccessor.colors.textMuted.copy(alpha = VOLUME_GHOST_ALPHA),
+            caption = stringResource(
+                R.string.dashboard_legend_lifts_window_caption,
+                windowWeeks,
+            ),
+            showStatusLegend = showStatusLegend,
+            modifier = legendModifier,
+        )
+    }
+}
+
+private fun LazyGridScope.emptyTabItem(textRes: Int) {
+    item(
+        key = "empty-tab",
+        span = { GridItemSpan(maxLineSpan) },
+    ) {
+        StratumText(
+            text = stringResource(textRes),
+            muted = true,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 48.dp),
+        )
     }
 }
 
@@ -359,36 +451,25 @@ private fun SevenDayVolumeCard(
     }
 }
 
-@Composable
-private fun ColumnScope.LiftSectionGrid(
+private fun LazyGridScope.liftSectionItems(
     sections: List<LiftSectionUi>,
     onOpenLiftGraph: (String) -> Unit,
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(CARDS_PER_ROW),
-        modifier = Modifier
-            .fillMaxWidth()
-            .weight(1f),
-        horizontalArrangement = Arrangement.spacedBy(CARD_SPACING_DP.dp),
-        verticalArrangement = Arrangement.spacedBy(CARD_SPACING_DP.dp),
-        contentPadding = PaddingValues(bottom = 16.dp),
-    ) {
-        sections.forEach { section ->
-            item(
-                key = "section-${section.title}",
-                span = { GridItemSpan(maxLineSpan) },
-            ) {
-                LiftSectionHeader(title = sectionTitle(section.title))
-            }
-            items(
-                items = section.lifts,
-                key = { lift -> "lift-${section.title}-${lift.name}" },
-            ) { lift ->
-                LiftTrendCard(
-                    lift = lift,
-                    onClick = { onOpenLiftGraph(lift.liftId) },
-                )
-            }
+    sections.forEach { section ->
+        item(
+            key = "section-${section.title}",
+            span = { GridItemSpan(maxLineSpan) },
+        ) {
+            LiftSectionHeader(title = sectionTitle(section.title))
+        }
+        items(
+            items = section.lifts,
+            key = { lift -> "lift-${section.title}-${lift.name}" },
+        ) { lift ->
+            LiftTrendCard(
+                lift = lift,
+                onClick = { onOpenLiftGraph(lift.liftId) },
+            )
         }
     }
 }
@@ -560,6 +641,7 @@ private fun TrendBadge.labelRes(): Int = when (this) {
 
 private const val CARDS_PER_ROW = 2
 private const val CARD_SPACING_DP = 12
+private const val BOARD_HORIZONTAL_PADDING_DP = 12
 private const val CARD_PADDING_DP = 14
 private const val CARD_DOT_SIZE_DP = 24
 private const val CARD_DOT_ICON_SIZE_DP = 14
@@ -778,3 +860,18 @@ private fun LegendSwatch(
         StratumText(text = label, muted = true, style = StratumThemeAccessor.typography.sectionLabel)
     }
 }
+
+/** Draw a full-bleed header inside a horizontally padded [LazyVerticalGrid]. */
+private fun Modifier.breakoutHorizontal(padding: Dp): Modifier =
+    layout { measurable, constraints ->
+        val extra = padding.roundToPx()
+        val placeable = measurable.measure(
+            constraints.copy(
+                minWidth = constraints.maxWidth + (extra * 2),
+                maxWidth = constraints.maxWidth + (extra * 2),
+            ),
+        )
+        layout(constraints.maxWidth, placeable.height) {
+            placeable.place(-extra, 0)
+        }
+    }

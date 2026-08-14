@@ -25,8 +25,16 @@
     <string name="settings_weight_unit_title">Weight unit</string>
     <string name="settings_weight_unit_lbs">lbs</string>
     <string name="settings_weight_unit_kg">kg</string>
-    <string name="settings_health_connect_enabled">Health Connect sync</string>
-    <string name="settings_health_connect_subtitle">Automatically push completed workouts and exercise details to Health Connect</string>
+    <string name="settings_health_connect_section">Health Connect</string>
+    <string name="settings_health_connect_enabled">Use Health Connect</string>
+    <string name="settings_health_connect_subtitle_off">Write finished workouts automatically. Allow reads to show steps, sleep, weight, and recovery on the dashboard.</string>
+    <string name="settings_health_connect_subtitle_on">Writing workouts and dashboard health are controlled separately below.</string>
+    <string name="settings_health_connect_write_title">Write workouts</string>
+    <string name="settings_health_connect_write_allowed">Allowed. Finished sessions are added to Health Connect.</string>
+    <string name="settings_health_connect_write_needed">Not allowed. Tap to write finished workouts automatically.</string>
+    <string name="settings_health_connect_reads_title">Dashboard health</string>
+    <string name="settings_health_connect_reads_allowed">Allowed. Steps, sleep, weight, and recovery can show on the dashboard.</string>
+    <string name="settings_health_connect_reads_needed">Not allowed. Tap to show steps, sleep, weight, and recovery on the dashboard.</string>
 
     <string name="settings_debug_title">Developer tools</string>
     <string name="settings_debug_force_checkin">Force coach check-in</string>

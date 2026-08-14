@@ -44,4 +44,57 @@ class HealthConnectUseCasesTest {
         assertTrue(result.exceptionOrNull() is HealthConnectUnavailableException)
         assertEquals(false, preferencesRepo.getPreferences().enabled)
     }
+
+    @Test
+    @DisplayName("applyGrantedPermissions enables when any requested grant is present")
+    fun applyGrantedPermissionsEnablesFromReads() = runTest {
+        syncPort.granted = setOf("read_steps")
+
+        val result = setEnabledUseCase.applyGrantedPermissions(setOf("write", "read_steps"))
+
+        assertTrue(result.isSuccess)
+        assertEquals(true, preferencesRepo.getPreferences().enabled)
+    }
+
+    @Test
+    @DisplayName("applyGrantedPermissions leaves prefs unchanged when the grant query fails")
+    fun applyGrantedPermissionsQueryFailureKeepsState() = runTest {
+        preferencesRepo.setPreferences(HealthConnectPreferences(enabled = true))
+        syncPort.grantedPermissionsFailure = IllegalStateException("sdk blip")
+
+        val result = setEnabledUseCase.applyGrantedPermissions(setOf("write"))
+
+        assertTrue(result.isSuccess)
+        assertEquals(true, preferencesRepo.getPreferences().enabled)
+    }
+
+    @Test
+    @DisplayName("permissionsStillNeeded returns requested types that are not granted")
+    fun permissionsStillNeededSubtractsGranted() = runTest {
+        syncPort.granted = setOf("write")
+
+        val result = setEnabledUseCase.permissionsStillNeeded(setOf("write", "read_steps"))
+
+        assertEquals(setOf("read_steps"), result.getOrThrow())
+    }
+
+    @Test
+    @DisplayName("permissionsStillNeeded fails when the grant query fails")
+    fun permissionsStillNeededQueryFailure() = runTest {
+        syncPort.grantedPermissionsFailure = IllegalStateException("sdk blip")
+
+        val result = setEnabledUseCase.permissionsStillNeeded(setOf("write"))
+
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    @DisplayName("grantedPermissions returns the current SDK grant set")
+    fun grantedPermissionsPassthrough() = runTest {
+        syncPort.granted = setOf("write", "read_steps")
+
+        val result = setEnabledUseCase.grantedPermissions()
+
+        assertEquals(setOf("write", "read_steps"), result.getOrThrow())
+    }
 }

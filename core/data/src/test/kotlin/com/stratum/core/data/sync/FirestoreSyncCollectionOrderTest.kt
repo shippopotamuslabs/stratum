@@ -20,6 +20,23 @@ class FirestoreSyncCollectionOrderTest {
     }
 
     @Test
+    fun `hydrate parents precede each collection`() {
+        val order = SyncCollection.HYDRATE_ORDER
+        for (collection in order) {
+            for (parent in collection.hydrateParents) {
+                assertTrue(
+                    order.indexOf(parent) < order.indexOf(collection),
+                    "$parent must precede $collection",
+                )
+            }
+        }
+        assertEquals(
+            listOf(SyncCollection.Equipment, SyncCollection.Lifts),
+            SyncCollection.IncrementTiers.hydrateParents,
+        )
+    }
+
+    @Test
     fun `allowlist matches hydrate order set`() {
         assertEquals(
             SyncCollection.HYDRATE_ORDER.map { it.firestorePath }.toSet(),

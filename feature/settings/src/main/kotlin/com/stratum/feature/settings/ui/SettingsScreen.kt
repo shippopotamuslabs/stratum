@@ -27,6 +27,7 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.settings.AppearanceUi
+import com.stratum.feature.settings.HealthConnectPermissionFocus
 import com.stratum.feature.settings.PostWorkoutSuggestionUi
 import com.stratum.feature.settings.R
 import com.stratum.feature.settings.SettingsAccountActions
@@ -45,7 +46,7 @@ fun SettingsScreen(
     onPostWorkoutSuggestionEnabledChange: (PostWorkoutSuggestionUi, Boolean) -> Unit = { _, _ -> },
     onWeightUnitSelected: (WeightUnitUi) -> Unit = {},
     onHealthConnectEnabledChange: (Boolean) -> Unit = {},
-    onRequestHealthConnectEnable: () -> Unit = {},
+    onRequestHealthConnectPermissions: (HealthConnectPermissionFocus) -> Unit = {},
     onForceCheckInPending: () -> Unit = {},
     onLegalClick: () -> Unit = {},
     dataActions: SettingsDataActions = SettingsDataActions(),
@@ -147,23 +148,6 @@ fun SettingsScreen(
                 )
                 SettingsGroupDivider()
                 StratumPreferenceRow(
-                    title = stringResource(R.string.settings_health_connect_enabled),
-                    subtitle = stringResource(R.string.settings_health_connect_subtitle),
-                    trailing = {
-                        StratumSwitch(
-                            checked = uiState.healthConnectEnabled,
-                            onCheckedChange = { enabled ->
-                                if (enabled) {
-                                    onRequestHealthConnectEnable()
-                                } else {
-                                    onHealthConnectEnabledChange(false)
-                                }
-                            },
-                        )
-                    },
-                )
-                SettingsGroupDivider()
-                StratumPreferenceRow(
                     title = stringResource(R.string.settings_equipment_proposals_enabled),
                     subtitle = stringResource(R.string.settings_equipment_proposals_subtitle),
                     trailing = {
@@ -195,6 +179,12 @@ fun SettingsScreen(
                     },
                 )
             }
+
+            HealthConnectSettingsGroup(
+                uiState = uiState,
+                onEnabledChange = onHealthConnectEnabledChange,
+                onRequestPermissions = onRequestHealthConnectPermissions,
+            )
 
             SettingsGroup(title = stringResource(R.string.settings_data_section_title)) {
                 StratumPreferenceRow(
@@ -328,6 +318,64 @@ fun SettingsScreen(
             destructiveConfirm = true,
             confirmEnabled = !accountBusy,
         )
+    }
+}
+
+@Composable
+private fun HealthConnectSettingsGroup(
+    uiState: SettingsUiState,
+    onEnabledChange: (Boolean) -> Unit,
+    onRequestPermissions: (HealthConnectPermissionFocus) -> Unit,
+) {
+    SettingsGroup(title = stringResource(R.string.settings_health_connect_section)) {
+        StratumPreferenceRow(
+            title = stringResource(R.string.settings_health_connect_enabled),
+            subtitle = stringResource(
+                if (uiState.healthConnectEnabled) {
+                    R.string.settings_health_connect_subtitle_on
+                } else {
+                    R.string.settings_health_connect_subtitle_off
+                },
+            ),
+            trailing = {
+                StratumSwitch(
+                    checked = uiState.healthConnectEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            onRequestPermissions(HealthConnectPermissionFocus.All)
+                        } else {
+                            onEnabledChange(false)
+                        }
+                    },
+                )
+            },
+        )
+        if (uiState.healthConnectEnabled) {
+            SettingsGroupDivider()
+            StratumPreferenceRow(
+                title = stringResource(R.string.settings_health_connect_write_title),
+                subtitle = stringResource(
+                    if (uiState.healthConnectWriteGranted) {
+                        R.string.settings_health_connect_write_allowed
+                    } else {
+                        R.string.settings_health_connect_write_needed
+                    },
+                ),
+                onClick = { onRequestPermissions(HealthConnectPermissionFocus.Write) },
+            )
+            SettingsGroupDivider()
+            StratumPreferenceRow(
+                title = stringResource(R.string.settings_health_connect_reads_title),
+                subtitle = stringResource(
+                    if (uiState.healthConnectReadsGranted) {
+                        R.string.settings_health_connect_reads_allowed
+                    } else {
+                        R.string.settings_health_connect_reads_needed
+                    },
+                ),
+                onClick = { onRequestPermissions(HealthConnectPermissionFocus.Reads) },
+            )
+        }
     }
 }
 

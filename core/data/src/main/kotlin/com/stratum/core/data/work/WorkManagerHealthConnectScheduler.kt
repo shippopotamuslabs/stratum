@@ -7,6 +7,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
 import com.stratum.domain.healthconnect.HealthConnectSchedulerPort
+import com.stratum.domain.healthconnect.HealthConnectSyncPort
 import com.stratum.domain.training.identity.TrainingSessionId
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -20,11 +21,13 @@ import javax.inject.Singleton
 class WorkManagerHealthConnectScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val preferencesPort: HealthConnectPreferencesPort,
+    private val healthConnectSyncPort: HealthConnectSyncPort,
 ) : HealthConnectSchedulerPort {
 
     override suspend fun enqueueSync(sessionId: TrainingSessionId) {
         runCatching {
             if (!preferencesPort.getPreferences().enabled) return
+            if (!healthConnectSyncPort.hasWritePermission()) return
             val inputData = Data.Builder()
                 .putString(KEY_SESSION_ID, sessionId.value)
                 .build()

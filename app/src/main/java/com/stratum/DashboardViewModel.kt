@@ -19,6 +19,9 @@ import com.stratum.domain.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
 import com.stratum.domain.dashboard.olsSlope
 import com.stratum.domain.dashboard.slopeToDirection
+import com.stratum.domain.healthconnect.HealthMetricsPages
+import com.stratum.domain.healthconnect.LoadHealthConnectMetricsUseCase
+import com.stratum.domain.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
@@ -46,6 +49,8 @@ class DashboardViewModel(
     observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
     observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
+    private val loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
     /**
      * Device calendar zone for 7-Day buckets + labels. Captured once so load and presentation
      * cannot drift. Unit tests pass a fixed zone via the primary constructor.
@@ -66,6 +71,8 @@ class DashboardViewModel(
         observeDashboardPreferences: ObserveDashboardPreferencesUseCase,
         observeCloudSyncStatus: ObserveCloudSyncStatusUseCase,
         observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+        observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
+        loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
     ) : this(
         loadDashboard,
         loadGraphDetail,
@@ -73,6 +80,8 @@ class DashboardViewModel(
         observeDashboardPreferences,
         observeCloudSyncStatus,
         observeWeightDisplayPreferences,
+        observeHealthConnectPreferences,
+        loadHealthConnectMetrics,
         ZoneId.systemDefault(),
         Instant::now,
     )
@@ -91,14 +100,23 @@ class DashboardViewModel(
     private val _selectedTab = MutableStateFlow(DashboardBoardTabUi.Muscles)
     val selectedTab: StateFlow<DashboardBoardTabUi> = _selectedTab.asStateFlow()
 
+    private val _healthUiState = MutableStateFlow(DashboardHealthUiState())
+    val healthUiState: StateFlow<DashboardHealthUiState> = _healthUiState.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     /** Preferred weight unit for lift e1RM headlines, chart points, and graph detail. */
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
+    private val healthEnabled = MutableStateFlow(false)
 
     private var loadJob: Job? = null
+    private var healthJob: Job? = null
     private var detailJob: Job? = null
     private var detailSession: GraphDetailSession? = null
     /** Last successful domain summary so unit toggles re-map without a reload. */
     private var lastSummary: DashboardSummary? = null
+    private var lastHealthPages: HealthMetricsPages? = null
 
     init {
         viewModelScope.launch {
@@ -113,7 +131,18 @@ class DashboardViewModel(
                 lastSummary?.let { summary ->
                     _uiState.value = summary.toUiState(prefs.displayUnit, zone)
                 }
+                lastHealthPages?.let { pages -> publishHealth(pages) }
                 publishReady()
+            }
+        }
+        viewModelScope.launch {
+            observeHealthConnectPreferences().collect { prefs ->
+                healthEnabled.value = prefs.enabled
+                if (!prefs.enabled) {
+                    hideHealth()
+                } else {
+                    loadHealth()
+                }
             }
         }
         load()
@@ -137,6 +166,26 @@ class DashboardViewModel(
                         }
                     }
                 }
+        }
+    }
+
+    /**
+     * Pull-to-refresh: reloads the board and Health Connect pages without flashing the empty
+     * loading chrome. No-ops while a pull is already in flight.
+     */
+    fun refresh() {
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
+        load()
+        val boardJob = loadJob
+        val metricsJob = healthJob
+        viewModelScope.launch {
+            try {
+                boardJob?.join()
+                metricsJob?.join()
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 
@@ -169,6 +218,39 @@ class DashboardViewModel(
             _uiState.value =
                 summary?.toUiState(displayUnit.value, zone) ?: DashboardUiState.Empty
         }
+        if (healthEnabled.value) {
+            loadHealth()
+        }
+    }
+
+    private fun hideHealth() {
+        healthJob?.cancel()
+        healthJob = null
+        lastHealthPages = HealthMetricsPages.Hidden
+        _healthUiState.value = DashboardHealthUiState()
+        _isRefreshing.value = false
+    }
+
+    private fun loadHealth() {
+        if (!healthEnabled.value) {
+            hideHealth()
+            return
+        }
+        healthJob?.cancel()
+        healthJob = viewModelScope.launch {
+            val pages = loadHealthConnectMetrics(zone = zone, now = clock())
+            if (!healthEnabled.value) return@launch
+            lastHealthPages = pages
+            publishHealth(pages)
+        }
+    }
+
+    private fun publishHealth(pages: HealthMetricsPages) {
+        if (!healthEnabled.value) return
+        _healthUiState.value = pages.toHealthUi(
+            displayUnit = displayUnit.value,
+            zone = zone,
+        )
     }
 
     fun openLiftGraph(liftId: String) {

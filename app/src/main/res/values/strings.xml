@@ -65,6 +65,30 @@
     <string name="dashboard_graph_chart_cd">%1$s detail chart</string>
     <!-- Content description for the shell settings entry point (screen chrome lives in :feature:settings). -->
     <string name="settings_title">Settings</string>
+    <string name="dashboard_health_activity">Steps</string>
+    <string name="dashboard_health_weight">Weight</string>
+    <string name="dashboard_health_recovery">Recovery</string>
+    <string name="dashboard_health_steps_empty">No steps in the last 7 days</string>
+    <string name="dashboard_health_weight_empty">No weight in the last 7 days</string>
+    <string name="dashboard_health_sleep_empty">No sleep in the last 7 nights</string>
+    <string name="dashboard_health_steps_average">7-day avg %1$s</string>
+    <string name="dashboard_health_weight_average">7-day avg %1$s</string>
+    <string name="dashboard_health_rhr">RHR %1$s</string>
+    <string name="dashboard_health_rhr_with_average">RHR %1$s · AVG %2$s</string>
+    <string name="dashboard_health_hrv">HRV %1$s</string>
+    <string name="dashboard_health_vital_rhr">RHR</string>
+    <string name="dashboard_health_vital_hrv">HRV</string>
+    <string name="dashboard_health_vital_avg">AVG</string>
+    <string name="dashboard_health_vital_separator">·</string>
+    <string name="dashboard_health_steps_chart_cd">Steps for the last 7 days</string>
+    <string name="dashboard_health_weight_chart_cd">Body weight trend</string>
+    <string name="dashboard_health_sleep_chart_cd">Sleep duration for the last 7 nights</string>
+    <string name="dashboard_health_sleep_zones_cd">Last night sleep stages</string>
+    <string name="dashboard_health_sleep_stages_chart_cd">Light, deep, REM, and awake sleep for the last 7 nights</string>
+    <string name="dashboard_health_sleep_stage_light">Light</string>
+    <string name="dashboard_health_sleep_stage_deep">Deep</string>
+    <string name="dashboard_health_sleep_stage_rem">REM</string>
+    <string name="dashboard_health_sleep_stage_awake">Awake</string>
     <string name="gym_placeholder_title">Gym</string>
     <string name="gym_placeholder_subtitle">Lift catalog and history land in a later slice.</string>
 </resources>
