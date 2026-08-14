@@ -36,4 +36,18 @@ object HealthConnectMetricsMapper {
             dayStart = localStart.atZone(zone).toInstant(),
             count = count,
         )
+
+    fun dailyStepCountsFromRecords(
+        samples: List<Pair<Instant, Long>>,
+        zone: ZoneId,
+    ): List<DailyStepCount> =
+        samples
+            .groupBy { it.first.atZone(zone).toLocalDate() }
+            .map { (date, daySamples) ->
+                DailyStepCount(
+                    dayStart = date.atStartOfDay(zone).toInstant(),
+                    count = daySamples.sumOf { it.second },
+                )
+            }
+            .sortedBy { it.dayStart }
 }

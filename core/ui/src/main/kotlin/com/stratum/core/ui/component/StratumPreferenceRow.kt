@@ -30,13 +30,18 @@ fun StratumPreferenceRow(
     showChevron: Boolean = onClick != null && trailing == null,
 ) {
     val colors = StratumThemeAccessor.colors
+    val clickHandler = onClick
+    // A trailing switch is its own click target. Nesting it inside a row clickable
+    // swallows label taps, so only the title column is clickable in that case.
+    val rowClickable = clickHandler != null && trailing == null
+    val labelClickable = clickHandler != null && trailing != null
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .then(
-                    if (onClick != null) {
-                        Modifier.clickable(role = Role.Button, onClick = onClick)
+                    if (clickHandler != null && rowClickable) {
+                        Modifier.clickable(role = Role.Button, onClick = clickHandler)
                     } else {
                         Modifier
                     },
@@ -46,7 +51,16 @@ fun StratumPreferenceRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
-            modifier = Modifier.weight(1f),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .then(
+                        if (clickHandler != null && labelClickable) {
+                            Modifier.clickable(role = Role.Button, onClick = clickHandler)
+                        } else {
+                            Modifier
+                        },
+                    ),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             StratumText(text = title)

@@ -2,6 +2,7 @@ package com.stratum.core.data.healthconnect
 
 import androidx.health.connect.client.records.SleepSessionRecord
 import com.stratum.domain.healthconnect.SleepStageType
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -74,6 +75,23 @@ class HealthConnectMetricsMapperTest {
             val count = HealthConnectMetricsMapper.dailyStepCount(local, ZoneOffset.UTC, 1_234L)
             assertEquals(1_234L, count.count)
             assertEquals(java.time.Instant.parse("2026-08-12T00:00:00Z"), count.dayStart)
+        }
+
+        @Test
+        fun bucketsRecordsByLocalDay() {
+            val zone = ZoneOffset.UTC
+            val buckets = HealthConnectMetricsMapper.dailyStepCountsFromRecords(
+                samples = listOf(
+                    Instant.parse("2026-08-11T23:00:00Z") to 100L,
+                    Instant.parse("2026-08-12T01:00:00Z") to 200L,
+                    Instant.parse("2026-08-12T08:00:00Z") to 50L,
+                ),
+                zone = zone,
+            )
+            assertEquals(2, buckets.size)
+            assertEquals(100L, buckets[0].count)
+            assertEquals(250L, buckets[1].count)
+            assertEquals(Instant.parse("2026-08-12T00:00:00Z"), buckets[1].dayStart)
         }
     }
 

@@ -1,5 +1,6 @@
 package com.stratum.feature.settings
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -22,5 +23,34 @@ class HealthConnectLaunchPermissionsTest {
         val requested = setOf("write", "read_steps")
         assertFalse(healthConnectOptInFromGrants(emptySet(), requested))
         assertFalse(healthConnectOptInFromGrants(setOf("unrelated"), requested))
+    }
+
+    @Test
+    @DisplayName("write vs read grant helpers split Health Connect capabilities")
+    fun writeAndReadGrantHelpers() {
+        val writeOnly = setOf(HealthConnectLaunchPermissions.writeExercise)
+        assertTrue(healthConnectWriteGranted(writeOnly))
+        assertFalse(healthConnectReadsGranted(writeOnly))
+
+        val readsOnly = setOf(HealthConnectLaunchPermissions.readSteps)
+        assertFalse(healthConnectWriteGranted(readsOnly))
+        assertTrue(healthConnectReadsGranted(readsOnly))
+    }
+
+    @Test
+    @DisplayName("permission focus maps to write, reads, or the full set")
+    fun permissionFocusRequestedSet() {
+        assertEquals(
+            HealthConnectLaunchPermissions.all,
+            HealthConnectPermissionFocus.All.requestedPermissions(),
+        )
+        assertEquals(
+            setOf(HealthConnectLaunchPermissions.writeExercise),
+            HealthConnectPermissionFocus.Write.requestedPermissions(),
+        )
+        assertEquals(
+            HealthConnectLaunchPermissions.reads,
+            HealthConnectPermissionFocus.Reads.requestedPermissions(),
+        )
     }
 }

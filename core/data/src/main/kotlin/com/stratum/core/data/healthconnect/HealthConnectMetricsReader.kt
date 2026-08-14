@@ -21,6 +21,7 @@ import com.stratum.domain.healthconnect.HrvSample
 import com.stratum.domain.healthconnect.SleepSessionSample
 import com.stratum.domain.healthconnect.SleepStageSample
 import com.stratum.domain.healthconnect.WeightSample
+import com.stratum.domain.logging.LoggingPort
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Period
 import javax.inject.Inject
@@ -31,6 +32,7 @@ import kotlin.reflect.KClass
 @Singleton
 class HealthConnectMetricsReader @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val loggingPort: LoggingPort,
 ) : HealthConnectMetricsPort {
 
     override suspend fun isAvailable(): Boolean {
@@ -39,7 +41,7 @@ class HealthConnectMetricsReader @Inject constructor(
 
     override suspend fun grantedReadTypes(): Set<HealthMetricType> {
         if (!isAvailable()) return emptySet()
-        return catchHealthConnect(emptySet()) {
+        return catchHealthConnect(emptySet(), "grantedReadTypes") {
             val granted = HealthConnectClient.getOrCreate(context)
                 .permissionController
                 .getGrantedPermissions()
@@ -86,30 +88,42 @@ class HealthConnectMetricsReader @Inject constructor(
     private suspend fun readDailySteps(
         client: HealthConnectClient,
         request: HealthMetricsRequest,
-    ): List<DailyStepCount> = catchHealthConnect(emptyList()) {
-        val rows = client.aggregateGroupByPeriod(
-            AggregateGroupByPeriodRequest(
-                metrics = setOf(StepsRecord.COUNT_TOTAL),
-                timeRangeFilter = TimeRangeFilter.between(
-                    request.localWindowStart,
-                    request.localWindowEnd,
+    ): List<DailyStepCount> {
+        val aggregated = catchHealthConnect(emptyList(), "aggregateSteps") {
+            val rows = client.aggregateGroupByPeriod(
+                AggregateGroupByPeriodRequest(
+                    metrics = setOf(StepsRecord.COUNT_TOTAL),
+                    timeRangeFilter = TimeRangeFilter.between(
+                        request.localWindowStart,
+                        request.localWindowEnd,
+                    ),
+                    timeRangeSlicer = Period.ofDays(1),
                 ),
-                timeRangeSlicer = Period.ofDays(1),
-            ),
-        )
-        rows.map { row ->
-            HealthConnectMetricsMapper.dailyStepCount(
-                localStart = row.startTime,
+            )
+            rows.map { row ->
+                HealthConnectMetricsMapper.dailyStepCount(
+                    localStart = row.startTime,
+                    zone = request.zone,
+                    count = row.result[StepsRecord.COUNT_TOTAL] ?: 0L,
+                )
+            }
+        }
+        if (aggregated.any { it.count > 0L }) return aggregated
+        val fromRecords = catchHealthConnect(emptyList(), "readSteps") {
+            HealthConnectMetricsMapper.dailyStepCountsFromRecords(
+                samples = readAll(client, StepsRecord::class, instantFilter(request)).map { record ->
+                    record.startTime to record.count
+                },
                 zone = request.zone,
-                count = row.result[StepsRecord.COUNT_TOTAL] ?: 0L,
             )
         }
+        return fromRecords.ifEmpty { aggregated }
     }
 
     private suspend fun readWeight(
         client: HealthConnectClient,
         request: HealthMetricsRequest,
-    ): List<WeightSample> = catchHealthConnect(emptyList()) {
+    ): List<WeightSample> = catchHealthConnect(emptyList(), "readWeight") {
         readAll(client, WeightRecord::class, instantFilter(request)).map { record ->
             HealthConnectMetricsMapper.weightSample(
                 time = record.time,
@@ -121,7 +135,7 @@ class HealthConnectMetricsReader @Inject constructor(
     private suspend fun readSleep(
         client: HealthConnectClient,
         request: HealthMetricsRequest,
-    ): List<SleepSessionSample> = catchHealthConnect(emptyList()) {
+    ): List<SleepSessionSample> = catchHealthConnect(emptyList(), "readSleep") {
         readAll(client, SleepSessionRecord::class, instantFilter(request)).map { record ->
             SleepSessionSample(
                 start = record.startTime,
@@ -140,7 +154,7 @@ class HealthConnectMetricsReader @Inject constructor(
     private suspend fun readRestingHeartRate(
         client: HealthConnectClient,
         request: HealthMetricsRequest,
-    ): List<HeartRateSample> = catchHealthConnect(emptyList()) {
+    ): List<HeartRateSample> = catchHealthConnect(emptyList(), "readRestingHeartRate") {
         readAll(client, RestingHeartRateRecord::class, instantFilter(request)).map { record ->
             HeartRateSample(time = record.time, beatsPerMinute = record.beatsPerMinute)
         }
@@ -149,7 +163,7 @@ class HealthConnectMetricsReader @Inject constructor(
     private suspend fun readHrv(
         client: HealthConnectClient,
         request: HealthMetricsRequest,
-    ): List<HrvSample> = catchHealthConnect(emptyList()) {
+    ): List<HrvSample> = catchHealthConnect(emptyList(), "readHrv") {
         readAll(client, HeartRateVariabilityRmssdRecord::class, instantFilter(request)).map { record ->
             HrvSample(time = record.time, rmssdMillis = record.heartRateVariabilityMillis)
         }
@@ -178,13 +192,23 @@ class HealthConnectMetricsReader @Inject constructor(
         } while (token != null)
         return out
     }
+
+    private suspend inline fun <T> catchHealthConnect(
+        default: T,
+        label: String,
+        block: suspend () -> T,
+    ): T =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (error: Throwable) {
+            loggingPort.error(HEALTH_CONNECT_METRICS_TAG, "Health Connect $label failed", error)
+            default
+        }
+
+    private companion object {
+        const val HEALTH_CONNECT_METRICS_TAG = "HealthConnectMetrics"
+    }
 }
 
-private suspend inline fun <T> catchHealthConnect(default: T, block: suspend () -> T): T =
-    try {
-        block()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Throwable) {
-        default
-    }

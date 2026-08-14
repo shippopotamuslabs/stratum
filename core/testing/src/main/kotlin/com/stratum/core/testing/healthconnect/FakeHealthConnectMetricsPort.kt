@@ -12,6 +12,7 @@ class FakeHealthConnectMetricsPort : HealthConnectMetricsPort {
     var snapshot: HealthMetricsSnapshot = HealthMetricsSnapshot()
     var lastRequest: HealthMetricsRequest? = null
     var snapshotGate: CompletableDeferred<Unit>? = null
+    var readSnapshotCount: Int = 0
 
     override suspend fun isAvailable(): Boolean = available
 
@@ -20,6 +21,7 @@ class FakeHealthConnectMetricsPort : HealthConnectMetricsPort {
     override suspend fun readSnapshot(request: HealthMetricsRequest): HealthMetricsSnapshot {
         snapshotGate?.await()
         lastRequest = request
+        readSnapshotCount += 1
         return snapshot.copy(grantedTypes = granted)
     }
 }

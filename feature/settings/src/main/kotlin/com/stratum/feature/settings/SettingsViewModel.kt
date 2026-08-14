@@ -29,9 +29,12 @@ import com.stratum.domain.workout.SetRepRangeShiftProposalsEnabledUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
@@ -68,6 +71,13 @@ class SettingsViewModel @Inject constructor(
     private val rebuildProgressUi = MutableStateFlow(RebuildProgressUi())
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    private val _healthConnectPermissionAction =
+        MutableSharedFlow<HealthConnectPermissionAction>(extraBufferCapacity = 1)
+    val healthConnectPermissionAction: SharedFlow<HealthConnectPermissionAction> =
+        _healthConnectPermissionAction.asSharedFlow()
+
+    private val healthConnectGranted = MutableStateFlow<Set<String>>(emptySet())
 
     /** Exclusive account lifecycle UI — only one dialog or in-flight op at a time. */
     private val accountUi = MutableStateFlow<AccountUi>(AccountUi.Idle)
@@ -112,7 +122,8 @@ class SettingsViewModel @Inject constructor(
             debugStatusMessage,
             accountUi,
             rebuildProgressUi,
-        ) { prefs, debugStatus, account, rebuild ->
+            healthConnectGranted,
+        ) { prefs, debugStatus, account, rebuild, granted ->
             SettingsUiState(
                 appearance = prefs.appearance,
                 themeFamily = prefs.themeFamily,
@@ -121,6 +132,8 @@ class SettingsViewModel @Inject constructor(
                 repRangeProposalsEnabled = prefs.repRangeProposalsEnabled,
                 weightUnit = prefs.weightUnit,
                 healthConnectEnabled = prefs.healthConnectEnabled,
+                healthConnectWriteGranted = healthConnectWriteGranted(granted),
+                healthConnectReadsGranted = healthConnectReadsGranted(granted),
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
                 isForceRefreshingDerived = rebuild.isRunning,
@@ -155,6 +168,46 @@ class SettingsViewModel @Inject constructor(
                 .onFailure { error ->
                     _userMessage.value = error.message ?: MSG_PREFS_FAILED
                 }
+            loadHealthConnectGrants()
+        }
+    }
+
+    /**
+     * Row tap or switch-on: request only types Health Connect has not granted for [focus].
+     * If that subset is already granted, opt in from the current grant set and open Health Connect.
+     */
+    fun onRequestHealthConnectPermissions(
+        focus: HealthConnectPermissionFocus = HealthConnectPermissionFocus.All,
+    ) {
+        viewModelScope.launch {
+            loadHealthConnectGrants()
+            val requested = focus.requestedPermissions()
+            val missing = setHealthConnectEnabled
+                .permissionsStillNeeded(requested)
+                .getOrElse { requested }
+            if (missing.isEmpty()) {
+                setHealthConnectEnabled.applyGrantedPermissions(HealthConnectLaunchPermissions.all)
+                    .onFailure { error ->
+                        _userMessage.value = error.message ?: MSG_PREFS_FAILED
+                    }
+                _healthConnectPermissionAction.emit(HealthConnectPermissionAction.OpenSettings)
+            } else {
+                _healthConnectPermissionAction.emit(HealthConnectPermissionAction.Request(missing))
+            }
+        }
+    }
+
+    fun refreshHealthConnectGrants() {
+        viewModelScope.launch { loadHealthConnectGrants() }
+    }
+
+    fun onHealthConnectSettingsUnavailable() {
+        _userMessage.value = MSG_HEALTH_CONNECT_SETTINGS
+    }
+
+    private suspend fun loadHealthConnectGrants() {
+        setHealthConnectEnabled.grantedPermissions().onSuccess { granted ->
+            healthConnectGranted.value = granted
         }
     }
 
@@ -381,6 +434,8 @@ class SettingsViewModel @Inject constructor(
     private companion object {
         const val FORCE_REFRESH_COOLDOWN_MS = 120_000L
         const val MSG_PREFS_FAILED = "Couldn't save that setting. Try again."
+        const val MSG_HEALTH_CONNECT_SETTINGS =
+            "Couldn't open Health Connect. Is it available on this device?"
         const val MSG_FORCE_REFRESH_QUEUED =
             "Volume charts updated. Progress line refreshes in the background when battery isn’t low."
         const val MSG_FORCE_REFRESH_FAILED = "Couldn't rebuild progress data. Try again."
@@ -405,6 +460,8 @@ data class SettingsUiState(
     /** Display weight unit; defaults to lbs. */
     val weightUnit: WeightUnitUi = WeightUnitUi.Lbs,
     val healthConnectEnabled: Boolean = false,
+    val healthConnectWriteGranted: Boolean = false,
+    val healthConnectReadsGranted: Boolean = false,
     /** True only in debug builds; release UI never shows developer tools. */
     val showDebugTools: Boolean = false,
     val debugStatusMessage: String? = null,
