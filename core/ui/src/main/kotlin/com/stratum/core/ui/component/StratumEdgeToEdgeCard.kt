@@ -26,17 +26,22 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
  *
  * Callers typically keep list [contentPadding] horizontal at 0.dp for these items and apply
  * their own horizontal padding inside for titles / actions.
+ *
+ * Set [drawEdgeBands] to false when this slab should merge with adjacent raised chrome
+ * (no Neo top/bottom iron bands).
  */
 @Composable
 fun StratumEdgeToEdgeCard(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(vertical = 16.dp),
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(8.dp),
+    drawEdgeBands: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = StratumThemeAccessor.colors
     val shapes = StratumThemeAccessor.shapes
     val elevations = StratumThemeAccessor.elevations
+    val paintBands = drawEdgeBands && elevations.useHardShadow
     Column(
         modifier =
             modifier
@@ -46,7 +51,7 @@ fun StratumEdgeToEdgeCard(
                     shape = RectangleShape,
                 )
                 .then(
-                    if (elevations.useHardShadow) {
+                    if (paintBands) {
                         Modifier.drawWithContent {
                             drawContent()
                             val stroke = shapes.borderWidth.toPx()

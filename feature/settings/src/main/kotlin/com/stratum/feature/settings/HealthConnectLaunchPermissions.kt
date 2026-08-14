@@ -30,6 +30,14 @@ object HealthConnectLaunchPermissions {
         readRestingHeartRate,
         readHrv,
     )
+
+    val reads: Set<String> = setOf(
+        readSteps,
+        readSleep,
+        readWeight,
+        readRestingHeartRate,
+        readHrv,
+    )
 }
 
 /** Opt in when the sheet grants write or any requested read. */
@@ -37,3 +45,29 @@ internal fun healthConnectOptInFromGrants(
     granted: Set<String>,
     requested: Set<String>,
 ): Boolean = granted.any { it in requested }
+
+internal fun healthConnectWriteGranted(granted: Set<String>): Boolean =
+    HealthConnectLaunchPermissions.writeExercise in granted
+
+internal fun healthConnectReadsGranted(granted: Set<String>): Boolean =
+    granted.any { it in HealthConnectLaunchPermissions.reads }
+
+/** Which Health Connect types Settings should request next. */
+enum class HealthConnectPermissionFocus {
+    All,
+    Write,
+    Reads,
+}
+
+internal fun HealthConnectPermissionFocus.requestedPermissions(): Set<String> =
+    when (this) {
+        HealthConnectPermissionFocus.All -> HealthConnectLaunchPermissions.all
+        HealthConnectPermissionFocus.Write -> setOf(HealthConnectLaunchPermissions.writeExercise)
+        HealthConnectPermissionFocus.Reads -> HealthConnectLaunchPermissions.reads
+    }
+
+/** One-shot UI action after the user asks to connect or update Health Connect. */
+sealed interface HealthConnectPermissionAction {
+    data class Request(val permissions: Set<String>) : HealthConnectPermissionAction
+    data object OpenSettings : HealthConnectPermissionAction
+}

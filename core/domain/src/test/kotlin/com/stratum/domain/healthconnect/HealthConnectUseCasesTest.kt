@@ -67,4 +67,34 @@ class HealthConnectUseCasesTest {
         assertTrue(result.isSuccess)
         assertEquals(true, preferencesRepo.getPreferences().enabled)
     }
+
+    @Test
+    @DisplayName("permissionsStillNeeded returns requested types that are not granted")
+    fun permissionsStillNeededSubtractsGranted() = runTest {
+        syncPort.granted = setOf("write")
+
+        val result = setEnabledUseCase.permissionsStillNeeded(setOf("write", "read_steps"))
+
+        assertEquals(setOf("read_steps"), result.getOrThrow())
+    }
+
+    @Test
+    @DisplayName("permissionsStillNeeded fails when the grant query fails")
+    fun permissionsStillNeededQueryFailure() = runTest {
+        syncPort.grantedPermissionsFailure = IllegalStateException("sdk blip")
+
+        val result = setEnabledUseCase.permissionsStillNeeded(setOf("write"))
+
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    @DisplayName("grantedPermissions returns the current SDK grant set")
+    fun grantedPermissionsPassthrough() = runTest {
+        syncPort.granted = setOf("write", "read_steps")
+
+        val result = setEnabledUseCase.grantedPermissions()
+
+        assertEquals(setOf("write", "read_steps"), result.getOrThrow())
+    }
 }

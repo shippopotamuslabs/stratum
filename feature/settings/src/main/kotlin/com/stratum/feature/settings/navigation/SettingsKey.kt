@@ -1,17 +1,23 @@
 package com.stratum.feature.settings.navigation
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.health.connect.client.PermissionController
+import androidx.compose.ui.platform.LocalContext
+import androidx.health.connect.client.HealthConnectClient
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import com.stratum.core.ui.component.UserMessageEffect
-import com.stratum.feature.settings.HealthConnectLaunchPermissions
+import com.stratum.feature.settings.HealthConnectPermissionAction
+import com.stratum.feature.settings.HealthConnectPermissionRequestContract
 import com.stratum.feature.settings.SettingsAccountActions
 import com.stratum.feature.settings.SettingsDataActions
 import com.stratum.feature.settings.SettingsViewModel
@@ -67,11 +73,34 @@ private fun SettingsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val healthConnectRequestedPermissions = remember { HealthConnectLaunchPermissions.all }
+    val context = LocalContext.current
+    val healthConnectPermissionContract = remember { HealthConnectPermissionRequestContract() }
     val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
-        contract = PermissionController.createRequestPermissionResultContract(),
+        contract = healthConnectPermissionContract,
     ) {
         viewModel.onHealthConnectPermissionSheetClosed()
+    }
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refreshHealthConnectGrants()
+        onPauseOrDispose { }
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.healthConnectPermissionAction.collect { action ->
+            when (action) {
+                is HealthConnectPermissionAction.Request -> {
+                    healthConnectPermissionLauncher.launch(action.permissions)
+                }
+                HealthConnectPermissionAction.OpenSettings -> {
+                    try {
+                        context.startActivity(
+                            Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS),
+                        )
+                    } catch (_: ActivityNotFoundException) {
+                        viewModel.onHealthConnectSettingsUnavailable()
+                    }
+                }
+            }
+        }
     }
     UserMessageEffect(
         userMessage = userMessage,
@@ -87,9 +116,7 @@ private fun SettingsRoute(
         onPostWorkoutSuggestionEnabledChange = viewModel::onPostWorkoutSuggestionEnabledChange,
         onWeightUnitSelected = viewModel::onWeightUnitSelected,
         onHealthConnectEnabledChange = viewModel::onHealthConnectEnabledChange,
-        onRequestHealthConnectEnable = {
-            healthConnectPermissionLauncher.launch(healthConnectRequestedPermissions)
-        },
+        onRequestHealthConnectPermissions = viewModel::onRequestHealthConnectPermissions,
         onForceCheckInPending = viewModel::forceCheckInPending,
         onLegalClick = onNavigateToLegal,
         dataActions =

@@ -1,18 +1,17 @@
 package com.stratum.core.ui.component
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import com.stratum.core.ui.theme.StratumThemeAccessor
-
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.ui.graphics.Color
 
 /**
  * Stratum's centered top bar. Wraps Material 3 [CenterAlignedTopAppBar] using
@@ -26,10 +25,11 @@ fun StratumTopBar(
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
     bottom: @Composable (() -> Unit)? = null,
+    containerColor: Color = StratumThemeAccessor.colors.surfaceBase,
 ) {
     val colors = TopAppBarDefaults.topAppBarColors(
-        containerColor = StratumThemeAccessor.colors.surfaceBase,
-        scrolledContainerColor = Color.Unspecified,
+        containerColor = containerColor,
+        scrolledContainerColor = containerColor,
         navigationIconContentColor = StratumThemeAccessor.colors.textPrimary,
         titleContentColor = StratumThemeAccessor.colors.textPrimary,
         actionIconContentColor = StratumThemeAccessor.colors.textPrimary
@@ -39,7 +39,7 @@ fun StratumTopBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(StratumThemeAccessor.colors.surfaceBase)
+            .background(containerColor)
     ) {
         CenterAlignedTopAppBar(
             title = titleContent,
@@ -58,6 +58,7 @@ fun StratumTopBar(
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
     bottom: @Composable (() -> Unit)? = null,
+    containerColor: Color = StratumThemeAccessor.colors.surfaceBase,
 ) {
     StratumTopBar(
         titleContent = {
@@ -73,5 +74,6 @@ fun StratumTopBar(
         navigationIcon = navigationIcon,
         actions = actions,
         bottom = bottom,
+        containerColor = containerColor,
     )
 }
