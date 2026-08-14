@@ -161,6 +161,58 @@ class LoadHealthConnectMetricsUseCaseTest {
         assertEquals(Duration.ofHours(2), pages.recovery.lastNight?.zones?.deep)
         assertEquals(Duration.ofHours(1), pages.recovery.lastNight?.zones?.rem)
         assertEquals(HEALTH_METRICS_DAY_COUNT, pages.recovery.nightlyDurations.size)
+        val tonight = pages.recovery.nightlyDurations.last()
+        assertEquals(Duration.ofHours(2), tonight.zones?.deep)
+        assertEquals(Duration.ofHours(1), tonight.zones?.rem)
+    }
+
+    @Test
+    @DisplayName("nightly sleep merges stage durations for sessions ending on the same local day")
+    fun nightlySleepMergesStages() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val night = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 30).toInstant(zone),
+                    end = today.atTime(1, 30).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+                SleepStageSample(
+                    start = today.atTime(1, 30).toInstant(zone),
+                    end = today.atTime(3, 30).toInstant(zone),
+                    stage = SleepStageType.Deep,
+                ),
+            ),
+        )
+        val nap = SleepSessionSample(
+            start = today.atTime(13, 0).toInstant(zone),
+            end = today.atTime(14, 0).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.atTime(13, 0).toInstant(zone),
+                    end = today.atTime(13, 40).toInstant(zone),
+                    stage = SleepStageType.Rem,
+                ),
+                SleepStageSample(
+                    start = today.atTime(13, 40).toInstant(zone),
+                    end = today.atTime(14, 0).toInstant(zone),
+                    stage = SleepStageType.Awake,
+                ),
+            ),
+        )
+
+        val nightly = fillNightlySleep(listOf(night, nap), request)
+
+        assertEquals(HEALTH_METRICS_DAY_COUNT, nightly.size)
+        val todayNight = nightly.last()
+        assertEquals(Duration.ofHours(9), todayNight.duration)
+        assertEquals(Duration.ofHours(3), todayNight.zones?.light)
+        assertEquals(Duration.ofHours(2), todayNight.zones?.deep)
+        assertEquals(Duration.ofMinutes(40), todayNight.zones?.rem)
+        assertEquals(Duration.ofMinutes(20), todayNight.zones?.awake)
+        assertTrue(nightly.dropLast(1).all { it.zones == null && it.duration.isZero })
     }
 
     @Test

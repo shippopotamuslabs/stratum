@@ -137,9 +137,18 @@ data class SleepZones(
     val awake: Duration,
 ) {
     val total: Duration = light + deep + rem + awake
+
+    operator fun plus(other: SleepZones): SleepZones =
+        SleepZones(
+            light = light + other.light,
+            deep = deep + other.deep,
+            rem = rem + other.rem,
+            awake = awake + other.awake,
+        )
 }
 
 data class NightlySleepDuration(
     val dayStart: Instant,
     val duration: Duration,
+    val zones: SleepZones? = null,
 )
