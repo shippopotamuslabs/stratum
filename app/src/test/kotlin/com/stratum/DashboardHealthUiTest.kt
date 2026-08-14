@@ -6,6 +6,8 @@ import com.stratum.domain.healthconnect.NightlySleepDuration
 import com.stratum.domain.healthconnect.RecoveryMetrics
 import com.stratum.domain.healthconnect.SleepNight
 import com.stratum.domain.healthconnect.SleepZones
+import com.stratum.domain.healthconnect.WeightMetrics
+import com.stratum.domain.healthconnect.WeightSample
 import com.stratum.domain.lift.Weight
 import java.time.Duration
 import java.time.Instant
@@ -112,7 +114,7 @@ class DashboardHealthUiTest {
                             light = Duration.ofHours(3),
                             deep = Duration.ofHours(2),
                             rem = Duration.ofHours(2),
-                            awake = Duration.ZERO,
+                            awake = Duration.ofMinutes(48),
                         ),
                     ),
                 ),
@@ -129,6 +131,39 @@ class DashboardHealthUiTest {
         assertEquals(3f, ui.recovery.lightNightlyPoints.single().value)
         assertEquals(2f, ui.recovery.deepNightlyPoints.single().value)
         assertEquals(2f, ui.recovery.remNightlyPoints.single().value)
+        assertEquals(0.8f, ui.recovery.awakeNightlyPoints.single().value)
         assertTrue(ui.recovery.hasChart())
+    }
+
+    @Test
+    @DisplayName("weight UI maps sample weekdays for the trend axis")
+    fun weightMapsDayLabelsFromSampleTimes() {
+        val zone = ZoneOffset.UTC
+        val pages = HealthMetricsPages(
+            visible = true,
+            weight = WeightMetrics(
+                latest = WeightSample(
+                    time = Instant.parse("2026-08-12T12:00:00Z"),
+                    weight = Weight(176.4, Weight.WeightUnit.Lb),
+                ),
+                sevenDayMean = Weight(177.1, Weight.WeightUnit.Lb),
+                samples = listOf(
+                    WeightSample(
+                        time = Instant.parse("2026-08-11T12:00:00Z"),
+                        weight = Weight(177.0, Weight.WeightUnit.Lb),
+                    ),
+                    WeightSample(
+                        time = Instant.parse("2026-08-12T12:00:00Z"),
+                        weight = Weight(176.4, Weight.WeightUnit.Lb),
+                    ),
+                ),
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        assertEquals(listOf("T", "W"), ui.weight.dayLabels)
+        assertEquals(2, ui.weight.trendPoints.size)
+        assertTrue(ui.weight.hasChart())
     }
 }

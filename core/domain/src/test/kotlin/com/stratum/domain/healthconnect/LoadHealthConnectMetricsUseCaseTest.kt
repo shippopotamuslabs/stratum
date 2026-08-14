@@ -124,7 +124,7 @@ class LoadHealthConnectMetricsUseCaseTest {
     }
 
     @Test
-    @DisplayName("last night is the longest session ending in the 36-hour lookback")
+    @DisplayName("last night matches today's chart bucket, not a longer prior night")
     fun lastNightPick() = runTest {
         prefs.setPreferences(HealthConnectPreferences(enabled = true))
         metrics.granted = setOf(HealthMetricType.Sleep)
@@ -156,14 +156,68 @@ class LoadHealthConnectMetricsUseCaseTest {
 
         val pages = load(zone, now)
 
-        assertEquals(lastNight.end, pages.recovery.lastNight?.end)
-        assertNotNull(pages.recovery.lastNight?.zones)
+        val tonight = pages.recovery.nightlyDurations.last()
+        assertEquals(nap.end, pages.recovery.lastNight?.end)
+        assertEquals(tonight.duration, pages.recovery.lastNight?.duration)
+        assertEquals(tonight.zones, pages.recovery.lastNight?.zones)
         assertEquals(Duration.ofHours(2), pages.recovery.lastNight?.zones?.deep)
         assertEquals(Duration.ofHours(1), pages.recovery.lastNight?.zones?.rem)
         assertEquals(HEALTH_METRICS_DAY_COUNT, pages.recovery.nightlyDurations.size)
-        val tonight = pages.recovery.nightlyDurations.last()
-        assertEquals(Duration.ofHours(2), tonight.zones?.deep)
-        assertEquals(Duration.ofHours(1), tonight.zones?.rem)
+    }
+
+    @Test
+    @DisplayName("a longer Thursday night does not replace Friday as last night")
+    fun lastNightPrefersMostRecentDayOverLongerPrior() = runTest {
+        prefs.setPreferences(HealthConnectPreferences(enabled = true))
+        metrics.granted = setOf(HealthMetricType.Sleep)
+        val thursday = SleepSessionSample(
+            start = today.minusDays(2).atTime(21, 0).toInstant(zone),
+            end = today.minusDays(1).atTime(7, 0).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(2).atTime(21, 0).toInstant(zone),
+                    end = today.minusDays(1).atTime(2, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(2, 0).toInstant(zone),
+                    end = today.minusDays(1).atTime(7, 0).toInstant(zone),
+                    stage = SleepStageType.Deep,
+                ),
+            ),
+        )
+        val friday = SleepSessionSample(
+            start = today.minusDays(1).atTime(23, 0).toInstant(zone),
+            end = today.atTime(6, 30).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(23, 0).toInstant(zone),
+                    end = today.atTime(3, 28).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+                SleepStageSample(
+                    start = today.atTime(3, 28).toInstant(zone),
+                    end = today.atTime(5, 8).toInstant(zone),
+                    stage = SleepStageType.Deep,
+                ),
+                SleepStageSample(
+                    start = today.atTime(5, 8).toInstant(zone),
+                    end = today.atTime(6, 30).toInstant(zone),
+                    stage = SleepStageType.Rem,
+                ),
+            ),
+        )
+        metrics.snapshot = HealthMetricsSnapshot(sleepSessions = listOf(thursday, friday))
+
+        val pages = load(zone, now)
+
+        val fridayBucket = pages.recovery.nightlyDurations.last()
+        assertEquals(friday.end, pages.recovery.lastNight?.end)
+        assertEquals(fridayBucket.zones, pages.recovery.lastNight?.zones)
+        assertEquals(Duration.ofHours(4).plusMinutes(28), pages.recovery.lastNight?.zones?.light)
+        assertEquals(Duration.ofHours(1).plusMinutes(40), pages.recovery.lastNight?.zones?.deep)
+        assertEquals(Duration.ofHours(1).plusMinutes(22), pages.recovery.lastNight?.zones?.rem)
+        assertTrue(thursday.duration > friday.duration)
     }
 
     @Test
@@ -213,6 +267,67 @@ class LoadHealthConnectMetricsUseCaseTest {
         assertEquals(Duration.ofMinutes(40), todayNight.zones?.rem)
         assertEquals(Duration.ofMinutes(20), todayNight.zones?.awake)
         assertTrue(nightly.dropLast(1).all { it.zones == null && it.duration.isZero })
+    }
+
+    @Test
+    @DisplayName("overlapping duplicate sleep sessions are not summed")
+    fun overlappingSleepSessionsNotDoubleCounted() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val staged = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+            ),
+        )
+        val duplicate = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 30).toInstant(zone),
+            end = today.atTime(6, 30).toInstant(zone),
+        )
+
+        val nightly = fillNightlySleep(listOf(staged, duplicate), request)
+
+        val todayNight = nightly.last()
+        assertEquals(Duration.ofHours(8), todayNight.duration)
+        assertEquals(Duration.ofHours(8), todayNight.zones?.light)
+    }
+
+    @Test
+    @DisplayName("a staged session wins over a longer unstaged overlap")
+    fun overlappingPrefersStagedSession() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val unstagedLong = SleepSessionSample(
+            start = today.minusDays(1).atTime(21, 0).toInstant(zone),
+            end = today.atTime(8, 0).toInstant(zone),
+        )
+        val staged = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(3, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+                SleepStageSample(
+                    start = today.atTime(3, 0).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Deep,
+                ),
+            ),
+        )
+
+        val nightly = fillNightlySleep(listOf(unstagedLong, staged), request)
+
+        val todayNight = nightly.last()
+        assertEquals(Duration.ofHours(8), todayNight.duration)
+        assertEquals(Duration.ofHours(5), todayNight.zones?.light)
+        assertEquals(Duration.ofHours(3), todayNight.zones?.deep)
+        assertTrue(unstagedLong.duration > staged.duration)
     }
 
     @Test

@@ -39,10 +39,10 @@ private fun PreviewDonut() {
     val colors = StratumThemeAccessor.colors
     StratumDonutChart(
         slices = listOf(
-            DonutSliceUi(0.45f, colors.textMuted, "3h 14m"),
-            DonutSliceUi(0.22f, colors.accent, "1h 35m"),
-            DonutSliceUi(0.23f, colors.textData, "1h 39m"),
-            DonutSliceUi(0.10f, colors.borderSubtle, "43m"),
+            DonutSliceUi(0.45f, colors.textMuted),
+            DonutSliceUi(0.22f, colors.accent),
+            DonutSliceUi(0.23f, colors.textData),
+            DonutSliceUi(0.10f, colors.error),
         ),
         contentDescription = "Last night sleep stages",
         modifier = Modifier

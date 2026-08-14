@@ -36,10 +36,13 @@ import com.stratum.core.ui.theme.StratumThemeAccessor
 /**
  * Compact single-series volume bar chart for dashboard cards (e.g. 7-day muscle volume).
  * Optional [dayLabels] (aligned with [series] by index) render as a quiet X-axis (e.g. M T W R F Sa Su).
+ * Tap a bar to inspect its value. Horizontal pan is disabled so a parent pager can fling.
  *
  * @param series daily volume points; [TrendPointUi.weekIndex] is the X position.
  * @param dayLabels short weekday labels for each bar; empty omits the bottom axis.
  * @param barColor fill for all bars (defaults to theme accent).
+ * @param fillHeight when true, skip the compact intrinsic height and fill the incoming constraints
+ * (health pager). Cards keep the default sparkline height.
  * @param contentDescription accessibility description.
  */
 @Composable
@@ -49,6 +52,7 @@ fun StratumVolumeBarChart(
     modifier: Modifier = Modifier,
     dayLabels: List<String> = emptyList(),
     barColor: Color = Color.Unspecified,
+    fillHeight: Boolean = false,
 ) {
     val colors = StratumThemeAccessor.colors
     val resolvedBar =
@@ -115,21 +119,35 @@ fun StratumVolumeBarChart(
         null
     }
 
+    val marker = rememberStratumChartMarker(decimalCount = 0)
     val chart = rememberCartesianChart(
         rememberColumnCartesianLayer(
             columnProvider = columnProvider,
             columnCollectionSpacing = COLUMN_SPACING_DP.dp,
         ),
         bottomAxis = bottomAxis,
+        marker = marker,
+        markerController = rememberStratumChartMarkerController(),
     )
 
+    val sizedModifier = if (fillHeight) {
+        modifier.fillMaxWidth()
+    } else {
+        modifier
+            .fillMaxWidth()
+            .height(
+                if (labelsForAxis.isNotEmpty()) {
+                    CHART_HEIGHT_WITH_LABELS_DP.dp
+                } else {
+                    CHART_HEIGHT_DP.dp
+                },
+            )
+    }
     CartesianChartHost(
         chart = chart,
         modelProducer = modelProducer,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(if (labelsForAxis.isNotEmpty()) CHART_HEIGHT_WITH_LABELS_DP.dp else CHART_HEIGHT_DP.dp)
-            .semantics { this.contentDescription = contentDescription },
+        scrollState = rememberStratumChartScrollState(),
+        modifier = sizedModifier.semantics { this.contentDescription = contentDescription },
     )
 }
 
