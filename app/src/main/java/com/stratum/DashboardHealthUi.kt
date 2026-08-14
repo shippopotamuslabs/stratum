@@ -41,6 +41,7 @@ data class WeightHealthPageUi(
     val sevenDayMeanText: String? = null,
     val deltaText: String? = null,
     val trendPoints: List<TrendPointUi> = emptyList(),
+    val dayLabels: List<String> = emptyList(),
 )
 
 data class RecoveryHealthPageUi(
@@ -53,6 +54,7 @@ data class RecoveryHealthPageUi(
     val lightNightlyPoints: List<TrendPointUi> = emptyList(),
     val deepNightlyPoints: List<TrendPointUi> = emptyList(),
     val remNightlyPoints: List<TrendPointUi> = emptyList(),
+    val awakeNightlyPoints: List<TrendPointUi> = emptyList(),
     val dayLabels: List<String> = emptyList(),
 )
 
@@ -78,6 +80,7 @@ internal fun RecoveryHealthPageUi.hasChart(): Boolean =
         lightNightlyPoints.any { it.value > 0f } ||
         deepNightlyPoints.any { it.value > 0f } ||
         remNightlyPoints.any { it.value > 0f } ||
+        awakeNightlyPoints.any { it.value > 0f } ||
         stageSlices.isNotEmpty()
 
 internal fun DashboardHealthUiState.hasChart(): Boolean =
@@ -132,6 +135,7 @@ private fun WeightMetrics.toUi(
         sevenDayMeanText = meanAmount?.let { formatBodyWeight(it, displayUnit) },
         deltaText = delta?.let { formatWeightDelta(it, displayUnit) },
         trendPoints = points,
+        dayLabels = samples.map { shortWeekdayLabel(it.time, zone) },
     )
 }
 
@@ -155,6 +159,7 @@ private fun RecoveryMetrics.toUi(zone: ZoneId): RecoveryHealthPageUi {
         lightNightlyPoints = nightlyDurations.toStagePoints { it.light },
         deepNightlyPoints = nightlyDurations.toStagePoints { it.deep },
         remNightlyPoints = nightlyDurations.toStagePoints { it.rem },
+        awakeNightlyPoints = nightlyDurations.toStagePoints { it.awake },
         dayLabels = labels.ifEmpty { emptyList() },
     )
 }

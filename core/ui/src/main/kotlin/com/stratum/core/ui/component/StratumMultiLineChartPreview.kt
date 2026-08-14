@@ -42,9 +42,11 @@ private fun PreviewMultiLine() {
         primarySeries = previewHours(3.2f, 3.0f, 2.4f, 3.4f, 3.1f, 3.6f, 3.2f),
         secondarySeries = previewHours(1.5f, 1.6f, 1.1f, 1.7f, 1.4f, 1.9f, 1.6f),
         tertiarySeries = previewHours(1.6f, 1.7f, 1.3f, 1.8f, 1.6f, 2.0f, 1.7f),
+        quaternarySeries = previewHours(0.7f, 0.4f, 0.9f, 0.5f, 0.6f, 0.3f, 0.7f),
         primaryColor = colors.textMuted,
         secondaryColor = colors.accent,
         tertiaryColor = colors.textData,
+        quaternaryColor = colors.error,
         dayLabels = listOf("M", "T", "W", "R", "F", "Sa", "Su"),
         contentDescription = "Sleep stages for the last 7 nights",
         modifier = Modifier

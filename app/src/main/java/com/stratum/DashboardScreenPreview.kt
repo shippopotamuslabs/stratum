@@ -416,6 +416,7 @@ private fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
             deltaText = "−0.7 lb",
             trendPoints = listOf(178.2f, 177.8f, 177.4f, 177.0f, 176.6f, 176.5f, 176.4f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
+            dayLabels = PREVIEW_DAY_LABELS,
         ),
         recovery = RecoveryHealthPageUi(
             lastNightDurationText = "7h 12m",
@@ -435,6 +436,8 @@ private fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
             deepNightlyPoints = listOf(1.5f, 1.6f, 1.1f, 1.7f, 1.4f, 1.9f, 1.6f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
             remNightlyPoints = listOf(1.6f, 1.7f, 1.3f, 1.8f, 1.6f, 2.0f, 1.7f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            awakeNightlyPoints = listOf(0.7f, 0.4f, 0.9f, 0.5f, 0.6f, 0.3f, 0.7f)
                 .mapIndexed { index, value -> TrendPointUi(index, value) },
             dayLabels = PREVIEW_DAY_LABELS,
         ),

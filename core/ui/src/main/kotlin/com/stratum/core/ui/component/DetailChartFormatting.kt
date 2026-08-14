@@ -6,6 +6,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.round
 
 /**
  * Shared number formatting for detail chart axes and stats. Single source of truth so Avg/Best
@@ -39,6 +40,21 @@ fun formatChartNumber(value: Double, scale: DetailYScale): String {
             }
             if (raw.contains('e', ignoreCase = true)) raw else trimTrailingZeros(raw)
         }
+    }
+}
+
+/**
+ * Formats a Y value stored as hours (e.g. 0.8, 1.583) as the same hours/minutes copy used for
+ * sleep duration elsewhere ("48m", "1h 35m"). Rounds to the nearest minute.
+ */
+fun formatHoursAsDuration(hours: Double): String {
+    val totalMinutes = round(hours * MINUTES_PER_HOUR).toLong().coerceAtLeast(0L)
+    val wholeHours = totalMinutes / MINUTES_PER_HOUR.toLong()
+    val minutes = totalMinutes % MINUTES_PER_HOUR.toLong()
+    return if (wholeHours > 0) {
+        "${wholeHours}h ${minutes}m"
+    } else {
+        "${minutes}m"
     }
 }
 
@@ -116,3 +132,4 @@ private const val PROGRESS_THRESHOLD_ONES = 1.0
 private const val PROGRESS_THRESHOLD_TENTHS = 0.1
 private const val PROGRESS_THRESHOLD_HUNDREDTHS = 0.01
 private const val PROGRESS_THRESHOLD_THOUSANDTHS = 0.001
+private const val MINUTES_PER_HOUR = 60.0

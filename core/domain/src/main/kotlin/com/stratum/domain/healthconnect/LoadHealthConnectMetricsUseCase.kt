@@ -92,18 +92,10 @@ private fun assembleRecovery(
     snapshot: HealthMetricsSnapshot,
     request: HealthMetricsRequest,
 ): RecoveryMetrics {
-    val lastNight = if (HealthMetricType.Sleep in granted) {
-        snapshot.sleepSessions
-            .filter { !it.end.isBefore(request.lastNightLookbackStart) && !it.end.isAfter(request.now) }
-            .maxWithOrNull(compareBy<SleepSessionSample> { it.duration }.thenBy { it.end })
-            ?.toSleepNight()
-    } else {
-        null
-    }
-    val nightly = fillNightlySleep(
-        sessions = if (HealthMetricType.Sleep in granted) snapshot.sleepSessions else emptyList(),
-        request = request,
-    )
+    val sleepSessions =
+        if (HealthMetricType.Sleep in granted) snapshot.sleepSessions else emptyList()
+    val nightly = fillNightlySleep(sessions = sleepSessions, request = request)
+    val lastNight = lastNightFromNightly(nightly, sleepSessions, request)
     val rhrSamples = if (HealthMetricType.RestingHeartRate in granted) {
         snapshot.restingHeartRateSamples.filter {
             !it.time.isBefore(request.windowStart) && it.time.isBefore(request.windowEnd)
@@ -152,22 +144,96 @@ internal fun fillNightlySleep(
     val byDay = sessions.groupBy { it.end.atZone(request.zone).toLocalDate() }
     return request.windowDates().map { date ->
         val start = date.atStartOfDay(request.zone).toInstant()
-        val daySessions = byDay[date].orEmpty()
-        val total = daySessions.fold(Duration.ZERO) { acc, session -> acc + session.duration }
-        val zones = daySessions
-            .mapNotNull { it.stages.toSleepZones() }
-            .reduceOrNull { acc, next -> acc + next }
+        val (total, zones) = summarizeSleepSessions(byDay[date].orEmpty())
         NightlySleepDuration(dayStart = start, duration = total, zones = zones)
     }
 }
 
-internal fun SleepSessionSample.toSleepNight(): SleepNight =
-    SleepNight(
-        start = start,
-        end = end,
-        duration = duration,
-        zones = stages.toSleepZones(),
+/**
+ * Health Connect often stores the same night from more than one app. Overlapping sessions are
+ * collapsed to one (prefer staged, then longest); non-overlapping naps still add.
+ */
+internal fun summarizeSleepSessions(
+    sessions: List<SleepSessionSample>,
+): Pair<Duration, SleepZones?> {
+    if (sessions.isEmpty()) return Duration.ZERO to null
+    var duration = Duration.ZERO
+    var zones: SleepZones? = null
+    for (cluster in clusterOverlappingSleepSessions(sessions)) {
+        val chosen = preferredSleepSession(cluster) ?: continue
+        duration += chosen.duration
+        val chosenZones = chosen.stages.toSleepZones()
+        zones = when {
+            chosenZones == null -> zones
+            zones == null -> chosenZones
+            else -> zones + chosenZones
+        }
+    }
+    return duration to zones
+}
+
+internal fun clusterOverlappingSleepSessions(
+    sessions: List<SleepSessionSample>,
+): List<List<SleepSessionSample>> {
+    if (sessions.isEmpty()) return emptyList()
+    val remaining = sessions.toMutableList()
+    val clusters = mutableListOf<List<SleepSessionSample>>()
+    while (remaining.isNotEmpty()) {
+        val cluster = mutableListOf(remaining.removeAt(remaining.lastIndex))
+        var index = 0
+        while (index < remaining.size) {
+            if (cluster.any { it.overlaps(remaining[index]) }) {
+                cluster += remaining.removeAt(index)
+                index = 0
+            } else {
+                index++
+            }
+        }
+        clusters += cluster
+    }
+    return clusters
+}
+
+internal fun preferredSleepSession(cluster: List<SleepSessionSample>): SleepSessionSample? =
+    cluster.maxWithOrNull(
+        compareBy<SleepSessionSample> { session -> session.stages.toSleepZones() != null }
+            .thenBy { it.duration }
+            .thenBy { it.end },
     )
+
+internal fun SleepSessionSample.overlaps(other: SleepSessionSample): Boolean =
+    start.isBefore(other.end) && other.start.isBefore(end)
+
+/**
+ * Last night is the most recent local day that has a session ending in the 36-hour lookback —
+ * the same bucket the 7-day chart uses for that weekday. Picking the longest session instead
+ * would show Thursday when Friday already has data.
+ */
+internal fun lastNightFromNightly(
+    nightly: List<NightlySleepDuration>,
+    sessions: List<SleepSessionSample>,
+    request: HealthMetricsRequest,
+): SleepNight? {
+    val lastDate = sessions
+        .asSequence()
+        .filter { !it.end.isBefore(request.lastNightLookbackStart) && !it.end.isAfter(request.now) }
+        .maxOfOrNull { it.end.atZone(request.zone).toLocalDate() }
+        ?: return null
+    val night = nightly.firstOrNull { bucket ->
+        bucket.dayStart.atZone(request.zone).toLocalDate() == lastDate
+    } ?: return null
+    if (night.duration.isZero) return null
+    val daySessions = sessions.filter { session ->
+        session.end.atZone(request.zone).toLocalDate() == lastDate
+    }
+    if (daySessions.isEmpty()) return null
+    return SleepNight(
+        start = daySessions.minOf { it.start },
+        end = daySessions.maxOf { it.end },
+        duration = night.duration,
+        zones = night.zones,
+    )
+}
 
 internal fun List<SleepStageSample>.toSleepZones(): SleepZones? {
     if (isEmpty()) return null
