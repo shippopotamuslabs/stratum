@@ -157,7 +157,9 @@ class LoadHealthConnectMetricsUseCaseTest {
         val pages = load(zone, now)
 
         val tonight = pages.recovery.nightlyDurations.last()
-        assertEquals(nap.end, pages.recovery.lastNight?.end)
+        assertEquals(lastNight.end, pages.recovery.lastNight?.end)
+        assertEquals(lastNight.start, pages.recovery.lastNight?.start)
+        assertEquals(lastNight.duration, pages.recovery.lastNight?.duration)
         assertEquals(tonight.duration, pages.recovery.lastNight?.duration)
         assertEquals(tonight.zones, pages.recovery.lastNight?.zones)
         assertEquals(Duration.ofHours(2), pages.recovery.lastNight?.zones?.deep)
@@ -221,12 +223,13 @@ class LoadHealthConnectMetricsUseCaseTest {
     }
 
     @Test
-    @DisplayName("nightly sleep merges stage durations for sessions ending on the same local day")
-    fun nightlySleepMergesStages() {
+    @DisplayName("a shorter leftover session on the same day is not added to the overnight")
+    fun nightlySleepKeepsLongestBlockNotLeftovers() {
         val request = HealthMetricsRequest(zone = zone, now = now)
         val night = SleepSessionSample(
             start = today.minusDays(1).atTime(22, 0).toInstant(zone),
             end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
             stages = listOf(
                 SleepStageSample(
                     start = today.minusDays(1).atTime(22, 30).toInstant(zone),
@@ -240,32 +243,33 @@ class LoadHealthConnectMetricsUseCaseTest {
                 ),
             ),
         )
-        val nap = SleepSessionSample(
-            start = today.atTime(13, 0).toInstant(zone),
-            end = today.atTime(14, 0).toInstant(zone),
+        val leftover = SleepSessionSample(
+            start = today.atTime(6, 20).toInstant(zone),
+            end = today.atTime(7, 45).toInstant(zone),
+            originPackage = FIT_ORIGIN,
             stages = listOf(
                 SleepStageSample(
-                    start = today.atTime(13, 0).toInstant(zone),
-                    end = today.atTime(13, 40).toInstant(zone),
+                    start = today.atTime(6, 20).toInstant(zone),
+                    end = today.atTime(7, 0).toInstant(zone),
                     stage = SleepStageType.Rem,
                 ),
                 SleepStageSample(
-                    start = today.atTime(13, 40).toInstant(zone),
-                    end = today.atTime(14, 0).toInstant(zone),
+                    start = today.atTime(7, 0).toInstant(zone),
+                    end = today.atTime(7, 45).toInstant(zone),
                     stage = SleepStageType.Awake,
                 ),
             ),
         )
 
-        val nightly = fillNightlySleep(listOf(night, nap), request)
+        val nightly = fillNightlySleep(listOf(night, leftover), request)
 
         assertEquals(HEALTH_METRICS_DAY_COUNT, nightly.size)
         val todayNight = nightly.last()
-        assertEquals(Duration.ofHours(9), todayNight.duration)
+        assertEquals(Duration.ofHours(8), todayNight.duration)
         assertEquals(Duration.ofHours(3), todayNight.zones?.light)
         assertEquals(Duration.ofHours(2), todayNight.zones?.deep)
-        assertEquals(Duration.ofMinutes(40), todayNight.zones?.rem)
-        assertEquals(Duration.ofMinutes(20), todayNight.zones?.awake)
+        assertEquals(Duration.ZERO, todayNight.zones?.rem)
+        assertEquals(Duration.ZERO, todayNight.zones?.awake)
         assertTrue(nightly.dropLast(1).all { it.zones == null && it.duration.isZero })
     }
 
@@ -276,6 +280,7 @@ class LoadHealthConnectMetricsUseCaseTest {
         val staged = SleepSessionSample(
             start = today.minusDays(1).atTime(22, 0).toInstant(zone),
             end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
             stages = listOf(
                 SleepStageSample(
                     start = today.minusDays(1).atTime(22, 0).toInstant(zone),
@@ -287,6 +292,7 @@ class LoadHealthConnectMetricsUseCaseTest {
         val duplicate = SleepSessionSample(
             start = today.minusDays(1).atTime(22, 30).toInstant(zone),
             end = today.atTime(6, 30).toInstant(zone),
+            originPackage = FIT_ORIGIN,
         )
 
         val nightly = fillNightlySleep(listOf(staged, duplicate), request)
@@ -303,10 +309,12 @@ class LoadHealthConnectMetricsUseCaseTest {
         val unstagedLong = SleepSessionSample(
             start = today.minusDays(1).atTime(21, 0).toInstant(zone),
             end = today.atTime(8, 0).toInstant(zone),
+            originPackage = FIT_ORIGIN,
         )
         val staged = SleepSessionSample(
             start = today.minusDays(1).atTime(22, 0).toInstant(zone),
             end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
             stages = listOf(
                 SleepStageSample(
                     start = today.minusDays(1).atTime(22, 0).toInstant(zone),
@@ -328,6 +336,218 @@ class LoadHealthConnectMetricsUseCaseTest {
         assertEquals(Duration.ofHours(5), todayNight.zones?.light)
         assertEquals(Duration.ofHours(3), todayNight.zones?.deep)
         assertTrue(unstagedLong.duration > staged.duration)
+    }
+
+    @Test
+    @DisplayName("same-origin contiguous fragments merge into one overnight")
+    fun sameOriginContiguousFragmentsMerge() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val firstHalf = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(2, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(2, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+            ),
+        )
+        val secondHalf = SleepSessionSample(
+            start = today.atTime(2, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.atTime(2, 0).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Deep,
+                ),
+            ),
+        )
+
+        val nightly = fillNightlySleep(listOf(firstHalf, secondHalf), request)
+
+        val todayNight = nightly.last()
+        assertEquals(Duration.ofHours(8), todayNight.duration)
+        assertEquals(Duration.ofHours(4), todayNight.zones?.light)
+        assertEquals(Duration.ofHours(4), todayNight.zones?.deep)
+    }
+
+    @Test
+    @DisplayName("blank origin does not glue a morning leftover onto the overnight")
+    fun blankOriginDoesNotGlueMorningLeftover() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val night = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+            ),
+        )
+        val leftover = SleepSessionSample(
+            start = today.atTime(6, 20).toInstant(zone),
+            end = today.atTime(7, 45).toInstant(zone),
+            stages = listOf(
+                SleepStageSample(
+                    start = today.atTime(6, 20).toInstant(zone),
+                    end = today.atTime(7, 45).toInstant(zone),
+                    stage = SleepStageType.Rem,
+                ),
+            ),
+        )
+
+        val nightly = fillNightlySleep(listOf(night, leftover), request)
+
+        assertEquals(Duration.ofHours(8), nightly.last().duration)
+        assertEquals(Duration.ofHours(8), nightly.last().zones?.light)
+        assertEquals(Duration.ZERO, nightly.last().zones?.rem)
+    }
+
+    @Test
+    @DisplayName("same-origin overlapping duplicates use the staged session duration")
+    fun sameOriginOverlappingDuplicatesUsePreferredDuration() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val staged = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+            ),
+        )
+        val duplicate = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 30).toInstant(zone),
+            end = today.atTime(6, 30).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+        )
+
+        val nightly = fillNightlySleep(listOf(staged, duplicate), request)
+
+        assertEquals(Duration.ofHours(8), nightly.last().duration)
+        assertEquals(Duration.ofHours(8), nightly.last().zones?.light)
+    }
+
+    @Test
+    @DisplayName("an unstaged overnight wins over a shorter staged leftover")
+    fun longestBlockWinsOverShorterStagedLeftover() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val night = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Sleeping,
+                ),
+            ),
+        )
+        val leftover = SleepSessionSample(
+            start = today.atTime(6, 20).toInstant(zone),
+            end = today.atTime(7, 45).toInstant(zone),
+            originPackage = FIT_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.atTime(6, 20).toInstant(zone),
+                    end = today.atTime(7, 45).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+            ),
+        )
+
+        val nightly = fillNightlySleep(listOf(night, leftover), request)
+
+        assertEquals(Duration.ofHours(8), nightly.last().duration)
+        assertNull(nightly.last().zones)
+    }
+
+    @Test
+    @DisplayName("same-origin split night keeps both fragments when a duplicate overlaps one half")
+    fun sameOriginKeepsNonOverlappingFragmentsWhenDuplicatePresent() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val firstHalf = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(2, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(2, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+            ),
+        )
+        val secondHalf = SleepSessionSample(
+            start = today.atTime(2, 20).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.atTime(2, 20).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Deep,
+                ),
+            ),
+        )
+        val duplicate = SleepSessionSample(
+            start = today.atTime(2, 30).toInstant(zone),
+            end = today.atTime(6, 30).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+        )
+
+        val nightly = fillNightlySleep(listOf(firstHalf, secondHalf, duplicate), request)
+
+        val todayNight = nightly.last()
+        assertEquals(Duration.ofHours(8), todayNight.duration)
+        assertEquals(Duration.ofHours(4), todayNight.zones?.light)
+        assertEquals(Duration.ofHours(3).plusMinutes(40), todayNight.zones?.deep)
+    }
+
+    @Test
+    @DisplayName("same-origin sessions more than 30 minutes apart do not merge")
+    fun sameOriginGapOverThirtyMinutesDoesNotMerge() {
+        val request = HealthMetricsRequest(zone = zone, now = now)
+        val night = SleepSessionSample(
+            start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+            end = today.atTime(6, 0).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.minusDays(1).atTime(22, 0).toInstant(zone),
+                    end = today.atTime(6, 0).toInstant(zone),
+                    stage = SleepStageType.Light,
+                ),
+            ),
+        )
+        val leftover = SleepSessionSample(
+            start = today.atTime(6, 31).toInstant(zone),
+            end = today.atTime(7, 31).toInstant(zone),
+            originPackage = WATCH_ORIGIN,
+            stages = listOf(
+                SleepStageSample(
+                    start = today.atTime(6, 31).toInstant(zone),
+                    end = today.atTime(7, 31).toInstant(zone),
+                    stage = SleepStageType.Rem,
+                ),
+            ),
+        )
+
+        val nightly = fillNightlySleep(listOf(night, leftover), request)
+
+        assertEquals(Duration.ofHours(8), nightly.last().duration)
+        assertEquals(Duration.ofHours(8), nightly.last().zones?.light)
+        assertEquals(Duration.ZERO, nightly.last().zones?.rem)
     }
 
     @Test
@@ -388,3 +608,6 @@ class LoadHealthConnectMetricsUseCaseTest {
 
     private fun kg(amount: Double): Weight = Weight(amount, Weight.WeightUnit.Kg)
 }
+
+private const val WATCH_ORIGIN = "com.google.android.wearable"
+private const val FIT_ORIGIN = "com.google.android.apps.fitness"

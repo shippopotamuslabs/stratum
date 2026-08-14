@@ -61,6 +61,7 @@ data class SleepSessionSample(
     val start: Instant,
     val end: Instant,
     val stages: List<SleepStageSample> = emptyList(),
+    val originPackage: String = "",
 ) {
     val duration: Duration = Duration.between(start, end)
 }

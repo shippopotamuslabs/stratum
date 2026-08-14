@@ -144,45 +144,92 @@ internal fun fillNightlySleep(
     val byDay = sessions.groupBy { it.end.atZone(request.zone).toLocalDate() }
     return request.windowDates().map { date ->
         val start = date.atStartOfDay(request.zone).toInstant()
-        val (total, zones) = summarizeSleepSessions(byDay[date].orEmpty())
-        NightlySleepDuration(dayStart = start, duration = total, zones = zones)
+        val summary = summarizeSleepSessions(byDay[date].orEmpty())
+        NightlySleepDuration(dayStart = start, duration = summary.duration, zones = summary.zones)
     }
 }
 
 /**
- * Health Connect often stores the same night from more than one app. Overlapping sessions are
- * collapsed to one (prefer staged, then longest); non-overlapping naps still add.
+ * One overnight block per wake day. Sessions are grouped by [SleepSessionSample.originPackage]
+ * so a watch night is not glued to a phone leftover. Within a known origin, overlapping or
+ * nearly contiguous records merge; blank origins only collapse true overlaps. Across origins,
+ * overlapping duplicates prefer staged; leftover blocks do not add.
  */
-internal fun summarizeSleepSessions(
-    sessions: List<SleepSessionSample>,
-): Pair<Duration, SleepZones?> {
-    if (sessions.isEmpty()) return Duration.ZERO to null
-    var duration = Duration.ZERO
-    var zones: SleepZones? = null
-    for (cluster in clusterOverlappingSleepSessions(sessions)) {
-        val chosen = preferredSleepSession(cluster) ?: continue
-        duration += chosen.duration
-        val chosenZones = chosen.stages.toSleepZones()
-        zones = when {
-            chosenZones == null -> zones
-            zones == null -> chosenZones
-            else -> zones + chosenZones
-        }
-    }
-    return duration to zones
+internal data class SleepDaySummary(
+    val duration: Duration,
+    val zones: SleepZones?,
+    val start: Instant? = null,
+    val end: Instant? = null,
+)
+
+internal fun summarizeSleepSessions(sessions: List<SleepSessionSample>): SleepDaySummary {
+    if (sessions.isEmpty()) return SleepDaySummary(duration = Duration.ZERO, zones = null)
+    val originBlocks = clusterSleepSessionsByOrigin(sessions).map(::summarizeSleepCluster)
+    val resolvedDuplicates = clusterConnected(originBlocks) { left, right ->
+        left.overlaps(right)
+    }.map(::preferredSleepSummary)
+    return resolvedDuplicates.maxByOrNull { it.duration }
+        ?: SleepDaySummary(duration = Duration.ZERO, zones = null)
 }
 
-internal fun clusterOverlappingSleepSessions(
+internal fun clusterSleepSessionsByOrigin(
     sessions: List<SleepSessionSample>,
-): List<List<SleepSessionSample>> {
-    if (sessions.isEmpty()) return emptyList()
-    val remaining = sessions.toMutableList()
-    val clusters = mutableListOf<List<SleepSessionSample>>()
+): List<List<SleepSessionSample>> =
+    sessions.groupBy { it.originPackage }.values.flatMap { originSessions ->
+        val knownOrigin = originSessions.first().originPackage.isNotBlank()
+        clusterConnected(originSessions) { left, right ->
+            left.overlaps(right) || (knownOrigin && left.contiguousWith(right))
+        }
+    }
+
+internal fun summarizeSleepCluster(cluster: List<SleepSessionSample>): SleepDaySummary {
+    val selected = selectNonOverlappingSessions(cluster)
+    if (selected.isEmpty()) return SleepDaySummary(duration = Duration.ZERO, zones = null)
+    val start = selected.minOf { it.start }
+    val end = selected.maxOf { it.end }
+    val zones = selected.mapNotNull { it.stages.toSleepZones() }.reduceOrNull { acc, next -> acc + next }
+    return SleepDaySummary(
+        duration = Duration.between(start, end),
+        zones = zones,
+        start = start,
+        end = end,
+    )
+}
+
+internal fun selectNonOverlappingSessions(
+    cluster: List<SleepSessionSample>,
+): List<SleepSessionSample> {
+    val ranked = cluster.sortedWith(
+        compareByDescending<SleepSessionSample> { it.stages.toSleepZones() != null }
+            .thenByDescending { it.duration }
+            .thenByDescending { it.end },
+    )
+    val selected = mutableListOf<SleepSessionSample>()
+    for (session in ranked) {
+        if (selected.none { it.overlaps(session) }) {
+            selected += session
+        }
+    }
+    return selected
+}
+
+internal fun preferredSleepSummary(group: List<SleepDaySummary>): SleepDaySummary =
+    group.maxWithOrNull(
+        compareBy<SleepDaySummary> { it.zones != null }.thenBy { it.duration },
+    ) ?: SleepDaySummary(duration = Duration.ZERO, zones = null)
+
+internal fun <T> clusterConnected(
+    items: List<T>,
+    connected: (T, T) -> Boolean,
+): List<List<T>> {
+    if (items.isEmpty()) return emptyList()
+    val remaining = items.toMutableList()
+    val clusters = mutableListOf<List<T>>()
     while (remaining.isNotEmpty()) {
         val cluster = mutableListOf(remaining.removeAt(remaining.lastIndex))
         var index = 0
         while (index < remaining.size) {
-            if (cluster.any { it.overlaps(remaining[index]) }) {
+            if (cluster.any { connected(it, remaining[index]) }) {
                 cluster += remaining.removeAt(index)
                 index = 0
             } else {
@@ -194,15 +241,25 @@ internal fun clusterOverlappingSleepSessions(
     return clusters
 }
 
-internal fun preferredSleepSession(cluster: List<SleepSessionSample>): SleepSessionSample? =
-    cluster.maxWithOrNull(
-        compareBy<SleepSessionSample> { session -> session.stages.toSleepZones() != null }
-            .thenBy { it.duration }
-            .thenBy { it.end },
-    )
+internal fun SleepDaySummary.overlaps(other: SleepDaySummary): Boolean {
+    val thisStart = start ?: return false
+    val thisEnd = end ?: return false
+    val otherStart = other.start ?: return false
+    val otherEnd = other.end ?: return false
+    return thisStart.isBefore(otherEnd) && otherStart.isBefore(thisEnd)
+}
 
 internal fun SleepSessionSample.overlaps(other: SleepSessionSample): Boolean =
     start.isBefore(other.end) && other.start.isBefore(end)
+
+internal fun SleepSessionSample.contiguousWith(other: SleepSessionSample): Boolean {
+    val gap = when {
+        !end.isAfter(other.start) -> Duration.between(end, other.start)
+        !other.end.isAfter(start) -> Duration.between(other.end, start)
+        else -> Duration.ZERO
+    }
+    return gap <= SAME_ORIGIN_CONTIGUOUS_GAP
+}
 
 /**
  * Last night is the most recent local day that has a session ending in the 36-hour lookback —
@@ -219,19 +276,22 @@ internal fun lastNightFromNightly(
         .filter { !it.end.isBefore(request.lastNightLookbackStart) && !it.end.isAfter(request.now) }
         .maxOfOrNull { it.end.atZone(request.zone).toLocalDate() }
         ?: return null
-    val night = nightly.firstOrNull { bucket ->
-        bucket.dayStart.atZone(request.zone).toLocalDate() == lastDate
-    } ?: return null
-    if (night.duration.isZero) return null
-    val daySessions = sessions.filter { session ->
-        session.end.atZone(request.zone).toLocalDate() == lastDate
+    val chartHasSleep = nightly.any { bucket ->
+        bucket.dayStart.atZone(request.zone).toLocalDate() == lastDate && !bucket.duration.isZero
     }
-    if (daySessions.isEmpty()) return null
+    val summary = summarizeSleepSessions(
+        sessions.filter { session ->
+            session.end.atZone(request.zone).toLocalDate() == lastDate
+        },
+    )
+    val start = summary.start
+    val end = summary.end
+    if (!chartHasSleep || start == null || end == null) return null
     return SleepNight(
-        start = daySessions.minOf { it.start },
-        end = daySessions.maxOf { it.end },
-        duration = night.duration,
-        zones = night.zones,
+        start = start,
+        end = end,
+        duration = summary.duration,
+        zones = summary.zones,
     )
 }
 
@@ -257,3 +317,5 @@ internal fun List<SleepStageSample>.toSleepZones(): SleepZones? {
 
 private fun HealthMetricsRequest.windowDates(): List<LocalDate> =
     (0 until HEALTH_METRICS_DAY_COUNT).map { windowStartDate.plusDays(it.toLong()) }
+
+private val SAME_ORIGIN_CONTIGUOUS_GAP: Duration = Duration.ofMinutes(30)
