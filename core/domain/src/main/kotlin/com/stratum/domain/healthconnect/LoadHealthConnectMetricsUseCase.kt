@@ -152,8 +152,12 @@ internal fun fillNightlySleep(
     val byDay = sessions.groupBy { it.end.atZone(request.zone).toLocalDate() }
     return request.windowDates().map { date ->
         val start = date.atStartOfDay(request.zone).toInstant()
-        val total = byDay[date].orEmpty().fold(Duration.ZERO) { acc, session -> acc + session.duration }
-        NightlySleepDuration(dayStart = start, duration = total)
+        val daySessions = byDay[date].orEmpty()
+        val total = daySessions.fold(Duration.ZERO) { acc, session -> acc + session.duration }
+        val zones = daySessions
+            .mapNotNull { it.stages.toSleepZones() }
+            .reduceOrNull { acc, next -> acc + next }
+        NightlySleepDuration(dayStart = start, duration = total, zones = zones)
     }
 }
 

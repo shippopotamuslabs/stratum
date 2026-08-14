@@ -101,6 +101,24 @@ class DashboardHealthViewModelTest {
     }
 
     @Test
+    @DisplayName("activity page uses empty copy when steps are granted but the window is all zeros")
+    fun healthActivityEmptyWhenNoStepRecords() = runTest {
+        val healthPrefs = FakeHealthConnectPreferencesRepository()
+        healthPrefs.setPreferences(HealthConnectPreferences(enabled = true))
+        val metrics = FakeHealthConnectMetricsPort()
+        metrics.granted = setOf(HealthMetricType.Steps)
+        val viewModel = buildViewModel(
+            healthConnectPreferences = healthPrefs,
+            healthConnectMetrics = metrics,
+        )
+        advanceUntilIdle()
+
+        val health = viewModel.healthUiState.value
+        assertEquals(true, health.visible)
+        assertEquals(null, health.activity.todayStepsText)
+    }
+
+    @Test
     @DisplayName("weight page follows the display unit preference")
     fun healthWeightFollowsDisplayUnit() = runTest {
         val healthPrefs = FakeHealthConnectPreferencesRepository()
@@ -162,6 +180,39 @@ class DashboardHealthViewModelTest {
         advanceUntilIdle()
 
         assertEquals(false, viewModel.healthUiState.value.visible)
+    }
+
+    @Test
+    @DisplayName("pull-to-refresh reloads Health Connect pages and clears the refreshing flag")
+    fun refreshReloadsHealthPages() = runTest {
+        val healthPrefs = FakeHealthConnectPreferencesRepository()
+        healthPrefs.setPreferences(HealthConnectPreferences(enabled = true))
+        val metrics = FakeHealthConnectMetricsPort()
+        metrics.granted = setOf(HealthMetricType.Steps)
+        val today = LocalDate.of(2026, 8, 12)
+        val now = today.atTime(15, 0).toInstant(ZoneOffset.UTC)
+        val todayStart = today.atStartOfDay().toInstant(ZoneOffset.UTC)
+        metrics.snapshot = HealthMetricsSnapshot(
+            dailySteps = listOf(DailyStepCount(todayStart, 1_000L)),
+        )
+        val viewModel = buildViewModel(
+            healthConnectPreferences = healthPrefs,
+            healthConnectMetrics = metrics,
+            now = now,
+        )
+        advanceUntilIdle()
+        assertEquals("1,000", viewModel.healthUiState.value.activity.todayStepsText)
+        val readsAfterLoad = metrics.readSnapshotCount
+
+        metrics.snapshot = HealthMetricsSnapshot(
+            dailySteps = listOf(DailyStepCount(todayStart, 9_999L)),
+        )
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals("9,999", viewModel.healthUiState.value.activity.todayStepsText)
+        assertTrue(metrics.readSnapshotCount > readsAfterLoad)
+        assertEquals(false, viewModel.isRefreshing.value)
     }
 
     private fun buildViewModel(

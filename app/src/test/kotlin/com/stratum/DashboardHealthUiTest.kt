@@ -1,10 +1,18 @@
 package com.stratum
 
+import com.stratum.core.ui.component.TrendPointUi
+import com.stratum.domain.healthconnect.HealthMetricsPages
+import com.stratum.domain.healthconnect.NightlySleepDuration
+import com.stratum.domain.healthconnect.RecoveryMetrics
+import com.stratum.domain.healthconnect.SleepNight
+import com.stratum.domain.healthconnect.SleepZones
 import com.stratum.domain.lift.Weight
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -36,5 +44,91 @@ class DashboardHealthUiTest {
     fun formatDate() {
         val instant = Instant.parse("2026-08-12T12:00:00Z")
         assertEquals("Aug 12", formatShortDate(instant, ZoneOffset.UTC))
+    }
+
+    @Test
+    @DisplayName("empty health pages do not claim a drawable chart")
+    fun emptyPagesHaveNoChart() {
+        assertFalse(DashboardHealthUiState(visible = true).hasChart())
+        assertFalse(
+            ActivityHealthPageUi(
+                dailyPoints = listOf(TrendPointUi(0, 0f), TrendPointUi(1, 0f)),
+            ).hasChart(),
+        )
+    }
+
+    @Test
+    @DisplayName("a page with samples claims a drawable chart")
+    fun filledPagesHaveChart() {
+        assertTrue(
+            ActivityHealthPageUi(
+                dailyPoints = listOf(TrendPointUi(0, 0f), TrendPointUi(1, 1200f)),
+            ).hasChart(),
+        )
+        assertTrue(
+            WeightHealthPageUi(
+                trendPoints = listOf(TrendPointUi(0, 176f), TrendPointUi(1, 175.5f)),
+            ).hasChart(),
+        )
+        assertTrue(
+            RecoveryHealthPageUi(
+                nightlyPoints = listOf(TrendPointUi(0, 0f), TrendPointUi(1, 7.2f)),
+            ).hasChart(),
+        )
+        assertTrue(
+            RecoveryHealthPageUi(
+                stageSlices = listOf(
+                    SleepStageSliceUi(SleepStageUi.Light, 0.5f, "3h"),
+                    SleepStageSliceUi(SleepStageUi.Deep, 0.5f, "3h"),
+                ),
+            ).hasChart(),
+        )
+    }
+
+    @Test
+    @DisplayName("recovery UI maps last-night stage durations and nightly stage hours")
+    fun recoveryMapsStageDurationsAndNightlySeries() {
+        val zone = ZoneOffset.UTC
+        val dayStart = Instant.parse("2026-08-12T00:00:00Z")
+        val pages = HealthMetricsPages(
+            visible = true,
+            recovery = RecoveryMetrics(
+                lastNight = SleepNight(
+                    start = Instant.parse("2026-08-11T22:30:00Z"),
+                    end = Instant.parse("2026-08-12T06:42:00Z"),
+                    duration = Duration.ofHours(7).plusMinutes(12),
+                    zones = SleepZones(
+                        light = Duration.ofHours(3).plusMinutes(14),
+                        deep = Duration.ofHours(1).plusMinutes(35),
+                        rem = Duration.ofHours(1).plusMinutes(39),
+                        awake = Duration.ofMinutes(43),
+                    ),
+                ),
+                nightlyDurations = listOf(
+                    NightlySleepDuration(
+                        dayStart = dayStart,
+                        duration = Duration.ofHours(7).plusMinutes(12),
+                        zones = SleepZones(
+                            light = Duration.ofHours(3),
+                            deep = Duration.ofHours(2),
+                            rem = Duration.ofHours(2),
+                            awake = Duration.ZERO,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val ui = pages.toHealthUi(Weight.WeightUnit.Lb, zone)
+
+        assertEquals("7h 12m", ui.recovery.lastNightDurationText)
+        assertEquals("3h 14m", ui.recovery.stageSlices.first { it.stage == SleepStageUi.Light }.durationText)
+        assertEquals("1h 35m", ui.recovery.stageSlices.first { it.stage == SleepStageUi.Deep }.durationText)
+        assertEquals("1h 39m", ui.recovery.stageSlices.first { it.stage == SleepStageUi.Rem }.durationText)
+        assertEquals("43m", ui.recovery.stageSlices.first { it.stage == SleepStageUi.Awake }.durationText)
+        assertEquals(3f, ui.recovery.lightNightlyPoints.single().value)
+        assertEquals(2f, ui.recovery.deepNightlyPoints.single().value)
+        assertEquals(2f, ui.recovery.remNightlyPoints.single().value)
+        assertTrue(ui.recovery.hasChart())
     }
 }

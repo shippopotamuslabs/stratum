@@ -1,34 +1,39 @@
 package com.stratum
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.DonutSliceUi
+import com.stratum.core.ui.component.StratumDonutChart
+import com.stratum.core.ui.component.StratumEdgeToEdgeCard
+import com.stratum.core.ui.component.StratumMultiLineChart
 import com.stratum.core.ui.component.StratumNumber
+import com.stratum.core.ui.component.StratumPullToRefresh
 import com.stratum.core.ui.component.StratumTabScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -36,82 +41,74 @@ import com.stratum.core.ui.component.StratumTrendChart
 import com.stratum.core.ui.component.StratumVolumeBarChart
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
-private val PagerHeight = 240.dp
-private val StageBarHeight = 8.dp
+private val PagerHeight = 268.dp
+private val EmptyPagerHeight = 108.dp
 private val DotSize = 6.dp
-private val HealthChromeSpacing = 12.dp
+private val LegendDotSize = 6.dp
+private val DONUT_SIZE = 112.dp
+private const val DONUT_COLUMN_WEIGHT = 0.42f
+private const val STAGE_CHART_COLUMN_WEIGHT = 0.58f
+internal val HealthChromeSpacing = 12.dp
 
 /**
- * Dashboard shell: write-only users keep board tabs in the top bar; Health Connect reads add a
- * titled top bar, pager, then the same tabs above the board.
+ * Dashboard shell: Muscles | 7-Day | Lifts stay in the top bar. Health Connect, when visible,
+ * is a full-bleed header inside the board list so it scrolls away with the charts. The top bar
+ * uses the same raised surface as the pager so they read as one slab.
  */
 @Composable
 internal fun DashboardHealthScaffold(
-    health: DashboardHealthUiState,
+    healthVisible: Boolean,
     settingsAction: @Composable RowScope.() -> Unit,
     boardTabs: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    isRefreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     board: @Composable ColumnScope.() -> Unit,
 ) {
+    val colors = StratumThemeAccessor.colors
     StratumTabScaffold(
         modifier = modifier,
+        horizontalPadding = 0.dp,
         topBar = {
-            if (health.visible) {
-                StratumTopBar(
-                    title = stringResource(R.string.dashboard_title),
-                    actions = settingsAction,
-                )
-            } else {
-                StratumTopBar(
-                    titleContent = boardTabs,
-                    actions = settingsAction,
-                )
-            }
+            StratumTopBar(
+                titleContent = boardTabs,
+                actions = settingsAction,
+                containerColor = if (healthVisible) colors.surfaceRaised else colors.surfaceBase,
+            )
         },
     ) {
-        if (health.visible) {
-            DashboardHealthPager(
-                state = health,
-                modifier = Modifier.padding(bottom = HealthChromeSpacing),
-            )
-            Box(
+        if (onRefresh != null) {
+            StratumPullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = HealthChromeSpacing),
-                contentAlignment = Alignment.Center,
+                    .weight(1f)
+                    .fillMaxWidth(),
             ) {
-                boardTabs()
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    content = board,
+                )
             }
+        } else {
+            board()
         }
-        board()
     }
 }
 
 @Composable
 internal fun DashboardHealthPager(
     state: DashboardHealthUiState,
+    pagerState: PagerState,
     modifier: Modifier = Modifier,
 ) {
-    val pagerState = rememberPagerState(
-        initialPage = state.selectedPage,
-        pageCount = { HEALTH_PAGER_PAGE_COUNT },
-    )
-    val panelShape = StratumThemeAccessor.shapes.panel
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(PagerHeight)
-            .background(
-                color = StratumThemeAccessor.colors.surfaceRaised,
-                shape = panelShape,
-            )
-            .border(
-                width = StratumThemeAccessor.shapes.borderWidth,
-                color = StratumThemeAccessor.colors.borderSubtle,
-                shape = panelShape,
-            )
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+    val hasChart = state.hasChart()
+    StratumEdgeToEdgeCard(
+        modifier = modifier.height(if (hasChart) PagerHeight else EmptyPagerHeight),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
+        // Merge with the raised top bar — no Neo iron band at the seam.
+        drawEdgeBands = false,
     ) {
         HorizontalPager(
             state = pagerState,
@@ -120,9 +117,9 @@ internal fun DashboardHealthPager(
                 .weight(1f),
         ) { page ->
             when (page) {
-                0 -> ActivityHealthPage(state.activity)
-                1 -> WeightHealthPage(state.weight)
-                else -> RecoveryHealthPage(state.recovery)
+                0 -> ActivityHealthPage(state.activity, expandChart = hasChart)
+                1 -> WeightHealthPage(state.weight, expandChart = hasChart)
+                else -> RecoveryHealthPage(state.recovery, expandChart = hasChart)
             }
         }
         PageDots(
@@ -133,7 +130,10 @@ internal fun DashboardHealthPager(
 }
 
 @Composable
-private fun ActivityHealthPage(page: ActivityHealthPageUi) {
+private fun ActivityHealthPage(
+    page: ActivityHealthPageUi,
+    expandChart: Boolean,
+) {
     HealthPageColumn(
         title = stringResource(R.string.dashboard_health_activity),
         hero = page.todayStepsText,
@@ -141,17 +141,24 @@ private fun ActivityHealthPage(page: ActivityHealthPageUi) {
         secondary = page.sevenDayAverageText?.let {
             stringResource(R.string.dashboard_health_steps_average, it)
         },
+        fillHeight = expandChart,
     ) {
-        StratumVolumeBarChart(
-            series = page.dailyPoints,
-            dayLabels = page.dayLabels,
-            contentDescription = stringResource(R.string.dashboard_health_steps_chart_cd),
-        )
+        if (page.hasChart()) {
+            StratumVolumeBarChart(
+                series = page.dailyPoints,
+                dayLabels = page.dayLabels,
+                contentDescription = stringResource(R.string.dashboard_health_steps_chart_cd),
+                modifier = healthChartModifier(expandChart),
+            )
+        }
     }
 }
 
 @Composable
-private fun WeightHealthPage(page: WeightHealthPageUi) {
+private fun WeightHealthPage(
+    page: WeightHealthPageUi,
+    expandChart: Boolean,
+) {
     val secondary = buildString {
         page.sevenDayMeanText?.let {
             append(stringResource(R.string.dashboard_health_weight_average, it))
@@ -166,31 +173,262 @@ private fun WeightHealthPage(page: WeightHealthPageUi) {
         hero = page.latestText,
         empty = stringResource(R.string.dashboard_health_weight_empty),
         secondary = listOfNotNull(page.latestDateText, secondary).joinToString(" · ").ifEmpty { null },
+        fillHeight = expandChart,
     ) {
-        StratumTrendChart(
-            primarySeries = page.trendPoints,
-            primaryColor = StratumThemeAccessor.colors.textData,
-            contentDescription = stringResource(R.string.dashboard_health_weight_chart_cd),
+        if (page.hasChart()) {
+            StratumTrendChart(
+                primarySeries = page.trendPoints,
+                primaryColor = StratumThemeAccessor.colors.textData,
+                contentDescription = stringResource(R.string.dashboard_health_weight_chart_cd),
+                modifier = healthChartModifier(expandChart),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecoveryHealthPage(
+    page: RecoveryHealthPageUi,
+    expandChart: Boolean,
+) {
+    val hasStages = page.stageSlices.isNotEmpty()
+    Column(
+        modifier = if (expandChart) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StratumText(
+                text = stringResource(R.string.dashboard_health_recovery),
+                style = StratumThemeAccessor.typography.sectionLabel,
+                muted = true,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            RecoveryVitalsRow(page)
+        }
+        if (!hasStages) {
+            val hero = page.lastNightDurationText
+            if (hero != null) {
+                StratumNumber(text = hero)
+            } else {
+                StratumText(
+                    text = stringResource(R.string.dashboard_health_sleep_empty),
+                    muted = true,
+                )
+            }
+        }
+        if (hasStages) {
+            RecoveryStagesRow(
+                page = page,
+                fillHeight = expandChart,
+            )
+        } else if (page.hasChart()) {
+            StratumVolumeBarChart(
+                series = page.nightlyPoints,
+                dayLabels = page.dayLabels,
+                contentDescription = stringResource(R.string.dashboard_health_sleep_chart_cd),
+                modifier = healthChartModifier(expandChart),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.RecoveryStagesRow(
+    page: RecoveryHealthPageUi,
+    fillHeight: Boolean,
+) {
+    val colors = StratumThemeAccessor.colors
+    Row(
+        modifier = if (fillHeight) {
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        } else {
+            Modifier.fillMaxWidth()
+        },
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(DONUT_COLUMN_WEIGHT),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            StratumDonutChart(
+                slices = page.stageSlices.map { slice ->
+                    DonutSliceUi(
+                        fraction = slice.fraction,
+                        color = slice.stage.color(),
+                        label = slice.durationText,
+                    )
+                },
+                contentDescription = stringResource(R.string.dashboard_health_sleep_zones_cd),
+                modifier = Modifier.size(DONUT_SIZE),
+            ) {
+                page.lastNightDurationText?.let { duration ->
+                    StratumNumber(
+                        text = duration,
+                        style = StratumThemeAccessor.typography.titleMedium,
+                    )
+                }
+            }
+            SleepStageLegend(slices = page.stageSlices)
+        }
+        StratumMultiLineChart(
+            primarySeries = page.lightNightlyPoints,
+            secondarySeries = page.deepNightlyPoints,
+            tertiarySeries = page.remNightlyPoints,
+            primaryColor = colors.textMuted,
+            secondaryColor = colors.accent,
+            tertiaryColor = colors.textData,
+            dayLabels = page.dayLabels,
+            contentDescription = stringResource(R.string.dashboard_health_sleep_stages_chart_cd),
+            modifier = Modifier
+                .weight(STAGE_CHART_COLUMN_WEIGHT)
+                .fillMaxHeight(),
         )
     }
 }
 
 @Composable
-private fun RecoveryHealthPage(page: RecoveryHealthPageUi) {
-    HealthPageColumn(
-        title = stringResource(R.string.dashboard_health_recovery),
-        hero = page.lastNightDurationText,
-        empty = stringResource(R.string.dashboard_health_sleep_empty),
-        secondary = recoverySecondary(page),
+private fun SleepStageLegend(slices: List<SleepStageSliceUi>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        page.zones?.let { SleepStageBar(it) }
-        StratumVolumeBarChart(
-            series = page.nightlyPoints,
-            dayLabels = page.dayLabels,
-            contentDescription = stringResource(R.string.dashboard_health_sleep_chart_cd),
-        )
+        slices.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { slice ->
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(LegendDotSize)
+                                .clip(CircleShape)
+                                .background(slice.stage.color()),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        StratumText(
+                            text = stringResource(slice.stage.labelRes()),
+                            muted = true,
+                            style = StratumThemeAccessor.typography.sectionLabel,
+                            maxLines = 1,
+                        )
+                    }
+                }
+                if (row.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
     }
 }
+
+@Composable
+private fun SleepStageUi.color(): Color {
+    val colors = StratumThemeAccessor.colors
+    return when (this) {
+        SleepStageUi.Light -> colors.textMuted
+        SleepStageUi.Deep -> colors.accent
+        SleepStageUi.Rem -> colors.textData
+        SleepStageUi.Awake -> colors.borderSubtle
+    }
+}
+
+private fun SleepStageUi.labelRes(): Int = when (this) {
+    SleepStageUi.Light -> R.string.dashboard_health_sleep_stage_light
+    SleepStageUi.Deep -> R.string.dashboard_health_sleep_stage_deep
+    SleepStageUi.Rem -> R.string.dashboard_health_sleep_stage_rem
+    SleepStageUi.Awake -> R.string.dashboard_health_sleep_stage_awake
+}
+
+@Composable
+private fun RecoveryVitalsRow(page: RecoveryHealthPageUi) {
+    val description = recoverySecondary(page) ?: return
+    Row(
+        modifier = Modifier.semantics { contentDescription = description },
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        page.restingHrText?.let { current ->
+            RecoveryVitalChip(
+                label = stringResource(R.string.dashboard_health_vital_rhr),
+                value = current,
+                caption = page.restingHrAverageText?.let {
+                    stringResource(R.string.dashboard_health_vital_avg, it)
+                },
+            )
+        }
+        page.hrvText?.let { hrv ->
+            RecoveryVitalChip(
+                label = stringResource(R.string.dashboard_health_vital_hrv),
+                value = hrv,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecoveryVitalChip(
+    label: String,
+    value: String,
+    caption: String? = null,
+) {
+    val colors = StratumThemeAccessor.colors
+    val typography = StratumThemeAccessor.typography
+    val valueStyle = typography.dataLarge.copy(
+        fontSize = typography.sectionLabel.fontSize,
+        lineHeight = typography.sectionLabel.lineHeight,
+    )
+    Row(
+        modifier = Modifier
+            .background(color = colors.surfaceSunken, shape = StratumThemeAccessor.shapes.chip)
+            .clip(StratumThemeAccessor.shapes.chip)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        StratumText(
+            text = label,
+            muted = true,
+            style = typography.sectionLabel,
+            maxLines = 1,
+        )
+        StratumNumber(
+            text = value,
+            style = valueStyle,
+            maxLines = 1,
+        )
+        if (caption != null) {
+            StratumText(
+                text = caption,
+                muted = true,
+                style = typography.sectionLabel,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+private fun ColumnScope.healthChartModifier(expandChart: Boolean): Modifier =
+    if (expandChart) {
+        Modifier
+            .weight(1f)
+            .fillMaxWidth()
+    } else {
+        Modifier.fillMaxWidth()
+    }
 
 @Composable
 private fun recoverySecondary(page: RecoveryHealthPageUi): String? {
@@ -218,10 +456,11 @@ private fun HealthPageColumn(
     hero: String?,
     empty: String,
     secondary: String?,
-    extra: @Composable () -> Unit,
+    fillHeight: Boolean,
+    extra: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         StratumText(
@@ -242,39 +481,6 @@ private fun HealthPageColumn(
             )
         }
         extra()
-    }
-}
-
-@Composable
-private fun SleepStageBar(zones: SleepZonesUi) {
-    val colors = StratumThemeAccessor.colors
-    val description = stringResource(R.string.dashboard_health_sleep_zones_cd)
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(StageBarHeight)
-            .semantics { contentDescription = description },
-    ) {
-        val radius = CornerRadius(size.height / 2f, size.height / 2f)
-        var x = 0f
-        val segments = listOf(
-            zones.lightFraction to colors.textMuted,
-            zones.deepFraction to colors.accent,
-            zones.remFraction to colors.textData,
-            zones.awakeFraction to colors.borderSubtle,
-        )
-        segments.forEach { (fraction, color) ->
-            val width = size.width * fraction
-            if (width > 0f) {
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(x, 0f),
-                    size = Size(width, size.height),
-                    cornerRadius = radius,
-                )
-                x += width
-            }
-        }
     }
 }
 

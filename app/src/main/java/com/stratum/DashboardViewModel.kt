@@ -103,6 +103,9 @@ class DashboardViewModel(
     private val _healthUiState = MutableStateFlow(DashboardHealthUiState())
     val healthUiState: StateFlow<DashboardHealthUiState> = _healthUiState.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     /** Preferred weight unit for lift e1RM headlines, chart points, and graph detail. */
     private val displayUnit = MutableStateFlow(Weight.WeightUnit.Lb)
     private val healthEnabled = MutableStateFlow(false)
@@ -167,6 +170,26 @@ class DashboardViewModel(
     }
 
     /**
+     * Pull-to-refresh: reloads the board and Health Connect pages without flashing the empty
+     * loading chrome. No-ops while a pull is already in flight.
+     */
+    fun refresh() {
+        if (_isRefreshing.value) return
+        _isRefreshing.value = true
+        load()
+        val boardJob = loadJob
+        val metricsJob = healthJob
+        viewModelScope.launch {
+            try {
+                boardJob?.join()
+                metricsJob?.join()
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    /**
      * Requests a board-tab change. UI updates only when prefs re-emit after a successful write
      * (single source of truth — no optimistic local patch that can snap back on intermediate
      * DataStore emissions).
@@ -205,6 +228,7 @@ class DashboardViewModel(
         healthJob = null
         lastHealthPages = HealthMetricsPages.Hidden
         _healthUiState.value = DashboardHealthUiState()
+        _isRefreshing.value = false
     }
 
     private fun loadHealth() {

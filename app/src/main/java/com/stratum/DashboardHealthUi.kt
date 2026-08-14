@@ -4,6 +4,7 @@ import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.domain.healthconnect.ActivityMetrics
 import com.stratum.domain.healthconnect.HEALTH_METRICS_DAY_COUNT
 import com.stratum.domain.healthconnect.HealthMetricsPages
+import com.stratum.domain.healthconnect.NightlySleepDuration
 import com.stratum.domain.healthconnect.RecoveryMetrics
 import com.stratum.domain.healthconnect.SleepZones
 import com.stratum.domain.healthconnect.WeightMetrics
@@ -44,20 +45,43 @@ data class WeightHealthPageUi(
 
 data class RecoveryHealthPageUi(
     val lastNightDurationText: String? = null,
-    val zones: SleepZonesUi? = null,
+    val stageSlices: List<SleepStageSliceUi> = emptyList(),
     val restingHrText: String? = null,
     val restingHrAverageText: String? = null,
     val hrvText: String? = null,
     val nightlyPoints: List<TrendPointUi> = emptyList(),
+    val lightNightlyPoints: List<TrendPointUi> = emptyList(),
+    val deepNightlyPoints: List<TrendPointUi> = emptyList(),
+    val remNightlyPoints: List<TrendPointUi> = emptyList(),
     val dayLabels: List<String> = emptyList(),
 )
 
-data class SleepZonesUi(
-    val lightFraction: Float,
-    val deepFraction: Float,
-    val remFraction: Float,
-    val awakeFraction: Float,
+data class SleepStageSliceUi(
+    val stage: SleepStageUi,
+    val fraction: Float,
+    val durationText: String,
 )
+
+enum class SleepStageUi {
+    Light,
+    Deep,
+    Rem,
+    Awake,
+}
+
+internal fun ActivityHealthPageUi.hasChart(): Boolean = dailyPoints.any { it.value > 0f }
+
+internal fun WeightHealthPageUi.hasChart(): Boolean = trendPoints.size >= 2
+
+internal fun RecoveryHealthPageUi.hasChart(): Boolean =
+    nightlyPoints.any { it.value > 0f } ||
+        lightNightlyPoints.any { it.value > 0f } ||
+        deepNightlyPoints.any { it.value > 0f } ||
+        remNightlyPoints.any { it.value > 0f } ||
+        stageSlices.isNotEmpty()
+
+internal fun DashboardHealthUiState.hasChart(): Boolean =
+    activity.hasChart() || weight.hasChart() || recovery.hasChart()
 
 internal fun HealthMetricsPages.toHealthUi(
     displayUnit: Weight.WeightUnit,
@@ -78,7 +102,9 @@ private fun ActivityMetrics.toUi(zone: ZoneId): ActivityHealthPageUi {
     }
     val labels = dailyCounts.map { shortWeekdayLabel(it.dayStart, zone) }
     return ActivityHealthPageUi(
-        todayStepsText = todaySteps?.let { formatStepCount(it) },
+        todayStepsText = todaySteps
+            ?.takeIf { dailyCounts.any { day -> day.count > 0L } }
+            ?.let { formatStepCount(it) },
         sevenDayAverageText = sevenDayAverage?.let { formatStepCount(it.toLong()) },
         dailyPoints = points.ifEmpty { zeroWeekPoints() },
         dayLabels = labels.ifEmpty { emptyList() },
@@ -113,33 +139,68 @@ private fun RecoveryMetrics.toUi(zone: ZoneId): RecoveryHealthPageUi {
     val points = nightlyDurations.mapIndexed { index, night ->
         TrendPointUi(
             weekIndex = index,
-            value = night.duration.toMinutes().toFloat() / 60f,
+            value = night.duration.toHoursFloat(),
         )
     }
     val labels = nightlyDurations.map { shortWeekdayLabel(it.dayStart, zone) }
     return RecoveryHealthPageUi(
         lastNightDurationText = lastNight?.duration?.let { formatHoursMinutes(it) },
-        zones = lastNight?.zones?.toUi(),
+        stageSlices = lastNight?.zones.toSlices(),
         restingHrText = restingHeartRateBpm?.let { "$it bpm" },
         restingHrAverageText = restingHeartRateSevenDayMean?.let {
             "${it.toLong()} bpm"
         },
         hrvText = hrvRmssdMillis?.let { String.format(Locale.US, "%.0f ms", it) },
         nightlyPoints = points.ifEmpty { zeroWeekPoints() },
+        lightNightlyPoints = nightlyDurations.toStagePoints { it.light },
+        deepNightlyPoints = nightlyDurations.toStagePoints { it.deep },
+        remNightlyPoints = nightlyDurations.toStagePoints { it.rem },
         dayLabels = labels.ifEmpty { emptyList() },
     )
 }
 
-private fun SleepZones.toUi(): SleepZonesUi? {
-    val totalMs = total.toMillis().toFloat()
-    if (totalMs <= 0f) return null
-    return SleepZonesUi(
-        lightFraction = light.toMillis() / totalMs,
-        deepFraction = deep.toMillis() / totalMs,
-        remFraction = rem.toMillis() / totalMs,
-        awakeFraction = awake.toMillis() / totalMs,
-    )
+private fun List<NightlySleepDuration>.toStagePoints(
+    hours: (SleepZones) -> Duration,
+): List<TrendPointUi> {
+    if (isEmpty()) return zeroWeekPoints()
+    return mapIndexed { index, night ->
+        TrendPointUi(
+            weekIndex = index,
+            value = night.zones?.let(hours).toHoursFloat(),
+        )
+    }
 }
+
+private fun SleepZones?.toSlices(): List<SleepStageSliceUi> {
+    val zones = this ?: return emptyList()
+    val totalMs = zones.total.toMillis().toFloat()
+    if (totalMs <= 0f) return emptyList()
+    return listOf(
+        SleepStageSliceUi(
+            stage = SleepStageUi.Light,
+            fraction = zones.light.toMillis() / totalMs,
+            durationText = formatHoursMinutes(zones.light),
+        ),
+        SleepStageSliceUi(
+            stage = SleepStageUi.Deep,
+            fraction = zones.deep.toMillis() / totalMs,
+            durationText = formatHoursMinutes(zones.deep),
+        ),
+        SleepStageSliceUi(
+            stage = SleepStageUi.Rem,
+            fraction = zones.rem.toMillis() / totalMs,
+            durationText = formatHoursMinutes(zones.rem),
+        ),
+        SleepStageSliceUi(
+            stage = SleepStageUi.Awake,
+            fraction = zones.awake.toMillis() / totalMs,
+            durationText = formatHoursMinutes(zones.awake),
+        ),
+    ).filter { it.fraction > 0f }
+}
+
+private fun Duration?.toHoursFloat(): Float =
+    this?.toMinutes()?.toFloat()?.div(MINUTES_PER_HOUR) ?: 0f
 
 internal fun formatStepCount(count: Long): String =
     String.format(Locale.US, "%,d", count)
@@ -170,6 +231,8 @@ private fun convertBodyWeight(weight: Weight, displayUnit: Weight.WeightUnit): D
 
 private fun zeroWeekPoints(): List<TrendPointUi> =
     (0 until HEALTH_METRICS_DAY_COUNT).map { TrendPointUi(weekIndex = it, value = 0f) }
+
+private const val MINUTES_PER_HOUR = 60f
 
 private val SHORT_DATE: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MMM d", Locale.US)
