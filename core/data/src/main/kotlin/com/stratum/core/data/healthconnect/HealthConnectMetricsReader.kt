@@ -140,6 +140,7 @@ class HealthConnectMetricsReader @Inject constructor(
             SleepSessionSample(
                 start = record.startTime,
                 end = record.endTime,
+                originPackage = record.metadata.dataOrigin.packageName,
                 stages = record.stages.map { stage ->
                     SleepStageSample(
                         start = stage.startTime,
