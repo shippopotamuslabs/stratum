@@ -55,11 +55,15 @@ import org.junit.jupiter.api.extension.ExtendWith
 import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncPort
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
+import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import com.stratum.domain.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.domain.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.healthconnect.SetHealthConnectEnabledUseCase
+import com.stratum.domain.subscription.EntitlementSource
+import com.stratum.domain.subscription.EntitlementState
+import com.stratum.domain.subscription.ObserveEntitlementUseCase
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
@@ -73,6 +77,7 @@ class SettingsViewModelTest {
     private val fakeHealthConnectPreferences = FakeHealthConnectPreferencesRepository()
     private val fakeHealthConnectSync = FakeHealthConnectSyncPort()
     private val fakeHealthConnectSyncStatus = FakeHealthConnectSyncStatusPort()
+    private val fakeEntitlementRepository = FakeEntitlementRepository()
     private lateinit var fakeAuth: FakeAuthManager
     private lateinit var fakeCloudSync: FakeCloudSyncPort
     private lateinit var fakeAccountDeletion: FakeAccountDeletionPort
@@ -96,6 +101,7 @@ class SettingsViewModelTest {
         fakeHealthConnectSync.hasPermission = true
         fakeHealthConnectSync.granted = emptySet()
         fakeHealthConnectSync.grantedPermissionsFailure = null
+        fakeEntitlementRepository.setState(EntitlementState.NotEntitled())
         fakeAuth = FakeAuthManager(
             AuthState.Authenticated(UserProfile("uid-1", "Test", "t@example.com", null)),
         )
@@ -125,6 +131,8 @@ class SettingsViewModelTest {
                 ObserveHealthConnectPreferencesUseCase(fakeHealthConnectPreferences),
             observeHealthConnectSyncErrors =
                 ObserveHealthConnectSyncErrorsUseCase(fakeHealthConnectSyncStatus),
+            observeEntitlement =
+                ObserveEntitlementUseCase(fakeEntitlementRepository),
             setThemeFamily = SetThemeFamilyUseCase(fakeThemePreferences, FakeLoggingPort()),
             setColorMode = SetColorModeUseCase(fakeThemePreferences, FakeLoggingPort()),
             setCheckInEnabled = SetCheckInEnabledUseCase(fakeCheckInPreferences, FakeLoggingPort()),
@@ -775,6 +783,51 @@ class SettingsViewModelTest {
             advanceUntilIdle()
             assertEquals("Health Connect write failed", awaitItem())
             assertEquals(null, fakeHealthConnectSyncStatus.currentPendingError)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Entitlement status updates isEntitled and isComplimentary in uiState")
+    fun entitlementStatusUpdatesUiState() = runTest {
+        fakeEntitlementRepository.setState(EntitlementState.Entitled(EntitlementSource.ComplimentaryAccess))
+
+        subject.uiState.test {
+            val state = awaitItem()
+            assertTrue(state.isEntitled)
+            assertTrue(state.isComplimentary)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Play entitled maps isEntitled true and isComplimentary false")
+    fun playEntitledMapsMembershipFlags() = runTest {
+        fakeEntitlementRepository.setState(
+            EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
+        )
+        subject = buildViewModel()
+
+        subject.uiState.test {
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertTrue(state.isEntitled)
+            assertFalse(state.isComplimentary)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("NotEntitled maps isEntitled and isComplimentary false")
+    fun notEntitledMapsMembershipFlags() = runTest {
+        fakeEntitlementRepository.setState(EntitlementState.NotEntitled())
+        subject = buildViewModel()
+
+        subject.uiState.test {
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertFalse(state.isEntitled)
+            assertFalse(state.isComplimentary)
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -196,6 +196,7 @@ class OnboardingGenerateViewModelTest {
                     )
                 },
         )
+        val weightDisplayPreferences = com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository()
         val viewModel = OnboardingViewModel(
             getOnboardingWizardState = com.stratum.domain.onboarding.GetOnboardingWizardStateUseCase(
                 getOnboardingState = com.stratum.domain.onboarding.GetOnboardingStateUseCase(
