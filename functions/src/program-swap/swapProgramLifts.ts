@@ -8,6 +8,7 @@ import {
   createOpenRouterClient,
   programGenerationSessionId,
 } from "../openrouterSession";
+import { assertUserEntitled } from "../entitlement/assertEntitled";
 import {
   buildLiftSwapInput,
   LIFT_SWAP_SYSTEM_PROMPT,
@@ -53,6 +54,7 @@ export const swapProgramLifts = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign-in required.");
     }
+    await assertUserEntitled(request.auth.uid);
 
     const data = request.data as { reviewPayload?: LiftSwapReviewPayload };
     const reviewPayload = data.reviewPayload;

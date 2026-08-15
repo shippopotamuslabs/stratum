@@ -16,6 +16,9 @@ captures/
 *.aab
 *.ap_
 *.dex
+release/
+**/release/
+
 
 # IDE
 *.iml

@@ -13,6 +13,9 @@ import com.stratum.domain.healthconnect.ClearHealthConnectSyncErrorUseCase
 import com.stratum.domain.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.domain.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.healthconnect.SetHealthConnectEnabledUseCase
+import com.stratum.domain.subscription.EntitlementSource
+import com.stratum.domain.subscription.EntitlementState
+import com.stratum.domain.subscription.ObserveEntitlementUseCase
 import com.stratum.domain.lift.ObserveEquipmentProposalsEnabledUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.SetEquipmentProposalsEnabledUseCase
@@ -44,6 +47,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Suppress("LongParameterList")
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     observeThemePreferences: ObserveThemePreferencesUseCase,
@@ -53,6 +57,7 @@ class SettingsViewModel @Inject constructor(
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
     observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
+    observeEntitlement: ObserveEntitlementUseCase,
     private val setThemeFamily: SetThemeFamilyUseCase,
     private val setColorMode: SetColorModeUseCase,
     private val setCheckInEnabled: SetCheckInEnabledUseCase,
@@ -107,8 +112,13 @@ class SettingsViewModel @Inject constructor(
                     observeRepRangeShiftProposalsEnabled(),
                     observeWeightDisplayPreferences(),
                     observeHealthConnectPreferences(),
-                ) { repRange, weightDisplay, healthConnect -> Triple(repRange, weightDisplay, healthConnect) },
-            ) { (theme, checkIn, equipmentEnabled), (repRangeEnabled, weightDisplay, healthConnect) ->
+                ) { repRange, weightDisplay, healthConnect ->
+                    Triple(repRange, weightDisplay, healthConnect)
+                },
+                observeEntitlement(),
+            ) { appearance, training, entitlement ->
+                val (theme, checkIn, equipmentEnabled) = appearance
+                val (repRangeEnabled, weightDisplay, healthConnect) = training
                 PreferenceSnapshot(
                     appearance = theme.colorMode.toAppearanceUi(),
                     themeFamily = theme.family.toThemeFamilyUi(),
@@ -117,6 +127,9 @@ class SettingsViewModel @Inject constructor(
                     repRangeProposalsEnabled = repRangeEnabled,
                     weightUnit = weightDisplay.displayUnit.toWeightUnitUi(),
                     healthConnectEnabled = healthConnect.enabled,
+                    isEntitled = entitlement is EntitlementState.Entitled,
+                    isComplimentary = entitlement is EntitlementState.Entitled &&
+                        entitlement.source == EntitlementSource.ComplimentaryAccess,
                 )
             },
             debugStatusMessage,
@@ -134,6 +147,8 @@ class SettingsViewModel @Inject constructor(
                 healthConnectEnabled = prefs.healthConnectEnabled,
                 healthConnectWriteGranted = healthConnectWriteGranted(granted),
                 healthConnectReadsGranted = healthConnectReadsGranted(granted),
+                isEntitled = prefs.isEntitled,
+                isComplimentary = prefs.isComplimentary,
                 showDebugTools = BuildConfig.DEBUG,
                 debugStatusMessage = debugStatus,
                 isForceRefreshingDerived = rebuild.isRunning,
@@ -412,6 +427,8 @@ class SettingsViewModel @Inject constructor(
         val repRangeProposalsEnabled: Boolean,
         val weightUnit: WeightUnitUi,
         val healthConnectEnabled: Boolean,
+        val isEntitled: Boolean,
+        val isComplimentary: Boolean,
     )
 
     private data class RebuildProgressUi(
@@ -462,6 +479,8 @@ data class SettingsUiState(
     val healthConnectEnabled: Boolean = false,
     val healthConnectWriteGranted: Boolean = false,
     val healthConnectReadsGranted: Boolean = false,
+    val isEntitled: Boolean = false,
+    val isComplimentary: Boolean = false,
     /** True only in debug builds; release UI never shows developer tools. */
     val showDebugTools: Boolean = false,
     val debugStatusMessage: String? = null,
@@ -491,6 +510,7 @@ enum class PostWorkoutSuggestionUi {
  * Grouped so the composable stays under Detekt [LongParameterList].
  */
 data class SettingsAccountActions(
+    val onMembershipClick: () -> Unit = {},
     val onLogoutClick: () -> Unit = {},
     val onLogoutConfirmDismiss: () -> Unit = {},
     val onLogoutConfirmed: () -> Unit = {},

@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { assertUserEntitled } from "../entitlement/assertEntitled";
 import { isProgramTemplateJobStale } from "./programTemplateJobGuards";
 
 /**
@@ -17,6 +18,7 @@ export const startProgramTemplateImport = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Sign-in required.");
   }
   const uid = request.auth.uid;
+  await assertUserEntitled(uid);
   const data = request.data as {
     jobId?: string;
     rawStoragePath?: string;

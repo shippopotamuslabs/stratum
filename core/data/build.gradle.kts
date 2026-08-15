@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
+    implementation(libs.play.billing)
     ksp(libs.hilt.compiler)
     ksp(libs.androidx.hilt.compiler)
     ksp(libs.kotlin.metadata.jvm)

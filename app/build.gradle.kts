@@ -30,8 +30,8 @@ android {
         applicationId = "com.aether.stratum"
         minSdk = 34
         targetSdk = 37
-        versionCode = 46
-        versionName = "1.45"
+        versionCode = 47
+        versionName = "1.46"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -91,6 +91,7 @@ dependencies {
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:program"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:subscription"))
     implementation(project(":feature:workout"))
     implementation(project(":feature:history"))
     implementation(platform(libs.firebase.bom))

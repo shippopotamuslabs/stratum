@@ -42,6 +42,7 @@ fun EntryProviderScope<NavKey>.settingsEntry(
     onNavigateToLegal: () -> Unit,
     onNavigateToImportData: () -> Unit = {},
     onNavigateToExportData: () -> Unit = {},
+    onNavigateToPaywall: () -> Unit = {},
 ) {
     entry<SettingsKey> {
         SettingsRoute(
@@ -49,6 +50,7 @@ fun EntryProviderScope<NavKey>.settingsEntry(
             onNavigateToLegal = onNavigateToLegal,
             onNavigateToImportData = onNavigateToImportData,
             onNavigateToExportData = onNavigateToExportData,
+            onNavigateToPaywall = onNavigateToPaywall,
         )
     }
 }
@@ -68,6 +70,7 @@ private fun SettingsRoute(
     onNavigateToLegal: () -> Unit,
     onNavigateToImportData: () -> Unit,
     onNavigateToExportData: () -> Unit,
+    onNavigateToPaywall: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -129,6 +132,7 @@ private fun SettingsRoute(
             ),
         accountActions =
             SettingsAccountActions(
+                onMembershipClick = onNavigateToPaywall,
                 onLogoutClick = viewModel::onLogoutClick,
                 onLogoutConfirmDismiss = viewModel::onLogoutConfirmDismiss,
                 onLogoutConfirmed = viewModel::onLogoutConfirmed,
