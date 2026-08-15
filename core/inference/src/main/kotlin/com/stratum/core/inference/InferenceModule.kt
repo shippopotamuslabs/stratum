@@ -10,6 +10,7 @@ import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.program.generation.swap.LiftSwapPort
 import com.stratum.domain.program.generation.synthesis.ProgramSynthesisPort
 import com.stratum.domain.program.importing.ProgramTemplateImportPort
+import com.stratum.domain.subscription.PlayEntitlementSyncPort
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -64,6 +65,12 @@ abstract class InferenceModule {
     abstract fun bindProgramTemplateImportPort(
         impl: FirebaseProgramTemplateImportAdapter,
     ): ProgramTemplateImportPort
+
+    @Binds
+    @Singleton
+    abstract fun bindPlayEntitlementSyncPort(
+        impl: FirebasePlayEntitlementSyncAdapter,
+    ): PlayEntitlementSyncPort
 
     @Binds
     @Singleton

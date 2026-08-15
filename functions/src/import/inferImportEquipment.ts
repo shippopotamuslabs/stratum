@@ -13,6 +13,7 @@ import {
   parseInferredEquipment,
   type InferImportEquipmentExerciseInput,
 } from "./inferImportEquipmentSchema";
+import { assertUserEntitled } from "../entitlement/assertEntitled";
 
 /**
  * Transiently maps a user's distinct imported exercise names to `GymEquipment` enum values via
@@ -28,6 +29,7 @@ export const inferImportEquipment = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign-in required.");
     }
+    await assertUserEntitled(request.auth.uid);
 
     const data = request.data as { exercises?: InferImportEquipmentExerciseInput[] };
     const exercises = data.exercises;

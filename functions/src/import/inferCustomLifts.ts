@@ -5,6 +5,7 @@ import {
   createOpenRouterClient,
   customLiftInferenceSessionId,
 } from "../openrouterSession";
+import { assertUserEntitled } from "../entitlement/assertEntitled";
 import {
   buildCustomLiftUserPrompt,
   CUSTOM_LIFT_INFERENCE_MAX_BATCH,
@@ -25,6 +26,7 @@ export const inferCustomLifts = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign-in required.");
     }
+    await assertUserEntitled(request.auth.uid);
 
     const data = request.data as { exercises?: InferCustomLiftsExerciseInput[] };
     const exercises = data.exercises;

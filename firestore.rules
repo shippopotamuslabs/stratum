@@ -78,6 +78,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // User entitlement override / complimentary access (server / Firebase Console Admin writes only).
+    match /users/{userId}/entitlement/{docId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
     // User-owned syncable entity documents (client read/write when owner).
     // Hard deletes are denied — clients must write pure tombstones (deleted: true)
     // so other devices observe the delete via LWW rather than silent doc disappearance.

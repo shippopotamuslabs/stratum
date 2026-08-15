@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="paywall_close">Close paywall</string>
+    <string name="paywall_title">Stratum Membership</string>
+    <string name="paywall_subtitle">Quietly intelligent training progression and volume accounting.</string>
+    <string name="paywall_trial_badge">%1$d-Day Free Trial</string>
+    <string name="paywall_choose_plan">CHOOSE YOUR PLAN</string>
+
+    <string name="paywall_benefit_programs_title">Custom Smart Programs</string>
+    <string name="paywall_benefit_programs_body">Workouts tailored to your schedule, available gym equipment, and muscle focus goals.</string>
+    <string name="paywall_benefit_progression_title">Autoregulated Progression</string>
+    <string name="paywall_benefit_progression_body">Target weights and reps that adapt automatically based on your recovery and performance.</string>
+    <string name="paywall_benefit_imports_title">Easy App &amp; Sheet Imports</string>
+    <string name="paywall_benefit_imports_body">Import your workout logs from Hevy, Strong, MacroFactor, or custom spreadsheets with AI.</string>
+    <string name="paywall_benefit_analytics_title">Volume &amp; Progress Analytics</string>
+    <string name="paywall_benefit_analytics_body">Actionable recommendations, weekly muscle volume breakdown, and visual PR trends.</string>
+
+    <string name="paywall_plan_annual">Annual Plan</string>
+    <string name="paywall_plan_monthly">Monthly Plan</string>
+    <string name="paywall_billed_annually">Billed annually at %1$s</string>
+    <string name="paywall_billed_monthly">Billed monthly at %1$s</string>
+    <string name="paywall_save_badge">SAVE %1$d%%</string>
+    <string name="paywall_selected">Selected</string>
+    <string name="paywall_auto_renew">You will be charged %1$s per %2$s until you cancel</string>
+
+    <string name="paywall_cta_trial">Start %1$d-Day Free Trial</string>
+    <string name="paywall_cta_subscribe">Subscribe for %1$s / %2$s</string>
+    <string name="paywall_cta_manage">Manage in Google Play</string>
+    <string name="paywall_cta_lifetime">Lifetime Access Active</string>
+    <string name="paywall_restore">Restore Purchases</string>
+    <string name="paywall_restoring">Restoring…</string>
+
+    <string name="paywall_terms">Terms of Service</string>
+    <string name="paywall_privacy">Privacy Policy</string>
+
+    <string name="paywall_error_title">Something went wrong</string>
+    <string name="paywall_retry">Try again</string>
+    <string name="paywall_load_error">Couldn\'t load subscription plans. Check your connection and try again.</string>
+    <string name="paywall_restore_none">No active subscriptions found</string>
+    <string name="paywall_restore_success">Purchases restored successfully</string>
+    <string name="paywall_restore_failed">Failed restoring purchases</string>
+    <string name="paywall_purchase_pending">Your purchase is pending. You\'ll get access when Google Play confirms it.</string>
+    <string name="paywall_purchase_failed">Purchase flow failed</string>
+</resources>

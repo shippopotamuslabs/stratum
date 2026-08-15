@@ -61,6 +61,8 @@ import com.stratum.feature.settings.navigation.importLogsEntry
 import com.stratum.feature.settings.navigation.importProgramEntry
 import com.stratum.feature.settings.navigation.legalEntry
 import com.stratum.feature.settings.navigation.settingsEntry
+import com.stratum.feature.subscription.navigation.PaywallKey
+import com.stratum.feature.subscription.navigation.paywallEntry
 import com.stratum.feature.workout.navigation.WorkoutKey
 import com.stratum.feature.workout.navigation.WorkoutCompleteKey
 import com.stratum.feature.workout.navigation.workoutEntry
@@ -82,21 +84,20 @@ fun StratumNavHost(
     onPendingWorkoutConsumed: () -> Unit = {},
 ) {
     val statusViewModel: OnboardingStatusViewModel = hiltViewModel()
-    val isComplete by statusViewModel.isComplete.collectAsState()
-    if (isComplete == null) {
+    val gateViewModel: EntitlementGateViewModel = hiltViewModel()
+    val destination by gateViewModel.destination.collectAsState()
+    if (destination == AppGateDestination.Loading) {
         StratumScaffold { padding ->
             Box(Modifier.fillMaxSize().padding(padding))
         }
         return
     }
-    val startKey: NavKey = remember(isComplete) {
-        if (isComplete == true) MainTabKey(isPreviewMode = false) else OnboardingKey
-    }
+    val startKey: NavKey = remember { destination.toStartNavKey() }
     val backStack = rememberNavBackStack(startKey)
     val onNavigateBack =
         remember(backStack) {
             {
-                if (backStack.size > 1) {
+                if (shouldPopAppGateBackStack(backStack)) {
                     // Prefer removeAt over removeLast(): with compileSdk 35+, Kotlin can resolve
                     // to java.util.List.removeLast() (API 35+ only) and crash on Android 14.
                     backStack.removeAt(backStack.lastIndex)
@@ -104,9 +105,10 @@ fun StratumNavHost(
             }
         }
 
-    LaunchedEffect(pendingWorkoutId, isComplete) {
+    LaunchedEffect(destination, pendingWorkoutId) {
+        reconcileAppGateBackStack(backStack, destination)
         val workoutId = pendingWorkoutId ?: return@LaunchedEffect
-        if (isComplete != true) return@LaunchedEffect
+        if (destination != AppGateDestination.Main) return@LaunchedEffect
         val top = backStack.lastOrNull()
         if (top is WorkoutKey && top.workoutId == workoutId) {
             onPendingWorkoutConsumed()
@@ -240,6 +242,17 @@ fun StratumNavHost(
                 onNavigateToLegal = { backStack.add(LegalKey) },
                 onNavigateToImportData = { backStack.add(ImportDataKey) },
                 onNavigateToExportData = { backStack.add(ExportDataKey) },
+                onNavigateToPaywall = { backStack.add(PaywallKey(isDismissable = true)) },
+            )
+            paywallEntry(
+                onDismiss = {
+                    val top = backStack.lastOrNull() as? PaywallKey
+                    if (top?.isDismissable == true) {
+                        onNavigateBack()
+                    }
+                },
+                onNavigateToTerms = { backStack.add(LegalKey) },
+                onNavigateToPrivacy = { backStack.add(LegalKey) },
             )
             legalEntry(onBackClick = onNavigateBack)
             importDataEntry(
