@@ -57,15 +57,15 @@ class HealthConnectSyncWorkTest {
     }
 
     @Test
-    @DisplayName("Given permission denied when run then returns terminal failure")
-    fun permissionDeniedIsTerminal() = runTest {
+    @DisplayName("Given no write permission when enabled then skips without pushing or erroring")
+    fun skipsWhenWriteNotGranted() = runTest {
         seedCompletedSession()
         preferences.setPreferences(HealthConnectPreferences(enabled = true))
         syncPort.hasPermission = false
 
         val outcome = work.run(TrainingSessionId("ts-hc-1"))
 
-        assertTrue(outcome is HealthConnectSyncWork.Outcome.TerminalFailure)
+        assertEquals(HealthConnectSyncWork.Outcome.SkippedDisabled, outcome)
         assertTrue(syncPort.pushedSessions.isEmpty())
     }
 

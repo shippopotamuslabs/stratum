@@ -83,7 +83,9 @@ import com.stratum.core.data.repository.RoomSupersetAffinityRepository
 import com.stratum.core.data.repository.DataStoreHealthConnectPreferencesRepository
 import com.stratum.core.data.repository.HealthConnectSyncStatusRepository
 import com.stratum.core.data.healthconnect.HealthConnectManager
+import com.stratum.core.data.healthconnect.HealthConnectMetricsReader
 import com.stratum.core.data.work.WorkManagerHealthConnectScheduler
+import com.stratum.domain.healthconnect.HealthConnectMetricsPort
 import com.stratum.domain.healthconnect.HealthConnectPreferencesPort
 import com.stratum.domain.healthconnect.HealthConnectSchedulerPort
 import com.stratum.domain.healthconnect.HealthConnectSyncPort
@@ -582,6 +584,12 @@ abstract class RepositoryModule {
     abstract fun bindHealthConnectSyncPort(
         impl: HealthConnectManager,
     ): HealthConnectSyncPort
+
+    @Binds
+    @Singleton
+    abstract fun bindHealthConnectMetricsPort(
+        impl: HealthConnectMetricsReader,
+    ): HealthConnectMetricsPort
 
     @Binds
     @Singleton

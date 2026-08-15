@@ -56,6 +56,7 @@ import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesReposi
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncPort
 import com.stratum.core.testing.healthconnect.FakeHealthConnectSyncStatusPort
 import com.stratum.domain.healthconnect.ClearHealthConnectSyncErrorUseCase
+import com.stratum.domain.healthconnect.HealthConnectPreferences
 import com.stratum.domain.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.domain.healthconnect.ObserveHealthConnectSyncErrorsUseCase
 import com.stratum.domain.healthconnect.SetHealthConnectEnabledUseCase
@@ -90,6 +91,11 @@ class SettingsViewModelTest {
         fakeEquipmentProposals.seedEnabled(true)
         fakeRepRangeProposals.seedEnabled(true)
         fakeWeightDisplayPreferences.seed(WeightDisplayPreferences())
+        fakeHealthConnectPreferences.setPreferences(HealthConnectPreferences())
+        fakeHealthConnectSync.isAvailable = true
+        fakeHealthConnectSync.hasPermission = true
+        fakeHealthConnectSync.granted = emptySet()
+        fakeHealthConnectSync.grantedPermissionsFailure = null
         fakeAuth = FakeAuthManager(
             AuthState.Authenticated(UserProfile("uid-1", "Test", "t@example.com", null)),
         )
@@ -569,6 +575,193 @@ class SettingsViewModelTest {
             subject.onHealthConnectEnabledChange(true)
             advanceUntilIdle()
             assertTrue(awaitItem().healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Health Connect enable succeeds when available even without write permission")
+    fun healthConnectEnableSucceedsWithoutWrite() = runTest {
+        fakeHealthConnectSync.hasPermission = false
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Health Connect disable still works after a dashboard-only opt-in")
+    fun healthConnectDisableStillWorks() = runTest {
+        fakeHealthConnectSync.hasPermission = false
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+            subject.onHealthConnectEnabledChange(false)
+            advanceUntilIdle()
+            assertFalse(awaitItem().healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("permission sheet uses current grants so cancel does not disable")
+    fun permissionSheetCancelKeepsEnabledWhenGrantsRemain() = runTest {
+        fakeHealthConnectSync.granted = setOf(HealthConnectLaunchPermissions.writeExercise)
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+
+            subject.onHealthConnectPermissionSheetClosed()
+            advanceUntilIdle()
+            val afterSheet = expectMostRecentItem()
+            assertTrue(afterSheet.healthConnectEnabled)
+            assertTrue(afterSheet.healthConnectWriteGranted)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("permission sheet enables from read-only grants")
+    fun permissionSheetEnablesFromReads() = runTest {
+        fakeHealthConnectSync.hasPermission = false
+        fakeHealthConnectSync.granted = setOf(HealthConnectLaunchPermissions.readSteps)
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectPermissionSheetClosed()
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertTrue(state.healthConnectEnabled)
+            assertTrue(state.healthConnectReadsGranted)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("permission sheet query failure leaves the current enabled state")
+    fun permissionSheetQueryFailureKeepsEnabled() = runTest {
+        subject.uiState.test {
+            skipItems(1)
+            subject.onHealthConnectEnabledChange(true)
+            advanceUntilIdle()
+            assertTrue(awaitItem().healthConnectEnabled)
+
+            fakeHealthConnectSync.grantedPermissionsFailure = IllegalStateException("sdk blip")
+            subject.onHealthConnectPermissionSheetClosed()
+            advanceUntilIdle()
+            expectNoEvents()
+            assertTrue(subject.uiState.value.healthConnectEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("row tap requests only permissions Health Connect has not granted")
+    fun requestPermissionsEmitsMissingOnly() = runTest {
+        fakeHealthConnectSync.granted = setOf(HealthConnectLaunchPermissions.writeExercise)
+        subject.healthConnectPermissionAction.test {
+            subject.onRequestHealthConnectPermissions()
+            advanceUntilIdle()
+            val action = awaitItem() as HealthConnectPermissionAction.Request
+            assertEquals(
+                HealthConnectLaunchPermissions.all -
+                    setOf(HealthConnectLaunchPermissions.writeExercise),
+                action.permissions,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("write row requests only the workout write permission when it is missing")
+    fun requestWriteFocusEmitsWriteOnly() = runTest {
+        fakeHealthConnectSync.granted = setOf(HealthConnectLaunchPermissions.readSteps)
+        subject.healthConnectPermissionAction.test {
+            subject.onRequestHealthConnectPermissions(HealthConnectPermissionFocus.Write)
+            advanceUntilIdle()
+            val action = awaitItem() as HealthConnectPermissionAction.Request
+            assertEquals(setOf(HealthConnectLaunchPermissions.writeExercise), action.permissions)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("dashboard row requests only missing read permissions")
+    fun requestReadsFocusEmitsMissingReads() = runTest {
+        fakeHealthConnectSync.granted = setOf(
+            HealthConnectLaunchPermissions.writeExercise,
+            HealthConnectLaunchPermissions.readSteps,
+        )
+        subject.healthConnectPermissionAction.test {
+            subject.onRequestHealthConnectPermissions(HealthConnectPermissionFocus.Reads)
+            advanceUntilIdle()
+            val action = awaitItem() as HealthConnectPermissionAction.Request
+            assertEquals(
+                HealthConnectLaunchPermissions.reads -
+                    setOf(HealthConnectLaunchPermissions.readSteps),
+                action.permissions,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("grant snapshot maps write vs dashboard reads into settings state")
+    fun refreshGrantsMapsWriteAndReads() = runTest {
+        fakeHealthConnectSync.granted = setOf(HealthConnectLaunchPermissions.writeExercise)
+        subject.uiState.test {
+            skipItems(1)
+            subject.refreshHealthConnectGrants()
+            advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertTrue(state.healthConnectWriteGranted)
+            assertFalse(state.healthConnectReadsGranted)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("row tap opens Health Connect settings and opts in when every permission is granted")
+    fun requestPermissionsOpensSettingsWhenNothingMissing() = runTest {
+        fakeHealthConnectSync.granted = HealthConnectLaunchPermissions.all
+        subject.healthConnectPermissionAction.test {
+            subject.onRequestHealthConnectPermissions()
+            advanceUntilIdle()
+            assertEquals(HealthConnectPermissionAction.OpenSettings, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fakeHealthConnectPreferences.getPreferences().enabled)
+    }
+
+    @Test
+    @DisplayName("row tap requests the full set when the grant query fails")
+    fun requestPermissionsFallsBackToAllOnQueryFailure() = runTest {
+        fakeHealthConnectSync.grantedPermissionsFailure = IllegalStateException("sdk blip")
+        subject.healthConnectPermissionAction.test {
+            subject.onRequestHealthConnectPermissions()
+            advanceUntilIdle()
+            val action = awaitItem() as HealthConnectPermissionAction.Request
+            assertEquals(HealthConnectLaunchPermissions.all, action.permissions)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Health Connect settings unavailable surfaces a user message")
+    fun healthConnectSettingsUnavailableSurfacesMessage() = runTest {
+        subject.userMessage.test {
+            assertEquals(null, awaitItem())
+            subject.onHealthConnectSettingsUnavailable()
+            assertEquals(
+                "Couldn't open Health Connect. Is it available on this device?",
+                awaitItem(),
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }

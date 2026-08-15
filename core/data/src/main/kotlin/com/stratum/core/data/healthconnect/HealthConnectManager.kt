@@ -18,6 +18,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 
 @Singleton
 class HealthConnectManager @Inject constructor(
@@ -34,6 +35,21 @@ class HealthConnectManager @Inject constructor(
         val writePermission = HealthPermission.getWritePermission(ExerciseSessionRecord::class)
         val grantedPermissions = client.permissionController.getGrantedPermissions()
         return grantedPermissions.contains(writePermission)
+    }
+
+    override suspend fun grantedPermissions(): Result<Set<String>> {
+        if (!isAvailable()) {
+            return Result.failure(HealthConnectUnavailableException())
+        }
+        return try {
+            Result.success(
+                HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions(),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (error: Throwable) {
+            Result.failure(error)
+        }
     }
 
     override suspend fun pushSession(

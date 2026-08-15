@@ -28,7 +28,9 @@ import kotlinx.coroutines.withContext
  * state — **including when the feature gate is off** (kill-switch must not disable isolation).
  *
  * [stop] only tears down session (active uid + WorkManager); durable hydrate/cursor state is kept
- * so same-user re-login can incremental-pull **unless** [endSessionAndWipe] ran (logout wipe).
+ * so same-user re-login can incremental-pull **unless** [endSessionAndWipe] ran (logout wipe of
+ * Room + cursors). Logout keeps [FirestoreSyncStateStore.lastSyncedUserId] so the next [start]
+ * still detects a different uid and wipes leftover rows.
  *
  * [sessionState] becomes [CloudSessionState.Ready] once local Room is owned/usable for the
  * active user (already hydrated, ownership-only gate off, or first successful push/pull).
@@ -176,7 +178,9 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                     cloudSyncScheduler.cancel()
                     writeCoordinator.withWriteLock {
                         userOwnedDataClearer.clearUserOwnedData()
-                        stateStore.clearUser(userId)
+                        // Keep lastSyncedUserId so the next start can still detect a switch if
+                        // any user rows survived this wipe.
+                        stateStore.clearHydrateState(userId)
                     }
                     _sessionState.value = CloudSessionState.Inactive
                     _syncStatus.value = SyncStatus.Idle
@@ -229,21 +233,28 @@ class FirestoreCloudSyncAdapter @Inject constructor(
     }
 
     /**
-     * If durable or in-memory owner differs from [userId], wipe Room before any cloud write
-     * so User A dirty rows never upload under User B's path.
+     * If durable or in-memory owner differs from [userId] (including blank/untrusted owner),
+     * wipe Room before any cloud write so User A dirty rows never upload under User B's path.
      *
      * Runs under [UserOwnedWriteCoordinator] so repository writes cannot interleave with wipe.
      */
     private suspend fun ensureAccountOwnership(userId: String) {
         val durableOwner = stateStore.lastSyncedUserId().ifBlank { null }
         val memoryOwner = activeUserId.get()
-        val previousOwner = durableOwner ?: memoryOwner
-        if (previousOwner != null && previousOwner != userId) {
-            loggingPort.info(TAG, "account switch; clearing local data")
-            writeCoordinator.withWriteLock {
-                userOwnedDataClearer.clearUserOwnedData()
-                stateStore.clearUser(previousOwner)
+        if (!AccountOwnershipPolicy.mustWipe(durableOwner, memoryOwner, userId)) {
+            return
+        }
+        val previousOwner = AccountOwnershipPolicy.previousOwner(durableOwner, memoryOwner)
+        loggingPort.info(TAG, "account switch or unowned local data; clearing")
+        writeCoordinator.withWriteLock {
+            userOwnedDataClearer.clearUserOwnedData()
+            if (durableOwner != null) {
+                stateStore.clearUser(durableOwner)
+            } else if (previousOwner != null) {
+                stateStore.clearHydrateState(previousOwner)
             }
+            // Incoming uid may have stale cursors from a previous visit on this device.
+            stateStore.clearHydrateState(userId)
         }
     }
 

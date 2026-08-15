@@ -1,6 +1,8 @@
 package com.stratum
 
 import com.stratum.core.testing.dashboard.FakeDashboardPreferencesRepository
+import com.stratum.core.testing.healthconnect.FakeHealthConnectMetricsPort
+import com.stratum.core.testing.healthconnect.FakeHealthConnectPreferencesRepository
 import com.stratum.core.testing.lift.FakeWeightDisplayPreferencesRepository
 import com.stratum.core.testing.logging.FakeLoggingPort
 
@@ -18,6 +20,8 @@ import com.stratum.domain.dashboard.DashboardPreferences
 import com.stratum.domain.dashboard.LoadDashboardUseCase
 import com.stratum.domain.dashboard.LoadGraphDetailUseCase
 import com.stratum.domain.dashboard.ObserveDashboardPreferencesUseCase
+import com.stratum.domain.healthconnect.LoadHealthConnectMetricsUseCase
+import com.stratum.domain.healthconnect.ObserveHealthConnectPreferencesUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.dashboard.SetDashboardBoardTabUseCase
 import com.stratum.domain.dashboard.TrendPoint
@@ -614,6 +618,9 @@ class DashboardViewModelTest {
         dashboardPreferences: FakeDashboardPreferencesRepository = FakeDashboardPreferencesRepository(),
         weightDisplayPreferences: FakeWeightDisplayPreferencesRepository =
             FakeWeightDisplayPreferencesRepository(),
+        healthConnectPreferences: FakeHealthConnectPreferencesRepository =
+            FakeHealthConnectPreferencesRepository(),
+        healthConnectMetrics: FakeHealthConnectMetricsPort = FakeHealthConnectMetricsPort(),
         zone: ZoneId = testZone,
         now: Instant? = null,
     ): DashboardViewModel {
@@ -665,6 +672,12 @@ class DashboardViewModelTest {
             observeCloudSyncStatus = ObserveCloudSyncStatusUseCase(cloudSync),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(weightDisplayPreferences),
+            observeHealthConnectPreferences =
+                ObserveHealthConnectPreferencesUseCase(healthConnectPreferences),
+            loadHealthConnectMetrics = LoadHealthConnectMetricsUseCase(
+                healthConnectMetrics,
+                healthConnectPreferences,
+            ),
             zone = zone,
             clock = { now ?: Instant.now() },
         )

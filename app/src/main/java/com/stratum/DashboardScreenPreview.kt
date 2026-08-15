@@ -2,6 +2,7 @@ package com.stratum
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -9,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.TrendPointUi
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
+import com.stratum.core.ui.theme.StratumThemeId
 
 private const val PREVIEW_VOLUME_GHOST_ALPHA = 0.5f
 
@@ -100,8 +102,168 @@ private fun DashboardScreenLoadingPreview() {
     }
 }
 
+@Preview(name = "Dashboard health pager light", showBackground = true)
 @Composable
-private fun DashboardScreenPreviewContent() {
+private fun DashboardScreenHealthLightPreview() {
+    StratumTheme {
+        DashboardScreenPreviewContent(health = previewHealthState())
+    }
+}
+
+@Preview(name = "Dashboard health pager dark", showBackground = true, backgroundColor = 0xFF121212)
+@Composable
+private fun DashboardScreenHealthDarkPreview() {
+    StratumTheme(darkTheme = true) {
+        DashboardScreenPreviewContent(health = previewHealthState())
+    }
+}
+
+@Preview(name = "Dashboard health pager neo dark", showBackground = true, backgroundColor = 0xFF1A1A1A)
+@Composable
+private fun DashboardScreenHealthNeoDarkPreview() {
+    StratumTheme(themeId = StratumThemeId.NeoBrutalist, darkTheme = true) {
+        DashboardScreenPreviewContent(health = previewHealthState())
+    }
+}
+
+@Preview(name = "Dashboard health weight page", showBackground = true)
+@Composable
+private fun DashboardScreenHealthWeightPreview() {
+    StratumTheme {
+        DashboardScreenPreviewContent(health = previewHealthState(selectedPage = 1))
+    }
+}
+
+@Preview(name = "Dashboard health recovery page", showBackground = true)
+@Composable
+private fun DashboardScreenHealthRecoveryPreview() {
+    StratumTheme {
+        DashboardScreenPreviewContent(health = previewHealthState(selectedPage = 2))
+    }
+}
+
+@Preview(name = "Dashboard health empty pages", showBackground = true)
+@Composable
+private fun DashboardScreenHealthEmptyPreview() {
+    StratumTheme {
+        DashboardScreen(
+            state = DashboardUiState.Empty,
+            health = previewEmptyHealthState(),
+            isRefreshing = false,
+            onRefresh = {},
+            onNavigateToSettings = {},
+        )
+    }
+}
+
+@Preview(name = "Health pager card — filled activity", showBackground = true, widthDp = 412, heightDp = 280)
+@Composable
+private fun HealthPagerCardFilledActivityLightPreview() {
+    HealthPagerCardPreview(health = previewHealthState())
+}
+
+@Preview(
+    name = "Health pager card — filled activity dark",
+    showBackground = true,
+    backgroundColor = 0xFF121212,
+    widthDp = 412,
+    heightDp = 280,
+)
+@Composable
+private fun HealthPagerCardFilledActivityDarkPreview() {
+    HealthPagerCardPreview(health = previewHealthState(), dark = true)
+}
+
+@Preview(name = "Health pager card — filled weight", showBackground = true, widthDp = 412, heightDp = 280)
+@Composable
+private fun HealthPagerCardFilledWeightLightPreview() {
+    HealthPagerCardPreview(health = previewHealthState(selectedPage = 1))
+}
+
+@Preview(
+    name = "Health pager card — filled weight dark",
+    showBackground = true,
+    backgroundColor = 0xFF121212,
+    widthDp = 412,
+    heightDp = 280,
+)
+@Composable
+private fun HealthPagerCardFilledWeightDarkPreview() {
+    HealthPagerCardPreview(health = previewHealthState(selectedPage = 1), dark = true)
+}
+
+@Preview(name = "Health pager card — filled recovery", showBackground = true, widthDp = 412, heightDp = 280)
+@Composable
+private fun HealthPagerCardFilledRecoveryLightPreview() {
+    HealthPagerCardPreview(health = previewHealthState(selectedPage = 2))
+}
+
+@Preview(
+    name = "Health pager card — filled recovery dark",
+    showBackground = true,
+    backgroundColor = 0xFF121212,
+    widthDp = 412,
+    heightDp = 280,
+)
+@Composable
+private fun HealthPagerCardFilledRecoveryDarkPreview() {
+    HealthPagerCardPreview(health = previewHealthState(selectedPage = 2), dark = true)
+}
+
+@Preview(name = "Health pager card — empty activity", showBackground = true, widthDp = 412, heightDp = 128)
+@Composable
+private fun HealthPagerCardEmptyActivityLightPreview() {
+    HealthPagerCardPreview(health = previewEmptyHealthState())
+}
+
+@Preview(
+    name = "Health pager card — empty activity dark",
+    showBackground = true,
+    backgroundColor = 0xFF121212,
+    widthDp = 412,
+    heightDp = 128,
+)
+@Composable
+private fun HealthPagerCardEmptyActivityDarkPreview() {
+    HealthPagerCardPreview(health = previewEmptyHealthState(), dark = true)
+}
+
+@Preview(name = "Health pager card — empty weight", showBackground = true, widthDp = 412, heightDp = 128)
+@Composable
+private fun HealthPagerCardEmptyWeightLightPreview() {
+    HealthPagerCardPreview(health = previewEmptyHealthState(selectedPage = 1))
+}
+
+@Preview(
+    name = "Health pager card — empty weight dark",
+    showBackground = true,
+    backgroundColor = 0xFF121212,
+    widthDp = 412,
+    heightDp = 128,
+)
+@Composable
+private fun HealthPagerCardEmptyWeightDarkPreview() {
+    HealthPagerCardPreview(health = previewEmptyHealthState(selectedPage = 1), dark = true)
+}
+
+@Composable
+private fun HealthPagerCardPreview(
+    health: DashboardHealthUiState,
+    dark: Boolean = false,
+) {
+    StratumTheme(darkTheme = dark) {
+        val pagerState = rememberPagerState(
+            initialPage = health.selectedPage,
+            pageCount = { HEALTH_PAGER_PAGE_COUNT },
+        )
+        DashboardHealthPager(state = health, pagerState = pagerState)
+    }
+}
+
+@Composable
+private fun DashboardScreenPreviewContent(
+    health: DashboardHealthUiState = DashboardHealthUiState(),
+) {
     DashboardScreen(
         state = DashboardUiState.Loaded(
             windowWeeks = 13,
@@ -215,6 +377,9 @@ private fun DashboardScreenPreviewContent() {
                 ),
             ),
         ),
+        health = health,
+        isRefreshing = false,
+        onRefresh = if (health.visible) ({}) else null,
         onNavigateToSettings = {},
     )
 }
@@ -232,6 +397,68 @@ private fun sevenDayVolumeSeries(peakDay: Int): List<TrendPointUi> =
 
 /** Sample rolling week ending Sunday for previews. */
 private val PREVIEW_DAY_LABELS = listOf("M", "T", "W", "R", "F", "Sa", "Su")
+
+private fun previewHealthState(selectedPage: Int = 0): DashboardHealthUiState =
+    DashboardHealthUiState(
+        visible = true,
+        selectedPage = selectedPage,
+        activity = ActivityHealthPageUi(
+            todayStepsText = "8,432",
+            sevenDayAverageText = "7,210",
+            dailyPoints = listOf(5_200f, 6_100f, 4_800f, 7_400f, 8_100f, 9_000f, 8_432f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            dayLabels = PREVIEW_DAY_LABELS,
+        ),
+        weight = WeightHealthPageUi(
+            latestText = "176.4 lb",
+            latestDateText = "Aug 12",
+            sevenDayMeanText = "177.1 lb",
+            deltaText = "−0.7 lb",
+            trendPoints = listOf(178.2f, 177.8f, 177.4f, 177.0f, 176.6f, 176.5f, 176.4f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            dayLabels = PREVIEW_DAY_LABELS,
+        ),
+        recovery = RecoveryHealthPageUi(
+            lastNightDurationText = "7h 12m",
+            stageSlices = listOf(
+                SleepStageSliceUi(SleepStageUi.Light, 0.45f, "3h 14m"),
+                SleepStageSliceUi(SleepStageUi.Deep, 0.22f, "1h 35m"),
+                SleepStageSliceUi(SleepStageUi.Rem, 0.23f, "1h 39m"),
+                SleepStageSliceUi(SleepStageUi.Awake, 0.10f, "43m"),
+            ),
+            restingHrText = "52 bpm",
+            restingHrAverageText = "54 bpm",
+            hrvText = "48 ms",
+            nightlyPoints = listOf(6.8f, 7.1f, 5.9f, 7.4f, 7.0f, 8.1f, 7.2f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            lightNightlyPoints = listOf(3.2f, 3.0f, 2.4f, 3.4f, 3.1f, 3.6f, 3.2f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            deepNightlyPoints = listOf(1.5f, 1.6f, 1.1f, 1.7f, 1.4f, 1.9f, 1.6f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            remNightlyPoints = listOf(1.6f, 1.7f, 1.3f, 1.8f, 1.6f, 2.0f, 1.7f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            awakeNightlyPoints = listOf(0.7f, 0.4f, 0.9f, 0.5f, 0.6f, 0.3f, 0.7f)
+                .mapIndexed { index, value -> TrendPointUi(index, value) },
+            dayLabels = PREVIEW_DAY_LABELS,
+        ),
+    )
+
+/** Empty Health Connect week: axis labels with no samples — matches the live emulator with no Toolbox data. */
+private fun previewEmptyHealthState(selectedPage: Int = 0): DashboardHealthUiState {
+    val zeroWeek = PREVIEW_DAY_LABELS.mapIndexed { index, _ -> TrendPointUi(index, 0f) }
+    return DashboardHealthUiState(
+        visible = true,
+        selectedPage = selectedPage,
+        activity = ActivityHealthPageUi(
+            dailyPoints = zeroWeek,
+            dayLabels = PREVIEW_DAY_LABELS,
+        ),
+        recovery = RecoveryHealthPageUi(
+            nightlyPoints = zeroWeek,
+            dayLabels = PREVIEW_DAY_LABELS,
+        ),
+    )
+}
 
 /** Lift e1RM-scale series for strength sparklines. */
 private fun ascendingSeries(): List<TrendPointUi> =

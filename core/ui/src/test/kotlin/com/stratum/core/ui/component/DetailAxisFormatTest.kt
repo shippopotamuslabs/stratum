@@ -34,6 +34,16 @@ class DetailAxisFormatTest {
     }
 
     @Test
+    @DisplayName("hours stored as a decimal format as hours and minutes")
+    fun hoursAsDuration() {
+        assertEquals("0m", formatHoursAsDuration(0.0))
+        assertEquals("48m", formatHoursAsDuration(0.8))
+        assertEquals("1h 0m", formatHoursAsDuration(1.0))
+        assertEquals("1h 35m", formatHoursAsDuration(95.0 / 60.0))
+        assertEquals("7h 12m", formatHoursAsDuration(7.2))
+    }
+
+    @Test
     @DisplayName("week-start labels use UTC (no local Sunday slip)")
     fun weekStartUtcLabel() {
         // Monday 2026-01-05 00:00 UTC

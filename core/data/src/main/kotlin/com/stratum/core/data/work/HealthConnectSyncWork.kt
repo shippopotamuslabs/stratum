@@ -19,7 +19,7 @@ class HealthConnectSyncWork @Inject constructor(
     private val healthConnectSyncStatusPort: HealthConnectSyncStatusPort,
 ) {
     sealed interface Outcome {
-        /** User disabled sync after enqueue — do not write. */
+        /** User disabled sync, or write was not granted — do not write and do not error. */
         data object SkippedDisabled : Outcome
 
         data object Success : Outcome
@@ -33,6 +33,9 @@ class HealthConnectSyncWork @Inject constructor(
 
     suspend fun run(sessionId: TrainingSessionId): Outcome {
         if (!preferencesPort.getPreferences().enabled) {
+            return Outcome.SkippedDisabled
+        }
+        if (!healthConnectSyncPort.hasWritePermission()) {
             return Outcome.SkippedDisabled
         }
 

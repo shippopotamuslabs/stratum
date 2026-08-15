@@ -16,6 +16,7 @@ import com.stratum.core.data.db.WorkoutDao
 import com.stratum.core.data.db.WorkoutLiftDao
 import com.stratum.core.data.sync.LocalSyncMeta
 import com.stratum.core.data.sync.SyncCollection
+import com.stratum.core.data.sync.appliers.IncrementTierRemoteApplier
 import com.stratum.core.data.sync.appliers.LiftRemoteApplier
 import com.stratum.core.data.sync.appliers.LoggedSetRemoteApplier
 import com.stratum.core.data.sync.appliers.ProgramRemoteApplier
@@ -65,6 +66,14 @@ class SyncHandlersProvider @Inject constructor(
     private val programRemoteApplier: ProgramRemoteApplier,
     private val loggedSetRemoteApplier: LoggedSetRemoteApplier,
 ) {
+    private val incrementTierRemoteApplier =
+        IncrementTierRemoteApplier(
+            incrementTierDao = incrementTierDao,
+            liftDao = liftDao,
+            equipmentDao = equipmentDao,
+            decoders = decoders,
+        )
+
     fun all(): List<SyncCollectionHandler> =
         listOf(
             userProfileHandler(),
@@ -211,11 +220,7 @@ class SyncHandlersProvider @Inject constructor(
             delete = { incrementTierDao.deleteById(IncrementTierId(it)) },
             markSynced = { id, at -> incrementTierDao.markSyncedIfUnchanged(id, at) },
             encode = encoders::incrementTier,
-            decodeUpsert = { id, data ->
-                decoders.incrementTier(id, data)?.let {
-                    incrementTierDao.upsertAll(listOf(it)); true
-                } ?: false
-            },
+            decodeUpsert = incrementTierRemoteApplier::upsertFromRemote,
         )
 
     private fun programsHandler(): SyncCollectionHandler =
