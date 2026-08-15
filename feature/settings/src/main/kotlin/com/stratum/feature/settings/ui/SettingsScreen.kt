@@ -77,6 +77,25 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            SettingsGroup(title = stringResource(R.string.settings_membership_section)) {
+                val (membershipTitle, membershipSubtitle) = when {
+                    uiState.isComplimentary ->
+                        stringResource(R.string.settings_membership_title) to
+                            stringResource(R.string.settings_membership_complimentary)
+                    uiState.isEntitled ->
+                        stringResource(R.string.settings_membership_title) to
+                            stringResource(R.string.settings_membership_active)
+                    else ->
+                        stringResource(R.string.settings_membership_upgrade) to
+                            stringResource(R.string.settings_membership_required)
+                }
+                StratumPreferenceRow(
+                    title = membershipTitle,
+                    subtitle = membershipSubtitle,
+                    onClick = accountActions.onMembershipClick,
+                )
+            }
+
             SettingsGroup(title = stringResource(R.string.settings_look_feel_section)) {
                 SettingsControlBlock(
                     label = stringResource(R.string.settings_appearance_title),

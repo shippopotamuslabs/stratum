@@ -4,6 +4,12 @@
     <string name="settings_navigate_back">Go back</string>
 
     <!-- Section group labels (muted headers above cards) -->
+    <string name="settings_membership_section">Membership</string>
+    <string name="settings_membership_title">Stratum Membership</string>
+    <string name="settings_membership_upgrade">Subscribe to Stratum</string>
+    <string name="settings_membership_active">Active membership</string>
+    <string name="settings_membership_complimentary">Complimentary Lifetime Access (VIP)</string>
+    <string name="settings_membership_required">Required to use the app</string>
     <string name="settings_look_feel_section">Look &amp; feel</string>
     <string name="settings_training_section">Training</string>
     <string name="settings_legal_section">Legal</string>

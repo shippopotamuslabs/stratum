@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { isSynthesisJobStale } from "./synthesisJobGuards";
+import { assertUserEntitled } from "../entitlement/assertEntitled";
 import {
   MAX_REQUEST_BYTES,
   MAX_SYNTHESIS_PER_MONTH,
@@ -58,6 +59,7 @@ export const startProgramSynthesis = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Sign-in required.");
   }
   const uid = request.auth.uid;
+  await assertUserEntitled(uid);
   const data = request.data as {
     jobId?: string;
     requestStoragePath?: string;

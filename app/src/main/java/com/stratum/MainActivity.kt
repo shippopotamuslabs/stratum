@@ -19,6 +19,7 @@ import com.stratum.app.MainViewModel
 import com.stratum.app.ShellUiState
 import com.stratum.app.ui.SignInScreen
 import com.stratum.core.data.auth.SignInHostContext
+import com.stratum.core.data.subscription.BillingHostContext
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.feature.workout.notification.WorkoutNavExtras
@@ -32,6 +33,9 @@ class MainActivity : FragmentActivity() {
     lateinit var signInHostContext: SignInHostContext
 
     @Inject
+    lateinit var billingHostContext: BillingHostContext
+
+    @Inject
     lateinit var loggingPort: LoggingPort
 
     private var pendingWorkoutId by mutableStateOf<String?>(null)
@@ -39,6 +43,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         signInHostContext.attach(this)
+        billingHostContext.attach(this)
         initFirebaseAppCheck()
         // Transparent system bar scrims so scaffold/list surfaces truly reach the glass edge.
         // Default enableEdgeToEdge() applies a dark nav-bar scrim that reads as a dead strip
@@ -86,6 +91,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onDestroy() {
         signInHostContext.detach(this)
+        billingHostContext.detach(this)
         super.onDestroy()
     }
 
