@@ -31,6 +31,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 /**
  * Thin façade for create-program: nav entry + shared [uiState].
@@ -58,7 +60,8 @@ class CreateProgramViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     observeActiveSession: ObserveActiveSessionUseCase,
     abandonTrainingSession: AbandonTrainingSessionUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("CreateProgramViewModel", logError)) {
 
     private val _uiState = MutableStateFlow(
         CreateProgramUiState(programId = UUID.randomUUID().toString()),

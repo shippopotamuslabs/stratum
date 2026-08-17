@@ -10,9 +10,8 @@
 -dontobfuscate
 
 # Crashlytics / stacktraces: line numbers and source file names stay useful
-# even without name obfuscation. Default AGP optimize rules already keep
-# LineNumberTable/SourceFile on modern AGP; leave explicit only if needed.
-# -keepattributes SourceFile,LineNumberTable
+# even without name obfuscation.
+-keepattributes SourceFile,LineNumberTable
 
 # ---------------------------------------------------------------------------
 # Reflection / framework entry points that libraries may not fully cover.

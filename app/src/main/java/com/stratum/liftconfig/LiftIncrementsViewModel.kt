@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 data class IncrementTierDraft(
     val lowerBound: String,
@@ -52,7 +54,8 @@ class LiftIncrementsViewModel @Inject constructor(
     private val setLiftIncrementTiers: SetLiftIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("LiftIncrementsViewModel", logError)) {
 
     private val liftId = MutableStateFlow<String?>(null)
     private val draftTiers = MutableStateFlow<List<IncrementTierDraft>?>(null)

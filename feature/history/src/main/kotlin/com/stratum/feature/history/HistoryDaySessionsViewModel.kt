@@ -18,12 +18,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class HistoryDaySessionsViewModel @Inject constructor(
     private val observeWorkoutHistoryCalendar: ObserveWorkoutHistoryCalendarUseCase,
     private val getWorkoutSessionDetail: GetWorkoutSessionDetailUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("HistoryDaySessionsViewModel", logError)) {
 
     private val _uiState =
         MutableStateFlow<HistoryDaySessionsUiState>(HistoryDaySessionsUiState.Loading)

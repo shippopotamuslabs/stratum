@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.loggedViewModelScope
 
 data class ImportLogsUiState(
     val isAuthenticated: Boolean = false,
@@ -45,7 +46,7 @@ class ImportLogsViewModel @Inject constructor(
     private val authManager: AuthManager,
     private val logError: LogErrorUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-) : ViewModel() {
+) : ViewModel(loggedViewModelScope("ImportLogsViewModel", logError)) {
     private val _uiState = MutableStateFlow(ImportLogsUiState())
     val uiState: StateFlow<ImportLogsUiState> = _uiState.asStateFlow()
 

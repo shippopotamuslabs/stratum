@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -75,13 +78,24 @@ fun StratumVolumeBarChart(
     }
 
     val modelProducer = remember { CartesianChartModelProducer() }
+    val reporter = LocalUiRenderErrorReporter.current
+    var modelFailed by remember(series) { mutableStateOf(false) }
+    if (modelFailed) {
+        VolumeBarBaselineOnly(
+            modifier = modifier.semantics { this.contentDescription = contentDescription },
+            color = colors.borderSubtle,
+        )
+        return
+    }
     LaunchedEffect(series) {
-        modelProducer.runTransaction {
-            columnModel {
-                series(
-                    x = series.map { it.weekIndex },
-                    y = series.map { it.value },
-                )
+        runCatchingChartModel(reporter, onFailure = { modelFailed = true }) {
+            modelProducer.runTransaction {
+                columnModel {
+                    series(
+                        x = series.map { it.weekIndex },
+                        y = series.map { it.value },
+                    )
+                }
             }
         }
     }

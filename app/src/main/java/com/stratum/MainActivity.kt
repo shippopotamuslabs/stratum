@@ -6,8 +6,11 @@ import android.os.Bundle
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -20,8 +23,12 @@ import com.stratum.app.ShellUiState
 import com.stratum.app.ui.SignInScreen
 import com.stratum.core.data.auth.SignInHostContext
 import com.stratum.core.data.subscription.BillingHostContext
+import com.stratum.core.ui.component.LocalUiRenderErrorReporter
+import com.stratum.core.ui.component.StratumRenderBoundary
+import com.stratum.core.ui.component.UiRenderErrorReporter
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.telemetry.CrashTelemetryPort
 import com.stratum.feature.workout.notification.WorkoutNavExtras
 import com.stratum.navigation.StratumNavHost
 import dagger.hilt.android.AndroidEntryPoint
@@ -37,6 +44,9 @@ class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var loggingPort: LoggingPort
+
+    @Inject
+    lateinit var crashTelemetryPort: CrashTelemetryPort
 
     private var pendingWorkoutId by mutableStateOf<String?>(null)
 
@@ -65,19 +75,33 @@ class MainActivity : FragmentActivity() {
             val viewModel: MainViewModel = hiltViewModel()
             val themePreferences by viewModel.themePreferences.collectAsStateWithLifecycle()
             StratumTheme(preferences = themePreferences) {
-                val shellState by viewModel.shellUiState.collectAsStateWithLifecycle()
-                if (shellState is ShellUiState.Ready) {
-                    StratumNavHost(
-                        pendingWorkoutId = pendingWorkoutId,
-                        onPendingWorkoutConsumed = { pendingWorkoutId = null },
-                    )
-                } else {
-                    SignInScreen(
-                        shellState = shellState,
-                        onSignInWithGoogle = viewModel::onSignInWithGoogle,
-                        onRetrySession = viewModel::onRetrySession,
-                        onSignOut = viewModel::onSignOutFromShell,
-                    )
+                val renderReporter =
+                    remember {
+                        UiRenderErrorReporter { error ->
+                            loggingPort.error("UiRender", "UI render failure: ${error.message}", error)
+                        }
+                    }
+                CompositionLocalProvider(LocalUiRenderErrorReporter provides renderReporter) {
+                    val shellState by viewModel.shellUiState.collectAsStateWithLifecycle()
+                    if (shellState is ShellUiState.Ready) {
+                        StratumNavHost(
+                            pendingWorkoutId = pendingWorkoutId,
+                            onPendingWorkoutConsumed = { pendingWorkoutId = null },
+                            onScreenChanged = crashTelemetryPort::setScreen,
+                        )
+                    } else {
+                        LaunchedEffect(Unit) {
+                            crashTelemetryPort.setScreen("SignInScreen")
+                        }
+                        StratumRenderBoundary {
+                            SignInScreen(
+                                shellState = shellState,
+                                onSignInWithGoogle = viewModel::onSignInWithGoogle,
+                                onRetrySession = viewModel::onRetrySession,
+                                onSignOut = viewModel::onSignOutFromShell,
+                            )
+                        }
+                    }
                 }
             }
         }

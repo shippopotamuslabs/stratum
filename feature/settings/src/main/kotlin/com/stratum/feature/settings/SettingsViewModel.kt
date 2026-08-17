@@ -46,6 +46,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 @Suppress("LongParameterList")
 @HiltViewModel
@@ -70,7 +72,8 @@ class SettingsViewModel @Inject constructor(
     private val forceRefreshDerived: ForceRefreshDerivedTrainingData,
     private val logout: LogoutUseCase,
     private val deleteAccount: DeleteAccountUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("SettingsViewModel", logError)) {
 
     private val debugStatusMessage = MutableStateFlow<String?>(null)
     private val rebuildProgressUi = MutableStateFlow(RebuildProgressUi())

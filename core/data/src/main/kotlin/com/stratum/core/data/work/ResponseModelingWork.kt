@@ -10,9 +10,8 @@ import com.stratum.domain.training.TrainingSession
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionStatus
 import java.time.Instant
-import java.util.logging.Level
-import java.util.logging.Logger
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 
 /**
  * Pure orchestration for the response-modeling background job. Extracted from
@@ -42,7 +41,6 @@ class ResponseModelingWork @Inject constructor(
     private val trainingLogRepository: TrainingLogRepository,
     private val markCheckInPending: MarkCheckInPendingUseCase,
 ) {
-    private val logger = Logger.getLogger(ResponseModelingWork::class.java.name)
 
     sealed interface Outcome {
         /** Fewer than [RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed workouts since last extract. */
@@ -55,62 +53,41 @@ class ResponseModelingWork @Inject constructor(
         data class Failed(val error: Throwable) : Outcome
     }
 
-    suspend fun run(forceHistoryInvalidation: Boolean = false): Outcome {
-        val lastExtracted = metadataRepository.get()?.lastExtractedAt
-        val isReExtract = lastExtracted != null
-        if (!forceHistoryInvalidation && lastExtracted != null) {
-            val sessions = trainingLogRepository.getAllSessions()
-            val newWorkouts = countCompletedWorkoutsSince(sessions, lastExtracted)
-            if (newWorkouts < RE_EXTRACT_MIN_COMPLETED_WORKOUTS) {
-                return Outcome.Skipped
-            }
-        }
-        // Null metadata, enough new workouts, or forced history invalidation → full All-history extract.
-
-        return extractResponseProfile(
-            provenLiftIds = emptySet(),
-            scope = InsightsAnalysisScope.All,
-        ).fold(
-            onSuccess = {
-                if (isReExtract && !forceHistoryInvalidation) {
-                    // Best-effort with retries: extract watermark already advanced; a hard failure
-                    // here must not throw (that would look like extract failure / skip retries
-                    // forever). Pending can still be forced via debug Settings if needed.
-                    // History-invalidation force runs intentionally skip check-in.
-                    markPendingResilient(Instant.now())
+    suspend fun run(forceHistoryInvalidation: Boolean = false): Outcome =
+        runCatching {
+            val lastExtracted = metadataRepository.get()?.lastExtractedAt
+            val isReExtract = lastExtracted != null
+            if (!forceHistoryInvalidation && lastExtracted != null) {
+                val sessions = trainingLogRepository.getAllSessions()
+                val newWorkouts = countCompletedWorkoutsSince(sessions, lastExtracted)
+                if (newWorkouts < RE_EXTRACT_MIN_COMPLETED_WORKOUTS) {
+                    return@runCatching Outcome.Skipped
                 }
-                Outcome.Success
-            },
-            onFailure = { Outcome.Failed(it) },
-        )
-    }
-
-    private suspend fun markPendingResilient(extractedAt: Instant) {
-        var lastError: Throwable? = null
-        repeat(MARK_PENDING_ATTEMPTS) { attempt ->
-            try {
-                markCheckInPending(extractedAt)
-                return
-            } catch (t: Throwable) {
-                lastError = t
-                logger.log(
-                    Level.WARNING,
-                    "Mark check-in pending attempt ${attempt + 1}/$MARK_PENDING_ATTEMPTS failed",
-                    t,
-                )
             }
+            // Null metadata, enough new workouts, or forced history invalidation → full All-history extract.
+
+            extractResponseProfile(
+                provenLiftIds = emptySet(),
+                scope = InsightsAnalysisScope.All,
+            ).fold(
+                onSuccess = {
+                    if (isReExtract && !forceHistoryInvalidation) {
+                        // Extract watermark already advanced; mark pending check-in.
+                        // History-invalidation force runs intentionally skip check-in.
+                        markCheckInPending(Instant.now())
+                    }
+                    Outcome.Success
+                },
+                onFailure = { Outcome.Failed(it) },
+            )
+        }.getOrElse { error ->
+            if (error is CancellationException) {
+                throw error
+            }
+            Outcome.Failed(error)
         }
-        logger.log(
-            Level.SEVERE,
-            "Mark check-in pending failed after $MARK_PENDING_ATTEMPTS attempts; " +
-                "extract succeeded without opening coach check-in",
-            lastError,
-        )
-    }
 
     companion object {
-        private const val MARK_PENDING_ATTEMPTS = 3
-
         /**
          * Completed program/ad-hoc sessions strictly after [since] (by [TrainingSession.endedAt],
          * falling back to [TrainingSession.startedAt]). Rest days do not count.

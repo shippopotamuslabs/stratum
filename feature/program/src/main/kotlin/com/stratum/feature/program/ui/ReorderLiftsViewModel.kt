@@ -1,12 +1,14 @@
 package com.stratum.feature.program.ui
 
 import androidx.lifecycle.ViewModel
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 import com.stratum.domain.workout.WorkoutEditSession
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
 
 data class ReorderLiftUiState(
     val workoutLiftId: String,
@@ -15,8 +17,9 @@ data class ReorderLiftUiState(
 
 @HiltViewModel
 class ReorderLiftsViewModel @Inject constructor(
-    private val workoutEditSession: WorkoutEditSession
-) : ViewModel() {
+    private val workoutEditSession: WorkoutEditSession,
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("ReorderLiftsViewModel", logError)) {
 
     private val _lifts = MutableStateFlow<List<ReorderLiftUiState>>(emptyList())
     val lifts: StateFlow<List<ReorderLiftUiState>> = _lifts.asStateFlow()

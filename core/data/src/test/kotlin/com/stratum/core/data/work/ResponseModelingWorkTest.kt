@@ -18,6 +18,7 @@ import com.stratum.domain.response.EmptyExperimentRegistry
 import com.stratum.domain.response.ExtractResponseProfileUseCase
 import com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS
 import com.stratum.domain.response.ResponseProfileMetadata
+import com.stratum.domain.response.ResponseProfileMetadataRepository
 import com.stratum.domain.response.ResponseProfilePersistencePort
 import com.stratum.domain.training.TrainingSessionKind
 import com.stratum.domain.training.TrainingSessionOrigin
@@ -264,6 +265,46 @@ class ResponseModelingWorkTest {
         val outcome = work.run()
 
         assertTrue(outcome is ResponseModelingWork.Outcome.Failed)
+    }
+
+    @Test
+    @DisplayName("rethrows CancellationException without swallowing into Failed outcome")
+    fun rethrowsCancellationException() = runTest {
+        val metadataRepo = object : ResponseProfileMetadataRepository {
+            override suspend fun save(metadata: ResponseProfileMetadata) = Unit
+            override suspend fun get(): ResponseProfileMetadata? {
+                throw kotlinx.coroutines.CancellationException("WorkManager cancelled task")
+            }
+            override suspend fun clear() = Unit
+        }
+        val trainingLog = FakeTrainingLogRepository()
+        val work = buildWork(
+            persistence = FakeResponseProfilePersistencePort(metadataRepository = FakeResponseProfileMetadataRepository()),
+            trainingLog = trainingLog,
+        ).let {
+            ResponseModelingWork(
+                extractResponseProfile = ExtractResponseProfileUseCase(
+                    trainingLogRepository = trainingLog,
+                    liftRepository = FakeLiftRepository(),
+                    liftTrainingInsightsRepository = EmptyLiftInsights(),
+                    muscleVolumeBaselineRepository = EmptyVolumeBaselines(),
+                    importAnalysisMetadataRepository = FixedImportMetadata(null),
+                    responseProfilePersistence = FakeResponseProfilePersistencePort(),
+                    extractor = DefaultResponseObservationExtractor(),
+                    experimentRegistry = EmptyExperimentRegistry(),
+                ),
+                metadataRepository = metadataRepo,
+                trainingLogRepository = trainingLog,
+                markCheckInPending = MarkCheckInPendingUseCase(
+                    FakeCheckInPreferencesRepository(),
+                    com.stratum.core.testing.logging.FakeLoggingPort(),
+                ),
+            )
+        }
+
+        org.junit.jupiter.api.assertThrows<kotlinx.coroutines.CancellationException> {
+            work.run()
+        }
     }
 
     @Test

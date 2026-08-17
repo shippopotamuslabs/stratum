@@ -31,6 +31,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 sealed interface CreateLiftEvent {
     data object NavigateBack : CreateLiftEvent
@@ -49,7 +51,8 @@ class CreateLiftViewModel @Inject constructor(
     private val addCustomLift: AddCustomLiftUseCase,
     private val observeEquipmentCatalog: ObserveEquipmentCatalogUseCase,
     private val equipmentPickResult: EquipmentPickResult,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("CreateLiftViewModel", logError)) {
 
     private data class Draft(
         val name: String = "",

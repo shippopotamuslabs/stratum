@@ -38,6 +38,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 /**
  * Orchestrates workout-complete summary + equipment-increment and rep-range shift proposals.
@@ -57,7 +59,8 @@ class WorkoutCompleteViewModel @Inject constructor(
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeHealthConnectSyncErrors: ObserveHealthConnectSyncErrorsUseCase,
     private val clearHealthConnectSyncError: ClearHealthConnectSyncErrorUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("WorkoutCompleteViewModel", logError)) {
 
     private val _uiState = MutableStateFlow<WorkoutCompleteUiState>(WorkoutCompleteUiState.Loading)
     val uiState: StateFlow<WorkoutCompleteUiState> = _uiState.asStateFlow()

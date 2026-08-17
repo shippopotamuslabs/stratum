@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 /**
  * One weight-band chip on an equipment row. Bounds and increment are already formatted
@@ -68,7 +70,8 @@ class ManageEquipmentViewModel @Inject constructor(
     private val addCustomEquipment: AddCustomEquipmentUseCase,
     private val forkEquipment: ForkEquipmentUseCase,
     private val equipmentPickResult: EquipmentPickResult,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("ManageEquipmentViewModel", logError)) {
 
     private val nameDraft = MutableStateFlow("")
     private val isCreating = MutableStateFlow(false)

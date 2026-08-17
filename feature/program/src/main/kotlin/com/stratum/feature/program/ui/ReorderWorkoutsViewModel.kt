@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 data class ReorderWorkoutUiState(
     val dayId: String,
@@ -24,7 +26,8 @@ data class ReorderWorkoutUiState(
 @HiltViewModel
 class ReorderWorkoutsViewModel @Inject constructor(
     private val reorderProgramCycleDays: ReorderProgramCycleDaysUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("ReorderWorkoutsViewModel", logError)) {
 
     private val _days = MutableStateFlow<List<ReorderWorkoutUiState>>(emptyList())
     val days: StateFlow<List<ReorderWorkoutUiState>> = _days.asStateFlow()

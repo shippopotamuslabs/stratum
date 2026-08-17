@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -44,6 +45,10 @@ class ProcessErrorSafetyNetTest {
         assertEquals(1, fakeLogging.errors.size)
         assertEquals("Uncaught", fakeLogging.errors.single().tag)
         assertSame(failure, fakeLogging.errors.single().throwable)
+        assertEquals(false, fakeLogging.errors.single().recordsNonFatal)
+        assertTrue(fakeLogging.errors.single().message.contains("IllegalStateException"))
+        assertTrue(fakeLogging.errors.single().message.contains("boom"))
+        assertFalse(fakeLogging.errors.single().message.contains("\n"))
         assertSame(failure, chained)
     }
 

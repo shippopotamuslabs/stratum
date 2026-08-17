@@ -6,6 +6,8 @@ import com.stratum.domain.export.ExportFileResult
 import com.stratum.domain.export.ExportLogRange
 import com.stratum.domain.export.ExportTrainingLogsUseCase
 import com.stratum.domain.export.PreviewExportTrainingLogsUseCase
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.ZoneId
@@ -53,7 +55,8 @@ class ExportLogsViewModel(
     private val previewExport: PreviewExportTrainingLogsUseCase,
     private val exportLogs: ExportTrainingLogsUseCase,
     private val zone: ZoneId,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("ExportLogsViewModel", logError)) {
     /**
      * Hilt entry: device-local [ZoneId.systemDefault]. Unit tests use the primary constructor
      * with a fixed zone for deterministic range bounds.
@@ -62,7 +65,8 @@ class ExportLogsViewModel(
     constructor(
         previewExport: PreviewExportTrainingLogsUseCase,
         exportLogs: ExportTrainingLogsUseCase,
-    ) : this(previewExport, exportLogs, ZoneId.systemDefault())
+        logError: LogErrorUseCase,
+    ) : this(previewExport, exportLogs, ZoneId.systemDefault(), logError)
 
     private val _uiState = MutableStateFlow(ExportLogsUiState())
     val uiState: StateFlow<ExportLogsUiState> = _uiState.asStateFlow()
