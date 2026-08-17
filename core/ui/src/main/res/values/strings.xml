@@ -266,6 +266,11 @@
     <string name="program_generate_phase_complete">Program ready</string>
     <string name="program_generate_error_title">Something went wrong</string>
 
+    <!-- Feature-level render recovery (charts / unexpected UI failures) -->
+    <string name="feature_error_title">Something went wrong</string>
+    <string name="feature_error_message">This screen hit an unexpected error. Your data is safe — try again.</string>
+    <string name="feature_error_retry">Try again</string>
+
     <!-- Shared date picker -->
     <string name="stratum_date_picker_confirm">OK</string>
     <string name="stratum_date_picker_dismiss">Cancel</string>

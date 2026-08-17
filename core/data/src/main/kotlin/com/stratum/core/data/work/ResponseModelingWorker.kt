@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.stratum.domain.logging.LoggingPort
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -21,6 +22,7 @@ class ResponseModelingWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val work: ResponseModelingWork,
+    private val loggingPort: LoggingPort,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -29,12 +31,25 @@ class ResponseModelingWorker @AssistedInject constructor(
                 WorkManagerResponseModelingScheduler.KEY_FORCE_HISTORY_INVALIDATION,
                 false,
             )
-        return when (work.run(forceHistoryInvalidation = forceHistoryInvalidation)) {
+        return when (val outcome = work.run(forceHistoryInvalidation = forceHistoryInvalidation)) {
             is ResponseModelingWork.Outcome.Skipped,
             is ResponseModelingWork.Outcome.Success,
             -> Result.success()
 
-            is ResponseModelingWork.Outcome.Failed -> Result.retry()
+            is ResponseModelingWork.Outcome.Failed -> {
+                retryOrGiveUp(
+                    runAttemptCount = runAttemptCount,
+                    tag = TAG,
+                    taskDescription = "Response modeling extraction",
+                    error = outcome.error,
+                    loggingPort = loggingPort,
+                )
+            }
         }
     }
+
+    private companion object {
+        const val TAG = "ResponseModelingWorker"
+    }
 }
+

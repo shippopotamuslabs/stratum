@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 data class ImportProgramUiState(
     val isAuthenticated: Boolean = false,
@@ -31,7 +33,8 @@ data class ImportProgramUiState(
 class ImportProgramViewModel @Inject constructor(
     private val importPrograms: ImportProgramTemplatesUseCase,
     private val authManager: AuthManager,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("ImportProgramViewModel", logError)) {
     private val _uiState = MutableStateFlow(ImportProgramUiState())
     val uiState: StateFlow<ImportProgramUiState> = _uiState.asStateFlow()
 

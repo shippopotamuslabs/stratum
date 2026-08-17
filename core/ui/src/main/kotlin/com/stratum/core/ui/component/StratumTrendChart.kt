@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -67,18 +70,26 @@ fun StratumTrendChart(
     }
 
     val modelProducer = remember { CartesianChartModelProducer() }
+    val reporter = LocalUiRenderErrorReporter.current
     // Materialize the secondary values up front as a non-null list so the `lineModel` block below
     // doesn't need a smart-cast that Kotlin can't carry across the nested lambdas.
     val secondaryValues: List<Float> = secondarySeries?.map { it.value } ?: emptyList()
+    var modelFailed by remember(primarySeries, secondaryValues) { mutableStateOf(false) }
+    if (modelFailed) {
+        BaselineOnly(modifier.semantics { this.contentDescription = contentDescription })
+        return
+    }
     LaunchedEffect(primarySeries, secondaryValues) {
-        modelProducer.runTransaction {
-            lineModel {
-                // Each series is normalized independently into the same centered band, so the two
-                // lines share a visual vertical position even when their raw units differ by orders
-                // of magnitude (set count vs. a progress index / e1RM). Vico then sees two series
-                // already occupying the same band and its joint scaling becomes a no-op.
-                if (hasPrimary) series(y = normalizeSparklineSeries(primarySeries.map { it.value }))
-                if (hasSecondary) series(y = normalizeSparklineSeries(secondaryValues))
+        runCatchingChartModel(reporter, onFailure = { modelFailed = true }) {
+            modelProducer.runTransaction {
+                lineModel {
+                    // Each series is normalized independently into the same centered band, so the two
+                    // lines share a visual vertical position even when their raw units differ by orders
+                    // of magnitude (set count vs. a progress index / e1RM). Vico then sees two series
+                    // already occupying the same band and its joint scaling becomes a no-op.
+                    if (hasPrimary) series(y = normalizeSparklineSeries(primarySeries.map { it.value }))
+                    if (hasSecondary) series(y = normalizeSparklineSeries(secondaryValues))
+                }
             }
         }
     }

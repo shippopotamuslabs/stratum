@@ -30,6 +30,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class CheckInViewModel @Inject constructor(
@@ -39,7 +41,8 @@ class CheckInViewModel @Inject constructor(
     private val applyRecommendations: ApplyCheckInRecommendationsUseCase,
     private val getCheckInMuscleGroups: GetCheckInMuscleGroupsUseCase,
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("CheckInViewModel", logError)) {
 
     private val _uiState = MutableStateFlow(CheckInUiState())
     val uiState: StateFlow<CheckInUiState> = _uiState.asStateFlow()

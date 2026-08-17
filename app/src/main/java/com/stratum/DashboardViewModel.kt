@@ -27,6 +27,8 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
 import com.stratum.domain.sync.SyncStatus
@@ -58,7 +60,8 @@ class DashboardViewModel(
     private val zone: ZoneId,
     /** Wall clock for board/detail "as of"; tests pin a fixed Instant. */
     private val clock: () -> Instant = Instant::now,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("DashboardViewModel", logError)) {
     /**
      * Hilt entry: device-local [ZoneId.systemDefault]. Tests use the primary constructor with a
      * pinned zone (same pattern as [com.stratum.feature.settings.ExportLogsViewModel]).
@@ -73,6 +76,7 @@ class DashboardViewModel(
         observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
         observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
         loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
+        logError: LogErrorUseCase,
     ) : this(
         loadDashboard,
         loadGraphDetail,
@@ -84,6 +88,7 @@ class DashboardViewModel(
         loadHealthConnectMetrics,
         ZoneId.systemDefault(),
         Instant::now,
+        logError,
     )
 
     private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)

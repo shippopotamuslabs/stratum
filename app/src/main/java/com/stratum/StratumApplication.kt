@@ -6,6 +6,8 @@ import androidx.work.Configuration
 import com.stratum.domain.logging.ProcessErrorSafetyNet
 import com.stratum.feature.workout.notification.WorkoutNotificationCoordinator
 import com.stratum.sync.CloudSyncAuthListener
+import com.stratum.telemetry.TelemetryAuthListener
+import com.stratum.telemetry.TelemetryContextListener
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -30,12 +32,20 @@ class StratumApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var cloudSyncAuthListener: CloudSyncAuthListener
 
+    @Inject
+    lateinit var telemetryAuthListener: TelemetryAuthListener
+
+    @Inject
+    lateinit var telemetryContextListener: TelemetryContextListener
+
     override fun onCreate() {
         super.onCreate()
         // Hilt injects members during super.onCreate(); install after so LoggingPort is ready.
         processErrorSafetyNet.installUncaughtExceptionHandler()
         workoutNotificationCoordinator.start()
         cloudSyncAuthListener.start()
+        telemetryAuthListener.start()
+        telemetryContextListener.start()
     }
 
     override val workManagerConfiguration: Configuration

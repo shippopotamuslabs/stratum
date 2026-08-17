@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class ProgramLibraryViewModel @Inject constructor(
@@ -35,7 +37,8 @@ class ProgramLibraryViewModel @Inject constructor(
     private val activateStoredProgram: ActivateStoredProgramUseCase,
     private val abandonTrainingSession: AbandonTrainingSessionUseCase,
     private val deleteProgram: DeleteProgramUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("ProgramLibraryViewModel", logError)) {
 
     private val expandedProgramIds = MutableStateFlow<Set<String>>(emptySet())
     private val pendingDeleteProgramId = MutableStateFlow<String?>(null)

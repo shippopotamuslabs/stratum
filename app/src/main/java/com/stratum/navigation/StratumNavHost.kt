@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,11 +17,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.stratum.core.ui.component.StratumRenderBoundary
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.onboarding.navigation.onboardingEntry
@@ -82,6 +85,7 @@ import com.stratum.liftconfig.manageEquipmentEntry
 fun StratumNavHost(
     pendingWorkoutId: String? = null,
     onPendingWorkoutConsumed: () -> Unit = {},
+    onScreenChanged: (screenName: String) -> Unit = {},
 ) {
     val statusViewModel: OnboardingStatusViewModel = hiltViewModel()
     val gateViewModel: EntitlementGateViewModel = hiltViewModel()
@@ -120,6 +124,23 @@ fun StratumNavHost(
         onPendingWorkoutConsumed()
     }
 
+    val currentKey = backStack.lastOrNull()
+    LaunchedEffect(currentKey) {
+        if (currentKey != null && currentKey !is MainTabKey) {
+            val screenName = currentKey::class.simpleName ?: "Unknown"
+            onScreenChanged(screenName)
+        }
+    }
+
+    val renderBoundaryDecorator =
+        remember {
+            NavEntryDecorator<NavKey> { entry ->
+                StratumRenderBoundary {
+                    entry.Content()
+                }
+            }
+        }
+
     NavDisplay(
         backStack = backStack,
         onBack = onNavigateBack,
@@ -133,6 +154,7 @@ fun StratumNavHost(
         // showDiscardConfirm / entryConfigured across visits — discard sheet on library edit open.
         entryDecorators =
             listOf(
+                renderBoundaryDecorator,
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator(),
             ),
@@ -215,6 +237,7 @@ fun StratumNavHost(
                                 backStack.add(ProgramLibraryKey)
                             },
                         ),
+                    onScreenChanged = onScreenChanged,
                 )
             }
             liftIncrementsEntry(onBackClick = onNavigateBack)

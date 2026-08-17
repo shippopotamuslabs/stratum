@@ -11,13 +11,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class OnboardingStatusViewModel @Inject constructor(
     observeComplete: ObserveOnboardingCompleteUseCase,
     private val reopenOnboardingWizard: ReopenOnboardingWizardUseCase,
     private val discardActiveProgram: DiscardActiveProgramUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("OnboardingStatusViewModel", logError)) {
     /**
      * `null` until the first repository emission — callers must not route on `false` while
      * still unknown to avoid a cold-start onboarding flash for returning users.

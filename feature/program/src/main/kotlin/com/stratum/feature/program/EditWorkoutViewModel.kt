@@ -47,6 +47,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 // Slice 8 (D11): no AppendProgramChangeEventUseCase wrapper exists; SchemeChanged is
@@ -67,7 +69,8 @@ class EditWorkoutViewModel @Inject constructor(
     observeCycleProgress: ObserveCycleProgressUseCase,
     abandonTrainingSession: AbandonTrainingSessionUseCase,
     manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("EditWorkoutViewModel", logError)) {
 
     private val startCoordinator =
         EditWorkoutStartCoordinator(

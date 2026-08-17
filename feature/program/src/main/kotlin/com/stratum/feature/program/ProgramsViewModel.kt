@@ -48,6 +48,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 /**
  * Exposes the persisted program as [ProgramsUiState] for the read-only Programs screen. Maps the
@@ -76,7 +78,8 @@ class ProgramsViewModel @Inject constructor(
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     observeProgramsUiPreferences: ObserveProgramsUiPreferencesUseCase,
     private val setExpandedWorkoutId: SetExpandedWorkoutIdUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("ProgramsViewModel", logError)) {
 
     init {
         // Safety net for already-orphaned sessions (mid-session delete / program switch without

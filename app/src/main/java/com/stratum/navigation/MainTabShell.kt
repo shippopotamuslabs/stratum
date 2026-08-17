@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -25,18 +26,20 @@ import com.stratum.GymScreen
 import com.stratum.R
 import com.stratum.core.ui.component.StratumNavigationBar
 import com.stratum.core.ui.component.StratumNavigationBarItem
+import com.stratum.core.ui.component.StratumRenderBoundary
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.program.ProgramsRoute
 import com.stratum.feature.program.ui.ProgramsScreenCallbacks
 
-private enum class MainTab(val index: Int) {
+internal enum class MainTab(val index: Int) {
     Dashboard(0),
     Program(1),
     Gym(2),
     ;
 
     companion object {
-        fun fromIndex(index: Int): MainTab = entries.first { tab -> tab.index == index }
+        fun fromIndex(index: Int): MainTab =
+            entries.firstOrNull { tab -> tab.index == index } ?: Program
     }
 }
 
@@ -67,9 +70,16 @@ fun MainTabShell(
     modifier: Modifier = Modifier,
     isPreviewMode: Boolean = false,
     callbacks: MainTabShellCallbacks = MainTabShellCallbacks(),
+    onScreenChanged: (String) -> Unit = {},
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(MainTab.Program.index) }
     var hideBottomBar by remember { mutableStateOf(false) }
+
+    val currentTab = remember(selectedTabIndex) { MainTab.fromIndex(selectedTabIndex) }
+    LaunchedEffect(currentTab) {
+        onScreenChanged("MainTab_${currentTab.name}")
+    }
+
     val items =
         listOf(
             StratumNavigationBarItem(
@@ -109,31 +119,39 @@ fun MainTabShell(
                     .padding(PaddingValues(bottom = padding.calculateBottomPadding())),
         ) {
             when (MainTab.fromIndex(selectedTabIndex)) {
-                MainTab.Dashboard -> DashboardScreen(onNavigateToSettings = callbacks.onNavigateToSettings)
-                MainTab.Program -> ProgramsRoute(
-                    isPreviewMode = isPreviewMode,
-                    callbacks =
-                        ProgramsScreenCallbacks(
-                            onCalendarClick = callbacks.onNavigateToHistory,
-                            onKeepProgramClick = callbacks.onKeepProgramClick,
-                            onDiscardProgramClick = callbacks.onDiscardProgramClick,
-                            onEditWorkoutClick = callbacks.onNavigateToEditWorkout,
-                            onCreateProgramClick = callbacks.onCreateProgramClick,
-                            onEditProgramClick = callbacks.onEditProgramClick,
-                            onReorderWorkoutsClick = callbacks.onReorderWorkoutsClick,
-                            onProgramLibraryClick = callbacks.onProgramLibraryClick,
-                        ),
-                    onSwapLiftClick = callbacks.onNavigateToSwap,
-                    onNavigateToWorkout = callbacks.onNavigateToWorkout,
-                )
+                MainTab.Dashboard ->
+                    StratumRenderBoundary {
+                        DashboardScreen(onNavigateToSettings = callbacks.onNavigateToSettings)
+                    }
+                MainTab.Program ->
+                    StratumRenderBoundary {
+                        ProgramsRoute(
+                            isPreviewMode = isPreviewMode,
+                            callbacks =
+                                ProgramsScreenCallbacks(
+                                    onCalendarClick = callbacks.onNavigateToHistory,
+                                    onKeepProgramClick = callbacks.onKeepProgramClick,
+                                    onDiscardProgramClick = callbacks.onDiscardProgramClick,
+                                    onEditWorkoutClick = callbacks.onNavigateToEditWorkout,
+                                    onCreateProgramClick = callbacks.onCreateProgramClick,
+                                    onEditProgramClick = callbacks.onEditProgramClick,
+                                    onReorderWorkoutsClick = callbacks.onReorderWorkoutsClick,
+                                    onProgramLibraryClick = callbacks.onProgramLibraryClick,
+                                ),
+                            onSwapLiftClick = callbacks.onNavigateToSwap,
+                            onNavigateToWorkout = callbacks.onNavigateToWorkout,
+                        )
+                    }
                 MainTab.Gym ->
-                    GymScreen(
-                        onCreateNewLift = callbacks.onCreateNewLift,
-                        onManageEquipment = callbacks.onManageEquipment,
-                        onNavigateToIncrements = callbacks.onNavigateToLiftIncrements,
-                        onNavigateToInformation = callbacks.onNavigateToLiftInformation,
-                        onMergeModeChange = { active -> hideBottomBar = active },
-                    )
+                    StratumRenderBoundary {
+                        GymScreen(
+                            onCreateNewLift = callbacks.onCreateNewLift,
+                            onManageEquipment = callbacks.onManageEquipment,
+                            onNavigateToIncrements = callbacks.onNavigateToLiftIncrements,
+                            onNavigateToInformation = callbacks.onNavigateToLiftInformation,
+                            onMergeModeChange = { active -> hideBottomBar = active },
+                        )
+                    }
             }
         }
     }

@@ -16,11 +16,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class WorkoutHistoryViewModel @Inject constructor(
     private val observeWorkoutHistoryCalendar: ObserveWorkoutHistoryCalendarUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("WorkoutHistoryViewModel", logError)) {
 
     private val mode = MutableStateFlow(HistoryCalendarMode.Month)
     private val scrollToMonth = MutableStateFlow<YearMonth?>(null)

@@ -8,8 +8,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -153,34 +156,47 @@ private fun DetailChartContent(
 ) {
     val colors = StratumThemeAccessor.colors
     val modelProducer = remember { CartesianChartModelProducer() }
+    val reporter = LocalUiRenderErrorReporter.current
     val secondaryValues = secondarySeries.orEmpty()
+    var modelFailed by remember(primarySeries, secondaryValues, dualMode, primaryAsBars) {
+        mutableStateOf(false)
+    }
+    if (modelFailed) {
+        DetailBaselineOnly(
+            modifier = modifier.semantics { this.contentDescription = contentDescription },
+            color = colors.borderSubtle,
+        )
+        return
+    }
 
     val positiveBarColor = primaryColor
     val negativeBarColor = lerp(primaryColor, colors.textPrimary, INDEX_NEGATIVE_LIGHTEN_FRACTION)
 
     LaunchedEffect(primarySeries, secondaryValues, dualMode, primaryAsBars) {
-        modelProducer.runTransaction {
-            if (primaryAsBars) {
-                columnModel {
-                    series(
-                        x = primarySeries.map { it.xEpochDay.toDouble() },
-                        y = primarySeries.map { it.value },
-                    )
+        runCatchingChartModel(reporter, onFailure = { modelFailed = true }) {
+            modelProducer.runTransaction {
+                if (primaryAsBars) {
+                    columnModel {
+                        series(
+                            x = primarySeries.map { it.xEpochDay.toDouble() },
+                            y = primarySeries.map { it.value },
+                        )
+                    }
+                } else {
+                    lineModel {
+                        series(
+                            x = primarySeries.map { it.xEpochDay.toDouble() },
+                            y = primarySeries.map { it.value },
+                        )
+                    }
                 }
-            } else {
-                lineModel {
-                    series(
-                        x = primarySeries.map { it.xEpochDay.toDouble() },
-                        y = primarySeries.map { it.value },
-                    )
-                }
-            }
-            if (dualMode) {
-                lineModel {
-                    series(
-                        x = secondaryValues.map { it.xEpochDay.toDouble() },
-                        y = secondaryValues.map { it.value },
-                    )
+                if (dualMode) {
+                    lineModel {
+                        series(
+                            x = secondaryValues.map { it.xEpochDay.toDouble() },
+                            y = secondaryValues.map { it.value },
+                        )
+                    }
                 }
             }
         }

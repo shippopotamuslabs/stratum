@@ -11,12 +11,15 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class EntitlementGateViewModel @Inject constructor(
     observeEntitlement: ObserveEntitlementUseCase,
     observeOnboardingComplete: ObserveOnboardingCompleteUseCase,
-) : ViewModel() {
+    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
+) : ViewModel(loggedViewModelScope("EntitlementGateViewModel", logError)) {
     val entitlement: StateFlow<EntitlementState> =
         observeEntitlement()
             .stateIn(
