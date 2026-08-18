@@ -25,10 +25,10 @@ class HealthConnectSyncWork @Inject constructor(
         data object Success : Outcome
 
         /** Permanent failure; report once and do not retry. */
-        data class TerminalFailure(val message: String) : Outcome
+        data class TerminalFailure(val error: Throwable) : Outcome
 
         /** Transient failure; WorkManager may retry without emitting yet. */
-        data class RetryableFailure(val message: String) : Outcome
+        data class RetryableFailure(val error: Throwable) : Outcome
     }
 
     suspend fun run(sessionId: TrainingSessionId): Outcome {
@@ -40,18 +40,19 @@ class HealthConnectSyncWork @Inject constructor(
         }
 
         val session = trainingLogRepository.getSession(sessionId)
-            ?: return Outcome.TerminalFailure("Training session ${sessionId.value} not found")
+            ?: return Outcome.TerminalFailure(
+                IllegalStateException("Training session ${sessionId.value} not found"),
+            )
 
         val sets = trainingLogRepository.getSetsForSession(sessionId)
         val syncResult = healthConnectSyncPort.pushSession(session, sets)
         return syncResult.fold(
             onSuccess = { Outcome.Success },
             onFailure = { error ->
-                val message = error.message ?: "Failed to sync workout to Health Connect"
                 if (isTerminalHealthConnectFailure(error)) {
-                    Outcome.TerminalFailure(message)
+                    Outcome.TerminalFailure(error)
                 } else {
-                    Outcome.RetryableFailure(message)
+                    Outcome.RetryableFailure(error)
                 }
             },
         )

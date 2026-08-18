@@ -66,6 +66,7 @@ class LiftSwapViewModelTest {
                 swapWorkoutLift = SwapWorkoutLiftUseCase(
                     programRepository,
                     NoOpProgramChangeEventRepository(),
+                    com.stratum.core.testing.logging.FakeLoggingPort(),
                 ),
             )
     }

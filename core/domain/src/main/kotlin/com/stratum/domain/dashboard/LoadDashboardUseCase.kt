@@ -8,6 +8,7 @@ import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.response.LiftWeeklyPerformanceRepository
@@ -39,8 +40,9 @@ import kotlinx.coroutines.flow.first
  *   ([com.stratum.domain.response.RE_EXTRACT_MIN_COMPLETED_WORKOUTS] completed-workout cadence;
  *   also enqueued post-pull)
  *
- * Returns `null` when no weekly data exists in the window (no completed workouts + no import) so the
- * UI renders an empty state rather than an empty-as-success board.
+ * Returns [Result.success] with the summary, or `null` data when the board is empty.
+ * Unexpected failures are logged once and returned as [Result.failure] so the UI can show
+ * retry chrome instead of an empty board.
  *
  * Lifts tab: only lifts present in the active program (with in-window performance). Muscles tab: all
  * muscles with in-window stimulus, rolled up across every contributing lift — a muscle can be
@@ -55,25 +57,20 @@ class LoadDashboardUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val loggingPort: LoggingPort,
 ) {
-    suspend operator fun invoke(): DashboardSummary? =
+    suspend operator fun invoke(): Result<DashboardSummary?> =
         invoke(now = Instant.now(), zone = ZoneId.systemDefault())
 
     /**
-     * Returns the summary, or `null` when there is no data (empty board). Unexpected failures
-     * are logged and also returned as `null` so the UI shows empty rather than crashing.
-     *
      * [zone] drives the 7-Day rolling window (device local calendar days). Weekly series remain
      * UTC-week based via the stimulus/performance tables.
      */
     suspend operator fun invoke(
         now: Instant,
         zone: ZoneId = ZoneId.systemDefault(),
-    ): DashboardSummary? =
-        runCatching { load(now, zone) }
-            .onFailure { error ->
-                loggingPort.error(TAG, "Failed to load dashboard: ${error.message}", error)
-            }
-            .getOrNull()
+    ): Result<DashboardSummary?> =
+        runCatchingLogged(loggingPort, TAG, "Failed to load dashboard") {
+            load(now, zone)
+        }
 
     private suspend fun load(now: Instant, zone: ZoneId): DashboardSummary? {
         val windowStart = now.minus(WINDOW)

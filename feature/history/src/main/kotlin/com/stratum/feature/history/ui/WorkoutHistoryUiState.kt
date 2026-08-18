@@ -15,6 +15,8 @@ enum class HistoryCalendarMode {
 sealed interface WorkoutHistoryUiState {
     data object Loading : WorkoutHistoryUiState
 
+    data object Error : WorkoutHistoryUiState
+
     data class Loaded(
         val mode: HistoryCalendarMode,
         val weekStreak: Int,

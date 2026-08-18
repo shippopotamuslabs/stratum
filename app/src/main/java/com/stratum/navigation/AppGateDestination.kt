@@ -12,6 +12,7 @@ import com.stratum.feature.subscription.navigation.PaywallKey
  */
 enum class AppGateDestination {
     Loading,
+    Failed,
     Paywall,
     Onboarding,
     Main,
@@ -32,9 +33,19 @@ internal fun resolveAppGateDestination(
             AppGateDestination.Main
     }
 
+internal fun AppGateDestination.isContentDestination(): Boolean =
+    this == AppGateDestination.Paywall ||
+        this == AppGateDestination.Onboarding ||
+        this == AppGateDestination.Main
+
+internal fun shouldMountAppGateNavDisplay(
+    destination: AppGateDestination,
+    hasMountedContent: Boolean,
+): Boolean = hasMountedContent || destination.isContentDestination()
+
 internal fun AppGateDestination.toStartNavKey(): NavKey =
     when (this) {
-        AppGateDestination.Loading ->
+        AppGateDestination.Loading, AppGateDestination.Failed ->
             error("startKey requested while the entitlement gate is still loading")
         AppGateDestination.Paywall -> PaywallKey(isDismissable = false)
         AppGateDestination.Onboarding -> OnboardingKey
@@ -52,7 +63,7 @@ internal fun reconcileAppGateBackStack(
     destination: AppGateDestination,
 ) {
     when (destination) {
-        AppGateDestination.Loading -> Unit
+        AppGateDestination.Loading, AppGateDestination.Failed -> Unit
         AppGateDestination.Paywall -> {
             if (backStack.isOnlyHardPaywall()) return
             backStack.replaceWith(PaywallKey(isDismissable = false))

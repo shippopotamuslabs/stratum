@@ -3,10 +3,10 @@ package com.stratum.feature.program.ui
 import androidx.lifecycle.ViewModel
 import com.stratum.domain.workout.WorkoutEditSession
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
 
 data class ReorderLiftUiState(
     val workoutLiftId: String,
@@ -15,7 +15,7 @@ data class ReorderLiftUiState(
 
 @HiltViewModel
 class ReorderLiftsViewModel @Inject constructor(
-    private val workoutEditSession: WorkoutEditSession
+    private val workoutEditSession: WorkoutEditSession,
 ) : ViewModel() {
 
     private val _lifts = MutableStateFlow<List<ReorderLiftUiState>>(emptyList())

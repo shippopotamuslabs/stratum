@@ -38,6 +38,7 @@ import java.time.Instant
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -309,6 +310,70 @@ class ProgramsViewModelTest {
             assertNull(trainingLog.getActiveSession())
             // Keep VM referenced so init collector is not GC'd mid-test.
             assertNull(viewModel.activeWorkoutBarState.value)
+        }
+
+        @Test
+        fun `orphan abandon failure surfaces snackbar and keeps session`() = runTest {
+            repository = FakeProgramRepository(PROGRAM_PPL)
+            val trainingLog = FakeTrainingLogRepository(programRepository = repository)
+            trainingLog.deleteSessionError = IllegalStateException("delete boom")
+            trainingLog.seedSession(
+                com.stratum.domain.training.TrainingSession(
+                    id = com.stratum.domain.training.identity.TrainingSessionId("ts-orphan"),
+                    programId = ProgramId("p-1"),
+                    workoutId = WorkoutId("deleted-w"),
+                    status = com.stratum.domain.training.TrainingSessionStatus.IN_PROGRESS,
+                    kind = com.stratum.domain.training.TrainingSessionKind.PROGRAM_WORKOUT,
+                    origin = com.stratum.domain.training.TrainingSessionOrigin.LIVE,
+                    cycleNumberSnapshot = 1,
+                    weekdaySnapshot = Weekday.Monday,
+                    startedAt = Instant.parse("2026-06-26T12:00:00Z"),
+                    endedAt = null,
+                    sourceApp = null,
+                    programNameSnapshot = "Push/Pull/Legs",
+                    workoutNameSnapshot = "Deleted Day",
+                ),
+            )
+            val liftRepository =
+                FakeLiftRepository(
+                    initialLifts =
+                        listOf(
+                            catalogLift(LiftId("bench-press"), "Barbell Bench Press"),
+                        ),
+                )
+            val logging = FakeLoggingPort()
+            val viewModel =
+                ProgramsViewModel(
+                    observeProgram = com.stratum.domain.program.ObserveProgramUseCase(repository),
+                    observeLiftCatalog = ObserveLiftCatalogUseCase(liftRepository),
+                    computeProgramMuscleVolume = ComputeProgramMuscleVolumeUseCase(),
+                    startTrainingSession = StartTrainingSessionUseCase(trainingLog, repository, logging),
+                    observeCycleProgress = ObserveCycleProgressUseCase(repository, trainingLog),
+                    abandonTrainingSession =
+                        com.stratum.domain.training.AbandonTrainingSessionUseCase(trainingLog, logging),
+                    getLoggedSetsForSession =
+                        com.stratum.domain.training.GetLoggedSetsForSessionUseCase(trainingLog),
+                    recordWorkoutSkip =
+                        com.stratum.domain.training.RecordWorkoutSkipUseCase(trainingLog, repository),
+                    recordRestDaySkip =
+                        com.stratum.domain.training.RecordRestDaySkipUseCase(trainingLog, repository),
+                    unskipWorkout = com.stratum.domain.training.UnskipWorkoutUseCase(trainingLog, repository),
+                    manageWorkoutOverlay =
+                        ManageWorkoutOverlayUseCase(FakeWorkoutOverlayStore(), logging),
+                    observeProgramsUiPreferences =
+                        ObserveProgramsUiPreferencesUseCase(FakeProgramsUiPreferencesRepository()),
+                    setExpandedWorkoutId =
+                        SetExpandedWorkoutIdUseCase(FakeProgramsUiPreferencesRepository(), logging),
+                )
+
+            viewModel.activeWorkoutBarState.test {
+                awaitItem()
+                advanceUntilIdle()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals("Couldn't cancel the workout. Try again.", viewModel.userMessage.value)
+            assertNotNull(trainingLog.getActiveSession())
         }
     }
 

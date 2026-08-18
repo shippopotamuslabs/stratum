@@ -61,5 +61,7 @@ class ProgramGenerationTelemetryLoggerTest {
         override fun warning(tag: String, message: String) = Unit
 
         override fun error(tag: String, message: String, throwable: Throwable?) = Unit
+
+        override fun errorSkippingNonFatal(tag: String, message: String, throwable: Throwable) = Unit
     }
 }
