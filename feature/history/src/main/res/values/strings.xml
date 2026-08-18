@@ -36,4 +36,15 @@
     <string name="history_edit_discard_message">You have unsaved edits to this workout. Discard them or keep editing.</string>
     <string name="history_edit_discard_confirm">Discard</string>
     <string name="history_edit_discard_keep">Keep editing</string>
+    <string name="history_edit_workout_time">Edit workout time</string>
+    <string name="history_edit_time_sheet_title">Edit Workout Time</string>
+    <string name="history_edit_time_start_date_label">Start Date</string>
+    <string name="history_edit_time_start_time_label">Start Time</string>
+    <string name="history_edit_time_finish_date_label">Finish Date</string>
+    <string name="history_edit_time_finish_time_label">Finish Time</string>
+    <string name="history_edit_time_duration_label">Duration: %1$s</string>
+    <string name="history_edit_time_error_order">Finish time cannot be before start time</string>
+    <string name="history_edit_time_save">Save</string>
+    <string name="history_edit_time_cancel">Cancel</string>
+    <string name="history_edit_time_update_error">Could not update workout time</string>
 </resources>

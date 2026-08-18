@@ -76,6 +76,8 @@ class GetWorkoutSessionDetailUseCase @Inject constructor(
             WorkoutSessionDetail(
                 sessionId = session.id,
                 workoutName = workoutName,
+                startedAt = session.startedAt,
+                endedAt = session.endedAt,
                 completedAt = completedAt,
                 durationMillis = durationMillis,
                 totalSets = loggedSets.size,

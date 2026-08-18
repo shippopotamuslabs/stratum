@@ -205,6 +205,20 @@ class RoomTrainingLogRepository @Inject constructor(
         }
     }
 
+    override suspend fun updateSessionAndSets(session: TrainingSession, sets: List<LoggedSet>) {
+        syncTouch.withWriteLock {
+            database.withTransaction {
+                sessionDao.upsert(session.toEntity())
+                syncTouch.cancelDelete(SyncCollection.TrainingSessions, session.id.value)
+                if (sets.isNotEmpty()) {
+                    setDao.upsertAll(sets.map { it.toEntity() })
+                    syncTouch.cancelDelete(SyncCollection.LoggedSets, sets.map { it.id.value })
+                }
+                syncTouch.markDirty()
+            }
+        }
+    }
+
     override suspend fun deleteSession(id: TrainingSessionId) {
         syncTouch.withWriteLock {
             database.withTransaction {

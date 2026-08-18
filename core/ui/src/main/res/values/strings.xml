@@ -271,9 +271,13 @@
     <string name="feature_error_message">This screen hit an unexpected error. Your data is safe — try again.</string>
     <string name="feature_error_retry">Try again</string>
 
-    <!-- Shared date picker -->
+    <!-- Shared date & time picker -->
     <string name="stratum_date_picker_confirm">OK</string>
     <string name="stratum_date_picker_dismiss">Cancel</string>
+    <string name="stratum_time_picker_confirm">OK</string>
+    <string name="stratum_time_picker_dismiss">Cancel</string>
+    <string name="stratum_time_picker_title">Select time</string>
+
 
     <!-- Shared import progress timeline labels (historical logs) -->
     <string name="import_timeline_upload">Upload</string>
