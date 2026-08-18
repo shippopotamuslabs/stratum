@@ -10,11 +10,14 @@ import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
+import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 import com.stratum.core.ui.component.StratumMuscleVolumeRow
 import com.stratum.core.ui.component.StratumStatCard
@@ -36,6 +39,7 @@ internal fun SessionSummaryContent(
     personalRecordsLabel: String,
     upperVolumeByMuscle: List<StratumMuscleVolumeCardState>,
     lowerVolumeByMuscle: List<StratumMuscleVolumeCardState>,
+    onEditTimeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -47,11 +51,26 @@ internal fun SessionSummaryContent(
                 text = workoutName,
                 style = StratumThemeAccessor.typography.titleLarge,
             )
-            StratumText(
-                text = completedAtLabel,
-                style = StratumThemeAccessor.typography.bodyLarge,
-                muted = true,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                StratumText(
+                    text = completedAtLabel,
+                    style = StratumThemeAccessor.typography.bodyLarge,
+                    muted = true,
+                )
+                StratumIconButton(
+                    onClick = onEditTimeClick,
+                    containerColor = Color.Transparent,
+                ) {
+                    Icon(
+                        painter = painterResource(CoreUiR.drawable.ic_edit),
+                        contentDescription = stringResource(R.string.history_edit_workout_time),
+                        tint = StratumThemeAccessor.colors.textMuted,
+                    )
+                }
+            }
         }
 
         SessionStatsRow(
