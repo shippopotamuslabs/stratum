@@ -5,6 +5,7 @@ import com.stratum.core.ui.component.formatWorkoutDuration
 import com.stratum.core.ui.component.toLowerVolumeCards
 import com.stratum.core.ui.component.toUpperVolumeCards
 import com.stratum.domain.lift.Weight
+import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.training.WorkoutSessionDetail
 import com.stratum.feature.history.ui.HistoryDaySessionSummaryUi
 import com.stratum.feature.history.ui.HistoryLiftUi
@@ -14,12 +15,14 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
-
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 /** Maps domain session detail → history presentation models. */
 internal object WorkoutSessionDetailUiMapper {
+    private const val PR_SELECTION_PRIORITY_BOOST = 1_000_000.0
+    private const val EPLEY_REP_DENOMINATOR = 30.0
+
     fun toDetailLoaded(
         detail: WorkoutSessionDetail,
         displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
@@ -37,27 +40,41 @@ internal object WorkoutSessionDetailUiMapper {
             durationFormatted = formatWorkoutDuration(detail.durationMillis),
             totalSetsLabel = detail.totalSets.toString(),
             personalRecordsLabel = detail.personalRecordCount.toString(),
+            personalRecordCount = detail.personalRecordCount,
             upperVolumeByMuscle = detail.muscleVolumes.toUpperVolumeCards(),
             lowerVolumeByMuscle = detail.muscleVolumes.toLowerVolumeCards(),
             lifts =
                 detail.lifts.map { lift ->
+                    val uiSets =
+                        lift.sets.map { set ->
+                            HistorySetUi(
+                                setIndex = set.setIndex,
+                                performanceLabel =
+                                    formatSetPerformance(
+                                        weight = set.weight,
+                                        reps = set.reps,
+                                        displayUnit = displayUnit,
+                                        includeUnit = false,
+                                    ),
+                                rir = set.rir,
+                                isPersonalRecord = set.isPersonalRecord,
+                            )
+                        }
+                    val bestDomainSet =
+                        lift.sets.maxByOrNull { set ->
+                            val baseLoad =
+                                WeightConversion.loadMagnitudeLb(set.weight) *
+                                    (1.0 + set.reps / EPLEY_REP_DENOMINATOR)
+                            if (set.isPersonalRecord) baseLoad + PR_SELECTION_PRIORITY_BOOST else baseLoad
+                        }
+                    val bestSetUi =
+                        bestDomainSet?.let { best ->
+                            uiSets.find { it.setIndex == best.setIndex } ?: uiSets.firstOrNull()
+                        }
                     HistoryLiftUi(
                         liftName = lift.liftName,
-                        sets =
-                            lift.sets.map { set ->
-                                HistorySetUi(
-                                    setIndex = set.setIndex,
-                                    performanceLabel =
-                                        formatSetPerformance(
-                                            weight = set.weight,
-                                            reps = set.reps,
-                                            displayUnit = displayUnit,
-                                            includeUnit = false,
-                                        ),
-                                    rir = set.rir,
-                                    isPersonalRecord = set.isPersonalRecord,
-                                )
-                            },
+                        sets = uiSets,
+                        bestSet = bestSetUi,
                     )
                 },
         )

@@ -1,7 +1,10 @@
 package com.stratum.feature.history.ui
 
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
-
+import com.stratum.core.ui.share.ShareLiftRowUi
+import com.stratum.core.ui.share.WORKOUT_SHARE_MAX_LIFTS
+import com.stratum.core.ui.share.WorkoutShareContent
+import com.stratum.core.ui.share.buildWorkoutShareContent
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -19,6 +22,7 @@ sealed interface WorkoutSessionDetailUiState {
         val durationFormatted: String,
         val totalSetsLabel: String,
         val personalRecordsLabel: String,
+        val personalRecordCount: Int = 0,
         val upperVolumeByMuscle: List<StratumMuscleVolumeCardState>,
         val lowerVolumeByMuscle: List<StratumMuscleVolumeCardState>,
         val lifts: List<HistoryLiftUi>,
@@ -28,6 +32,8 @@ sealed interface WorkoutSessionDetailUiState {
 data class HistoryLiftUi(
     val liftName: String,
     val sets: List<HistorySetUi>,
+    /** Top working or PR set for recap / share surfaces. Null if no sets. */
+    val bestSet: HistorySetUi? = null,
 )
 
 data class HistorySetUi(
@@ -37,3 +43,25 @@ data class HistorySetUi(
     val rir: Int?,
     val isPersonalRecord: Boolean,
 )
+
+fun WorkoutSessionDetailUiState.Loaded.toShareContent(
+    maxLifts: Int = WORKOUT_SHARE_MAX_LIFTS,
+): WorkoutShareContent {
+    val liftRows =
+        lifts.mapNotNull { lift ->
+            (lift.bestSet ?: lift.sets.firstOrNull())?.let { topSet ->
+                ShareLiftRowUi(
+                    liftName = lift.liftName,
+                    performanceLabel = topSet.performanceLabel,
+                    isPersonalRecord = lift.sets.any { it.isPersonalRecord },
+                )
+            }
+        }
+    return buildWorkoutShareContent(
+        workoutName = workoutName,
+        durationFormatted = durationFormatted,
+        liftRows = liftRows,
+        maxLifts = maxLifts,
+        overridePersonalRecordCount = personalRecordCount,
+    )
+}

@@ -1,4 +1,4 @@
-package com.stratum.feature.workout.ui
+package com.stratum.core.ui.share
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -20,7 +20,7 @@ class WorkoutShareContentTest {
                 buildWorkoutShareContent(
                     workoutName = "Push",
                     durationFormatted = "45m",
-                    bestSets = emptyList(),
+                    liftRows = emptyList(),
                 )
 
             assertEquals("Push", content.workoutName)
@@ -33,13 +33,13 @@ class WorkoutShareContentTest {
         @Test
         @DisplayName("Given fewer lifts than cap when built then all visible and no overflow")
         fun underCap() {
-            val sets = List(3) { index -> bestSet("Lift $index", isPr = index == 0) }
+            val sets = List(3) { index -> shareRow("Lift $index", isPr = index == 0) }
 
             val content =
                 buildWorkoutShareContent(
                     workoutName = "Pull",
                     durationFormatted = "1h",
-                    bestSets = sets,
+                    liftRows = sets,
                     maxLifts = 7,
                 )
 
@@ -59,13 +59,13 @@ class WorkoutShareContentTest {
         @Test
         @DisplayName("Given more lifts than cap when built then truncates and reports overflow")
         fun overCap() {
-            val sets = List(10) { index -> bestSet("Lift $index", isPr = index >= 8) }
+            val sets = List(10) { index -> shareRow("Lift $index", isPr = index >= 8) }
 
             val content =
                 buildWorkoutShareContent(
                     workoutName = "Legs",
                     durationFormatted = "1h 20m",
-                    bestSets = sets,
+                    liftRows = sets,
                     maxLifts = 7,
                 )
 
@@ -78,31 +78,15 @@ class WorkoutShareContentTest {
         }
 
         @Test
-        @DisplayName("Given custom maxLifts via toShareContent when built then respects override")
-        fun customMaxLiftsOnLoaded() {
-            val loaded =
-                WorkoutCompleteUiState.Loaded(
-                    workoutName = "Custom",
-                    durationFormatted = "10m",
-                    bestSets = List(5) { bestSet("Lift $it") },
-                )
-
-            val content = loaded.toShareContent(maxLifts = 2)
-
-            assertEquals(2, content.visibleSets.size)
-            assertEquals(3, content.overflowCount)
-        }
-
-        @Test
         @DisplayName("Given maxLifts zero when built then only overflow count remains")
         fun zeroCap() {
-            val sets = List(4) { bestSet("Lift $it") }
+            val sets = List(4) { shareRow("Lift $it") }
 
             val content =
                 buildWorkoutShareContent(
                     workoutName = "Full",
                     durationFormatted = "30m",
-                    bestSets = sets,
+                    liftRows = sets,
                     maxLifts = 0,
                 )
 
@@ -117,81 +101,36 @@ class WorkoutShareContentTest {
                 buildWorkoutShareContent(
                     workoutName = "X",
                     durationFormatted = "1m",
-                    bestSets = emptyList(),
+                    liftRows = emptyList(),
                     maxLifts = -1,
                 )
             }
         }
 
         @Test
-        @DisplayName("Maps only share fields onto ShareLiftRowUi")
-        fun mapsShareOnlyFields() {
+        @DisplayName("Given explicit overridePersonalRecordCount when built then uses override")
+        fun explicitPrOverride() {
+            val sets = List(3) { shareRow("Lift $it", isPr = false) }
+
             val content =
                 buildWorkoutShareContent(
-                    workoutName = "P",
-                    durationFormatted = "1m",
-                    bestSets =
-                        listOf(
-                            LiftBestSetUi(
-                                liftName = "Bench",
-                                performanceLabel = "185 × 3",
-                                rirLabel = "1",
-                                estimatedOneRmLabel = "201",
-                                isPersonalRecord = true,
-                            ),
-                        ),
+                    workoutName = "Session",
+                    durationFormatted = "1h",
+                    liftRows = sets,
+                    overridePersonalRecordCount = 5,
                 )
 
-            assertEquals(
-                ShareLiftRowUi(
-                    liftName = "Bench",
-                    performanceLabel = "185 × 3",
-                    isPersonalRecord = true,
-                ),
-                content.visibleSets.single(),
-            )
+            assertEquals(5, content.personalRecordCount)
         }
     }
 
-    @Nested
-    @DisplayName("Loaded.toShareContent")
-    inner class FromLoaded {
-
-        @Test
-        @DisplayName("Maps Loaded summary fields into share content")
-        fun mapsLoaded() {
-            val loaded =
-                WorkoutCompleteUiState.Loaded(
-                    workoutName = "Upper A",
-                    durationFormatted = "55m 12s",
-                    bestSets =
-                        listOf(
-                            bestSet("Bench", isPr = true),
-                            bestSet("Row"),
-                        ),
-                    equipmentProposals = emptyList(),
-                    repRangeProposals = emptyList(),
-                )
-
-            val content = loaded.toShareContent()
-
-            assertEquals("Upper A", content.workoutName)
-            assertEquals("55m 12s", content.durationFormatted)
-            assertEquals(1, content.personalRecordCount)
-            assertEquals(2, content.visibleSets.size)
-            assertEquals(0, content.overflowCount)
-        }
-    }
-
-    private fun bestSet(
+    private fun shareRow(
         name: String,
         isPr: Boolean = false,
-    ): LiftBestSetUi =
-        LiftBestSetUi(
+    ): ShareLiftRowUi =
+        ShareLiftRowUi(
             liftName = name,
             performanceLabel = "100 × 5",
-            rirLabel = "2",
-            estimatedOneRmLabel = "115",
             isPersonalRecord = isPr,
         )
 }

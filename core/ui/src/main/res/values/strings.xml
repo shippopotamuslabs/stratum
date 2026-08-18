@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Brand -->
+    <!-- Brand & Share -->
     <string name="stratum_brand_cd">Stratum</string>
     <string name="share_chooser_title">Share</string>
+    <string name="workout_share_title">Workout Completed</string>
+    <string name="workout_share_duration">Duration</string>
+    <string name="workout_share_personal_records">PRs</string>
+    <string name="workout_share_more_lifts">+%1$d more lifts</string>
+    <string name="workout_share_empty">No lifts recorded</string>
+    <string name="workout_share_pr_cd">Personal record</string>
+    <string name="workout_share_failed">Failed to share workout</string>
+    <string name="workout_share_action_cd">Share workout</string>
 
     <!-- StratumLiftSwapBottomSheet — shared lift swap UI -->
     <string name="lift_swap_title">Swapping %1$s</string>
