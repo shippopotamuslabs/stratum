@@ -24,8 +24,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 /**
  * Handles presentation logic and filtering for the Lift Swap screen (ARCHITECTURE.md v1.0).
@@ -41,8 +39,7 @@ class LiftSwapViewModel @Inject constructor(
     private val rankSwapCandidates: RankSwapCandidatesUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val swapWorkoutLift: SwapWorkoutLiftUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("LiftSwapViewModel", logError)) {
+) : ViewModel() {
     private val targetWorkoutId = MutableStateFlow<String?>(null)
     private val targetWorkoutLiftId = MutableStateFlow<String?>(null)
     private val targetLiftId = MutableStateFlow<String?>(null)

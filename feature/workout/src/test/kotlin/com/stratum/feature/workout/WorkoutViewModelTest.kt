@@ -22,6 +22,7 @@ import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.onboarding.Weekday
 import com.stratum.domain.program.LiftSet
@@ -389,6 +390,7 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+            logError = LogErrorUseCase(FakeLoggingPort()),
         )
     }
 
@@ -457,6 +459,7 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+            logError = LogErrorUseCase(FakeLoggingPort()),
         )
     }
 
@@ -523,6 +526,7 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+            logError = LogErrorUseCase(FakeLoggingPort()),
         )
     }
 
@@ -1160,6 +1164,7 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+            logError = LogErrorUseCase(FakeLoggingPort()),
         )
 
         localViewModel.startSession(workoutId)
@@ -1225,6 +1230,7 @@ class WorkoutViewModelTest {
             liveWorkoutSurfaces = fakeLiveWorkoutSurfaces(),
             observeWeightDisplayPreferences =
                 ObserveWeightDisplayPreferencesUseCase(FakeWeightDisplayPreferencesRepository()),
+            logError = LogErrorUseCase(FakeLoggingPort()),
         )
 
         localViewModel.startSession(workoutId)

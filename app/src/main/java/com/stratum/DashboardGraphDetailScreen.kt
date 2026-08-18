@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.stratum.core.ui.component.StratumDetailChart
+import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -53,6 +54,7 @@ fun DashboardGraphDetailHost(
     onDismiss: () -> Unit,
     onSelectMode: (GraphViewMode) -> Unit,
     onSelectRange: (GraphTimeRangeUi) -> Unit,
+    onRetry: () -> Unit = {},
 ) {
     if (state is GraphDetailUiState.Hidden) return
 
@@ -73,6 +75,7 @@ fun DashboardGraphDetailHost(
                 GraphDetailUiState.Hidden -> Unit
                 GraphDetailUiState.Loading -> GraphDetailLoading(onDismiss = onDismiss)
                 GraphDetailUiState.Empty -> GraphDetailEmpty(onDismiss = onDismiss)
+                GraphDetailUiState.Error -> GraphDetailError(onDismiss = onDismiss, onRetry = onRetry)
                 is GraphDetailUiState.Ready -> GraphDetailReady(
                     state = state,
                     onDismiss = onDismiss,
@@ -115,6 +118,19 @@ private fun GraphDetailEmpty(onDismiss: () -> Unit) {
                 .fillMaxWidth()
                 .padding(vertical = 48.dp, horizontal = 16.dp),
         )
+    }
+}
+
+@Composable
+private fun GraphDetailError(
+    onDismiss: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    GraphDetailFrame(
+        title = stringResource(R.string.dashboard_graph_error_title),
+        onDismiss = onDismiss,
+    ) {
+        StratumFeatureErrorFallback(onRetry = onRetry)
     }
 }
 

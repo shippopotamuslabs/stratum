@@ -2,6 +2,7 @@ package com.stratum.core.data.seed
 
 import androidx.room.Room
 import com.stratum.core.data.db.StratumDatabase
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.lift.GymPreset
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.identity.EquipmentId
@@ -36,12 +37,18 @@ class LiftCatalogSeederTest {
         equipmentSeeder = EquipmentCatalogSeeder(
             equipmentDao = database.equipmentDao(),
             incrementTierDao = database.incrementTierDao(),
+            loggingPort = FakeLoggingPort(),
         )
-        val tags = AssetLiftEquipmentCatalog(RuntimeEnvironment.getApplication()).all()
+        val tags =
+            AssetLiftEquipmentCatalog(
+                RuntimeEnvironment.getApplication(),
+                loggingPort = FakeLoggingPort(),
+            ).all()
         subject = LiftCatalogSeeder(
             liftDao = database.liftDao(),
             incrementTierDao = database.incrementTierDao(),
             equipmentTagsByLiftId = tags,
+            loggingPort = FakeLoggingPort(),
         )
     }
 

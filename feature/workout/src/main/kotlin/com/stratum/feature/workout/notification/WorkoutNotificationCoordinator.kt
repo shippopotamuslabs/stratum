@@ -4,12 +4,13 @@ import android.content.Context
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.stratum.domain.di.ApplicationScope
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.collectLatestRestarting
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -29,8 +30,9 @@ class WorkoutNotificationCoordinator @Inject constructor(
     private val activeWorkout: ActiveWorkoutTracker,
     private val notificationHelper: WorkoutNotificationHelper,
     private val domainActiveSessionSurfaceSync: DomainActiveSessionSurfaceSync,
+    private val loggingPort: LoggingPort,
+    @ApplicationScope private val scope: CoroutineScope,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var started = false
     @Volatile
     private var appInForeground = true
@@ -67,7 +69,7 @@ class WorkoutNotificationCoordinator @Inject constructor(
         scope.launch {
             combine(restTimer.state, activeWorkout.active) { rest, session ->
                 rest to session
-            }.distinctUntilChanged().collect { (rest, session) ->
+            }.distinctUntilChanged().collectLatestRestarting(loggingPort, TAG) { (rest, session) ->
                 val running = rest is RestTimerState.Running
                 if (running && !previousRestWasRunning) {
                     // Fresh rest start after idle — allow the rest notification again and
@@ -146,5 +148,9 @@ class WorkoutNotificationCoordinator @Inject constructor(
                 }
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "WorkoutNotif"
     }
 }

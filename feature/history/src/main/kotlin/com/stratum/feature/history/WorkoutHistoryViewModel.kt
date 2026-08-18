@@ -10,20 +10,19 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class WorkoutHistoryViewModel @Inject constructor(
     private val observeWorkoutHistoryCalendar: ObserveWorkoutHistoryCalendarUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("WorkoutHistoryViewModel", logError)) {
+) : ViewModel() {
 
     private val mode = MutableStateFlow(HistoryCalendarMode.Month)
     private val scrollToMonth = MutableStateFlow<YearMonth?>(null)
@@ -33,26 +32,14 @@ class WorkoutHistoryViewModel @Inject constructor(
         MutableStateFlow<WorkoutHistoryUiState>(WorkoutHistoryUiState.Loading)
     val uiState: StateFlow<WorkoutHistoryUiState> = _uiState.asStateFlow()
 
+    private var calendarJob: Job? = null
+
     init {
-        viewModelScope.launch {
-            val zoneId = ZoneId.systemDefault()
-            combine(
-                observeWorkoutHistoryCalendar(zoneId = zoneId),
-                mode,
-                scrollToMonth,
-                scrollToYear,
-            ) { calendar, calendarMode, pendingMonth, pendingYear ->
-                WorkoutHistoryMapper.toUiState(
-                    calendar = calendar,
-                    mode = calendarMode,
-                    today = LocalDate.now(zoneId),
-                    scrollToMonth = pendingMonth,
-                    scrollToYear = pendingYear,
-                )
-            }.collect { loaded ->
-                _uiState.value = loaded
-            }
-        }
+        observeCalendar()
+    }
+
+    fun retry() {
+        observeCalendar()
     }
 
     fun onModeSelected(selected: HistoryCalendarMode) {
@@ -76,5 +63,32 @@ class WorkoutHistoryViewModel @Inject constructor(
 
     fun onScrollToYearConsumed() {
         scrollToYear.update { null }
+    }
+
+    private fun observeCalendar() {
+        calendarJob?.cancel()
+        calendarJob =
+            viewModelScope.launch {
+                _uiState.value = WorkoutHistoryUiState.Loading
+                val zoneId = ZoneId.systemDefault()
+                combine(
+                    observeWorkoutHistoryCalendar(zoneId = zoneId),
+                    mode,
+                    scrollToMonth,
+                    scrollToYear,
+                ) { calendar, calendarMode, pendingMonth, pendingYear ->
+                    WorkoutHistoryMapper.toUiState(
+                        calendar = calendar,
+                        mode = calendarMode,
+                        today = LocalDate.now(zoneId),
+                        scrollToMonth = pendingMonth,
+                        scrollToYear = pendingYear,
+                    )
+                }.catch {
+                    _uiState.value = WorkoutHistoryUiState.Error
+                }.collect { loaded ->
+                    _uiState.value = loaded
+                }
+            }
     }
 }

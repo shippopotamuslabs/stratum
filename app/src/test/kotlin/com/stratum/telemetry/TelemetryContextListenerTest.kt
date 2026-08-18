@@ -1,6 +1,7 @@
 package com.stratum.telemetry
 
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.subscription.FakeEntitlementRepository
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
@@ -33,6 +34,7 @@ class TelemetryContextListenerTest {
             observeEntitlement = ObserveEntitlementUseCase(entitlementRepository),
             observeActiveSession = ObserveActiveSessionUseCase(trainingLog),
             crashTelemetryPort = fakeTelemetry,
+            loggingPort = FakeLoggingPort(),
             scope = scope,
         )
 

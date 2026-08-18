@@ -58,7 +58,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 // Wizard exposes many step handlers (profile/import/generate); threshold is a product of surface width.
@@ -81,7 +80,7 @@ class OnboardingViewModel @Inject constructor(
     private val logError: LogErrorUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     private val setWeightDisplayUnit: SetWeightDisplayUnitUseCase,
-) : ViewModel(loggedViewModelScope("OnboardingViewModel", logError)) {
+) : ViewModel() {
 
     private val edits = MutableStateFlow(ProfileEdit())
     private val specializationEdits = MutableStateFlow(SpecializationEdit())

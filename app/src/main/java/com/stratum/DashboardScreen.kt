@@ -52,6 +52,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stratum.core.ui.R as UiR
+import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumIndexVolumeChart
 import com.stratum.core.ui.component.StratumSegmentedControl
@@ -91,6 +92,7 @@ fun DashboardScreen(
         onOpenLiftGraph = viewModel::openLiftGraph,
         onOpenMuscleGraph = viewModel::openMuscleGraph,
         onOpenMuscleDailyVolumeGraph = viewModel::openMuscleDailyVolumeGraph,
+        onRetry = viewModel::retry,
         modifier = modifier,
     )
 
@@ -99,6 +101,7 @@ fun DashboardScreen(
         onDismiss = viewModel::dismissGraphDetail,
         onSelectMode = viewModel::selectGraphMode,
         onSelectRange = viewModel::selectGraphTimeRange,
+        onRetry = viewModel::retryGraphDetail,
     )
 }
 
@@ -115,6 +118,7 @@ internal fun DashboardScreen(
     onOpenLiftGraph: (String) -> Unit = {},
     onOpenMuscleGraph: (String) -> Unit = {},
     onOpenMuscleDailyVolumeGraph: (String) -> Unit = {},
+    onRetry: () -> Unit = {},
 ) {
     val boardTabLabels = listOf(
         stringResource(R.string.dashboard_tab_muscles),
@@ -157,6 +161,7 @@ internal fun DashboardScreen(
                 health = health,
                 pagerState = healthPagerState,
             )
+            DashboardUiState.Error -> StratumFeatureErrorFallback(onRetry = onRetry)
             is DashboardUiState.Loaded -> LoadedContent(
                 state = state,
                 tab = selectedTab,

@@ -104,8 +104,12 @@ class FakeMuscleWeeklyStimulusRepository(
 
     override suspend fun getAll(): List<MuscleWeeklyStimulus> = stimulus.toList()
 
-    override suspend fun getSince(windowStart: Instant): List<MuscleWeeklyStimulus> =
-        stimulus.filter { !it.weekStart.isBefore(windowStart) }
+    override suspend fun getSince(windowStart: Instant): List<MuscleWeeklyStimulus> {
+        getSinceError?.let { throw it }
+        return stimulus.filter { !it.weekStart.isBefore(windowStart) }
+    }
+
+    var getSinceError: Throwable? = null
 
     fun seed(stimulus: List<MuscleWeeklyStimulus>) {
         this.stimulus.clear()
@@ -123,7 +127,12 @@ class FakeLiftWeeklyPerformanceRepository(
         this.performance.addAll(performance)
     }
 
-    override suspend fun getAll(): List<LiftWeeklyPerformance> = performance.toList()
+    var getAllError: Throwable? = null
+
+    override suspend fun getAll(): List<LiftWeeklyPerformance> {
+        getAllError?.let { throw it }
+        return performance.toList()
+    }
 
     override suspend fun getSince(windowStart: Instant): List<LiftWeeklyPerformance> =
         performance.filter { !it.weekStart.isBefore(windowStart) }

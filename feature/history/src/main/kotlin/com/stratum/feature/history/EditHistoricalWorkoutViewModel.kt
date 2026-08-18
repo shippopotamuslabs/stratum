@@ -31,16 +31,13 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class EditHistoricalWorkoutViewModel @Inject constructor(
     private val getCompletedSessionForEdit: GetCompletedSessionForEditUseCase,
     private val updateCompletedSessionSets: UpdateCompletedSessionSetsUseCase,
     private val observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("EditHistoricalWorkoutViewModel", logError)) {
+) : ViewModel() {
 
     private val _uiState =
         MutableStateFlow<EditHistoricalWorkoutUiState>(EditHistoricalWorkoutUiState.Loading)

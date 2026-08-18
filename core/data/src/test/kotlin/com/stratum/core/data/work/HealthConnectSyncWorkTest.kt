@@ -7,9 +7,11 @@ import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.healthconnect.HealthConnectPreferences
+import com.stratum.domain.healthconnect.HealthConnectUnavailableException
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -79,6 +81,8 @@ class HealthConnectSyncWorkTest {
         val outcome = work.run(TrainingSessionId("ts-hc-1"))
 
         assertTrue(outcome is HealthConnectSyncWork.Outcome.TerminalFailure)
+        val terminal = outcome as HealthConnectSyncWork.Outcome.TerminalFailure
+        assertTrue(terminal.error is HealthConnectUnavailableException)
     }
 
     @Test
@@ -91,6 +95,8 @@ class HealthConnectSyncWorkTest {
         val outcome = work.run(TrainingSessionId("ts-hc-1"))
 
         assertTrue(outcome is HealthConnectSyncWork.Outcome.RetryableFailure)
+        val retryable = outcome as HealthConnectSyncWork.Outcome.RetryableFailure
+        assertSame(syncPort.pushFailure, retryable.error)
     }
 
     @Test
@@ -103,6 +109,19 @@ class HealthConnectSyncWorkTest {
 
         assertEquals(HealthConnectSyncWork.Outcome.Success, outcome)
         assertEquals(1, syncPort.pushedSessions.size)
+    }
+
+    @Test
+    @DisplayName("Missing session is a terminal failure with the original throwable")
+    fun missingSessionIsTerminalWithThrowable() = runTest {
+        preferences.setPreferences(HealthConnectPreferences(enabled = true))
+
+        val outcome = work.run(TrainingSessionId("missing"))
+
+        assertTrue(outcome is HealthConnectSyncWork.Outcome.TerminalFailure)
+        val terminal = outcome as HealthConnectSyncWork.Outcome.TerminalFailure
+        assertTrue(terminal.error is IllegalStateException)
+        assertTrue(terminal.error.message!!.contains("missing"))
     }
 
     @Test

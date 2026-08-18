@@ -13,6 +13,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 
 class FakeBillingPort(
     initialPurchases: List<SubscriptionPurchase> = emptyList(),
@@ -82,12 +86,31 @@ class FakeEntitlementRepository(
     initialState: EntitlementState = EntitlementState.NotEntitled(),
 ) : EntitlementRepository {
     private val state = MutableStateFlow(initialState)
+    private val failures = MutableSharedFlow<Throwable>(extraBufferCapacity = 1)
+
+    var throwOnSubscribe: Throwable? = null
 
     fun setState(next: EntitlementState) {
         state.value = next
     }
 
-    override fun observeEntitlement(): Flow<EntitlementState> = state.asStateFlow()
+    fun failCollector(error: Throwable) {
+        check(failures.tryEmit(error)) { "Failed to emit entitlement collector failure" }
+    }
+
+    override fun observeEntitlement(): Flow<EntitlementState> =
+        flow {
+            throwOnSubscribe?.let { error ->
+                throwOnSubscribe = null
+                throw error
+            }
+            emitAll(
+                merge(
+                    state,
+                    failures.map { error -> throw error },
+                ),
+            )
+        }
 
     override suspend fun refreshEntitlement(): Result<EntitlementState> = Result.success(state.value)
 }

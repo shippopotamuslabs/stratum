@@ -161,8 +161,10 @@ class FirestoreCloudSyncAdapter @Inject constructor(
                 } catch (error: Exception) {
                     loggingPort.error(TAG, "requestSync failed: ${error.message}", error)
                     _syncStatus.value = SyncStatus.Error(error.message ?: "request sync failed")
-                    // Do not enqueueSoon(REPLACE) here — CloudSyncWorker maps failure → Result.retry()
-                    // with backoff. REPLACE unique work from inside the running worker can self-cancel.
+                    // Do not enqueueSoon(REPLACE) here. Residual failures retry via WorkManager
+                    // backoff; other failures give up after bounded retries. UI/scheduler retries
+                    // must enqueue outside the running worker — REPLACE unique work from inside
+                    // doWork can self-cancel.
                     Result.failure(error)
                 }
             }

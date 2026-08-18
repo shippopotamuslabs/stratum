@@ -29,6 +29,7 @@ import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightDisplayPreferences
 import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
+import com.stratum.domain.sync.RequestCloudSyncUseCase
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -257,6 +258,7 @@ class DashboardHealthViewModelTest {
                 healthConnectMetrics,
                 healthConnectPreferences,
             ),
+            requestCloudSync = RequestCloudSyncUseCase(FakeCloudSyncPort()),
             zone = testZone,
             clock = { now ?: Instant.now() },
         )

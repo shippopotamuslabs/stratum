@@ -45,6 +45,7 @@
     <string name="dashboard_graph_back">Back</string>
     <string name="dashboard_graph_loading_title">Graph</string>
     <string name="dashboard_graph_empty_title">No data</string>
+    <string name="dashboard_graph_error_title">Couldn\'t load graph</string>
     <string name="dashboard_graph_empty_body">Not enough weekly history for this chart yet.</string>
     <string name="dashboard_graph_metric_e1rm">e1RM</string>
     <string name="dashboard_graph_metric_volume">Volume</string>

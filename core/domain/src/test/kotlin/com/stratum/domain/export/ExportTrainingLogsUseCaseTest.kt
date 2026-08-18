@@ -1,5 +1,6 @@
 package com.stratum.domain.export
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.export.ExportTestFixtures.CLOCK_INSTANT
 import com.stratum.domain.export.ExportTestFixtures.ZONE_NY
@@ -28,7 +29,11 @@ class ExportTrainingLogsUseCaseTest {
     private val clock: () -> Instant = { CLOCK_INSTANT }
 
     private fun useCase(repo: FakeTrainingLogRepository) =
-        ExportTrainingLogsUseCase(trainingLogRepository = repo, clock = clock)
+        ExportTrainingLogsUseCase(
+            trainingLogRepository = repo,
+            clock = clock,
+            loggingPort = FakeLoggingPort(),
+        )
 
     private fun decodeRoot(bytes: ByteArray): JsonObject =
         JsonReader(bytes.decodeToString()).readRootObject()
@@ -217,12 +222,37 @@ class ExportTrainingLogsUseCaseTest {
     @Test
     @DisplayName("IE-S1-009 Empty selection fails without file result")
     fun ieS1_009_emptyRange() = runTest {
+        val logging = FakeLoggingPort()
         val repo = FakeTrainingLogRepository()
-        val result = useCase(repo)(ExportLogRange.LastDays(30, ZONE_NY))
+        val result =
+            ExportTrainingLogsUseCase(
+                trainingLogRepository = repo,
+                clock = clock,
+                loggingPort = logging,
+            )(ExportLogRange.LastDays(30, ZONE_NY))
         assertTrue(result.isFailure)
         val ex = result.exceptionOrNull()
         assertTrue(ex is IllegalArgumentException)
         assertEquals("No training logs in the selected range.", ex!!.message)
+        assertTrue(logging.errors.isEmpty())
+    }
+
+    @Test
+    @DisplayName("Repository read failure is logged and returned")
+    fun repositoryReadFailureIsLogged() = runTest {
+        val logging = FakeLoggingPort()
+        val repo = FakeTrainingLogRepository()
+        repo.getAllSessionsError = IllegalStateException("room down")
+        val result =
+            ExportTrainingLogsUseCase(
+                trainingLogRepository = repo,
+                clock = clock,
+                loggingPort = logging,
+            )(ExportLogRange.AllTime)
+        assertTrue(result.isFailure)
+        assertEquals("room down", result.exceptionOrNull()?.message)
+        assertEquals(1, logging.errors.size)
+        assertEquals("ExportTrainingLogs", logging.errors.single().tag)
     }
 
     @Test

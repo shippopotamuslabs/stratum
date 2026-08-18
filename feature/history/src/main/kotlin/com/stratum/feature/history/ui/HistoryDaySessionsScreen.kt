@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTopBar
@@ -29,6 +30,7 @@ fun HistoryDaySessionsScreen(
     state: HistoryDaySessionsUiState,
     onBackClick: () -> Unit,
     onSessionClick: (sessionId: String) -> Unit,
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val title =
@@ -68,12 +70,8 @@ fun HistoryDaySessionsScreen(
                         Modifier
                             .fillMaxSize()
                             .padding(padding),
-                    contentAlignment = Alignment.Center,
                 ) {
-                    StratumText(
-                        text = stringResource(R.string.history_day_sessions_load_error),
-                        muted = true,
-                    )
+                    StratumFeatureErrorFallback(onRetry = onRetry)
                 }
             is HistoryDaySessionsUiState.Loaded ->
                 LazyColumn(

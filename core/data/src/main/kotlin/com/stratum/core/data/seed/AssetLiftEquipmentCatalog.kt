@@ -4,6 +4,7 @@ import android.content.Context
 import com.stratum.domain.importing.GymEquipment
 import com.stratum.domain.importing.LiftEquipmentCatalogPort
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
 import kotlinx.serialization.json.Json
 
 /**
@@ -17,6 +18,7 @@ import kotlinx.serialization.json.Json
 class AssetLiftEquipmentCatalog(
     private val context: Context,
     private val assetPath: String = ASSET_PATH,
+    private val loggingPort: LoggingPort,
 ) : LiftEquipmentCatalogPort {
 
     private val json = Json {
@@ -51,9 +53,13 @@ class AssetLiftEquipmentCatalog(
                     LiftId(dto.id) to equipment
                 }.toMap()
             }
-        }.getOrElse { emptyMap() }
+        }.getOrElse { error ->
+            loggingPort.error(TAG, "Failed to decode lift equipment tags: ${error.message}", error)
+            emptyMap()
+        }
 
     companion object {
         const val ASSET_PATH = "lifts/lift-equipment-tags.json"
+        private const val TAG = "LiftEquipmentCatalog"
     }
 }

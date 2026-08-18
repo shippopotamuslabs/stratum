@@ -25,7 +25,10 @@ import com.stratum.domain.workout.RecomputeRecommendationsUseCase
 import com.stratum.domain.workout.RenderedWorkout
 import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.feature.workout.ui.WorkoutUiEvent
+import com.stratum.feature.workout.ui.WorkoutUiState
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -55,6 +58,7 @@ internal class LiveWorkoutSessionActor(
     saveWorkoutUseCase: SaveWorkoutUseCase,
     observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
+    private val logError: LogErrorUseCase,
 ) {
     private var commands = Channel<SessionCommand>(Channel.UNLIMITED)
     private var consumerJob: Job? = null
@@ -88,7 +92,14 @@ internal class LiveWorkoutSessionActor(
         consumerJob =
             scope.launch {
                 for (cmd in commands) {
-                    handle(cmd)
+                    try {
+                        handle(cmd)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Throwable) {
+                        logError(TAG, "Session command failed: ${error.message}", error)
+                        publishUnexpectedCommandFailure(cmd)
+                    }
                 }
             }
     }
@@ -202,7 +213,56 @@ internal class LiveWorkoutSessionActor(
             is SessionCommand.CompleteWorkout -> runtime.handleCompleteWorkout(cmd)
         }
     }
+
+    private fun publishUnexpectedCommandFailure(cmd: SessionCommand) {
+        if (sessionCommandFailureIsTerminal(cmd)) {
+            runtime.sessionTerminal = true
+            runtime.effects.publishUi(WorkoutUiState.Error(MSG_SESSION_UNRECOVERABLE))
+        } else {
+            runtime.effects.publishUserMessage(MSG_SESSION_COMMAND_FAILED)
+        }
+    }
+
+    private companion object {
+        const val TAG = "LiveWorkoutSession"
+    }
 }
+
+internal const val MSG_SESSION_COMMAND_FAILED = "Couldn't update the workout. Try again."
+internal const val MSG_SESSION_UNRECOVERABLE =
+    "Couldn't continue this workout. Go back and reopen it."
+
+internal fun sessionCommandFailureIsTerminal(cmd: SessionCommand): Boolean =
+    when (cmd) {
+        is SessionCommand.StartSession,
+        is SessionCommand.ApplyCycleSnapshot,
+        is SessionCommand.CompleteWorkout,
+        -> true
+        SessionCommand.RenderOnly,
+        is SessionCommand.LogSet,
+        is SessionCommand.UnlogSet,
+        is SessionCommand.AddSet,
+        is SessionCommand.AddSetForLift,
+        is SessionCommand.DeleteSet,
+        is SessionCommand.DeleteSetByKey,
+        is SessionCommand.DeleteSetWithCascade,
+        SessionCommand.Undo,
+        is SessionCommand.GenerateMyoMini,
+        is SessionCommand.AddDropSet,
+        is SessionCommand.SetSetKind,
+        is SessionCommand.SwapLift,
+        is SessionCommand.AddLifts,
+        is SessionCommand.RemoveLift,
+        is SessionCommand.ReorderLifts,
+        is SessionCommand.LinkSuperset,
+        is SessionCommand.RemoveFromSuperset,
+        is SessionCommand.SetUseRestTimerBetweenLifts,
+        is SessionCommand.SetRestSecondsForSlots,
+        SessionCommand.BeginAbandon,
+        SessionCommand.CancelAbandon,
+        SessionCommand.FinalizeAbandonLocal,
+        -> false
+    }
 
 // Start session as extension for symmetry
 internal suspend fun LiveWorkoutSessionRuntime.handleStartSession(cmd: SessionCommand.StartSession) {

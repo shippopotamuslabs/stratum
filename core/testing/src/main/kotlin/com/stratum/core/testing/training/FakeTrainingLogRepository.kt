@@ -22,6 +22,7 @@ import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 
 /** Fake for [TrainingLogRepository] — large surface mirrors the port (+ seed helpers for tests). */
 @Suppress("TooManyFunctions")
@@ -80,7 +81,12 @@ class FakeTrainingLogRepository(
         return getAllSets().filter { it.sessionId in importSessionIds }
     }
 
-    override suspend fun getAllSessions(): List<TrainingSession> = sessions.values.toList()
+    var getAllSessionsError: Throwable? = null
+
+    override suspend fun getAllSessions(): List<TrainingSession> {
+        getAllSessionsError?.let { throw it }
+        return sessions.values.toList()
+    }
 
     override suspend fun getAllSets(): List<LoggedSet> =
         setsBySession.values.flatMap { it.values }
@@ -164,7 +170,13 @@ class FakeTrainingLogRepository(
 
     override fun observeActiveSession(): Flow<TrainingSession?> = activeSessionFlow.asStateFlow()
 
-    override fun observeAllSessions(): Flow<List<TrainingSession>> = sessionsFlow.asStateFlow()
+    var observeAllSessionsError: Throwable? = null
+
+    override fun observeAllSessions(): Flow<List<TrainingSession>> =
+        sessionsFlow.map { sessions ->
+            observeAllSessionsError?.let { throw it }
+            sessions
+        }
 
     private fun refreshActiveSession() {
         activeSessionFlow.value = sessions.values.firstOrNull { it.status == TrainingSessionStatus.IN_PROGRESS }
@@ -181,7 +193,10 @@ class FakeTrainingLogRepository(
         refreshActiveSession()
     }
 
+    var deleteSessionError: Throwable? = null
+
     override suspend fun deleteSession(id: TrainingSessionId) {
+        deleteSessionError?.let { throw it }
         sessions.remove(id)
         setsBySession.remove(id)
         refreshActiveSession()

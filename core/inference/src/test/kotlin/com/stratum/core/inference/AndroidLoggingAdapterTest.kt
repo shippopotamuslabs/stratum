@@ -36,10 +36,10 @@ class AndroidLoggingAdapterTest {
     }
 
     @Test
-    fun `info delegates breadcrumb to crash telemetry and logs to logcat`() {
+    fun `info logs to logcat only and does not record breadcrumb`() {
         adapter.info("TestTag", "Info message")
 
-        assertEquals(listOf("TestTag: Info message"), fakeTelemetry.breadcrumbs)
+        assertTrue(fakeTelemetry.breadcrumbs.isEmpty())
         assertTrue(fakeTelemetry.recordedExceptions.isEmpty())
         verify { Log.i("TestTag", "Info message") }
     }
@@ -71,6 +71,24 @@ class AndroidLoggingAdapterTest {
         assertEquals(listOf("TestTag: Test message"), fakeTelemetry.breadcrumbs)
         assertEquals(listOf(throwable), fakeTelemetry.recordedExceptions)
         verify { Log.e("TestTag", "Test message", throwable) }
+    }
+
+    @Test
+    fun `error scrubs PII in logcat and breadcrumbs`() {
+        val throwable = RuntimeException("failed for user@example.com")
+
+        adapter.error("TestTag", "Opened user@example.com", throwable)
+
+        assertEquals(1, fakeTelemetry.breadcrumbs.size)
+        assertTrue(fakeTelemetry.breadcrumbs.single().contains("[REDACTED_EMAIL]"))
+        assertTrue(!fakeTelemetry.breadcrumbs.single().contains("user@example.com"))
+        verify {
+            Log.e(
+                "TestTag",
+                match { it.contains("[REDACTED_EMAIL]") && !it.contains("user@example.com") },
+                any(),
+            )
+        }
     }
 
     @Test

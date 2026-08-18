@@ -41,7 +41,7 @@ class LoadGraphDetailUseCaseTest {
     @DisplayName("returns null when lift has no performance rows")
     fun liftEmpty() = runTest {
         val useCase = buildUseCase()
-        assertNull(useCase(GraphDetailSubject.Lift(LiftId("missing"))))
+        assertNull(useCase(GraphDetailSubject.Lift(LiftId("missing"))).getOrThrow())
     }
 
     @Test
@@ -62,7 +62,7 @@ class LoadGraphDetailUseCaseTest {
         )
         val useCase = buildUseCase(performanceRepo = performanceRepo, liftRepo = liftRepo)
 
-        val detail = useCase(GraphDetailSubject.Lift(benchId))
+        val detail = useCase(GraphDetailSubject.Lift(benchId)).getOrThrow()
         assertNotNull(detail)
         assertEquals("Bench Press", detail!!.title)
         assertEquals(GraphDetailKind.Lift, detail.kind)
@@ -96,7 +96,7 @@ class LoadGraphDetailUseCaseTest {
         )
         val useCase = buildUseCase(stimulusRepo = stimulusRepo, outcomeRepo = outcomeRepo)
 
-        val detail = useCase(GraphDetailSubject.Muscle(MuscleGroup.Chest))
+        val detail = useCase(GraphDetailSubject.Muscle(MuscleGroup.Chest)).getOrThrow()
         assertNotNull(detail)
         assertEquals("Chest", detail!!.title) // displayLabel
         assertEquals(GraphDetailKind.Muscle, detail.kind)
@@ -109,7 +109,7 @@ class LoadGraphDetailUseCaseTest {
     @DisplayName("returns null when muscle has neither stimulus nor index rows")
     fun muscleEmpty() = runTest {
         val useCase = buildUseCase()
-        assertNull(useCase(GraphDetailSubject.Muscle(MuscleGroup.Chest)))
+        assertNull(useCase(GraphDetailSubject.Muscle(MuscleGroup.Chest)).getOrThrow())
     }
 
     @Test
@@ -130,7 +130,7 @@ class LoadGraphDetailUseCaseTest {
         log.seedSet(hardSet(benchId, "c", session.id, day1))
         val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log)
 
-        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc)
+        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc).getOrThrow()
         assertNotNull(detail)
         assertEquals(GraphDetailKind.MuscleDailyVolume, detail!!.kind)
         assertEquals("Chest", detail.title)
@@ -164,7 +164,7 @@ class LoadGraphDetailUseCaseTest {
         log.seedSet(hardSet(benchId, "a", session.id, NOW.minus(1, ChronoUnit.DAYS)))
         val useCase = buildUseCase(liftRepo = liftRepo, trainingLog = log)
 
-        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Tricep), zone = utc)
+        val detail = useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Tricep), zone = utc).getOrThrow()
         assertNotNull(detail, "press pattern should load sets for Tricep even without stored secondary")
         assertEquals(0.5, detail!!.primary.single().value, 0.01)
     }
@@ -173,7 +173,7 @@ class LoadGraphDetailUseCaseTest {
     @DisplayName("returns null for MuscleDailyVolume with no hard sets")
     fun muscleDailyVolumeEmpty() = runTest {
         val useCase = buildUseCase()
-        assertNull(useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc))
+        assertNull(useCase(GraphDetailSubject.MuscleDailyVolume(MuscleGroup.Chest), zone = utc).getOrThrow())
     }
 
     @Test

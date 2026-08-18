@@ -1,5 +1,6 @@
 package com.stratum.core.data.seed
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -12,7 +13,7 @@ class AssetLiftEmbeddingCatalogTest {
     @Test
     fun `loads bundled catalog embeddings`() {
         val context = RuntimeEnvironment.getApplication()
-        val catalog = AssetLiftEmbeddingCatalog(context)
+        val catalog = AssetLiftEmbeddingCatalog(context, loggingPort = FakeLoggingPort())
 
         assertEquals(384, catalog.dimensions)
         assertTrue(catalog.allVectors().size >= 200)

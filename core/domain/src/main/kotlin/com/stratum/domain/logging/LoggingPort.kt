@@ -20,7 +20,5 @@ interface LoggingPort {
      * Logs [message] and [throwable] without recording a non-fatal crash report.
      * Use immediately before a process-level fatal handler that will report [throwable].
      */
-    fun errorSkippingNonFatal(tag: String, message: String, throwable: Throwable) {
-        error(tag, message, throwable)
-    }
+    fun errorSkippingNonFatal(tag: String, message: String, throwable: Throwable)
 }

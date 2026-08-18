@@ -11,6 +11,8 @@ import com.stratum.domain.onboarding.OnboardingStep
 import com.stratum.domain.subscription.EntitlementSource
 import com.stratum.domain.subscription.EntitlementState
 import com.stratum.domain.subscription.ObserveEntitlementUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(MainDispatcherRule::class)
 class EntitlementGateViewModelTest {
 
@@ -32,10 +35,13 @@ class EntitlementGateViewModelTest {
         subject = buildViewModel()
     }
 
-    private fun buildViewModel(): EntitlementGateViewModel =
+    private fun buildViewModel(
+        loadingTimeoutMs: Long = EntitlementGateViewModel.DEFAULT_GATE_LOADING_TIMEOUT_MS,
+    ): EntitlementGateViewModel =
         EntitlementGateViewModel(
             observeEntitlement = ObserveEntitlementUseCase(fakeEntitlement),
             observeOnboardingComplete = ObserveOnboardingCompleteUseCase(fakeOnboarding),
+            loadingTimeoutMs = loadingTimeoutMs,
         )
 
     @Test
@@ -124,6 +130,56 @@ class EntitlementGateViewModelTest {
             awaitDestination(AppGateDestination.Main)
             fakeEntitlement.setState(EntitlementState.NotEntitled())
             awaitDestination(AppGateDestination.Paywall)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Entitlement flow failure maps to Failed and retry recovers")
+    fun entitlementFlowFailureMapsToFailedThenRetry() = runTest {
+        fakeOnboarding.seed(completeProgress())
+        fakeEntitlement.setState(
+            EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
+        )
+        fakeEntitlement.throwOnSubscribe = IllegalStateException("billing down")
+        subject = buildViewModel()
+
+        subject.destination.test {
+            awaitDestination(AppGateDestination.Failed)
+            subject.retry()
+            awaitDestination(AppGateDestination.Main)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Loading timeout maps to Failed")
+    fun loadingTimeoutMapsToFailed() = runTest {
+        fakeOnboarding.seed(completeProgress())
+        fakeEntitlement.setState(EntitlementState.Loading)
+        subject = buildViewModel(loadingTimeoutMs = 1_000L)
+
+        subject.destination.test {
+            awaitDestination(AppGateDestination.Loading)
+            advanceTimeBy(1_000L)
+            awaitDestination(AppGateDestination.Failed)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    @DisplayName("Entitlement emission failure after Main maps to Failed")
+    fun entitlementEmissionFailureAfterMainMapsToFailed() = runTest {
+        fakeOnboarding.seed(completeProgress())
+        fakeEntitlement.setState(
+            EntitlementState.Entitled(EntitlementSource.GooglePlaySubscription),
+        )
+        subject = buildViewModel()
+
+        subject.destination.test {
+            awaitDestination(AppGateDestination.Main)
+            fakeEntitlement.failCollector(IllegalStateException("billing dropped"))
+            awaitDestination(AppGateDestination.Failed)
             cancelAndIgnoreRemainingEvents()
         }
     }

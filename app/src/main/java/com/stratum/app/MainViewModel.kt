@@ -22,8 +22,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -33,8 +31,7 @@ class MainViewModel @Inject constructor(
     private val startCloudSync: StartCloudSyncUseCase,
     observeSessionState: ObserveCloudSessionStateUseCase,
     observeThemePreferences: ObserveThemePreferencesUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("MainViewModel", logError)) {
+) : ViewModel() {
     private val signInError = MutableStateFlow<String?>(null)
     private val authenticatedUserId = MutableStateFlow<String?>(null)
 
