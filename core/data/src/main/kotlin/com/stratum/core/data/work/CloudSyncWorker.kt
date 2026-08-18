@@ -3,8 +3,10 @@ package com.stratum.core.data.work
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.stratum.core.data.sync.CloudSyncFeatureGate
+import com.stratum.core.data.sync.CloudSyncResidualException
 import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.sync.CloudSyncPort
 import dagger.assisted.Assisted
@@ -25,25 +27,37 @@ class CloudSyncWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         if (!featureGate.isEnabled()) return Result.success()
         val outcome = cloudSyncPort.requestSync()
-        return when {
-            outcome.isSuccess -> Result.success()
-            // Permanent: not signed in / not started — do not retry.
-            outcome.exceptionOrNull() is CloudSyncNotStartedException -> Result.success()
-            else -> {
-                val error = outcome.exceptionOrNull()
-                retryOrGiveUp(
-                    runAttemptCount = runAttemptCount,
-                    tag = TAG,
-                    taskDescription = "Cloud sync",
-                    error = error,
-                    loggingPort = loggingPort,
-                )
-            }
-        }
+        return mapCloudSyncWorkResult(
+            outcome = outcome,
+            runAttemptCount = runAttemptCount,
+            loggingPort = loggingPort,
+        )
     }
+}
 
-    private companion object {
-        const val TAG = "CloudSyncWorker"
+internal const val CLOUD_SYNC_WORKER_TAG = "CloudSyncWorker"
+
+/**
+ * Residual backlog keeps retrying with WorkManager backoff. Other failures use the bounded
+ * [retryOrGiveUp] policy. UI/scheduler retries must enqueue outside [CloudSyncWorker.doWork].
+ */
+internal fun mapCloudSyncWorkResult(
+    outcome: kotlin.Result<Unit>,
+    runAttemptCount: Int,
+    loggingPort: LoggingPort,
+): ListenableWorker.Result {
+    if (outcome.isSuccess) return ListenableWorker.Result.success()
+    return when (val error = outcome.exceptionOrNull()) {
+        is CloudSyncNotStartedException -> ListenableWorker.Result.success()
+        is CloudSyncResidualException -> ListenableWorker.Result.retry()
+        else ->
+            retryOrGiveUp(
+                runAttemptCount = runAttemptCount,
+                tag = CLOUD_SYNC_WORKER_TAG,
+                taskDescription = "Cloud sync",
+                error = error,
+                loggingPort = loggingPort,
+            )
     }
 }
 

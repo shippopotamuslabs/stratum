@@ -44,7 +44,11 @@ object TelemetryThrowableSanitizer {
         copy.stackTrace = original.stackTrace
         val originalCause = original.cause
         if (originalCause != null && originalCause !== original) {
-            runCatching { copy.initCause(copySanitized(originalCause, copies)) }
+            val sanitizedCause = copySanitized(originalCause, copies)
+            val initialized = runCatching { copy.initCause(sanitizedCause) }
+            if (initialized.isFailure && copy.cause !== sanitizedCause) {
+                copy.addSuppressed(sanitizedCause)
+            }
         }
         original.suppressed.forEach { suppressed ->
             if (suppressed !== original) {
@@ -58,10 +62,13 @@ object TelemetryThrowableSanitizer {
         val type = original.javaClass
         runCatching { type.getConstructor(String::class.java).newInstance(message) }
             .getOrNull()
+            ?.takeIf { reconstructed -> reconstructed.cause == null }
             ?.let { return it }
         runCatching {
             type.getConstructor(String::class.java, Throwable::class.java).newInstance(message, null)
-        }.getOrNull()?.let { return it }
+        }.getOrNull()
+            ?.takeIf { reconstructed -> reconstructed.cause == null }
+            ?.let { return it }
         return SanitizedTelemetryException(type.name, message)
     }
 }

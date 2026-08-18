@@ -26,7 +26,6 @@ import com.stratum.GymScreen
 import com.stratum.R
 import com.stratum.core.ui.component.StratumNavigationBar
 import com.stratum.core.ui.component.StratumNavigationBarItem
-import com.stratum.core.ui.component.StratumRenderBoundary
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.program.ProgramsRoute
 import com.stratum.feature.program.ui.ProgramsScreenCallbacks
@@ -120,38 +119,32 @@ fun MainTabShell(
         ) {
             when (MainTab.fromIndex(selectedTabIndex)) {
                 MainTab.Dashboard ->
-                    StratumRenderBoundary {
-                        DashboardScreen(onNavigateToSettings = callbacks.onNavigateToSettings)
-                    }
+                    DashboardScreen(onNavigateToSettings = callbacks.onNavigateToSettings)
                 MainTab.Program ->
-                    StratumRenderBoundary {
-                        ProgramsRoute(
-                            isPreviewMode = isPreviewMode,
-                            callbacks =
-                                ProgramsScreenCallbacks(
-                                    onCalendarClick = callbacks.onNavigateToHistory,
-                                    onKeepProgramClick = callbacks.onKeepProgramClick,
-                                    onDiscardProgramClick = callbacks.onDiscardProgramClick,
-                                    onEditWorkoutClick = callbacks.onNavigateToEditWorkout,
-                                    onCreateProgramClick = callbacks.onCreateProgramClick,
-                                    onEditProgramClick = callbacks.onEditProgramClick,
-                                    onReorderWorkoutsClick = callbacks.onReorderWorkoutsClick,
-                                    onProgramLibraryClick = callbacks.onProgramLibraryClick,
-                                ),
-                            onSwapLiftClick = callbacks.onNavigateToSwap,
-                            onNavigateToWorkout = callbacks.onNavigateToWorkout,
-                        )
-                    }
+                    ProgramsRoute(
+                        isPreviewMode = isPreviewMode,
+                        callbacks =
+                            ProgramsScreenCallbacks(
+                                onCalendarClick = callbacks.onNavigateToHistory,
+                                onKeepProgramClick = callbacks.onKeepProgramClick,
+                                onDiscardProgramClick = callbacks.onDiscardProgramClick,
+                                onEditWorkoutClick = callbacks.onNavigateToEditWorkout,
+                                onCreateProgramClick = callbacks.onCreateProgramClick,
+                                onEditProgramClick = callbacks.onEditProgramClick,
+                                onReorderWorkoutsClick = callbacks.onReorderWorkoutsClick,
+                                onProgramLibraryClick = callbacks.onProgramLibraryClick,
+                            ),
+                        onSwapLiftClick = callbacks.onNavigateToSwap,
+                        onNavigateToWorkout = callbacks.onNavigateToWorkout,
+                    )
                 MainTab.Gym ->
-                    StratumRenderBoundary {
-                        GymScreen(
-                            onCreateNewLift = callbacks.onCreateNewLift,
-                            onManageEquipment = callbacks.onManageEquipment,
-                            onNavigateToIncrements = callbacks.onNavigateToLiftIncrements,
-                            onNavigateToInformation = callbacks.onNavigateToLiftInformation,
-                            onMergeModeChange = { active -> hideBottomBar = active },
-                        )
-                    }
+                    GymScreen(
+                        onCreateNewLift = callbacks.onCreateNewLift,
+                        onManageEquipment = callbacks.onManageEquipment,
+                        onNavigateToIncrements = callbacks.onNavigateToLiftIncrements,
+                        onNavigateToInformation = callbacks.onNavigateToLiftInformation,
+                        onMergeModeChange = { active -> hideBottomBar = active },
+                    )
             }
         }
     }

@@ -2,6 +2,7 @@ package com.stratum.feature.settings
 
 import app.cash.turbine.test
 import com.stratum.core.testing.MainDispatcherRule
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.export.ExportLogRange
 import com.stratum.domain.export.ExportTrainingLogsUseCase
@@ -67,7 +68,7 @@ class ExportLogsViewModelTest {
     private fun buildVm(repo: FakeTrainingLogRepository = FakeTrainingLogRepository()): ExportLogsViewModel =
         ExportLogsViewModel(
             previewExport = PreviewExportTrainingLogsUseCase(repo, clock),
-            exportLogs = ExportTrainingLogsUseCase(repo, clock),
+            exportLogs = ExportTrainingLogsUseCase(repo, clock, FakeLoggingPort()),
             zone = zone,
         )
 

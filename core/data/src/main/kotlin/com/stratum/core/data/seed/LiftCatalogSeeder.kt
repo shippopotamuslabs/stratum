@@ -17,6 +17,7 @@ import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.onboarding.MuscleGroup
 import kotlinx.serialization.json.Json
 
@@ -34,6 +35,7 @@ class LiftCatalogSeeder(
     private val liftDao: LiftDao,
     private val incrementTierDao: IncrementTierDao,
     private val equipmentTagsByLiftId: Map<LiftId, Set<GymEquipment>> = emptyMap(),
+    private val loggingPort: LoggingPort,
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -68,7 +70,8 @@ class LiftCatalogSeeder(
             context.assets.open(assetPath).use { stream ->
                 json.decodeFromString<List<LiftSeedDto>>(stream.readBytes().decodeToString())
             }
-        }.getOrElse {
+        }.getOrElse { error ->
+            loggingPort.error(TAG, "Failed to decode lift catalog seed: ${error.message}", error)
             null
         }
 
@@ -83,6 +86,7 @@ class LiftCatalogSeeder(
 
     companion object {
         const val ASSET_PATH = "lifts/seed-lifts.json"
+        private const val TAG = "LiftCatalogSeed"
 
         /**
          * Pure seed DTO → entity mapping (testable without DAO). Missing [LiftSeedDto.fatigueProfile]

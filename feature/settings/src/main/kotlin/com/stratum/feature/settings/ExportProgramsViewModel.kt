@@ -16,8 +16,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 data class ExportProgramRowUi(
     val id: String,
@@ -36,8 +34,7 @@ data class ExportProgramsUiState(
 class ExportProgramsViewModel @Inject constructor(
     private val previewPrograms: PreviewExportProgramsUseCase,
     private val exportPrograms: ExportProgramsUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("ExportProgramsViewModel", logError)) {
+) : ViewModel() {
     private val _uiState = MutableStateFlow(ExportProgramsUiState())
     val uiState: StateFlow<ExportProgramsUiState> = _uiState.asStateFlow()
 

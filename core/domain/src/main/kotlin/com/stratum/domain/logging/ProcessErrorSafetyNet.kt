@@ -1,7 +1,10 @@
 package com.stratum.domain.logging
 
+import com.stratum.domain.telemetry.TelemetryPiiScrubber
+import com.stratum.domain.telemetry.TelemetryThrowableSanitizer
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.system.exitProcess
 import kotlinx.coroutines.CoroutineExceptionHandler
 
 /**
@@ -17,21 +20,26 @@ class ProcessErrorSafetyNet @Inject constructor(
 ) {
     /**
      * Logs the throwable without a Crashlytics non-fatal, then delegates to the previous default
-     * handler. Safe to call once from [android.app.Application.onCreate].
+     * handler with a PII-sanitized copy. Safe to call once from [android.app.Application.onCreate].
      */
     fun installUncaughtExceptionHandler() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            val sanitized = TelemetryThrowableSanitizer.sanitize(throwable)
             try {
                 val exceptionName = throwable::class.simpleName ?: "Throwable"
-                val message = throwable.message ?: "no message"
+                val message = TelemetryPiiScrubber.scrub(throwable.message) ?: "no message"
                 loggingPort.errorSkippingNonFatal(
                     TAG_UNCAUGHT,
                     "Uncaught $exceptionName in thread ${thread.name}: $message",
-                    throwable,
+                    sanitized,
                 )
             } finally {
-                previous?.uncaughtException(thread, throwable)
+                if (previous != null) {
+                    previous.uncaughtException(thread, sanitized)
+                } else {
+                    exitProcess(FATAL_EXIT_CODE)
+                }
             }
         }
     }
@@ -42,9 +50,10 @@ class ProcessErrorSafetyNet @Inject constructor(
      */
     fun applicationCoroutineExceptionHandler(): CoroutineExceptionHandler =
         CoroutineExceptionHandler { _, throwable ->
+            val message = TelemetryPiiScrubber.scrub(throwable.message) ?: "no message"
             loggingPort.error(
                 TAG_APPLICATION_SCOPE,
-                "Unhandled coroutine failure: ${throwable.message}",
+                "Unhandled coroutine failure: $message",
                 throwable,
             )
         }
@@ -52,5 +61,6 @@ class ProcessErrorSafetyNet @Inject constructor(
     private companion object {
         const val TAG_UNCAUGHT = "Uncaught"
         const val TAG_APPLICATION_SCOPE = "ApplicationScope"
+        const val FATAL_EXIT_CODE = 10
     }
 }

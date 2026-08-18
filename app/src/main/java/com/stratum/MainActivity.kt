@@ -24,7 +24,6 @@ import com.stratum.app.ui.SignInScreen
 import com.stratum.core.data.auth.SignInHostContext
 import com.stratum.core.data.subscription.BillingHostContext
 import com.stratum.core.ui.component.LocalUiRenderErrorReporter
-import com.stratum.core.ui.component.StratumRenderBoundary
 import com.stratum.core.ui.component.UiRenderErrorReporter
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.domain.logging.LoggingPort
@@ -93,14 +92,12 @@ class MainActivity : FragmentActivity() {
                         LaunchedEffect(Unit) {
                             crashTelemetryPort.setScreen("SignInScreen")
                         }
-                        StratumRenderBoundary {
-                            SignInScreen(
-                                shellState = shellState,
-                                onSignInWithGoogle = viewModel::onSignInWithGoogle,
-                                onRetrySession = viewModel::onRetrySession,
-                                onSignOut = viewModel::onSignOutFromShell,
-                            )
-                        }
+                        SignInScreen(
+                            shellState = shellState,
+                            onSignInWithGoogle = viewModel::onSignInWithGoogle,
+                            onRetrySession = viewModel::onRetrySession,
+                            onSignOut = viewModel::onSignOutFromShell,
+                        )
                     }
                 }
             }

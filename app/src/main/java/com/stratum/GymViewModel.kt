@@ -30,8 +30,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 data class GymFilters(
     val selectedMuscles: Set<MuscleGroup> = emptySet(),
@@ -62,8 +60,7 @@ class GymViewModel @Inject constructor(
     private val observeLiftCatalog: ObserveLiftCatalogUseCase,
     private val setLiftEnabled: SetLiftEnabledUseCase,
     private val mergeLifts: MergeLiftsUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("GymViewModel", logError)) {
+) : ViewModel() {
 
     private val filters = MutableStateFlow(GymFilters())
     private val mergeSelection = MutableStateFlow(MergeSelection())

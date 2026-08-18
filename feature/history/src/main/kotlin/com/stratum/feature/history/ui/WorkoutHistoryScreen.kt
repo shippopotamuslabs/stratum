@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.component.StratumBottomSheet
+import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumPreferenceRow
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
@@ -50,6 +51,7 @@ fun WorkoutHistoryScreen(
     onDayClick: (day: HistoryDayUi) -> Unit,
     onScrollToMonthConsumed: () -> Unit,
     onScrollToYearConsumed: () -> Unit,
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showModeSheet by remember { mutableStateOf(false) }
@@ -108,6 +110,15 @@ fun WorkoutHistoryScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     StratumText(text = "…", muted = true)
+                }
+            WorkoutHistoryUiState.Error ->
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                ) {
+                    StratumFeatureErrorFallback(onRetry = onRetry)
                 }
             is WorkoutHistoryUiState.Loaded ->
                 HistoryCalendarBody(

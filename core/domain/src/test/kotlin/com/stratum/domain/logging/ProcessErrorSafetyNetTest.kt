@@ -53,6 +53,27 @@ class ProcessErrorSafetyNetTest {
     }
 
     @Test
+    @DisplayName("uncaught handler passes a sanitized throwable to the previous handler")
+    fun uncaughtHandlerSanitizesFatalThrowable() {
+        var chained: Throwable? = null
+        Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+            chained = throwable
+        }
+
+        safetyNet.installUncaughtExceptionHandler()
+        val failure = IllegalStateException("boom user@example.com")
+        Thread.getDefaultUncaughtExceptionHandler()!!
+            .uncaughtException(Thread.currentThread(), failure)
+
+        val reported = chained!!
+        assertTrue(reported !== failure)
+        assertFalse(reported.message!!.contains("user@example.com"))
+        assertTrue(reported.message!!.contains("[REDACTED_EMAIL]"))
+        assertEquals(false, fakeLogging.errors.single().recordsNonFatal)
+        assertFalse(fakeLogging.errors.single().message.contains("user@example.com"))
+    }
+
+    @Test
     @DisplayName("application CoroutineExceptionHandler logs unhandled child failures")
     fun applicationScopeHandlerLogs() = runTest {
         val scope = CoroutineScope(

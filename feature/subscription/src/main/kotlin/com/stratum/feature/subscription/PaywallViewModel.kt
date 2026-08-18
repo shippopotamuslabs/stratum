@@ -28,8 +28,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 private data class TransientState(
     val products: List<SubscriptionProduct> = emptyList(),
@@ -48,8 +46,7 @@ class PaywallViewModel @Inject constructor(
     private val restorePurchases: RestorePurchasesUseCase,
     observeEntitlement: ObserveEntitlementUseCase,
     observeBillingPurchaseResults: ObserveBillingPurchaseResultsUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("PaywallViewModel", logError)) {
+) : ViewModel() {
 
     private val transientState = MutableStateFlow(TransientState())
 

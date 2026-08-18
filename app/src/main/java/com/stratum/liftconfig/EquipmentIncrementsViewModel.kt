@@ -24,8 +24,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 data class EquipmentIncrementsUiState(
     val equipmentId: String = "",
@@ -50,8 +48,7 @@ class EquipmentIncrementsViewModel @Inject constructor(
     private val setEquipmentIncrementTiers: SetEquipmentIncrementTiersUseCase,
     private val validateIncrementTiers: ValidateIncrementTiersUseCase,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("EquipmentIncrementsViewModel", logError)) {
+) : ViewModel() {
 
     private val equipmentId = MutableStateFlow<String?>(null)
     private val draftTiers = MutableStateFlow<List<IncrementTierDraft>?>(null)

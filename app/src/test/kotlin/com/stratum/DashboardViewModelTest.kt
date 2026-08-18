@@ -35,6 +35,7 @@ import com.stratum.domain.response.modeling.LiftWeeklyPerformance
 import com.stratum.domain.response.modeling.MuscleWeeklyOutcomeIndex
 import com.stratum.domain.response.modeling.MuscleWeeklyStimulus
 import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
+import com.stratum.domain.sync.RequestCloudSyncUseCase
 import com.stratum.domain.sync.SyncStatus
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.training.LoggedLiftContext
@@ -64,6 +65,34 @@ class DashboardViewModelTest {
         val viewModel = buildViewModel()
 
         assertEquals(DashboardUiState.Empty, viewModel.uiState.value)
+    }
+
+    @Test
+    fun `load maps use-case failure to Error not Empty`() = runTest {
+        val stimulusRepo = FakeMuscleWeeklyStimulusRepository()
+        stimulusRepo.getSinceError = IllegalStateException("dashboard boom")
+        val viewModel = buildViewModel(stimulusRepo = stimulusRepo)
+        advanceUntilIdle()
+
+        assertEquals(DashboardUiState.Error, viewModel.uiState.value)
+    }
+
+    @Test
+    fun `openLiftGraph maps use-case failure to Error and retry recovers`() = runTest {
+        val performanceRepo = FakeLiftWeeklyPerformanceRepository()
+        performanceRepo.getAllError = IllegalStateException("graph boom")
+        val viewModel = buildViewModel(performanceRepo = performanceRepo)
+
+        viewModel.openLiftGraph("bench")
+        advanceUntilIdle()
+
+        assertEquals(GraphDetailUiState.Error, viewModel.graphDetailState.value)
+
+        performanceRepo.getAllError = null
+        viewModel.retryGraphDetail()
+        advanceUntilIdle()
+
+        assertEquals(GraphDetailUiState.Empty, viewModel.graphDetailState.value)
     }
 
     @Test
@@ -678,6 +707,7 @@ class DashboardViewModelTest {
                 healthConnectMetrics,
                 healthConnectPreferences,
             ),
+            requestCloudSync = RequestCloudSyncUseCase(cloudSync),
             zone = zone,
             clock = { now ?: Instant.now() },
         )

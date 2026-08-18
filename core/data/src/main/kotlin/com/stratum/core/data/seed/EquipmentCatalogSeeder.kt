@@ -8,6 +8,7 @@ import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.sync.SyncFlags
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
+import com.stratum.domain.logging.LoggingPort
 import kotlinx.serialization.json.Json
 
 /**
@@ -17,6 +18,7 @@ import kotlinx.serialization.json.Json
 class EquipmentCatalogSeeder(
     private val equipmentDao: EquipmentDao,
     private val incrementTierDao: IncrementTierDao,
+    private val loggingPort: LoggingPort,
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -62,9 +64,13 @@ class EquipmentCatalogSeeder(
             context.assets.open(assetPath).use { stream ->
                 json.decodeFromString<List<EquipmentSeedDto>>(stream.readBytes().decodeToString())
             }
-        }.getOrNull()
+        }.getOrElse { error ->
+            loggingPort.error(TAG, "Failed to decode equipment catalog seed: ${error.message}", error)
+            null
+        }
 
     companion object {
         const val ASSET_PATH = "lifts/seed-equipment.json"
+        private const val TAG = "EquipmentCatalogSeed"
     }
 }

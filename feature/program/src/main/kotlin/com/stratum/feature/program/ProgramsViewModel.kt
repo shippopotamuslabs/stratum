@@ -48,8 +48,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 /**
  * Exposes the persisted program as [ProgramsUiState] for the read-only Programs screen. Maps the
@@ -78,8 +76,19 @@ class ProgramsViewModel @Inject constructor(
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     observeProgramsUiPreferences: ObserveProgramsUiPreferencesUseCase,
     private val setExpandedWorkoutId: SetExpandedWorkoutIdUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("ProgramsViewModel", logError)) {
+) : ViewModel() {
+
+    /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
+
+    private fun showUserMessage(message: String) {
+        _userMessage.value = message
+    }
 
     init {
         // Safety net for already-orphaned sessions (mid-session delete / program switch without
@@ -99,6 +108,7 @@ class ProgramsViewModel @Inject constructor(
                 .collect { orphanSessionId ->
                     if (orphanSessionId != null) {
                         abandonTrainingSession(orphanSessionId)
+                            .onFailure { showUserMessage(MSG_ABANDON_FAILED) }
                     }
                 }
         }
@@ -150,18 +160,6 @@ class ProgramsViewModel @Inject constructor(
 
     private val _events = Channel<ProgramsUiEvent>(Channel.BUFFERED)
     val events: Flow<ProgramsUiEvent> = _events.receiveAsFlow()
-
-    /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
-    private val _userMessage = MutableStateFlow<String?>(null)
-    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
-
-    fun userMessageShown() {
-        _userMessage.value = null
-    }
-
-    private fun showUserMessage(message: String) {
-        _userMessage.value = message
-    }
 
     fun startNextWorkout() {
         val loaded = programsUiState.value as? ProgramsUiState.Loaded ?: return

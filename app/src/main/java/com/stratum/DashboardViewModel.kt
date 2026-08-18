@@ -27,10 +27,9 @@ import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.WeightConversion
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.lift.shortLabel
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 import com.stratum.domain.onboarding.MuscleGroup
 import com.stratum.domain.sync.ObserveCloudSyncStatusUseCase
+import com.stratum.domain.sync.RequestCloudSyncUseCase
 import com.stratum.domain.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
@@ -41,6 +40,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -53,6 +53,7 @@ class DashboardViewModel(
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
     private val loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
+    private val requestCloudSync: RequestCloudSyncUseCase,
     /**
      * Device calendar zone for 7-Day buckets + labels. Captured once so load and presentation
      * cannot drift. Unit tests pass a fixed zone via the primary constructor.
@@ -60,8 +61,7 @@ class DashboardViewModel(
     private val zone: ZoneId,
     /** Wall clock for board/detail "as of"; tests pin a fixed Instant. */
     private val clock: () -> Instant = Instant::now,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("DashboardViewModel", logError)) {
+) : ViewModel() {
     /**
      * Hilt entry: device-local [ZoneId.systemDefault]. Tests use the primary constructor with a
      * pinned zone (same pattern as [com.stratum.feature.settings.ExportLogsViewModel]).
@@ -76,7 +76,7 @@ class DashboardViewModel(
         observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
         observeHealthConnectPreferences: ObserveHealthConnectPreferencesUseCase,
         loadHealthConnectMetrics: LoadHealthConnectMetricsUseCase,
-        logError: LogErrorUseCase,
+        requestCloudSync: RequestCloudSyncUseCase,
     ) : this(
         loadDashboard,
         loadGraphDetail,
@@ -86,9 +86,9 @@ class DashboardViewModel(
         observeWeightDisplayPreferences,
         observeHealthConnectPreferences,
         loadHealthConnectMetrics,
+        requestCloudSync,
         ZoneId.systemDefault(),
         Instant::now,
-        logError,
     )
 
     private val _uiState = MutableStateFlow<DashboardUiState>(DashboardUiState.Loading)
@@ -122,33 +122,46 @@ class DashboardViewModel(
     /** Last successful domain summary so unit toggles re-map without a reload. */
     private var lastSummary: DashboardSummary? = null
     private var lastHealthPages: HealthMetricsPages? = null
+    private var lastDetailSubject: GraphDetailSubject? = null
 
     init {
         viewModelScope.launch {
-            observeDashboardPreferences().collect { prefs ->
-                _selectedTab.value = prefs.selectedTab.toUi()
-            }
+            observeDashboardPreferences()
+                .catch {
+                    // Keep the last selected tab if DataStore throws; do not kill the process.
+                }
+                .collect { prefs ->
+                    _selectedTab.value = prefs.selectedTab.toUi()
+                }
         }
         viewModelScope.launch {
-            observeWeightDisplayPreferences().collect { prefs ->
-                if (displayUnit.value == prefs.displayUnit) return@collect
-                displayUnit.value = prefs.displayUnit
-                lastSummary?.let { summary ->
-                    _uiState.value = summary.toUiState(prefs.displayUnit, zone)
+            observeWeightDisplayPreferences()
+                .catch {
+                    // Keep the last display unit if DataStore throws.
                 }
-                lastHealthPages?.let { pages -> publishHealth(pages) }
-                publishReady()
-            }
+                .collect { prefs ->
+                    if (displayUnit.value == prefs.displayUnit) return@collect
+                    displayUnit.value = prefs.displayUnit
+                    lastSummary?.let { summary ->
+                        _uiState.value = summary.toUiState(prefs.displayUnit, zone)
+                    }
+                    lastHealthPages?.let { pages -> publishHealth(pages) }
+                    publishReady()
+                }
         }
         viewModelScope.launch {
-            observeHealthConnectPreferences().collect { prefs ->
-                healthEnabled.value = prefs.enabled
-                if (!prefs.enabled) {
-                    hideHealth()
-                } else {
-                    loadHealth()
+            observeHealthConnectPreferences()
+                .catch {
+                    // Keep the last Health Connect enabled flag if DataStore throws.
                 }
-            }
+                .collect { prefs ->
+                    healthEnabled.value = prefs.enabled
+                    if (!prefs.enabled) {
+                        hideHealth()
+                    } else {
+                        loadHealth()
+                    }
+                }
         }
         load()
         // Weekly series tables are rebuilt after a successful cloud pull (not synced themselves).
@@ -156,7 +169,11 @@ class DashboardViewModel(
         // without requiring the user to leave and re-enter the tab.
         viewModelScope.launch {
             var sawBusy = false
-            observeCloudSyncStatus().collect { status ->
+            observeCloudSyncStatus()
+                .catch {
+                    // Keep the last sync-driven refresh trigger; do not invent a fake Error status.
+                }
+                .collect { status ->
                     when (status) {
                         SyncStatus.Syncing, SyncStatus.Hydrating -> sawBusy = true
                         SyncStatus.Idle -> {
@@ -181,6 +198,9 @@ class DashboardViewModel(
     fun refresh() {
         if (_isRefreshing.value) return
         _isRefreshing.value = true
+        viewModelScope.launch {
+            requestCloudSync()
+        }
         load()
         val boardJob = loadJob
         val metricsJob = healthJob
@@ -218,15 +238,25 @@ class DashboardViewModel(
             if (_uiState.value !is DashboardUiState.Loaded) {
                 _uiState.value = DashboardUiState.Loading
             }
-            val summary = loadDashboard(now = clock(), zone = zone)
-            lastSummary = summary
+            val result = loadDashboard(now = clock(), zone = zone)
             _uiState.value =
-                summary?.toUiState(displayUnit.value, zone) ?: DashboardUiState.Empty
+                result.fold(
+                    onSuccess = { summary ->
+                        lastSummary = summary
+                        summary?.toUiState(displayUnit.value, zone) ?: DashboardUiState.Empty
+                    },
+                    onFailure = {
+                        lastSummary = null
+                        DashboardUiState.Error
+                    },
+                )
         }
         if (healthEnabled.value) {
             loadHealth()
         }
     }
+
+    fun retry() = refresh()
 
     private fun hideHealth() {
         healthJob?.cancel()
@@ -272,9 +302,15 @@ class DashboardViewModel(
         openGraphDetail(GraphDetailSubject.MuscleDailyVolume(muscle))
     }
 
+    fun retryGraphDetail() {
+        val subject = lastDetailSubject ?: return
+        openGraphDetail(subject)
+    }
+
     fun dismissGraphDetail() {
         detailJob?.cancel()
         detailSession = null
+        lastDetailSubject = null
         _graphDetailState.value = GraphDetailUiState.Hidden
     }
 
@@ -293,17 +329,26 @@ class DashboardViewModel(
     }
 
     private fun openGraphDetail(subject: GraphDetailSubject) {
+        lastDetailSubject = subject
         detailJob?.cancel()
         detailJob = viewModelScope.launch {
             _graphDetailState.value = GraphDetailUiState.Loading
-            val series = loadGraphDetail(subject, zone = zone)
-            if (series == null) {
-                detailSession = null
-                _graphDetailState.value = GraphDetailUiState.Empty
-                return@launch
-            }
-            detailSession = series.toSession(zone = zone)
-            publishReady()
+            val result = loadGraphDetail(subject, zone = zone)
+            result.fold(
+                onSuccess = { series ->
+                    if (series == null) {
+                        detailSession = null
+                        _graphDetailState.value = GraphDetailUiState.Empty
+                    } else {
+                        detailSession = series.toSession(zone = zone)
+                        publishReady()
+                    }
+                },
+                onFailure = {
+                    detailSession = null
+                    _graphDetailState.value = GraphDetailUiState.Error
+                },
+            )
         }
     }
 
@@ -320,6 +365,7 @@ class DashboardViewModel(
 sealed interface DashboardUiState {
     data object Loading : DashboardUiState
     data object Empty : DashboardUiState
+    data object Error : DashboardUiState
     data class Loaded(
         val windowWeeks: Int,
         val muscles: List<MuscleSeriesUi>,

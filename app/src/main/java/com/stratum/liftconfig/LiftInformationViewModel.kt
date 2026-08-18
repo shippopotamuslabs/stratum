@@ -37,8 +37,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 enum class LiftInfoTab {
     Instructions,
@@ -111,8 +109,7 @@ class LiftInformationViewModel @Inject constructor(
     private val setLiftEquipment: SetLiftEquipmentUseCase,
     private val getLiftHistory: GetLiftHistoryUseCase,
     private val equipmentPickResult: EquipmentPickResult,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("LiftInformationViewModel", logError)) {
+) : ViewModel() {
 
     private val liftId = MutableStateFlow<String?>(null)
     private var awaitingEquipmentPick = false

@@ -64,5 +64,51 @@ class TelemetryThrowableSanitizerTest {
         assertFalse(sanitized.message!!.contains("user@example.com"))
     }
 
+    @Test
+    fun `sanitize copies suppressed exceptions`() {
+        val original = RuntimeException("wrapper")
+        original.addSuppressed(IllegalStateException("user@example.com"))
+
+        val sanitized = TelemetryThrowableSanitizer.sanitize(original)
+
+        assertEquals(1, sanitized.suppressed.size)
+        assertTrue(sanitized.suppressed.single().message!!.contains(TelemetryPiiScrubber.REDACTED_EMAIL))
+        assertFalse(sanitized.suppressed.single().message!!.contains("user@example.com"))
+    }
+
+    @Test
+    fun `sanitize falls back when string constructor installs a cause`() {
+        val original = PrefedCause("failed for user@example.com")
+
+        val sanitized = TelemetryThrowableSanitizer.sanitize(original)
+
+        assertTrue(sanitized is SanitizedTelemetryException)
+        assertTrue(sanitized.message!!.contains(TelemetryPiiScrubber.REDACTED_EMAIL))
+        val cause = sanitized.cause
+        assertTrue(cause!!.message!!.contains(TelemetryPiiScrubber.REDACTED_TOKEN))
+        assertFalse(cause.message!!.contains("secret123"))
+    }
+
+    @Test
+    fun `sanitize attaches cause as suppressed when initCause is locked`() {
+        val original = LockedNullCause(
+            "failed for user@example.com",
+            IllegalStateException("token=secret123"),
+        )
+
+        val sanitized = TelemetryThrowableSanitizer.sanitize(original)
+
+        assertEquals(LockedNullCause::class.java, sanitized.javaClass)
+        assertNull(sanitized.cause)
+        assertEquals(1, sanitized.suppressed.size)
+        assertTrue(sanitized.suppressed.single().message!!.contains(TelemetryPiiScrubber.REDACTED_TOKEN))
+        assertFalse(sanitized.suppressed.single().message!!.contains("secret123"))
+        assertTrue(sanitized.message!!.contains(TelemetryPiiScrubber.REDACTED_EMAIL))
+    }
+
     private class IntCodeException(val code: Int) : RuntimeException("failed for user@example.com ($code)")
+
+    private class PrefedCause(message: String) : RuntimeException(message, RuntimeException("token=secret123"))
+
+    private class LockedNullCause(message: String, cause: Throwable?) : RuntimeException(message, cause)
 }

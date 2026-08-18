@@ -3,12 +3,13 @@ package com.stratum.telemetry
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.GetAuthStateUseCase
 import com.stratum.domain.di.ApplicationScope
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.collectLatestRestarting
 import com.stratum.domain.telemetry.CrashTelemetryPort
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
 class TelemetryAuthListener @Inject constructor(
     private val getAuthState: GetAuthStateUseCase,
     private val crashTelemetryPort: CrashTelemetryPort,
+    private val loggingPort: LoggingPort,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private var job: Job? = null
@@ -26,7 +28,7 @@ class TelemetryAuthListener @Inject constructor(
         if (job?.isActive == true) return
         job =
             scope.launch {
-                getAuthState().collectLatest { state ->
+                getAuthState().collectLatestRestarting(loggingPort, TAG) { state ->
                     when (state) {
                         is AuthState.Authenticated -> {
                             crashTelemetryPort.setUserId(state.user.uid)
@@ -38,5 +40,9 @@ class TelemetryAuthListener @Inject constructor(
                     }
                 }
             }
+    }
+
+    private companion object {
+        const val TAG = "TelemetryAuth"
     }
 }

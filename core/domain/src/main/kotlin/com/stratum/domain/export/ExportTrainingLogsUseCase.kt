@@ -1,5 +1,7 @@
 package com.stratum.domain.export
 
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.TrainingLogRepository
 import com.stratum.domain.training.TrainingSession
@@ -11,25 +13,32 @@ import javax.inject.Inject
 class ExportTrainingLogsUseCase(
     private val trainingLogRepository: TrainingLogRepository,
     private val clock: () -> Instant,
+    private val loggingPort: LoggingPort,
 ) {
     /** Hilt entry: wall clock. Unit tests use the primary constructor with a fixed clock. */
     @Inject
     constructor(
         trainingLogRepository: TrainingLogRepository,
-    ) : this(trainingLogRepository, { Instant.now() })
+        loggingPort: LoggingPort,
+    ) : this(trainingLogRepository, { Instant.now() }, loggingPort)
 
     /**
      * Reads sessions/sets in [range], maps to Stratum log envelope with stable ids,
      * serializes pure JSON bytes. Empty selection → failure (no empty file).
      */
-    suspend operator fun invoke(range: ExportLogRange): Result<ExportFileResult> =
-        runCatching {
-            val now = clock()
-            val bounds = ExportRangeBounds.resolve(range, now)
-            val (sessions, sets) = filterLogs(bounds)
-            require(sessions.isNotEmpty() && sets.isNotEmpty()) {
-                "No training logs in the selected range."
-            }
+    suspend operator fun invoke(range: ExportLogRange): Result<ExportFileResult> {
+        val now = clock()
+        val bounds =
+            runCatching { ExportRangeBounds.resolve(range, now) }
+                .getOrElse { return Result.failure(it) }
+        val (sessions, sets) =
+            runCatchingLogged(loggingPort, TAG, "Failed to read training logs") {
+                filterLogs(bounds)
+            }.getOrElse { return Result.failure(it) }
+        if (sessions.isEmpty() || sets.isEmpty()) {
+            return Result.failure(IllegalArgumentException("No training logs in the selected range."))
+        }
+        return runCatchingLogged(loggingPort, TAG, "Failed to export training logs") {
             val json =
                 StratumExportJson.encodeLogsEnvelope(
                     exportedAt = now,
@@ -44,6 +53,7 @@ class ExportTrainingLogsUseCase(
                 mimeType = MIME_JSON,
             )
         }
+    }
 
     private suspend fun filterLogs(
         bounds: Pair<Instant, Instant>?,
@@ -71,6 +81,7 @@ class ExportTrainingLogsUseCase(
 
     private companion object {
         const val MIME_JSON = "application/json"
+        const val TAG = "ExportTrainingLogs"
         val FILE_STAMP: DateTimeFormatter =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
     }

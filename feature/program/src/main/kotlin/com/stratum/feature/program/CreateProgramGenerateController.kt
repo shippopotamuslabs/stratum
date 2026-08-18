@@ -19,6 +19,7 @@ import com.stratum.domain.program.InferLastTrainedBucketUseCase
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramGenerationProgress
 import com.stratum.domain.program.ProgramGenerationProgressPhase
+import com.stratum.domain.logging.LogErrorUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,6 +41,7 @@ internal class CreateProgramGenerateController(
     private val getUserTrainingProfile: GetUserTrainingProfileUseCase,
     private val inferLastTrained: InferLastTrainedBucketUseCase,
     private val onProgramGenerated: (Program) -> Unit,
+    private val logError: LogErrorUseCase,
 ) {
     private var generateJob: Job? = null
 
@@ -194,7 +196,7 @@ internal class CreateProgramGenerateController(
     }
 
     private fun publishGenerateFailure(error: Throwable) {
-        android.util.Log.e(GENERATE_LOG_TAG, "program generation failed", error)
+        logError(GENERATE_LOG_TAG, "program generation failed: ${error.message}", error)
         state.update {
             it.copy(
                 generateState = CreateProgramGenerateState.Error,

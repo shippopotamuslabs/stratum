@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetBadge
+import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
@@ -40,6 +41,7 @@ fun WorkoutSessionDetailScreen(
     onEditWorkoutClick: () -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState? = null,
+    onRetry: () -> Unit = {},
 ) {
     StratumScaffold(
         modifier = modifier,
@@ -77,12 +79,8 @@ fun WorkoutSessionDetailScreen(
                         Modifier
                             .fillMaxSize()
                             .padding(padding),
-                    contentAlignment = Alignment.Center,
                 ) {
-                    StratumText(
-                        text = stringResource(R.string.history_session_load_error),
-                        muted = true,
-                    )
+                    StratumFeatureErrorFallback(onRetry = onRetry)
                 }
             is WorkoutSessionDetailUiState.Loaded ->
                 SessionDetailContent(

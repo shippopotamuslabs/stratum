@@ -2,6 +2,7 @@ package com.stratum.telemetry
 
 import com.stratum.core.testing.MainDispatcherRule
 import com.stratum.core.testing.auth.FakeAuthManager
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.telemetry.FakeCrashTelemetryPort
 import com.stratum.domain.auth.AuthState
 import com.stratum.domain.auth.GetAuthStateUseCase
@@ -26,6 +27,7 @@ class TelemetryAuthListenerTest {
         TelemetryAuthListener(
             getAuthState = GetAuthStateUseCase(authManager),
             crashTelemetryPort = fakeTelemetry,
+            loggingPort = FakeLoggingPort(),
             scope = scope,
         )
 

@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -18,15 +19,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 @HiltViewModel
 class HistoryDaySessionsViewModel @Inject constructor(
     private val observeWorkoutHistoryCalendar: ObserveWorkoutHistoryCalendarUseCase,
     private val getWorkoutSessionDetail: GetWorkoutSessionDetailUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("HistoryDaySessionsViewModel", logError)) {
+) : ViewModel() {
 
     private val _uiState =
         MutableStateFlow<HistoryDaySessionsUiState>(HistoryDaySessionsUiState.Loading)
@@ -44,41 +42,47 @@ class HistoryDaySessionsViewModel @Inject constructor(
         loadJob =
             viewModelScope.launch {
                 _uiState.value = HistoryDaySessionsUiState.Loading
-                val date =
-                    runCatching { LocalDate.parse(dateIso) }.getOrElse {
+                try {
+                    val date =
+                        runCatching { LocalDate.parse(dateIso) }.getOrElse {
+                            _uiState.value = HistoryDaySessionsUiState.Error
+                            return@launch
+                        }
+                    val daySessions =
+                        observeWorkoutHistoryCalendar(zoneId = zoneId)
+                            .first()
+                            .days[date]
+                            .orEmpty()
+                    if (daySessions.isEmpty()) {
                         _uiState.value = HistoryDaySessionsUiState.Error
                         return@launch
                     }
-                val daySessions =
-                    observeWorkoutHistoryCalendar(zoneId = zoneId)
-                        .first()
-                        .days[date]
-                        .orEmpty()
-                if (daySessions.isEmpty()) {
-                    _uiState.value = HistoryDaySessionsUiState.Error
-                    return@launch
-                }
-                val results =
-                    coroutineScope {
-                        daySessions
-                            .map { daySession ->
-                                async {
-                                    getWorkoutSessionDetail(daySession.sessionId)
-                                        .map(WorkoutSessionDetailUiMapper::toDaySummary)
+                    val results =
+                        coroutineScope {
+                            daySessions
+                                .map { daySession ->
+                                    async {
+                                        getWorkoutSessionDetail(daySession.sessionId)
+                                            .map(WorkoutSessionDetailUiMapper::toDaySummary)
+                                    }
                                 }
-                            }
-                            .awaitAll()
+                                .awaitAll()
+                        }
+                    // Fail closed: a missing/corrupt session must not silently shrink the day list.
+                    if (results.any { it.isFailure }) {
+                        _uiState.value = HistoryDaySessionsUiState.Error
+                        return@launch
                     }
-                // Fail closed: a missing/corrupt session must not silently shrink the day list.
-                if (results.any { it.isFailure }) {
+                    _uiState.value =
+                        HistoryDaySessionsUiState.Loaded(
+                            dateTitle = WorkoutSessionDetailUiMapper.formatDayTitle(dateIso),
+                            sessions = results.map { it.getOrThrow() },
+                        )
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
                     _uiState.value = HistoryDaySessionsUiState.Error
-                    return@launch
                 }
-                _uiState.value =
-                    HistoryDaySessionsUiState.Loaded(
-                        dateTitle = WorkoutSessionDetailUiMapper.formatDayTitle(dateIso),
-                        sessions = results.map { it.getOrThrow() },
-                    )
             }
     }
 }

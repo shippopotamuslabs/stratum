@@ -3,6 +3,7 @@ package com.stratum.feature.program
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UpdateSpecializationUseCase
@@ -31,8 +32,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.stratum.domain.logging.LogErrorUseCase
-import com.stratum.domain.logging.loggedViewModelScope
 
 /**
  * Thin façade for create-program: nav entry + shared [uiState].
@@ -60,8 +59,8 @@ class CreateProgramViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     observeActiveSession: ObserveActiveSessionUseCase,
     abandonTrainingSession: AbandonTrainingSessionUseCase,
-    logError: LogErrorUseCase = LogErrorUseCase(com.stratum.domain.logging.SilentLoggingPort),
-) : ViewModel(loggedViewModelScope("CreateProgramViewModel", logError)) {
+    logError: LogErrorUseCase,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         CreateProgramUiState(programId = UUID.randomUUID().toString()),
@@ -108,6 +107,7 @@ class CreateProgramViewModel @Inject constructor(
             onProgramGenerated = { program ->
                 editor.loadProgramIntoEditor(program, markDirty = true, isExisting = false)
             },
+            logError = logError,
         )
 
     init {

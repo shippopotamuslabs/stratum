@@ -28,13 +28,14 @@ class HealthConnectSyncWorker @AssistedInject constructor(
             -> Result.success()
 
             is HealthConnectSyncWork.Outcome.TerminalFailure -> {
-                val error = RuntimeException(outcome.message)
                 loggingPort.error(
                     TAG,
-                    "Health Connect sync terminal failure: ${outcome.message}",
-                    error,
+                    "Health Connect sync terminal failure: ${outcome.error.message}",
+                    outcome.error,
                 )
-                work.reportTerminalFailure(outcome.message)
+                work.reportTerminalFailure(
+                    outcome.error.message ?: "Failed to sync workout to Health Connect",
+                )
                 Result.failure()
             }
 
@@ -45,11 +46,13 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                         maxRetries = 2,
                         tag = TAG,
                         taskDescription = "Health Connect sync",
-                        error = RuntimeException(outcome.message),
+                        error = outcome.error,
                         loggingPort = loggingPort,
                     )
                 if (result == Result.failure()) {
-                    work.reportTerminalFailure(outcome.message)
+                    work.reportTerminalFailure(
+                        outcome.error.message ?: "Failed to sync workout to Health Connect",
+                    )
                 }
                 result
             }
