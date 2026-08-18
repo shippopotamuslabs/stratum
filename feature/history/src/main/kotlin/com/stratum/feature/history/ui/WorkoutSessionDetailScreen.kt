@@ -15,6 +15,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -33,6 +37,8 @@ import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
+import java.time.LocalDate
+import java.time.LocalTime
 
 @Composable
 fun WorkoutSessionDetailScreen(
@@ -40,9 +46,17 @@ fun WorkoutSessionDetailScreen(
     onBackClick: () -> Unit,
     onEditWorkoutClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onUpdateWorkoutTimes: (
+        startDate: LocalDate,
+        startTime: LocalTime,
+        finishDate: LocalDate,
+        finishTime: LocalTime,
+    ) -> Unit = { _, _, _, _ -> },
     snackbarHostState: SnackbarHostState? = null,
     onRetry: () -> Unit = {},
 ) {
+    var showEditTimeSheet by remember { mutableStateOf(false) }
+
     StratumScaffold(
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -86,6 +100,7 @@ fun WorkoutSessionDetailScreen(
                 SessionDetailContent(
                     state = state,
                     onEditWorkoutClick = onEditWorkoutClick,
+                    onEditTimeClick = { showEditTimeSheet = true },
                     modifier =
                         Modifier
                             .fillMaxSize()
@@ -95,12 +110,27 @@ fun WorkoutSessionDetailScreen(
                 )
         }
     }
+
+    if (showEditTimeSheet && state is WorkoutSessionDetailUiState.Loaded) {
+        EditWorkoutTimeBottomSheet(
+            initialStartDate = state.startDate,
+            initialStartTime = state.startTime,
+            initialFinishDate = state.finishDate,
+            initialFinishTime = state.finishTime,
+            onConfirm = { startDate, startTime, finishDate, finishTime ->
+                showEditTimeSheet = false
+                onUpdateWorkoutTimes(startDate, startTime, finishDate, finishTime)
+            },
+            onDismiss = { showEditTimeSheet = false },
+        )
+    }
 }
 
 @Composable
 private fun SessionDetailContent(
     state: WorkoutSessionDetailUiState.Loaded,
     onEditWorkoutClick: () -> Unit,
+    onEditTimeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -115,6 +145,7 @@ private fun SessionDetailContent(
             personalRecordsLabel = state.personalRecordsLabel,
             upperVolumeByMuscle = state.upperVolumeByMuscle,
             lowerVolumeByMuscle = state.lowerVolumeByMuscle,
+            onEditTimeClick = onEditTimeClick,
         )
 
         Row(

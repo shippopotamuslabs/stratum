@@ -2,12 +2,19 @@ package com.stratum.feature.history.ui
 
 import com.stratum.core.ui.component.StratumMuscleVolumeCardState
 
+import java.time.LocalDate
+import java.time.LocalTime
+
 sealed interface WorkoutSessionDetailUiState {
     data object Loading : WorkoutSessionDetailUiState
     data object Error : WorkoutSessionDetailUiState
 
     data class Loaded(
         val workoutName: String,
+        val startDate: LocalDate,
+        val startTime: LocalTime,
+        val finishDate: LocalDate,
+        val finishTime: LocalTime,
         val completedAtLabel: String,
         val durationFormatted: String,
         val totalSetsLabel: String,
