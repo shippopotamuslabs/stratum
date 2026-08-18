@@ -21,6 +21,7 @@ import com.stratum.domain.training.LoggedSet
 import com.stratum.domain.training.UpdateCompletedSessionTimesUseCase
 import com.stratum.domain.training.identity.TrainingSessionId
 import com.stratum.feature.history.ui.WorkoutSessionDetailUiState
+import com.stratum.feature.history.ui.toShareContent
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -136,7 +137,73 @@ class WorkoutSessionDetailViewModelTest {
         assertNull(vm.userMessage.value)
     }
 
-    private fun buildViewModel(): Pair<WorkoutSessionDetailViewModel, FakeTrainingLogRepository> {
+    @Test
+    @DisplayName("Loaded.toShareContent maps session summary and lifts into square share content")
+    fun mapsToShareContent() = runTest {
+        val (vm, _) = buildViewModel()
+
+        vm.load("ts-1")
+        advanceUntilIdle()
+
+        val loaded = vm.uiState.value as WorkoutSessionDetailUiState.Loaded
+        val shareContent = loaded.toShareContent()
+
+        assertEquals("Upper A", shareContent.workoutName)
+        assertEquals("1:00:00", shareContent.durationFormatted)
+        assertEquals(1, shareContent.personalRecordCount)
+        assertEquals(1, shareContent.visibleSets.size)
+        assertEquals("Barbell Bench Press", shareContent.visibleSets.single().liftName)
+        assertEquals("135 × 8", shareContent.visibleSets.single().performanceLabel)
+        assertTrue(shareContent.visibleSets.single().isPersonalRecord)
+        assertEquals(0, shareContent.overflowCount)
+    }
+
+    @Test
+    @DisplayName("Loaded.toShareContent selects top working set and not warmup set when no PR is flagged")
+    fun selectsTopWorkingSetOverWarmup() = runTest {
+        val warmupSet =
+            LoggedSet(
+                id = LoggedSetId("set-w"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Bench",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 0,
+                weight = Weight(135.0, Weight.WeightUnit.Lb),
+                reps = 10,
+                rir = 4,
+                completedAt = Instant.parse("2025-01-01T10:05:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+                isPersonalRecord = false,
+            )
+        val topSet =
+            LoggedSet(
+                id = LoggedSetId("set-top"),
+                sessionId = TrainingSessionId("ts-1"),
+                exerciseNameRaw = "Bench",
+                liftId = WorkoutLoggingFixtures.liftBenchId,
+                setIndex = 1,
+                weight = Weight(225.0, Weight.WeightUnit.Lb),
+                reps = 5,
+                rir = 1,
+                completedAt = Instant.parse("2025-01-01T10:15:00Z"),
+                liftContext = WorkoutLoggingFixtures.importLiftContext(),
+                isPersonalRecord = false,
+            )
+        val (vm, _) = buildViewModel(sets = listOf(warmupSet, topSet))
+
+        vm.load("ts-1")
+        advanceUntilIdle()
+
+        val loaded = vm.uiState.value as WorkoutSessionDetailUiState.Loaded
+        val shareContent = loaded.toShareContent()
+
+        assertEquals("225 × 5", shareContent.visibleSets.single().performanceLabel)
+        assertEquals(false, shareContent.visibleSets.single().isPersonalRecord)
+    }
+
+    private fun buildViewModel(
+        sets: List<LoggedSet>? = null,
+    ): Pair<WorkoutSessionDetailViewModel, FakeTrainingLogRepository> {
         val programRepo = FakeProgramRepository(WorkoutLoggingFixtures.twoWorkoutProgram())
         val session =
             WorkoutLoggingFixtures.completedLiveSession(id = "ts-1").copy(
@@ -161,7 +228,7 @@ class WorkoutSessionDetailViewModelTest {
         val logRepo =
             FakeTrainingLogRepository(
                 initialSessions = listOf(session),
-                initialSets = listOf(initialSet),
+                initialSets = sets ?: listOf(initialSet),
                 programRepository = programRepo,
             )
         val liftRepo = FakeLiftRepository(listOf(WorkoutLoggingFixtures.benchLift()))

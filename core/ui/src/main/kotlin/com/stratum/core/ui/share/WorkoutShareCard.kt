@@ -1,4 +1,4 @@
-package com.stratum.feature.workout.ui
+package com.stratum.core.ui.share
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,12 +20,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.R
 import com.stratum.core.ui.component.StratumBrandFooter
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.theme.StratumThemeAccessor
-import com.stratum.feature.workout.R
-import com.stratum.core.ui.R as CoreUiR
 
 /**
  * Instagram-square workout summary card. Layout-only — capture lives in
@@ -56,7 +55,7 @@ fun WorkoutShareCard(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 StratumText(
-                    text = stringResource(R.string.workout_complete_title),
+                    text = stringResource(R.string.workout_share_title),
                     style = StratumThemeAccessor.typography.sectionLabel,
                     muted = true,
                 )
@@ -106,7 +105,7 @@ fun WorkoutShareCard(
                         StratumText(
                             text =
                                 stringResource(
-                                    R.string.workout_complete_share_more_lifts,
+                                    R.string.workout_share_more_lifts,
                                     content.overflowCount,
                                 ),
                             style = StratumThemeAccessor.typography.sectionLabel,
@@ -116,7 +115,7 @@ fun WorkoutShareCard(
                 }
             } else {
                 StratumText(
-                    text = stringResource(R.string.workout_complete_empty),
+                    text = stringResource(R.string.workout_share_empty),
                     style = StratumThemeAccessor.typography.bodyLarge,
                     muted = true,
                 )
@@ -135,12 +134,12 @@ private fun ShareStatRow(content: WorkoutShareContent) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         ShareStatChip(
-            label = stringResource(R.string.workout_complete_duration),
+            label = stringResource(R.string.workout_share_duration),
             value = content.durationFormatted,
             modifier = Modifier.weight(1f),
         )
         ShareStatChip(
-            label = stringResource(R.string.workout_complete_personal_records),
+            label = stringResource(R.string.workout_share_personal_records),
             value = content.personalRecordCount.toString(),
             modifier = Modifier.weight(1f),
         )
@@ -193,8 +192,8 @@ private fun ShareLiftRow(set: ShareLiftRowUi) {
     ) {
         if (set.isPersonalRecord) {
             Icon(
-                painter = painterResource(CoreUiR.drawable.ic_personal_record),
-                contentDescription = stringResource(R.string.workout_complete_pr_cd),
+                painter = painterResource(R.drawable.ic_personal_record),
+                contentDescription = stringResource(R.string.workout_share_pr_cd),
                 tint = StratumThemeAccessor.colors.prHighlight,
                 modifier = Modifier.size(16.dp),
             )
