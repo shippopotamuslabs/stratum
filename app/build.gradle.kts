@@ -1,4 +1,5 @@
 import java.util.Properties
+import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 
 plugins {
     alias(libs.plugins.android.application)
@@ -53,6 +54,11 @@ android {
             // Keep rules live in src/main/keepRules/*.keep (includes -dontobfuscate).
             optimization {
                 enable = true
+            }
+            // Upload mapping.txt so Crashlytics can restore file names / line numbers after
+            // shrinking and inlining, even with -dontobfuscate.
+            configure<CrashlyticsExtension> {
+                mappingFileUploadEnabled = true
             }
             if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")

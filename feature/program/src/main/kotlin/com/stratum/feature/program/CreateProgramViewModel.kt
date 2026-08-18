@@ -3,6 +3,7 @@ package com.stratum.feature.program
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.onboarding.CompleteOnboardingUseCase
 import com.stratum.domain.onboarding.GetUserTrainingProfileUseCase
 import com.stratum.domain.onboarding.UpdateSpecializationUseCase
@@ -58,6 +59,7 @@ class CreateProgramViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     observeActiveSession: ObserveActiveSessionUseCase,
     abandonTrainingSession: AbandonTrainingSessionUseCase,
+    logError: LogErrorUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -105,6 +107,7 @@ class CreateProgramViewModel @Inject constructor(
             onProgramGenerated = { program ->
                 editor.loadProgramIntoEditor(program, markDirty = true, isExisting = false)
             },
+            logError = logError,
         )
 
     init {

@@ -5,15 +5,14 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import androidx.core.app.ServiceCompat
+import com.stratum.domain.di.ApplicationScope
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.collectLatestRestarting
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -39,7 +38,13 @@ class RestTimerForegroundService : Service() {
     @Inject
     lateinit var clock: EpochMilliClock
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    @Inject
+    @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
+
+    @Inject
+    lateinit var loggingPort: LoggingPort
+
     private var observeJob: Job? = null
 
     /** True when we are tearing down intentionally (idle / complete / skip), not via swipe. */
@@ -70,8 +75,8 @@ class RestTimerForegroundService : Service() {
             notification,
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
-        observeJob = scope.launch {
-            restTimer.state.collectLatest { state ->
+        observeJob = applicationScope.launch {
+            restTimer.state.collectLatestRestarting(loggingPort, TAG) { state ->
                 when (state) {
                     is RestTimerState.Idle -> {
                         stopSelfSafely()
@@ -109,7 +114,7 @@ class RestTimerForegroundService : Service() {
 
     override fun onDestroy() {
         observeJob?.cancel()
-        scope.cancel()
+        // Do not cancel [applicationScope] — it outlives this service.
         // Swipe-away / system kill can destroy the FGS while rest is still Running. Fall back
         // to the active-workout notification when backgrounded (deleteIntent is best-effort).
         if (!stoppingIntentionally && restTimer.isRunning()) {
@@ -138,5 +143,9 @@ class RestTimerForegroundService : Service() {
         stoppingIntentionally = true
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private companion object {
+        const val TAG = "RestTimerFgs"
     }
 }

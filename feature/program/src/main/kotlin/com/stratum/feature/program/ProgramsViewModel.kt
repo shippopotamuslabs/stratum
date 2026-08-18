@@ -78,6 +78,18 @@ class ProgramsViewModel @Inject constructor(
     private val setExpandedWorkoutId: SetExpandedWorkoutIdUseCase,
 ) : ViewModel() {
 
+    /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
+
+    fun userMessageShown() {
+        _userMessage.value = null
+    }
+
+    private fun showUserMessage(message: String) {
+        _userMessage.value = message
+    }
+
     init {
         // Safety net for already-orphaned sessions (mid-session delete / program switch without
         // confirm). Prefer confirm-before-discard at mutation sites; this only cleans ghosts so the
@@ -96,6 +108,7 @@ class ProgramsViewModel @Inject constructor(
                 .collect { orphanSessionId ->
                     if (orphanSessionId != null) {
                         abandonTrainingSession(orphanSessionId)
+                            .onFailure { showUserMessage(MSG_ABANDON_FAILED) }
                     }
                 }
         }
@@ -147,18 +160,6 @@ class ProgramsViewModel @Inject constructor(
 
     private val _events = Channel<ProgramsUiEvent>(Channel.BUFFERED)
     val events: Flow<ProgramsUiEvent> = _events.receiveAsFlow()
-
-    /** Transient snackbar copy; cleared via [userMessageShown] after the UI presents it. */
-    private val _userMessage = MutableStateFlow<String?>(null)
-    val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
-
-    fun userMessageShown() {
-        _userMessage.value = null
-    }
-
-    private fun showUserMessage(message: String) {
-        _userMessage.value = message
-    }
 
     fun startNextWorkout() {
         val loaded = programsUiState.value as? ProgramsUiState.Loaded ?: return

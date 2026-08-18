@@ -8,6 +8,7 @@ import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LogErrorUseCase
 import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -78,6 +80,7 @@ class WorkoutViewModel @Inject constructor(
     private val workoutEditSession: WorkoutEditSession,
     private val liveWorkoutSurfaces: LiveWorkoutSurfaces,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
+    logError: LogErrorUseCase,
 ) : ViewModel() {
 
     /**
@@ -169,19 +172,24 @@ class WorkoutViewModel @Inject constructor(
             saveWorkoutUseCase = saveWorkoutUseCase,
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
+            logError = logError,
         )
 
     init {
         viewModelScope.launch {
-            observeWeightDisplayPreferences().collect { prefs ->
-                if (displayUnit.value == prefs.displayUnit) return@collect
-                displayUnit.value = prefs.displayUnit
-                displayUnitEpoch.value += 1
-                // Re-render so recs/logged amounts flip units; drafts reseed via epoch.
-                if (_uiState.value is WorkoutUiState.Loaded) {
-                    enqueue(SessionCommand.RenderOnly)
+            observeWeightDisplayPreferences()
+                .catch {
+                    // Keep the last display unit if DataStore throws; do not kill the session.
                 }
-            }
+                .collect { prefs ->
+                    if (displayUnit.value == prefs.displayUnit) return@collect
+                    displayUnit.value = prefs.displayUnit
+                    displayUnitEpoch.value += 1
+                    // Re-render so recs/logged amounts flip units; drafts reseed via epoch.
+                    if (_uiState.value is WorkoutUiState.Loaded) {
+                        enqueue(SessionCommand.RenderOnly)
+                    }
+                }
         }
         viewModelScope.launch {
             workoutEditSession.events.collect { event ->

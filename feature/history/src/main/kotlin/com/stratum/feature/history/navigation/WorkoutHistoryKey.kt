@@ -116,6 +116,7 @@ private fun WorkoutHistoryRoute(
         onDayClick = onDayClick,
         onScrollToMonthConsumed = viewModel::onScrollToMonthConsumed,
         onScrollToYearConsumed = viewModel::onScrollToYearConsumed,
+        onRetry = viewModel::retry,
     )
 }
 
@@ -144,6 +145,7 @@ private fun HistoryDaySessionsRoute(
         state = uiState,
         onBackClick = onBackClick,
         onSessionClick = onSessionClick,
+        onRetry = { viewModel.load(dateIso = dateIso) },
     )
 }
 
@@ -179,6 +181,7 @@ private fun WorkoutSessionDetailRoute(
         onBackClick = onBackClick,
         onEditWorkoutClick = onEditWorkoutClick,
         snackbarHostState = snackbarHostState,
+        onRetry = { viewModel.load(sessionId) },
     )
 }
 

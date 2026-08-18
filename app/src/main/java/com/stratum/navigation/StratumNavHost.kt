@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -21,6 +25,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import com.stratum.core.ui.component.StratumFeatureErrorFallback
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.onboarding.navigation.onboardingEntry
@@ -82,17 +87,41 @@ import com.stratum.liftconfig.manageEquipmentEntry
 fun StratumNavHost(
     pendingWorkoutId: String? = null,
     onPendingWorkoutConsumed: () -> Unit = {},
+    onScreenChanged: (screenName: String) -> Unit = {},
 ) {
     val statusViewModel: OnboardingStatusViewModel = hiltViewModel()
     val gateViewModel: EntitlementGateViewModel = hiltViewModel()
     val destination by gateViewModel.destination.collectAsState()
-    if (destination == AppGateDestination.Loading) {
+    var lastContentName by rememberSaveable { mutableStateOf<String?>(null) }
+    val lastContentDestination =
+        lastContentName?.let(AppGateDestination::valueOf)
+    val mountNav = shouldMountAppGateNavDisplay(destination, lastContentDestination != null)
+    SideEffect {
+        if (destination.isContentDestination()) {
+            lastContentName = destination.name
+        }
+    }
+    if (!mountNav) {
+        if (destination == AppGateDestination.Failed) {
+            StratumScaffold { padding ->
+                Box(Modifier.fillMaxSize().padding(padding)) {
+                    StratumFeatureErrorFallback(onRetry = gateViewModel::retry)
+                }
+            }
+            return
+        }
         StratumScaffold { padding ->
             Box(Modifier.fillMaxSize().padding(padding))
         }
         return
     }
-    val startKey: NavKey = remember { destination.toStartNavKey() }
+    val startDestination =
+        if (destination.isContentDestination()) {
+            destination
+        } else {
+            checkNotNull(lastContentDestination)
+        }
+    val startKey: NavKey = remember { startDestination.toStartNavKey() }
     val backStack = rememberNavBackStack(startKey)
     val onNavigateBack =
         remember(backStack) {
@@ -120,7 +149,16 @@ fun StratumNavHost(
         onPendingWorkoutConsumed()
     }
 
-    NavDisplay(
+    val currentKey = backStack.lastOrNull()
+    LaunchedEffect(currentKey) {
+        if (currentKey != null && currentKey !is MainTabKey) {
+            val screenName = currentKey::class.simpleName ?: "Unknown"
+            onScreenChanged(screenName)
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        NavDisplay(
         backStack = backStack,
         onBack = onNavigateBack,
         // Match forward/pop fade for predictive back. Library default predictive pop uses
@@ -215,6 +253,7 @@ fun StratumNavHost(
                                 backStack.add(ProgramLibraryKey)
                             },
                         ),
+                    onScreenChanged = onScreenChanged,
                 )
             }
             liftIncrementsEntry(onBackClick = onNavigateBack)
@@ -378,7 +417,15 @@ fun StratumNavHost(
                 onBackClick = onNavigateBack,
             )
         },
-    )
+        )
+        if (destination == AppGateDestination.Failed) {
+            StratumScaffold { padding ->
+                Box(Modifier.fillMaxSize().padding(padding)) {
+                    StratumFeatureErrorFallback(onRetry = gateViewModel::retry)
+                }
+            }
+        }
+    }
 }
 
 /** Matches navigation3 default forward/pop duration; fade only (no predictive scale-out). */

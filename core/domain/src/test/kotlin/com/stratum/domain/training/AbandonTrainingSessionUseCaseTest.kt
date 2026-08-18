@@ -5,6 +5,8 @@ import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.core.testing.training.WorkoutLoggingFixtures
 import com.stratum.domain.training.identity.TrainingSessionId
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
@@ -28,5 +30,22 @@ class AbandonTrainingSessionUseCaseTest {
 
         assertNull(repo.getSession(TrainingSessionId("ts-live-1")))
         assertTrue(repo.getSetsForSession(TrainingSessionId("ts-live-1")).isEmpty())
+    }
+
+    @Test
+    @DisplayName("Delete failure is returned as Result.failure and logged")
+    fun deleteFailureIsReturned() = runTest {
+        val repo = FakeTrainingLogRepository()
+        repo.seedSession(WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1"))
+        repo.deleteSessionError = IllegalStateException("delete boom")
+        val logging = FakeLoggingPort()
+        val useCase = AbandonTrainingSessionUseCase(repo, logging)
+
+        val result = useCase(TrainingSessionId("ts-live-1"))
+
+        assertTrue(result.isFailure)
+        assertEquals("delete boom", result.exceptionOrNull()?.message)
+        assertEquals("AbandonTrainingSession", logging.errors.single().tag)
+        assertNotNull(repo.getSession(TrainingSessionId("ts-live-1")))
     }
 }

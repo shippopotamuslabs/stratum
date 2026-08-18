@@ -29,6 +29,7 @@ sealed interface GraphDetailUiState {
     data object Hidden : GraphDetailUiState
     data object Loading : GraphDetailUiState
     data object Empty : GraphDetailUiState
+    data object Error : GraphDetailUiState
     data class Ready(
         val title: String,
         val kind: GraphDetailKindUi,

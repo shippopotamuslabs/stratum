@@ -1,6 +1,5 @@
 package com.stratum.feature.workout.ui
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -24,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stratum.core.ui.component.LocalUiRenderErrorReporter
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.UserMessageEffect
 import com.stratum.core.ui.share.launchShareSheet
@@ -35,8 +35,6 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-private const val SHARE_LOG_TAG = "WorkoutShare"
 
 @Composable
 fun WorkoutCompleteRoute(
@@ -52,6 +50,7 @@ fun WorkoutCompleteRoute(
     var isSharing by remember { mutableStateOf(false) }
     val shareFailedMessage = stringResource(R.string.workout_complete_share_failed)
     val chooserTitle = stringResource(R.string.workout_complete_share_cd)
+    val renderErrorReporter = LocalUiRenderErrorReporter.current
 
     LaunchedEffect(sessionId) {
         viewModel.loadSummary(sessionId)
@@ -117,7 +116,7 @@ fun WorkoutCompleteRoute(
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            Log.e(SHARE_LOG_TAG, "Workout share failed", e)
+                            renderErrorReporter.report(e)
                             snackbarHostState.showSnackbar(shareFailedMessage)
                         } finally {
                             isSharing = false

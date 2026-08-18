@@ -1,5 +1,6 @@
 package com.stratum.domain.program
 
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.NoOpProgramChangeEventRepository
 import com.stratum.domain.lift.identity.LiftId
@@ -51,7 +52,7 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), FakeLoggingPort())
 
         val result = useCase(targetWorkoutLiftId, newLiftId)
 
@@ -63,13 +64,15 @@ class SwapWorkoutLiftUseCaseTest {
     @Test
     @DisplayName("When swap is called and no active program exists, then it returns a failure result")
     fun swapFailsWhenNoProgram() = runTest {
+        val logging = FakeLoggingPort()
         val repository = FakeProgramRepository(null)
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), logging)
 
         val result = useCase(WorkoutLiftId("wl-1"), LiftId("incline-db-bench"))
 
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is IllegalStateException)
+        assertTrue(logging.errors.isEmpty())
     }
 
     @Test
@@ -103,7 +106,8 @@ class SwapWorkoutLiftUseCaseTest {
         )
 
         val repository = FakeProgramRepository(initialProgram)
-        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository())
+        val logging = FakeLoggingPort()
+        val useCase = SwapWorkoutLiftUseCase(repository, NoOpProgramChangeEventRepository(), logging)
 
         val result = useCase(WorkoutLiftId("non-existent"), LiftId("incline-db-bench"))
 
@@ -112,6 +116,7 @@ class SwapWorkoutLiftUseCaseTest {
         // Verify program was not modified
         val currentProgram = repository.getProgram()
         assertEquals(LiftId("bench-press"), currentProgram?.workouts?.first()?.workoutLifts?.first()?.liftId)
+        assertTrue(logging.errors.isEmpty())
     }
 
     @Test
@@ -144,7 +149,7 @@ class SwapWorkoutLiftUseCaseTest {
                 ),
             ),
         )
-        val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events)
+        val useCase = SwapWorkoutLiftUseCase(FakeProgramRepository(program), events, FakeLoggingPort())
 
         useCase(WorkoutLiftId("wl-bench"), LiftId("lift-squat")).getOrThrow()
 

@@ -21,6 +21,7 @@ import com.stratum.core.data.seed.AssetLiftEmbeddingCatalog
 import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import com.stratum.core.data.seed.EquipmentCatalogSeeder
 import com.stratum.core.data.seed.LiftCatalogSeeder
+import com.stratum.domain.logging.LoggingPort
 import com.stratum.domain.lift.EquipmentRepository
 import com.stratum.domain.lift.LiftRepository
 import com.stratum.domain.lift.MergeLiftsPort
@@ -127,6 +128,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -142,6 +144,7 @@ object DatabaseModule {
     fun provideStratumDatabase(
         @ApplicationContext context: Context,
         seedGate: com.stratum.core.data.sync.LiftCatalogSeedGate,
+        loggingPort: LoggingPort,
     ): StratumDatabase {
         // v2 adds nullable lift_sets.myo_rep_kind via AutoMigration(1→2). Destructive fallback
         // remains for unrecoverable paths (missing migration, identity skew).
@@ -163,16 +166,22 @@ object DatabaseModule {
                     EquipmentCatalogSeeder(
                         equipmentDao = equipmentDao,
                         incrementTierDao = database.incrementTierDao(),
+                        loggingPort = loggingPort,
                     ).seed(context)
                 }
                 if (liftDao.countSeedLifts() == 0) {
-                    val tags = AssetLiftEquipmentCatalog(context).all()
+                    val tags = AssetLiftEquipmentCatalog(context, loggingPort = loggingPort).all()
                     LiftCatalogSeeder(
                         liftDao = liftDao,
                         incrementTierDao = database.incrementTierDao(),
                         equipmentTagsByLiftId = tags,
+                        loggingPort = loggingPort,
                     ).seed(context)
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                loggingPort.error("CatalogSeed", "Catalog seed failed: ${error.message}", error)
             } finally {
                 seedGate.complete()
             }
@@ -203,7 +212,8 @@ object DatabaseModule {
     fun provideEquipmentCatalogSeeder(
         equipmentDao: EquipmentDao,
         incrementTierDao: IncrementTierDao,
-    ): EquipmentCatalogSeeder = EquipmentCatalogSeeder(equipmentDao, incrementTierDao)
+        loggingPort: LoggingPort,
+    ): EquipmentCatalogSeeder = EquipmentCatalogSeeder(equipmentDao, incrementTierDao, loggingPort)
 
     @Provides
     @Singleton
@@ -211,11 +221,13 @@ object DatabaseModule {
         liftDao: LiftDao,
         incrementTierDao: IncrementTierDao,
         @ApplicationContext context: Context,
+        loggingPort: LoggingPort,
     ): LiftCatalogSeeder =
         LiftCatalogSeeder(
             liftDao = liftDao,
             incrementTierDao = incrementTierDao,
-            equipmentTagsByLiftId = AssetLiftEquipmentCatalog(context).all(),
+            equipmentTagsByLiftId = AssetLiftEquipmentCatalog(context, loggingPort = loggingPort).all(),
+            loggingPort = loggingPort,
         )
 
     @Provides
@@ -269,7 +281,8 @@ object DatabaseModule {
     @Singleton
     fun provideLiftEmbeddingCatalog(
         @ApplicationContext context: Context,
-    ): LiftEmbeddingCatalogPort = AssetLiftEmbeddingCatalog(context)
+        loggingPort: LoggingPort,
+    ): LiftEmbeddingCatalogPort = AssetLiftEmbeddingCatalog(context, loggingPort = loggingPort)
 
     @Provides
     @Singleton
@@ -283,7 +296,8 @@ object DatabaseModule {
     @Singleton
     fun provideLiftEquipmentCatalog(
         @ApplicationContext context: Context,
-    ): LiftEquipmentCatalogPort = AssetLiftEquipmentCatalog(context)
+        loggingPort: LoggingPort,
+    ): LiftEquipmentCatalogPort = AssetLiftEquipmentCatalog(context, loggingPort = loggingPort)
 }
 
 @Module

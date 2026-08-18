@@ -7,6 +7,7 @@ import com.stratum.core.data.db.StratumDatabase
 import com.stratum.core.data.seed.AssetLiftEquipmentCatalog
 import com.stratum.core.data.seed.EquipmentCatalogSeeder
 import com.stratum.core.data.seed.LiftCatalogSeeder
+import com.stratum.core.testing.logging.FakeLoggingPort
 import com.stratum.domain.lift.MovementPattern
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
@@ -44,12 +45,18 @@ class UserOwnedDataClearerTest {
                     EquipmentCatalogSeeder(
                         equipmentDao = database.equipmentDao(),
                         incrementTierDao = database.incrementTierDao(),
+                        loggingPort = FakeLoggingPort(),
                     ),
                 liftCatalogSeeder =
                     LiftCatalogSeeder(
                         liftDao = database.liftDao(),
                         incrementTierDao = database.incrementTierDao(),
-                        equipmentTagsByLiftId = AssetLiftEquipmentCatalog(context).all(),
+                        equipmentTagsByLiftId =
+                            AssetLiftEquipmentCatalog(
+                                context,
+                                loggingPort = FakeLoggingPort(),
+                            ).all(),
+                        loggingPort = FakeLoggingPort(),
                     ),
             )
     }

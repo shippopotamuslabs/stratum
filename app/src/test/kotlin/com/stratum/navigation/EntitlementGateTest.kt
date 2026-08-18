@@ -7,6 +7,7 @@ import com.stratum.feature.onboarding.navigation.OnboardingKey
 import com.stratum.feature.program.navigation.CreateProgramKey
 import com.stratum.feature.settings.navigation.SettingsKey
 import com.stratum.feature.subscription.navigation.PaywallKey
+import com.stratum.feature.workout.navigation.WorkoutKey
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -71,6 +72,7 @@ class EntitlementGateTest {
         assertEquals(OnboardingKey, AppGateDestination.Onboarding.toStartNavKey())
         assertEquals(MainTabKey(isPreviewMode = false), AppGateDestination.Main.toStartNavKey())
         assertThrows<IllegalStateException> { AppGateDestination.Loading.toStartNavKey() }
+        assertThrows<IllegalStateException> { AppGateDestination.Failed.toStartNavKey() }
     }
 
     @Test
@@ -165,5 +167,26 @@ class EntitlementGateTest {
             listOf(MainTabKey(), SettingsKey, PaywallKey(isDismissable = true)),
             stack,
         )
+    }
+
+    @Test
+    @DisplayName("Failed after content keeps NavDisplay mounted")
+    fun failedAfterContentKeepsNavDisplay() {
+        assertFalse(shouldMountAppGateNavDisplay(AppGateDestination.Loading, hasMountedContent = false))
+        assertFalse(shouldMountAppGateNavDisplay(AppGateDestination.Failed, hasMountedContent = false))
+        assertTrue(shouldMountAppGateNavDisplay(AppGateDestination.Main, hasMountedContent = false))
+        assertTrue(shouldMountAppGateNavDisplay(AppGateDestination.Failed, hasMountedContent = true))
+        assertTrue(shouldMountAppGateNavDisplay(AppGateDestination.Loading, hasMountedContent = true))
+    }
+
+    @Test
+    @DisplayName("Failed does not replace an already-shown Main stack")
+    fun failedDoesNotClearMainStack() {
+        val stack = mutableListOf<NavKey>(
+            MainTabKey(),
+            WorkoutKey("w-1"),
+        )
+        reconcileAppGateBackStack(stack, AppGateDestination.Failed)
+        assertEquals(listOf(MainTabKey(), WorkoutKey("w-1")), stack)
     }
 }

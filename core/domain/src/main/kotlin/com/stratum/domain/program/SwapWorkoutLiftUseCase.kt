@@ -1,6 +1,8 @@
 package com.stratum.domain.program
 
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
+import com.stratum.domain.logging.runCatchingLogged
 import com.stratum.domain.program.identity.WorkoutLiftId
 import com.stratum.domain.training.ProgramChangeEvent
 import com.stratum.domain.training.ProgramChangeEventPayload
@@ -10,6 +12,7 @@ import com.stratum.domain.training.identity.ProgramChangeEventId
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Use case to swap the lift on a specific workout lift in the active program.
@@ -18,11 +21,18 @@ import javax.inject.Inject
 class SwapWorkoutLiftUseCase @Inject constructor(
     private val programRepository: ProgramRepository,
     private val programChangeEventRepository: ProgramChangeEventRepository,
+    private val loggingPort: LoggingPort,
 ) {
     suspend operator fun invoke(workoutLiftId: WorkoutLiftId, newLiftId: LiftId): Result<Unit> {
-        val program = programRepository.getProgram() ?: return Result.failure(
-            IllegalStateException("No active program found to swap lift")
-        )
+        val program =
+            try {
+                programRepository.getProgram()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                loggingPort.error(TAG, "Failed to swap workout lift: ${error.message}", error)
+                return Result.failure(error)
+            } ?: return Result.failure(IllegalStateException("No active program found to swap lift"))
 
         var found = false
         var previousLiftId: LiftId? = null
@@ -41,26 +51,31 @@ class SwapWorkoutLiftUseCase @Inject constructor(
 
         if (!found) {
             return Result.failure(
-                IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program")
+                IllegalArgumentException("Workout lift with ID $workoutLiftId not found in the program"),
             )
         }
 
         val updatedProgram = program.copy(workouts = updatedWorkouts)
-        programRepository.saveProgram(updatedProgram)
-        programChangeEventRepository.append(
-            ProgramChangeEvent(
-                id = ProgramChangeEventId(UUID.randomUUID().toString()),
-                programId = program.id,
-                eventType = ProgramChangeEventType.LIFT_SWAPPED,
-                occurredAt = Instant.now(),
-                payload =
-                    ProgramChangeEventPayload.LiftSwapped(
-                        workoutLiftId = workoutLiftId,
-                        previousLiftId = requireNotNull(previousLiftId),
-                        newLiftId = newLiftId,
-                    ),
-            ),
-        )
-        return Result.success(Unit)
+        return runCatchingLogged(loggingPort, TAG, "Failed to swap workout lift") {
+            programRepository.saveProgram(updatedProgram)
+            programChangeEventRepository.append(
+                ProgramChangeEvent(
+                    id = ProgramChangeEventId(UUID.randomUUID().toString()),
+                    programId = program.id,
+                    eventType = ProgramChangeEventType.LIFT_SWAPPED,
+                    occurredAt = Instant.now(),
+                    payload =
+                        ProgramChangeEventPayload.LiftSwapped(
+                            workoutLiftId = workoutLiftId,
+                            previousLiftId = requireNotNull(previousLiftId),
+                            newLiftId = newLiftId,
+                        ),
+                ),
+            )
+        }
+    }
+
+    private companion object {
+        const val TAG = "SwapWorkoutLift"
     }
 }

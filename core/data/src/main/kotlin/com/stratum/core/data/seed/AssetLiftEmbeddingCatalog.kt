@@ -3,6 +3,7 @@ package com.stratum.core.data.seed
 import android.content.Context
 import com.stratum.domain.importing.LiftEmbeddingCatalogPort
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.logging.LoggingPort
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -13,6 +14,7 @@ import java.nio.ByteOrder
 class AssetLiftEmbeddingCatalog(
     private val context: Context,
     private val assetPath: String = ASSET_PATH,
+    private val loggingPort: LoggingPort,
 ) : LiftEmbeddingCatalogPort {
 
     @Volatile
@@ -58,7 +60,8 @@ class AssetLiftEmbeddingCatalog(
                 }
                 CatalogSnapshot(dimensions = dimensions, vectors = vectors)
             }
-        }.getOrElse {
+        }.getOrElse { error ->
+            loggingPort.error(TAG, "Failed to decode lift embedding catalog: ${error.message}", error)
             CatalogSnapshot(dimensions = 0, vectors = emptyMap())
         }
     }
@@ -70,6 +73,7 @@ class AssetLiftEmbeddingCatalog(
 
     companion object {
         const val ASSET_PATH = "lifts/lift-name-embeddings.bin"
+        private const val TAG = "LiftEmbeddingCatalog"
         private val MAGIC = "STRM".encodeToByteArray()
         private const val VERSION = 1
         private const val UNSIGNED_SHORT_MASK = 0xFFFF

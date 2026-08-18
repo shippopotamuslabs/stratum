@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -75,36 +78,49 @@ fun StratumMultiLineChart(
     }
 
     val modelProducer = remember { CartesianChartModelProducer() }
+    val reporter = LocalUiRenderErrorReporter.current
     val primaryValues = primarySeries.map { it.value }
     val secondaryValues = secondarySeries.map { it.value }
     val tertiaryValues = tertiarySeries.map { it.value }
     val quaternaryValues = quaternarySeries.map { it.value }
+    var modelFailed by remember(primaryValues, secondaryValues, tertiaryValues, quaternaryValues) {
+        mutableStateOf(false)
+    }
+    if (modelFailed) {
+        MultiLineBaselineOnly(
+            modifier = modifier.semantics { this.contentDescription = contentDescription },
+            color = colors.borderSubtle,
+        )
+        return
+    }
     LaunchedEffect(primaryValues, secondaryValues, tertiaryValues, quaternaryValues) {
-        modelProducer.runTransaction {
-            lineModel {
-                if (hasPrimary) {
-                    series(
-                        x = primarySeries.map { it.weekIndex },
-                        y = primaryValues,
-                    )
-                }
-                if (hasSecondary) {
-                    series(
-                        x = secondarySeries.map { it.weekIndex },
-                        y = secondaryValues,
-                    )
-                }
-                if (hasTertiary) {
-                    series(
-                        x = tertiarySeries.map { it.weekIndex },
-                        y = tertiaryValues,
-                    )
-                }
-                if (hasQuaternary) {
-                    series(
-                        x = quaternarySeries.map { it.weekIndex },
-                        y = quaternaryValues,
-                    )
+        runCatchingChartModel(reporter, onFailure = { modelFailed = true }) {
+            modelProducer.runTransaction {
+                lineModel {
+                    if (hasPrimary) {
+                        series(
+                            x = primarySeries.map { it.weekIndex },
+                            y = primaryValues,
+                        )
+                    }
+                    if (hasSecondary) {
+                        series(
+                            x = secondarySeries.map { it.weekIndex },
+                            y = secondaryValues,
+                        )
+                    }
+                    if (hasTertiary) {
+                        series(
+                            x = tertiarySeries.map { it.weekIndex },
+                            y = tertiaryValues,
+                        )
+                    }
+                    if (hasQuaternary) {
+                        series(
+                            x = quaternarySeries.map { it.weekIndex },
+                            y = quaternaryValues,
+                        )
+                    }
                 }
             }
         }

@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -107,22 +110,33 @@ fun StratumIndexVolumeChart(
     }
 
     val modelProducer = remember { CartesianChartModelProducer() }
+    val reporter = LocalUiRenderErrorReporter.current
+    var modelFailed by remember(indexSeries, volumeSeries) { mutableStateOf(false) }
+    if (modelFailed) {
+        IndexVolumeBaselineOnly(
+            modifier = modifier.semantics { this.contentDescription = contentDescription },
+            color = resolvedZero,
+        )
+        return
+    }
     LaunchedEffect(indexSeries, volumeSeries) {
-        modelProducer.runTransaction {
-            if (hasIndex) {
-                columnModel {
-                    series(
-                        x = indexSeries.map { it.weekIndex },
-                        y = indexSeries.map { it.value },
-                    )
+        runCatchingChartModel(reporter, onFailure = { modelFailed = true }) {
+            modelProducer.runTransaction {
+                if (hasIndex) {
+                    columnModel {
+                        series(
+                            x = indexSeries.map { it.weekIndex },
+                            y = indexSeries.map { it.value },
+                        )
+                    }
                 }
-            }
-            if (hasVolume) {
-                lineModel {
-                    series(
-                        x = volumeSeries.map { it.weekIndex },
-                        y = volumeSeries.map { it.value },
-                    )
+                if (hasVolume) {
+                    lineModel {
+                        series(
+                            x = volumeSeries.map { it.weekIndex },
+                            y = volumeSeries.map { it.value },
+                        )
+                    }
                 }
             }
         }
