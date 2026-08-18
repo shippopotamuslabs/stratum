@@ -9,6 +9,8 @@ import java.time.Instant
 data class WorkoutSessionDetail(
     val sessionId: TrainingSessionId,
     val workoutName: String,
+    val startedAt: Instant,
+    val endedAt: Instant? = null,
     val completedAt: Instant,
     val durationMillis: Long,
     val totalSets: Int,

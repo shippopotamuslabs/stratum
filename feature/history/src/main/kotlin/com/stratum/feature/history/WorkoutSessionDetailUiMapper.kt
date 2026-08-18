@@ -16,15 +16,24 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+import java.time.temporal.ChronoUnit
+
 /** Maps domain session detail → history presentation models. */
 internal object WorkoutSessionDetailUiMapper {
     fun toDetailLoaded(
         detail: WorkoutSessionDetail,
         displayUnit: Weight.WeightUnit = Weight.WeightUnit.Lb,
-    ): WorkoutSessionDetailUiState.Loaded =
-        WorkoutSessionDetailUiState.Loaded(
+        zoneId: ZoneId = ZoneId.systemDefault(),
+    ): WorkoutSessionDetailUiState.Loaded {
+        val startZoned = detail.startedAt.atZone(zoneId)
+        val endZoned = (detail.endedAt ?: detail.startedAt).atZone(zoneId)
+        return WorkoutSessionDetailUiState.Loaded(
             workoutName = detail.workoutName,
-            completedAtLabel = formatCompletedAt(detail.completedAt),
+            startDate = startZoned.toLocalDate(),
+            startTime = startZoned.toLocalTime().truncatedTo(ChronoUnit.MINUTES),
+            finishDate = endZoned.toLocalDate(),
+            finishTime = endZoned.toLocalTime().truncatedTo(ChronoUnit.MINUTES),
+            completedAtLabel = formatCompletedAt(detail.completedAt, zoneId),
             durationFormatted = formatWorkoutDuration(detail.durationMillis),
             totalSetsLabel = detail.totalSets.toString(),
             personalRecordsLabel = detail.personalRecordCount.toString(),
@@ -52,6 +61,7 @@ internal object WorkoutSessionDetailUiMapper {
                     )
                 },
         )
+    }
 
     fun toDaySummary(detail: WorkoutSessionDetail): HistoryDaySessionSummaryUi =
         HistoryDaySessionSummaryUi(

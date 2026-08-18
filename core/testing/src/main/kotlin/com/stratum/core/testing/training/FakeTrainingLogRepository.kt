@@ -193,6 +193,15 @@ class FakeTrainingLogRepository(
         refreshActiveSession()
     }
 
+    override suspend fun updateSessionAndSets(session: TrainingSession, sets: List<LoggedSet>) {
+        sessions[session.id] = session
+        sets.forEach { set ->
+            val bucket = setsBySession.getOrPut(set.sessionId) { mutableMapOf() }
+            bucket[set.id] = set
+        }
+        refreshActiveSession()
+    }
+
     var deleteSessionError: Throwable? = null
 
     override suspend fun deleteSession(id: TrainingSessionId) {

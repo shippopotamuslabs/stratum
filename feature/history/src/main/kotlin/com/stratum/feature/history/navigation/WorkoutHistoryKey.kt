@@ -180,6 +180,7 @@ private fun WorkoutSessionDetailRoute(
         state = uiState,
         onBackClick = onBackClick,
         onEditWorkoutClick = onEditWorkoutClick,
+        onUpdateWorkoutTimes = viewModel::updateWorkoutTimes,
         snackbarHostState = snackbarHostState,
         onRetry = { viewModel.load(sessionId) },
     )

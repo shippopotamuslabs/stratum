@@ -57,6 +57,7 @@ interface TrainingLogRepository {
     fun observeAllSessions(): Flow<List<TrainingSession>>
     suspend fun insertSession(session: TrainingSession)
     suspend fun updateSession(session: TrainingSession)
+    suspend fun updateSessionAndSets(session: TrainingSession, sets: List<LoggedSet>)
     suspend fun deleteSession(id: TrainingSessionId)
     suspend fun insertSet(set: LoggedSet)
     suspend fun updateSet(set: LoggedSet)
