@@ -75,6 +75,7 @@ class PlayBillingDataSource @Inject constructor(
         BillingClient.newBuilder(context)
             .setListener(this)
             .enablePendingPurchases(pendingPurchasesParams)
+            .enableAutoServiceReconnection()
             .build()
 
     init {
