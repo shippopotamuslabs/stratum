@@ -4,8 +4,12 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.core.content.FileProvider
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** How long staged share files may linger before age-based cleanup. */
 const val SHARE_CACHE_MAX_AGE_MS: Long = 24L * 60L * 60L * 1000L
@@ -126,8 +130,39 @@ fun launchShareSheet(
         Intent.createChooser(send, chooserTitle).apply {
             clipData = grantClip
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (context !is android.app.Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
         }
     context.startActivity(chooser)
+}
+
+/**
+ * Stages a captured workout [ImageBitmap] as PNG under `cacheDir/exports/images/` and
+ * launches the system share sheet. Safe to call from UI/main thread.
+ */
+suspend fun shareWorkoutImage(
+    context: Context,
+    imageBitmap: ImageBitmap,
+    sessionId: String,
+    chooserTitle: String = context.getString(com.stratum.core.ui.R.string.share_chooser_title),
+) {
+    val androidBitmap = imageBitmap.asAndroidBitmap()
+    val fileName = "workout_share_${sanitizeShareFileName(sessionId)}.png"
+    val staged =
+        withContext(Dispatchers.IO) {
+            stageSharePng(
+                context = context,
+                bitmap = androidBitmap,
+                fileName = fileName,
+            )
+        }
+    launchShareSheet(
+        context = context,
+        file = staged,
+        mimeType = "image/png",
+        chooserTitle = chooserTitle,
+    )
 }
 
 /**

@@ -1,5 +1,10 @@
 package com.stratum.feature.workout.ui
 
+import com.stratum.core.ui.share.ShareLiftRowUi
+import com.stratum.core.ui.share.WORKOUT_SHARE_MAX_LIFTS
+import com.stratum.core.ui.share.WorkoutShareContent
+import com.stratum.core.ui.share.buildWorkoutShareContent
+
 /**
  * Presentation state for the workout completion screen. Domain models never reach
  * composables (ARCHITECTURE.md §4.3).
@@ -83,3 +88,21 @@ data class RepRangeShiftCardUi(
     /** True while an apply write is in flight for this card (disables re-tap). */
     val isApplying: Boolean = false,
 )
+
+fun WorkoutCompleteUiState.Loaded.toShareContent(
+    maxLifts: Int = WORKOUT_SHARE_MAX_LIFTS,
+): WorkoutShareContent =
+    buildWorkoutShareContent(
+        workoutName = workoutName,
+        durationFormatted = durationFormatted,
+        liftRows =
+            bestSets.map { best ->
+                ShareLiftRowUi(
+                    liftName = best.liftName,
+                    performanceLabel = best.performanceLabel,
+                    isPersonalRecord = best.isPersonalRecord,
+                )
+            },
+        maxLifts = maxLifts,
+    )
+

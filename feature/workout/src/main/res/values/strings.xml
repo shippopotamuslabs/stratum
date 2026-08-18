@@ -46,9 +46,6 @@
     <string name="workout_complete_table_est_1rm">EST. 1RM</string>
     <string name="workout_complete_pr_cd">Personal record</string>
     <string name="workout_complete_empty">No lifts logged</string>
-    <string name="workout_complete_share_cd">Share workout</string>
-    <string name="workout_complete_share_more_lifts">+%1$d more</string>
-    <string name="workout_complete_share_failed">Couldn\'t share workout.</string>
 
     <!-- Equipment increment proposals (post-workout only) -->
     <string name="workout_complete_equipment_section">Equipment updates</string>

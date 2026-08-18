@@ -17,24 +17,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.LocalUiRenderErrorReporter
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.UserMessageEffect
-import com.stratum.core.ui.share.launchShareSheet
-import com.stratum.core.ui.share.sanitizeShareFileName
-import com.stratum.core.ui.share.stageSharePng
+import com.stratum.core.ui.share.shareWorkoutImage
 import com.stratum.feature.workout.R
 import com.stratum.feature.workout.WorkoutCompleteViewModel
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @Composable
 fun WorkoutCompleteRoute(
@@ -48,8 +44,8 @@ fun WorkoutCompleteRoute(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isSharing by remember { mutableStateOf(false) }
-    val shareFailedMessage = stringResource(R.string.workout_complete_share_failed)
-    val chooserTitle = stringResource(R.string.workout_complete_share_cd)
+    val shareFailedMessage = stringResource(CoreUiR.string.workout_share_failed)
+    val chooserTitle = stringResource(CoreUiR.string.share_chooser_title)
     val renderErrorReporter = LocalUiRenderErrorReporter.current
 
     LaunchedEffect(sessionId) {
@@ -96,21 +92,10 @@ fun WorkoutCompleteRoute(
                     isSharing = true
                     scope.launch {
                         try {
-                            val androidBitmap = imageBitmap.asAndroidBitmap()
-                            val fileName =
-                                "workout_share_${sanitizeShareFileName(sessionId)}.png"
-                            val staged =
-                                withContext(Dispatchers.IO) {
-                                    stageSharePng(
-                                        context = context,
-                                        bitmap = androidBitmap,
-                                        fileName = fileName,
-                                    )
-                                }
-                            launchShareSheet(
+                            shareWorkoutImage(
                                 context = context,
-                                file = staged,
-                                mimeType = "image/png",
+                                imageBitmap = imageBitmap,
+                                sessionId = sessionId,
                                 chooserTitle = chooserTitle,
                             )
                         } catch (e: CancellationException) {
