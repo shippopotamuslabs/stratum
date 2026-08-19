@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
@@ -19,17 +20,23 @@ import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetOptionRow
 import com.stratum.core.ui.theme.StratumThemeAccessor
 
-/** Snapshot of set-log keyboard pad presentation state. */
+/**
+ * Presentation-only set-log keyboard composable.
+ *
+ * Renders the RIR chip row above a divider, then [StratumNumericPad]. Contains no
+ * domain/workout business logic: callers supply [SetLogKeyboardPadState] and
+ * [SetLogKeyboardPadActions].
+ */
 @Immutable
 data class SetLogKeyboardPadState(
     val activeField: SetLogKeyboardField,
-    val selectedRir: Int,
+    val selectedRir: Int?,
     val showWeightInput: Boolean,
     val allowDecimal: Boolean,
-    val canComplete: Boolean = false,
+    val canComplete: Boolean,
+    val showPlateCalculator: Boolean = false,
 )
 
-/** Callbacks for [StratumSetLogKeyboardContent]. */
 @Immutable
 data class SetLogKeyboardPadActions(
     val onRirSelected: (Int) -> Unit,
@@ -39,61 +46,55 @@ data class SetLogKeyboardPadActions(
     val onPrimaryAction: () -> Unit,
     val onDismiss: () -> Unit,
     val onElevatedNavAction: (() -> Unit)? = null,
+    val onPlateCalculatorClick: (() -> Unit)? = null,
 )
 
-/**
- * Set-log keyboard pad content (RIR row + numeric keys). Hosted by
- * [ProvideSetLogKeyboardHost] as an in-hierarchy bottom dock.
- *
- * Primary (bottom-right) is Check when the set can complete, else a field-nav chevron.
- * When primary is Check and weight↔reps navigation is available, the nav chevron is
- * elevated into the slot above primary (see [setLogKeyboardElevatedNavIcon]).
- */
 @Composable
-internal fun StratumSetLogKeyboardContent(
+fun StratumSetLogKeyboardContent(
     state: SetLogKeyboardPadState,
     actions: SetLogKeyboardPadActions,
     modifier: Modifier = Modifier,
 ) {
+    val isPrimaryCheck = state.canComplete
     val primaryIcon =
-        setLogKeyboardPrimaryIcon(
-            active = state.activeField,
-            canComplete = state.canComplete,
-            showWeightInput = state.showWeightInput,
-        )
-    val elevatedNavIcon =
-        setLogKeyboardElevatedNavIcon(
-            active = state.activeField,
-            canComplete = state.canComplete,
-            showWeightInput = state.showWeightInput,
-        )
+        when {
+            isPrimaryCheck -> SetLogKeyboardPrimaryIcon.Check
+            state.activeField == SetLogKeyboardField.Weight -> SetLogKeyboardPrimaryIcon.NextReps
+            else -> SetLogKeyboardPrimaryIcon.PrevWeight
+        }
     val primaryDescription =
         when (primaryIcon) {
-            SetLogKeyboardPrimaryIcon.NextReps ->
-                stringResource(CoreUiR.string.set_log_keyboard_next_reps)
-            SetLogKeyboardPrimaryIcon.PrevWeight ->
-                stringResource(CoreUiR.string.set_log_keyboard_prev_weight)
             SetLogKeyboardPrimaryIcon.Check ->
-                stringResource(CoreUiR.string.set_log_keyboard_complete_set)
+                stringResource(CoreUiR.string.set_log_keyboard_action_complete)
+            SetLogKeyboardPrimaryIcon.NextReps ->
+                stringResource(CoreUiR.string.set_log_keyboard_action_next_reps)
+            SetLogKeyboardPrimaryIcon.PrevWeight ->
+                stringResource(CoreUiR.string.set_log_keyboard_action_prev_weight)
+        }
+    val elevatedNavIcon =
+        if (isPrimaryCheck && state.showWeightInput) {
+            when (state.activeField) {
+                SetLogKeyboardField.Weight -> SetLogKeyboardPrimaryIcon.NextReps
+                SetLogKeyboardField.Reps -> SetLogKeyboardPrimaryIcon.PrevWeight
+            }
+        } else {
+            null
         }
     val elevatedDescription =
         when (elevatedNavIcon) {
             SetLogKeyboardPrimaryIcon.NextReps ->
-                stringResource(CoreUiR.string.set_log_keyboard_next_reps)
+                stringResource(CoreUiR.string.set_log_keyboard_action_next_reps)
             SetLogKeyboardPrimaryIcon.PrevWeight ->
-                stringResource(CoreUiR.string.set_log_keyboard_prev_weight)
+                stringResource(CoreUiR.string.set_log_keyboard_action_prev_weight)
             SetLogKeyboardPrimaryIcon.Check, null -> null
         }
 
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         RirTargetOptionRow(
-            selectedRirGoal = state.selectedRir,
+            selectedRirGoal = state.selectedRir ?: -1,
             onRirSelected = actions.onRirSelected,
             chipSize = KeyboardRirChipSize,
         )
@@ -116,18 +117,32 @@ internal fun StratumSetLogKeyboardContent(
             primaryContent = {
                 SetLogKeyboardNavIcon(icon = primaryIcon)
             },
-            elevatedContentDescription = elevatedDescription,
-            onElevatedAction =
-                if (elevatedNavIcon != null) {
-                    actions.onElevatedNavAction
+            elevatedActionKey =
+                if (elevatedNavIcon != null && actions.onElevatedNavAction != null && elevatedDescription != null) {
+                    NumericPadActionKey(
+                        contentDescription = elevatedDescription,
+                        onAction = actions.onElevatedNavAction,
+                        content = { SetLogKeyboardNavIcon(icon = elevatedNavIcon) },
+                    )
                 } else {
                     null
                 },
-            elevatedContent =
-                elevatedNavIcon?.let { icon ->
-                    {
-                        SetLogKeyboardNavIcon(icon = icon)
-                    }
+            auxiliaryActionKey =
+                if (state.showPlateCalculator && actions.onPlateCalculatorClick != null) {
+                    NumericPadActionKey(
+                        contentDescription = stringResource(CoreUiR.string.set_log_keyboard_plate_calculator),
+                        onAction = actions.onPlateCalculatorClick,
+                        content = {
+                            Icon(
+                                painter = painterResource(CoreUiR.drawable.ic_barbell),
+                                contentDescription = null,
+                                tint = LocalContentColor.current,
+                                modifier = Modifier.size(NumericPadKeyIconSize),
+                            )
+                        },
+                    )
+                } else {
+                    null
                 },
         )
     }
@@ -135,26 +150,27 @@ internal fun StratumSetLogKeyboardContent(
 
 @Composable
 private fun SetLogKeyboardNavIcon(icon: SetLogKeyboardPrimaryIcon) {
+    val tint = LocalContentColor.current
     when (icon) {
         SetLogKeyboardPrimaryIcon.NextReps ->
             Icon(
                 painter = painterResource(CoreUiR.drawable.ic_chevron_right),
                 contentDescription = null,
-                tint = StratumThemeAccessor.colors.textPrimary,
+                tint = tint,
                 modifier = Modifier.size(NumericPadKeyIconSize),
             )
         SetLogKeyboardPrimaryIcon.PrevWeight ->
             Icon(
                 painter = painterResource(CoreUiR.drawable.ic_chevron_left),
                 contentDescription = null,
-                tint = StratumThemeAccessor.colors.textPrimary,
+                tint = tint,
                 modifier = Modifier.size(NumericPadKeyIconSize),
             )
         SetLogKeyboardPrimaryIcon.Check ->
             Icon(
                 painter = painterResource(CoreUiR.drawable.ic_check),
                 contentDescription = null,
-                tint = StratumThemeAccessor.colors.textPrimary,
+                tint = tint,
                 modifier = Modifier.size(NumericPadKeyIconSize),
             )
     }

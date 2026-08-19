@@ -55,6 +55,12 @@ internal object WorkoutUiMapper {
                 defaultRestSecondsByLiftId[lift.liftId.value]
                     ?.coerceAtLeast(0)
                     ?: DEFAULT_LIFT_SET_REST_SECONDS
+            val isPlateLoaded = lift.isPlateLoaded
+            val isDoubleSided = lift.isDoubleSided
+            val unitLabel = when (displayUnit) {
+                Weight.WeightUnit.Lb -> "lb"
+                Weight.WeightUnit.Kg -> "kg"
+            }
             RenderedLiftUi(
                 workoutLiftId = lift.workoutLiftId.value,
                 liftId = lift.liftId.value,
@@ -65,6 +71,9 @@ internal object WorkoutUiMapper {
                 imageUrl = imageUrlByLiftId[lift.liftId.value],
                 navigatorInitials = liftNavigatorInitials(lift.liftName),
                 defaultRestSeconds = liftDefaultRest,
+                isPlateLoaded = isPlateLoaded,
+                isDoubleSided = isDoubleSided,
+                unitLabel = unitLabel,
                 sets = lift.sets.mapIndexed { setIndex, set ->
                     val prevWeight = set.previousWeight
                     val prevReps = set.previousReps
@@ -190,6 +199,9 @@ internal object WorkoutUiMapper {
                         showWeightInput = showWeightColumn,
                         assistMode = assistMode,
                         restSeconds = set.restSeconds,
+                        isPlateLoaded = isPlateLoaded,
+                        isDoubleSided = isDoubleSided,
+                        unitLabel = unitLabel,
                     )
                 },
                 supersetGroupId = lift.supersetGroupId?.value,
