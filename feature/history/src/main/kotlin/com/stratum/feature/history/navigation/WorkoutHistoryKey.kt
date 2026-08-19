@@ -23,7 +23,7 @@ import com.stratum.feature.history.ui.EditHistoricalWorkoutScreen
 import com.stratum.feature.history.ui.HistoryDaySessionsScreen
 import com.stratum.feature.history.ui.HistoryDayUi
 import com.stratum.feature.history.ui.WorkoutHistoryScreen
-import com.stratum.feature.history.ui.WorkoutSessionDetailScreen
+import com.stratum.feature.history.ui.WorkoutSessionDetailRoute
 import kotlinx.serialization.Serializable
 
 /** Nav3 key for the workout history calendar screen. */
@@ -146,43 +146,6 @@ private fun HistoryDaySessionsRoute(
         onBackClick = onBackClick,
         onSessionClick = onSessionClick,
         onRetry = { viewModel.load(dateIso = dateIso) },
-    )
-}
-
-@Composable
-private fun WorkoutSessionDetailRoute(
-    sessionId: String,
-    onBackClick: () -> Unit,
-    onEditWorkoutClick: () -> Unit,
-    viewModel: WorkoutSessionDetailViewModel = hiltViewModel(),
-) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    DisposableEffect(lifecycleOwner, sessionId) {
-        val observer =
-            LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    viewModel.load(sessionId)
-                }
-            }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    UserMessageEffect(
-        userMessage = userMessage,
-        snackbarHostState = snackbarHostState,
-        onUserMessageShown = viewModel::userMessageShown,
-    )
-    WorkoutSessionDetailScreen(
-        state = uiState,
-        onBackClick = onBackClick,
-        onEditWorkoutClick = onEditWorkoutClick,
-        onUpdateWorkoutTimes = viewModel::updateWorkoutTimes,
-        snackbarHostState = snackbarHostState,
-        onRetry = { viewModel.load(sessionId) },
     )
 }
 

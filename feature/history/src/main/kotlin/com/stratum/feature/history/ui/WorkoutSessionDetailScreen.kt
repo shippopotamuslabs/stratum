@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -21,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -29,12 +32,16 @@ import androidx.compose.ui.unit.dp
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.core.ui.component.RirTargetBadge
 import com.stratum.core.ui.component.StratumFeatureErrorFallback
+import com.stratum.core.ui.component.StratumIconButton
 import com.stratum.core.ui.component.StratumNumber
 import com.stratum.core.ui.component.StratumScaffold
 import com.stratum.core.ui.component.StratumText
 import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.component.StratumTopBarBackButton
+import com.stratum.core.ui.share.SHARE_CAPTURE_DEFAULT_PIXEL_SIZE
+import com.stratum.core.ui.share.ShareCaptureHost
+import com.stratum.core.ui.share.WorkoutShareCard
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.feature.history.R
 import java.time.LocalDate
@@ -52,62 +59,113 @@ fun WorkoutSessionDetailScreen(
         finishDate: LocalDate,
         finishTime: LocalTime,
     ) -> Unit = { _, _, _, _ -> },
+    onShareImage: (ImageBitmap) -> Unit = {},
+    onShareCaptureFailed: () -> Unit = {},
+    isSharing: Boolean = false,
     snackbarHostState: SnackbarHostState? = null,
     onRetry: () -> Unit = {},
 ) {
     var showEditTimeSheet by remember { mutableStateOf(false) }
+    var captureActive by remember { mutableStateOf(false) }
+    val actionsBusy = isSharing || captureActive
 
-    StratumScaffold(
-        modifier = modifier,
-        snackbarHostState = snackbarHostState,
-        topBar = {
-            StratumTopBar(
-                title =
-                    when (state) {
-                        is WorkoutSessionDetailUiState.Loaded -> state.workoutName
-                        else -> ""
+    val shareContent =
+        remember(state) {
+            (state as? WorkoutSessionDetailUiState.Loaded)?.toShareContent()
+        }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        StratumScaffold(
+            modifier = Modifier.fillMaxSize(),
+            snackbarHostState = snackbarHostState,
+            topBar = {
+                StratumTopBar(
+                    title =
+                        when (state) {
+                            is WorkoutSessionDetailUiState.Loaded -> state.workoutName
+                            else -> ""
+                        },
+                    navigationIcon = {
+                        StratumTopBarBackButton(
+                            onClick = onBackClick,
+                            contentDescription = stringResource(R.string.history_navigate_back),
+                        )
                     },
-                navigationIcon = {
-                    StratumTopBarBackButton(
-                        onClick = onBackClick,
-                        contentDescription = stringResource(R.string.history_navigate_back),
-                    )
-                },
-            )
-        },
-    ) { padding ->
-        when (state) {
-            WorkoutSessionDetailUiState.Loading ->
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    StratumText(text = "…", muted = true)
-                }
-            WorkoutSessionDetailUiState.Error ->
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                ) {
-                    StratumFeatureErrorFallback(onRetry = onRetry)
-                }
-            is WorkoutSessionDetailUiState.Loaded ->
-                SessionDetailContent(
-                    state = state,
-                    onEditWorkoutClick = onEditWorkoutClick,
-                    onEditTimeClick = { showEditTimeSheet = true },
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                    actions = {
+                        if (state is WorkoutSessionDetailUiState.Loaded) {
+                            StratumIconButton(
+                                onClick = {
+                                    if (!actionsBusy) {
+                                        captureActive = true
+                                    }
+                                },
+                                enabled = !actionsBusy,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Share,
+                                    contentDescription =
+                                        stringResource(CoreUiR.string.workout_share_action_cd),
+                                    tint = StratumThemeAccessor.colors.textPrimary,
+                                )
+                            }
+                        }
+                    },
                 )
+            },
+        ) { padding ->
+            when (state) {
+                WorkoutSessionDetailUiState.Loading ->
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(padding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        StratumText(text = "…", muted = true)
+                    }
+                WorkoutSessionDetailUiState.Error ->
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(padding),
+                    ) {
+                        StratumFeatureErrorFallback(onRetry = onRetry)
+                    }
+                is WorkoutSessionDetailUiState.Loaded ->
+                    SessionDetailContent(
+                        state = state,
+                        onEditWorkoutClick = onEditWorkoutClick,
+                        onEditTimeClick = { showEditTimeSheet = true },
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(padding)
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp, vertical = 16.dp),
+                    )
+            }
+        }
+
+        if (shareContent != null) {
+            ShareCaptureHost(
+                active = captureActive,
+                pixelSize = SHARE_CAPTURE_DEFAULT_PIXEL_SIZE,
+                onCaptured = { image ->
+                    captureActive = false
+                    onShareImage(image)
+                },
+                onCaptureFailed = {
+                    captureActive = false
+                    onShareCaptureFailed()
+                },
+            ) {
+                WorkoutShareCard(
+                    content = shareContent,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 

@@ -44,6 +44,7 @@ import com.stratum.core.ui.component.StratumTextButton
 import com.stratum.core.ui.component.StratumTopBar
 import com.stratum.core.ui.share.SHARE_CAPTURE_DEFAULT_PIXEL_SIZE
 import com.stratum.core.ui.share.ShareCaptureHost
+import com.stratum.core.ui.share.WorkoutShareCard
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.R as CoreUiR
 import com.stratum.feature.workout.R
@@ -92,7 +93,7 @@ fun WorkoutCompleteScreen(
                             Icon(
                                 imageVector = Icons.Filled.Share,
                                 contentDescription =
-                                    stringResource(R.string.workout_complete_share_cd),
+                                    stringResource(CoreUiR.string.workout_share_action_cd),
                                 tint = StratumThemeAccessor.colors.textPrimary,
                             )
                         }
