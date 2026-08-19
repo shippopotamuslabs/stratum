@@ -62,6 +62,9 @@ data class RenderedLiftUi(
      * **exits** so the rest timer is not stuck on the short mini-rest value.
      */
     val defaultRestSeconds: Int = 120,
+    val isPlateLoaded: Boolean = false,
+    val isDoubleSided: Boolean = true,
+    val unitLabel: String = "lb",
 ) : SupersetLinkableLift {
     override val name: String get() = liftName
 }
@@ -139,4 +142,7 @@ data class RenderedSetUi(
     val assistMode: Boolean = false,
     /** Configured rest duration for this set (seconds), including live overlay overrides. */
     val restSeconds: Int = 0,
+    val isPlateLoaded: Boolean = false,
+    val isDoubleSided: Boolean = true,
+    val unitLabel: String = "lb",
 )
