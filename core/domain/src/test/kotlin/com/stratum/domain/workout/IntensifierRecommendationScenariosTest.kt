@@ -110,7 +110,7 @@ class IntensifierRecommendationScenariosTest {
         logged: LoggedSetValue? = null,
         recommendedReps: Int = 5,
     ) = RenderedSet(
-        slotId = SetSlotId.Overlay(OverlaySetInstanceId(id)),
+        slotId = SetSlotId.Overlay(OverlaySetInstanceId(if (id.startsWith("mini")) id else "mini-$id")),
         workoutLiftId = workoutLiftId,
         liftId = liftId,
         position = position,
@@ -129,7 +129,12 @@ class IntensifierRecommendationScenariosTest {
         LoggedSetValue(SetSlotId.Template(LiftSetId(id)), lb(weight), reps, rir)
 
     private fun logOverlay(id: String, weight: Double, reps: Int, rir: Int?) =
-        LoggedSetValue(SetSlotId.Overlay(OverlaySetInstanceId(id)), lb(weight), reps, rir)
+        LoggedSetValue(
+            SetSlotId.Overlay(OverlaySetInstanceId(if (id.startsWith("mini")) id else "mini-$id")),
+            lb(weight),
+            reps,
+            rir,
+        )
 
     // -------------------------------------------------------------------------
     // Multi-cluster myo
@@ -199,7 +204,7 @@ class IntensifierRecommendationScenariosTest {
                 ),
             )
             val rec = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
-                SetSlotId.Overlay(OverlaySetInstanceId("m3")),
+                SetSlotId.Overlay(OverlaySetInstanceId("mini-m3")),
             ]
             assertNotNull(rec)
             // Subsequent mini: last mini 6 − 3 = 3 (not activation 14)
@@ -252,11 +257,11 @@ class IntensifierRecommendationScenariosTest {
                         log("act", 70.0, 12, 1),
                         repMin = 10, repMax = 15, rirGoal = 1,
                     ),
-                    overlayMyo("mini", 1, weight = 70.0),
+                    overlayMyo("mini-1", 1, weight = 70.0),
                 ),
             )
             val rec = useCase(workout, mapOf(liftId to catalogLift()), priorRecommendations = emptyMap())[
-                SetSlotId.Overlay(OverlaySetInstanceId("mini")),
+                SetSlotId.Overlay(OverlaySetInstanceId("mini-1")),
             ]
             assertNotNull(rec)
             assertEquals(70.0, rec!!.weight.amount, 0.01)
