@@ -11,6 +11,9 @@ data class WorkoutLogLiftUi(
     val showWeightColumn: Boolean = true,
     val weightHeaderLabel: String = "Weight",
     val supersetGroupId: String? = null,
+    val isPlateLoaded: Boolean = false,
+    val isDoubleSided: Boolean = true,
+    val unitLabel: String = "lb",
 )
 
 data class WorkoutLogSetUi(
@@ -48,6 +51,9 @@ data class WorkoutLogSetUi(
      * Computed via [canCompleteSetLogFromFields] from drafts + recommendations.
      */
     val canComplete: Boolean = false,
+    val isPlateLoaded: Boolean = false,
+    val isDoubleSided: Boolean = true,
+    val unitLabel: String = "lb",
 )
 
 /** Callbacks for one set row — bag avoids Detekt LongParameterList on the composable. */
