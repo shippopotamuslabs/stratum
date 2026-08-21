@@ -4,6 +4,7 @@ import com.stratum.core.data.db.EquipmentEntity
 import com.stratum.core.data.db.GymPreferenceEntity
 import com.stratum.core.data.db.IncrementTierEntity
 import com.stratum.core.data.db.LiftEntity
+import com.stratum.core.data.db.LiftSessionNoteEntity
 import com.stratum.core.data.db.LiftSetEntity
 import com.stratum.core.data.db.LoggedSetEntity
 import com.stratum.core.data.db.OnboardingProgressEntity
@@ -80,6 +81,7 @@ class SyncEntityEncoders @Inject constructor() {
             "fatigue_profile" to e.fatigueProfile.name,
             "load_type" to e.loadType.name,
             "default_rest_seconds" to e.defaultRestSeconds,
+            "pinned_note" to e.pinnedNote.orEmpty(),
         )
 
     fun incrementTier(e: IncrementTierEntity): Map<String, Any?> =
@@ -120,6 +122,7 @@ class SyncEntityEncoders @Inject constructor() {
             "position" to e.position,
             "superset_group_id" to e.supersetGroupId?.value,
             "use_rest_timer_between_lifts" to e.useRestTimerBetweenLifts,
+            "pinned_note" to e.pinnedNote.orEmpty(),
         )
 
     fun liftSet(e: LiftSetEntity): Map<String, Any?> =
@@ -189,5 +192,13 @@ class SyncEntityEncoders @Inject constructor() {
             "new_lift_id" to e.newLiftId?.value,
             "workout_id" to e.workoutId?.value,
             "completed_cycle_number" to e.completedCycleNumber,
+        )
+
+    fun liftSessionNote(e: LiftSessionNoteEntity): Map<String, Any?> =
+        mapOf(
+            "session_id" to e.sessionId.value,
+            "lift_id" to e.liftId.value,
+            "workout_lift_id" to e.workoutLiftId.value,
+            "body" to e.body,
         )
 }

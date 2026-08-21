@@ -475,6 +475,58 @@ class ApplyOverlayToWorkoutUseCaseTest {
         assertEquals(12, added.sets[0].repMax)
     }
 
+    @Test
+    @DisplayName("Overlay workout-lift pinned notes copy onto template and added lifts")
+    fun overlayPinnedNotesCopied() {
+        val baseline = sampleWorkout()
+        val newWlId = WorkoutLiftId("wl-added")
+        val slot =
+            SetSlot(
+                slotId = SetSlotId.Overlay(OverlaySetInstanceId("added-lift-set-1")),
+                workoutLiftId = newWlId,
+                liftId = LiftId("lift-row"),
+                position = 0,
+                setType = SetType.Standard,
+                isTopSet = true,
+                repMin = 8,
+                repMax = 12,
+                rirGoal = 2,
+                restSeconds = 90,
+            )
+        val overlay =
+            WorkoutOverlay(
+                addedLifts =
+                    listOf(
+                        OverlayAddedLift(
+                            workoutLiftId = newWlId,
+                            liftId = LiftId("lift-row"),
+                            progressionScheme = ProgressionScheme.Double,
+                        ),
+                    ),
+                addedSlots = listOf(slot),
+                workoutLiftPinnedNotes =
+                    mapOf(
+                        WorkoutLiftId("wl-1") to "Template pin",
+                        newWlId to "Added pin",
+                    ),
+            )
+
+        val result = useCase(baseline, overlay)
+        assertEquals("Template pin", result.workoutLifts.first { it.id == WorkoutLiftId("wl-1") }.pinnedNote)
+        assertEquals("Added pin", result.workoutLifts.first { it.id == newWlId }.pinnedNote)
+    }
+
+    @Test
+    @DisplayName("workoutLiftPinnedNotes mark the overlay dirty")
+    fun workoutLiftPinnedNotesAreDirty() {
+        assertFalse(WorkoutOverlay().isDirty)
+        assertTrue(
+            WorkoutOverlay(
+                workoutLiftPinnedNotes = mapOf(WorkoutLiftId("wl-1") to "cue"),
+            ).isDirty,
+        )
+    }
+
     private fun sampleWorkout(): Workout = Workout(
         id = WorkoutId("w-1"),
         programId = ProgramId("p-1"),

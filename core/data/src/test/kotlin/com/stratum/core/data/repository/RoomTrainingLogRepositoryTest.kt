@@ -37,6 +37,7 @@ class RoomTrainingLogRepositoryTest {
             setDao = database.trainingLoggedSetDao(),
             programDao = database.programDao(),
             programChangeEventDao = database.programChangeEventDao(),
+            liftSessionNoteDao = database.liftSessionNoteDao(),
             syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()),
         )
         runBlocking {
@@ -112,6 +113,38 @@ class RoomTrainingLogRepositoryTest {
 
         assertNull(repository.getSession(TrainingSessionId("ts-live-1")))
         assertTrue(repository.getSetsForSession(TrainingSessionId("ts-live-1")).isEmpty())
+    }
+
+    @Test
+    @DisplayName("deleteSession tombstones lift_session_notes before CASCADE")
+    fun deleteSessionTombstonesLiftSessionNotes() = runTest {
+        val session = WorkoutLoggingFixtures.inProgressSession(id = "ts-live-1")
+        repository.insertSession(session)
+        database.liftSessionNoteDao().upsert(
+            com.stratum.core.data.db.LiftSessionNoteEntity(
+                id = com.stratum.domain.lift.identity.LiftSessionNoteId("n-1"),
+                sessionId = TrainingSessionId("ts-live-1"),
+                liftId = com.stratum.domain.lift.identity.LiftId("squat"),
+                workoutLiftId = com.stratum.domain.program.identity.WorkoutLiftId("wl-1"),
+                body = "session cue",
+            ),
+        )
+
+        repository.deleteSession(TrainingSessionId("ts-live-1"))
+
+        assertNull(
+            database.liftSessionNoteDao().getById(
+                com.stratum.domain.lift.identity.LiftSessionNoteId("n-1"),
+            ),
+        )
+        val pending = database.pendingCloudDeleteDao().peekPending(20)
+        assertTrue(
+            pending.any {
+                it.collectionPath ==
+                    com.stratum.core.data.sync.SyncCollection.LiftSessionNotes.firestorePath &&
+                    it.entityId == "n-1"
+            },
+        )
     }
 
     @Test

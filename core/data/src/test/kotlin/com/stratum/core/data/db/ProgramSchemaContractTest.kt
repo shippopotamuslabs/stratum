@@ -21,13 +21,13 @@ import org.robolectric.RuntimeEnvironment
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 /**
- * Schema invariants and converter tests. Room v2 adds nullable `sets.myo_rep_kind`
- * via AutoMigration(1→2).
+ * Schema invariants and converter tests. Room v3 adds lift/workout pinned notes and
+ * `lift_session_notes` via AutoMigration(2→3).
  */
 @ExtendWith(RobolectricExtension::class)
 class ProgramSchemaContractTest {
     @Nested
-    @DisplayName("DB version is 2 and program tables exist")
+    @DisplayName("DB version is 3 and program tables exist")
     inner class SchemaInvariants {
         @Test
         fun `the four program tables exist in the database`() {
@@ -48,14 +48,24 @@ class ProgramSchemaContractTest {
             assertTrue("workouts" in tableNames, "workouts table missing")
             assertTrue("workout_lifts" in tableNames, "workout_lifts table missing")
             assertTrue("sets" in tableNames, "sets table missing")
+            assertTrue("lift_session_notes" in tableNames, "lift_session_notes table missing")
         }
 
         @Test
-        fun `v1 and v2 schema exports exist`() {
+        fun `v1 v2 and v3 schema exports exist`() {
             val schemasDir = java.io.File("schemas/com.stratum.core.data.db.StratumDatabase")
             assertTrue(schemasDir.resolve("1.json").exists(), "1.json schema export missing")
             assertTrue(schemasDir.resolve("2.json").exists(), "2.json schema export missing")
-            assertFalse(schemasDir.resolve("3.json").exists(), "3.json schema export should not exist")
+            assertTrue(schemasDir.resolve("3.json").exists(), "3.json schema export missing")
+            assertFalse(schemasDir.resolve("4.json").exists(), "4.json schema export should not exist")
+        }
+
+        @Test
+        fun `v3 schema includes pinned_note and lift_session_notes`() {
+            val schema = java.io.File("schemas/com.stratum.core.data.db.StratumDatabase/3.json").readText()
+            assertTrue(schema.contains("\"pinned_note\""), "v3 schema must include pinned_note")
+            assertTrue(schema.contains("\"lift_session_notes\""), "v3 schema must include lift_session_notes")
+            assertTrue(schema.contains("\"version\": 3"), "schema file must declare version 3")
         }
 
         @Test

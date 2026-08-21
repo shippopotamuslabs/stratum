@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
  * tracked separately ([observeSelectedPreset]) because it is a global onboarding choice, not
  * a per-lift attribute, and OS-5 Review needs to recall it by name.
  */
+@Suppress("TooManyFunctions")
 interface LiftRepository {
     /** Hot stream of every lift in the catalog, each carrying its current `enabled` flag. */
     fun observeLifts(): Flow<List<Lift>>
@@ -114,6 +115,12 @@ interface LiftRepository {
      * defaults. Does not rewrite existing workout set rest values.
      */
     suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?)
+
+    /**
+     * Persists a user-authored note pinned to this catalog lift (seed or custom).
+     * Null / blank clears the note. Does not touch [Lift.description].
+     */
+    suspend fun setPinnedNote(id: LiftId, note: String?)
 
     /**
      * Permanently removes catalog rows for [ids] (increment tiers cascade). Caller must re-point

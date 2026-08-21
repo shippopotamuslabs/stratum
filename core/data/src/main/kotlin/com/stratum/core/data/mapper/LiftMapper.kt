@@ -55,6 +55,7 @@ fun LiftWithTiers.toDomain(
         fatigueProfile = lift.fatigueProfile,
         loadType = lift.loadType,
         defaultRestSeconds = lift.defaultRestSeconds,
+        pinnedNote = lift.pinnedNote,
     )
 }
 
@@ -78,6 +79,7 @@ fun Lift.toEntity(
     fatigueProfile = fatigueProfile,
     loadType = loadType,
     defaultRestSeconds = defaultRestSeconds,
+    pinnedNote = pinnedNote,
     updatedAtEpochMillis = nowMillis,
     pendingSync = SyncFlags.PENDING_UPSERT,
 )

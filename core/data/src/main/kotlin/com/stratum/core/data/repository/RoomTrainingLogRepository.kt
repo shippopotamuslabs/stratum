@@ -1,6 +1,7 @@
 package com.stratum.core.data.repository
 
 import androidx.room.withTransaction
+import com.stratum.core.data.db.LiftSessionNoteDao
 import com.stratum.core.data.db.ProgramChangeEventDao
 import com.stratum.core.data.db.ProgramDao
 import com.stratum.core.data.db.StratumDatabase
@@ -37,6 +38,7 @@ class RoomTrainingLogRepository @Inject constructor(
     private val setDao: TrainingLoggedSetDao,
     private val programDao: ProgramDao,
     private val programChangeEventDao: ProgramChangeEventDao,
+    private val liftSessionNoteDao: LiftSessionNoteDao,
     private val syncTouch: SyncTouch,
 ) : TrainingLogRepository {
     override suspend fun replaceAll(sessions: List<TrainingSession>, sets: List<LoggedSet>) {
@@ -225,6 +227,7 @@ class RoomTrainingLogRepository @Inject constructor(
                 syncTouch.enqueueDelete(SyncCollection.TrainingSessions, id.value)
                 val setIds = setDao.getForSession(id).map { it.id.value }
                 syncTouch.enqueueDelete(SyncCollection.LoggedSets, setIds)
+                enqueueLiftSessionNoteDeletes(id)
                 sessionDao.deleteById(id)
             }
         }
@@ -347,6 +350,7 @@ class RoomTrainingLogRepository @Inject constructor(
                     if (setIds.isNotEmpty()) {
                         syncTouch.enqueueDelete(SyncCollection.LoggedSets, setIds, now)
                     }
+                    enqueueLiftSessionNoteDeletes(id, now)
                     sessionDao.deleteById(id)
                 }
                 applyCycleEffectsInTransaction(
@@ -377,6 +381,16 @@ class RoomTrainingLogRepository @Inject constructor(
         cycleCompletedEvent?.let { event ->
             programChangeEventDao.upsert(event.toEntity(nowMillis = now))
             syncTouch.cancelDelete(SyncCollection.ProgramChangeEvents, event.id.value)
+        }
+    }
+
+    private suspend fun enqueueLiftSessionNoteDeletes(
+        sessionId: TrainingSessionId,
+        nowMillis: Long = System.currentTimeMillis(),
+    ) {
+        val noteIds = liftSessionNoteDao.getForSession(sessionId).map { it.id.value }
+        if (noteIds.isNotEmpty()) {
+            syncTouch.enqueueDelete(SyncCollection.LiftSessionNotes, noteIds, nowMillis)
         }
     }
 }

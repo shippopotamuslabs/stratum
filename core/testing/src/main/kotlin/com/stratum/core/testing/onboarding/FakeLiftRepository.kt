@@ -231,6 +231,12 @@ class FakeLiftRepository(
         }
     }
 
+    override suspend fun setPinnedNote(id: LiftId, note: String?) {
+        lifts.value = lifts.value.map { lift ->
+            if (lift.id == id) lift.copy(pinnedNote = note) else lift
+        }
+    }
+
     override suspend fun deleteLifts(ids: Collection<LiftId>) {
         if (ids.isEmpty()) return
         val remove = ids.toSet()

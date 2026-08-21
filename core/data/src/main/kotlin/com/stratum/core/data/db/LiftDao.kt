@@ -187,6 +187,20 @@ interface LiftDao {
     )
     suspend fun setDefaultRestSeconds(id: LiftId, restSeconds: Int?, updatedAtEpochMillis: Long)
 
+    /**
+     * User-authored pin note for catalog and custom lifts. Null clears the note.
+     */
+    @Query(
+        """
+        UPDATE lifts
+        SET pinned_note = :note,
+            pending_sync = ${SyncFlags.PENDING_UPSERT},
+            updated_at_epoch_millis = :updatedAtEpochMillis
+        WHERE id = :id
+        """,
+    )
+    suspend fun setPinnedNote(id: LiftId, note: String?, updatedAtEpochMillis: Long)
+
     /** Enable every lift in [ids] in a single statement (preset apply). */
     @Query(
         """

@@ -81,6 +81,8 @@ data class WorkoutLift(
     val sets: List<LiftSet>,
     val supersetGroupId: WorkoutSupersetGroupId? = null,
     val useRestTimerBetweenLifts: Boolean = false,
+    /** User-authored note pinned to this template slot across sessions of this workout. */
+    val pinnedNote: String? = null,
 )
 
 /**

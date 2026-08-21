@@ -45,6 +45,8 @@ data class EditLiftState(
     override val useRestTimerBetweenLifts: Boolean = false,
     val isCompound: Boolean = false,
     val progressionScheme: ProgressionScheme = ProgressionScheme.Double,
+    /** Workout-scoped pin; round-tripped on full save (notes UI lives on the live session). */
+    val pinnedNote: String? = null,
 ) : SupersetLinkableLift
 
 /**

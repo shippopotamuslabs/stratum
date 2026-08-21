@@ -4,11 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.stratum.core.ui.component.SupersetLinkDirection
 import com.stratum.domain.importing.ObserveLiftTrainingInsightsUseCase
+import com.stratum.domain.lift.GetPastSessionNotesForLiftUseCase
+import com.stratum.domain.lift.GetSessionLiftNoteUseCase
 import com.stratum.domain.lift.ObserveLiftCatalogUseCase
 import com.stratum.domain.lift.ObserveWeightDisplayPreferencesUseCase
+import com.stratum.domain.lift.OptionalNoteEdit
+import com.stratum.domain.lift.SaveLiftNotesCommand
+import com.stratum.domain.lift.SaveLiftNotesUseCase
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
 import com.stratum.domain.logging.LogErrorUseCase
+import com.stratum.domain.program.GetProgramByIdUseCase
 import com.stratum.domain.program.SaveWorkoutUseCase
 import com.stratum.domain.program.identity.WorkoutId
 import com.stratum.domain.program.identity.WorkoutLiftId
@@ -30,9 +36,14 @@ import com.stratum.domain.workout.SetSlotId
 import com.stratum.domain.workout.WorkoutEditSession
 import com.stratum.feature.workout.notification.LiveWorkoutSurfaces
 import com.stratum.feature.workout.notification.RestTimerState
+import com.stratum.feature.workout.ui.LiftNotesSaveRequest
+import com.stratum.feature.workout.ui.PastSessionNoteUi
 import com.stratum.feature.workout.ui.WorkoutUiEvent
 import com.stratum.feature.workout.ui.WorkoutUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -75,12 +86,16 @@ class WorkoutViewModel @Inject constructor(
     finalizeTrainingSession: FinalizeTrainingSessionUseCase,
     applyOverlayToWorkout: ApplyOverlayToWorkoutUseCase,
     saveWorkoutUseCase: SaveWorkoutUseCase,
+    getProgramById: GetProgramByIdUseCase,
     observeLiftTrainingInsights: ObserveLiftTrainingInsightsUseCase,
     private val manageWorkoutOverlay: ManageWorkoutOverlayUseCase,
     private val workoutEditSession: WorkoutEditSession,
     private val liveWorkoutSurfaces: LiveWorkoutSurfaces,
     observeWeightDisplayPreferences: ObserveWeightDisplayPreferencesUseCase,
     logError: LogErrorUseCase,
+    private val saveLiftNotesUseCase: SaveLiftNotesUseCase,
+    private val getPastSessionNotesForLift: GetPastSessionNotesForLiftUseCase,
+    private val getSessionLiftNote: GetSessionLiftNoteUseCase,
 ) : ViewModel() {
 
     /**
@@ -170,6 +185,7 @@ class WorkoutViewModel @Inject constructor(
             finalizeTrainingSession = finalizeTrainingSession,
             applyOverlayToWorkout = applyOverlayToWorkout,
             saveWorkoutUseCase = saveWorkoutUseCase,
+            getProgramById = getProgramById,
             observeLiftTrainingInsights = observeLiftTrainingInsights,
             manageWorkoutOverlay = manageWorkoutOverlay,
             logError = logError,
@@ -412,6 +428,62 @@ class WorkoutViewModel @Inject constructor(
         enqueue(SessionCommand.SetRestSecondsForSlots(updates))
     }
 
+    suspend fun sessionNoteBody(workoutLiftId: String): String {
+        val sessionId = session.cachedSessionId() ?: return ""
+        return getSessionLiftNote(sessionId, WorkoutLiftId(workoutLiftId))?.body.orEmpty()
+    }
+
+    suspend fun pastSessionNotes(liftId: String): List<PastSessionNoteUi> {
+        val notes =
+            getPastSessionNotesForLift(
+                LiftId(liftId),
+                session.cachedSessionId(),
+            )
+        val formatter =
+            DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withZone(ZoneId.systemDefault())
+        return notes.map { note ->
+            PastSessionNoteUi(
+                dateLabel = formatter.format(note.sessionStartedAt),
+                workoutName = note.workoutName.orEmpty(),
+                body = note.body,
+            )
+        }
+    }
+
+    fun saveLiftNotes(request: LiftNotesSaveRequest) {
+        val sessionId = session.cachedSessionId() ?: return
+        viewModelScope.launch {
+            val result =
+                saveLiftNotesUseCase(
+                    SaveLiftNotesCommand(
+                        sessionId = sessionId,
+                        workoutLiftId = WorkoutLiftId(request.workoutLiftId),
+                        liftId = LiftId(request.liftId),
+                        sessionNote =
+                            request.sessionDraft.takeIf { it != request.loadedSession }
+                                ?.let(::OptionalNoteEdit),
+                        workoutNote =
+                            request.workoutDraft.takeIf { it != request.loadedWorkout }
+                                ?.let(::OptionalNoteEdit),
+                        liftNote =
+                            request.liftDraft.takeIf { it != request.loadedLift }
+                                ?.let(::OptionalNoteEdit),
+                    ),
+                ).getOrElse {
+                    _userMessage.value = MSG_NOTES_SAVE_FAILED
+                    return@launch
+                }
+            if (result.workoutNoteNeedsOverlay) {
+                enqueue(
+                    SessionCommand.SetWorkoutLiftPinnedNote(
+                        workoutLiftId = WorkoutLiftId(request.workoutLiftId),
+                        body = request.workoutDraft,
+                    ),
+                )
+            }
+        }
+    }
+
     fun completeWorkout(saveTemplate: Boolean) {
         if (isCompleting) return
         if (session.cachedSessionId() == null || session.activeWorkoutId() == null) return
@@ -506,5 +578,6 @@ class WorkoutViewModel @Inject constructor(
         const val MSG_ABANDON_FAILED = "Couldn't cancel the workout. Try again."
         const val MSG_SESSION_COMMAND_DROPPED =
             "Couldn't update the workout. Leave and re-open the session."
+        const val MSG_NOTES_SAVE_FAILED = "Couldn't save notes. Try again."
     }
 }

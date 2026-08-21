@@ -89,6 +89,11 @@ internal sealed interface SessionCommand {
 
     data class SetRestSecondsForSlots(val updates: Map<String, Int>) : SessionCommand
 
+    data class SetWorkoutLiftPinnedNote(
+        val workoutLiftId: WorkoutLiftId,
+        val body: String?,
+    ) : SessionCommand
+
     data class CompleteWorkout(val saveTemplate: Boolean) : SessionCommand
 
     /**

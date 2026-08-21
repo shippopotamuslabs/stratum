@@ -55,6 +55,11 @@ data class Lift(
     val fatigueProfile: FatigueProfile = FatigueProfile.Low,
     val loadType: LoadType = LoadType.Weighted,
     val defaultRestSeconds: Int? = null,
+    /**
+     * User-authored note pinned to this catalog lift across all workouts and programs.
+     * Distinct from [description] (seed/catalog copy).
+     */
+    val pinnedNote: String? = null,
 ) {
     /**
      * Multi-joint / Linear programming gate — **not** used for rest.

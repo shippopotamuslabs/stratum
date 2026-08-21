@@ -87,6 +87,12 @@ class MergeRenderedWorkoutUseCase @javax.inject.Inject constructor() {
                 supersetGroupId = lift.supersetGroupId,
                 loadType = lift.loadType,
                 useRestTimerBetweenLifts = lift.useRestTimerBetweenLifts,
+                workoutPinnedNote = resolvedWorkoutPinnedNote(
+                    overlay.workoutLiftPinnedNotes,
+                    lift.workoutLiftId,
+                    lift.workoutPinnedNote,
+                ),
+                liftPinnedNote = lift.liftPinnedNote,
             )
         }
         val sortedLifts = if (overlay.orderedLiftIds != null) {

@@ -1,5 +1,6 @@
 package com.stratum.core.testing.onboarding
 
+import com.stratum.core.testing.lift.FakeLiftNotesRepository
 import com.stratum.core.testing.program.FakeProgramRepository
 import com.stratum.core.testing.training.FakeTrainingLogRepository
 import com.stratum.domain.lift.MergeLiftsPort
@@ -16,6 +17,7 @@ class FakeMergeLiftsPort(
     private val liftRepository: FakeLiftRepository,
     private val trainingLogRepository: FakeTrainingLogRepository,
     private val programRepository: FakeProgramRepository,
+    private val liftNotesRepository: FakeLiftNotesRepository = FakeLiftNotesRepository(),
 ) : MergeLiftsPort {
 
     var applyMergeCallCount: Int = 0
@@ -49,6 +51,8 @@ class FakeMergeLiftsPort(
                 }
             trainingLogRepository.updateSets(rewritten)
         }
+
+        liftNotesRepository.remapLiftIds(allSources, targetLiftId)
 
         for (program in programRepository.getAllUserPrograms()) {
             val updated = program.repointSources(allSources, targetLiftId)

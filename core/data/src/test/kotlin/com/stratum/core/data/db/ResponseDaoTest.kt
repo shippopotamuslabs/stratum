@@ -186,10 +186,10 @@ class ResponseDaoTest {
     }
 
     @Test
-    @DisplayName("RP-S8-007 schema version includes response modeling tables (Room v2)")
+    @DisplayName("RP-S8-007 schema version includes response modeling tables (Room v3)")
     fun rpS8_007_schemaVersionIncludesModelingTables() {
-        // Intensifier myoRepKind bumped export schema to v2; response tables remain present.
-        assertEquals(2, database.openHelper.readableDatabase.version)
+        // Notes AutoMigration bumped export schema to v3; response tables remain present.
+        assertEquals(3, database.openHelper.readableDatabase.version)
     }
 
     private fun sampleVolumeObservation(

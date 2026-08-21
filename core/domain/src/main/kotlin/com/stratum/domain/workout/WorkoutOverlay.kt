@@ -98,6 +98,11 @@ data class WorkoutOverlay(
      */
     val slotShapeOverrides: Map<SetSlotId, SlotShapeOverride> = emptyMap(),
     val orderedLiftIds: List<String>? = null,
+    /**
+     * Workout-pinned notes for slots that are not yet in `workout_lifts` (mid-session adds).
+     * Blank values are omitted — use key-absent for "no overlay pin".
+     */
+    val workoutLiftPinnedNotes: Map<WorkoutLiftId, String> = emptyMap(),
 ) {
     /**
      * True when the overlay carries unsaved structural edits (swaps, added/deleted sets or
@@ -116,7 +121,8 @@ data class WorkoutOverlay(
                 useRestTimerBetweenLiftsOverrides.isNotEmpty() ||
                 restSecondsOverrides.isNotEmpty() ||
                 slotShapeOverrides.isNotEmpty() ||
-                orderedLiftIds != null
+                orderedLiftIds != null ||
+                workoutLiftPinnedNotes.isNotEmpty()
 
     fun apply(mutation: StructuralMutation): WorkoutOverlay {
         val nextUndoStack = undoStack + mutation
