@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.stratum.core.ui.R as CoreUiR
-import com.stratum.core.ui.component.LiftActionsBottomSheet
+import com.stratum.core.ui.component.LiftActionsSheetContent
 import com.stratum.core.ui.component.StratumBottomSheet
 import com.stratum.core.ui.component.StratumButton
 import com.stratum.core.ui.component.StratumDurationStepper
@@ -53,6 +54,13 @@ internal const val MIN_CONFIGURE_REST_SECONDS = 0
 internal const val MAX_CONFIGURE_REST_SECONDS = 600
 internal const val CONFIGURE_REST_SECONDS_STEP = 15
 
+internal data class LiftNotesSheetHostState(
+    val liftSheetMode: LiftOptionsSheetMode,
+    val onLiftSheetModeChange: (LiftOptionsSheetMode) -> Unit,
+    val pastSessionNotesLiftId: String?,
+    val onPastSessionNotesLiftIdChange: (String?) -> Unit,
+)
+
 /** Mutable sheet/dialog flags for [WorkoutSessionOverlays] — one bag for Detekt. */
 internal data class WorkoutOverlaySheetState(
     val showRestSheet: Boolean,
@@ -61,6 +69,7 @@ internal data class WorkoutOverlaySheetState(
     val onShowDiscardDialogChange: (Boolean) -> Unit,
     val liftActionsLiftId: String?,
     val onLiftActionsLiftIdChange: (String?) -> Unit,
+    val notes: LiftNotesSheetHostState,
     val configureRestLiftId: String?,
     val onConfigureRestLiftIdChange: (String?) -> Unit,
     val showRestConfigDiscardDialog: Boolean,
@@ -116,6 +125,7 @@ internal fun WorkoutSessionOverlays(
         actions = actions,
         liftActionsLiftId = sheets.liftActionsLiftId,
         onLiftActionsLiftIdChange = sheets.onLiftActionsLiftIdChange,
+        notesHost = sheets.notes,
         configureRestLiftId = sheets.configureRestLiftId,
         onConfigureRestLiftIdChange = sheets.onConfigureRestLiftIdChange,
         showRestConfigDiscardDialog = sheets.showRestConfigDiscardDialog,
@@ -379,12 +389,14 @@ internal fun formatRestDisplay(seconds: Int): String {
  * Hosts Lift Options + Configure Rest Times sheets so [WorkoutScreen] stays under
  * Detekt cyclomatic-complexity limits.
  */
+@Suppress("LongParameterList")
 @Composable
 private fun LiftActionsAndRestConfigSheets(
     state: WorkoutUiState.Loaded,
     actions: WorkoutScreenActions,
     liftActionsLiftId: String?,
     onLiftActionsLiftIdChange: (String?) -> Unit,
+    notesHost: LiftNotesSheetHostState,
     configureRestLiftId: String?,
     onConfigureRestLiftIdChange: (String?) -> Unit,
     showRestConfigDiscardDialog: Boolean,
@@ -394,28 +406,74 @@ private fun LiftActionsAndRestConfigSheets(
     liftActionsLiftId?.let { liftId ->
         val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
         if (lift != null) {
-            LiftActionsBottomSheet(
-                onConfigureSuperset = { onOpenSupersetSheet(liftId) },
-                onConfigureRestTimes = {
-                    onLiftActionsLiftIdChange(null)
-                    onConfigureRestLiftIdChange(liftId)
-                },
-                onSwapLift = {
-                    onLiftActionsLiftIdChange(null)
-                    actions.onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
-                },
-                onRemoveLift = {
-                    onLiftActionsLiftIdChange(null)
-                    actions.onRemoveLift(liftId)
-                },
-                onReorderLifts = {
-                    onLiftActionsLiftIdChange(null)
-                    actions.onReorderLiftsClick()
-                },
-                onDismiss = { onLiftActionsLiftIdChange(null) },
-            )
+            StratumBottomSheet(
+                onDismissRequest = { onLiftActionsLiftIdChange(null) },
+                title =
+                    if (notesHost.liftSheetMode is LiftOptionsSheetMode.Options) {
+                        stringResource(CoreUiR.string.edit_workout_lift_menu)
+                    } else {
+                        null
+                    },
+            ) {
+                when (val mode = notesHost.liftSheetMode) {
+                    LiftOptionsSheetMode.Options ->
+                        LiftActionsSheetContent(
+                            onConfigureSuperset = { onOpenSupersetSheet(liftId) },
+                            onConfigureRestTimes = {
+                                onLiftActionsLiftIdChange(null)
+                                onConfigureRestLiftIdChange(liftId)
+                            },
+                            onManageNotes = {
+                                notesHost.onLiftSheetModeChange(LiftOptionsSheetMode.ManageNotes(LiftNoteTab.Session))
+                            },
+                            onViewPastSessionNotes = {
+                                onLiftActionsLiftIdChange(null)
+                                notesHost.onPastSessionNotesLiftIdChange(liftId)
+                            },
+                            onSwapLift = {
+                                onLiftActionsLiftIdChange(null)
+                                actions.onSwapLiftClick(state.workoutId, liftId, lift.liftId, lift.liftName)
+                            },
+                            onRemoveLift = {
+                                onLiftActionsLiftIdChange(null)
+                                actions.onRemoveLift(liftId)
+                            },
+                            onReorderLifts = {
+                                onLiftActionsLiftIdChange(null)
+                                actions.onReorderLiftsClick()
+                            },
+                        )
+                    is LiftOptionsSheetMode.ManageNotes ->
+                        ManageLiftNotesContent(
+                            lift = lift,
+                            initialTab = mode.tab,
+                            loadSessionNote = actions.liftNotes.onLoadSessionNote,
+                            onSave = { request ->
+                                actions.liftNotes.onSave(request)
+                                onLiftActionsLiftIdChange(null)
+                            },
+                            onDismiss = { onLiftActionsLiftIdChange(null) },
+                        )
+                }
+            }
         } else {
             onLiftActionsLiftIdChange(null)
+        }
+    }
+
+    notesHost.pastSessionNotesLiftId?.let { liftId ->
+        val lift = state.lifts.firstOrNull { it.workoutLiftId == liftId }
+        if (lift != null) {
+            var notes by remember(lift.liftId) { mutableStateOf<List<PastSessionNoteUi>>(emptyList()) }
+            LaunchedEffect(lift.liftId) {
+                notes = actions.liftNotes.onLoadPastNotes(lift.liftId)
+            }
+            PastSessionNotesSheet(
+                notes = notes,
+                onDismiss = { notesHost.onPastSessionNotesLiftIdChange(null) },
+            )
+        } else {
+            notesHost.onPastSessionNotesLiftIdChange(null)
         }
     }
 

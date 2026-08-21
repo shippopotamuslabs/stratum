@@ -322,6 +322,17 @@ class RoomLiftRepository @Inject constructor(
         }
     }
 
+    override suspend fun setPinnedNote(id: LiftId, note: String?) {
+        syncTouch.withWriteLock {
+            liftDao.setPinnedNote(
+                id = id,
+                note = note,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            )
+            syncTouch.markDirty()
+        }
+    }
+
     override suspend fun deleteLifts(ids: Collection<LiftId>) {
         if (ids.isEmpty()) return
         val distinct = ids.distinct()

@@ -12,6 +12,7 @@ import com.stratum.domain.lift.MuscleLengthBias
 import com.stratum.domain.lift.identity.EquipmentId
 import com.stratum.domain.lift.identity.IncrementTierId
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.identity.LiftSessionNoteId
 import com.stratum.domain.importing.identity.ImportJobId
 import com.stratum.domain.importing.identity.LoggedSetId
 import com.stratum.domain.program.ProgressionScheme
@@ -162,6 +163,13 @@ class EnumConverters {
     @TypeConverter
     fun toLiftId(value: String?): LiftId? =
         value?.let { runCatching { LiftId(it) }.getOrNull() }
+
+    @TypeConverter
+    fun fromLiftSessionNoteId(id: LiftSessionNoteId?): String? = id?.value
+
+    @TypeConverter
+    fun toLiftSessionNoteId(value: String?): LiftSessionNoteId? =
+        value?.let { runCatching { LiftSessionNoteId(it) }.getOrNull() }
 
     @TypeConverter
     fun fromIncrementTierId(id: IncrementTierId?): String? = id?.value

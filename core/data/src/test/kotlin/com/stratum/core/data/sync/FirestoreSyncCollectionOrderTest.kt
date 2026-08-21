@@ -16,6 +16,7 @@ class FirestoreSyncCollectionOrderTest {
         assertTrue(indexOf("workouts") < indexOf("workout_lifts"))
         assertTrue(indexOf("workout_lifts") < indexOf("lift_sets"))
         assertTrue(indexOf("training_sessions") < indexOf("logged_sets"))
+        assertTrue(indexOf("training_sessions") < indexOf("lift_session_notes"))
         assertTrue(indexOf("programs") < indexOf("program_change_events"))
     }
 

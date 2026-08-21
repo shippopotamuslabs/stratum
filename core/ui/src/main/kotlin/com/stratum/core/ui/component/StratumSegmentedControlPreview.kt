@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import com.stratum.core.ui.R
 import com.stratum.core.ui.theme.StratumTheme
 import com.stratum.core.ui.theme.StratumThemeAccessor
 import com.stratum.core.ui.theme.StratumThemeId
@@ -35,9 +36,10 @@ private fun SegmentedControlPreviewGrid(family: StratumThemeId) {
                 style = StratumThemeAccessor.typography.titleLarge,
             )
             StratumSegmentedControl(
-                segments = listOf("Front", "Back"),
-                selectedIndex = 0,
+                segments = listOf("Session", "Workout", "Lift"),
+                selectedIndex = 1,
                 onSelectedIndexChange = {},
+                leadingIconRes = listOf(null, R.drawable.ic_push_pin, R.drawable.ic_push_pin),
             )
             StratumText(
                 text = "Multi-select (weekdays)",

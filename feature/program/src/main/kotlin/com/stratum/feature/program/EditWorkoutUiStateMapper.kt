@@ -52,6 +52,7 @@ internal fun WorkoutLift.toEditLiftState(
         useRestTimerBetweenLifts = useRestTimerBetweenLifts,
         isCompound = isCompound,
         progressionScheme = scheme,
+        pinnedNote = pinnedNote,
     )
 }
 

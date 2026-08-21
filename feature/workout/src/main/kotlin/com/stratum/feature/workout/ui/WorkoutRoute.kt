@@ -202,6 +202,12 @@ fun WorkoutRoute(
                     onSetSetKind = { slotKey, kind ->
                         viewModel.setSetKind(slotKey, kind.toLiveSetKind())
                     },
+                    liftNotes =
+                        WorkoutLiftNotesActions(
+                            onLoadSessionNote = viewModel::sessionNoteBody,
+                            onSave = viewModel::saveLiftNotes,
+                            onLoadPastNotes = viewModel::pastSessionNotes,
+                        ),
                 ),
                 modifier = modifier,
             )

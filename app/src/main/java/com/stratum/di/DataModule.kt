@@ -146,8 +146,8 @@ object DatabaseModule {
         seedGate: com.stratum.core.data.sync.LiftCatalogSeedGate,
         loggingPort: LoggingPort,
     ): StratumDatabase {
-        // v2 adds nullable lift_sets.myo_rep_kind via AutoMigration(1→2). Destructive fallback
-        // remains for unrecoverable paths (missing migration, identity skew).
+        // v3 adds lift/workout pinned notes and lift_session_notes via AutoMigration(2→3).
+        // Destructive fallback remains for unrecoverable paths (missing migration, identity skew).
         val database = Room.databaseBuilder(context, StratumDatabase::class.java, StratumDatabase.DATABASE_NAME)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
@@ -256,6 +256,10 @@ object DatabaseModule {
     @Provides
     fun providePendingCloudDeleteDao(database: StratumDatabase): com.stratum.core.data.db.PendingCloudDeleteDao =
         database.pendingCloudDeleteDao()
+
+    @Provides
+    fun provideLiftSessionNoteDao(database: StratumDatabase): com.stratum.core.data.db.LiftSessionNoteDao =
+        database.liftSessionNoteDao()
 
     @Provides
     fun provideLiftTrainingInsightsDao(database: StratumDatabase): LiftTrainingInsightsDao =
@@ -391,6 +395,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindLiftRepository(impl: RoomLiftRepository): LiftRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLiftNotesRepository(
+        impl: com.stratum.core.data.repository.RoomLiftNotesRepository,
+    ): com.stratum.domain.lift.LiftNotesRepository
 
     @Binds
     @Singleton

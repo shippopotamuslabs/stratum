@@ -58,6 +58,9 @@ fun WorkoutOverlay.toDto(): WorkoutOverlayDto = WorkoutOverlayDto(
         SlotShapeOverrideEntryDto(slotId.toDto(), shape.toDto())
     },
     orderedLiftIds = orderedLiftIds,
+    workoutLiftPinnedNotes = workoutLiftPinnedNotes.entries.map { (workoutLiftId, body) ->
+        WorkoutLiftPinnedNoteEntryDto(workoutLiftId.value, body)
+    },
 )
 
 /** `DTO → WorkoutOverlay`. Blank-id entries are skipped. */
@@ -99,6 +102,13 @@ fun WorkoutOverlayDto.toDomain(): WorkoutOverlay = WorkoutOverlay(
         }
     },
     orderedLiftIds = orderedLiftIds,
+    workoutLiftPinnedNotes = buildMap {
+        for (entry in workoutLiftPinnedNotes) {
+            val key = entry.workoutLiftId.toWorkoutLiftIdOrNull()
+            if (key == null || entry.body.isBlank()) continue
+            put(key, entry.body)
+        }
+    },
 )
 
 private fun List<LoggedSetEntryDto>.toLoggedSetMap(): Map<SetSlotId, LoggedSetValue> = buildMap {

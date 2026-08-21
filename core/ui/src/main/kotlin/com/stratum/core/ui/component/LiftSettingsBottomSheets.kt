@@ -287,40 +287,77 @@ fun LiftActionsBottomSheet(
     onReorderLifts: () -> Unit,
     onDismiss: () -> Unit,
     onConfigureRestTimes: (() -> Unit)? = null,
+    onManageNotes: (() -> Unit)? = null,
+    onViewPastSessionNotes: (() -> Unit)? = null,
 ) {
     StratumBottomSheet(
         onDismissRequest = onDismiss,
         title = stringResource(CoreUiR.string.edit_workout_lift_menu),
     ) {
-        LiftActionRow(
-            text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
-            leadingIconRes = CoreUiR.drawable.ic_swap_vert,
-            onClick = onReorderLifts,
-        )
-        LiftActionRow(
-            text = stringResource(CoreUiR.string.edit_workout_create_superset),
-            leadingIconRes = CoreUiR.drawable.ic_join,
-            onClick = onConfigureSuperset,
-        )
-        if (onConfigureRestTimes != null) {
-            LiftActionRow(
-                text = stringResource(CoreUiR.string.edit_workout_configure_rest_times),
-                leadingIconRes = CoreUiR.drawable.ic_settings,
-                onClick = onConfigureRestTimes,
-            )
-        }
-        LiftActionRow(
-            text = stringResource(CoreUiR.string.edit_workout_swap_lift),
-            leadingIconRes = CoreUiR.drawable.ic_swap_horiz,
-            onClick = onSwapLift,
-        )
-        LiftActionRow(
-            text = stringResource(CoreUiR.string.edit_workout_remove_lift),
-            leadingIcon = Icons.Outlined.Delete,
-            isDestructive = true,
-            onClick = onRemoveLift,
+        LiftActionsSheetContent(
+            onConfigureSuperset = onConfigureSuperset,
+            onSwapLift = onSwapLift,
+            onRemoveLift = onRemoveLift,
+            onReorderLifts = onReorderLifts,
+            onConfigureRestTimes = onConfigureRestTimes,
+            onManageNotes = onManageNotes,
+            onViewPastSessionNotes = onViewPastSessionNotes,
         )
     }
+}
+
+@Composable
+fun LiftActionsSheetContent(
+    onConfigureSuperset: () -> Unit,
+    onSwapLift: () -> Unit,
+    onRemoveLift: () -> Unit,
+    onReorderLifts: () -> Unit,
+    onConfigureRestTimes: (() -> Unit)? = null,
+    onManageNotes: (() -> Unit)? = null,
+    onViewPastSessionNotes: (() -> Unit)? = null,
+) {
+    LiftActionRow(
+        text = stringResource(CoreUiR.string.edit_workout_reorder_lifts),
+        leadingIconRes = CoreUiR.drawable.ic_swap_vert,
+        onClick = onReorderLifts,
+    )
+    LiftActionRow(
+        text = stringResource(CoreUiR.string.edit_workout_create_superset),
+        leadingIconRes = CoreUiR.drawable.ic_join,
+        onClick = onConfigureSuperset,
+    )
+    if (onConfigureRestTimes != null) {
+        LiftActionRow(
+            text = stringResource(CoreUiR.string.edit_workout_configure_rest_times),
+            leadingIconRes = CoreUiR.drawable.ic_settings,
+            onClick = onConfigureRestTimes,
+        )
+    }
+    if (onManageNotes != null) {
+        LiftActionRow(
+            text = stringResource(CoreUiR.string.lift_notes_manage),
+            leadingIconRes = CoreUiR.drawable.ic_note,
+            onClick = onManageNotes,
+        )
+    }
+    if (onViewPastSessionNotes != null) {
+        LiftActionRow(
+            text = stringResource(CoreUiR.string.lift_notes_view_past),
+            leadingIconRes = CoreUiR.drawable.ic_history,
+            onClick = onViewPastSessionNotes,
+        )
+    }
+    LiftActionRow(
+        text = stringResource(CoreUiR.string.edit_workout_swap_lift),
+        leadingIconRes = CoreUiR.drawable.ic_swap_horiz,
+        onClick = onSwapLift,
+    )
+    LiftActionRow(
+        text = stringResource(CoreUiR.string.edit_workout_remove_lift),
+        leadingIcon = Icons.Outlined.Delete,
+        isDestructive = true,
+        onClick = onRemoveLift,
+    )
 }
 
 @Composable

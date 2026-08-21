@@ -118,6 +118,7 @@ class LiftRemoteApplierMatrixTest {
         assertEquals(false, payload["is_custom"])
         assertEquals(false, payload["enabled"])
         assertEquals(180, payload["default_rest_seconds"])
+        assertEquals("", payload["pinned_note"])
         assertFalse(payload.containsKey("name"))
     }
 
@@ -137,6 +138,46 @@ class LiftRemoteApplierMatrixTest {
         assertFalse(ok)
         val row = database.liftDao().getById(LiftId("bench"))!!
         assertTrue(row.enabled) // unchanged seed
+    }
+
+    @Test
+    @DisplayName("overlay without pinned_note keeps the local catalog pin")
+    fun overlayMissingPinnedNotePreservesLocal() = runTest {
+        seedCatalog("bench").let { row ->
+            database.liftDao().upsert(row.copy(pinnedNote = "Belt on"))
+        }
+        val ok =
+            subject.upsertFromRemote(
+                "bench",
+                mapOf(
+                    "catalog_overlay" to true,
+                    "is_custom" to false,
+                    "enabled" to true,
+                    FirestoreSyncMetadata.UPDATED_AT to 50L,
+                ),
+            )
+        assertTrue(ok)
+        assertEquals("Belt on", database.liftDao().getById(LiftId("bench"))!!.pinnedNote)
+    }
+
+    @Test
+    @DisplayName("overlay empty pinned_note clears the local catalog pin")
+    fun overlayEmptyPinnedNoteClearsLocal() = runTest {
+        seedCatalog("bench").let { row ->
+            database.liftDao().upsert(row.copy(pinnedNote = "Belt on"))
+        }
+        val ok =
+            subject.upsertFromRemote(
+                "bench",
+                mapOf(
+                    "catalog_overlay" to true,
+                    "is_custom" to false,
+                    "pinned_note" to "",
+                    FirestoreSyncMetadata.UPDATED_AT to 50L,
+                ),
+            )
+        assertTrue(ok)
+        assertEquals(null, database.liftDao().getById(LiftId("bench"))!!.pinnedNote)
     }
 
     private suspend fun seedCatalog(id: String): LiftEntity {

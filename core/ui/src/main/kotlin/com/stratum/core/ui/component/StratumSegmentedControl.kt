@@ -1,16 +1,20 @@
 package com.stratum.core.ui.component
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -20,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -42,6 +47,7 @@ fun StratumSegmentedControl(
     selectedIndex: Int?,
     onSelectedIndexChange: (Int) -> Unit,
     enabled: Boolean = true,
+    leadingIconRes: List<Int?> = emptyList(),
 ) {
     require(segments.isNotEmpty()) { "StratumSegmentedControl requires at least one segment." }
     if (selectedIndex != null) {
@@ -62,6 +68,7 @@ fun StratumSegmentedControl(
                 onClick = { onSelectedIndexChange(index) },
                 modifier = segmentModifier(index),
                 contentDescription = label + if (selected) ", selected" else "",
+                leadingIconRes = leadingIconRes.getOrNull(index),
             )
         }
     }
@@ -148,6 +155,7 @@ private fun ConnectedSegmentCell(
     onClick: () -> Unit,
     contentDescription: String,
     modifier: Modifier = Modifier,
+    @DrawableRes leadingIconRes: Int? = null,
 ) {
     val colors = StratumThemeAccessor.colors
     val background = segmentBackground(selected = selected, enabled = enabled, colors = colors)
@@ -174,14 +182,27 @@ private fun ConnectedSegmentCell(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            style = StratumThemeAccessor.typography.bodyLarge,
-            color = labelColor,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (leadingIconRes != null) {
+                Icon(
+                    painter = painterResource(leadingIconRes),
+                    contentDescription = null,
+                    tint = labelColor,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            Text(
+                text = label,
+                style = StratumThemeAccessor.typography.bodyLarge,
+                color = labelColor,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 

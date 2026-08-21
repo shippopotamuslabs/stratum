@@ -57,6 +57,27 @@ class EditWorkoutDomainMapperTest {
     }
 
     @Test
+    @DisplayName("toWorkout preserves workout-lift pinned notes from edit state")
+    fun pinnedNoteRoundTrips() {
+        val names = mapOf("bench-press" to "Bench", "incline-press" to "Incline")
+        val baseline =
+            baselineWorkout().let { workout ->
+                workout.copy(
+                    workoutLifts =
+                        workout.workoutLifts.mapIndexed { index, lift ->
+                            if (index == 0) lift.copy(pinnedNote = "Elbows in") else lift
+                        },
+                )
+            }
+        val edited = baseline.workoutLifts.map { lift -> lift.toEditLiftState(names) }
+        assertEquals("Elbows in", edited[0].pinnedNote)
+
+        val saved = edited.toWorkout(baseline, WorkoutId("w-1"))
+        assertEquals("Elbows in", saved.workoutLifts[0].pinnedNote)
+        assertNull(saved.workoutLifts[1].pinnedNote)
+    }
+
+    @Test
     @DisplayName("toWorkout defaults new set fields from progression scheme")
     fun mapsNewSetDefaults() {
         val baseline = baselineWorkout()

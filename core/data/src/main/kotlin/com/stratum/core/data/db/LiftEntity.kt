@@ -58,6 +58,8 @@ data class LiftEntity(
     val fatigueProfile: FatigueProfile = FatigueProfile.Low,
     val loadType: LoadType = LoadType.Weighted,
     val defaultRestSeconds: Int? = null,
+    @ColumnInfo(name = "pinned_note")
+    val pinnedNote: String? = null,
     @ColumnInfo(name = "updated_at_epoch_millis")
     val updatedAtEpochMillis: Long = 0L,
     @ColumnInfo(name = "pending_sync")

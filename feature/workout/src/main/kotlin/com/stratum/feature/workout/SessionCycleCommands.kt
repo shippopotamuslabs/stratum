@@ -102,6 +102,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
                 liftNamesById,
                 loadTypesById = liftsById.mapValues { it.value.loadType },
                 isCompoundById = liftsById.mapValues { it.value.isCompound },
+                liftPinnedNotesById = liftsById.mapValues { it.value.pinnedNote },
             )
         structure = projected
         val snapshotResult =
@@ -155,6 +156,7 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
             shouldRecompute = true
         }
     }
+    applyPinnedNotesFromTemplate(workout)
     if (shouldRecompute) {
         recomputeRecommendations()
         // Persist post-restore recs (and any established-block freeze) so the next

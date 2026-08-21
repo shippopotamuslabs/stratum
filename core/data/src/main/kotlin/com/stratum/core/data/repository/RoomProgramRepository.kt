@@ -15,6 +15,7 @@ import com.stratum.core.data.sync.SyncTouch
 import com.stratum.domain.program.Program
 import com.stratum.domain.program.ProgramRepository
 import com.stratum.domain.program.identity.ProgramId
+import com.stratum.domain.program.identity.WorkoutLiftId
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -126,6 +127,20 @@ class RoomProgramRepository @Inject constructor(
                 syncTouch.enqueueDelete(SyncCollection.Programs, programId.value, now)
             }
         }
+    }
+
+    override suspend fun setWorkoutLiftPinnedNote(id: WorkoutLiftId, note: String?): Boolean {
+        var updated = 0
+        syncTouch.withWriteLock {
+            updated =
+                workoutLiftDao.setPinnedNote(
+                    id = id,
+                    note = note,
+                    updatedAtEpochMillis = System.currentTimeMillis(),
+                )
+            if (updated > 0) syncTouch.markDirty()
+        }
+        return updated > 0
     }
 
     override suspend fun updateCyclePointer(

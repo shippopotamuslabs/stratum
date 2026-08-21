@@ -38,6 +38,7 @@ class RoomTrainingLogRepositoryImportFkTest {
             sessionDao = database.trainingSessionDao(),
             setDao = database.trainingLoggedSetDao(),
             programDao = database.programDao(),
+            liftSessionNoteDao = database.liftSessionNoteDao(),
             programChangeEventDao = database.programChangeEventDao(),
             syncTouch = com.stratum.core.data.sync.testSyncTouch(RuntimeEnvironment.getApplication(), database.pendingCloudDeleteDao()),
         )

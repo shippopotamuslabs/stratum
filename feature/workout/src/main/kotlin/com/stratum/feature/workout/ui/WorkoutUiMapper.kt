@@ -65,6 +65,8 @@ internal object WorkoutUiMapper {
                 imageUrl = imageUrlByLiftId[lift.liftId.value],
                 navigatorInitials = liftNavigatorInitials(lift.liftName),
                 defaultRestSeconds = liftDefaultRest,
+                workoutPinnedNote = lift.workoutPinnedNote,
+                liftPinnedNote = lift.liftPinnedNote,
                 sets = lift.sets.mapIndexed { setIndex, set ->
                     val prevWeight = set.previousWeight
                     val prevReps = set.previousReps

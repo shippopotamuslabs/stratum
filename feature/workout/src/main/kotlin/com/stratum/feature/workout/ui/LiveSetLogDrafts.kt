@@ -176,6 +176,8 @@ internal fun mergeLiveLogLift(
                 allLifts.isEmpty() ||
                     com.stratum.core.ui.component.isSupersetPairMember(lift, allLifts)
             },
+        workoutPinnedNote = lift.workoutPinnedNote,
+        liftPinnedNote = lift.liftPinnedNote,
         sets =
             lift.sets.map { set ->
                 val draft = drafts[set.slotKey] ?: set.draftFromDurable()

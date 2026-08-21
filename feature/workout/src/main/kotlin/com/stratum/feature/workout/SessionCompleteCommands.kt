@@ -76,7 +76,12 @@ internal suspend fun LiveWorkoutSessionRuntime.handleCompleteWorkout(cmd: Sessio
         // Ad-hoc baselines are synthetic (route id = session id) — never SaveWorkout.
         val templateToSave =
             if (cmd.saveTemplate && canSaveTemplateChanges && !templateSavedThisComplete) {
-                workout
+                val latest =
+                    cachedProgramId
+                        ?.let { getProgramById(it) }
+                        ?.workouts
+                        ?.firstOrNull { it.id == workoutId }
+                latest ?: workout
             } else {
                 null
             }
