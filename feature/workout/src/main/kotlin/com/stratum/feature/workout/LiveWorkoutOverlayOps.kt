@@ -4,6 +4,8 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.isDoubleSidedPlateLoad
+import com.stratum.domain.lift.isPlateLoaded
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.program.ProgressionScheme
 import com.stratum.domain.program.SetType
@@ -423,10 +425,15 @@ internal object LiveWorkoutOverlayOps {
             var currentLiftId = lift.liftId
             var currentLiftName = lift.liftName
             var currentLoadType = lift.loadType
+            var currentIsPlateLoaded = lift.isPlateLoaded
+            var currentIsDoubleSided = lift.isDoubleSided
             if (swappedLiftId != null) {
                 currentLiftId = swappedLiftId
                 currentLiftName = liftNamesById[swappedLiftId].orEmpty()
-                currentLoadType = liftsById[swappedLiftId]?.loadType ?: LoadType.Weighted
+                val catalog = liftsById[swappedLiftId]
+                currentLoadType = catalog?.loadType ?: LoadType.Weighted
+                currentIsPlateLoaded = catalog?.isPlateLoaded ?: false
+                currentIsDoubleSided = catalog?.isDoubleSidedPlateLoad ?: true
             }
 
             val currentSupersetGroupId = if (overlay.supersetGroupIdOverrides.containsKey(lift.workoutLiftId)) {
@@ -449,6 +456,8 @@ internal object LiveWorkoutOverlayOps {
                 liftId = currentLiftId,
                 liftName = currentLiftName,
                 loadType = currentLoadType,
+                isPlateLoaded = currentIsPlateLoaded,
+                isDoubleSided = currentIsDoubleSided,
                 supersetGroupId = currentSupersetGroupId,
                 slots = orderedSlots,
                 useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[lift.workoutLiftId]
@@ -488,6 +497,8 @@ internal object LiveWorkoutOverlayOps {
                     slots = slots,
                     supersetGroupId = groupId,
                     loadType = catalog?.loadType ?: LoadType.Weighted,
+                    isPlateLoaded = catalog?.isPlateLoaded ?: false,
+                    isDoubleSided = catalog?.isDoubleSidedPlateLoad ?: true,
                     useRestTimerBetweenLifts = overlay.useRestTimerBetweenLiftsOverrides[added.workoutLiftId]
                         ?: added.useRestTimerBetweenLifts,
                     workoutPinnedNote = overlay.workoutLiftPinnedNotes[added.workoutLiftId],

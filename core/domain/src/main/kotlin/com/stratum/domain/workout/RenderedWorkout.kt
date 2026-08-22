@@ -51,6 +51,8 @@ data class RenderedWorkoutLift(
     val supersetGroupId: WorkoutSupersetGroupId? = null,
     val loadType: LoadType = LoadType.Weighted,
     val useRestTimerBetweenLifts: Boolean = false,
+    val isPlateLoaded: Boolean = false,
+    val isDoubleSided: Boolean = true,
     val workoutPinnedNote: String? = null,
     val liftPinnedNote: String? = null,
 )

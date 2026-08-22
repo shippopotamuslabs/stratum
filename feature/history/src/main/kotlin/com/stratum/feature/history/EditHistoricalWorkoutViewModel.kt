@@ -71,6 +71,8 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                         mapSnapshotToDraft(
                             snapshot.sets,
                             snapshot.loadTypeByLiftId,
+                            snapshot.isPlateLoadedByLiftId,
+                            snapshot.isDoubleSidedByLiftId,
                             displayUnit,
                         )
                     baselineSignature = signature(draftLifts)
@@ -186,6 +188,8 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
     private fun mapSnapshotToDraft(
         sets: List<LoggedSet>,
         loadTypeByLiftId: Map<LiftId, LoadType>,
+        isPlateLoadedByLiftId: Map<LiftId, Boolean>,
+        isDoubleSidedByLiftId: Map<LiftId, Boolean>,
         displayUnit: Weight.WeightUnit,
     ): List<DraftLift> =
         sets
@@ -204,6 +208,8 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                     liftId?.let { loadTypeByLiftId[it] } ?: LoadType.Weighted
                 val assistMode = loadType == LoadType.Assisted
                 val showWeight = loadType != LoadType.Bodyweight
+                val isPlateLoaded = liftId?.let { isPlateLoadedByLiftId[it] } ?: false
+                val isDoubleSided = liftId?.let { isDoubleSidedByLiftId[it] } ?: true
                 DraftLift(
                     key = groupKey,
                     liftId = liftId,
@@ -218,6 +224,8 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                             LoadType.Weighted -> "Weight"
                         },
                     assistMode = assistMode,
+                    isPlateLoaded = isPlateLoaded,
+                    isDoubleSided = isDoubleSided,
                     sets =
                         ordered.mapIndexed { index, set ->
                             DraftSet(
@@ -277,12 +285,16 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
             )
     }
 
-    private fun DraftLift.toUi(): WorkoutLogLiftUi =
-        WorkoutLogLiftUi(
+    private fun DraftLift.toUi(): WorkoutLogLiftUi {
+        val unitStr = if (displayUnit == Weight.WeightUnit.Kg) "kg" else "lb"
+        return WorkoutLogLiftUi(
             key = key,
             liftName = liftName,
             showWeightColumn = showWeightColumn,
             weightHeaderLabel = weightHeaderLabel,
+            isPlateLoaded = isPlateLoaded,
+            isDoubleSided = isDoubleSided,
+            unitLabel = unitStr,
             sets =
                 sets.map { set ->
                     WorkoutLogSetUi(
@@ -300,9 +312,14 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
                         showWeightInput = showWeightColumn,
                         showCheckbox = false,
                         assistMode = assistMode,
+                        canComplete = true,
+                        isPlateLoaded = isPlateLoaded,
+                        isDoubleSided = isDoubleSided,
+                        unitLabel = unitStr,
                     )
                 },
         )
+    }
 
     private fun buildDesiredSets(sessionId: TrainingSessionId): List<LoggedSet> {
         val result = mutableListOf<LoggedSet>()
@@ -362,6 +379,8 @@ class EditHistoricalWorkoutViewModel @Inject constructor(
         val showWeightColumn: Boolean,
         val weightHeaderLabel: String,
         val assistMode: Boolean,
+        val isPlateLoaded: Boolean = false,
+        val isDoubleSided: Boolean = true,
         val sets: List<DraftSet>,
     )
 

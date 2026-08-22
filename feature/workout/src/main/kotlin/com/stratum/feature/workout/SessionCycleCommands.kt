@@ -10,6 +10,8 @@ import com.stratum.domain.lift.Lift
 import com.stratum.domain.lift.LoadType
 import com.stratum.domain.lift.Weight
 import com.stratum.domain.lift.identity.LiftId
+import com.stratum.domain.lift.isDoubleSidedPlateLoad
+import com.stratum.domain.lift.isPlateLoaded
 import com.stratum.domain.lift.resolvedDefaultRestSeconds
 import com.stratum.domain.lift.storageWeightFromDisplay
 import com.stratum.domain.program.Program
@@ -103,6 +105,8 @@ internal suspend fun LiveWorkoutSessionRuntime.handleApplyCycleSnapshot(cmd: Ses
                 loadTypesById = liftsById.mapValues { it.value.loadType },
                 isCompoundById = liftsById.mapValues { it.value.isCompound },
                 liftPinnedNotesById = liftsById.mapValues { it.value.pinnedNote },
+                isPlateLoadedById = liftsById.mapValues { it.value.isPlateLoaded },
+                isDoubleSidedById = liftsById.mapValues { it.value.isDoubleSidedPlateLoad },
             )
         structure = projected
         val snapshotResult =

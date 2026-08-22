@@ -1,7 +1,11 @@
 package com.stratum.core.ui.component.workoutlog
 
+import com.stratum.core.ui.component.platecalculator.PlateInventoryUi
+import com.stratum.core.ui.component.platecalculator.defaultPlateInventory
+import com.stratum.domain.lift.PlateCalculator
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -187,6 +191,100 @@ class SetLogKeyboardHostStateTest {
             assertEquals("1355", host.weightText)
             assertEquals("8", host.repsText)
             assertEquals(3, host.rir)
+        }
+    }
+
+    @Nested
+    @DisplayName("applyWeightFromCalculator")
+    inner class ApplyWeight {
+        @Test
+        @DisplayName("writes the weight buffer even when reps field is active")
+        fun applyAlwaysWritesWeight() {
+            open(field = SetLogKeyboardField.Weight, weight = "135", reps = "8")
+            host.setField(SetLogKeyboardField.Reps)
+            host.applyWeightFromCalculator(225.0)
+            assertEquals("225", host.weightText)
+            assertEquals("8", host.repsText)
+            assertEquals(listOf("225"), weightCommits)
+            assertTrue(repsCommits.isEmpty())
+        }
+
+        @Test
+        @DisplayName("applyCalculatorToSet commits inventory and weight together")
+        fun applyCalculatorCommitsInventoryAndWeight() {
+            open(weight = "135")
+            val without45s = PlateInventoryUi(
+                barWeight = 45.0,
+                enabledPlates = setOf(35.0, 25.0, 10.0, 5.0, 2.5),
+                unitLabel = "lb",
+            )
+            host.applyCalculatorToSet(225.0, without45s)
+            assertEquals("225", host.weightText)
+            assertEquals(listOf("225"), weightCommits)
+            assertEquals(without45s, host.plateInventory)
+        }
+
+        @Test
+        @DisplayName("weight-only apply does not commit plate inventory")
+        fun weightOnlyApplyLeavesInventoryUnchanged() {
+            open(weight = "135")
+            host.applyWeightFromCalculator(225.0)
+            assertEquals(null, host.plateInventory)
+            assertEquals(defaultPlateInventory("lb"), host.plateInventoryFor("lb"))
+        }
+    }
+
+    @Nested
+    @DisplayName("ephemeral plate inventory")
+    inner class PlateInventory {
+        @Test
+        @DisplayName("plateInventoryFor returns unit defaults until a sheet commit")
+        fun defaultsUntilCommit() {
+            val inventory = host.plateInventoryFor("lb")
+            assertEquals(PlateCalculator.OLYMPIC_BAR_LB, inventory.barWeight)
+            assertEquals(PlateCalculator.DEFAULT_PLATES_LB.toSet(), inventory.enabledPlates)
+            assertEquals("lb", inventory.unitLabel)
+        }
+
+        @Test
+        @DisplayName("closePlateSheet without applyCalculatorToSet leaves inventory untouched")
+        fun closeSheetDoesNotCommitInventory() {
+            open(weight = "225")
+            host.openPlateSheet()
+            host.closePlateSheet()
+            assertEquals(null, host.plateInventory)
+            assertEquals(defaultPlateInventory("lb"), host.plateInventoryFor("lb"))
+        }
+        fun commitSurvivesDismissAndSetSwitch() {
+            val without45s = PlateInventoryUi(
+                barWeight = 45.0,
+                enabledPlates = setOf(35.0, 25.0, 10.0, 5.0, 2.5),
+                unitLabel = "lb",
+            )
+            host.commitPlateInventory(without45s)
+            open(setKey = "a", weight = "225")
+            host.dismiss()
+            open(setKey = "b", weight = "135")
+
+            val held = host.plateInventoryFor("lb")
+            assertEquals(without45s, held)
+            assertEquals(without45s, host.plateInventory)
+        }
+
+        @Test
+        @DisplayName("unit mismatch uses that unit's defaults without dropping the held inventory")
+        fun unitMismatchDoesNotDropHeld() {
+            val lbInventory = PlateInventoryUi(
+                barWeight = 35.0,
+                enabledPlates = setOf(25.0, 10.0, 5.0, 2.5),
+                unitLabel = "lb",
+            )
+            host.commitPlateInventory(lbInventory)
+
+            val kg = host.plateInventoryFor("kg")
+            assertEquals(defaultPlateInventory("kg"), kg)
+            assertEquals(lbInventory, host.plateInventoryFor("lb"))
+            assertNotEquals(kg.enabledPlates, lbInventory.enabledPlates)
         }
     }
 }

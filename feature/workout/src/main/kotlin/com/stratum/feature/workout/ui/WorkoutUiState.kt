@@ -64,6 +64,9 @@ data class RenderedLiftUi(
     val defaultRestSeconds: Int = 120,
     val workoutPinnedNote: String? = null,
     val liftPinnedNote: String? = null,
+    val isPlateLoaded: Boolean = false,
+    val isDoubleSided: Boolean = true,
+    val unitLabel: String = "lb",
 ) : SupersetLinkableLift {
     override val name: String get() = liftName
 }
@@ -174,4 +177,7 @@ data class RenderedSetUi(
     val assistMode: Boolean = false,
     /** Configured rest duration for this set (seconds), including live overlay overrides. */
     val restSeconds: Int = 0,
+    val isPlateLoaded: Boolean = false,
+    val isDoubleSided: Boolean = true,
+    val unitLabel: String = "lb",
 )

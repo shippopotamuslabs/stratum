@@ -101,6 +101,7 @@ object WorkoutLoggingFixtures {
         secondaryMuscles = setOf(MuscleGroup.Tricep),
         incrementTiers = emptyList(),
         presetTags = emptySet(),
+        equipmentId = com.stratum.domain.lift.SeedEquipmentIds.DoubleWeightPlates,
         enabled = true,
         fatigueProfile = FatigueProfile.Medium,
         muscleLengthBias = MuscleLengthBias.MidRange,

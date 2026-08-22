@@ -17,6 +17,8 @@ data class WorkoutLiftProjection(
     val supersetGroupId: WorkoutSupersetGroupId? = null,
     val loadType: LoadType = LoadType.Weighted,
     val useRestTimerBetweenLifts: Boolean = false,
+    val isPlateLoaded: Boolean = false,
+    val isDoubleSided: Boolean = true,
     /** Pinned note on the [com.stratum.domain.program.WorkoutLift] template slot. */
     val workoutPinnedNote: String? = null,
     /** Pinned note on the catalog [com.stratum.domain.lift.Lift]. */

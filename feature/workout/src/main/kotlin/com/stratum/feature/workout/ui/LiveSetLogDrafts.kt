@@ -178,6 +178,9 @@ internal fun mergeLiveLogLift(
             },
         workoutPinnedNote = lift.workoutPinnedNote,
         liftPinnedNote = lift.liftPinnedNote,
+        isPlateLoaded = lift.isPlateLoaded,
+        isDoubleSided = lift.isDoubleSided,
+        unitLabel = lift.unitLabel,
         sets =
             lift.sets.map { set ->
                 val draft = drafts[set.slotKey] ?: set.draftFromDurable()
@@ -212,6 +215,9 @@ internal fun mergeLiveLogLift(
                     recommendedReps = set.recommendedReps,
                     repMin = set.repMin,
                     canComplete = canComplete,
+                    isPlateLoaded = set.isPlateLoaded,
+                    isDoubleSided = set.isDoubleSided,
+                    unitLabel = set.unitLabel,
                 )
             },
     )

@@ -85,6 +85,23 @@ val Lift.hasCompoundFatigue: Boolean
         fatigueProfile == FatigueProfile.High ||
             fatigueProfile == FatigueProfile.Medium
 
+/**
+ * True when the lift uses barbell/sleeve weight plates for loading.
+ * Gated strictly on [LoadType.Weighted] and plate equipment (Double or Single Weight Plates).
+ */
+val Lift.isPlateLoaded: Boolean
+    get() =
+        loadType == LoadType.Weighted && (
+            equipmentId == SeedEquipmentIds.DoubleWeightPlates ||
+                equipmentId == SeedEquipmentIds.SingleWeightPlate
+        )
+
+/**
+ * True when plates are loaded on both sleeves. False for single-sleeve plate machines
+ * ([SeedEquipmentIds.SingleWeightPlate]). Meaningless when [isPlateLoaded] is false.
+ */
+val Lift.isDoubleSidedPlateLoad: Boolean
+    get() = isPlateLoaded && equipmentId == SeedEquipmentIds.DoubleWeightPlates
 
 /** Default inter-set rest for High-fatigue lifts when no override is set. */
 const val DEFAULT_HIGH_FATIGUE_REST_SECONDS: Int = 180
