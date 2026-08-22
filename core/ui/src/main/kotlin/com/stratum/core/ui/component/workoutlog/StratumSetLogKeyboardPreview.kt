@@ -80,3 +80,32 @@ private fun StratumSetLogKeyboardRepsPreview() {
         }
     }
 }
+
+@PreviewLightDark
+@Composable
+private fun StratumSetLogKeyboardBodyweightPreview() {
+    StratumTheme(themeId = StratumThemeId.Tonal) {
+        Box(
+            modifier =
+                Modifier
+                    .background(StratumThemeAccessor.colors.surfaceBase)
+                    .padding(8.dp),
+        ) {
+            StratumSetLogKeyboardContent(
+                state =
+                    SetLogKeyboardPadState(
+                        activeField = SetLogKeyboardField.Reps,
+                        selectedRir = 1,
+                        showWeightInput = false,
+                        allowDecimal = false,
+                        canComplete = false,
+                    ),
+                actions = PreviewPadActions,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(280.dp),
+            )
+        }
+    }
+}

@@ -77,23 +77,21 @@ internal object WorkoutUiMapper {
                 isDoubleSided = isDoubleSided,
                 unitLabel = unitLabel,
                 sets = lift.sets.mapIndexed { setIndex, set ->
-                    val prevWeight = set.previousWeight
-                    val prevReps = set.previousReps
-                    val prevLabel = if (prevWeight != null && prevReps != null) {
-                        val displayWeight = formatWeightForDisplay(
-                            weight = prevWeight,
+                    val prevLabel =
+                        previousPerformanceLabel(
+                            previousWeight = set.previousWeight,
+                            previousReps = set.previousReps,
+                            showWeightColumn = showWeightColumn,
                             displayUnit = displayUnit,
                             assistMode = assistMode,
-                            includeUnit = true,
                         )
-                        "$displayWeight × $prevReps"
-                    } else {
-                        "—"
-                    }
-                    // Only show prior RIR when there is a prior performance to anchor it.
                     val prevRirLabel =
-                        set.previousRir?.takeIf { prevWeight != null && prevReps != null }
-                            ?.let { "$it RIR" }
+                        previousRirCaption(
+                            previousRir = set.previousRir,
+                            previousWeight = set.previousWeight,
+                            previousReps = set.previousReps,
+                            showWeightColumn = showWeightColumn,
+                        )
 
                     // Domain recs are in the recommended weight's unit (live path: Lb).
                     val recSourceUnit = set.recommendedWeight.unit
@@ -224,6 +222,39 @@ internal object WorkoutUiMapper {
     private fun slotKey(slotId: SetSlotId): String = when (slotId) {
         is SetSlotId.Template -> slotId.liftSetId.value
         is SetSlotId.Overlay -> slotId.instanceId.value
+    }
+
+    /** Prev column: bodyweight is reps-only; weighted/assisted keep `weight × reps`. */
+    private fun previousPerformanceLabel(
+        previousWeight: Weight?,
+        previousReps: Int?,
+        showWeightColumn: Boolean,
+        displayUnit: Weight.WeightUnit,
+        assistMode: Boolean,
+    ): String {
+        if (previousReps == null) return "—"
+        if (!showWeightColumn) return previousReps.toString()
+        val weight = previousWeight ?: return "—"
+        val displayWeight =
+            formatWeightForDisplay(
+                weight = weight,
+                displayUnit = displayUnit,
+                assistMode = assistMode,
+                includeUnit = true,
+            )
+        return "$displayWeight × $previousReps"
+    }
+
+    /** Prior RIR only when there is a prior performance to anchor it. */
+    private fun previousRirCaption(
+        previousRir: Int?,
+        previousWeight: Weight?,
+        previousReps: Int?,
+        showWeightColumn: Boolean,
+    ): String? {
+        if (previousRir == null || previousReps == null) return null
+        if (showWeightColumn && previousWeight == null) return null
+        return "$previousRir RIR"
     }
 
     /** Set-column chip text — same vocabulary as template Edit Workout badges. */
